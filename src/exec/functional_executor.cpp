@@ -57,6 +57,28 @@ void StoreLaneValue(std::vector<std::byte>& memory, const LaneAccess& lane) {
   }
 }
 
+uint64_t LoadLaneValue(std::array<std::vector<std::byte>, kWaveSize>& memory,
+                       uint32_t lane_id,
+                       const LaneAccess& lane) {
+  auto& lane_memory = memory.at(lane_id);
+  const size_t end = static_cast<size_t>(lane.addr) + lane.bytes;
+  if (lane_memory.size() < end) {
+    lane_memory.resize(end, std::byte{0});
+  }
+  return LoadLaneValue(lane_memory, lane);
+}
+
+void StoreLaneValue(std::array<std::vector<std::byte>, kWaveSize>& memory,
+                    uint32_t lane_id,
+                    const LaneAccess& lane) {
+  auto& lane_memory = memory.at(lane_id);
+  const size_t end = static_cast<size_t>(lane.addr) + lane.bytes;
+  if (lane_memory.size() < end) {
+    lane_memory.resize(end, std::byte{0});
+  }
+  StoreLaneValue(lane_memory, lane);
+}
+
 std::vector<ExecutableBlock> MaterializeBlocks(const PlacementMap& placement,
                                                const LaunchConfig& launch_config) {
   std::vector<ExecutableBlock> blocks;
@@ -206,6 +228,9 @@ uint64_t FunctionalExecutor::Run(ExecutionContext& context) {
                   loaded_values[lane] = LoadLaneValue(context.memory, request.lanes[lane]);
                 } else if (request.space == MemorySpace::Shared) {
                   loaded_values[lane] = LoadLaneValue(block.shared_memory, request.lanes[lane]);
+                } else if (request.space == MemorySpace::Private) {
+                  loaded_values[lane] =
+                      LoadLaneValue(wave.private_memory, lane, request.lanes[lane]);
                 } else {
                   throw std::invalid_argument("unsupported load memory space");
                 }
@@ -223,6 +248,8 @@ uint64_t FunctionalExecutor::Run(ExecutionContext& context) {
                   StoreLaneValue(context.memory, request.lanes[lane]);
                 } else if (request.space == MemorySpace::Shared) {
                   StoreLaneValue(block.shared_memory, request.lanes[lane]);
+                } else if (request.space == MemorySpace::Private) {
+                  StoreLaneValue(wave.private_memory, lane, request.lanes[lane]);
                 } else {
                   throw std::invalid_argument("unsupported store memory space");
                 }

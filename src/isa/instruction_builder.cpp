@@ -194,6 +194,22 @@ InstructionBuilder& InstructionBuilder::MStoreShared(std::string_view index,
                          ImmediateOperand(scale_bytes)});
 }
 
+InstructionBuilder& InstructionBuilder::MLoadPrivate(std::string_view dest,
+                                                     std::string_view index,
+                                                     uint32_t scale_bytes) {
+  return AddInstruction(Opcode::MLoadPrivate,
+                        {ParseRegOperand(dest), ParseRegOperand(index),
+                         ImmediateOperand(scale_bytes)});
+}
+
+InstructionBuilder& InstructionBuilder::MStorePrivate(std::string_view index,
+                                                      std::string_view src,
+                                                      uint32_t scale_bytes) {
+  return AddInstruction(Opcode::MStorePrivate,
+                        {ParseRegOperand(index), ParseRegOperand(src),
+                         ImmediateOperand(scale_bytes)});
+}
+
 InstructionBuilder& InstructionBuilder::MaskSaveExec(std::string_view dest) {
   return AddInstruction(Opcode::MaskSaveExec, {ParseRegOperand(dest)});
 }

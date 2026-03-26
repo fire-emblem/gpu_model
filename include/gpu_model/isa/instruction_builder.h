@@ -52,6 +52,12 @@ class InstructionBuilder {
   InstructionBuilder& MStoreShared(std::string_view index,
                                    std::string_view src,
                                    uint32_t scale_bytes = 1);
+  InstructionBuilder& MLoadPrivate(std::string_view dest,
+                                   std::string_view index,
+                                   uint32_t scale_bytes = 1);
+  InstructionBuilder& MStorePrivate(std::string_view index,
+                                    std::string_view src,
+                                    uint32_t scale_bytes = 1);
 
   InstructionBuilder& MaskSaveExec(std::string_view dest);
   InstructionBuilder& MaskRestoreExec(std::string_view src);

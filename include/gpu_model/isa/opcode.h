@@ -23,6 +23,8 @@ enum class Opcode {
   MStoreGlobal,
   MLoadShared,
   MStoreShared,
+  MLoadPrivate,
+  MStorePrivate,
   MaskSaveExec,
   MaskRestoreExec,
   MaskAndExecCmask,
@@ -71,6 +73,10 @@ inline std::string_view ToString(Opcode opcode) {
       return "m_load_shared";
     case Opcode::MStoreShared:
       return "m_store_shared";
+    case Opcode::MLoadPrivate:
+      return "m_load_private";
+    case Opcode::MStorePrivate:
+      return "m_store_private";
     case Opcode::MaskSaveExec:
       return "mask_save_exec";
     case Opcode::MaskRestoreExec:

@@ -1,7 +1,10 @@
 #pragma once
 
+#include <array>
 #include <bitset>
+#include <cstddef>
 #include <cstdint>
+#include <vector>
 
 #include "gpu_model/state/register_file.h"
 
@@ -28,6 +31,7 @@ struct WaveState {
   uint32_t thread_count = 0;
   bool waiting_at_barrier = false;
   uint64_t barrier_generation = 0;
+  std::array<std::vector<std::byte>, kWaveSize> private_memory;
   SGPRFile sgpr;
   VGPRFile vgpr;
 

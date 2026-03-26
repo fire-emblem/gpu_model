@@ -124,6 +124,28 @@ void StoreLaneValue(std::vector<std::byte>& memory, const LaneAccess& lane) {
   }
 }
 
+uint64_t LoadLaneValue(const std::array<std::vector<std::byte>, kWaveSize>& memory,
+                       uint32_t lane_id,
+                       const LaneAccess& lane) {
+  auto& lane_memory = memory.at(lane_id);
+  const size_t end = static_cast<size_t>(lane.addr) + lane.bytes;
+  if (lane_memory.size() < end) {
+    return 0;
+  }
+  return LoadLaneValue(lane_memory, lane);
+}
+
+void StoreLaneValue(std::array<std::vector<std::byte>, kWaveSize>& memory,
+                    uint32_t lane_id,
+                    const LaneAccess& lane) {
+  auto& lane_memory = memory.at(lane_id);
+  const size_t end = static_cast<size_t>(lane.addr) + lane.bytes;
+  if (lane_memory.size() < end) {
+    lane_memory.resize(end, std::byte{0});
+  }
+  StoreLaneValue(lane_memory, lane);
+}
+
 void AddOperandDependency(const Operand& operand, std::vector<ReadyRef>& refs) {
   if (operand.kind != OperandKind::Register) {
     return;
@@ -174,6 +196,7 @@ std::vector<ReadyRef> CollectReadRefs(const Instruction& instruction) {
       break;
     case Opcode::MLoadGlobal:
     case Opcode::MLoadShared:
+    case Opcode::MLoadPrivate:
       refs.push_back(ExecRef());
       AddOperandDependency(instruction.operands.at(1), refs);
       if (instruction.opcode == Opcode::MLoadGlobal) {
@@ -182,6 +205,7 @@ std::vector<ReadyRef> CollectReadRefs(const Instruction& instruction) {
       break;
     case Opcode::MStoreGlobal:
     case Opcode::MStoreShared:
+    case Opcode::MStorePrivate:
       refs.push_back(ExecRef());
       AddOperandDependency(instruction.operands.at(0), refs);
       AddOperandDependency(instruction.operands.at(1), refs);
@@ -493,6 +517,27 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                       for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
                         if (request.lanes[lane].active) {
                           StoreLaneValue(candidate->block->shared_memory, request.lanes[lane]);
+                        }
+                      }
+                    }
+                  } else if (request.space == MemorySpace::Private) {
+                    if (request.kind == AccessKind::Load) {
+                      if (!request.dst.has_value()) {
+                        throw std::invalid_argument("load request missing destination");
+                      }
+                      for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+                        if (request.lanes[lane].active) {
+                          const uint64_t value =
+                              LoadLaneValue(candidate->wave.private_memory, lane, request.lanes[lane]);
+                          candidate->wave.vgpr.Write(request.dst->index, lane, value);
+                        }
+                      }
+                      candidate->scoreboard.MarkReady(
+                          VectorRef(request.dst->index), commit_cycle);
+                    } else if (request.kind == AccessKind::Store) {
+                      for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+                        if (request.lanes[lane].active) {
+                          StoreLaneValue(candidate->wave.private_memory, lane, request.lanes[lane]);
                         }
                       }
                     }

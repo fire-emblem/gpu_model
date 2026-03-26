@@ -6,9 +6,11 @@ add_executable(gpu_model_tests
   functional/vecadd_functional_test.cpp
   functional/predicated_if_functional_test.cpp
   functional/shared_barrier_functional_test.cpp
+  functional/private_memory_functional_test.cpp
   cycle/cycle_smoke_test.cpp
   cycle/async_memory_cycle_test.cpp
   cycle/shared_barrier_cycle_test.cpp
+  cycle/private_memory_cycle_test.cpp
   runtime/trace_test.cpp
 )
 

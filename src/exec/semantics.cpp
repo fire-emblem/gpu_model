@@ -298,6 +298,56 @@ OpPlan Semantics::BuildPlan(const Instruction& instruction,
       plan.memory = request;
       return plan;
     }
+    case Opcode::MLoadPrivate: {
+      MemoryRequest request;
+      request.space = MemorySpace::Private;
+      request.kind = AccessKind::Load;
+      request.exec_snapshot = wave.exec;
+      request.dst = RegRef{.file = RegisterFile::Vector,
+                           .index = RequireVectorReg(instruction.operands.at(0))};
+      request.block_id = wave.block_id;
+      request.wave_id = wave.wave_id;
+
+      const uint64_t scale = ReadScalarOperand(instruction.operands.at(2), wave);
+      for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+        if (!wave.exec.test(lane)) {
+          continue;
+        }
+        const uint64_t index = ReadVectorLaneOperand(instruction.operands.at(1), wave, lane);
+        request.lanes[lane] = LaneAccess{
+            .active = true,
+            .addr = index * scale,
+            .bytes = static_cast<uint32_t>(scale),
+        };
+      }
+      plan.memory = request;
+      return plan;
+    }
+    case Opcode::MStorePrivate: {
+      MemoryRequest request;
+      request.space = MemorySpace::Private;
+      request.kind = AccessKind::Store;
+      request.exec_snapshot = wave.exec;
+      request.block_id = wave.block_id;
+      request.wave_id = wave.wave_id;
+
+      const uint64_t scale = ReadScalarOperand(instruction.operands.at(2), wave);
+      for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+        if (!wave.exec.test(lane)) {
+          continue;
+        }
+        const uint64_t index = ReadVectorLaneOperand(instruction.operands.at(0), wave, lane);
+        const uint64_t value = ReadVectorLaneOperand(instruction.operands.at(1), wave, lane);
+        request.lanes[lane] = LaneAccess{
+            .active = true,
+            .addr = index * scale,
+            .bytes = static_cast<uint32_t>(scale),
+            .value = value,
+        };
+      }
+      plan.memory = request;
+      return plan;
+    }
     case Opcode::MaskSaveExec: {
       const uint32_t dest = RequireScalarReg(instruction.operands.at(0));
       plan.scalar_writes.push_back(
