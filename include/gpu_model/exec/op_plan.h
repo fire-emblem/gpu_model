@@ -25,6 +25,7 @@ struct OpPlan {
   uint32_t issue_cycles = 4;
   bool advance_pc = true;
   bool exit_wave = false;
+  bool sync_barrier = false;
   std::optional<uint64_t> branch_target;
   std::vector<ScalarWrite> scalar_writes;
   std::vector<VectorWrite> vector_writes;

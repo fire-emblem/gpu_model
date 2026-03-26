@@ -21,12 +21,15 @@ enum class Opcode {
   VCmpLtCmask,
   MLoadGlobal,
   MStoreGlobal,
+  MLoadShared,
+  MStoreShared,
   MaskSaveExec,
   MaskRestoreExec,
   MaskAndExecCmask,
   BBranch,
   BIfSmask,
   BIfNoexec,
+  SyncBarrier,
   BExit,
 };
 
@@ -64,6 +67,10 @@ inline std::string_view ToString(Opcode opcode) {
       return "m_load_global";
     case Opcode::MStoreGlobal:
       return "m_store_global";
+    case Opcode::MLoadShared:
+      return "m_load_shared";
+    case Opcode::MStoreShared:
+      return "m_store_shared";
     case Opcode::MaskSaveExec:
       return "mask_save_exec";
     case Opcode::MaskRestoreExec:
@@ -76,6 +83,8 @@ inline std::string_view ToString(Opcode opcode) {
       return "b_if_smask";
     case Opcode::BIfNoexec:
       return "b_if_noexec";
+    case Opcode::SyncBarrier:
+      return "sync_barrier";
     case Opcode::BExit:
       return "b_exit";
   }

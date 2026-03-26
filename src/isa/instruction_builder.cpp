@@ -178,6 +178,22 @@ InstructionBuilder& InstructionBuilder::MStoreGlobal(std::string_view base,
                          ImmediateOperand(scale_bytes)});
 }
 
+InstructionBuilder& InstructionBuilder::MLoadShared(std::string_view dest,
+                                                    std::string_view index,
+                                                    uint32_t scale_bytes) {
+  return AddInstruction(Opcode::MLoadShared,
+                        {ParseRegOperand(dest), ParseRegOperand(index),
+                         ImmediateOperand(scale_bytes)});
+}
+
+InstructionBuilder& InstructionBuilder::MStoreShared(std::string_view index,
+                                                     std::string_view src,
+                                                     uint32_t scale_bytes) {
+  return AddInstruction(Opcode::MStoreShared,
+                        {ParseRegOperand(index), ParseRegOperand(src),
+                         ImmediateOperand(scale_bytes)});
+}
+
 InstructionBuilder& InstructionBuilder::MaskSaveExec(std::string_view dest) {
   return AddInstruction(Opcode::MaskSaveExec, {ParseRegOperand(dest)});
 }
@@ -200,6 +216,10 @@ InstructionBuilder& InstructionBuilder::BIfSmask(std::string_view label) {
 
 InstructionBuilder& InstructionBuilder::BIfNoexec(std::string_view label) {
   return AddBranch(Opcode::BIfNoexec, label);
+}
+
+InstructionBuilder& InstructionBuilder::SyncBarrier() {
+  return AddInstruction(Opcode::SyncBarrier, {});
 }
 
 InstructionBuilder& InstructionBuilder::BExit() {

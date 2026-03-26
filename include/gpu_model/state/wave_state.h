@@ -26,6 +26,8 @@ struct WaveState {
   std::bitset<kWaveSize> cmask;
   uint64_t smask = 0;
   uint32_t thread_count = 0;
+  bool waiting_at_barrier = false;
+  uint64_t barrier_generation = 0;
   SGPRFile sgpr;
   VGPRFile vgpr;
 

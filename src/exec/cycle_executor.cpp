@@ -2,7 +2,9 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <limits>
 #include <map>
 #include <sstream>
@@ -21,6 +23,7 @@ namespace {
 
 struct ScheduledWave {
   uint32_t dpc_id = 0;
+  struct ExecutableBlock* block = nullptr;
   WaveState wave;
   Scoreboard scoreboard;
 };
@@ -29,6 +32,9 @@ struct ExecutableBlock {
   uint32_t block_id = 0;
   uint32_t dpc_id = 0;
   uint32_t ap_id = 0;
+  uint64_t barrier_generation = 0;
+  uint32_t barrier_arrivals = 0;
+  std::vector<std::byte> shared_memory;
   std::vector<ScheduledWave> waves;
 };
 
@@ -86,6 +92,38 @@ void StoreLaneValue(MemorySystem& memory, const LaneAccess& lane) {
   }
 }
 
+uint64_t LoadLaneValue(const std::vector<std::byte>& memory, const LaneAccess& lane) {
+  switch (lane.bytes) {
+    case 4: {
+      int32_t value = 0;
+      std::memcpy(&value, memory.data() + lane.addr, sizeof(value));
+      return static_cast<uint64_t>(static_cast<int64_t>(value));
+    }
+    case 8: {
+      uint64_t value = 0;
+      std::memcpy(&value, memory.data() + lane.addr, sizeof(value));
+      return value;
+    }
+    default:
+      throw std::invalid_argument("unsupported load width");
+  }
+}
+
+void StoreLaneValue(std::vector<std::byte>& memory, const LaneAccess& lane) {
+  switch (lane.bytes) {
+    case 4: {
+      const int32_t value = static_cast<int32_t>(lane.value);
+      std::memcpy(memory.data() + lane.addr, &value, sizeof(value));
+      return;
+    }
+    case 8:
+      std::memcpy(memory.data() + lane.addr, &lane.value, sizeof(lane.value));
+      return;
+    default:
+      throw std::invalid_argument("unsupported store width");
+  }
+}
+
 void AddOperandDependency(const Operand& operand, std::vector<ReadyRef>& refs) {
   if (operand.kind != OperandKind::Register) {
     return;
@@ -135,15 +173,21 @@ std::vector<ReadyRef> CollectReadRefs(const Instruction& instruction) {
       AddOperandDependency(instruction.operands.at(1), refs);
       break;
     case Opcode::MLoadGlobal:
+    case Opcode::MLoadShared:
       refs.push_back(ExecRef());
       AddOperandDependency(instruction.operands.at(1), refs);
-      AddOperandDependency(instruction.operands.at(2), refs);
+      if (instruction.opcode == Opcode::MLoadGlobal) {
+        AddOperandDependency(instruction.operands.at(2), refs);
+      }
       break;
     case Opcode::MStoreGlobal:
+    case Opcode::MStoreShared:
       refs.push_back(ExecRef());
       AddOperandDependency(instruction.operands.at(0), refs);
       AddOperandDependency(instruction.operands.at(1), refs);
-      AddOperandDependency(instruction.operands.at(2), refs);
+      if (instruction.opcode == Opcode::MStoreGlobal) {
+        AddOperandDependency(instruction.operands.at(2), refs);
+      }
       break;
     case Opcode::MaskSaveExec:
       refs.push_back(ExecRef());
@@ -160,6 +204,8 @@ std::vector<ReadyRef> CollectReadRefs(const Instruction& instruction) {
       break;
     case Opcode::BIfNoexec:
       refs.push_back(ExecRef());
+      break;
+    case Opcode::SyncBarrier:
       break;
   }
 
@@ -196,14 +242,16 @@ void MarkPlanWritesPending(const Instruction& instruction,
   if (plan.exec_write.has_value()) {
     scoreboard.MarkReady(ExecRef(), ready_cycle);
   }
-  if (plan.memory.has_value() && plan.memory->kind == AccessKind::Load && plan.memory->dst.has_value()) {
+  if (plan.memory.has_value() && plan.memory->kind == AccessKind::Load &&
+      plan.memory->dst.has_value() && plan.memory->space == MemorySpace::Global) {
     scoreboard.MarkNotReady(VectorRef(plan.memory->dst->index));
   }
 
   (void)instruction;
 }
 
-std::vector<ExecutableBlock> MaterializeBlocks(const PlacementMap& placement) {
+std::vector<ExecutableBlock> MaterializeBlocks(const PlacementMap& placement,
+                                               const LaunchConfig& launch_config) {
   std::vector<ExecutableBlock> blocks;
   blocks.reserve(placement.blocks.size());
 
@@ -212,6 +260,9 @@ std::vector<ExecutableBlock> MaterializeBlocks(const PlacementMap& placement) {
         .block_id = block_placement.block_id,
         .dpc_id = block_placement.dpc_id,
         .ap_id = block_placement.ap_id,
+        .barrier_generation = 0,
+        .barrier_arrivals = 0,
+        .shared_memory = std::vector<std::byte>(launch_config.shared_memory_bytes),
         .waves = {},
     };
     block.waves.reserve(block_placement.waves.size());
@@ -227,6 +278,12 @@ std::vector<ExecutableBlock> MaterializeBlocks(const PlacementMap& placement) {
       block.waves.push_back(std::move(scheduled));
     }
     blocks.push_back(std::move(block));
+  }
+
+  for (auto& block : blocks) {
+    for (auto& scheduled_wave : block.waves) {
+      scheduled_wave.block = &block;
+    }
   }
 
   return blocks;
@@ -270,7 +327,7 @@ bool AllWavesExited(const std::vector<ExecutableBlock>& blocks) {
 }  // namespace
 
 uint64_t CycleExecutor::Run(ExecutionContext& context) {
-  auto blocks = MaterializeBlocks(context.placement);
+  auto blocks = MaterializeBlocks(context.placement, context.launch_config);
   auto slots = BuildPeuSlots(blocks);
   EventQueue events;
 
@@ -379,44 +436,105 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
 
                 if (plan.memory.has_value()) {
                   const MemoryRequest request = *plan.memory;
-                  const uint64_t arrive_cycle = commit_cycle + fixed_global_latency_;
-                  events.Schedule(TimedEvent{
-                      .cycle = arrive_cycle,
-                      .action =
-                          [&, candidate, request, arrive_cycle]() {
-                            context.cycle = arrive_cycle;
-                            if (request.kind == AccessKind::Load) {
-                              if (!request.dst.has_value()) {
-                                throw std::invalid_argument("load request missing destination");
-                              }
-                              for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
-                                if (request.lanes[lane].active) {
-                                  const uint64_t value =
-                                      LoadLaneValue(context.memory, request.lanes[lane]);
-                                  candidate->wave.vgpr.Write(request.dst->index, lane, value);
+                  if (request.space == MemorySpace::Global) {
+                    const uint64_t arrive_cycle = commit_cycle + fixed_global_latency_;
+                    events.Schedule(TimedEvent{
+                        .cycle = arrive_cycle,
+                        .action =
+                            [&, candidate, request, arrive_cycle]() {
+                              context.cycle = arrive_cycle;
+                              if (request.kind == AccessKind::Load) {
+                                if (!request.dst.has_value()) {
+                                  throw std::invalid_argument("load request missing destination");
+                                }
+                                for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+                                  if (request.lanes[lane].active) {
+                                    const uint64_t value =
+                                        LoadLaneValue(context.memory, request.lanes[lane]);
+                                    candidate->wave.vgpr.Write(request.dst->index, lane, value);
+                                  }
+                                }
+                                candidate->scoreboard.MarkReady(
+                                    VectorRef(request.dst->index), arrive_cycle);
+                              } else if (request.kind == AccessKind::Store) {
+                                for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+                                  if (request.lanes[lane].active) {
+                                    StoreLaneValue(context.memory, request.lanes[lane]);
+                                  }
                                 }
                               }
-                              candidate->scoreboard.MarkReady(
-                                  VectorRef(request.dst->index), arrive_cycle);
-                            } else if (request.kind == AccessKind::Store) {
-                              for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
-                                if (request.lanes[lane].active) {
-                                  StoreLaneValue(context.memory, request.lanes[lane]);
-                                }
-                              }
-                            }
 
-                            context.trace.OnEvent(TraceEvent{
-                                .kind = TraceEventKind::Arrive,
-                                .cycle = arrive_cycle,
-                                .block_id = candidate->wave.block_id,
-                                .wave_id = candidate->wave.wave_id,
-                                .pc = candidate->wave.pc,
-                                .message = request.kind == AccessKind::Load ? "load_arrive"
-                                                                            : "store_arrive",
-                            });
-                          },
+                              context.trace.OnEvent(TraceEvent{
+                                  .kind = TraceEventKind::Arrive,
+                                  .cycle = arrive_cycle,
+                                  .block_id = candidate->wave.block_id,
+                                  .wave_id = candidate->wave.wave_id,
+                                  .pc = candidate->wave.pc,
+                                  .message = request.kind == AccessKind::Load ? "load_arrive"
+                                                                              : "store_arrive",
+                              });
+                            },
+                    });
+                  } else if (request.space == MemorySpace::Shared) {
+                    if (request.kind == AccessKind::Load) {
+                      if (!request.dst.has_value()) {
+                        throw std::invalid_argument("load request missing destination");
+                      }
+                      for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+                        if (request.lanes[lane].active) {
+                          const uint64_t value =
+                              LoadLaneValue(candidate->block->shared_memory, request.lanes[lane]);
+                          candidate->wave.vgpr.Write(request.dst->index, lane, value);
+                        }
+                      }
+                      candidate->scoreboard.MarkReady(
+                          VectorRef(request.dst->index), commit_cycle);
+                    } else if (request.kind == AccessKind::Store) {
+                      for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+                        if (request.lanes[lane].active) {
+                          StoreLaneValue(candidate->block->shared_memory, request.lanes[lane]);
+                        }
+                      }
+                    }
+                  } else {
+                    throw std::invalid_argument("unsupported memory space in cycle executor");
+                  }
+                }
+
+                if (plan.sync_barrier) {
+                  candidate->wave.waiting_at_barrier = true;
+                  candidate->wave.barrier_generation = candidate->block->barrier_generation;
+                  ++candidate->block->barrier_arrivals;
+                  context.trace.OnEvent(TraceEvent{
+                      .kind = TraceEventKind::Barrier,
+                      .cycle = commit_cycle,
+                      .block_id = candidate->wave.block_id,
+                      .wave_id = candidate->wave.wave_id,
+                      .pc = candidate->wave.pc,
+                      .message = "arrive",
                   });
+
+                  if (candidate->block->barrier_arrivals == candidate->block->waves.size()) {
+                    for (auto& waiting_wave : candidate->block->waves) {
+                      if (waiting_wave.wave.waiting_at_barrier &&
+                          waiting_wave.wave.barrier_generation ==
+                              candidate->block->barrier_generation) {
+                        waiting_wave.wave.waiting_at_barrier = false;
+                        waiting_wave.wave.status = WaveStatus::Active;
+                        ++waiting_wave.wave.pc;
+                      }
+                    }
+                    candidate->block->barrier_arrivals = 0;
+                    ++candidate->block->barrier_generation;
+                    context.trace.OnEvent(TraceEvent{
+                        .kind = TraceEventKind::Barrier,
+                        .cycle = commit_cycle,
+                        .block_id = candidate->wave.block_id,
+                        .pc = candidate->wave.pc,
+                        .message = "release",
+                    });
+                  }
+                  return;
                 }
 
                 if (plan.exit_wave) {

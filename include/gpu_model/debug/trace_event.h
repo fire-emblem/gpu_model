@@ -11,6 +11,7 @@ enum class TraceEventKind {
   WaveStep,
   ExecMaskUpdate,
   MemoryAccess,
+  Barrier,
   WaveExit,
   Stall,
   Arrive,

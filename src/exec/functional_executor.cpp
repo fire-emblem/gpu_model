@@ -1,7 +1,9 @@
 #include "gpu_model/exec/functional_executor.h"
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <sstream>
 #include <stdexcept>
 #include <vector>
@@ -17,10 +19,46 @@ struct ExecutableBlock {
   uint32_t block_id = 0;
   uint32_t dpc_id = 0;
   uint32_t ap_id = 0;
+  uint64_t barrier_generation = 0;
+  uint32_t barrier_arrivals = 0;
+  std::vector<std::byte> shared_memory;
   std::vector<WaveState> waves;
 };
 
-std::vector<ExecutableBlock> MaterializeBlocks(const PlacementMap& placement) {
+uint64_t LoadLaneValue(const std::vector<std::byte>& memory, const LaneAccess& lane) {
+  switch (lane.bytes) {
+    case 4: {
+      int32_t value = 0;
+      std::memcpy(&value, memory.data() + lane.addr, sizeof(value));
+      return static_cast<uint64_t>(static_cast<int64_t>(value));
+    }
+    case 8: {
+      uint64_t value = 0;
+      std::memcpy(&value, memory.data() + lane.addr, sizeof(value));
+      return value;
+    }
+    default:
+      throw std::invalid_argument("unsupported load width");
+  }
+}
+
+void StoreLaneValue(std::vector<std::byte>& memory, const LaneAccess& lane) {
+  switch (lane.bytes) {
+    case 4: {
+      const int32_t value = static_cast<int32_t>(lane.value);
+      std::memcpy(memory.data() + lane.addr, &value, sizeof(value));
+      return;
+    }
+    case 8:
+      std::memcpy(memory.data() + lane.addr, &lane.value, sizeof(lane.value));
+      return;
+    default:
+      throw std::invalid_argument("unsupported store width");
+  }
+}
+
+std::vector<ExecutableBlock> MaterializeBlocks(const PlacementMap& placement,
+                                               const LaunchConfig& launch_config) {
   std::vector<ExecutableBlock> blocks;
   blocks.reserve(placement.blocks.size());
 
@@ -29,6 +67,9 @@ std::vector<ExecutableBlock> MaterializeBlocks(const PlacementMap& placement) {
         .block_id = block_placement.block_id,
         .dpc_id = block_placement.dpc_id,
         .ap_id = block_placement.ap_id,
+        .barrier_generation = 0,
+        .barrier_arrivals = 0,
+        .shared_memory = std::vector<std::byte>(launch_config.shared_memory_bytes),
         .waves = {},
     };
     block.waves.reserve(block_placement.waves.size());
@@ -77,7 +118,7 @@ void StoreLaneValue(MemorySystem& memory, const LaneAccess& lane) {
 }  // namespace
 
 uint64_t FunctionalExecutor::Run(ExecutionContext& context) {
-  auto blocks = MaterializeBlocks(context.placement);
+  auto blocks = MaterializeBlocks(context.placement, context.launch_config);
 
   auto has_active_wave = [&blocks]() {
     for (const auto& block : blocks) {
@@ -161,7 +202,13 @@ uint64_t FunctionalExecutor::Run(ExecutionContext& context) {
             std::array<uint64_t, 64> loaded_values{};
             for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
               if (request.lanes[lane].active) {
-                loaded_values[lane] = LoadLaneValue(context.memory, request.lanes[lane]);
+                if (request.space == MemorySpace::Global) {
+                  loaded_values[lane] = LoadLaneValue(context.memory, request.lanes[lane]);
+                } else if (request.space == MemorySpace::Shared) {
+                  loaded_values[lane] = LoadLaneValue(block.shared_memory, request.lanes[lane]);
+                } else {
+                  throw std::invalid_argument("unsupported load memory space");
+                }
               }
             }
             for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
@@ -172,7 +219,13 @@ uint64_t FunctionalExecutor::Run(ExecutionContext& context) {
           } else if (request.kind == AccessKind::Store) {
             for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
               if (request.lanes[lane].active) {
-                StoreLaneValue(context.memory, request.lanes[lane]);
+                if (request.space == MemorySpace::Global) {
+                  StoreLaneValue(context.memory, request.lanes[lane]);
+                } else if (request.space == MemorySpace::Shared) {
+                  StoreLaneValue(block.shared_memory, request.lanes[lane]);
+                } else {
+                  throw std::invalid_argument("unsupported store memory space");
+                }
               }
             }
           } else {
@@ -180,7 +233,40 @@ uint64_t FunctionalExecutor::Run(ExecutionContext& context) {
           }
         }
 
-        if (plan.exit_wave) {
+        if (plan.sync_barrier) {
+          wave.status = WaveStatus::Stalled;
+          wave.waiting_at_barrier = true;
+          wave.barrier_generation = block.barrier_generation;
+          ++block.barrier_arrivals;
+          context.trace.OnEvent(TraceEvent{
+              .kind = TraceEventKind::Barrier,
+              .cycle = context.cycle,
+              .block_id = wave.block_id,
+              .wave_id = wave.wave_id,
+              .pc = wave.pc,
+              .message = "arrive",
+          });
+
+          if (block.barrier_arrivals == block.waves.size()) {
+            for (auto& waiting_wave : block.waves) {
+              if (waiting_wave.waiting_at_barrier &&
+                  waiting_wave.barrier_generation == block.barrier_generation) {
+                waiting_wave.waiting_at_barrier = false;
+                waiting_wave.status = WaveStatus::Active;
+                ++waiting_wave.pc;
+              }
+            }
+            block.barrier_arrivals = 0;
+            ++block.barrier_generation;
+            context.trace.OnEvent(TraceEvent{
+                .kind = TraceEventKind::Barrier,
+                .cycle = context.cycle,
+                .block_id = block.block_id,
+                .pc = wave.pc,
+                .message = "release",
+            });
+          }
+        } else if (plan.exit_wave) {
           wave.status = WaveStatus::Exited;
           context.trace.OnEvent(TraceEvent{
               .kind = TraceEventKind::WaveExit,
