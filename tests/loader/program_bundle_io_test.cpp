@@ -1,0 +1,82 @@
+#include <gtest/gtest.h>
+
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
+#include <filesystem>
+#include <vector>
+
+#include "gpu_model/loader/program_bundle_io.h"
+#include "gpu_model/runtime/host_runtime.h"
+
+namespace gpu_model {
+namespace {
+
+ConstSegment MakeConstSegment(const std::vector<int32_t>& values) {
+  ConstSegment segment;
+  segment.bytes.resize(values.size() * sizeof(int32_t));
+  std::memcpy(segment.bytes.data(), values.data(), segment.bytes.size());
+  return segment;
+}
+
+TEST(ProgramBundleIOTest, RoundTripsProgramImageAndLaunchesLoadedBundle) {
+  const std::filesystem::path bundle_path =
+      std::filesystem::temp_directory_path() / "gpu_model_roundtrip.gpubin";
+  std::vector<int32_t> table(48);
+  for (uint32_t i = 0; i < table.size(); ++i) {
+    table[i] = static_cast<int32_t>(i * 5);
+  }
+
+  const ProgramImage original(
+      "bundle_const_kernel",
+      R"(
+        .meta arch=c500
+        s_load_arg s0, 0
+        s_load_arg s1, 1
+        sys_global_id_x v0
+        v_cmp_lt_cmask v0, s1
+        mask_save_exec s10
+        mask_and_exec_cmask
+        b_if_noexec exit
+        m_load_const v1, v0, 4
+        m_store_global s0, v0, v1, 4
+      exit:
+        mask_restore_exec s10
+        b_exit
+      )",
+      MetadataBlob{.values = {{"arch", "c500"}, {"format", "bundle"}}},
+      MakeConstSegment(table));
+
+  ProgramBundleIO::Write(bundle_path, original);
+  const ProgramImage loaded = ProgramBundleIO::Read(bundle_path);
+
+  EXPECT_EQ(loaded.kernel_name(), original.kernel_name());
+  EXPECT_EQ(loaded.assembly_text(), original.assembly_text());
+  const auto format_it = loaded.metadata().values.find("format");
+  ASSERT_NE(format_it, loaded.metadata().values.end());
+  EXPECT_EQ(format_it->second, "bundle");
+  EXPECT_EQ(loaded.const_segment().bytes.size(), original.const_segment().bytes.size());
+
+  HostRuntime runtime;
+  const uint64_t out_addr = runtime.memory().AllocateGlobal(table.size() * sizeof(int32_t));
+  LaunchRequest request;
+  request.arch_name.clear();
+  request.program_image = &loaded;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+  request.args.PushU64(out_addr);
+  request.args.PushU32(static_cast<uint32_t>(table.size()));
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+  for (uint32_t i = 0; i < table.size(); ++i) {
+    const int32_t actual =
+        runtime.memory().LoadGlobalValue<int32_t>(out_addr + i * sizeof(int32_t));
+    EXPECT_EQ(actual, table[i]);
+  }
+
+  std::filesystem::remove(bundle_path);
+}
+
+}  // namespace
+}  // namespace gpu_model
