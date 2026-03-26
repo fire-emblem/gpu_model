@@ -193,6 +193,10 @@ KernelProgram AsmParser::Parse(const ProgramImage& image) const {
       RequireOperandCount(opcode, operands, 3);
       builder.MLoadPrivate(operands[0], operands[1],
                            static_cast<uint32_t>(ParseImmediate(operands[2])));
+    } else if (opcode == "m_load_const") {
+      RequireOperandCount(opcode, operands, 3);
+      builder.MLoadConst(operands[0], operands[1],
+                         static_cast<uint32_t>(ParseImmediate(operands[2])));
     } else if (opcode == "m_store_private") {
       RequireOperandCount(opcode, operands, 3);
       builder.MStorePrivate(operands[0], operands[1],

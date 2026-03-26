@@ -26,6 +26,10 @@ struct ExecutableBlock {
 };
 
 uint64_t LoadLaneValue(const std::vector<std::byte>& memory, const LaneAccess& lane) {
+  const size_t end = static_cast<size_t>(lane.addr) + lane.bytes;
+  if (end > memory.size()) {
+    throw std::out_of_range("byte-addressable memory load out of range");
+  }
   switch (lane.bytes) {
     case 4: {
       int32_t value = 0;
@@ -231,6 +235,9 @@ uint64_t FunctionalExecutor::Run(ExecutionContext& context) {
                 } else if (request.space == MemorySpace::Private) {
                   loaded_values[lane] =
                       LoadLaneValue(wave.private_memory, lane, request.lanes[lane]);
+                } else if (request.space == MemorySpace::Constant) {
+                  loaded_values[lane] =
+                      LoadLaneValue(context.kernel.const_segment().bytes, request.lanes[lane]);
                 } else {
                   throw std::invalid_argument("unsupported load memory space");
                 }

@@ -210,6 +210,14 @@ InstructionBuilder& InstructionBuilder::MStorePrivate(std::string_view index,
                          ImmediateOperand(scale_bytes)});
 }
 
+InstructionBuilder& InstructionBuilder::MLoadConst(std::string_view dest,
+                                                   std::string_view index,
+                                                   uint32_t scale_bytes) {
+  return AddInstruction(Opcode::MLoadConst,
+                        {ParseRegOperand(dest), ParseRegOperand(index),
+                         ImmediateOperand(scale_bytes)});
+}
+
 InstructionBuilder& InstructionBuilder::MaskSaveExec(std::string_view dest) {
   return AddInstruction(Opcode::MaskSaveExec, {ParseRegOperand(dest)});
 }

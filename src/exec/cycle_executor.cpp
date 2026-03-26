@@ -93,6 +93,10 @@ void StoreLaneValue(MemorySystem& memory, const LaneAccess& lane) {
 }
 
 uint64_t LoadLaneValue(const std::vector<std::byte>& memory, const LaneAccess& lane) {
+  const size_t end = static_cast<size_t>(lane.addr) + lane.bytes;
+  if (end > memory.size()) {
+    throw std::out_of_range("byte-addressable memory load out of range");
+  }
   switch (lane.bytes) {
     case 4: {
       int32_t value = 0;
@@ -197,6 +201,7 @@ std::vector<ReadyRef> CollectReadRefs(const Instruction& instruction) {
     case Opcode::MLoadGlobal:
     case Opcode::MLoadShared:
     case Opcode::MLoadPrivate:
+    case Opcode::MLoadConst:
       refs.push_back(ExecRef());
       AddOperandDependency(instruction.operands.at(1), refs);
       if (instruction.opcode == Opcode::MLoadGlobal) {
@@ -541,6 +546,19 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                         }
                       }
                     }
+                  } else if (request.space == MemorySpace::Constant) {
+                    if (!request.dst.has_value()) {
+                      throw std::invalid_argument("load request missing destination");
+                    }
+                    for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+                      if (request.lanes[lane].active) {
+                        const uint64_t value =
+                            LoadLaneValue(context.kernel.const_segment().bytes, request.lanes[lane]);
+                        candidate->wave.vgpr.Write(request.dst->index, lane, value);
+                      }
+                    }
+                    candidate->scoreboard.MarkReady(
+                        VectorRef(request.dst->index), commit_cycle);
                   } else {
                     throw std::invalid_argument("unsupported memory space in cycle executor");
                   }
