@@ -7,6 +7,7 @@
 #include "gpu_model/exec/cycle_executor.h"
 #include "gpu_model/exec/functional_executor.h"
 #include "gpu_model/isa/kernel_program.h"
+#include "gpu_model/loader/asm_parser.h"
 
 namespace gpu_model {
 
@@ -15,13 +16,31 @@ HostRuntime::HostRuntime(TraceSink* default_trace) : default_trace_(default_trac
 LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
   LaunchResult result;
 
-  const auto spec = ArchRegistry::Get(request.arch_name);
+  std::string arch_name = request.arch_name;
+  if (arch_name.empty() && request.program_image != nullptr) {
+    const auto it = request.program_image->metadata().values.find("arch");
+    if (it != request.program_image->metadata().values.end()) {
+      arch_name = it->second;
+    }
+  }
+  if (arch_name.empty()) {
+    arch_name = "c500";
+  }
+
+  const auto spec = ArchRegistry::Get(arch_name);
   if (!spec) {
-    result.error_message = "unknown architecture: " + request.arch_name;
+    result.error_message = "unknown architecture: " + arch_name;
     return result;
   }
-  if (request.kernel == nullptr) {
-    result.error_message = "launch request missing kernel";
+
+  KernelProgram parsed_kernel;
+  const KernelProgram* kernel = request.kernel;
+  if (kernel == nullptr && request.program_image != nullptr) {
+    parsed_kernel = AsmParser{}.Parse(*request.program_image);
+    kernel = &parsed_kernel;
+  }
+  if (kernel == nullptr) {
+    result.error_message = "launch request missing kernel or program image";
     return result;
   }
   if (request.config.grid_dim_x == 0 || request.config.block_dim_x == 0) {
@@ -32,7 +51,7 @@ LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
   auto& trace = ResolveTraceSink(request.trace);
   trace.OnEvent(TraceEvent{
       .kind = TraceEventKind::Launch,
-      .message = "kernel=" + request.kernel->name() + " arch=" + spec->name,
+      .message = "kernel=" + kernel->name() + " arch=" + spec->name,
   });
 
   try {
@@ -50,7 +69,7 @@ LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
 
     ExecutionContext context{
         .spec = *spec,
-        .kernel = *request.kernel,
+        .kernel = *kernel,
         .launch_config = request.config,
         .args = request.args,
         .placement = result.placement,

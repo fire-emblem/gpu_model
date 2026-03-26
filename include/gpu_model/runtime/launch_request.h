@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <string>
 
+#include "gpu_model/isa/program_image.h"
 #include "gpu_model/runtime/kernel_arg_pack.h"
 #include "gpu_model/runtime/launch_config.h"
 #include "gpu_model/runtime/mapper.h"
@@ -20,6 +21,7 @@ enum class ExecutionMode {
 struct LaunchRequest {
   std::string arch_name = "c500";
   const KernelProgram* kernel = nullptr;
+  const ProgramImage* program_image = nullptr;
   LaunchConfig config;
   KernelArgPack args;
   ExecutionMode mode = ExecutionMode::Functional;

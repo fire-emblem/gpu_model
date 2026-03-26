@@ -23,6 +23,7 @@ add_library(gpu_model STATIC
   src/isa/instruction_builder.cpp
   src/isa/kernel_program.cpp
   src/loader/asm_parser.cpp
+  src/loader/program_file_loader.cpp
   src/memory/memory_system.cpp
   src/exec/semantics.cpp
   src/exec/functional_executor.cpp
@@ -31,6 +32,7 @@ add_library(gpu_model STATIC
   src/exec/cycle_executor.cpp
   src/runtime/mapper.cpp
   src/runtime/host_runtime.cpp
+  src/runtime/runtime_hooks.cpp
   src/debug/trace_sink.cpp
 )
 
