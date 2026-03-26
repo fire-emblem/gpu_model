@@ -1,5 +1,8 @@
 #pragma once
 
+#include <filesystem>
+#include <fstream>
+#include <string>
 #include <vector>
 
 #include "gpu_model/debug/trace_event.h"
@@ -24,6 +27,26 @@ class CollectingTraceSink final : public TraceSink {
 
  private:
   std::vector<TraceEvent> events_;
+};
+
+class FileTraceSink final : public TraceSink {
+ public:
+  explicit FileTraceSink(const std::filesystem::path& path);
+  void OnEvent(const TraceEvent& event) override;
+
+ private:
+  std::ofstream out_;
+};
+
+class JsonTraceSink final : public TraceSink {
+ public:
+  explicit JsonTraceSink(const std::filesystem::path& path);
+  void OnEvent(const TraceEvent& event) override;
+
+ private:
+  static std::string EscapeJson(const std::string& text);
+
+  std::ofstream out_;
 };
 
 }  // namespace gpu_model
