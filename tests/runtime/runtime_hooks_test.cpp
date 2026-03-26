@@ -1,6 +1,9 @@
 #include <gtest/gtest.h>
 
+#include <filesystem>
 #include <cstdint>
+#include <cstring>
+#include <fstream>
 #include <vector>
 
 #include "gpu_model/runtime/runtime_hooks.h"
@@ -62,6 +65,107 @@ TEST(RuntimeHooksTest, SimulatesMallocMemcpyLaunchAndSynchronizeFlow) {
   for (uint32_t i = 0; i < n; ++i) {
     EXPECT_EQ(c[i], a[i] + b[i]);
   }
+}
+
+TEST(RuntimeHooksTest, RegistersProgramImagesAndLaunchesByModuleAndKernelName) {
+  constexpr uint32_t n = 32;
+  ProgramImage image(
+      "const_from_registry",
+      R"(
+        .meta arch=c500
+        s_load_arg s0, 0
+        s_load_arg s1, 1
+        sys_global_id_x v0
+        v_cmp_lt_cmask v0, s1
+        mask_save_exec s10
+        mask_and_exec_cmask
+        b_if_noexec exit
+        m_load_const v1, v0, 4
+        m_store_global s0, v0, v1, 4
+      exit:
+        mask_restore_exec s10
+        b_exit
+      )");
+
+  std::vector<int32_t> table(n);
+  for (uint32_t i = 0; i < n; ++i) {
+    table[i] = static_cast<int32_t>(2 * i + 5);
+  }
+  ConstSegment const_segment;
+  const_segment.bytes.resize(table.size() * sizeof(int32_t));
+  std::memcpy(const_segment.bytes.data(), table.data(), const_segment.bytes.size());
+  ProgramImage image_with_const(image.kernel_name(), image.assembly_text(),
+                                MetadataBlob{.values = {{"arch", "c500"}}},
+                                std::move(const_segment));
+
+  RuntimeHooks hooks;
+  hooks.RegisterProgramImage("demo_module", std::move(image_with_const));
+
+  const uint64_t out_addr = hooks.Malloc(n * sizeof(int32_t));
+  std::vector<int32_t> out(n, -1);
+  hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(out));
+
+  KernelArgPack args;
+  args.PushU64(out_addr);
+  args.PushU32(n);
+
+  const auto result = hooks.LaunchRegisteredKernel(
+      "demo_module", "const_from_registry", LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64}, args);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(out));
+  for (uint32_t i = 0; i < n; ++i) {
+    EXPECT_EQ(out[i], table[i]);
+  }
+}
+
+TEST(RuntimeHooksTest, LoadsSectionedExecutableImageAndLaunchesRegisteredKernel) {
+  const std::filesystem::path path =
+      std::filesystem::temp_directory_path() / "gpu_model_runtime_sectioned.gpusec";
+  ProgramImage image(
+      "sectioned_registry_kernel",
+      R"(
+        .meta arch=c500
+        s_load_arg s0, 0
+        s_load_arg s1, 1
+        sys_global_id_x v0
+        v_cmp_lt_cmask v0, s1
+        mask_save_exec s10
+        mask_and_exec_cmask
+        b_if_noexec exit
+        v_mov v1, 9
+        m_store_global s0, v0, v1, 4
+      exit:
+        mask_restore_exec s10
+        b_exit
+      )",
+      MetadataBlob{.values = {{"arch", "c500"}}});
+
+  ExecutableImageIO::Write(path, image);
+
+  RuntimeHooks hooks;
+  hooks.LoadExecutableImage("file_module", path);
+
+  constexpr uint32_t n = 20;
+  const uint64_t out_addr = hooks.Malloc(n * sizeof(int32_t));
+  std::vector<int32_t> out(n, -1);
+  hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(out));
+
+  KernelArgPack args;
+  args.PushU64(out_addr);
+  args.PushU32(n);
+
+  const auto result = hooks.LaunchRegisteredKernel(
+      "file_module", "sectioned_registry_kernel",
+      LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64}, args);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(out));
+  for (uint32_t i = 0; i < n; ++i) {
+    EXPECT_EQ(out[i], 9);
+  }
+
+  std::filesystem::remove(path);
 }
 
 }  // namespace

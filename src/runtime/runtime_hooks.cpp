@@ -1,6 +1,8 @@
 #include "gpu_model/runtime/runtime_hooks.h"
 
+#include <filesystem>
 #include <stdexcept>
+#include <string>
 #include <utility>
 
 namespace gpu_model {
@@ -53,6 +55,39 @@ LaunchResult RuntimeHooks::LaunchProgramImage(const ProgramImage& image,
   request.mode = mode;
   request.trace = trace;
   return runtime_->Launch(request);
+}
+
+void RuntimeHooks::RegisterProgramImage(std::string module_name, ProgramImage image) {
+  modules_[module_name][image.kernel_name()] = std::move(image);
+}
+
+void RuntimeHooks::LoadProgramBundle(std::string module_name, const std::filesystem::path& path) {
+  RegisterProgramImage(std::move(module_name), ProgramBundleIO::Read(path));
+}
+
+void RuntimeHooks::LoadExecutableImage(std::string module_name,
+                                       const std::filesystem::path& path) {
+  RegisterProgramImage(std::move(module_name), ExecutableImageIO::Read(path));
+}
+
+LaunchResult RuntimeHooks::LaunchRegisteredKernel(const std::string& module_name,
+                                                  const std::string& kernel_name,
+                                                  LaunchConfig config,
+                                                  KernelArgPack args,
+                                                  ExecutionMode mode,
+                                                  std::string arch_name,
+                                                  TraceSink* trace) {
+  const auto module_it = modules_.find(module_name);
+  if (module_it == modules_.end()) {
+    return LaunchResult{.ok = false, .error_message = "unknown module: " + module_name};
+  }
+  const auto kernel_it = module_it->second.find(kernel_name);
+  if (kernel_it == module_it->second.end()) {
+    return LaunchResult{.ok = false,
+                        .error_message = "unknown kernel in module: " + kernel_name};
+  }
+  return LaunchProgramImage(kernel_it->second, std::move(config), std::move(args), mode,
+                            std::move(arch_name), trace);
 }
 
 }  // namespace gpu_model
