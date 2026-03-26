@@ -22,6 +22,7 @@ add_library(gpu_model STATIC
   src/arch/c500_spec.cpp
   src/isa/instruction_builder.cpp
   src/isa/kernel_program.cpp
+  src/loader/asm_parser.cpp
   src/memory/memory_system.cpp
   src/exec/semantics.cpp
   src/exec/functional_executor.cpp

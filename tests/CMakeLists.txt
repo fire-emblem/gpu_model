@@ -11,6 +11,7 @@ add_executable(gpu_model_tests
   cycle/async_memory_cycle_test.cpp
   cycle/shared_barrier_cycle_test.cpp
   cycle/private_memory_cycle_test.cpp
+  loader/asm_parser_test.cpp
   runtime/trace_test.cpp
 )
 

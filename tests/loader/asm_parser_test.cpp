@@ -1,0 +1,92 @@
+#include <gtest/gtest.h>
+
+#include <cstddef>
+#include <cstdint>
+#include <vector>
+
+#include "gpu_model/loader/asm_parser.h"
+#include "gpu_model/runtime/host_runtime.h"
+
+namespace gpu_model {
+namespace {
+
+TEST(AsmParserTest, PreservesMetadataConstSegmentAndLabels) {
+  ProgramImage image(
+      "tiny_kernel",
+      R"(
+        .meta arch=c500
+        s_load_arg s0, 0
+      exit:
+        b_exit
+      )",
+      MetadataBlob{.values = {{"source", "asm"}}},
+      ConstSegment{.bytes = {std::byte{0x01}, std::byte{0x02}, std::byte{0x03}}});
+
+  const auto kernel = AsmParser{}.Parse(image);
+
+  EXPECT_EQ(kernel.instructions().size(), 2u);
+  EXPECT_EQ(kernel.ResolveLabel("exit"), 1u);
+  EXPECT_EQ(kernel.metadata().values.at("arch"), "c500");
+  EXPECT_EQ(kernel.metadata().values.at("source"), "asm");
+  EXPECT_EQ(kernel.const_segment().bytes.size(), 3u);
+}
+
+TEST(AsmParserTest, LaunchesParsedVecAddKernelFunctionally) {
+  ProgramImage image(
+      "vecadd_asm",
+      R"(
+        .meta arch=c500
+        s_load_arg s0, 0
+        s_load_arg s1, 1
+        s_load_arg s2, 2
+        s_load_arg s3, 3
+        sys_global_id_x v0
+        v_cmp_lt_cmask v0, s3
+        mask_save_exec s10
+        mask_and_exec_cmask
+        b_if_noexec exit
+        m_load_global v1, s0, v0, 4
+        m_load_global v2, s1, v0, 4
+        v_add v3, v1, v2
+        m_store_global s2, v0, v3, 4
+      exit:
+        mask_restore_exec s10
+        b_exit
+      )");
+
+  const auto kernel = AsmParser{}.Parse(image);
+  constexpr uint32_t n = 130;
+  HostRuntime runtime;
+
+  const uint64_t a_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
+  const uint64_t b_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
+  const uint64_t c_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
+  for (uint32_t i = 0; i < n; ++i) {
+    runtime.memory().StoreGlobalValue<int32_t>(a_addr + i * sizeof(int32_t),
+                                               static_cast<int32_t>(i));
+    runtime.memory().StoreGlobalValue<int32_t>(b_addr + i * sizeof(int32_t),
+                                               static_cast<int32_t>(10 + i));
+    runtime.memory().StoreGlobalValue<int32_t>(c_addr + i * sizeof(int32_t), -1);
+  }
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.config.grid_dim_x = 3;
+  request.config.block_dim_x = 64;
+  request.args.PushU64(a_addr);
+  request.args.PushU64(b_addr);
+  request.args.PushU64(c_addr);
+  request.args.PushU32(n);
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  for (uint32_t i = 0; i < n; ++i) {
+    const int32_t actual =
+        runtime.memory().LoadGlobalValue<int32_t>(c_addr + i * sizeof(int32_t));
+    EXPECT_EQ(actual, static_cast<int32_t>(10 + 2 * static_cast<int32_t>(i)));
+  }
+}
+
+}  // namespace
+}  // namespace gpu_model

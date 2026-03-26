@@ -242,7 +242,9 @@ InstructionBuilder& InstructionBuilder::BExit() {
   return AddInstruction(Opcode::BExit, {});
 }
 
-KernelProgram InstructionBuilder::Build(std::string name) {
+KernelProgram InstructionBuilder::Build(std::string name,
+                                        MetadataBlob metadata,
+                                        ConstSegment const_segment) {
   for (const auto& pending : pending_labels_) {
     const auto it = labels_.find(pending.label);
     if (it == labels_.end()) {
@@ -252,7 +254,8 @@ KernelProgram InstructionBuilder::Build(std::string name) {
         Operand::Branch(it->second);
   }
   pending_labels_.clear();
-  return KernelProgram(std::move(name), instructions_, labels_);
+  return KernelProgram(std::move(name), instructions_, labels_, std::move(metadata),
+                       std::move(const_segment));
 }
 
 InstructionBuilder& InstructionBuilder::AddInstruction(Opcode opcode,

@@ -69,7 +69,9 @@ class InstructionBuilder {
   InstructionBuilder& SyncBarrier();
   InstructionBuilder& BExit();
 
-  KernelProgram Build(std::string name);
+  KernelProgram Build(std::string name,
+                      MetadataBlob metadata = {},
+                      ConstSegment const_segment = {});
 
  private:
   struct PendingLabelRef {
