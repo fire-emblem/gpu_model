@@ -37,6 +37,7 @@ add_library(gpu_model STATIC
   src/runtime/mapper.cpp
   src/runtime/host_runtime.cpp
   src/runtime/runtime_hooks.cpp
+  src/debug/debug_info_io.cpp
   src/debug/trace_sink.cpp
 )
 

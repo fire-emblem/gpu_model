@@ -49,7 +49,6 @@ RegRef ParseRegisterName(std::string_view text) {
 InstructionBuilder& InstructionBuilder::SetNextDebugLoc(std::string file, uint32_t line) {
   next_debug_loc_.file = std::move(file);
   next_debug_loc_.line = line;
-  next_debug_loc_.label.clear();
   has_next_debug_loc_ = true;
   return *this;
 }
