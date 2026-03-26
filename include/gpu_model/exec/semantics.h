@@ -11,6 +11,7 @@
 #include "gpu_model/memory/memory_system.h"
 #include "gpu_model/runtime/kernel_arg_pack.h"
 #include "gpu_model/runtime/launch_config.h"
+#include "gpu_model/runtime/launch_request.h"
 #include "gpu_model/runtime/mapper.h"
 #include "gpu_model/state/wave_state.h"
 
@@ -24,6 +25,7 @@ struct ExecutionContext {
   const PlacementMap& placement;
   MemorySystem& memory;
   TraceSink& trace;
+  ExecutionStats* stats = nullptr;
   uint64_t cycle = 0;
 };
 

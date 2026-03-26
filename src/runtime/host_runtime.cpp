@@ -96,6 +96,7 @@ LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
         .placement = result.placement,
         .memory = memory_,
         .trace = trace,
+        .stats = &result.stats,
     };
 
     if (request.mode == ExecutionMode::Functional) {

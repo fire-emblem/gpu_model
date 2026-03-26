@@ -22,6 +22,7 @@ add_executable(gpu_model_tests
   loader/program_file_loader_test.cpp
   runtime/trace_test.cpp
   runtime/runtime_hooks_test.cpp
+  runtime/execution_stats_test.cpp
 )
 
 target_link_libraries(gpu_model_tests

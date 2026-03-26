@@ -427,6 +427,10 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
 
       WaveState& wave = candidate->wave;
       const Instruction instruction = context.kernel.instructions().at(wave.pc);
+      if (context.stats != nullptr) {
+        ++context.stats->wave_steps;
+        ++context.stats->instructions_issued;
+      }
       context.trace.OnEvent(TraceEvent{
           .kind = TraceEventKind::WaveStep,
           .cycle = cycle,
@@ -442,6 +446,31 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
       wave.status = WaveStatus::Stalled;
 
       if (plan.memory.has_value()) {
+        if (context.stats != nullptr) {
+          ++context.stats->memory_ops;
+          const auto& request = *plan.memory;
+          if (request.space == MemorySpace::Global) {
+            if (request.kind == AccessKind::Load) {
+              ++context.stats->global_loads;
+            } else if (request.kind == AccessKind::Store) {
+              ++context.stats->global_stores;
+            }
+          } else if (request.space == MemorySpace::Shared) {
+            if (request.kind == AccessKind::Load) {
+              ++context.stats->shared_loads;
+            } else if (request.kind == AccessKind::Store) {
+              ++context.stats->shared_stores;
+            }
+          } else if (request.space == MemorySpace::Private) {
+            if (request.kind == AccessKind::Load) {
+              ++context.stats->private_loads;
+            } else if (request.kind == AccessKind::Store) {
+              ++context.stats->private_stores;
+            }
+          } else if (request.space == MemorySpace::Constant && request.kind == AccessKind::Load) {
+            ++context.stats->constant_loads;
+          }
+        }
         context.trace.OnEvent(TraceEvent{
             .kind = TraceEventKind::MemoryAccess,
             .cycle = cycle,
@@ -496,9 +525,18 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                     auto& l1_cache =
                         l1_caches.at(L1Key{.dpc_id = candidate->block->dpc_id, .ap_id = candidate->block->ap_id});
                     const std::vector<uint64_t> addrs = ActiveAddresses(request);
-                    const uint64_t l1_latency = l1_cache.Probe(addrs);
-                    const uint64_t l2_latency = l2_cache.Probe(addrs);
-                    const uint64_t arrive_latency = std::min(l1_latency, l2_latency);
+                    const CacheProbeResult l1_probe = l1_cache.Probe(addrs);
+                    const CacheProbeResult l2_probe = l2_cache.Probe(addrs);
+                    const uint64_t arrive_latency = std::min(l1_probe.latency, l2_probe.latency);
+                    if (context.stats != nullptr) {
+                      if (l1_probe.l1_hits > 0) {
+                        context.stats->l1_hits += l1_probe.l1_hits;
+                      } else if (l2_probe.l2_hits > 0) {
+                        context.stats->l2_hits += l2_probe.l2_hits;
+                      } else {
+                        context.stats->cache_misses += std::max<uint64_t>(1, l2_probe.misses);
+                      }
+                    }
                     const uint64_t arrive_cycle = commit_cycle + arrive_latency;
                     events.Schedule(TimedEvent{
                         .cycle = arrive_cycle,
@@ -543,6 +581,9 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                     });
                   } else if (request.space == MemorySpace::Shared) {
                     const uint64_t penalty = shared_bank_model.ConflictPenalty(request);
+                    if (context.stats != nullptr) {
+                      context.stats->shared_bank_conflict_penalty_cycles += penalty;
+                    }
                     const uint64_t ready_cycle = commit_cycle + penalty;
                     const bool advance_pc = plan.advance_pc;
                     const std::optional<uint64_t> branch_target = plan.branch_target;
@@ -624,6 +665,9 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                 }
 
                 if (plan.sync_barrier) {
+                  if (context.stats != nullptr) {
+                    ++context.stats->barriers;
+                  }
                   candidate->wave.waiting_at_barrier = true;
                   candidate->wave.barrier_generation = candidate->block->barrier_generation;
                   ++candidate->block->barrier_arrivals;
@@ -660,6 +704,9 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                 }
 
                 if (plan.exit_wave) {
+                  if (context.stats != nullptr) {
+                    ++context.stats->wave_exits;
+                  }
                   candidate->wave.status = WaveStatus::Exited;
                   context.trace.OnEvent(TraceEvent{
                       .kind = TraceEventKind::WaveExit,

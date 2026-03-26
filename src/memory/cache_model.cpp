@@ -25,25 +25,30 @@ std::vector<uint64_t> UniqueLines(const std::vector<uint64_t>& addresses, uint32
 
 }  // namespace
 
-uint64_t CacheModel::Probe(const std::vector<uint64_t>& addresses) const {
+CacheProbeResult CacheModel::Probe(const std::vector<uint64_t>& addresses) const {
+  CacheProbeResult result;
   if (addresses.empty()) {
-    return 0;
+    return result;
   }
   if (!spec_.enabled) {
-    return spec_.dram_latency;
+    result.latency = spec_.dram_latency;
+    result.misses = UniqueLines(addresses, spec_.line_bytes).size();
+    return result;
   }
 
-  uint64_t worst_latency = 0;
   for (const uint64_t line : UniqueLines(addresses, spec_.line_bytes)) {
     if (ContainsL1(line)) {
-      worst_latency = std::max(worst_latency, spec_.l1_hit_latency);
+      result.latency = std::max(result.latency, spec_.l1_hit_latency);
+      ++result.l1_hits;
     } else if (ContainsL2(line)) {
-      worst_latency = std::max(worst_latency, spec_.l2_hit_latency);
+      result.latency = std::max(result.latency, spec_.l2_hit_latency);
+      ++result.l2_hits;
     } else {
-      worst_latency = std::max(worst_latency, spec_.dram_latency);
+      result.latency = std::max(result.latency, spec_.dram_latency);
+      ++result.misses;
     }
   }
-  return worst_latency;
+  return result;
 }
 
 void CacheModel::Promote(const std::vector<uint64_t>& addresses) {

@@ -170,6 +170,10 @@ uint64_t FunctionalExecutor::Run(ExecutionContext& context) {
         }
 
         const Instruction& instruction = context.kernel.instructions().at(wave.pc);
+        if (context.stats != nullptr) {
+          ++context.stats->wave_steps;
+          ++context.stats->instructions_issued;
+        }
         context.trace.OnEvent(TraceEvent{
             .kind = TraceEventKind::WaveStep,
             .cycle = context.cycle,
@@ -212,6 +216,30 @@ uint64_t FunctionalExecutor::Run(ExecutionContext& context) {
         }
         if (plan.memory.has_value()) {
           const auto& request = *plan.memory;
+          if (context.stats != nullptr) {
+            ++context.stats->memory_ops;
+            if (request.space == MemorySpace::Global) {
+              if (request.kind == AccessKind::Load) {
+                ++context.stats->global_loads;
+              } else if (request.kind == AccessKind::Store) {
+                ++context.stats->global_stores;
+              }
+            } else if (request.space == MemorySpace::Shared) {
+              if (request.kind == AccessKind::Load) {
+                ++context.stats->shared_loads;
+              } else if (request.kind == AccessKind::Store) {
+                ++context.stats->shared_stores;
+              }
+            } else if (request.space == MemorySpace::Private) {
+              if (request.kind == AccessKind::Load) {
+                ++context.stats->private_loads;
+              } else if (request.kind == AccessKind::Store) {
+                ++context.stats->private_stores;
+              }
+            } else if (request.space == MemorySpace::Constant && request.kind == AccessKind::Load) {
+              ++context.stats->constant_loads;
+            }
+          }
           context.trace.OnEvent(TraceEvent{
               .kind = TraceEventKind::MemoryAccess,
               .cycle = context.cycle,
@@ -268,6 +296,9 @@ uint64_t FunctionalExecutor::Run(ExecutionContext& context) {
         }
 
         if (plan.sync_barrier) {
+          if (context.stats != nullptr) {
+            ++context.stats->barriers;
+          }
           wave.status = WaveStatus::Stalled;
           wave.waiting_at_barrier = true;
           wave.barrier_generation = block.barrier_generation;
@@ -301,6 +332,9 @@ uint64_t FunctionalExecutor::Run(ExecutionContext& context) {
             });
           }
         } else if (plan.exit_wave) {
+          if (context.stats != nullptr) {
+            ++context.stats->wave_exits;
+          }
           wave.status = WaveStatus::Exited;
           context.trace.OnEvent(TraceEvent{
               .kind = TraceEventKind::WaveExit,

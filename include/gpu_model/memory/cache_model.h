@@ -7,11 +7,18 @@
 
 namespace gpu_model {
 
+struct CacheProbeResult {
+  uint64_t latency = 0;
+  uint64_t l1_hits = 0;
+  uint64_t l2_hits = 0;
+  uint64_t misses = 0;
+};
+
 class CacheModel {
  public:
   explicit CacheModel(CacheModelSpec spec = {}) : spec_(spec) {}
 
-  uint64_t Probe(const std::vector<uint64_t>& addresses) const;
+  CacheProbeResult Probe(const std::vector<uint64_t>& addresses) const;
   void Promote(const std::vector<uint64_t>& addresses);
 
  private:

@@ -79,12 +79,17 @@ LaunchResult RuntimeHooks::LaunchRegisteredKernel(const std::string& module_name
                                                   TraceSink* trace) {
   const auto module_it = modules_.find(module_name);
   if (module_it == modules_.end()) {
-    return LaunchResult{.ok = false, .error_message = "unknown module: " + module_name};
+    LaunchResult result;
+    result.ok = false;
+    result.error_message = "unknown module: " + module_name;
+    return result;
   }
   const auto kernel_it = module_it->second.find(kernel_name);
   if (kernel_it == module_it->second.end()) {
-    return LaunchResult{.ok = false,
-                        .error_message = "unknown kernel in module: " + kernel_name};
+    LaunchResult result;
+    result.ok = false;
+    result.error_message = "unknown kernel in module: " + kernel_name;
+    return result;
   }
   return LaunchProgramImage(kernel_it->second, std::move(config), std::move(args), mode,
                             std::move(arch_name), trace);
