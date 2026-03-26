@@ -10,6 +10,7 @@
 
 #include "gpu_model/loader/executable_image_io.h"
 #include "gpu_model/loader/program_bundle_io.h"
+#include "gpu_model/loader/program_file_loader.h"
 #include "gpu_model/isa/kernel_program.h"
 #include "gpu_model/isa/program_image.h"
 #include "gpu_model/runtime/host_runtime.h"
@@ -50,6 +51,8 @@ class RuntimeHooks {
   void RegisterProgramImage(std::string module_name, ProgramImage image);
   void LoadProgramBundle(std::string module_name, const std::filesystem::path& path);
   void LoadExecutableImage(std::string module_name, const std::filesystem::path& path);
+  void LoadProgramFileStem(std::string module_name, const std::filesystem::path& path);
+  void UnloadModule(const std::string& module_name);
   LaunchResult LaunchRegisteredKernel(const std::string& module_name,
                                       const std::string& kernel_name,
                                       LaunchConfig config,

@@ -168,5 +168,99 @@ TEST(RuntimeHooksTest, LoadsSectionedExecutableImageAndLaunchesRegisteredKernel)
   std::filesystem::remove(path);
 }
 
+TEST(RuntimeHooksTest, LoadsBundleAndLooseFilesByModuleAndCanUnload) {
+  const std::filesystem::path temp_dir =
+      std::filesystem::temp_directory_path() / "gpu_model_runtime_hooks_modules";
+  std::filesystem::remove_all(temp_dir);
+  std::filesystem::create_directories(temp_dir);
+
+  ProgramImage bundle_image(
+      "bundle_kernel",
+      R"(
+        .meta arch=c500
+        s_load_arg s0, 0
+        s_load_arg s1, 1
+        sys_global_id_x v0
+        v_cmp_lt_cmask v0, s1
+        mask_save_exec s10
+        mask_and_exec_cmask
+        b_if_noexec exit
+        v_mov v1, 4
+        m_store_global s0, v0, v1, 4
+      exit:
+        mask_restore_exec s10
+        b_exit
+      )",
+      MetadataBlob{.values = {{"arch", "c500"}}});
+  const auto bundle_path = temp_dir / "bundle_kernel.gpubin";
+  ProgramBundleIO::Write(bundle_path, bundle_image);
+
+  {
+    std::ofstream asm_file(temp_dir / "stem_kernel.gasm");
+    ASSERT_TRUE(static_cast<bool>(asm_file));
+    asm_file << R"(
+      s_load_arg s0, 0
+      s_load_arg s1, 1
+      sys_global_id_x v0
+      v_cmp_lt_cmask v0, s1
+      mask_save_exec s10
+      mask_and_exec_cmask
+      b_if_noexec exit
+      v_mov v1, 6
+      m_store_global s0, v0, v1, 4
+    exit:
+      mask_restore_exec s10
+      b_exit
+    )";
+  }
+  {
+    std::ofstream meta_file(temp_dir / "stem_kernel.gasm.meta");
+    ASSERT_TRUE(static_cast<bool>(meta_file));
+    meta_file << "arch=c500\n";
+  }
+
+  RuntimeHooks hooks;
+  hooks.LoadProgramBundle("bundle_module", bundle_path);
+  hooks.LoadProgramFileStem("stem_module", temp_dir / "stem_kernel.gasm");
+
+  constexpr uint32_t n = 8;
+  const uint64_t out_bundle = hooks.Malloc(n * sizeof(int32_t));
+  const uint64_t out_stem = hooks.Malloc(n * sizeof(int32_t));
+  std::vector<int32_t> bundle_out(n, -1);
+  std::vector<int32_t> stem_out(n, -1);
+  hooks.MemcpyHtoD<int32_t>(out_bundle, std::span<const int32_t>(bundle_out));
+  hooks.MemcpyHtoD<int32_t>(out_stem, std::span<const int32_t>(stem_out));
+
+  KernelArgPack bundle_args;
+  bundle_args.PushU64(out_bundle);
+  bundle_args.PushU32(n);
+  const auto bundle_result = hooks.LaunchRegisteredKernel(
+      "bundle_module", "bundle_kernel", LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
+      bundle_args);
+  ASSERT_TRUE(bundle_result.ok) << bundle_result.error_message;
+
+  KernelArgPack stem_args;
+  stem_args.PushU64(out_stem);
+  stem_args.PushU32(n);
+  const auto stem_result = hooks.LaunchRegisteredKernel(
+      "stem_module", "stem_kernel.gasm", LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
+      stem_args);
+  ASSERT_TRUE(stem_result.ok) << stem_result.error_message;
+
+  hooks.MemcpyDtoH<int32_t>(out_bundle, std::span<int32_t>(bundle_out));
+  hooks.MemcpyDtoH<int32_t>(out_stem, std::span<int32_t>(stem_out));
+  for (uint32_t i = 0; i < n; ++i) {
+    EXPECT_EQ(bundle_out[i], 4);
+    EXPECT_EQ(stem_out[i], 6);
+  }
+
+  hooks.UnloadModule("bundle_module");
+  const auto missing_result = hooks.LaunchRegisteredKernel(
+      "bundle_module", "bundle_kernel", LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64}, {});
+  EXPECT_FALSE(missing_result.ok);
+
+  std::filesystem::remove_all(temp_dir);
+}
+
 }  // namespace
 }  // namespace gpu_model

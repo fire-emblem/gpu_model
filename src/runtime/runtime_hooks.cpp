@@ -70,6 +70,15 @@ void RuntimeHooks::LoadExecutableImage(std::string module_name,
   RegisterProgramImage(std::move(module_name), ExecutableImageIO::Read(path));
 }
 
+void RuntimeHooks::LoadProgramFileStem(std::string module_name,
+                                       const std::filesystem::path& path) {
+  RegisterProgramImage(std::move(module_name), ProgramFileLoader{}.LoadFromStem(path));
+}
+
+void RuntimeHooks::UnloadModule(const std::string& module_name) {
+  modules_.erase(module_name);
+}
+
 LaunchResult RuntimeHooks::LaunchRegisteredKernel(const std::string& module_name,
                                                   const std::string& kernel_name,
                                                   LaunchConfig config,
