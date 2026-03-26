@@ -14,6 +14,18 @@ std::shared_ptr<const GpuArchSpec> MakeC500Spec() {
   spec->max_resident_waves = 8;
   spec->max_issuable_waves = 4;
   spec->default_issue_cycles = 4;
+  spec->features.l1_cache = true;
+  spec->features.l2_cache = true;
+  spec->cache_model.enabled = true;
+  spec->cache_model.l1_hit_latency = 8;
+  spec->cache_model.l2_hit_latency = 20;
+  spec->cache_model.dram_latency = 40;
+  spec->cache_model.line_bytes = 64;
+  spec->cache_model.l1_line_capacity = 64;
+  spec->cache_model.l2_line_capacity = 256;
+  spec->shared_bank_model.enabled = false;
+  spec->shared_bank_model.bank_count = 32;
+  spec->shared_bank_model.bank_width_bytes = 4;
   return spec;
 }
 

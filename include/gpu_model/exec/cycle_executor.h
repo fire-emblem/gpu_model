@@ -1,18 +1,24 @@
 #pragma once
 
+#include "gpu_model/arch/gpu_arch_spec.h"
 #include "gpu_model/exec/execution_engine.h"
 
 namespace gpu_model {
 
+struct CycleTimingConfig {
+  CacheModelSpec cache_model;
+  SharedBankModelSpec shared_bank_model;
+};
+
 class CycleExecutor final : public IExecutionEngine {
  public:
-  explicit CycleExecutor(uint64_t fixed_global_latency = 20)
-      : fixed_global_latency_(fixed_global_latency) {}
+  explicit CycleExecutor(CycleTimingConfig timing_config = {})
+      : timing_config_(timing_config) {}
 
   uint64_t Run(ExecutionContext& context) override;
 
  private:
-  uint64_t fixed_global_latency_ = 20;
+  CycleTimingConfig timing_config_;
   Semantics semantics_;
 };
 

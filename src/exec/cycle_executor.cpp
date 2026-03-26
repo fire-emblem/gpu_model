@@ -16,6 +16,8 @@
 #include "gpu_model/exec/event_queue.h"
 #include "gpu_model/exec/scoreboard.h"
 #include "gpu_model/isa/opcode.h"
+#include "gpu_model/memory/cache_model.h"
+#include "gpu_model/memory/shared_bank_model.h"
 
 namespace gpu_model {
 
@@ -44,6 +46,15 @@ struct PeuSlot {
   uint32_t peu_id = 0;
   uint64_t busy_until = 0;
   std::vector<ScheduledWave*> waves;
+};
+
+struct L1Key {
+  uint32_t dpc_id = 0;
+  uint32_t ap_id = 0;
+
+  bool operator<(const L1Key& other) const {
+    return std::tie(dpc_id, ap_id) < std::tie(other.dpc_id, other.ap_id);
+  }
 };
 
 ReadyRef ScalarRef(uint32_t index) {
@@ -353,15 +364,31 @@ bool AllWavesExited(const std::vector<ExecutableBlock>& blocks) {
   return true;
 }
 
+std::vector<uint64_t> ActiveAddresses(const MemoryRequest& request) {
+  std::vector<uint64_t> addrs;
+  addrs.reserve(kWaveSize);
+  for (const auto& lane : request.lanes) {
+    if (lane.active) {
+      addrs.push_back(lane.addr);
+    }
+  }
+  return addrs;
+}
+
 }  // namespace
 
 uint64_t CycleExecutor::Run(ExecutionContext& context) {
   auto blocks = MaterializeBlocks(context.placement, context.launch_config);
   auto slots = BuildPeuSlots(blocks);
   EventQueue events;
+  std::map<L1Key, CacheModel> l1_caches;
+  CacheModel l2_cache(timing_config_.cache_model);
+  SharedBankModel shared_bank_model(timing_config_.shared_bank_model);
 
   for (auto& slot : slots) {
     slot.busy_until = 0;
+    l1_caches.emplace(L1Key{.dpc_id = slot.dpc_id, .ap_id = slot.ap_id},
+                      CacheModel(timing_config_.cache_model));
   }
 
   uint64_t cycle = 0;
@@ -466,11 +493,17 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                 if (plan.memory.has_value()) {
                   const MemoryRequest request = *plan.memory;
                   if (request.space == MemorySpace::Global) {
-                    const uint64_t arrive_cycle = commit_cycle + fixed_global_latency_;
+                    auto& l1_cache =
+                        l1_caches.at(L1Key{.dpc_id = candidate->block->dpc_id, .ap_id = candidate->block->ap_id});
+                    const std::vector<uint64_t> addrs = ActiveAddresses(request);
+                    const uint64_t l1_latency = l1_cache.Probe(addrs);
+                    const uint64_t l2_latency = l2_cache.Probe(addrs);
+                    const uint64_t arrive_latency = std::min(l1_latency, l2_latency);
+                    const uint64_t arrive_cycle = commit_cycle + arrive_latency;
                     events.Schedule(TimedEvent{
                         .cycle = arrive_cycle,
                         .action =
-                            [&, candidate, request, arrive_cycle]() {
+                            [&, candidate, request, addrs, arrive_cycle]() {
                               context.cycle = arrive_cycle;
                               if (request.kind == AccessKind::Load) {
                                 if (!request.dst.has_value()) {
@@ -485,6 +518,10 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                                 }
                                 candidate->scoreboard.MarkReady(
                                     VectorRef(request.dst->index), arrive_cycle);
+                                l2_cache.Promote(addrs);
+                                l1_caches
+                                    .at(L1Key{.dpc_id = candidate->block->dpc_id, .ap_id = candidate->block->ap_id})
+                                    .Promote(addrs);
                               } else if (request.kind == AccessKind::Store) {
                                 for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
                                   if (request.lanes[lane].active) {
@@ -505,26 +542,48 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                             },
                     });
                   } else if (request.space == MemorySpace::Shared) {
-                    if (request.kind == AccessKind::Load) {
-                      if (!request.dst.has_value()) {
-                        throw std::invalid_argument("load request missing destination");
-                      }
-                      for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
-                        if (request.lanes[lane].active) {
-                          const uint64_t value =
-                              LoadLaneValue(candidate->block->shared_memory, request.lanes[lane]);
-                          candidate->wave.vgpr.Write(request.dst->index, lane, value);
-                        }
-                      }
-                      candidate->scoreboard.MarkReady(
-                          VectorRef(request.dst->index), commit_cycle);
-                    } else if (request.kind == AccessKind::Store) {
-                      for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
-                        if (request.lanes[lane].active) {
-                          StoreLaneValue(candidate->block->shared_memory, request.lanes[lane]);
-                        }
-                      }
+                    const uint64_t penalty = shared_bank_model.ConflictPenalty(request);
+                    const uint64_t ready_cycle = commit_cycle + penalty;
+                    const bool advance_pc = plan.advance_pc;
+                    const std::optional<uint64_t> branch_target = plan.branch_target;
+                    events.Schedule(TimedEvent{
+                        .cycle = ready_cycle,
+                        .action =
+                            [&, candidate, request, ready_cycle, advance_pc, branch_target]() {
+                              context.cycle = ready_cycle;
+                              if (request.kind == AccessKind::Load) {
+                                if (!request.dst.has_value()) {
+                                  throw std::invalid_argument("load request missing destination");
+                                }
+                                for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+                                  if (request.lanes[lane].active) {
+                                    const uint64_t value =
+                                        LoadLaneValue(candidate->block->shared_memory, request.lanes[lane]);
+                                    candidate->wave.vgpr.Write(request.dst->index, lane, value);
+                                  }
+                                }
+                                candidate->scoreboard.MarkReady(
+                                    VectorRef(request.dst->index), ready_cycle);
+                              } else if (request.kind == AccessKind::Store) {
+                                for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+                                  if (request.lanes[lane].active) {
+                                    StoreLaneValue(candidate->block->shared_memory, request.lanes[lane]);
+                                  }
+                                }
+                              }
+
+                              if (branch_target.has_value()) {
+                                candidate->wave.pc = *branch_target;
+                              } else if (advance_pc) {
+                                ++candidate->wave.pc;
+                              }
+                              candidate->wave.status = WaveStatus::Active;
+                            },
+                    });
+                    if (request.kind == AccessKind::Load && request.dst.has_value()) {
+                      candidate->scoreboard.MarkNotReady(VectorRef(request.dst->index));
                     }
+                    return;
                   } else if (request.space == MemorySpace::Private) {
                     if (request.kind == AccessKind::Load) {
                       if (!request.dst.has_value()) {

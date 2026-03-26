@@ -13,6 +13,22 @@ struct FeatureFlags {
   bool l2_cache = false;
 };
 
+struct CacheModelSpec {
+  bool enabled = false;
+  uint64_t l1_hit_latency = 8;
+  uint64_t l2_hit_latency = 20;
+  uint64_t dram_latency = 40;
+  uint32_t line_bytes = 64;
+  uint32_t l1_line_capacity = 64;
+  uint32_t l2_line_capacity = 256;
+};
+
+struct SharedBankModelSpec {
+  bool enabled = false;
+  uint32_t bank_count = 32;
+  uint32_t bank_width_bytes = 4;
+};
+
 struct GpuArchSpec {
   std::string name;
   uint32_t wave_size = 64;
@@ -23,6 +39,8 @@ struct GpuArchSpec {
   uint32_t max_issuable_waves = 0;
   uint32_t default_issue_cycles = 4;
   FeatureFlags features;
+  CacheModelSpec cache_model;
+  SharedBankModelSpec shared_bank_model;
 };
 
 }  // namespace gpu_model

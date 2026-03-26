@@ -13,6 +13,27 @@ namespace gpu_model {
 
 HostRuntime::HostRuntime(TraceSink* default_trace) : default_trace_(default_trace) {}
 
+void HostRuntime::SetFixedGlobalMemoryLatency(uint64_t latency) {
+  flat_global_latency_override_ = latency;
+  dram_latency_override_.reset();
+  l2_hit_latency_override_.reset();
+  l1_hit_latency_override_.reset();
+}
+
+void HostRuntime::SetGlobalMemoryLatencyProfile(uint64_t dram_latency,
+                                                uint64_t l2_hit_latency,
+                                                uint64_t l1_hit_latency) {
+  flat_global_latency_override_.reset();
+  dram_latency_override_ = dram_latency;
+  l2_hit_latency_override_ = l2_hit_latency;
+  l1_hit_latency_override_ = l1_hit_latency;
+}
+
+void HostRuntime::SetSharedBankConflictModel(uint32_t bank_count, uint32_t bank_width_bytes) {
+  shared_bank_count_override_ = bank_count;
+  shared_bank_width_override_ = bank_width_bytes;
+}
+
 LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
   LaunchResult result;
 
@@ -81,7 +102,7 @@ LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
       FunctionalExecutor executor;
       result.total_cycles = executor.Run(context);
     } else if (request.mode == ExecutionMode::Cycle) {
-      CycleExecutor executor(fixed_global_memory_latency_);
+      CycleExecutor executor(ResolveCycleTimingConfig(*spec));
       result.total_cycles = executor.Run(context);
     } else {
       result.error_message = "requested execution mode is not implemented";
@@ -95,6 +116,40 @@ LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
   }
 
   return result;
+}
+
+CycleTimingConfig HostRuntime::ResolveCycleTimingConfig(const GpuArchSpec& spec) const {
+  CycleTimingConfig config;
+  config.cache_model = spec.cache_model;
+  config.shared_bank_model = spec.shared_bank_model;
+
+  if (flat_global_latency_override_.has_value()) {
+    config.cache_model.enabled = false;
+    config.cache_model.dram_latency = *flat_global_latency_override_;
+    config.cache_model.l2_hit_latency = *flat_global_latency_override_;
+    config.cache_model.l1_hit_latency = *flat_global_latency_override_;
+  } else {
+    if (dram_latency_override_.has_value()) {
+      config.cache_model.dram_latency = *dram_latency_override_;
+    }
+    if (l2_hit_latency_override_.has_value()) {
+      config.cache_model.l2_hit_latency = *l2_hit_latency_override_;
+    }
+    if (l1_hit_latency_override_.has_value()) {
+      config.cache_model.l1_hit_latency = *l1_hit_latency_override_;
+    }
+  }
+
+  if (shared_bank_count_override_.has_value()) {
+    config.shared_bank_model.enabled = true;
+    config.shared_bank_model.bank_count = *shared_bank_count_override_;
+  }
+  if (shared_bank_width_override_.has_value()) {
+    config.shared_bank_model.enabled = true;
+    config.shared_bank_model.bank_width_bytes = *shared_bank_width_override_;
+  }
+
+  return config;
 }
 
 TraceSink& HostRuntime::ResolveTraceSink(TraceSink* request_trace) {
