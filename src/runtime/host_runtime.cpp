@@ -6,6 +6,7 @@
 #include "gpu_model/arch/arch_registry.h"
 #include "gpu_model/exec/cycle_executor.h"
 #include "gpu_model/exec/functional_executor.h"
+#include "gpu_model/isa/kernel_metadata.h"
 #include "gpu_model/isa/kernel_program.h"
 #include "gpu_model/loader/asm_parser.h"
 
@@ -66,6 +67,42 @@ LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
   }
   if (request.config.grid_dim_x == 0 || request.config.block_dim_x == 0) {
     result.error_message = "grid_dim_x and block_dim_x must be non-zero";
+    return result;
+  }
+
+  try {
+    const auto launch_metadata = ParseKernelLaunchMetadata(kernel->metadata());
+    if (launch_metadata.arch.has_value() && *launch_metadata.arch != spec->name) {
+      result.error_message =
+          "kernel metadata arch does not match selected architecture";
+      return result;
+    }
+    if (launch_metadata.entry.has_value() && *launch_metadata.entry != kernel->name()) {
+      result.error_message = "kernel metadata entry does not match kernel name";
+      return result;
+    }
+    if (launch_metadata.arg_count.has_value() &&
+        request.args.size() != *launch_metadata.arg_count) {
+      result.error_message = "kernel argument count does not match metadata";
+      return result;
+    }
+    if (launch_metadata.required_shared_bytes.has_value() &&
+        request.config.shared_memory_bytes < *launch_metadata.required_shared_bytes) {
+      result.error_message = "shared memory launch size is smaller than metadata requirement";
+      return result;
+    }
+    if (launch_metadata.block_dim_multiple.has_value() &&
+        request.config.block_dim_x % *launch_metadata.block_dim_multiple != 0) {
+      result.error_message = "block_dim_x does not satisfy metadata multiple requirement";
+      return result;
+    }
+    if (launch_metadata.max_block_dim.has_value() &&
+        request.config.block_dim_x > *launch_metadata.max_block_dim) {
+      result.error_message = "block_dim_x exceeds metadata maximum";
+      return result;
+    }
+  } catch (const std::exception& ex) {
+    result.error_message = std::string("failed to parse kernel metadata: ") + ex.what();
     return result;
   }
 

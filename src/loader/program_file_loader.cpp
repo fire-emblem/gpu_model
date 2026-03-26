@@ -92,7 +92,12 @@ ProgramImage ProgramFileLoader::LoadFromStem(const std::filesystem::path& stem) 
     const_segment = ReadBinaryFile(const_path);
   }
 
-  return ProgramImage(stem.filename().string(), ReadTextFile(asm_path), std::move(metadata),
+  std::string kernel_name = stem.filename().string();
+  if (const auto it = metadata.values.find("entry"); it != metadata.values.end()) {
+    kernel_name = it->second;
+  }
+
+  return ProgramImage(std::move(kernel_name), ReadTextFile(asm_path), std::move(metadata),
                       std::move(const_segment));
 }
 
