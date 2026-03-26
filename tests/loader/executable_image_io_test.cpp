@@ -1,0 +1,81 @@
+#include <gtest/gtest.h>
+
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
+#include <filesystem>
+#include <vector>
+
+#include "gpu_model/loader/executable_image_io.h"
+#include "gpu_model/runtime/host_runtime.h"
+
+namespace gpu_model {
+namespace {
+
+ConstSegment MakeConstSegment(const std::vector<int32_t>& values) {
+  ConstSegment segment;
+  segment.bytes.resize(values.size() * sizeof(int32_t));
+  std::memcpy(segment.bytes.data(), values.data(), segment.bytes.size());
+  return segment;
+}
+
+TEST(ExecutableImageIOTest, RoundTripsSectionedImageAndLaunchesIt) {
+  const std::filesystem::path path =
+      std::filesystem::temp_directory_path() / "gpu_model_sectioned_image.gpusec";
+  std::vector<int32_t> table(40);
+  for (uint32_t i = 0; i < table.size(); ++i) {
+    table[i] = static_cast<int32_t>(3 * i + 1);
+  }
+
+  const ProgramImage original(
+      "sectioned_const_kernel",
+      R"(
+        .meta arch=c500
+        s_load_arg s0, 0
+        s_load_arg s1, 1
+        sys_global_id_x v0
+        v_cmp_lt_cmask v0, s1
+        mask_save_exec s10
+        mask_and_exec_cmask
+        b_if_noexec exit
+        m_load_const v1, v0, 4
+        m_store_global s0, v0, v1, 4
+      exit:
+        mask_restore_exec s10
+        b_exit
+      )",
+      MetadataBlob{.values = {{"arch", "c500"}, {"format", "sectioned"}}},
+      MakeConstSegment(table));
+
+  ExecutableImageIO::Write(path, original);
+  const ProgramImage loaded = ExecutableImageIO::Read(path);
+
+  EXPECT_EQ(loaded.kernel_name(), original.kernel_name());
+  EXPECT_EQ(loaded.assembly_text(), original.assembly_text());
+  const auto format_it = loaded.metadata().values.find("format");
+  ASSERT_NE(format_it, loaded.metadata().values.end());
+  EXPECT_EQ(format_it->second, "sectioned");
+
+  HostRuntime runtime;
+  const uint64_t out_addr = runtime.memory().AllocateGlobal(table.size() * sizeof(int32_t));
+  LaunchRequest request;
+  request.arch_name.clear();
+  request.program_image = &loaded;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+  request.args.PushU64(out_addr);
+  request.args.PushU32(static_cast<uint32_t>(table.size()));
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+  for (uint32_t i = 0; i < table.size(); ++i) {
+    const int32_t actual =
+        runtime.memory().LoadGlobalValue<int32_t>(out_addr + i * sizeof(int32_t));
+    EXPECT_EQ(actual, table[i]);
+  }
+
+  std::filesystem::remove(path);
+}
+
+}  // namespace
+}  // namespace gpu_model

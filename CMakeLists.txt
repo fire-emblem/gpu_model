@@ -23,6 +23,7 @@ add_library(gpu_model STATIC
   src/isa/instruction_builder.cpp
   src/isa/kernel_program.cpp
   src/loader/asm_parser.cpp
+  src/loader/executable_image_io.cpp
   src/loader/program_bundle_io.cpp
   src/loader/program_file_loader.cpp
   src/memory/memory_system.cpp

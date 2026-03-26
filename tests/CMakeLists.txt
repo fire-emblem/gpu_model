@@ -16,6 +16,7 @@ add_executable(gpu_model_tests
   cycle/cache_cycle_test.cpp
   cycle/shared_bank_conflict_cycle_test.cpp
   loader/asm_parser_test.cpp
+  loader/executable_image_io_test.cpp
   loader/program_bundle_io_test.cpp
   loader/program_image_launch_test.cpp
   loader/program_file_loader_test.cpp
