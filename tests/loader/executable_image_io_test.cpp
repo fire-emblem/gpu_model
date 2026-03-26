@@ -6,6 +6,8 @@
 #include <filesystem>
 #include <vector>
 
+#include "gpu_model/debug/debug_info.h"
+#include "gpu_model/isa/instruction_builder.h"
 #include "gpu_model/loader/executable_image_io.h"
 #include "gpu_model/runtime/host_runtime.h"
 
@@ -73,6 +75,30 @@ TEST(ExecutableImageIOTest, RoundTripsSectionedImageAndLaunchesIt) {
         runtime.memory().LoadGlobalValue<int32_t>(out_addr + i * sizeof(int32_t));
     EXPECT_EQ(actual, table[i]);
   }
+
+  std::filesystem::remove(path);
+}
+
+TEST(ExecutableImageIOTest, RoundTripsEmbeddedDebugInfoSection) {
+  const std::filesystem::path path =
+      std::filesystem::temp_directory_path() / "gpu_model_debug_image.gpusec";
+
+  InstructionBuilder builder;
+  builder.SetNextDebugLoc("kernel.cpp", 12).SMov("s0", 1);
+  builder.Label("done");
+  builder.BExit();
+  const auto kernel = builder.Build("debug_image_kernel");
+  const auto info = KernelDebugInfo::FromKernel(kernel);
+
+  ProgramImage image("debug_image_kernel", "s_mov s0, 1\nb_exit\n");
+  ExecutableImageIO::Write(path, image, info);
+
+  const auto loaded = ExecutableImageIO::ReadDebugInfo(path);
+  ASSERT_TRUE(loaded.has_value());
+  EXPECT_EQ(loaded->kernel_name, "debug_image_kernel");
+  EXPECT_EQ(loaded->pc_to_debug_loc.at(0).file, "kernel.cpp");
+  EXPECT_EQ(loaded->pc_to_debug_loc.at(0).line, 12u);
+  EXPECT_EQ(loaded->pc_to_debug_loc.at(1).label, "done");
 
   std::filesystem::remove(path);
 }
