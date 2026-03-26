@@ -1,0 +1,20 @@
+#include "gpu_model/arch/gpu_arch_spec.h"
+
+#include <memory>
+
+namespace gpu_model::detail {
+
+std::shared_ptr<const GpuArchSpec> MakeC500Spec() {
+  auto spec = std::make_shared<GpuArchSpec>();
+  spec->name = "c500";
+  spec->wave_size = 64;
+  spec->dpc_count = 4;
+  spec->ap_per_dpc = 14;
+  spec->peu_per_ap = 4;
+  spec->max_resident_waves = 8;
+  spec->max_issuable_waves = 4;
+  spec->default_issue_cycles = 4;
+  return spec;
+}
+
+}  // namespace gpu_model::detail
