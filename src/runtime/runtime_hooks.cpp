@@ -1,9 +1,12 @@
 #include "gpu_model/runtime/runtime_hooks.h"
 
+#include <algorithm>
+#include <cstring>
 #include <filesystem>
 #include <stdexcept>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace gpu_model {
 
@@ -24,6 +27,25 @@ void RuntimeHooks::Free(uint64_t addr) {
 }
 
 void RuntimeHooks::DeviceSynchronize() const {}
+
+void RuntimeHooks::MemcpyDeviceToDevice(uint64_t dst_addr, uint64_t src_addr, size_t bytes) {
+  std::vector<std::byte> buffer(bytes);
+  runtime_->memory().ReadGlobal(src_addr, std::span<std::byte>(buffer));
+  runtime_->memory().WriteGlobal(dst_addr, std::span<const std::byte>(buffer));
+}
+
+void RuntimeHooks::MemsetD8(uint64_t addr, uint8_t value, size_t bytes) {
+  std::vector<std::byte> buffer(bytes, static_cast<std::byte>(value));
+  runtime_->memory().WriteGlobal(addr, std::span<const std::byte>(buffer));
+}
+
+void RuntimeHooks::MemsetD32(uint64_t addr, uint32_t value, size_t count) {
+  std::vector<std::byte> buffer(count * sizeof(uint32_t));
+  for (size_t i = 0; i < count; ++i) {
+    std::memcpy(buffer.data() + i * sizeof(uint32_t), &value, sizeof(uint32_t));
+  }
+  runtime_->memory().WriteGlobal(addr, std::span<const std::byte>(buffer));
+}
 
 LaunchResult RuntimeHooks::LaunchKernel(const KernelProgram& kernel,
                                         LaunchConfig config,
@@ -77,6 +99,44 @@ void RuntimeHooks::LoadProgramFileStem(std::string module_name,
 
 void RuntimeHooks::UnloadModule(const std::string& module_name) {
   modules_.erase(module_name);
+}
+
+bool RuntimeHooks::HasModule(const std::string& module_name) const {
+  return modules_.find(module_name) != modules_.end();
+}
+
+bool RuntimeHooks::HasKernel(const std::string& module_name, const std::string& kernel_name) const {
+  const auto module_it = modules_.find(module_name);
+  if (module_it == modules_.end()) {
+    return false;
+  }
+  return module_it->second.find(kernel_name) != module_it->second.end();
+}
+
+std::vector<std::string> RuntimeHooks::ListModules() const {
+  std::vector<std::string> names;
+  names.reserve(modules_.size());
+  for (const auto& [name, kernels] : modules_) {
+    (void)kernels;
+    names.push_back(name);
+  }
+  std::sort(names.begin(), names.end());
+  return names;
+}
+
+std::vector<std::string> RuntimeHooks::ListKernels(const std::string& module_name) const {
+  std::vector<std::string> names;
+  const auto module_it = modules_.find(module_name);
+  if (module_it == modules_.end()) {
+    return names;
+  }
+  names.reserve(module_it->second.size());
+  for (const auto& [name, image] : module_it->second) {
+    (void)image;
+    names.push_back(name);
+  }
+  std::sort(names.begin(), names.end());
+  return names;
 }
 
 LaunchResult RuntimeHooks::LaunchRegisteredKernel(const std::string& module_name,

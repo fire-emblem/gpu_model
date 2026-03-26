@@ -262,5 +262,54 @@ TEST(RuntimeHooksTest, LoadsBundleAndLooseFilesByModuleAndCanUnload) {
   std::filesystem::remove_all(temp_dir);
 }
 
+TEST(RuntimeHooksTest, SupportsDeviceToDeviceCopyAndMemsetOperations) {
+  RuntimeHooks hooks;
+
+  constexpr uint32_t count = 8;
+  std::vector<uint32_t> src(count);
+  for (uint32_t i = 0; i < count; ++i) {
+    src[i] = 10 + i;
+  }
+  std::vector<uint32_t> dst(count, 0);
+  std::vector<uint32_t> fill(count, 0);
+
+  const uint64_t src_addr = hooks.Malloc(count * sizeof(uint32_t));
+  const uint64_t dst_addr = hooks.Malloc(count * sizeof(uint32_t));
+  const uint64_t fill_addr = hooks.Malloc(count * sizeof(uint32_t));
+
+  hooks.MemcpyHtoD<uint32_t>(src_addr, std::span<const uint32_t>(src));
+  hooks.MemsetD8(dst_addr, 0, count * sizeof(uint32_t));
+  hooks.MemcpyDeviceToDevice(dst_addr, src_addr, count * sizeof(uint32_t));
+  hooks.MemcpyDtoH<uint32_t>(dst_addr, std::span<uint32_t>(dst));
+  EXPECT_EQ(dst, src);
+
+  hooks.MemsetD32(fill_addr, 0xdeadbeefu, count);
+  hooks.MemcpyDtoH<uint32_t>(fill_addr, std::span<uint32_t>(fill));
+  for (uint32_t value : fill) {
+    EXPECT_EQ(value, 0xdeadbeefu);
+  }
+}
+
+TEST(RuntimeHooksTest, ListsModulesAndKernels) {
+  RuntimeHooks hooks;
+  hooks.RegisterProgramImage("mod_b", ProgramImage("k2", "b_exit\n"));
+  hooks.RegisterProgramImage("mod_a", ProgramImage("k1", "b_exit\n"));
+  hooks.RegisterProgramImage("mod_a", ProgramImage("k0", "b_exit\n"));
+
+  EXPECT_TRUE(hooks.HasModule("mod_a"));
+  EXPECT_TRUE(hooks.HasKernel("mod_a", "k1"));
+  EXPECT_FALSE(hooks.HasKernel("mod_a", "missing"));
+
+  const auto modules = hooks.ListModules();
+  ASSERT_EQ(modules.size(), 2u);
+  EXPECT_EQ(modules[0], "mod_a");
+  EXPECT_EQ(modules[1], "mod_b");
+
+  const auto kernels = hooks.ListKernels("mod_a");
+  ASSERT_EQ(kernels.size(), 2u);
+  EXPECT_EQ(kernels[0], "k0");
+  EXPECT_EQ(kernels[1], "k1");
+}
+
 }  // namespace
 }  // namespace gpu_model

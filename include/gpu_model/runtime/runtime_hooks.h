@@ -3,10 +3,11 @@
 #include <bit>
 #include <cstddef>
 #include <cstdint>
+#include <string>
 #include <filesystem>
 #include <span>
-#include <string>
 #include <unordered_map>
+#include <vector>
 
 #include "gpu_model/loader/executable_image_io.h"
 #include "gpu_model/loader/program_bundle_io.h"
@@ -24,6 +25,9 @@ class RuntimeHooks {
   uint64_t Malloc(size_t bytes);
   void Free(uint64_t addr);
   void DeviceSynchronize() const;
+  void MemcpyDeviceToDevice(uint64_t dst_addr, uint64_t src_addr, size_t bytes);
+  void MemsetD8(uint64_t addr, uint8_t value, size_t bytes);
+  void MemsetD32(uint64_t addr, uint32_t value, size_t count);
 
   template <typename T>
   void MemcpyHtoD(uint64_t dst_addr, std::span<const T> values) {
@@ -53,6 +57,10 @@ class RuntimeHooks {
   void LoadExecutableImage(std::string module_name, const std::filesystem::path& path);
   void LoadProgramFileStem(std::string module_name, const std::filesystem::path& path);
   void UnloadModule(const std::string& module_name);
+  bool HasModule(const std::string& module_name) const;
+  bool HasKernel(const std::string& module_name, const std::string& kernel_name) const;
+  std::vector<std::string> ListModules() const;
+  std::vector<std::string> ListKernels(const std::string& module_name) const;
   LaunchResult LaunchRegisteredKernel(const std::string& module_name,
                                       const std::string& kernel_name,
                                       LaunchConfig config,
