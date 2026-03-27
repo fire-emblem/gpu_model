@@ -33,7 +33,10 @@ struct WaveState {
   uint64_t smask = 0;
   uint32_t thread_count = 0;
   bool valid_entry = false;
-  bool memory_wait = false;
+  uint32_t pending_global_mem_ops = 0;
+  uint32_t pending_shared_mem_ops = 0;
+  uint32_t pending_private_mem_ops = 0;
+  uint32_t pending_scalar_buffer_mem_ops = 0;
   bool branch_pending = false;
   bool waiting_at_barrier = false;
   uint64_t barrier_generation = 0;
@@ -49,7 +52,10 @@ struct WaveState {
     cmask.reset();
     smask = 0;
     valid_entry = true;
-    memory_wait = false;
+    pending_global_mem_ops = 0;
+    pending_shared_mem_ops = 0;
+    pending_private_mem_ops = 0;
+    pending_scalar_buffer_mem_ops = 0;
     branch_pending = false;
     waiting_at_barrier = false;
     barrier_generation = 0;

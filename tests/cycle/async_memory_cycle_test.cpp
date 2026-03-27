@@ -91,5 +91,71 @@ TEST(AsyncMemoryCycleTest, LoadAllowsIndependentScalarIssueBeforeArrive) {
   EXPECT_EQ(result.total_cycles, 32u);
 }
 
+TEST(AsyncMemoryCycleTest, WaitCntCanWaitForGlobalMemoryOnly) {
+  CollectingTraceSink trace;
+  HostRuntime runtime(&trace);
+  runtime.SetFixedGlobalMemoryLatency(20);
+
+  const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
+  runtime.memory().StoreGlobalValue<int32_t>(base_addr, 9);
+
+  InstructionBuilder builder;
+  builder.SMov("s0", base_addr);
+  builder.SMov("s1", 0);
+  builder.MLoadGlobal("v1", "s0", "s1", 4);
+  builder.SMov("s2", 7);
+  builder.SWaitCnt(/*global_count=*/0, /*shared_count=*/UINT32_MAX,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
+  builder.SMov("s3", 9);
+  builder.BExit();
+  const auto kernel = builder.Build("waitcnt_global_only");
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+  EXPECT_EQ(FirstWaveStepCycle(trace.events(), "m_load_global"), 8u);
+  EXPECT_EQ(FirstWaveStepCycle(trace.events(), "s_waitcnt"), 32u);
+  EXPECT_EQ(NthWaveStepCycle(trace.events(), "s_mov", 3), 36u);
+  EXPECT_EQ(result.total_cycles, 44u);
+}
+
+TEST(AsyncMemoryCycleTest, WaitCntIgnoresGlobalWhenWaitingSharedOnly) {
+  CollectingTraceSink trace;
+  HostRuntime runtime(&trace);
+  runtime.SetFixedGlobalMemoryLatency(20);
+
+  const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
+  runtime.memory().StoreGlobalValue<int32_t>(base_addr, 9);
+
+  InstructionBuilder builder;
+  builder.SMov("s0", base_addr);
+  builder.SMov("s1", 0);
+  builder.MLoadGlobal("v1", "s0", "s1", 4);
+  builder.SMov("s2", 7);
+  builder.SWaitCnt(/*global_count=*/UINT32_MAX, /*shared_count=*/0,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
+  builder.SMov("s3", 9);
+  builder.BExit();
+  const auto kernel = builder.Build("waitcnt_shared_only");
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+  EXPECT_EQ(FirstWaveStepCycle(trace.events(), "m_load_global"), 8u);
+  EXPECT_EQ(FirstWaveStepCycle(trace.events(), "s_waitcnt"), 16u);
+  EXPECT_EQ(NthWaveStepCycle(trace.events(), "s_mov", 3), 20u);
+  EXPECT_EQ(result.total_cycles, 32u);
+}
+
 }  // namespace
 }  // namespace gpu_model

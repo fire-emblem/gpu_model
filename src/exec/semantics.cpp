@@ -328,6 +328,10 @@ OpPlan Semantics::BuildPlan(const Instruction& instruction,
       plan.scalar_writes.push_back(ScalarWrite{.reg_index = dest, .value = lhs >> rhs});
       return plan;
     }
+    case Opcode::SWaitCnt: {
+      plan.wait_cnt = true;
+      return plan;
+    }
     case Opcode::SCmpLt: {
       const int64_t lhs = AsSigned(ReadScalarOperand(instruction.operands.at(0), wave));
       const int64_t rhs = AsSigned(ReadScalarOperand(instruction.operands.at(1), wave));

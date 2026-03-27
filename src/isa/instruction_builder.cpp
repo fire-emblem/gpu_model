@@ -261,6 +261,15 @@ InstructionBuilder& InstructionBuilder::SShr(std::string_view dest,
       Opcode::SShr, {ParseRegOperand(dest), ParseRegOperand(lhs), ImmediateOperand(rhs)});
 }
 
+InstructionBuilder& InstructionBuilder::SWaitCnt(uint32_t global_count,
+                                                 uint32_t shared_count,
+                                                 uint32_t private_count,
+                                                 uint32_t scalar_buffer_count) {
+  return AddInstruction(Opcode::SWaitCnt,
+                        {ImmediateOperand(global_count), ImmediateOperand(shared_count),
+                         ImmediateOperand(private_count), ImmediateOperand(scalar_buffer_count)});
+}
+
 InstructionBuilder& InstructionBuilder::SCmpLt(std::string_view lhs, std::string_view rhs) {
   return AddInstruction(Opcode::SCmpLt, {ParseRegOperand(lhs), ParseRegOperand(rhs)});
 }

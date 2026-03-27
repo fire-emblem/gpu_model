@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
+#include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -50,6 +51,88 @@ bool IsRegister(std::string_view operand) {
 
 uint64_t ParseImmediate(std::string_view text) {
   return static_cast<uint64_t>(std::stoll(std::string(text), nullptr, 0));
+}
+
+struct WaitCntThresholds {
+  uint32_t global = UINT32_MAX;
+  uint32_t shared = UINT32_MAX;
+  uint32_t private_mem = UINT32_MAX;
+  uint32_t scalar_buffer = UINT32_MAX;
+};
+
+WaitCntThresholds ParseWaitCnt(std::string_view text) {
+  WaitCntThresholds thresholds;
+  std::string body = Trim(text);
+  if (body.empty()) {
+    return thresholds;
+  }
+
+  const auto parse_named = [&](std::string_view term, std::string_view name) -> std::optional<uint32_t> {
+    const std::string trimmed = Trim(term);
+    if (trimmed.rfind(name, 0) != 0) {
+      return std::nullopt;
+    }
+    const size_t open = trimmed.find('(');
+    const size_t close = trimmed.find(')');
+    if (open == std::string::npos || close == std::string::npos || close <= open + 1) {
+      throw std::invalid_argument("invalid s_waitcnt term: " + trimmed);
+    }
+    return static_cast<uint32_t>(ParseImmediate(
+        std::string_view(trimmed).substr(open + 1, close - open - 1)));
+  };
+
+  std::vector<std::string> terms;
+  std::string current;
+  for (const char ch : body) {
+    if (ch == '&') {
+      terms.push_back(Trim(current));
+      current.clear();
+      continue;
+    }
+    current.push_back(ch);
+  }
+  if (!current.empty()) {
+    terms.push_back(Trim(current));
+  }
+
+  if (terms.size() == 4 && terms[0].find('(') == std::string::npos) {
+    thresholds.global = static_cast<uint32_t>(ParseImmediate(terms[0]));
+    thresholds.shared = static_cast<uint32_t>(ParseImmediate(terms[1]));
+    thresholds.private_mem = static_cast<uint32_t>(ParseImmediate(terms[2]));
+    thresholds.scalar_buffer = static_cast<uint32_t>(ParseImmediate(terms[3]));
+    return thresholds;
+  }
+
+  for (const auto& term : terms) {
+    if (term.empty()) {
+      continue;
+    }
+    if (const auto value = parse_named(term, "vmcnt")) {
+      thresholds.global = *value;
+      continue;
+    }
+    if (const auto value = parse_named(term, "lgkmcnt")) {
+      thresholds.shared = *value;
+      thresholds.private_mem = *value;
+      thresholds.scalar_buffer = *value;
+      continue;
+    }
+    if (const auto value = parse_named(term, "sharedcnt")) {
+      thresholds.shared = *value;
+      continue;
+    }
+    if (const auto value = parse_named(term, "privatecnt")) {
+      thresholds.private_mem = *value;
+      continue;
+    }
+    if (const auto value = parse_named(term, "scalarcnt")) {
+      thresholds.scalar_buffer = *value;
+      continue;
+    }
+    throw std::invalid_argument("unsupported s_waitcnt term: " + term);
+  }
+
+  return thresholds;
 }
 
 void RequireOperandCount(std::string_view opcode,
@@ -223,6 +306,12 @@ KernelProgram AsmParser::Parse(const ProgramImage& image) const {
       } else {
         builder.SShr(operands[0], operands[1], ParseImmediate(operands[2]));
       }
+    } else if (opcode == "s_waitcnt") {
+      const auto thresholds =
+          ParseWaitCnt(space == std::string::npos ? std::string_view{} :
+                                                     std::string_view(trimmed).substr(space + 1));
+      builder.SWaitCnt(thresholds.global, thresholds.shared, thresholds.private_mem,
+                       thresholds.scalar_buffer);
     } else if (opcode == "s_cmp_lt") {
       RequireOperandCount(opcode, operands, 2);
       if (IsRegister(operands[1])) {

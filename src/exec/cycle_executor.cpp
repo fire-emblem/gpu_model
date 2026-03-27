@@ -215,6 +215,8 @@ std::vector<ReadyRef> CollectReadRefs(const Instruction& instruction) {
       AddOperandDependency(instruction.operands.at(1), refs);
       AddOperandDependency(instruction.operands.at(2), refs);
       break;
+    case Opcode::SWaitCnt:
+      break;
     case Opcode::SCmpLt:
     case Opcode::SCmpEq:
     case Opcode::SCmpGt:
@@ -444,27 +446,134 @@ uint64_t WaveTag(const WaveState& wave) {
   return (static_cast<uint64_t>(wave.block_id) << 32) | wave.wave_id;
 }
 
-bool IsMemoryOpcode(Opcode opcode) {
+enum class MemoryWaitDomain {
+  None,
+  Global,
+  Shared,
+  Private,
+  ScalarBuffer,
+};
+
+MemoryWaitDomain MemoryDomainForOpcode(Opcode opcode) {
   switch (opcode) {
     case Opcode::MLoadGlobal:
     case Opcode::MStoreGlobal:
     case Opcode::MAtomicAddGlobal:
+      return MemoryWaitDomain::Global;
     case Opcode::MLoadShared:
     case Opcode::MStoreShared:
     case Opcode::MAtomicAddShared:
+      return MemoryWaitDomain::Shared;
     case Opcode::MLoadPrivate:
     case Opcode::MStorePrivate:
+      return MemoryWaitDomain::Private;
     case Opcode::MLoadConst:
-      return true;
+      return MemoryWaitDomain::ScalarBuffer;
     default:
-      return false;
+      return MemoryWaitDomain::None;
   }
+}
+
+struct WaitCntThresholds {
+  uint32_t global = UINT32_MAX;
+  uint32_t shared = UINT32_MAX;
+  uint32_t private_mem = UINT32_MAX;
+  uint32_t scalar_buffer = UINT32_MAX;
+};
+
+uint32_t PendingMemoryOpsForDomain(const WaveState& wave, MemoryWaitDomain domain) {
+  switch (domain) {
+    case MemoryWaitDomain::Global:
+      return wave.pending_global_mem_ops;
+    case MemoryWaitDomain::Shared:
+      return wave.pending_shared_mem_ops;
+    case MemoryWaitDomain::Private:
+      return wave.pending_private_mem_ops;
+    case MemoryWaitDomain::ScalarBuffer:
+      return wave.pending_scalar_buffer_mem_ops;
+    case MemoryWaitDomain::None:
+      return 0;
+  }
+  return 0;
+}
+
+void IncrementPendingMemoryOps(WaveState& wave, MemoryWaitDomain domain) {
+  switch (domain) {
+    case MemoryWaitDomain::Global:
+      ++wave.pending_global_mem_ops;
+      return;
+    case MemoryWaitDomain::Shared:
+      ++wave.pending_shared_mem_ops;
+      return;
+    case MemoryWaitDomain::Private:
+      ++wave.pending_private_mem_ops;
+      return;
+    case MemoryWaitDomain::ScalarBuffer:
+      ++wave.pending_scalar_buffer_mem_ops;
+      return;
+    case MemoryWaitDomain::None:
+      return;
+  }
+}
+
+void DecrementPendingMemoryOps(WaveState& wave, MemoryWaitDomain domain) {
+  switch (domain) {
+    case MemoryWaitDomain::Global:
+      if (wave.pending_global_mem_ops > 0) {
+        --wave.pending_global_mem_ops;
+      }
+      return;
+    case MemoryWaitDomain::Shared:
+      if (wave.pending_shared_mem_ops > 0) {
+        --wave.pending_shared_mem_ops;
+      }
+      return;
+    case MemoryWaitDomain::Private:
+      if (wave.pending_private_mem_ops > 0) {
+        --wave.pending_private_mem_ops;
+      }
+      return;
+    case MemoryWaitDomain::ScalarBuffer:
+      if (wave.pending_scalar_buffer_mem_ops > 0) {
+        --wave.pending_scalar_buffer_mem_ops;
+      }
+      return;
+    case MemoryWaitDomain::None:
+      return;
+  }
+}
+
+WaitCntThresholds WaitCntThresholdsForInstruction(const Instruction& instruction) {
+  WaitCntThresholds thresholds;
+  if (instruction.opcode != Opcode::SWaitCnt) {
+    return thresholds;
+  }
+  thresholds.global = static_cast<uint32_t>(instruction.operands.at(0).immediate);
+  thresholds.shared = static_cast<uint32_t>(instruction.operands.at(1).immediate);
+  thresholds.private_mem = static_cast<uint32_t>(instruction.operands.at(2).immediate);
+  thresholds.scalar_buffer = static_cast<uint32_t>(instruction.operands.at(3).immediate);
+  return thresholds;
+}
+
+bool WaitCntSatisfied(const WaveState& wave, const Instruction& instruction) {
+  if (instruction.opcode != Opcode::SWaitCnt) {
+    return true;
+  }
+  const auto thresholds = WaitCntThresholdsForInstruction(instruction);
+  return wave.pending_global_mem_ops <= thresholds.global &&
+         wave.pending_shared_mem_ops <= thresholds.shared &&
+         wave.pending_private_mem_ops <= thresholds.private_mem &&
+         wave.pending_scalar_buffer_mem_ops <= thresholds.scalar_buffer;
 }
 
 bool CanIssueInstruction(const ScheduledWave& scheduled_wave, const Instruction& instruction) {
   const auto& wave = scheduled_wave.wave;
+  const MemoryWaitDomain memory_domain = MemoryDomainForOpcode(instruction.opcode);
   return scheduled_wave.dispatch_enabled && wave.status == WaveStatus::Active && wave.valid_entry &&
-         (!wave.memory_wait || !IsMemoryOpcode(instruction.opcode)) && !wave.branch_pending &&
+         (memory_domain == MemoryWaitDomain::None ||
+          PendingMemoryOpsForDomain(wave, memory_domain) == 0) &&
+         WaitCntSatisfied(wave, instruction) &&
+         !wave.branch_pending &&
          !wave.waiting_at_barrier;
 }
 
@@ -695,7 +804,7 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
       wave.status = WaveStatus::Stalled;
       wave.valid_entry = false;
       if (plan.memory.has_value()) {
-        wave.memory_wait = true;
+        IncrementPendingMemoryOps(wave, MemoryDomainForOpcode(instruction.opcode));
       }
       if (instruction.opcode == Opcode::BBranch || instruction.opcode == Opcode::BIfSmask ||
           instruction.opcode == Opcode::BIfNoexec) {
@@ -868,7 +977,7 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                                   .message = request.kind == AccessKind::Load ? "load_arrive"
                                                                               : "store_arrive",
                               });
-                              candidate->wave.memory_wait = false;
+                              DecrementPendingMemoryOps(candidate->wave, MemoryWaitDomain::Global);
                               candidate->wave.valid_entry = true;
                               if (candidate->wave.status != WaveStatus::Exited &&
                                   !candidate->wave.waiting_at_barrier) {
@@ -928,7 +1037,7 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                               } else if (advance_pc) {
                                 ++candidate->wave.pc;
                               }
-                              candidate->wave.memory_wait = false;
+                              DecrementPendingMemoryOps(candidate->wave, MemoryWaitDomain::Shared);
                               candidate->wave.valid_entry = true;
                               candidate->wave.status = WaveStatus::Active;
                             },
@@ -958,7 +1067,7 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                         }
                       }
                     }
-                    candidate->wave.memory_wait = false;
+                    DecrementPendingMemoryOps(candidate->wave, MemoryWaitDomain::Private);
                     candidate->wave.valid_entry = true;
                   } else if (request.space == MemorySpace::Constant) {
                     if (!request.dst.has_value()) {
@@ -973,7 +1082,7 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                     }
                     candidate->scoreboard.MarkReady(
                         VectorRef(request.dst->index), commit_cycle);
-                    candidate->wave.memory_wait = false;
+                    DecrementPendingMemoryOps(candidate->wave, MemoryWaitDomain::ScalarBuffer);
                     candidate->wave.valid_entry = true;
                   } else {
                     throw std::invalid_argument("unsupported memory space in cycle executor");

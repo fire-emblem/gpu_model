@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "gpu_model/isa/opcode.h"
 #include "gpu_model/loader/asm_parser.h"
 #include "gpu_model/runtime/host_runtime.h"
 
@@ -86,6 +87,25 @@ TEST(AsmParserTest, LaunchesParsedVecAddKernelFunctionally) {
         runtime.memory().LoadGlobalValue<int32_t>(c_addr + i * sizeof(int32_t));
     EXPECT_EQ(actual, static_cast<int32_t>(10 + 2 * static_cast<int32_t>(i)));
   }
+}
+
+TEST(AsmParserTest, ParsesWaitCntAssemblySyntax) {
+  ProgramImage image(
+      "waitcnt_asm",
+      R"(
+        .meta arch=c500
+        s_waitcnt vmcnt(0) & lgkmcnt(1)
+        b_exit
+      )");
+
+  const auto kernel = AsmParser{}.Parse(image);
+  ASSERT_EQ(kernel.instructions().size(), 2u);
+  EXPECT_EQ(kernel.instructions()[0].opcode, Opcode::SWaitCnt);
+  ASSERT_EQ(kernel.instructions()[0].operands.size(), 4u);
+  EXPECT_EQ(kernel.instructions()[0].operands[0].immediate, 0u);
+  EXPECT_EQ(kernel.instructions()[0].operands[1].immediate, 1u);
+  EXPECT_EQ(kernel.instructions()[0].operands[2].immediate, 1u);
+  EXPECT_EQ(kernel.instructions()[0].operands[3].immediate, 1u);
 }
 
 }  // namespace

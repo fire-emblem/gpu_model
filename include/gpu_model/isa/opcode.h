@@ -29,6 +29,7 @@ enum class Opcode {
   SXor,
   SShl,
   SShr,
+  SWaitCnt,
   SCmpLt,
   SCmpEq,
   SCmpGt,
@@ -122,6 +123,8 @@ inline std::string_view ToString(Opcode opcode) {
       return "s_shl";
     case Opcode::SShr:
       return "s_shr";
+    case Opcode::SWaitCnt:
+      return "s_waitcnt";
     case Opcode::SCmpLt:
       return "s_cmp_lt";
     case Opcode::SCmpEq:

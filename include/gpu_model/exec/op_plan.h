@@ -27,6 +27,7 @@ struct OpPlan {
   bool exit_wave = false;
   bool sync_barrier = false;
   bool sync_wave_barrier = false;
+  bool wait_cnt = false;
   std::optional<uint64_t> branch_target;
   std::vector<ScalarWrite> scalar_writes;
   std::vector<VectorWrite> vector_writes;

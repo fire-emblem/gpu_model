@@ -51,6 +51,10 @@ class InstructionBuilder {
   InstructionBuilder& SShl(std::string_view dest, std::string_view lhs, uint64_t rhs);
   InstructionBuilder& SShr(std::string_view dest, std::string_view lhs, std::string_view rhs);
   InstructionBuilder& SShr(std::string_view dest, std::string_view lhs, uint64_t rhs);
+  InstructionBuilder& SWaitCnt(uint32_t global_count,
+                               uint32_t shared_count,
+                               uint32_t private_count,
+                               uint32_t scalar_buffer_count);
   InstructionBuilder& SCmpLt(std::string_view lhs, std::string_view rhs);
   InstructionBuilder& SCmpLt(std::string_view lhs, uint64_t rhs);
   InstructionBuilder& SCmpEq(std::string_view lhs, std::string_view rhs);
