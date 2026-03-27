@@ -3,6 +3,7 @@ add_executable(gpu_model_tests
   exec/issue_model_test.cpp
   exec/issue_eligibility_test.cpp
   exec/issue_scheduler_test.cpp
+  exec/semantic_handler_test.cpp
   isa/kernel_program_test.cpp
   isa/opcode_descriptor_test.cpp
   isa/target_isa_test.cpp

@@ -37,14 +37,6 @@ class Semantics {
   OpPlan BuildPlan(const Instruction& instruction,
                    const WaveState& wave,
                    const ExecutionContext& context) const;
-
- private:
-  uint64_t ReadScalarOperand(const Operand& operand, const WaveState& wave) const;
-  uint64_t ReadVectorLaneOperand(const Operand& operand,
-                                 const WaveState& wave,
-                                 uint32_t lane) const;
-  std::bitset<64> ThreadMask(const WaveState& wave) const;
-  std::array<uint64_t, 64> BroadcastScalar(const WaveState& wave, uint64_t value) const;
 };
 
 }  // namespace gpu_model

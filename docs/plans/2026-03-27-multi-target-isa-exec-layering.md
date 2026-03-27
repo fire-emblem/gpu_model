@@ -105,12 +105,15 @@ Files:
 
 - [opcode_execution_info.h](/data/gpu_model/include/gpu_model/exec/opcode_execution_info.h)
 - [opcode_execution_info.cpp](/data/gpu_model/src/exec/opcode_execution_info.cpp)
+- [semantic_handler.h](/data/gpu_model/include/gpu_model/exec/semantic_handler.h)
+- [semantic_handlers.cpp](/data/gpu_model/src/exec/semantic_handlers.cpp)
 
 Role:
 
 - classify canonical opcodes by semantic family
 - expose architectural issue type in one place
 - provide flags needed by future family-based execution dispatch
+- dispatch execution semantics through handler base classes and derived handlers
 
 Current semantic families:
 
@@ -127,6 +130,33 @@ Current semantic families:
 - branch
 - sync
 - special
+
+Current execution dispatch rule:
+
+- [`semantics.cpp`](/data/gpu_model/src/exec/semantics.cpp) no longer owns the full opcode-by-opcode
+  behavior table directly
+- top-level plan construction now resolves:
+  - semantic family
+  - registered handler
+  - handler-local build logic
+- handlers are registered through a configuration list rather than a central `switch`
+
+Current handlers:
+
+- builtin handler
+- scalar ALU handler
+- scalar compare and scalar-memory handler
+- vector ALU and compare handlers
+- vector memory and LDS handler
+- mask handler
+- branch handler
+- sync/special handler
+
+Current migration note:
+
+- handler internals still use family-local opcode branching
+- this is an intermediate step that removes the single monolithic `Semantics::BuildPlan`
+  switch and creates the extension seam for future family refinement
 
 ## New Canonical Address-Based Global Memory Path
 
