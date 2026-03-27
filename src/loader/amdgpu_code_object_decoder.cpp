@@ -48,7 +48,8 @@ std::string ShellQuote(const std::string& text) {
 std::string RunCommand(std::string command) {
   std::array<char, 4096> buffer{};
   std::string output;
-  FILE* pipe = popen(command.c_str(), "r");
+  const std::string wrapped = "env -u LD_PRELOAD " + command;
+  FILE* pipe = popen(wrapped.c_str(), "r");
   if (pipe == nullptr) {
     throw std::runtime_error("failed to execute command: " + command);
   }
@@ -221,9 +222,6 @@ RawGcnInstruction ParseInstructionLine(const std::string& line) {
   instruction.words = ParseRawWords(line);
   instruction.size_bytes = static_cast<uint32_t>(instruction.words.size() * sizeof(uint32_t));
   instruction.format_class = ClassifyGcnInstFormat(instruction.words);
-  if (const auto* def = FindGcnInstEncodingDef(instruction.words)) {
-    instruction.mnemonic = std::string(def->mnemonic);
-  }
   DecodeGcnOperands(instruction);
   return instruction;
 }

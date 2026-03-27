@@ -48,7 +48,8 @@ std::string ShellQuote(const std::string& text) {
 std::string RunCommand(std::string command) {
   std::array<char, 4096> buffer{};
   std::string output;
-  FILE* pipe = popen(command.c_str(), "r");
+  const std::string wrapped = "env -u LD_PRELOAD " + command;
+  FILE* pipe = popen(wrapped.c_str(), "r");
   if (pipe == nullptr) {
     throw std::runtime_error("failed to execute command: " + command);
   }
@@ -311,8 +312,11 @@ ProgramImage DecodeAmdgpuElfToProgramImage(const std::filesystem::path& path,
 
   metadata.values["entry"] = selected;
   PopulateMetadataFromNotes(path, selected, metadata);
+  if (metadata.values.find("artifact_path") == metadata.values.end()) {
+    metadata.values["artifact_path"] = path.string();
+  }
   if (metadata.values.find("target_isa") == metadata.values.end()) {
-    SetTargetIsa(metadata, TargetIsa::GcnAsm);
+    SetTargetIsa(metadata, TargetIsa::GcnRawAsm);
   }
   return ProgramImage(selected, asm_text.str(), std::move(metadata));
 }
@@ -358,7 +362,7 @@ ProgramImage LoadFromHipFatbinHostElf(const std::filesystem::path& path,
   metadata.values["bundle_target"] = bundle_target;
   metadata.values["loader_source"] = "hip_fatbin";
   metadata.values["artifact_path"] = path.string();
-  SetTargetIsa(metadata, TargetIsa::GcnAsm);
+  SetTargetIsa(metadata, TargetIsa::GcnRawAsm);
   return DecodeAmdgpuElfToProgramImage(device_path, std::move(kernel_name), std::move(metadata));
 }
 

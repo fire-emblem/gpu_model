@@ -33,26 +33,27 @@ const std::vector<GcnInstEncodingDef>& EncodingDefs() {
   return kDefs;
 }
 
-uint32_t ExtractOp(const GcnInstLayout& layout, GcnInstFormatClass format_class) {
+uint32_t ExtractOp(const std::vector<uint32_t>& words, GcnInstFormatClass format_class) {
+  const uint32_t low = words.empty() ? 0u : words[0];
   switch (format_class) {
     case GcnInstFormatClass::Sopp:
-      return layout.sopp.op;
+      return (low >> 16u) & 0x7fu;
     case GcnInstFormatClass::Smrd:
-      return layout.smrd.op;
+      return (low >> 22u) & 0x1fu;
     case GcnInstFormatClass::Sop2:
-      return layout.sop2.op;
+      return (low >> 23u) & 0x7fu;
     case GcnInstFormatClass::Vop2:
-      return layout.vop2.op;
+      return (low >> 25u) & 0x3fu;
     case GcnInstFormatClass::Vopc:
-      return layout.vopc.op;
+      return (low >> 17u) & 0xffu;
     case GcnInstFormatClass::Sop1:
-      return layout.sop1.op;
+      return (low >> 8u) & 0xffu;
     case GcnInstFormatClass::Vop1:
-      return layout.vop1.op;
+      return (low >> 9u) & 0xffu;
     case GcnInstFormatClass::Vop3a:
-      return (layout.words.low >> 17u) & 0x1ffu;
+      return (low >> 17u) & 0x1ffu;
     case GcnInstFormatClass::Flat:
-      return (layout.words.low >> 18u) & 0x7fu;
+      return (low >> 18u) & 0x7fu;
     default:
       return 0xffffffffu;
   }
@@ -301,8 +302,7 @@ void DecodeGcnOperands(RawGcnInstruction& instruction) {
 
 const GcnInstEncodingDef* FindGcnInstEncodingDef(const std::vector<uint32_t>& words) {
   const auto format_class = ClassifyGcnInstFormat(words);
-  const auto layout = MakeGcnInstLayout(words);
-  const uint32_t op = ExtractOp(layout, format_class);
+  const uint32_t op = ExtractOp(words, format_class);
   for (const auto& def : EncodingDefs()) {
     if (def.format_class == format_class && def.op == op &&
         def.size_bytes == static_cast<uint32_t>(words.size() * sizeof(uint32_t))) {

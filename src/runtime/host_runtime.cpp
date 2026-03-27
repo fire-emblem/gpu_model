@@ -6,8 +6,11 @@
 #include "gpu_model/arch/arch_registry.h"
 #include "gpu_model/exec/cycle_executor.h"
 #include "gpu_model/exec/functional_executor.h"
+#include "gpu_model/exec/raw_gcn_executor.h"
 #include "gpu_model/isa/kernel_metadata.h"
 #include "gpu_model/isa/kernel_program.h"
+#include "gpu_model/isa/target_isa.h"
+#include "gpu_model/loader/amdgpu_code_object_decoder.h"
 #include "gpu_model/loader/program_lowering.h"
 
 namespace gpu_model {
@@ -79,11 +82,24 @@ LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
 
   KernelProgram parsed_kernel;
   const KernelProgram* kernel = request.kernel;
+  AmdgpuCodeObjectImage raw_code_object;
+  bool use_raw_gcn_executor = false;
   if (kernel == nullptr && request.program_image != nullptr) {
-    parsed_kernel = ProgramLoweringRegistry::Lower(*request.program_image);
-    kernel = &parsed_kernel;
+    const auto target_isa = ResolveTargetIsa(request.program_image->metadata());
+    if (target_isa == TargetIsa::GcnRawAsm) {
+      const auto path_it = request.program_image->metadata().values.find("artifact_path");
+      if (path_it == request.program_image->metadata().values.end()) {
+        result.error_message = "raw GCN program image missing artifact_path metadata";
+        return result;
+      }
+      raw_code_object = AmdgpuCodeObjectDecoder{}.Decode(path_it->second, request.program_image->kernel_name());
+      use_raw_gcn_executor = true;
+    } else {
+      parsed_kernel = ProgramLoweringRegistry::Lower(*request.program_image);
+      kernel = &parsed_kernel;
+    }
   }
-  if (kernel == nullptr) {
+  if (kernel == nullptr && !use_raw_gcn_executor) {
     result.error_message = "launch request missing kernel or program image";
     return result;
   }
@@ -93,21 +109,28 @@ LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
     return result;
   }
 
+  const MetadataBlob& launch_metadata_source =
+      use_raw_gcn_executor ? raw_code_object.metadata
+                           : (request.program_image != nullptr && kernel == nullptr
+                                  ? request.program_image->metadata()
+                                  : kernel->metadata());
+
   try {
-    const auto launch_metadata = ParseKernelLaunchMetadata(kernel->metadata());
+    const auto launch_metadata = ParseKernelLaunchMetadata(launch_metadata_source);
     if (launch_metadata.arch.has_value() && *launch_metadata.arch != spec->name) {
       result.error_message =
           "kernel metadata arch does not match selected architecture";
       return result;
     }
-    if (launch_metadata.entry.has_value() && *launch_metadata.entry != kernel->name()) {
+    const std::string kernel_name = use_raw_gcn_executor ? raw_code_object.kernel_name : kernel->name();
+    if (launch_metadata.entry.has_value() && *launch_metadata.entry != kernel_name) {
       result.error_message = "kernel metadata entry does not match kernel name";
       return result;
     }
     if (!launch_metadata.module_kernels.empty()) {
       const bool found = std::find(launch_metadata.module_kernels.begin(),
                                    launch_metadata.module_kernels.end(),
-                                   kernel->name()) != launch_metadata.module_kernels.end();
+                                   kernel_name) != launch_metadata.module_kernels.end();
       if (!found) {
         result.error_message = "kernel name is not present in module_kernels metadata";
         return result;
@@ -149,7 +172,8 @@ LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
     trace.OnEvent(TraceEvent{
         .kind = TraceEventKind::Launch,
         .cycle = result.submit_cycle,
-        .message = "kernel=" + kernel->name() + " arch=" + spec->name,
+        .message = "kernel=" + (use_raw_gcn_executor ? raw_code_object.kernel_name : kernel->name()) +
+                   " arch=" + spec->name,
     });
 
     result.placement = Mapper::Place(*spec, request.config);
@@ -182,9 +206,19 @@ LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
     };
 
     if (request.mode == ExecutionMode::Functional) {
-      FunctionalExecutor executor;
-      result.total_cycles = executor.Run(context);
-      result.end_cycle = result.total_cycles;
+      if (use_raw_gcn_executor) {
+        const auto raw_result =
+            RawGcnExecutor{}.Run(raw_code_object, *spec, request.config, request.args, memory_, trace);
+        result.ok = raw_result.ok;
+        result.error_message = raw_result.error_message;
+        result.total_cycles = raw_result.total_cycles;
+        result.end_cycle = raw_result.end_cycle;
+        result.stats = raw_result.stats;
+      } else {
+        FunctionalExecutor executor;
+        result.total_cycles = executor.Run(context);
+        result.end_cycle = result.total_cycles;
+      }
     } else if (request.mode == ExecutionMode::Cycle) {
       context.cycle = result.begin_cycle;
       CycleExecutor executor(ResolveCycleTimingConfig(*spec));
@@ -197,7 +231,9 @@ LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
       return result;
     }
 
-    result.ok = true;
+    if (!use_raw_gcn_executor || result.error_message.empty()) {
+      result.ok = true;
+    }
   } catch (const std::exception& ex) {
     result.error_message = ex.what();
     result.ok = false;
