@@ -1,0 +1,151 @@
+Running main() from /data/gpu_model/build/_deps/googletest-src/googletest/src/gtest_main.cc
+Note: Google Test filter = RequestedShapes/*:RequestedThreadScales/*
+[==========] Running 66 tests from 4 test suites.
+[----------] Global test environment set-up.
+[----------] 24 tests from RequestedShapes/VecAddScalingTest
+[ RUN      ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/0
+[       OK ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/0 (0 ms)
+[ RUN      ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/1
+[       OK ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/1 (7 ms)
+[ RUN      ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/2
+[       OK ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/2 (11 ms)
+[ RUN      ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/3
+[       OK ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/3 (117 ms)
+[ RUN      ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/4
+[       OK ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/4 (0 ms)
+[ RUN      ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/5
+[       OK ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/5 (39 ms)
+[ RUN      ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/6
+[       OK ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/6 (63 ms)
+[ RUN      ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/7
+[       OK ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/7 (624 ms)
+[ RUN      ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/8
+[       OK ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/8 (0 ms)
+[ RUN      ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/9
+[       OK ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/9 (41 ms)
+[ RUN      ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/10
+[       OK ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/10 (66 ms)
+[ RUN      ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/11
+[       OK ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/11 (658 ms)
+[ RUN      ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/12
+[       OK ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/12 (0 ms)
+[ RUN      ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/13
+[       OK ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/13 (48 ms)
+[ RUN      ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/14
+[       OK ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/14 (78 ms)
+[ RUN      ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/15
+[       OK ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/15 (775 ms)
+[ RUN      ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/16
+[       OK ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/16 (1 ms)
+[ RUN      ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/17
+[       OK ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/17 (82 ms)
+[ RUN      ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/18
+[       OK ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/18 (134 ms)
+[ RUN      ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/19
+[       OK ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/19 (1316 ms)
+[ RUN      ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/20
+[       OK ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/20 (10 ms)
+[ RUN      ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/21
+[       OK ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/21 (655 ms)
+[ RUN      ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/22
+[       OK ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/22 (1069 ms)
+[ RUN      ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/23
+[       OK ] RequestedShapes/VecAddScalingTest.CoversRequestedBlockAndThreadCounts/23 (10592 ms)
+[----------] 24 tests from RequestedShapes/VecAddScalingTest (16399 ms total)
+
+[----------] 24 tests from RequestedShapes/FmaScalingTest
+[ RUN      ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/0
+[       OK ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/0 (0 ms)
+[ RUN      ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/1
+[       OK ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/1 (13 ms)
+[ RUN      ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/2
+[       OK ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/2 (23 ms)
+[ RUN      ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/3
+[       OK ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/3 (237 ms)
+[ RUN      ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/4
+[       OK ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/4 (1 ms)
+[ RUN      ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/5
+[       OK ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/5 (62 ms)
+[ RUN      ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/6
+[       OK ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/6 (101 ms)
+[ RUN      ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/7
+[       OK ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/7 (999 ms)
+[ RUN      ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/8
+[       OK ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/8 (1 ms)
+[ RUN      ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/9
+[       OK ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/9 (65 ms)
+[ RUN      ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/10
+[       OK ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/10 (106 ms)
+[ RUN      ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/11
+[       OK ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/11 (1048 ms)
+[ RUN      ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/12
+[       OK ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/12 (1 ms)
+[ RUN      ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/13
+[       OK ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/13 (80 ms)
+[ RUN      ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/14
+[       OK ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/14 (130 ms)
+[ RUN      ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/15
+[       OK ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/15 (1286 ms)
+[ RUN      ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/16
+[       OK ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/16 (2 ms)
+[ RUN      ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/17
+[       OK ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/17 (130 ms)
+[ RUN      ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/18
+[       OK ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/18 (214 ms)
+[ RUN      ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/19
+[       OK ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/19 (2094 ms)
+[ RUN      ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/20
+[       OK ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/20 (16 ms)
+[ RUN      ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/21
+[       OK ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/21 (1052 ms)
+[ RUN      ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/22
+[       OK ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/22 (1705 ms)
+[ RUN      ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/23
+[       OK ] RequestedShapes/FmaScalingTest.CoversRequestedBlockAndThreadCounts/23 (16742 ms)
+[----------] 24 tests from RequestedShapes/FmaScalingTest (26117 ms total)
+
+[----------] 9 tests from RequestedThreadScales/VecAddCycleScalingTest
+[ RUN      ] RequestedThreadScales/VecAddCycleScalingTest.ProducesCorrectOutputAcrossRequestedScales/0
+[       OK ] RequestedThreadScales/VecAddCycleScalingTest.ProducesCorrectOutputAcrossRequestedScales/0 (0 ms)
+[ RUN      ] RequestedThreadScales/VecAddCycleScalingTest.ProducesCorrectOutputAcrossRequestedScales/1
+[       OK ] RequestedThreadScales/VecAddCycleScalingTest.ProducesCorrectOutputAcrossRequestedScales/1 (0 ms)
+[ RUN      ] RequestedThreadScales/VecAddCycleScalingTest.ProducesCorrectOutputAcrossRequestedScales/2
+[       OK ] RequestedThreadScales/VecAddCycleScalingTest.ProducesCorrectOutputAcrossRequestedScales/2 (0 ms)
+[ RUN      ] RequestedThreadScales/VecAddCycleScalingTest.ProducesCorrectOutputAcrossRequestedScales/3
+[       OK ] RequestedThreadScales/VecAddCycleScalingTest.ProducesCorrectOutputAcrossRequestedScales/3 (0 ms)
+[ RUN      ] RequestedThreadScales/VecAddCycleScalingTest.ProducesCorrectOutputAcrossRequestedScales/4
+[       OK ] RequestedThreadScales/VecAddCycleScalingTest.ProducesCorrectOutputAcrossRequestedScales/4 (1 ms)
+[ RUN      ] RequestedThreadScales/VecAddCycleScalingTest.ProducesCorrectOutputAcrossRequestedScales/5
+[       OK ] RequestedThreadScales/VecAddCycleScalingTest.ProducesCorrectOutputAcrossRequestedScales/5 (5 ms)
+[ RUN      ] RequestedThreadScales/VecAddCycleScalingTest.ProducesCorrectOutputAcrossRequestedScales/6
+[       OK ] RequestedThreadScales/VecAddCycleScalingTest.ProducesCorrectOutputAcrossRequestedScales/6 (22 ms)
+[ RUN      ] RequestedThreadScales/VecAddCycleScalingTest.ProducesCorrectOutputAcrossRequestedScales/7
+[       OK ] RequestedThreadScales/VecAddCycleScalingTest.ProducesCorrectOutputAcrossRequestedScales/7 (34 ms)
+[ RUN      ] RequestedThreadScales/VecAddCycleScalingTest.ProducesCorrectOutputAcrossRequestedScales/8
+[       OK ] RequestedThreadScales/VecAddCycleScalingTest.ProducesCorrectOutputAcrossRequestedScales/8 (339 ms)
+[----------] 9 tests from RequestedThreadScales/VecAddCycleScalingTest (406 ms total)
+
+[----------] 9 tests from RequestedThreadScales/FmaCycleScalingTest
+[ RUN      ] RequestedThreadScales/FmaCycleScalingTest.ProducesCorrectOutputAcrossRequestedScales/0
+[       OK ] RequestedThreadScales/FmaCycleScalingTest.ProducesCorrectOutputAcrossRequestedScales/0 (0 ms)
+[ RUN      ] RequestedThreadScales/FmaCycleScalingTest.ProducesCorrectOutputAcrossRequestedScales/1
+[       OK ] RequestedThreadScales/FmaCycleScalingTest.ProducesCorrectOutputAcrossRequestedScales/1 (0 ms)
+[ RUN      ] RequestedThreadScales/FmaCycleScalingTest.ProducesCorrectOutputAcrossRequestedScales/2
+[       OK ] RequestedThreadScales/FmaCycleScalingTest.ProducesCorrectOutputAcrossRequestedScales/2 (1 ms)
+[ RUN      ] RequestedThreadScales/FmaCycleScalingTest.ProducesCorrectOutputAcrossRequestedScales/3
+[       OK ] RequestedThreadScales/FmaCycleScalingTest.ProducesCorrectOutputAcrossRequestedScales/3 (1 ms)
+[ RUN      ] RequestedThreadScales/FmaCycleScalingTest.ProducesCorrectOutputAcrossRequestedScales/4
+[       OK ] RequestedThreadScales/FmaCycleScalingTest.ProducesCorrectOutputAcrossRequestedScales/4 (1 ms)
+[ RUN      ] RequestedThreadScales/FmaCycleScalingTest.ProducesCorrectOutputAcrossRequestedScales/5
+[       OK ] RequestedThreadScales/FmaCycleScalingTest.ProducesCorrectOutputAcrossRequestedScales/5 (6 ms)
+[ RUN      ] RequestedThreadScales/FmaCycleScalingTest.ProducesCorrectOutputAcrossRequestedScales/6
+[       OK ] RequestedThreadScales/FmaCycleScalingTest.ProducesCorrectOutputAcrossRequestedScales/6 (27 ms)
+[ RUN      ] RequestedThreadScales/FmaCycleScalingTest.ProducesCorrectOutputAcrossRequestedScales/7
+[       OK ] RequestedThreadScales/FmaCycleScalingTest.ProducesCorrectOutputAcrossRequestedScales/7 (41 ms)
+[ RUN      ] RequestedThreadScales/FmaCycleScalingTest.ProducesCorrectOutputAcrossRequestedScales/8
+[       OK ] RequestedThreadScales/FmaCycleScalingTest.ProducesCorrectOutputAcrossRequestedScales/8 (405 ms)
+[----------] 9 tests from RequestedThreadScales/FmaCycleScalingTest (486 ms total)
+
+[----------] Global test environment tear-down
+[==========] 66 tests from 4 test suites ran. (43411 ms total)
+[  PASSED  ] 66 tests.
