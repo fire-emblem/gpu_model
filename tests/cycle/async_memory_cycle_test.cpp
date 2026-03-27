@@ -60,7 +60,7 @@ TEST(AsyncMemoryCycleTest, LoadUsesIssuePlusArriveLatency) {
   EXPECT_EQ(FirstWaveStepCycle(trace.events(), "v_add"), 32u);
 }
 
-TEST(AsyncMemoryCycleTest, LoadBlocksWaveIssueUntilArriveEvenForIndependentOp) {
+TEST(AsyncMemoryCycleTest, LoadAllowsIndependentScalarIssueBeforeArrive) {
   CollectingTraceSink trace;
   HostRuntime runtime(&trace);
   runtime.SetFixedGlobalMemoryLatency(20);
@@ -87,8 +87,8 @@ TEST(AsyncMemoryCycleTest, LoadBlocksWaveIssueUntilArriveEvenForIndependentOp) {
   EXPECT_EQ(NthWaveStepCycle(trace.events(), "s_mov", 0), 0u);
   EXPECT_EQ(NthWaveStepCycle(trace.events(), "s_mov", 1), 4u);
   EXPECT_EQ(FirstWaveStepCycle(trace.events(), "m_load_global"), 8u);
-  EXPECT_EQ(NthWaveStepCycle(trace.events(), "s_mov", 2), 32u);
-  EXPECT_EQ(result.total_cycles, 40u);
+  EXPECT_EQ(NthWaveStepCycle(trace.events(), "s_mov", 2), 12u);
+  EXPECT_EQ(result.total_cycles, 32u);
 }
 
 }  // namespace

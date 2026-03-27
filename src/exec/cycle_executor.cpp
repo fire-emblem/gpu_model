@@ -444,10 +444,28 @@ uint64_t WaveTag(const WaveState& wave) {
   return (static_cast<uint64_t>(wave.block_id) << 32) | wave.wave_id;
 }
 
-bool CanIssueWave(const ScheduledWave& scheduled_wave) {
+bool IsMemoryOpcode(Opcode opcode) {
+  switch (opcode) {
+    case Opcode::MLoadGlobal:
+    case Opcode::MStoreGlobal:
+    case Opcode::MAtomicAddGlobal:
+    case Opcode::MLoadShared:
+    case Opcode::MStoreShared:
+    case Opcode::MAtomicAddShared:
+    case Opcode::MLoadPrivate:
+    case Opcode::MStorePrivate:
+    case Opcode::MLoadConst:
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool CanIssueInstruction(const ScheduledWave& scheduled_wave, const Instruction& instruction) {
   const auto& wave = scheduled_wave.wave;
   return scheduled_wave.dispatch_enabled && wave.status == WaveStatus::Active && wave.valid_entry &&
-         !wave.memory_wait && !wave.branch_pending && !wave.waiting_at_barrier;
+         (!wave.memory_wait || !IsMemoryOpcode(instruction.opcode)) && !wave.branch_pending &&
+         !wave.waiting_at_barrier;
 }
 
 void ScheduleWaveLaunch(ScheduledWave& scheduled_wave,
@@ -526,7 +544,8 @@ void FillDispatchWindow(PeuSlot& slot,
     if (!scheduled_wave->block->active || !scheduled_wave->dispatch_enabled) {
       continue;
     }
-    if (CanIssueWave(*scheduled_wave) || scheduled_wave->launch_scheduled) {
+    if ((scheduled_wave->wave.status == WaveStatus::Active && scheduled_wave->wave.valid_entry) ||
+        scheduled_wave->launch_scheduled) {
       ++active_count;
     }
   }
@@ -560,13 +579,13 @@ ScheduledWave* PickNextReadyWave(PeuSlot& slot,
   for (size_t offset = 0; offset < count; ++offset) {
     const size_t index = (start + offset) % count;
     ScheduledWave* scheduled_wave = slot.waves[index];
-    if (!CanIssueWave(*scheduled_wave)) {
-      continue;
-    }
     if (scheduled_wave->wave.pc >= kernel.instructions().size()) {
       throw std::out_of_range("wave pc out of range");
     }
     const auto& instruction = kernel.instructions().at(scheduled_wave->wave.pc);
+    if (!CanIssueInstruction(*scheduled_wave, instruction)) {
+      continue;
+    }
     if (!DependenciesReady(instruction, scheduled_wave->scoreboard, cycle)) {
       continue;
     }
