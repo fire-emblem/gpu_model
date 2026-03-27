@@ -65,8 +65,9 @@ LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
     result.error_message = "launch request missing kernel or program image";
     return result;
   }
-  if (request.config.grid_dim_x == 0 || request.config.block_dim_x == 0) {
-    result.error_message = "grid_dim_x and block_dim_x must be non-zero";
+  if (request.config.grid_dim_x == 0 || request.config.grid_dim_y == 0 ||
+      request.config.block_dim_x == 0 || request.config.block_dim_y == 0) {
+    result.error_message = "grid and block dimensions must be non-zero";
     return result;
   }
 
@@ -125,7 +126,8 @@ LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
     result.placement = Mapper::Place(*spec, request.config);
     for (const auto& block : result.placement.blocks) {
       std::ostringstream message;
-      message << "block=" << block.block_id << " dpc=" << block.dpc_id << " ap=" << block.ap_id
+      message << "block=" << block.block_id << " block_xy=(" << block.block_idx_x << ","
+              << block.block_idx_y << ") dpc=" << block.dpc_id << " ap=" << block.ap_id
               << " waves=" << block.waves.size();
       trace.OnEvent(TraceEvent{
           .kind = TraceEventKind::BlockPlaced,

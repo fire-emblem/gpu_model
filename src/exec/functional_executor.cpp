@@ -103,6 +103,8 @@ std::vector<ExecutableBlock> MaterializeBlocks(const PlacementMap& placement,
     for (const auto& wave_placement : block_placement.waves) {
       WaveState wave;
       wave.block_id = block_placement.block_id;
+      wave.block_idx_x = block_placement.block_idx_x;
+      wave.block_idx_y = block_placement.block_idx_y;
       wave.wave_id = wave_placement.wave_id;
       wave.peu_id = wave_placement.peu_id;
       wave.ap_id = block_placement.ap_id;

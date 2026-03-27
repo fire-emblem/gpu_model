@@ -27,6 +27,10 @@ uint32_t RequireScalarReg(const Operand& operand) {
   return operand.reg.index;
 }
 
+uint32_t LocalLinearId(const WaveState& wave, uint32_t lane) {
+  return wave.wave_id * kWaveSize + lane;
+}
+
 }  // namespace
 
 OpPlan Semantics::BuildPlan(const Instruction& instruction,
@@ -47,8 +51,24 @@ OpPlan Semantics::BuildPlan(const Instruction& instruction,
       write.reg_index = dest;
       write.mask = ThreadMask(wave);
       for (uint32_t lane = 0; lane < wave.thread_count && lane < kWaveSize; ++lane) {
+        const uint32_t local_linear = LocalLinearId(wave, lane);
+        const uint32_t local_x = local_linear % context.launch_config.block_dim_x;
         write.values[lane] =
-            static_cast<uint64_t>(wave.block_id * context.launch_config.block_dim_x + wave.wave_id * kWaveSize + lane);
+            static_cast<uint64_t>(wave.block_idx_x * context.launch_config.block_dim_x + local_x);
+      }
+      plan.vector_writes.push_back(write);
+      return plan;
+    }
+    case Opcode::SysGlobalIdY: {
+      const uint32_t dest = RequireVectorReg(instruction.operands.at(0));
+      VectorWrite write;
+      write.reg_index = dest;
+      write.mask = ThreadMask(wave);
+      for (uint32_t lane = 0; lane < wave.thread_count && lane < kWaveSize; ++lane) {
+        const uint32_t local_linear = LocalLinearId(wave, lane);
+        const uint32_t local_y = local_linear / context.launch_config.block_dim_x;
+        write.values[lane] =
+            static_cast<uint64_t>(wave.block_idx_y * context.launch_config.block_dim_y + local_y);
       }
       plan.vector_writes.push_back(write);
       return plan;
@@ -59,7 +79,20 @@ OpPlan Semantics::BuildPlan(const Instruction& instruction,
       write.reg_index = dest;
       write.mask = ThreadMask(wave);
       for (uint32_t lane = 0; lane < wave.thread_count && lane < kWaveSize; ++lane) {
-        write.values[lane] = static_cast<uint64_t>(wave.wave_id * kWaveSize + lane);
+        write.values[lane] =
+            static_cast<uint64_t>(LocalLinearId(wave, lane) % context.launch_config.block_dim_x);
+      }
+      plan.vector_writes.push_back(write);
+      return plan;
+    }
+    case Opcode::SysLocalIdY: {
+      const uint32_t dest = RequireVectorReg(instruction.operands.at(0));
+      VectorWrite write;
+      write.reg_index = dest;
+      write.mask = ThreadMask(wave);
+      for (uint32_t lane = 0; lane < wave.thread_count && lane < kWaveSize; ++lane) {
+        write.values[lane] =
+            static_cast<uint64_t>(LocalLinearId(wave, lane) / context.launch_config.block_dim_x);
       }
       plan.vector_writes.push_back(write);
       return plan;
@@ -67,7 +100,7 @@ OpPlan Semantics::BuildPlan(const Instruction& instruction,
     case Opcode::SysBlockOffsetX: {
       const Operand& dest = instruction.operands.at(0);
       const uint64_t offset =
-          static_cast<uint64_t>(wave.block_id) * static_cast<uint64_t>(context.launch_config.block_dim_x);
+          static_cast<uint64_t>(wave.block_idx_x) * static_cast<uint64_t>(context.launch_config.block_dim_x);
       if (dest.kind != OperandKind::Register) {
         throw std::invalid_argument("sys_block_offset_x requires register destination");
       }
@@ -91,13 +124,32 @@ OpPlan Semantics::BuildPlan(const Instruction& instruction,
       }
       if (dest.reg.file == RegisterFile::Scalar) {
         plan.scalar_writes.push_back(
-            ScalarWrite{.reg_index = dest.reg.index, .value = wave.block_id});
+            ScalarWrite{.reg_index = dest.reg.index, .value = wave.block_idx_x});
       } else {
         VectorWrite write;
         write.reg_index = dest.reg.index;
         write.mask = ThreadMask(wave);
         for (uint32_t lane = 0; lane < wave.thread_count && lane < kWaveSize; ++lane) {
-          write.values[lane] = wave.block_id;
+          write.values[lane] = wave.block_idx_x;
+        }
+        plan.vector_writes.push_back(write);
+      }
+      return plan;
+    }
+    case Opcode::SysBlockIdxY: {
+      const Operand& dest = instruction.operands.at(0);
+      if (dest.kind != OperandKind::Register) {
+        throw std::invalid_argument("sys_block_idx_y requires register destination");
+      }
+      if (dest.reg.file == RegisterFile::Scalar) {
+        plan.scalar_writes.push_back(
+            ScalarWrite{.reg_index = dest.reg.index, .value = wave.block_idx_y});
+      } else {
+        VectorWrite write;
+        write.reg_index = dest.reg.index;
+        write.mask = ThreadMask(wave);
+        for (uint32_t lane = 0; lane < wave.thread_count && lane < kWaveSize; ++lane) {
+          write.values[lane] = wave.block_idx_y;
         }
         plan.vector_writes.push_back(write);
       }
@@ -122,6 +174,25 @@ OpPlan Semantics::BuildPlan(const Instruction& instruction,
       }
       return plan;
     }
+    case Opcode::SysBlockDimY: {
+      const Operand& dest = instruction.operands.at(0);
+      if (dest.kind != OperandKind::Register) {
+        throw std::invalid_argument("sys_block_dim_y requires register destination");
+      }
+      if (dest.reg.file == RegisterFile::Scalar) {
+        plan.scalar_writes.push_back(
+            ScalarWrite{.reg_index = dest.reg.index, .value = context.launch_config.block_dim_y});
+      } else {
+        VectorWrite write;
+        write.reg_index = dest.reg.index;
+        write.mask = ThreadMask(wave);
+        for (uint32_t lane = 0; lane < wave.thread_count && lane < kWaveSize; ++lane) {
+          write.values[lane] = context.launch_config.block_dim_y;
+        }
+        plan.vector_writes.push_back(write);
+      }
+      return plan;
+    }
     case Opcode::SysGridDimX: {
       const Operand& dest = instruction.operands.at(0);
       if (dest.kind != OperandKind::Register) {
@@ -136,6 +207,25 @@ OpPlan Semantics::BuildPlan(const Instruction& instruction,
         write.mask = ThreadMask(wave);
         for (uint32_t lane = 0; lane < wave.thread_count && lane < kWaveSize; ++lane) {
           write.values[lane] = context.launch_config.grid_dim_x;
+        }
+        plan.vector_writes.push_back(write);
+      }
+      return plan;
+    }
+    case Opcode::SysGridDimY: {
+      const Operand& dest = instruction.operands.at(0);
+      if (dest.kind != OperandKind::Register) {
+        throw std::invalid_argument("sys_grid_dim_y requires register destination");
+      }
+      if (dest.reg.file == RegisterFile::Scalar) {
+        plan.scalar_writes.push_back(
+            ScalarWrite{.reg_index = dest.reg.index, .value = context.launch_config.grid_dim_y});
+      } else {
+        VectorWrite write;
+        write.reg_index = dest.reg.index;
+        write.mask = ThreadMask(wave);
+        for (uint32_t lane = 0; lane < wave.thread_count && lane < kWaveSize; ++lane) {
+          write.values[lane] = context.launch_config.grid_dim_y;
         }
         plan.vector_writes.push_back(write);
       }

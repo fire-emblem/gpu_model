@@ -17,11 +17,16 @@ class InstructionBuilder {
 
   InstructionBuilder& SLoadArg(std::string_view dest, uint32_t arg_index);
   InstructionBuilder& SysGlobalIdX(std::string_view dest);
+  InstructionBuilder& SysGlobalIdY(std::string_view dest);
   InstructionBuilder& SysLocalIdX(std::string_view dest);
+  InstructionBuilder& SysLocalIdY(std::string_view dest);
   InstructionBuilder& SysBlockOffsetX(std::string_view dest);
   InstructionBuilder& SysBlockIdxX(std::string_view dest);
+  InstructionBuilder& SysBlockIdxY(std::string_view dest);
   InstructionBuilder& SysBlockDimX(std::string_view dest);
+  InstructionBuilder& SysBlockDimY(std::string_view dest);
   InstructionBuilder& SysGridDimX(std::string_view dest);
+  InstructionBuilder& SysGridDimY(std::string_view dest);
   InstructionBuilder& SysLaneId(std::string_view dest);
 
   InstructionBuilder& SMov(std::string_view dest, std::string_view src);

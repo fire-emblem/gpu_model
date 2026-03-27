@@ -33,5 +33,28 @@ TEST(MapperTest, TailWaveUsesPartialLaneCount) {
   EXPECT_EQ(placement.blocks[0].waves[1].lane_count, 32u);
 }
 
+TEST(MapperTest, Supports2DGridAndBlockCoordinates) {
+  const auto spec = ArchRegistry::Get("c500");
+  ASSERT_NE(spec, nullptr);
+
+  LaunchConfig config{
+      .grid_dim_x = 3,
+      .grid_dim_y = 2,
+      .block_dim_x = 8,
+      .block_dim_y = 4,
+  };
+  const auto placement = Mapper::Place(*spec, config);
+
+  ASSERT_EQ(placement.blocks.size(), 6u);
+  EXPECT_EQ(placement.blocks[0].block_idx_x, 0u);
+  EXPECT_EQ(placement.blocks[0].block_idx_y, 0u);
+  EXPECT_EQ(placement.blocks[1].block_idx_x, 1u);
+  EXPECT_EQ(placement.blocks[1].block_idx_y, 0u);
+  EXPECT_EQ(placement.blocks[3].block_idx_x, 0u);
+  EXPECT_EQ(placement.blocks[3].block_idx_y, 1u);
+  ASSERT_EQ(placement.blocks[0].waves.size(), 1u);
+  EXPECT_EQ(placement.blocks[0].waves[0].lane_count, 32u);
+}
+
 }  // namespace
 }  // namespace gpu_model

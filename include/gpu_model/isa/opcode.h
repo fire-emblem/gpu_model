@@ -7,11 +7,16 @@ namespace gpu_model {
 enum class Opcode {
   SysLoadArg,
   SysGlobalIdX,
+  SysGlobalIdY,
   SysLocalIdX,
+  SysLocalIdY,
   SysBlockOffsetX,
   SysBlockIdxX,
+  SysBlockIdxY,
   SysBlockDimX,
+  SysBlockDimY,
   SysGridDimX,
+  SysGridDimY,
   SysLaneId,
   SMov,
   SAdd,
@@ -73,16 +78,26 @@ inline std::string_view ToString(Opcode opcode) {
       return "sys_load_arg";
     case Opcode::SysGlobalIdX:
       return "sys_global_id_x";
+    case Opcode::SysGlobalIdY:
+      return "sys_global_id_y";
     case Opcode::SysLocalIdX:
       return "sys_local_id_x";
+    case Opcode::SysLocalIdY:
+      return "sys_local_id_y";
     case Opcode::SysBlockOffsetX:
       return "sys_block_offset_x";
     case Opcode::SysBlockIdxX:
       return "sys_block_idx_x";
+    case Opcode::SysBlockIdxY:
+      return "sys_block_idx_y";
     case Opcode::SysBlockDimX:
       return "sys_block_dim_x";
+    case Opcode::SysBlockDimY:
+      return "sys_block_dim_y";
     case Opcode::SysGridDimX:
       return "sys_grid_dim_x";
+    case Opcode::SysGridDimY:
+      return "sys_grid_dim_y";
     case Opcode::SysLaneId:
       return "sys_lane_id";
     case Opcode::SMov:

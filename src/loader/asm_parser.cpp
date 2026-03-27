@@ -113,21 +113,36 @@ KernelProgram AsmParser::Parse(const ProgramImage& image) const {
     } else if (opcode == "sys_global_id_x") {
       RequireOperandCount(opcode, operands, 1);
       builder.SysGlobalIdX(operands[0]);
+    } else if (opcode == "sys_global_id_y") {
+      RequireOperandCount(opcode, operands, 1);
+      builder.SysGlobalIdY(operands[0]);
     } else if (opcode == "sys_local_id_x") {
       RequireOperandCount(opcode, operands, 1);
       builder.SysLocalIdX(operands[0]);
+    } else if (opcode == "sys_local_id_y") {
+      RequireOperandCount(opcode, operands, 1);
+      builder.SysLocalIdY(operands[0]);
     } else if (opcode == "sys_block_offset_x") {
       RequireOperandCount(opcode, operands, 1);
       builder.SysBlockOffsetX(operands[0]);
     } else if (opcode == "sys_block_idx_x") {
       RequireOperandCount(opcode, operands, 1);
       builder.SysBlockIdxX(operands[0]);
+    } else if (opcode == "sys_block_idx_y") {
+      RequireOperandCount(opcode, operands, 1);
+      builder.SysBlockIdxY(operands[0]);
     } else if (opcode == "sys_block_dim_x") {
       RequireOperandCount(opcode, operands, 1);
       builder.SysBlockDimX(operands[0]);
+    } else if (opcode == "sys_block_dim_y") {
+      RequireOperandCount(opcode, operands, 1);
+      builder.SysBlockDimY(operands[0]);
     } else if (opcode == "sys_grid_dim_x") {
       RequireOperandCount(opcode, operands, 1);
       builder.SysGridDimX(operands[0]);
+    } else if (opcode == "sys_grid_dim_y") {
+      RequireOperandCount(opcode, operands, 1);
+      builder.SysGridDimY(operands[0]);
     } else if (opcode == "sys_lane_id") {
       RequireOperandCount(opcode, operands, 1);
       builder.SysLaneId(operands[0]);

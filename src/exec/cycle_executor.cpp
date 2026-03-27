@@ -176,11 +176,16 @@ std::vector<ReadyRef> CollectReadRefs(const Instruction& instruction) {
   switch (instruction.opcode) {
     case Opcode::SysLoadArg:
     case Opcode::SysGlobalIdX:
+    case Opcode::SysGlobalIdY:
     case Opcode::SysLocalIdX:
+    case Opcode::SysLocalIdY:
     case Opcode::SysBlockOffsetX:
     case Opcode::SysBlockIdxX:
+    case Opcode::SysBlockIdxY:
     case Opcode::SysBlockDimX:
+    case Opcode::SysBlockDimY:
     case Opcode::SysGridDimX:
+    case Opcode::SysGridDimY:
     case Opcode::SysLaneId:
     case Opcode::BBranch:
     case Opcode::BExit:
@@ -350,6 +355,8 @@ std::vector<ExecutableBlock> MaterializeBlocks(const PlacementMap& placement,
       ScheduledWave scheduled;
       scheduled.dpc_id = block_placement.dpc_id;
       scheduled.wave.block_id = block_placement.block_id;
+      scheduled.wave.block_idx_x = block_placement.block_idx_x;
+      scheduled.wave.block_idx_y = block_placement.block_idx_y;
       scheduled.wave.wave_id = wave_placement.wave_id;
       scheduled.wave.peu_id = wave_placement.peu_id;
       scheduled.wave.ap_id = block_placement.ap_id;
