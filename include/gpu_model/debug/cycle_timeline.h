@@ -12,6 +12,9 @@ namespace gpu_model {
 enum class CycleTimelineGroupBy {
   Wave,
   Block,
+  Peu,
+  Ap,
+  Dpc,
 };
 
 struct CycleTimelineOptions {

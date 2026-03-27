@@ -62,6 +62,8 @@ FileTraceSink::FileTraceSink(const std::filesystem::path& path) : out_(path) {
 
 void FileTraceSink::OnEvent(const TraceEvent& event) {
   out_ << "pc=" << HexU64(event.pc) << " cycle=" << HexU64(event.cycle)
+       << " dpc=" << HexU64(event.dpc_id) << " ap=" << HexU64(event.ap_id)
+       << " peu=" << HexU64(event.peu_id)
        << " kind=" << KindToString(event.kind) << " block=" << HexU64(event.block_id)
        << " wave=" << HexU64(event.wave_id)
        << " msg=" << event.message << '\n';
@@ -75,6 +77,8 @@ JsonTraceSink::JsonTraceSink(const std::filesystem::path& path) : out_(path) {
 
 void JsonTraceSink::OnEvent(const TraceEvent& event) {
   out_ << "{\"pc\":\"" << HexU64(event.pc) << "\",\"cycle\":\"" << HexU64(event.cycle)
+       << "\",\"dpc_id\":\"" << HexU64(event.dpc_id) << "\",\"ap_id\":\""
+       << HexU64(event.ap_id) << "\",\"peu_id\":\"" << HexU64(event.peu_id)
        << "\",\"kind\":\"" << KindToString(event.kind) << "\",\"block_id\":\""
        << HexU64(event.block_id) << "\",\"wave_id\":\"" << HexU64(event.wave_id)
        << "\",\"message\":\"" << EscapeJson(event.message) << "\"}\n";

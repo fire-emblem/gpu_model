@@ -110,5 +110,29 @@ TEST(CycleTimelineTest, GoogleTraceCanGroupByBlock) {
   EXPECT_EQ(timeline.find("\"name\":\"B0W0\""), std::string::npos);
 }
 
+TEST(CycleTimelineTest, GoogleTraceCanGroupByPeu) {
+  CollectingTraceSink trace;
+  HostRuntime runtime(&trace);
+
+  const auto kernel = BuildTimelineKernel();
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 128;
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  const std::string timeline = CycleTimelineRenderer::RenderGoogleTrace(
+      trace.events(), CycleTimelineOptions{.max_columns = 120,
+                                           .cycle_begin = std::nullopt,
+                                           .cycle_end = std::nullopt,
+                                           .group_by = CycleTimelineGroupBy::Peu});
+  EXPECT_NE(timeline.find("\"name\":\"D0A0\""), std::string::npos);
+  EXPECT_NE(timeline.find("\"name\":\"D0A0P0\""), std::string::npos);
+  EXPECT_NE(timeline.find("\"name\":\"D0A0P1\""), std::string::npos);
+}
+
 }  // namespace
 }  // namespace gpu_model

@@ -367,6 +367,7 @@ std::vector<ExecutableBlock> MaterializeBlocks(const PlacementMap& placement,
       scheduled.wave.block_id = block_placement.block_id;
       scheduled.wave.block_idx_x = block_placement.block_idx_x;
       scheduled.wave.block_idx_y = block_placement.block_idx_y;
+      scheduled.wave.dpc_id = block_placement.dpc_id;
       scheduled.wave.wave_id = wave_placement.wave_id;
       scheduled.wave.peu_id = wave_placement.peu_id;
       scheduled.wave.ap_id = block_placement.ap_id;
@@ -474,6 +475,9 @@ void ScheduleWaveLaunch(ScheduledWave& scheduled_wave,
             trace.OnEvent(TraceEvent{
                 .kind = TraceEventKind::WaveLaunch,
                 .cycle = wave_ptr->launch_cycle,
+                .dpc_id = wave_ptr->wave.dpc_id,
+                .ap_id = wave_ptr->wave.ap_id,
+                .peu_id = wave_ptr->wave.peu_id,
                 .block_id = block_id,
                 .wave_id = wave_ptr->wave.wave_id,
                 .pc = wave_ptr->wave.pc,
@@ -493,6 +497,8 @@ void ActivateBlock(ExecutableBlock& block,
   trace.OnEvent(TraceEvent{
       .kind = TraceEventKind::BlockLaunch,
       .cycle = cycle,
+      .dpc_id = block.dpc_id,
+      .ap_id = block.ap_id,
       .block_id = block.block_id,
       .message = "ap=" + std::to_string(block.ap_id),
   });
@@ -635,6 +641,9 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
       context.trace.OnEvent(TraceEvent{
           .kind = TraceEventKind::WaveStep,
           .cycle = cycle,
+          .dpc_id = wave.dpc_id,
+          .ap_id = wave.ap_id,
+          .peu_id = wave.peu_id,
           .block_id = wave.block_id,
           .wave_id = wave.wave_id,
           .pc = wave.pc,
@@ -652,6 +661,9 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
         context.trace.OnEvent(TraceEvent{
             .kind = TraceEventKind::Stall,
             .cycle = cycle,
+            .dpc_id = wave.dpc_id,
+            .ap_id = wave.ap_id,
+            .peu_id = wave.peu_id,
             .block_id = wave.block_id,
             .wave_id = wave.wave_id,
             .pc = wave.pc,
@@ -700,6 +712,9 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
         context.trace.OnEvent(TraceEvent{
             .kind = TraceEventKind::MemoryAccess,
             .cycle = cycle,
+            .dpc_id = wave.dpc_id,
+            .ap_id = wave.ap_id,
+            .peu_id = wave.peu_id,
             .block_id = wave.block_id,
             .wave_id = wave.wave_id,
             .pc = wave.pc,
@@ -738,6 +753,9 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                   context.trace.OnEvent(TraceEvent{
                       .kind = TraceEventKind::ExecMaskUpdate,
                       .cycle = commit_cycle,
+                      .dpc_id = candidate->wave.dpc_id,
+                      .ap_id = candidate->wave.ap_id,
+                      .peu_id = candidate->wave.peu_id,
                       .block_id = candidate->wave.block_id,
                       .wave_id = candidate->wave.wave_id,
                       .pc = candidate->wave.pc,
@@ -748,6 +766,9 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                 context.trace.OnEvent(TraceEvent{
                     .kind = TraceEventKind::Commit,
                     .cycle = commit_cycle,
+                    .dpc_id = candidate->wave.dpc_id,
+                    .ap_id = candidate->wave.ap_id,
+                    .peu_id = candidate->wave.peu_id,
                     .block_id = candidate->wave.block_id,
                     .wave_id = candidate->wave.wave_id,
                     .pc = candidate->wave.pc,
@@ -819,6 +840,9 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                               context.trace.OnEvent(TraceEvent{
                                   .kind = TraceEventKind::Arrive,
                                   .cycle = arrive_cycle,
+                                  .dpc_id = candidate->wave.dpc_id,
+                                  .ap_id = candidate->wave.ap_id,
+                                  .peu_id = candidate->wave.peu_id,
                                   .block_id = candidate->wave.block_id,
                                   .wave_id = candidate->wave.wave_id,
                                   .pc = candidate->wave.pc,
@@ -944,6 +968,9 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                   context.trace.OnEvent(TraceEvent{
                       .kind = TraceEventKind::Barrier,
                       .cycle = commit_cycle,
+                      .dpc_id = candidate->wave.dpc_id,
+                      .ap_id = candidate->wave.ap_id,
+                      .peu_id = candidate->wave.peu_id,
                       .block_id = candidate->wave.block_id,
                       .wave_id = candidate->wave.wave_id,
                       .pc = candidate->wave.pc,
@@ -969,6 +996,9 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                   context.trace.OnEvent(TraceEvent{
                       .kind = TraceEventKind::Barrier,
                       .cycle = commit_cycle,
+                      .dpc_id = candidate->wave.dpc_id,
+                      .ap_id = candidate->wave.ap_id,
+                      .peu_id = candidate->wave.peu_id,
                       .block_id = candidate->wave.block_id,
                       .wave_id = candidate->wave.wave_id,
                       .pc = candidate->wave.pc,
@@ -991,6 +1021,8 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                     context.trace.OnEvent(TraceEvent{
                         .kind = TraceEventKind::Barrier,
                         .cycle = commit_cycle,
+                        .dpc_id = candidate->wave.dpc_id,
+                        .ap_id = candidate->wave.ap_id,
                         .block_id = candidate->wave.block_id,
                         .pc = candidate->wave.pc,
                         .message = "release",
@@ -1007,6 +1039,9 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                   context.trace.OnEvent(TraceEvent{
                       .kind = TraceEventKind::WaveExit,
                       .cycle = commit_cycle,
+                      .dpc_id = candidate->wave.dpc_id,
+                      .ap_id = candidate->wave.ap_id,
+                      .peu_id = candidate->wave.peu_id,
                       .block_id = candidate->wave.block_id,
                       .wave_id = candidate->wave.wave_id,
                       .pc = candidate->wave.pc,

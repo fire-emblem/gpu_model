@@ -152,6 +152,8 @@ LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
               << " waves=" << block.waves.size();
       trace.OnEvent(TraceEvent{
           .kind = TraceEventKind::BlockPlaced,
+          .dpc_id = block.dpc_id,
+          .ap_id = block.ap_id,
           .block_id = block.block_id,
           .message = message.str(),
       });

@@ -19,11 +19,15 @@ namespace gpu_model {
 namespace {
 
 struct WaveKey {
+  uint32_t dpc_id = 0;
+  uint32_t ap_id = 0;
+  uint32_t peu_id = 0;
   uint32_t block_id = 0;
   uint32_t wave_id = 0;
 
   bool operator<(const WaveKey& other) const {
-    return std::tie(block_id, wave_id) < std::tie(other.block_id, other.wave_id);
+    return std::tie(dpc_id, ap_id, peu_id, block_id, wave_id) <
+           std::tie(other.dpc_id, other.ap_id, other.peu_id, other.block_id, other.wave_id);
   }
 };
 
@@ -58,6 +62,22 @@ std::string WaveLabel(const WaveKey& key) {
   std::ostringstream out;
   out << "B" << key.block_id << "W" << key.wave_id;
   return out.str();
+}
+
+std::string PeuLabel(const WaveKey& key) {
+  std::ostringstream out;
+  out << "D" << key.dpc_id << "A" << key.ap_id << "P" << key.peu_id;
+  return out.str();
+}
+
+std::string ApLabel(const WaveKey& key) {
+  std::ostringstream out;
+  out << "D" << key.dpc_id << "A" << key.ap_id;
+  return out.str();
+}
+
+std::string DpcLabel(const WaveKey& key) {
+  return "D" + std::to_string(key.dpc_id);
 }
 
 std::string BlockLabel(uint32_t block_id) {
@@ -127,7 +147,11 @@ TimelineData BuildTimelineData(const std::vector<TraceEvent>& events) {
   std::map<WaveKey, std::queue<std::pair<uint64_t, std::string>>> open_issue;
 
   for (const auto& event : events) {
-    const WaveKey key{.block_id = event.block_id, .wave_id = event.wave_id};
+    const WaveKey key{.dpc_id = event.dpc_id,
+                      .ap_id = event.ap_id,
+                      .peu_id = event.peu_id,
+                      .block_id = event.block_id,
+                      .wave_id = event.wave_id};
     if (event.kind == TraceEventKind::WaveStep) {
       const std::string op = ExtractOpName(event.message);
       open_issue[key].push({event.cycle, op});
@@ -171,15 +195,51 @@ TimelineData BuildTimelineData(const std::vector<TraceEvent>& events) {
 }
 
 std::string ThreadLabel(const WaveKey& key, CycleTimelineGroupBy group_by) {
-  return group_by == CycleTimelineGroupBy::Block ? BlockLabel(key.block_id) : WaveLabel(key);
+  switch (group_by) {
+    case CycleTimelineGroupBy::Wave:
+      return WaveLabel(key);
+    case CycleTimelineGroupBy::Block:
+      return BlockLabel(key.block_id);
+    case CycleTimelineGroupBy::Peu:
+      return PeuLabel(key);
+    case CycleTimelineGroupBy::Ap:
+      return ApLabel(key);
+    case CycleTimelineGroupBy::Dpc:
+      return DpcLabel(key);
+  }
+  return WaveLabel(key);
 }
 
 uint32_t TracePid(const WaveKey& key, CycleTimelineGroupBy group_by) {
-  return group_by == CycleTimelineGroupBy::Block ? 1u : key.block_id + 1;
+  switch (group_by) {
+    case CycleTimelineGroupBy::Wave:
+      return 1u + (key.dpc_id << 12) + (key.ap_id << 4) + key.peu_id;
+    case CycleTimelineGroupBy::Block:
+      return 1u;
+    case CycleTimelineGroupBy::Peu:
+      return 1u + (key.dpc_id << 8) + key.ap_id;
+    case CycleTimelineGroupBy::Ap:
+      return 1u + key.dpc_id;
+    case CycleTimelineGroupBy::Dpc:
+      return 1u;
+  }
+  return 1u;
 }
 
 uint32_t TraceTid(const WaveKey& key, CycleTimelineGroupBy group_by) {
-  return group_by == CycleTimelineGroupBy::Block ? key.block_id : key.wave_id;
+  switch (group_by) {
+    case CycleTimelineGroupBy::Wave:
+      return (key.block_id << 8) + key.wave_id;
+    case CycleTimelineGroupBy::Block:
+      return key.block_id;
+    case CycleTimelineGroupBy::Peu:
+      return key.peu_id;
+    case CycleTimelineGroupBy::Ap:
+      return key.ap_id;
+    case CycleTimelineGroupBy::Dpc:
+      return key.dpc_id;
+  }
+  return key.wave_id;
 }
 
 std::string MarkerName(const Marker& marker) {
@@ -198,6 +258,26 @@ std::string MarkerName(const Marker& marker) {
       return "block_launch";
     default:
       return marker.message.empty() ? "event" : marker.message;
+  }
+}
+
+std::string MarkerCategory(const Marker& marker) {
+  switch (marker.kind) {
+    case TraceEventKind::Arrive:
+      return marker.message.find("load") != std::string::npos ? "memory/arrive_load"
+                                                              : "memory/arrive_store";
+    case TraceEventKind::Barrier:
+      return "sync/barrier";
+    case TraceEventKind::WaveExit:
+      return "control/exit";
+    case TraceEventKind::Stall:
+      return marker.message.empty() ? "stall" : "stall/" + marker.message;
+    case TraceEventKind::WaveLaunch:
+      return "launch/wave";
+    case TraceEventKind::BlockLaunch:
+      return "launch/block";
+    default:
+      return "marker";
   }
 }
 
@@ -329,8 +409,24 @@ std::string CycleTimelineRenderer::RenderGoogleTrace(const std::vector<TraceEven
     if (!declared_rows.insert({pid, tid}).second) {
       continue;
     }
-    const std::string process_name =
-        options.group_by == CycleTimelineGroupBy::Block ? "Blocks" : BlockLabel(key.block_id);
+    std::string process_name;
+    switch (options.group_by) {
+      case CycleTimelineGroupBy::Wave:
+        process_name = PeuLabel(key);
+        break;
+      case CycleTimelineGroupBy::Block:
+        process_name = "Blocks";
+        break;
+      case CycleTimelineGroupBy::Peu:
+        process_name = ApLabel(key);
+        break;
+      case CycleTimelineGroupBy::Ap:
+        process_name = DpcLabel(key);
+        break;
+      case CycleTimelineGroupBy::Dpc:
+        process_name = "GPU";
+        break;
+    }
     append("{\"name\":\"process_name\",\"ph\":\"M\",\"pid\":" + std::to_string(pid) +
            ",\"tid\":0,\"args\":{\"name\":\"" + EscapeJson(process_name) + "\"}}");
     append("{\"name\":\"thread_name\",\"ph\":\"M\",\"pid\":" + std::to_string(pid) + ",\"tid\":" +
@@ -353,6 +449,8 @@ std::string CycleTimelineRenderer::RenderGoogleTrace(const std::vector<TraceEven
              ",\"tid\":" + std::to_string(tid) + ",\"ts\":" + std::to_string(clipped_begin) +
              ",\"dur\":" + std::to_string(duration) + ",\"args\":{\"block_id\":\"" +
              HexU64(key.block_id) + "\",\"wave_id\":\"" + HexU64(key.wave_id) +
+             "\",\"dpc_id\":\"" + HexU64(key.dpc_id) + "\",\"ap_id\":\"" +
+             HexU64(key.ap_id) + "\",\"peu_id\":\"" + HexU64(key.peu_id) +
              "\",\"issue_cycle\":\"" + HexU64(segment.issue_cycle) + "\",\"commit_cycle\":\"" +
              HexU64(segment.commit_cycle) + "\"}}");
     }
@@ -366,7 +464,8 @@ std::string CycleTimelineRenderer::RenderGoogleTrace(const std::vector<TraceEven
         continue;
       }
       append("{\"name\":\"" + EscapeJson(MarkerName(marker)) +
-             "\",\"cat\":\"marker\",\"ph\":\"i\",\"s\":\"t\",\"pid\":" + std::to_string(pid) +
+             "\",\"cat\":\"" + EscapeJson(MarkerCategory(marker)) +
+             "\",\"ph\":\"i\",\"s\":\"t\",\"pid\":" + std::to_string(pid) +
              ",\"tid\":" + std::to_string(tid) + ",\"ts\":" + std::to_string(marker.cycle) +
              ",\"args\":{\"message\":\"" + EscapeJson(marker.message) + "\"}}");
     }

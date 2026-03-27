@@ -67,7 +67,7 @@ struct Config {
       << "  --add1 <i32>             second FMA add scalar\n"
       << "  --latency <u64>          fixed global memory latency for cycle mode\n"
       << "  --timeline-columns <u32> ASCII timeline width\n"
-      << "  --group-by <wave|block>  timeline grouping\n"
+      << "  --group-by <wave|block|peu|ap|dpc>  timeline grouping\n"
       << "  --out-dir <path>         directory for trace outputs\n"
       << "  --text-only              only write text trace\n"
       << "  --json-only              only write json trace\n"
@@ -146,6 +146,12 @@ Config ParseArgs(int argc, char** argv) {
         config.group_by = gpu_model::CycleTimelineGroupBy::Wave;
       } else if (value == "block") {
         config.group_by = gpu_model::CycleTimelineGroupBy::Block;
+      } else if (value == "peu") {
+        config.group_by = gpu_model::CycleTimelineGroupBy::Peu;
+      } else if (value == "ap") {
+        config.group_by = gpu_model::CycleTimelineGroupBy::Ap;
+      } else if (value == "dpc") {
+        config.group_by = gpu_model::CycleTimelineGroupBy::Dpc;
       } else {
         throw std::invalid_argument("invalid group-by: " + value);
       }

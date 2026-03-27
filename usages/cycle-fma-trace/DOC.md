@@ -19,6 +19,8 @@ Command executed by this usage bundle:
   --out-dir usages/cycle-fma-trace/results
 ```
 
+`--group-by` also supports `wave`, `peu`, `ap`, and `dpc` for Google Trace and ASCII timeline views.
+
 Expected artifacts:
 
 - `results/stdout.txt`
