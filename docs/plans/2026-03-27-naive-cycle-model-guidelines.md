@@ -105,12 +105,10 @@ The project should evolve in layers, but stop before hardware-faithful complexit
 
 5. Lightweight issue-class competition
    Only when needed:
-   - `SALU`
-   - `VALU`
-   - `LSU`
-   - `SPECIAL`
-   Keep this at the “one instruction per class per cycle” level.
-   Do not expand into detailed functional-unit pipelines unless the simpler model is insufficient.
+   - the architectural reference remains the seven GCN whitepaper issue types
+   - any project-level merge such as `SALU / VALU / LSU / SPECIAL` must be documented as an approximation
+   - if used, keep it at a simple “one instruction per approximated class per cycle” level
+   - do not expand into detailed functional-unit pipelines unless the simpler model is insufficient
 
 ## Non-Goals
 

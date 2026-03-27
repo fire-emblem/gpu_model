@@ -166,9 +166,26 @@ Assessment:
 
 ### Issue Types And Wave Selection
 
-Reference from the GCN whitepaper and MIAOW:
+Strict GCN whitepaper definition:
 
-- The GCN CU front-end can decode and issue these instruction types:
+- Each SIMD has:
+  - its own program counter
+  - its own instruction buffer
+  - 10 wavefront buffers
+- A CU has 4 SIMDs, so a CU can have 40 wavefronts in flight.
+- Instruction fetching is arbitrated between SIMDs in a CU based on:
+  - age
+  - scheduling priority
+  - wavefront instruction buffer utilization
+- Decode and issue rule from the whitepaper:
+  - the compute unit selects a single SIMD each cycle
+  - this SIMD is selected using round-robin arbitration
+  - the selected SIMD can decode and issue up to 5 instructions in that cycle
+  - these issued instructions are chosen from the 10 wavefront buffers of that SIMD
+- Special instruction rule from the whitepaper:
+  - a special instruction can execute within the wavefront buffers
+  - it does not consume a functional unit
+- The whitepaper explicitly defines seven issue types:
   - branch
   - scalar ALU or scalar memory
   - vector ALU
@@ -176,64 +193,44 @@ Reference from the GCN whitepaper and MIAOW:
   - local data share
   - global data share or export
   - special instructions
-- The GCN whitepaper states that only one instruction of each type can be issued at a time per SIMD.
-- MIAOW reflects this split through separate ready-to-issue sets and arbiters for:
+
+Strict same-cycle issue limits from the whitepaper:
+
+- For a selected SIMD in one cycle:
+  - at most 1 branch
+  - at most 1 scalar ALU or scalar memory
+  - at most 1 vector ALU
+  - at most 1 vector memory
+  - at most 1 local data share
+  - at most 1 global data share or export
+  - at most 1 special instruction
+- The whitepaper also states a second restriction:
+  - each issued instruction in that cycle must come from a different wavefront
+
+Strict conflict definition from the whitepaper:
+
+- Two instructions conflict in the same selected SIMD cycle if:
+  - they belong to the same one of the seven issue types
+  - or they come from the same wavefront
+- Beyond those restrictions, the whitepaper states that any mix is allowed.
+
+MIAOW alignment:
+
+- MIAOW reflects this front-end split using separate ready-to-issue sets and arbiters for:
   - scalar path
   - SIMD vector path
   - SIMF path
   - LSU path
   - barrier / branch / wait gating
+- MIAOW therefore captures the same high-level idea:
+  - issue eligibility is per wavefront
+  - selection is arbitration-based
+  - execution classes are capacity-limited
 
-Project simplification:
+Project modeling implication:
 
-- The project should not model all GCN issue types as separate full pipelines.
-- For optimization studies, the useful simplified issue classes are:
-  - `SALU`
-    scalar ALU, scalar control, scalar compare, branch, wait, mask, scalar-buffer loads
-  - `VALU`
-    vector integer / vector predicate / vector select style instructions
-  - `LSU`
-    linear-address memory operations:
-    `buffer_*`, `ds_*`, `scratch_*`, `scalar_buffer_*`
-  - `SPECIAL`
-    barrier, end program, and any future zero-FU special instructions
-
-Recommended same-cycle issue rule:
-
-- Keep the current default model simple.
-- When the project adds lightweight issue competition, use:
-  - at most `1 x SALU`
-  - at most `1 x VALU`
-  - at most `1 x LSU`
-  - at most `1 x SPECIAL`
-  per scheduling opportunity for a PEU issue point.
-
-Conflict rule:
-
-- Instructions conflict when they consume the same simplified issue class in the same cycle.
-- Example conflicts:
-  - `s_add_u32` conflicts with `s_cmp_lt_i32`
-  - `s_buffer_load_dword` conflicts with `s_waitcnt`
-  - `v_add_i32` conflicts with `v_mad_i32`
-  - `buffer_load_dword` conflicts with `buffer_store_dword`
-  - `ds_read_b32` conflicts with `ds_add_u32`
-- Example non-conflicts in the simplified target model:
-  - `SALU` with `VALU`
-  - `SALU` with `LSU`
-  - `VALU` with `LSU`
-
-Wave selection rule:
-
-- Wave selection should stay round-robin within a PEU among waves that are eligible to issue.
-- Eligibility means:
-  - wave is active
-  - wave is in the front dispatch window
-  - front-end valid entry is available
-  - branch is not pending
-  - barrier wait is not active
-  - waitcnt thresholds are satisfied
-  - required dependency operands are ready
-  - the issue class needed by the next instruction is not already consumed for that cycle
+- The project documentation should treat the seven whitepaper issue types above as the architectural reference.
+- Any simplified competition model in this project must be described explicitly as an approximation of those seven types, not as the architecture definition itself.
 
 Current project behavior:
 
@@ -245,7 +242,14 @@ Current project behavior:
   - waitcnt domain gating
   - stall-reason trace when no issue happens
 - The project does not yet fully do:
-  - separate `SALU / VALU / LSU / SPECIAL` same-cycle class competition
+  - strict seven-type same-cycle issue competition
+  - strict “every issued instruction in the cycle must come from a different wavefront” enforcement across multiple same-cycle issue slots
+
+Recommended project approximation:
+
+- If the project adds lightweight same-cycle issue competition, it should do so as an explicit approximation layer.
+- That approximation should say exactly which whitepaper issue types it merges together.
+- The approximation must not be described as the GCN rule itself.
 
 ### Trace / Timeline
 
