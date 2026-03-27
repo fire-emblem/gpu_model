@@ -18,6 +18,7 @@ FetchContent_MakeAvailable(googletest)
 add_library(gpu_model STATIC
   src/arch/arch_registry.cpp
   src/arch/c500_spec.cpp
+  src/decode/gcn_inst_format.cpp
   src/isa/instruction_builder.cpp
   src/isa/kernel_metadata.cpp
   src/isa/kernel_program.cpp

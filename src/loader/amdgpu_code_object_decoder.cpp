@@ -202,6 +202,7 @@ RawGcnInstruction ParseInstructionLine(const std::string& line) {
   instruction.operands = space == std::string::npos ? "" : Trim(std::string_view(asm_text).substr(space + 1));
   instruction.words = ParseRawWords(line);
   instruction.size_bytes = static_cast<uint32_t>(instruction.words.size() * sizeof(uint32_t));
+  instruction.format_class = ClassifyGcnInstFormat(instruction.words);
   return instruction;
 }
 
