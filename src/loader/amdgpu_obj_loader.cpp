@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "gpu_model/isa/target_isa.h"
+#include "gpu_model/loader/amdgpu_binary_decoder.h"
 
 namespace gpu_model {
 
@@ -155,9 +156,9 @@ std::string ExtractInstruction(const std::string& line) {
   return text;
 }
 
-ProgramImage LoadFromAmdgpuElf(const std::filesystem::path& path,
-                               std::optional<std::string> kernel_name,
-                               MetadataBlob metadata = {}) {
+ProgramImage DecodeAmdgpuElfToProgramImage(const std::filesystem::path& path,
+                                           std::optional<std::string> kernel_name,
+                                           MetadataBlob metadata = {}) {
   if (!std::filesystem::exists(path)) {
     throw std::runtime_error("missing AMDGPU object file: " + path.string());
   }
@@ -215,6 +216,26 @@ ProgramImage LoadFromAmdgpuElf(const std::filesystem::path& path,
   return ProgramImage(selected, asm_text.str(), std::move(metadata));
 }
 
+class ObjdumpAmdgpuBinaryDecoder final : public IAmdgpuBinaryDecoder {
+ public:
+  ProgramImage Decode(const std::filesystem::path& path,
+                      std::optional<std::string> kernel_name) const override {
+    return DecodeAmdgpuElfToProgramImage(path, std::move(kernel_name));
+  }
+};
+
+struct BinaryDecoderBinding {
+  const IAmdgpuBinaryDecoder* decoder = nullptr;
+};
+
+const IAmdgpuBinaryDecoder& DefaultAmdgpuBinaryDecoder() {
+  static const ObjdumpAmdgpuBinaryDecoder kObjdumpDecoder;
+  static const std::vector<BinaryDecoderBinding> kBindings = {
+      {.decoder = &kObjdumpDecoder},
+  };
+  return *kBindings.front().decoder;
+}
+
 ProgramImage LoadFromHipFatbinHostElf(const std::filesystem::path& path,
                                       std::optional<std::string> kernel_name) {
   ScopedTempDir temp_dir;
@@ -237,7 +258,7 @@ ProgramImage LoadFromHipFatbinHostElf(const std::filesystem::path& path,
   metadata.values["loader_source"] = "hip_fatbin";
   metadata.values["artifact_path"] = path.string();
   SetTargetIsa(metadata, TargetIsa::GcnAsm);
-  return LoadFromAmdgpuElf(device_path, std::move(kernel_name), std::move(metadata));
+  return DecodeAmdgpuElfToProgramImage(device_path, std::move(kernel_name), std::move(metadata));
 }
 
 }  // namespace
@@ -251,7 +272,7 @@ ProgramImage AmdgpuObjLoader::LoadFromObject(const std::filesystem::path& path,
   const std::string quoted = ShellQuote(path.string());
   const std::string header = RunCommand("readelf -h " + quoted);
   if (IsAmdgpuElfHeader(header)) {
-    return LoadFromAmdgpuElf(path, std::move(kernel_name));
+    return DefaultAmdgpuBinaryDecoder().Decode(path, std::move(kernel_name));
   }
 
   const std::string sections = RunCommand("readelf -S " + quoted);

@@ -50,6 +50,14 @@ Current lowerers:
 - canonical asm lowerer
 - GCN asm lowerer
 
+Registration rule:
+
+- lowerers are selected through a configuration list, not a `switch`
+- adding a new target ISA should mean:
+  - define a new derived lowerer
+  - append one binding entry to the lowerer list
+  - avoid editing runtime launch flow
+
 Current simplification:
 
 - the GCN lowerer now parses GCN text operands itself and lowers a supported subset into
@@ -153,6 +161,14 @@ This is the key multi-target ISA pivot:
 [`amdgpu_obj_loader.cpp`](/data/gpu_model/src/loader/amdgpu_obj_loader.cpp)
 now tags loaded ELF and HIP-fatbin-derived images as `gcn_asm`.
 
+Binary decode rule:
+
+- AMDGPU ELF decoding should also follow configuration-list registration
+- the current implementation already routes through a binary decoder base class
+- today only the `llvm-objdump`-based decoder is bound
+- a future raw-binary decoder should be addable by appending another binding rather than
+  rewriting loader control flow
+
 That means:
 
 - object ingestion is explicitly target-aware
@@ -179,3 +195,17 @@ That means:
    - artifact parser
    - lowering to canonical opcode set
    - shared execution core
+
+## Configuration-List Principle
+
+For extension points in this project, prefer:
+
+- binding tables
+- rule lists
+- descriptor lists
+
+Avoid:
+
+- growing central `switch` statements for each new ISA target
+- hard-coding one decoder in one loader
+- forcing runtime or executor code to know every front-end dialect
