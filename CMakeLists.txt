@@ -24,6 +24,7 @@ add_library(gpu_model STATIC
   src/isa/opcode_descriptor.cpp
   src/isa/target_isa.cpp
   src/loader/asm_parser.cpp
+  src/loader/amdgpu_code_object_decoder.cpp
   src/loader/amdgpu_obj_loader.cpp
   src/loader/executable_image_io.cpp
   src/loader/gcn_lowering_rules.cpp
