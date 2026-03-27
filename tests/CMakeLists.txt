@@ -14,6 +14,7 @@ add_executable(gpu_model_tests
   functional/representative_kernels_functional_test.cpp
   functional/advanced_syntax_functional_test.cpp
   functional/local_bitwise_functional_test.cpp
+  functional/builtin_scalarbit_functional_test.cpp
   cycle/cycle_smoke_test.cpp
   cycle/async_memory_cycle_test.cpp
   cycle/shared_barrier_cycle_test.cpp
@@ -27,6 +28,7 @@ add_executable(gpu_model_tests
   cycle/representative_kernels_cycle_test.cpp
   cycle/advanced_syntax_cycle_test.cpp
   cycle/local_bitwise_cycle_test.cpp
+  cycle/builtin_scalarbit_cycle_test.cpp
   loader/asm_parser_test.cpp
   loader/executable_image_io_test.cpp
   loader/program_bundle_io_test.cpp

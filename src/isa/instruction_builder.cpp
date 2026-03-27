@@ -85,6 +85,10 @@ InstructionBuilder& InstructionBuilder::SysBlockDimX(std::string_view dest) {
   return AddInstruction(Opcode::SysBlockDimX, {ParseRegOperand(dest)});
 }
 
+InstructionBuilder& InstructionBuilder::SysGridDimX(std::string_view dest) {
+  return AddInstruction(Opcode::SysGridDimX, {ParseRegOperand(dest)});
+}
+
 InstructionBuilder& InstructionBuilder::SysLaneId(std::string_view dest) {
   return AddInstruction(Opcode::SysLaneId, {ParseRegOperand(dest)});
 }
@@ -123,6 +127,76 @@ InstructionBuilder& InstructionBuilder::SMul(std::string_view dest,
                                              uint64_t rhs) {
   return AddInstruction(
       Opcode::SMul, {ParseRegOperand(dest), ParseRegOperand(lhs), ImmediateOperand(rhs)});
+}
+
+InstructionBuilder& InstructionBuilder::SAnd(std::string_view dest,
+                                             std::string_view lhs,
+                                             std::string_view rhs) {
+  return AddInstruction(
+      Opcode::SAnd, {ParseRegOperand(dest), ParseRegOperand(lhs), ParseRegOperand(rhs)});
+}
+
+InstructionBuilder& InstructionBuilder::SAnd(std::string_view dest,
+                                             std::string_view lhs,
+                                             uint64_t rhs) {
+  return AddInstruction(
+      Opcode::SAnd, {ParseRegOperand(dest), ParseRegOperand(lhs), ImmediateOperand(rhs)});
+}
+
+InstructionBuilder& InstructionBuilder::SOr(std::string_view dest,
+                                            std::string_view lhs,
+                                            std::string_view rhs) {
+  return AddInstruction(
+      Opcode::SOr, {ParseRegOperand(dest), ParseRegOperand(lhs), ParseRegOperand(rhs)});
+}
+
+InstructionBuilder& InstructionBuilder::SOr(std::string_view dest,
+                                            std::string_view lhs,
+                                            uint64_t rhs) {
+  return AddInstruction(
+      Opcode::SOr, {ParseRegOperand(dest), ParseRegOperand(lhs), ImmediateOperand(rhs)});
+}
+
+InstructionBuilder& InstructionBuilder::SXor(std::string_view dest,
+                                             std::string_view lhs,
+                                             std::string_view rhs) {
+  return AddInstruction(
+      Opcode::SXor, {ParseRegOperand(dest), ParseRegOperand(lhs), ParseRegOperand(rhs)});
+}
+
+InstructionBuilder& InstructionBuilder::SXor(std::string_view dest,
+                                             std::string_view lhs,
+                                             uint64_t rhs) {
+  return AddInstruction(
+      Opcode::SXor, {ParseRegOperand(dest), ParseRegOperand(lhs), ImmediateOperand(rhs)});
+}
+
+InstructionBuilder& InstructionBuilder::SShl(std::string_view dest,
+                                             std::string_view lhs,
+                                             std::string_view rhs) {
+  return AddInstruction(
+      Opcode::SShl, {ParseRegOperand(dest), ParseRegOperand(lhs), ParseRegOperand(rhs)});
+}
+
+InstructionBuilder& InstructionBuilder::SShl(std::string_view dest,
+                                             std::string_view lhs,
+                                             uint64_t rhs) {
+  return AddInstruction(
+      Opcode::SShl, {ParseRegOperand(dest), ParseRegOperand(lhs), ImmediateOperand(rhs)});
+}
+
+InstructionBuilder& InstructionBuilder::SShr(std::string_view dest,
+                                             std::string_view lhs,
+                                             std::string_view rhs) {
+  return AddInstruction(
+      Opcode::SShr, {ParseRegOperand(dest), ParseRegOperand(lhs), ParseRegOperand(rhs)});
+}
+
+InstructionBuilder& InstructionBuilder::SShr(std::string_view dest,
+                                             std::string_view lhs,
+                                             uint64_t rhs) {
+  return AddInstruction(
+      Opcode::SShr, {ParseRegOperand(dest), ParseRegOperand(lhs), ImmediateOperand(rhs)});
 }
 
 InstructionBuilder& InstructionBuilder::SCmpLt(std::string_view lhs, std::string_view rhs) {

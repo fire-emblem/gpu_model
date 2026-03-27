@@ -125,6 +125,9 @@ KernelProgram AsmParser::Parse(const ProgramImage& image) const {
     } else if (opcode == "sys_block_dim_x") {
       RequireOperandCount(opcode, operands, 1);
       builder.SysBlockDimX(operands[0]);
+    } else if (opcode == "sys_grid_dim_x") {
+      RequireOperandCount(opcode, operands, 1);
+      builder.SysGridDimX(operands[0]);
     } else if (opcode == "sys_lane_id") {
       RequireOperandCount(opcode, operands, 1);
       builder.SysLaneId(operands[0]);
@@ -148,6 +151,41 @@ KernelProgram AsmParser::Parse(const ProgramImage& image) const {
         builder.SMul(operands[0], operands[1], operands[2]);
       } else {
         builder.SMul(operands[0], operands[1], ParseImmediate(operands[2]));
+      }
+    } else if (opcode == "s_and") {
+      RequireOperandCount(opcode, operands, 3);
+      if (IsRegister(operands[2])) {
+        builder.SAnd(operands[0], operands[1], operands[2]);
+      } else {
+        builder.SAnd(operands[0], operands[1], ParseImmediate(operands[2]));
+      }
+    } else if (opcode == "s_or") {
+      RequireOperandCount(opcode, operands, 3);
+      if (IsRegister(operands[2])) {
+        builder.SOr(operands[0], operands[1], operands[2]);
+      } else {
+        builder.SOr(operands[0], operands[1], ParseImmediate(operands[2]));
+      }
+    } else if (opcode == "s_xor") {
+      RequireOperandCount(opcode, operands, 3);
+      if (IsRegister(operands[2])) {
+        builder.SXor(operands[0], operands[1], operands[2]);
+      } else {
+        builder.SXor(operands[0], operands[1], ParseImmediate(operands[2]));
+      }
+    } else if (opcode == "s_shl") {
+      RequireOperandCount(opcode, operands, 3);
+      if (IsRegister(operands[2])) {
+        builder.SShl(operands[0], operands[1], operands[2]);
+      } else {
+        builder.SShl(operands[0], operands[1], ParseImmediate(operands[2]));
+      }
+    } else if (opcode == "s_shr") {
+      RequireOperandCount(opcode, operands, 3);
+      if (IsRegister(operands[2])) {
+        builder.SShr(operands[0], operands[1], operands[2]);
+      } else {
+        builder.SShr(operands[0], operands[1], ParseImmediate(operands[2]));
       }
     } else if (opcode == "s_cmp_lt") {
       RequireOperandCount(opcode, operands, 2);

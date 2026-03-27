@@ -21,6 +21,7 @@ class InstructionBuilder {
   InstructionBuilder& SysBlockOffsetX(std::string_view dest);
   InstructionBuilder& SysBlockIdxX(std::string_view dest);
   InstructionBuilder& SysBlockDimX(std::string_view dest);
+  InstructionBuilder& SysGridDimX(std::string_view dest);
   InstructionBuilder& SysLaneId(std::string_view dest);
 
   InstructionBuilder& SMov(std::string_view dest, std::string_view src);
@@ -29,6 +30,16 @@ class InstructionBuilder {
   InstructionBuilder& SAdd(std::string_view dest, std::string_view lhs, uint64_t rhs);
   InstructionBuilder& SMul(std::string_view dest, std::string_view lhs, std::string_view rhs);
   InstructionBuilder& SMul(std::string_view dest, std::string_view lhs, uint64_t rhs);
+  InstructionBuilder& SAnd(std::string_view dest, std::string_view lhs, std::string_view rhs);
+  InstructionBuilder& SAnd(std::string_view dest, std::string_view lhs, uint64_t rhs);
+  InstructionBuilder& SOr(std::string_view dest, std::string_view lhs, std::string_view rhs);
+  InstructionBuilder& SOr(std::string_view dest, std::string_view lhs, uint64_t rhs);
+  InstructionBuilder& SXor(std::string_view dest, std::string_view lhs, std::string_view rhs);
+  InstructionBuilder& SXor(std::string_view dest, std::string_view lhs, uint64_t rhs);
+  InstructionBuilder& SShl(std::string_view dest, std::string_view lhs, std::string_view rhs);
+  InstructionBuilder& SShl(std::string_view dest, std::string_view lhs, uint64_t rhs);
+  InstructionBuilder& SShr(std::string_view dest, std::string_view lhs, std::string_view rhs);
+  InstructionBuilder& SShr(std::string_view dest, std::string_view lhs, uint64_t rhs);
   InstructionBuilder& SCmpLt(std::string_view lhs, std::string_view rhs);
   InstructionBuilder& SCmpLt(std::string_view lhs, uint64_t rhs);
   InstructionBuilder& SCmpEq(std::string_view lhs, std::string_view rhs);

@@ -122,6 +122,25 @@ OpPlan Semantics::BuildPlan(const Instruction& instruction,
       }
       return plan;
     }
+    case Opcode::SysGridDimX: {
+      const Operand& dest = instruction.operands.at(0);
+      if (dest.kind != OperandKind::Register) {
+        throw std::invalid_argument("sys_grid_dim_x requires register destination");
+      }
+      if (dest.reg.file == RegisterFile::Scalar) {
+        plan.scalar_writes.push_back(
+            ScalarWrite{.reg_index = dest.reg.index, .value = context.launch_config.grid_dim_x});
+      } else {
+        VectorWrite write;
+        write.reg_index = dest.reg.index;
+        write.mask = ThreadMask(wave);
+        for (uint32_t lane = 0; lane < wave.thread_count && lane < kWaveSize; ++lane) {
+          write.values[lane] = context.launch_config.grid_dim_x;
+        }
+        plan.vector_writes.push_back(write);
+      }
+      return plan;
+    }
     case Opcode::SysLaneId: {
       const Operand& dest = instruction.operands.at(0);
       if (dest.kind != OperandKind::Register) {
@@ -158,6 +177,41 @@ OpPlan Semantics::BuildPlan(const Instruction& instruction,
       const uint64_t lhs = ReadScalarOperand(instruction.operands.at(1), wave);
       const uint64_t rhs = ReadScalarOperand(instruction.operands.at(2), wave);
       plan.scalar_writes.push_back(ScalarWrite{.reg_index = dest, .value = lhs * rhs});
+      return plan;
+    }
+    case Opcode::SAnd: {
+      const uint32_t dest = RequireScalarReg(instruction.operands.at(0));
+      const uint64_t lhs = ReadScalarOperand(instruction.operands.at(1), wave);
+      const uint64_t rhs = ReadScalarOperand(instruction.operands.at(2), wave);
+      plan.scalar_writes.push_back(ScalarWrite{.reg_index = dest, .value = lhs & rhs});
+      return plan;
+    }
+    case Opcode::SOr: {
+      const uint32_t dest = RequireScalarReg(instruction.operands.at(0));
+      const uint64_t lhs = ReadScalarOperand(instruction.operands.at(1), wave);
+      const uint64_t rhs = ReadScalarOperand(instruction.operands.at(2), wave);
+      plan.scalar_writes.push_back(ScalarWrite{.reg_index = dest, .value = lhs | rhs});
+      return plan;
+    }
+    case Opcode::SXor: {
+      const uint32_t dest = RequireScalarReg(instruction.operands.at(0));
+      const uint64_t lhs = ReadScalarOperand(instruction.operands.at(1), wave);
+      const uint64_t rhs = ReadScalarOperand(instruction.operands.at(2), wave);
+      plan.scalar_writes.push_back(ScalarWrite{.reg_index = dest, .value = lhs ^ rhs});
+      return plan;
+    }
+    case Opcode::SShl: {
+      const uint32_t dest = RequireScalarReg(instruction.operands.at(0));
+      const uint64_t lhs = ReadScalarOperand(instruction.operands.at(1), wave);
+      const uint64_t rhs = ReadScalarOperand(instruction.operands.at(2), wave) & 63ULL;
+      plan.scalar_writes.push_back(ScalarWrite{.reg_index = dest, .value = lhs << rhs});
+      return plan;
+    }
+    case Opcode::SShr: {
+      const uint32_t dest = RequireScalarReg(instruction.operands.at(0));
+      const uint64_t lhs = ReadScalarOperand(instruction.operands.at(1), wave);
+      const uint64_t rhs = ReadScalarOperand(instruction.operands.at(2), wave) & 63ULL;
+      plan.scalar_writes.push_back(ScalarWrite{.reg_index = dest, .value = lhs >> rhs});
       return plan;
     }
     case Opcode::SCmpLt: {

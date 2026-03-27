@@ -11,10 +11,16 @@ enum class Opcode {
   SysBlockOffsetX,
   SysBlockIdxX,
   SysBlockDimX,
+  SysGridDimX,
   SysLaneId,
   SMov,
   SAdd,
   SMul,
+  SAnd,
+  SOr,
+  SXor,
+  SShl,
+  SShr,
   SCmpLt,
   SCmpEq,
   VMov,
@@ -67,6 +73,8 @@ inline std::string_view ToString(Opcode opcode) {
       return "sys_block_idx_x";
     case Opcode::SysBlockDimX:
       return "sys_block_dim_x";
+    case Opcode::SysGridDimX:
+      return "sys_grid_dim_x";
     case Opcode::SysLaneId:
       return "sys_lane_id";
     case Opcode::SMov:
@@ -75,6 +83,16 @@ inline std::string_view ToString(Opcode opcode) {
       return "s_add";
     case Opcode::SMul:
       return "s_mul";
+    case Opcode::SAnd:
+      return "s_and";
+    case Opcode::SOr:
+      return "s_or";
+    case Opcode::SXor:
+      return "s_xor";
+    case Opcode::SShl:
+      return "s_shl";
+    case Opcode::SShr:
+      return "s_shr";
     case Opcode::SCmpLt:
       return "s_cmp_lt";
     case Opcode::SCmpEq:

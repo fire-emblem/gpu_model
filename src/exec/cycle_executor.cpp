@@ -180,6 +180,7 @@ std::vector<ReadyRef> CollectReadRefs(const Instruction& instruction) {
     case Opcode::SysBlockOffsetX:
     case Opcode::SysBlockIdxX:
     case Opcode::SysBlockDimX:
+    case Opcode::SysGridDimX:
     case Opcode::SysLaneId:
     case Opcode::BBranch:
     case Opcode::BExit:
@@ -189,6 +190,11 @@ std::vector<ReadyRef> CollectReadRefs(const Instruction& instruction) {
       break;
     case Opcode::SAdd:
     case Opcode::SMul:
+    case Opcode::SAnd:
+    case Opcode::SOr:
+    case Opcode::SXor:
+    case Opcode::SShl:
+    case Opcode::SShr:
       AddOperandDependency(instruction.operands.at(1), refs);
       AddOperandDependency(instruction.operands.at(2), refs);
       break;
