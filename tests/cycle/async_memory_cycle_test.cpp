@@ -123,6 +123,14 @@ TEST(AsyncMemoryCycleTest, WaitCntCanWaitForGlobalMemoryOnly) {
   EXPECT_EQ(FirstWaveStepCycle(trace.events(), "s_waitcnt"), 32u);
   EXPECT_EQ(NthWaveStepCycle(trace.events(), "s_mov_b32", 3), 36u);
   EXPECT_EQ(result.total_cycles, 44u);
+  bool saw_waitcnt_global_stall = false;
+  for (const auto& event : trace.events()) {
+    if (event.kind == TraceEventKind::Stall && event.message == "waitcnt_global") {
+      saw_waitcnt_global_stall = true;
+      break;
+    }
+  }
+  EXPECT_TRUE(saw_waitcnt_global_stall);
 }
 
 TEST(AsyncMemoryCycleTest, WaitCntIgnoresGlobalWhenWaitingSharedOnly) {
