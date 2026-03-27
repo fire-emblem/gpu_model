@@ -164,6 +164,89 @@ Assessment:
 - This is already useful for relative optimization studies.
 - It should remain the project’s main performance exploration model unless a simpler question forces more detail.
 
+### Issue Types And Wave Selection
+
+Reference from the GCN whitepaper and MIAOW:
+
+- The GCN CU front-end can decode and issue these instruction types:
+  - branch
+  - scalar ALU or scalar memory
+  - vector ALU
+  - vector memory
+  - local data share
+  - global data share or export
+  - special instructions
+- The GCN whitepaper states that only one instruction of each type can be issued at a time per SIMD.
+- MIAOW reflects this split through separate ready-to-issue sets and arbiters for:
+  - scalar path
+  - SIMD vector path
+  - SIMF path
+  - LSU path
+  - barrier / branch / wait gating
+
+Project simplification:
+
+- The project should not model all GCN issue types as separate full pipelines.
+- For optimization studies, the useful simplified issue classes are:
+  - `SALU`
+    scalar ALU, scalar control, scalar compare, branch, wait, mask, scalar-buffer loads
+  - `VALU`
+    vector integer / vector predicate / vector select style instructions
+  - `LSU`
+    linear-address memory operations:
+    `buffer_*`, `ds_*`, `scratch_*`, `scalar_buffer_*`
+  - `SPECIAL`
+    barrier, end program, and any future zero-FU special instructions
+
+Recommended same-cycle issue rule:
+
+- Keep the current default model simple.
+- When the project adds lightweight issue competition, use:
+  - at most `1 x SALU`
+  - at most `1 x VALU`
+  - at most `1 x LSU`
+  - at most `1 x SPECIAL`
+  per scheduling opportunity for a PEU issue point.
+
+Conflict rule:
+
+- Instructions conflict when they consume the same simplified issue class in the same cycle.
+- Example conflicts:
+  - `s_add_u32` conflicts with `s_cmp_lt_i32`
+  - `s_buffer_load_dword` conflicts with `s_waitcnt`
+  - `v_add_i32` conflicts with `v_mad_i32`
+  - `buffer_load_dword` conflicts with `buffer_store_dword`
+  - `ds_read_b32` conflicts with `ds_add_u32`
+- Example non-conflicts in the simplified target model:
+  - `SALU` with `VALU`
+  - `SALU` with `LSU`
+  - `VALU` with `LSU`
+
+Wave selection rule:
+
+- Wave selection should stay round-robin within a PEU among waves that are eligible to issue.
+- Eligibility means:
+  - wave is active
+  - wave is in the front dispatch window
+  - front-end valid entry is available
+  - branch is not pending
+  - barrier wait is not active
+  - waitcnt thresholds are satisfied
+  - required dependency operands are ready
+  - the issue class needed by the next instruction is not already consumed for that cycle
+
+Current project behavior:
+
+- The project already does:
+  - PEU-local round-robin wave choice
+  - dependency gating
+  - branch pending gating
+  - barrier wait gating
+  - waitcnt domain gating
+  - stall-reason trace when no issue happens
+- The project does not yet fully do:
+  - separate `SALU / VALU / LSU / SPECIAL` same-cycle class competition
+
 ### Trace / Timeline
 
 Implemented:

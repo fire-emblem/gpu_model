@@ -103,6 +103,15 @@ The project should evolve in layers, but stop before hardware-faithful complexit
    - basic wavepool/fetch gating
    - simple issue arbitration
 
+5. Lightweight issue-class competition
+   Only when needed:
+   - `SALU`
+   - `VALU`
+   - `LSU`
+   - `SPECIAL`
+   Keep this at the “one instruction per class per cycle” level.
+   Do not expand into detailed functional-unit pipelines unless the simpler model is insufficient.
+
 ## Non-Goals
 
 The naive cycle model should avoid:
@@ -112,6 +121,7 @@ The naive cycle model should avoid:
 - exact register file bank wiring
 - exact cache coherence protocol timing
 - exact branch predictor or fetch pipe timing
+- exact per-lane functional-unit issue micro-architecture
 
 Those details are expensive and reduce interpretability.
 
