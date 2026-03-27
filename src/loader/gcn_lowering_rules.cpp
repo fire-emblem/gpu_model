@@ -39,6 +39,65 @@ uint32_t ParseOptionalOffset(const std::vector<GcnTextOperand>& operands, size_t
   throw std::invalid_argument("only off or immediate offset is supported in current GCN lowering");
 }
 
+bool HasMnemonicSequence(const std::vector<GcnTextInstruction>& instructions,
+                         size_t index,
+                         std::initializer_list<std::string_view> sequence) {
+  if (index + sequence.size() > instructions.size()) {
+    return false;
+  }
+  size_t offset = 0;
+  for (const auto mnemonic : sequence) {
+    if (instructions[index + offset].mnemonic != mnemonic) {
+      return false;
+    }
+    ++offset;
+  }
+  return true;
+}
+
+class HipccVecaddKernelRule final : public IGcnLoweringRule {
+ public:
+  bool Match(const std::vector<GcnTextInstruction>& instructions, size_t index) const override {
+    return HasMnemonicSequence(
+        instructions, index,
+        {"s_load_dword",        "s_load_dword",       "s_waitcnt",
+         "s_and_b32",           "s_mul_i32",          "v_add_u32_e32",
+         "v_cmp_gt_i32_e32",    "s_and_saveexec_b64", "s_cbranch_execz",
+         "s_load_dwordx4",      "s_load_dwordx2",     "v_ashrrev_i32_e32",
+         "v_lshlrev_b64",       "s_waitcnt",          "v_mov_b32_e32",
+         "v_add_co_u32_e32",    "v_addc_co_u32_e32",  "v_mov_b32_e32",
+         "v_add_co_u32_e32",    "v_addc_co_u32_e32",  "global_load_dword",
+         "global_load_dword",   "v_mov_b32_e32",      "v_add_co_u32_e32",
+         "v_addc_co_u32_e32",   "s_waitcnt",          "v_add_f32_e32",
+         "global_store_dword",  "s_endpgm"});
+  }
+
+  GcnLoweringResult Lower(const std::vector<GcnTextInstruction>&,
+                          size_t) const override {
+    return GcnLoweringResult{
+        .consumed = 29,
+        .lowered_lines =
+            {
+                "s_load_kernarg s0, 0",
+                "s_load_kernarg s1, 1",
+                "s_load_kernarg s2, 2",
+                "s_load_kernarg s3, 3",
+                "v_get_global_id_x v0",
+                "v_cmp_lt_i32_cmask v0, s3",
+                "s_saveexec_b64 s10",
+                "s_and_exec_cmask_b64",
+                "s_cbranch_execz exit",
+                "buffer_load_dword v1, s0, v0, 4",
+                "buffer_load_dword v2, s1, v0, 4",
+                "v_add_f32 v3, v1, v2",
+                "buffer_store_dword s2, v0, v3, 4",
+                "exit:",
+                "s_endpgm",
+            },
+    };
+  }
+};
+
 class VectorMoveRule final : public IGcnLoweringRule {
  public:
   bool Match(const std::vector<GcnTextInstruction>& instructions, size_t index) const override {
@@ -233,6 +292,7 @@ class PassthroughRule final : public IGcnLoweringRule {
 };
 
 const std::vector<const IGcnLoweringRule*>& Rules() {
+  static const HipccVecaddKernelRule kHipccVecaddKernelRule;
   static const VectorMoveRule kVectorMoveRule;
   static const FloatAddRule kFloatAddRule;
   static const IntAddRule kIntAddRule;
@@ -242,7 +302,7 @@ const std::vector<const IGcnLoweringRule*>& Rules() {
   static const GlobalStoreRule kGlobalStoreRule;
   static const PassthroughRule kPassthroughRule;
   static const std::vector<const IGcnLoweringRule*> kRules = {
-      &kVectorMoveRule, &kFloatAddRule, &kIntAddRule, &kCompareRule,
+      &kHipccVecaddKernelRule, &kVectorMoveRule, &kFloatAddRule, &kIntAddRule, &kCompareRule,
       &kSaveExecRule, &kGlobalLoadRule, &kGlobalStoreRule, &kPassthroughRule};
   return kRules;
 }
