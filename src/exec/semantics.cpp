@@ -37,6 +37,7 @@ OpPlan Semantics::BuildPlan(const Instruction& instruction,
                             const WaveState& wave,
                             const ExecutionContext& context) const {
   OpPlan plan;
+  plan.issue_cycles = context.spec.default_issue_cycles;
 
   switch (instruction.opcode) {
     case Opcode::SysLoadArg: {
@@ -330,6 +331,25 @@ OpPlan Semantics::BuildPlan(const Instruction& instruction,
     }
     case Opcode::SWaitCnt: {
       plan.wait_cnt = true;
+      return plan;
+    }
+    case Opcode::SBufferLoadDword: {
+      MemoryRequest request;
+      request.space = MemorySpace::Constant;
+      request.kind = AccessKind::Load;
+      request.dst = RegRef{.file = RegisterFile::Scalar,
+                           .index = RequireScalarReg(instruction.operands.at(0))};
+      request.block_id = wave.block_id;
+      request.wave_id = wave.wave_id;
+
+      const uint64_t scale = ReadScalarOperand(instruction.operands.at(2), wave);
+      const uint64_t index = ReadScalarOperand(instruction.operands.at(1), wave);
+      request.lanes[0] = LaneAccess{
+          .active = true,
+          .addr = index * scale,
+          .bytes = static_cast<uint32_t>(scale),
+      };
+      plan.memory = request;
       return plan;
     }
     case Opcode::SCmpLt: {

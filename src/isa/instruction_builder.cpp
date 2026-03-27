@@ -270,6 +270,13 @@ InstructionBuilder& InstructionBuilder::SWaitCnt(uint32_t global_count,
                          ImmediateOperand(private_count), ImmediateOperand(scalar_buffer_count)});
 }
 
+InstructionBuilder& InstructionBuilder::SBufferLoadDword(std::string_view dest,
+                                                         std::string_view index,
+                                                         uint32_t scale_bytes) {
+  return AddInstruction(Opcode::SBufferLoadDword,
+                        {ParseRegOperand(dest), ParseRegOperand(index), ImmediateOperand(scale_bytes)});
+}
+
 InstructionBuilder& InstructionBuilder::SCmpLt(std::string_view lhs, std::string_view rhs) {
   return AddInstruction(Opcode::SCmpLt, {ParseRegOperand(lhs), ParseRegOperand(rhs)});
 }

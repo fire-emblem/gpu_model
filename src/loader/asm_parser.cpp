@@ -315,6 +315,10 @@ KernelProgram AsmParser::Parse(const ProgramImage& image) const {
                                                      std::string_view(trimmed).substr(space + 1));
       builder.SWaitCnt(thresholds.global, thresholds.shared, thresholds.private_mem,
                        thresholds.scalar_buffer);
+    } else if (opcode == "s_buffer_load_dword") {
+      RequireOperandCount(opcode, operands, 3);
+      builder.SBufferLoadDword(operands[0], operands[1],
+                               static_cast<uint32_t>(ParseImmediate(operands[2])));
     } else if (opcode == "s_cmp_lt_i32") {
       RequireOperandCount(opcode, operands, 2);
       if (IsRegister(operands[1])) {

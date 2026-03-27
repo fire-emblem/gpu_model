@@ -257,27 +257,43 @@ uint64_t FunctionalExecutor::Run(ExecutionContext& context) {
             if (!request.dst.has_value()) {
               throw std::invalid_argument("load request missing destination");
             }
-            std::array<uint64_t, 64> loaded_values{};
-            for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
-              if (request.lanes[lane].active) {
-                if (request.space == MemorySpace::Global) {
-                  loaded_values[lane] = LoadLaneValue(context.memory, request.lanes[lane]);
-                } else if (request.space == MemorySpace::Shared) {
-                  loaded_values[lane] = LoadLaneValue(block.shared_memory, request.lanes[lane]);
-                } else if (request.space == MemorySpace::Private) {
-                  loaded_values[lane] =
-                      LoadLaneValue(wave.private_memory, lane, request.lanes[lane]);
-                } else if (request.space == MemorySpace::Constant) {
-                  loaded_values[lane] =
-                      LoadLaneValue(context.kernel.const_segment().bytes, request.lanes[lane]);
+            if (request.dst->file == RegisterFile::Scalar) {
+              uint64_t loaded_value = 0;
+              for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+                if (!request.lanes[lane].active) {
+                  continue;
+                }
+                if (request.space == MemorySpace::Constant) {
+                  loaded_value = LoadLaneValue(context.kernel.const_segment().bytes, request.lanes[lane]);
                 } else {
-                  throw std::invalid_argument("unsupported load memory space");
+                  throw std::invalid_argument("scalar load supports constant memory only");
+                }
+                break;
+              }
+              wave.sgpr.Write(request.dst->index, loaded_value);
+            } else {
+              std::array<uint64_t, 64> loaded_values{};
+              for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+                if (request.lanes[lane].active) {
+                  if (request.space == MemorySpace::Global) {
+                    loaded_values[lane] = LoadLaneValue(context.memory, request.lanes[lane]);
+                  } else if (request.space == MemorySpace::Shared) {
+                    loaded_values[lane] = LoadLaneValue(block.shared_memory, request.lanes[lane]);
+                  } else if (request.space == MemorySpace::Private) {
+                    loaded_values[lane] =
+                        LoadLaneValue(wave.private_memory, lane, request.lanes[lane]);
+                  } else if (request.space == MemorySpace::Constant) {
+                    loaded_values[lane] =
+                        LoadLaneValue(context.kernel.const_segment().bytes, request.lanes[lane]);
+                  } else {
+                    throw std::invalid_argument("unsupported load memory space");
+                  }
                 }
               }
-            }
-            for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
-              if (request.exec_snapshot.test(lane)) {
-                wave.vgpr.Write(request.dst->index, lane, loaded_values[lane]);
+              for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+                if (request.exec_snapshot.test(lane)) {
+                  wave.vgpr.Write(request.dst->index, lane, loaded_values[lane]);
+                }
               }
             }
           } else if (request.kind == AccessKind::Store) {

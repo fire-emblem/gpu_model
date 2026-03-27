@@ -55,6 +55,9 @@ class InstructionBuilder {
                                uint32_t shared_count,
                                uint32_t private_count,
                                uint32_t scalar_buffer_count);
+  InstructionBuilder& SBufferLoadDword(std::string_view dest,
+                                       std::string_view index,
+                                       uint32_t scale_bytes = 1);
   InstructionBuilder& SCmpLt(std::string_view lhs, std::string_view rhs);
   InstructionBuilder& SCmpLt(std::string_view lhs, uint64_t rhs);
   InstructionBuilder& SCmpEq(std::string_view lhs, std::string_view rhs);

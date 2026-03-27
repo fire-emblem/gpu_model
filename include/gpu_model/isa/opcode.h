@@ -30,6 +30,7 @@ enum class Opcode {
   SShl,
   SShr,
   SWaitCnt,
+  SBufferLoadDword,
   SCmpLt,
   SCmpEq,
   SCmpGt,
@@ -125,6 +126,8 @@ inline std::string_view ToString(Opcode opcode) {
       return "s_lshr_b32";
     case Opcode::SWaitCnt:
       return "s_waitcnt";
+    case Opcode::SBufferLoadDword:
+      return "s_buffer_load_dword";
     case Opcode::SCmpLt:
       return "s_cmp_lt_i32";
     case Opcode::SCmpEq:

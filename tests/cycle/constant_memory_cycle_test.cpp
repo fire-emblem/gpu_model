@@ -26,6 +26,15 @@ KernelProgram BuildConstCycleKernel(ConstSegment const_segment) {
   return builder.Build("const_cycle", {}, std::move(const_segment));
 }
 
+KernelProgram BuildScalarBufferCycleKernel(ConstSegment const_segment) {
+  InstructionBuilder builder;
+  builder.SMov("s0", 0);
+  builder.SBufferLoadDword("s1", "s0", 4);
+  builder.VMov("v0", "s1");
+  builder.BExit();
+  return builder.Build("scalar_buffer_cycle", {}, std::move(const_segment));
+}
+
 TEST(ConstantMemoryCycleTest, ConstantLoadUsesOnlyFixedIssueCost) {
   const auto kernel = BuildConstCycleKernel(MakeConstSegment({42}));
   HostRuntime runtime;
@@ -39,6 +48,21 @@ TEST(ConstantMemoryCycleTest, ConstantLoadUsesOnlyFixedIssueCost) {
   const auto result = runtime.Launch(request);
   ASSERT_TRUE(result.ok) << result.error_message;
   EXPECT_EQ(result.total_cycles, 12u);
+}
+
+TEST(ConstantMemoryCycleTest, ScalarBufferLoadUsesScalarDestination) {
+  const auto kernel = BuildScalarBufferCycleKernel(MakeConstSegment({42}));
+  HostRuntime runtime;
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+  EXPECT_EQ(result.total_cycles, 16u);
 }
 
 }  // namespace

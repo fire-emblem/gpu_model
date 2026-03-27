@@ -272,6 +272,9 @@ std::vector<ReadyRef> CollectReadRefs(const Instruction& instruction) {
         AddOperandDependency(instruction.operands.at(2), refs);
       }
       break;
+    case Opcode::SBufferLoadDword:
+      AddOperandDependency(instruction.operands.at(1), refs);
+      break;
     case Opcode::MStoreGlobal:
     case Opcode::MAtomicAddGlobal:
     case Opcode::MStoreShared:
@@ -1073,15 +1076,30 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                     if (!request.dst.has_value()) {
                       throw std::invalid_argument("load request missing destination");
                     }
-                    for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
-                      if (request.lanes[lane].active) {
-                        const uint64_t value =
+                    if (request.dst->file == RegisterFile::Scalar) {
+                      uint64_t loaded_value = 0;
+                      for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+                        if (!request.lanes[lane].active) {
+                          continue;
+                        }
+                        loaded_value =
                             LoadLaneValue(context.kernel.const_segment().bytes, request.lanes[lane]);
-                        candidate->wave.vgpr.Write(request.dst->index, lane, value);
+                        break;
                       }
+                      candidate->wave.sgpr.Write(request.dst->index, loaded_value);
+                      candidate->scoreboard.MarkReady(
+                          ScalarRef(request.dst->index), commit_cycle);
+                    } else {
+                      for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+                        if (request.lanes[lane].active) {
+                          const uint64_t value =
+                              LoadLaneValue(context.kernel.const_segment().bytes, request.lanes[lane]);
+                          candidate->wave.vgpr.Write(request.dst->index, lane, value);
+                        }
+                      }
+                      candidate->scoreboard.MarkReady(
+                          VectorRef(request.dst->index), commit_cycle);
                     }
-                    candidate->scoreboard.MarkReady(
-                        VectorRef(request.dst->index), commit_cycle);
                     DecrementPendingMemoryOps(candidate->wave, MemoryWaitDomain::ScalarBuffer);
                     candidate->wave.valid_entry = true;
                   } else {
