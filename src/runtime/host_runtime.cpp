@@ -35,6 +35,20 @@ void HostRuntime::SetSharedBankConflictModel(uint32_t bank_count, uint32_t bank_
   shared_bank_width_override_ = bank_width_bytes;
 }
 
+void HostRuntime::SetLaunchTimingProfile(uint64_t kernel_launch_gap_cycles,
+                                         uint64_t kernel_launch_cycles,
+                                         uint64_t block_launch_cycles,
+                                         uint64_t wave_launch_cycles,
+                                         uint64_t warp_switch_cycles,
+                                         uint64_t arg_load_cycles) {
+  kernel_launch_gap_cycles_override_ = kernel_launch_gap_cycles;
+  kernel_launch_cycles_override_ = kernel_launch_cycles;
+  block_launch_cycles_override_ = block_launch_cycles;
+  wave_launch_cycles_override_ = wave_launch_cycles;
+  warp_switch_cycles_override_ = warp_switch_cycles;
+  arg_load_cycles_override_ = arg_load_cycles;
+}
+
 LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
   LaunchResult result;
 
@@ -210,6 +224,25 @@ CycleTimingConfig HostRuntime::ResolveCycleTimingConfig(const GpuArchSpec& spec)
   if (shared_bank_width_override_.has_value()) {
     config.shared_bank_model.enabled = true;
     config.shared_bank_model.bank_width_bytes = *shared_bank_width_override_;
+  }
+
+  if (kernel_launch_gap_cycles_override_.has_value()) {
+    config.launch_timing.kernel_launch_gap_cycles = *kernel_launch_gap_cycles_override_;
+  }
+  if (kernel_launch_cycles_override_.has_value()) {
+    config.launch_timing.kernel_launch_cycles = *kernel_launch_cycles_override_;
+  }
+  if (block_launch_cycles_override_.has_value()) {
+    config.launch_timing.block_launch_cycles = *block_launch_cycles_override_;
+  }
+  if (wave_launch_cycles_override_.has_value()) {
+    config.launch_timing.wave_launch_cycles = *wave_launch_cycles_override_;
+  }
+  if (warp_switch_cycles_override_.has_value()) {
+    config.launch_timing.warp_switch_cycles = *warp_switch_cycles_override_;
+  }
+  if (arg_load_cycles_override_.has_value()) {
+    config.launch_timing.arg_load_cycles = *arg_load_cycles_override_;
   }
 
   return config;

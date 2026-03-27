@@ -30,6 +30,8 @@ struct ScheduledWave {
   WaveState wave;
   Scoreboard scoreboard;
   uint64_t launch_cycle = 0;
+  bool dispatch_enabled = false;
+  bool launch_scheduled = false;
 };
 
 struct ExecutableBlock {
@@ -440,8 +442,42 @@ uint64_t WaveTag(const WaveState& wave) {
   return (static_cast<uint64_t>(wave.block_id) << 32) | wave.wave_id;
 }
 
+void ScheduleWaveLaunch(ScheduledWave& scheduled_wave,
+                        uint64_t cycle,
+                        EventQueue& events,
+                        TraceSink& trace) {
+  scheduled_wave.dispatch_enabled = true;
+  scheduled_wave.launch_cycle = cycle;
+  if (scheduled_wave.launch_scheduled || scheduled_wave.wave.status == WaveStatus::Active ||
+      scheduled_wave.wave.status == WaveStatus::Exited) {
+    return;
+  }
+  scheduled_wave.launch_scheduled = true;
+  ScheduledWave* wave_ptr = &scheduled_wave;
+  events.Schedule(TimedEvent{
+      .cycle = cycle,
+      .action =
+          [wave_ptr, &trace, block_id = scheduled_wave.wave.block_id, peu_id = scheduled_wave.wave.peu_id]() {
+            wave_ptr->launch_scheduled = false;
+            if (wave_ptr->wave.status == WaveStatus::Exited) {
+              return;
+            }
+            wave_ptr->wave.status = WaveStatus::Active;
+            trace.OnEvent(TraceEvent{
+                .kind = TraceEventKind::WaveLaunch,
+                .cycle = wave_ptr->launch_cycle,
+                .block_id = block_id,
+                .wave_id = wave_ptr->wave.wave_id,
+                .pc = wave_ptr->wave.pc,
+                .message = "peu=" + std::to_string(peu_id),
+            });
+          },
+  });
+}
+
 void ActivateBlock(ExecutableBlock& block,
                    uint64_t cycle,
+                   uint32_t max_issuable_waves,
                    uint64_t wave_launch_cycles,
                    EventQueue& events,
                    TraceSink& trace) {
@@ -454,38 +490,46 @@ void ActivateBlock(ExecutableBlock& block,
   });
   std::map<uint32_t, uint32_t> peu_launch_order;
   for (auto& scheduled_wave : block.waves) {
-    const uint64_t launch_cycle =
-        cycle + static_cast<uint64_t>(peu_launch_order[scheduled_wave.wave.peu_id]++) * wave_launch_cycles;
-    scheduled_wave.launch_cycle = launch_cycle;
-    if (launch_cycle == cycle) {
-      scheduled_wave.wave.status = WaveStatus::Active;
-      trace.OnEvent(TraceEvent{
-          .kind = TraceEventKind::WaveLaunch,
-          .cycle = launch_cycle,
-          .block_id = block.block_id,
-          .wave_id = scheduled_wave.wave.wave_id,
-          .pc = scheduled_wave.wave.pc,
-          .message = "peu=" + std::to_string(scheduled_wave.wave.peu_id),
-      });
-    } else {
-      scheduled_wave.wave.status = WaveStatus::Stalled;
-      ScheduledWave* wave_ptr = &scheduled_wave;
-      events.Schedule(TimedEvent{
-          .cycle = launch_cycle,
-          .action =
-              [wave_ptr, &trace, block_id = block.block_id, peu_id = scheduled_wave.wave.peu_id]() {
-                wave_ptr->wave.status = WaveStatus::Active;
-                trace.OnEvent(TraceEvent{
-                    .kind = TraceEventKind::WaveLaunch,
-                    .cycle = wave_ptr->launch_cycle,
-                    .block_id = block_id,
-                    .wave_id = wave_ptr->wave.wave_id,
-                    .pc = wave_ptr->wave.pc,
-                    .message = "peu=" + std::to_string(peu_id),
-                });
-              },
-      });
+    scheduled_wave.wave.status = WaveStatus::Stalled;
+    scheduled_wave.dispatch_enabled = false;
+    scheduled_wave.launch_scheduled = false;
+    const uint32_t launch_order = peu_launch_order[scheduled_wave.wave.peu_id]++;
+    if (launch_order < max_issuable_waves) {
+      const uint64_t launch_cycle =
+          cycle + static_cast<uint64_t>(launch_order) * wave_launch_cycles;
+      ScheduleWaveLaunch(scheduled_wave, launch_cycle, events, trace);
     }
+  }
+}
+
+void FillDispatchWindow(PeuSlot& slot,
+                        uint64_t cycle,
+                        uint32_t max_issuable_waves,
+                        EventQueue& events,
+                        TraceSink& trace) {
+  uint32_t active_count = 0;
+  for (auto* scheduled_wave : slot.waves) {
+    if (!scheduled_wave->block->active || !scheduled_wave->dispatch_enabled) {
+      continue;
+    }
+    if (scheduled_wave->wave.status == WaveStatus::Active || scheduled_wave->launch_scheduled) {
+      ++active_count;
+    }
+  }
+  if (active_count >= max_issuable_waves) {
+    return;
+  }
+
+  for (auto* scheduled_wave : slot.waves) {
+    if (active_count >= max_issuable_waves) {
+      break;
+    }
+    if (!scheduled_wave->block->active || scheduled_wave->dispatch_enabled ||
+        scheduled_wave->wave.status == WaveStatus::Exited) {
+      continue;
+    }
+    ScheduleWaveLaunch(*scheduled_wave, cycle, events, trace);
+    ++active_count;
   }
 }
 
@@ -514,14 +558,18 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
   for (auto& [global_ap_id, queue] : ap_queues) {
     (void)global_ap_id;
     if (!queue.empty()) {
-      ActivateBlock(*queue.front(), context.cycle, timing_config_.launch_timing.wave_launch_cycles,
-                    events, context.trace);
+      ActivateBlock(*queue.front(), context.cycle, context.spec.max_issuable_waves,
+                    timing_config_.launch_timing.wave_launch_cycles, events, context.trace);
     }
   }
 
   uint64_t cycle = context.cycle;
   while (true) {
     context.cycle = cycle;
+    events.RunReady(cycle);
+    for (auto& slot : slots) {
+      FillDispatchWindow(slot, cycle, context.spec.max_issuable_waves, events, context.trace);
+    }
     events.RunReady(cycle);
 
     if (AllWavesExited(blocks) && events.empty()) {
@@ -536,7 +584,7 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
 
       ScheduledWave* candidate = nullptr;
       for (auto* scheduled_wave : slot.waves) {
-        if (scheduled_wave->wave.status != WaveStatus::Active) {
+        if (!scheduled_wave->dispatch_enabled || scheduled_wave->wave.status != WaveStatus::Active) {
           continue;
         }
         if (scheduled_wave->wave.pc >= context.kernel.instructions().size()) {
@@ -933,6 +981,7 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                                   ActivateBlock(
                                       *next_block,
                                       commit_cycle + timing_config_.launch_timing.block_launch_cycles,
+                                      context.spec.max_issuable_waves,
                                       timing_config_.launch_timing.wave_launch_cycles,
                                       events,
                                       context.trace);

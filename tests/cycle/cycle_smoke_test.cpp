@@ -97,5 +97,53 @@ TEST(CycleSmokeTest, QueuesBlocksWhenGridExceedsPhysicalApCount) {
   EXPECT_TRUE(saw_warp_switch);
 }
 
+TEST(CycleSmokeTest, AsyncLoadPromotesOverflowResidentWavesPerPeu) {
+  CollectingTraceSink trace;
+  HostRuntime runtime(&trace);
+  runtime.SetFixedGlobalMemoryLatency(40);
+  runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
+                                 /*kernel_launch_cycles=*/0,
+                                 /*block_launch_cycles=*/0,
+                                 /*wave_launch_cycles=*/0,
+                                 /*warp_switch_cycles=*/1,
+                                 /*arg_load_cycles=*/4);
+
+  const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
+  runtime.memory().StoreGlobalValue<int32_t>(base_addr, 7);
+
+  InstructionBuilder builder;
+  builder.SMov("s0", base_addr);
+  builder.SMov("s1", 0);
+  builder.MLoadGlobal("v0", "s0", "s1", 4);
+  builder.BExit();
+  const auto kernel = builder.Build("resident_overflow_kernel");
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 1280;
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  uint32_t wave_launches_at_0 = 0;
+  uint32_t wave_launches_at_1 = 0;
+  for (const auto& event : trace.events()) {
+    if (event.kind != TraceEventKind::WaveLaunch) {
+      continue;
+    }
+    if (event.cycle == 0u) {
+      ++wave_launches_at_0;
+    } else if (event.cycle == 1u) {
+      ++wave_launches_at_1;
+    }
+  }
+
+  EXPECT_EQ(wave_launches_at_0, 16u);
+  EXPECT_EQ(wave_launches_at_1, 4u);
+  EXPECT_GT(result.total_cycles, 0u);
+}
+
 }  // namespace
 }  // namespace gpu_model
