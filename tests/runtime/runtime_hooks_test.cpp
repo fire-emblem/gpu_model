@@ -292,9 +292,15 @@ TEST(RuntimeHooksTest, SupportsDeviceToDeviceCopyAndMemsetOperations) {
 
 TEST(RuntimeHooksTest, ListsModulesAndKernels) {
   RuntimeHooks hooks;
-  hooks.RegisterProgramImage("mod_b", ProgramImage("k2", "b_exit\n"));
-  hooks.RegisterProgramImage("mod_a", ProgramImage("k1", "b_exit\n"));
-  hooks.RegisterProgramImage("mod_a", ProgramImage("k0", "b_exit\n"));
+  hooks.RegisterProgramImage(
+      "mod_b", ProgramImage("k2", "b_exit\n",
+                             MetadataBlob{.values = {{"module_name", "mod_b"}, {"module_kernels", "k2"}}}));
+  hooks.RegisterProgramImage(
+      "mod_a", ProgramImage("k1", "b_exit\n",
+                             MetadataBlob{.values = {{"module_name", "mod_a"}, {"module_kernels", "k0,k1"}}}));
+  hooks.RegisterProgramImage(
+      "mod_a", ProgramImage("k0", "b_exit\n",
+                             MetadataBlob{.values = {{"module_name", "mod_a"}, {"module_kernels", "k0,k1"}}}));
 
   EXPECT_TRUE(hooks.HasModule("mod_a"));
   EXPECT_TRUE(hooks.HasKernel("mod_a", "k1"));

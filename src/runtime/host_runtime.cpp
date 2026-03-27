@@ -81,6 +81,15 @@ LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
       result.error_message = "kernel metadata entry does not match kernel name";
       return result;
     }
+    if (!launch_metadata.module_kernels.empty()) {
+      const bool found = std::find(launch_metadata.module_kernels.begin(),
+                                   launch_metadata.module_kernels.end(),
+                                   kernel->name()) != launch_metadata.module_kernels.end();
+      if (!found) {
+        result.error_message = "kernel name is not present in module_kernels metadata";
+        return result;
+      }
+    }
     if (launch_metadata.arg_count.has_value() &&
         request.args.size() != *launch_metadata.arg_count) {
       result.error_message = "kernel argument count does not match metadata";
