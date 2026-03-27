@@ -12,6 +12,8 @@ This directory groups runnable workflows by usage instead of by source module.
   Compile a minimal HIP artifact, extract the embedded `.hip_fatbin` device bundle, and run the loader path.
 - `hip-command-line-interposer/`
   Run a real HIP `.out` executable with `LD_PRELOAD` so host code executes normally while kernel launches are redirected into the model.
+- `raw-code-object-decode/`
+  Decode raw AMDGPU instructions from an AMDGPU ELF or HIP `.out` using the project-side format/encoding scaffold.
 
 Each usage directory contains:
 

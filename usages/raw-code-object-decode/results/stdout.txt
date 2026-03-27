@@ -1,0 +1,30 @@
+kernel=vecadd
+pc=0x0 size=8 fmt=smrd text=s_load_dword s4, s[0:1], 0x2c ; format=smrd op=0
+pc=0x0 size=8 fmt=smrd text=s_load_dword s4, s[0:1], 0x18 ; format=smrd op=0
+pc=0x0 size=4 fmt=sopp text=s_waitcnt lgkmcnt(0) ; format=sopp
+pc=0x0 size=8 fmt=sop2 text=s_and_b32 s0, s0, 0xffff ; format=sop2
+pc=0x0 size=4 fmt=sop2 text=s_mul_i32 s6, s6, s0 ; format=sop2
+pc=0x0 size=4 fmt=vop2 text=v_add_u32_e32 v0, s6, v0 ; format=vop2
+pc=0x0 size=4 fmt=vopc text=v_cmp_gt_i32_e32 vcc, s1, v0 ; format=vopc
+pc=0x0 size=4 fmt=sop1 text=s_and_saveexec_b64 s[0:1], vcc ; format=sop1
+pc=0x0 size=4 fmt=sopp text=s_cbranch_execz 25 ; format=sopp
+pc=0x0 size=8 fmt=smrd text=s_load_dword s20, s[0:1], 0x0 ; format=smrd op=0
+pc=0x0 size=8 fmt=smrd text=s_load_dword s12, s[0:1], 0x10 ; format=smrd op=0
+pc=0x0 size=4 fmt=vop2 text=v_ashrrev_i32_e32 v1, 31, v0 ; format=vop2
+pc=0x0 size=8 fmt=vop3a text=v_lshlrev_b64 v[0:1], 2, v[0:1] ; format=vop3a
+pc=0x0 size=4 fmt=sopp text=s_waitcnt lgkmcnt(0) ; format=sopp
+pc=0x0 size=4 fmt=vop1 text=v_mov_b32_e32 v3, s3 ; format=vop1
+pc=0x0 size=4 fmt=vop2 text=v_add_co_u32_e32 v2, vcc, s2, v0 ; format=vop2
+pc=0x0 size=4 fmt=vop2 text=v_addc_co_u32_e32 v3, vcc, v3, v1, vcc ; format=vop2
+pc=0x0 size=4 fmt=vop1 text=v_mov_b32_e32 v5, s1 ; format=vop1
+pc=0x0 size=4 fmt=vop2 text=v_add_co_u32_e32 v4, vcc, s0, v0 ; format=vop2
+pc=0x0 size=4 fmt=vop2 text=v_addc_co_u32_e32 v5, vcc, v5, v1, vcc ; format=vop2
+pc=0x0 size=8 fmt=unknown text=global_load_dword v6, v[4:5], off ; format=unknown
+pc=0x0 size=8 fmt=unknown text=global_load_dword v7, v[2:3], off ; format=unknown
+pc=0x0 size=4 fmt=vop1 text=v_mov_b32_e32 v2, s7 ; format=vop1
+pc=0x0 size=4 fmt=vop2 text=v_add_co_u32_e32 v0, vcc, s6, v0 ; format=vop2
+pc=0x0 size=4 fmt=vop2 text=v_addc_co_u32_e32 v1, vcc, v2, v1, vcc ; format=vop2
+pc=0x0 size=4 fmt=sopp text=s_waitcnt vmcnt(0) ; format=sopp
+pc=0x0 size=4 fmt=vop2 text=v_add_f32_e32 v2, s262, v7 ; format=vop2 op=1
+pc=0x0 size=8 fmt=unknown text=global_store_dword v[0:1], v2, off ; format=unknown
+pc=0x0 size=4 fmt=sopp text=s_endpgm ; format=sopp op=1

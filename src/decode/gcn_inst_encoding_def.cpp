@@ -19,7 +19,7 @@ const std::vector<GcnInstEncodingDef>& EncodingDefs() {
       {.id = 7, .format_class = GcnInstFormatClass::Vop2, .op = 0, .size_bytes = 4, .mnemonic = "v_add_u32_e32"},
       {.id = 8, .format_class = GcnInstFormatClass::Vopc, .op = 68, .size_bytes = 4, .mnemonic = "v_cmp_gt_i32_e32"},
       {.id = 9, .format_class = GcnInstFormatClass::Sop1, .op = 65, .size_bytes = 4, .mnemonic = "s_and_saveexec_b64"},
-      {.id = 10, .format_class = GcnInstFormatClass::Sopp, .op = 2, .size_bytes = 4, .mnemonic = "s_cbranch_execz"},
+      {.id = 10, .format_class = GcnInstFormatClass::Sopp, .op = 8, .size_bytes = 4, .mnemonic = "s_cbranch_execz"},
       {.id = 11, .format_class = GcnInstFormatClass::Vop2, .op = 1, .size_bytes = 4, .mnemonic = "v_add_f32_e32"},
   };
   return kDefs;

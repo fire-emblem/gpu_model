@@ -1,0 +1,4 @@
+*
+!.gitignore
+!hip_vecadd.cpp
+!stdout.txt

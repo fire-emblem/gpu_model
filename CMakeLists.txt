@@ -20,6 +20,7 @@ add_library(gpu_model STATIC
   src/arch/c500_spec.cpp
   src/decode/gcn_inst_format.cpp
   src/decode/gcn_inst_encoding_def.cpp
+  src/decode/gcn_inst_decoder.cpp
   src/decode/gcn_inst_formatter.cpp
   src/isa/instruction_builder.cpp
   src/isa/kernel_metadata.cpp
@@ -94,3 +95,10 @@ add_executable(fma_loop_cycle_trace_main
 
 target_link_libraries(fma_loop_cycle_trace_main PRIVATE gpu_model)
 gpu_model_enable_warnings(fma_loop_cycle_trace_main)
+
+add_executable(code_object_dump_main
+  examples/code_object_dump_main.cpp
+)
+
+target_link_libraries(code_object_dump_main PRIVATE gpu_model)
+gpu_model_enable_warnings(code_object_dump_main)
