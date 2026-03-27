@@ -13,6 +13,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "gpu_model/isa/target_isa.h"
+
 namespace gpu_model {
 
 namespace {
@@ -207,6 +209,9 @@ ProgramImage LoadFromAmdgpuElf(const std::filesystem::path& path,
   }
 
   metadata.values["entry"] = selected;
+  if (metadata.values.find("target_isa") == metadata.values.end()) {
+    SetTargetIsa(metadata, TargetIsa::GcnAsm);
+  }
   return ProgramImage(selected, asm_text.str(), std::move(metadata));
 }
 
@@ -231,6 +236,7 @@ ProgramImage LoadFromHipFatbinHostElf(const std::filesystem::path& path,
   metadata.values["bundle_target"] = bundle_target;
   metadata.values["loader_source"] = "hip_fatbin";
   metadata.values["artifact_path"] = path.string();
+  SetTargetIsa(metadata, TargetIsa::GcnAsm);
   return LoadFromAmdgpuElf(device_path, std::move(kernel_name), std::move(metadata));
 }
 

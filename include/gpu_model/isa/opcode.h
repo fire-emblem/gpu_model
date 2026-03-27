@@ -46,6 +46,7 @@ enum class Opcode {
   VDiv,
   VRem,
   VMul,
+  VAddF32,
   VMin,
   VMax,
   VFma,
@@ -158,6 +159,8 @@ inline std::string_view ToString(Opcode opcode) {
       return "v_rem_i32";
     case Opcode::VMul:
       return "v_mul_lo_i32";
+    case Opcode::VAddF32:
+      return "v_add_f32";
     case Opcode::VMin:
       return "v_min_i32";
     case Opcode::VMax:

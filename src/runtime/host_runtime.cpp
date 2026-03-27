@@ -8,7 +8,7 @@
 #include "gpu_model/exec/functional_executor.h"
 #include "gpu_model/isa/kernel_metadata.h"
 #include "gpu_model/isa/kernel_program.h"
-#include "gpu_model/loader/asm_parser.h"
+#include "gpu_model/loader/program_lowering.h"
 
 namespace gpu_model {
 
@@ -80,7 +80,7 @@ LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
   KernelProgram parsed_kernel;
   const KernelProgram* kernel = request.kernel;
   if (kernel == nullptr && request.program_image != nullptr) {
-    parsed_kernel = AsmParser{}.Parse(*request.program_image);
+    parsed_kernel = ProgramLoweringRegistry::Lower(*request.program_image);
     kernel = &parsed_kernel;
   }
   if (kernel == nullptr) {

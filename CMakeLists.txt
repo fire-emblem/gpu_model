@@ -21,14 +21,18 @@ add_library(gpu_model STATIC
   src/isa/instruction_builder.cpp
   src/isa/kernel_metadata.cpp
   src/isa/kernel_program.cpp
+  src/isa/opcode_descriptor.cpp
+  src/isa/target_isa.cpp
   src/loader/asm_parser.cpp
   src/loader/amdgpu_obj_loader.cpp
   src/loader/executable_image_io.cpp
+  src/loader/program_lowering.cpp
   src/loader/program_bundle_io.cpp
   src/loader/program_file_loader.cpp
   src/memory/memory_system.cpp
   src/memory/cache_model.cpp
   src/memory/shared_bank_model.cpp
+  src/exec/opcode_execution_info.cpp
   src/exec/semantics.cpp
   src/exec/issue_model.cpp
   src/exec/issue_scheduler.cpp

@@ -389,6 +389,13 @@ InstructionBuilder& InstructionBuilder::VMul(std::string_view dest,
       Opcode::VMul, {ParseRegOperand(dest), ParseRegOperand(lhs), ParseRegOperand(rhs)});
 }
 
+InstructionBuilder& InstructionBuilder::VAddF32(std::string_view dest,
+                                                std::string_view lhs,
+                                                std::string_view rhs) {
+  return AddInstruction(
+      Opcode::VAddF32, {ParseRegOperand(dest), ParseRegOperand(lhs), ParseRegOperand(rhs)});
+}
+
 InstructionBuilder& InstructionBuilder::VMin(std::string_view dest,
                                              std::string_view lhs,
                                              std::string_view rhs) {

@@ -387,6 +387,9 @@ KernelProgram AsmParser::Parse(const ProgramImage& image) const {
     } else if (opcode == "v_mul_lo_i32") {
       RequireOperandCount(opcode, operands, 3);
       builder.VMul(operands[0], operands[1], operands[2]);
+    } else if (opcode == "v_add_f32" || opcode == "v_add_f32_e32") {
+      RequireOperandCount(opcode, operands, 3);
+      builder.VAddF32(operands[0], operands[1], operands[2]);
     } else if (opcode == "v_min_i32") {
       RequireOperandCount(opcode, operands, 3);
       builder.VMin(operands[0], operands[1], operands[2]);

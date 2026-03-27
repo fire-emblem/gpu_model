@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <bitset>
+#include <bit>
 #include <cstdint>
 #include <optional>
 #include <stdexcept>
@@ -70,6 +71,7 @@ std::optional<uint64_t> IssueClassOverrideForOpcode(
     case Opcode::VDiv:
     case Opcode::VRem:
     case Opcode::VMul:
+    case Opcode::VAddF32:
     case Opcode::VMin:
     case Opcode::VMax:
     case Opcode::VFma:
@@ -648,6 +650,22 @@ OpPlan Semantics::BuildPlan(const Instruction& instruction,
           const int64_t lhs = AsSigned(ReadVectorLaneOperand(instruction.operands.at(1), wave, lane));
           const int64_t rhs = AsSigned(ReadVectorLaneOperand(instruction.operands.at(2), wave, lane));
           write.values[lane] = static_cast<uint64_t>(lhs * rhs);
+        }
+      }
+      plan.vector_writes.push_back(write);
+      return plan;
+    }
+    case Opcode::VAddF32: {
+      VectorWrite write;
+      write.reg_index = RequireVectorReg(instruction.operands.at(0));
+      write.mask = wave.exec;
+      for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+        if (wave.exec.test(lane)) {
+          const float lhs = std::bit_cast<float>(static_cast<uint32_t>(
+              ReadVectorLaneOperand(instruction.operands.at(1), wave, lane)));
+          const float rhs = std::bit_cast<float>(static_cast<uint32_t>(
+              ReadVectorLaneOperand(instruction.operands.at(2), wave, lane)));
+          write.values[lane] = std::bit_cast<uint32_t>(lhs + rhs);
         }
       }
       plan.vector_writes.push_back(write);

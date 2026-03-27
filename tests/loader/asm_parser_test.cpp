@@ -108,5 +108,59 @@ TEST(AsmParserTest, ParsesWaitCntAssemblySyntax) {
   EXPECT_EQ(kernel.instructions()[0].operands[3].immediate, 1u);
 }
 
+TEST(AsmParserTest, LaunchesParsedVectorFloatAddKernelFunctionally) {
+  ProgramImage image(
+      "vecadd_f32_asm",
+      R"(
+        .meta arch=c500
+        s_load_kernarg s0, 0
+        s_load_kernarg s1, 1
+        s_load_kernarg s2, 2
+        s_load_kernarg s3, 3
+        v_get_global_id_x v0
+        v_cmp_lt_i32_cmask v0, s3
+        s_saveexec_b64 s10
+        s_and_exec_cmask_b64
+        s_cbranch_execz exit
+        buffer_load_dword v1, s0, v0, 4
+        buffer_load_dword v2, s1, v0, 4
+        v_add_f32 v3, v1, v2
+        buffer_store_dword s2, v0, v3, 4
+      exit:
+        s_restoreexec_b64 s10
+        s_endpgm
+      )");
+
+  const auto kernel = AsmParser{}.Parse(image);
+  constexpr uint32_t n = 65;
+  HostRuntime runtime;
+
+  const uint64_t a_addr = runtime.memory().AllocateGlobal(n * sizeof(float));
+  const uint64_t b_addr = runtime.memory().AllocateGlobal(n * sizeof(float));
+  const uint64_t c_addr = runtime.memory().AllocateGlobal(n * sizeof(float));
+  for (uint32_t i = 0; i < n; ++i) {
+    runtime.memory().StoreGlobalValue<float>(a_addr + i * sizeof(float), 0.5f * static_cast<float>(i));
+    runtime.memory().StoreGlobalValue<float>(b_addr + i * sizeof(float), 1.25f);
+    runtime.memory().StoreGlobalValue<float>(c_addr + i * sizeof(float), -1.0f);
+  }
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.config.grid_dim_x = 2;
+  request.config.block_dim_x = 64;
+  request.args.PushU64(a_addr);
+  request.args.PushU64(b_addr);
+  request.args.PushU64(c_addr);
+  request.args.PushU32(n);
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  for (uint32_t i = 0; i < n; ++i) {
+    const float actual = runtime.memory().LoadGlobalValue<float>(c_addr + i * sizeof(float));
+    EXPECT_FLOAT_EQ(actual, 0.5f * static_cast<float>(i) + 1.25f);
+  }
+}
+
 }  // namespace
 }  // namespace gpu_model

@@ -240,6 +240,7 @@ std::vector<ReadyRef> CollectReadRefs(const Instruction& instruction) {
     case Opcode::VDiv:
     case Opcode::VRem:
     case Opcode::VMul:
+    case Opcode::VAddF32:
     case Opcode::VMin:
     case Opcode::VMax:
     case Opcode::VFma:

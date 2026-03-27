@@ -80,6 +80,7 @@ class InstructionBuilder {
   InstructionBuilder& VDiv(std::string_view dest, std::string_view lhs, std::string_view rhs);
   InstructionBuilder& VRem(std::string_view dest, std::string_view lhs, std::string_view rhs);
   InstructionBuilder& VMul(std::string_view dest, std::string_view lhs, std::string_view rhs);
+  InstructionBuilder& VAddF32(std::string_view dest, std::string_view lhs, std::string_view rhs);
   InstructionBuilder& VMin(std::string_view dest, std::string_view lhs, std::string_view rhs);
   InstructionBuilder& VMax(std::string_view dest, std::string_view lhs, std::string_view rhs);
   InstructionBuilder& VFma(std::string_view dest,

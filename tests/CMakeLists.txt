@@ -4,6 +4,8 @@ add_executable(gpu_model_tests
   exec/issue_eligibility_test.cpp
   exec/issue_scheduler_test.cpp
   isa/kernel_program_test.cpp
+  isa/opcode_descriptor_test.cpp
+  isa/target_isa_test.cpp
   state/wave_state_test.cpp
   functional/mapper_test.cpp
   functional/vecadd_functional_test.cpp
@@ -40,6 +42,7 @@ add_executable(gpu_model_tests
   cycle/transpose_shared_cycle_test.cpp
   loader/asm_parser_test.cpp
   loader/amdgpu_obj_loader_test.cpp
+  loader/program_lowering_test.cpp
   loader/executable_image_io_test.cpp
   loader/program_bundle_io_test.cpp
   loader/program_image_launch_test.cpp
