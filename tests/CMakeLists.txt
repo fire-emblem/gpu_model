@@ -9,6 +9,7 @@ add_executable(gpu_model_tests
   functional/private_memory_functional_test.cpp
   functional/constant_memory_functional_test.cpp
   functional/fma_loop_functional_test.cpp
+  functional/scaling_functional_test.cpp
   cycle/cycle_smoke_test.cpp
   cycle/async_memory_cycle_test.cpp
   cycle/shared_barrier_cycle_test.cpp

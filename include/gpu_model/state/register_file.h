@@ -9,7 +9,7 @@ namespace gpu_model {
 
 class SGPRFile {
  public:
-  explicit SGPRFile(size_t register_count = 128) : regs_(register_count, 0) {}
+  explicit SGPRFile(size_t register_count = 0) : regs_(register_count, 0) {}
 
   uint64_t Read(size_t index) const {
     return index < regs_.size() ? regs_[index] : 0;
@@ -32,7 +32,7 @@ class SGPRFile {
 
 class VGPRFile {
  public:
-  explicit VGPRFile(size_t register_count = 64)
+  explicit VGPRFile(size_t register_count = 0)
       : regs_(register_count, std::array<uint64_t, 64>{}) {}
 
   uint64_t Read(size_t reg_index, size_t lane) const {
