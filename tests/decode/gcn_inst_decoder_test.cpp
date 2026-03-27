@@ -69,5 +69,23 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeVectorMoveInstruction) {
   EXPECT_EQ(decoded.operands[0].text, "v3");
 }
 
+TEST(GcnInstDecoderTest, DecodesRepresentativeGlobalLoadInstruction) {
+  RawGcnInstruction raw{
+      .pc = 0x1968,
+      .size_bytes = 8,
+      .words = {0xdc508000u, 0x067f0004u},
+      .format_class = GcnInstFormatClass::Flat,
+      .mnemonic = "global_load_dword",
+  };
+
+  const auto decoded = GcnInstDecoder{}.Decode(raw);
+  EXPECT_EQ(decoded.encoding_id, 18u);
+  EXPECT_EQ(decoded.mnemonic, "global_load_dword");
+  ASSERT_EQ(decoded.operands.size(), 3u);
+  EXPECT_EQ(decoded.operands[0].text, "v6");
+  EXPECT_EQ(decoded.operands[1].text, "v[4:5]");
+  EXPECT_EQ(decoded.operands[2].text, "off");
+}
+
 }  // namespace
 }  // namespace gpu_model

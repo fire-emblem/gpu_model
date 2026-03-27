@@ -48,6 +48,9 @@ GcnInstFormatClass ClassifyGcnInstFormat(const std::vector<uint32_t>& words) {
   if (enc6 == 0x36) {
     return GcnInstFormatClass::Ds;
   }
+  if (enc6 == 0x37) {
+    return GcnInstFormatClass::Flat;
+  }
   if (enc6 == 0x3A) {
     return GcnInstFormatClass::Mtbuf;
   }
@@ -96,6 +99,8 @@ std::string_view ToString(GcnInstFormatClass format_class) {
       return "vintrp";
     case GcnInstFormatClass::Ds:
       return "ds";
+    case GcnInstFormatClass::Flat:
+      return "flat";
     case GcnInstFormatClass::Mubuf:
       return "mubuf";
     case GcnInstFormatClass::Mtbuf:

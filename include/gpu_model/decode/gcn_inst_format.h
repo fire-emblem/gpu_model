@@ -25,6 +25,7 @@ enum class GcnInstFormatClass {
   Vop3b,
   Vintrp,
   Ds,
+  Flat,
   Mubuf,
   Mtbuf,
   Mimg,
@@ -152,6 +153,21 @@ struct GcnFmtDs {
   unsigned int vdst : 8;
 };
 
+struct GcnFmtFlat {
+  unsigned int offset : 13;
+  unsigned int lds : 1;
+  unsigned int seg : 2;
+  unsigned int glc : 1;
+  unsigned int slc : 1;
+  unsigned int op : 7;
+  unsigned int enc : 6;
+  unsigned int addr : 8;
+  unsigned int data : 8;
+  unsigned int saddr : 7;
+  unsigned int nv : 1;
+  unsigned int vdst : 8;
+};
+
 struct GcnFmtMtbuf {
   unsigned int offset : 12;
   unsigned int offen : 1;
@@ -244,6 +260,7 @@ union GcnInstLayout {
   GcnFmtVop3b vop3b;
   GcnFmtVintrp vintrp;
   GcnFmtDs ds;
+  GcnFmtFlat flat;
   GcnFmtMubuf mubuf;
   GcnFmtMtbuf mtbuf;
   GcnFmtMimg mimg;

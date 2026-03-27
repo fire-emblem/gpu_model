@@ -19,6 +19,7 @@ TEST(GcnInstFormatTest, BitfieldLayoutsMatchExpectedSizes) {
   EXPECT_EQ(sizeof(GcnFmtVop3b), 8u);
   EXPECT_EQ(sizeof(GcnFmtVintrp), 4u);
   EXPECT_EQ(sizeof(GcnFmtDs), 8u);
+  EXPECT_EQ(sizeof(GcnFmtFlat), 8u);
   EXPECT_EQ(sizeof(GcnFmtMubuf), 8u);
   EXPECT_EQ(sizeof(GcnFmtMtbuf), 8u);
   EXPECT_EQ(sizeof(GcnFmtMimg), 8u);
@@ -33,6 +34,7 @@ TEST(GcnInstFormatTest, ClassifiesRepresentativeEncodings) {
   EXPECT_EQ(ClassifyGcnInstFormat({0x7d880001u}), GcnInstFormatClass::Vopc);
   EXPECT_EQ(ClassifyGcnInstFormat({0xbe80206au}), GcnInstFormatClass::Sop1);
   EXPECT_EQ(ClassifyGcnInstFormat({0xd28f0000u, 0x00020082u}), GcnInstFormatClass::Vop3a);
+  EXPECT_EQ(ClassifyGcnInstFormat({0xdc508000u, 0x067f0004u}), GcnInstFormatClass::Flat);
 }
 
 TEST(GcnInstFormatTest, ExposesBitfieldsThroughUnion) {

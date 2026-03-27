@@ -198,6 +198,23 @@ RawGcnInstruction ParseInstructionLine(const std::string& line) {
       asm_text = Trim(std::string_view(asm_text).substr(address_colon + 1));
     }
   }
+  if (instruction.pc == 0 && comment != std::string::npos) {
+    std::string comment_text = Trim(std::string_view(trimmed).substr(comment + 2));
+    const size_t comment_colon = comment_text.find(':');
+    if (comment_colon != std::string::npos) {
+      const std::string maybe_addr = comment_text.substr(0, comment_colon);
+      bool all_hex = !maybe_addr.empty();
+      for (const char ch : maybe_addr) {
+        if (std::isxdigit(static_cast<unsigned char>(ch)) == 0) {
+          all_hex = false;
+          break;
+        }
+      }
+      if (all_hex) {
+        instruction.pc = std::stoull(maybe_addr, nullptr, 16);
+      }
+    }
+  }
   const size_t space = asm_text.find_first_of(" \t");
   instruction.mnemonic = space == std::string::npos ? asm_text : asm_text.substr(0, space);
   instruction.operands = space == std::string::npos ? "" : Trim(std::string_view(asm_text).substr(space + 1));
