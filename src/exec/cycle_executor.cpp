@@ -443,6 +443,12 @@ uint64_t WaveTag(const WaveState& wave) {
   return (static_cast<uint64_t>(wave.block_id) << 32) | wave.wave_id;
 }
 
+bool CanIssueWave(const ScheduledWave& scheduled_wave) {
+  const auto& wave = scheduled_wave.wave;
+  return scheduled_wave.dispatch_enabled && wave.status == WaveStatus::Active && wave.valid_entry &&
+         !wave.memory_wait && !wave.branch_pending && !wave.waiting_at_barrier;
+}
+
 void ScheduleWaveLaunch(ScheduledWave& scheduled_wave,
                         uint64_t cycle,
                         EventQueue& events,
@@ -464,6 +470,7 @@ void ScheduleWaveLaunch(ScheduledWave& scheduled_wave,
               return;
             }
             wave_ptr->wave.status = WaveStatus::Active;
+            wave_ptr->wave.valid_entry = true;
             trace.OnEvent(TraceEvent{
                 .kind = TraceEventKind::WaveLaunch,
                 .cycle = wave_ptr->launch_cycle,
@@ -513,7 +520,7 @@ void FillDispatchWindow(PeuSlot& slot,
     if (!scheduled_wave->block->active || !scheduled_wave->dispatch_enabled) {
       continue;
     }
-    if (scheduled_wave->wave.status == WaveStatus::Active || scheduled_wave->launch_scheduled) {
+    if (CanIssueWave(*scheduled_wave) || scheduled_wave->launch_scheduled) {
       ++active_count;
     }
   }
@@ -547,7 +554,7 @@ ScheduledWave* PickNextReadyWave(PeuSlot& slot,
   for (size_t offset = 0; offset < count; ++offset) {
     const size_t index = (start + offset) % count;
     ScheduledWave* scheduled_wave = slot.waves[index];
-    if (!scheduled_wave->dispatch_enabled || scheduled_wave->wave.status != WaveStatus::Active) {
+    if (!CanIssueWave(*scheduled_wave)) {
       continue;
     }
     if (scheduled_wave->wave.pc >= kernel.instructions().size()) {
@@ -655,6 +662,14 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
       slot.busy_until = commit_cycle;
       slot.last_wave_tag = wave_tag;
       wave.status = WaveStatus::Stalled;
+      wave.valid_entry = false;
+      if (plan.memory.has_value()) {
+        wave.memory_wait = true;
+      }
+      if (instruction.opcode == Opcode::BBranch || instruction.opcode == Opcode::BIfSmask ||
+          instruction.opcode == Opcode::BIfNoexec) {
+        wave.branch_pending = true;
+      }
 
       if (plan.memory.has_value()) {
         if (context.stats != nullptr) {
@@ -810,6 +825,12 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                                   .message = request.kind == AccessKind::Load ? "load_arrive"
                                                                               : "store_arrive",
                               });
+                              candidate->wave.memory_wait = false;
+                              candidate->wave.valid_entry = true;
+                              if (candidate->wave.status != WaveStatus::Exited &&
+                                  !candidate->wave.waiting_at_barrier) {
+                                candidate->wave.status = WaveStatus::Active;
+                              }
                             },
                     });
                   } else if (request.space == MemorySpace::Shared) {
@@ -864,6 +885,8 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                               } else if (advance_pc) {
                                 ++candidate->wave.pc;
                               }
+                              candidate->wave.memory_wait = false;
+                              candidate->wave.valid_entry = true;
                               candidate->wave.status = WaveStatus::Active;
                             },
                     });
@@ -876,10 +899,10 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                       if (!request.dst.has_value()) {
                         throw std::invalid_argument("load request missing destination");
                       }
-                      for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
-                        if (request.lanes[lane].active) {
-                          const uint64_t value =
-                              LoadLaneValue(candidate->wave.private_memory, lane, request.lanes[lane]);
+                    for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+                      if (request.lanes[lane].active) {
+                        const uint64_t value =
+                            LoadLaneValue(candidate->wave.private_memory, lane, request.lanes[lane]);
                           candidate->wave.vgpr.Write(request.dst->index, lane, value);
                         }
                       }
@@ -892,6 +915,8 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                         }
                       }
                     }
+                    candidate->wave.memory_wait = false;
+                    candidate->wave.valid_entry = true;
                   } else if (request.space == MemorySpace::Constant) {
                     if (!request.dst.has_value()) {
                       throw std::invalid_argument("load request missing destination");
@@ -905,6 +930,8 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                     }
                     candidate->scoreboard.MarkReady(
                         VectorRef(request.dst->index), commit_cycle);
+                    candidate->wave.memory_wait = false;
+                    candidate->wave.valid_entry = true;
                   } else {
                     throw std::invalid_argument("unsupported memory space in cycle executor");
                   }
@@ -927,6 +954,7 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                   } else if (plan.advance_pc) {
                     ++candidate->wave.pc;
                   }
+                  candidate->wave.valid_entry = true;
                   candidate->wave.status = WaveStatus::Active;
                   return;
                 }
@@ -953,6 +981,7 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                           waiting_wave.wave.barrier_generation ==
                               candidate->block->barrier_generation) {
                         waiting_wave.wave.waiting_at_barrier = false;
+                        waiting_wave.wave.valid_entry = true;
                         waiting_wave.wave.status = WaveStatus::Active;
                         ++waiting_wave.wave.pc;
                       }
@@ -1016,6 +1045,8 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                 } else if (plan.advance_pc) {
                   ++candidate->wave.pc;
                 }
+                candidate->wave.branch_pending = false;
+                candidate->wave.valid_entry = true;
                 candidate->wave.status = WaveStatus::Active;
               },
       });

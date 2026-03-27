@@ -55,7 +55,7 @@ TEST(CacheCycleTest, SecondLoadHitsCacheAfterFirstLoadArrives) {
   ASSERT_EQ(cycles.size(), 2u);
   EXPECT_EQ(cycles[0], 52u);
   EXPECT_EQ(cycles[1], 68u);
-  EXPECT_EQ(result.total_cycles, 68u);
+  EXPECT_EQ(result.total_cycles, 72u);
 }
 
 }  // namespace

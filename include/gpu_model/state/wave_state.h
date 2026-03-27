@@ -31,6 +31,9 @@ struct WaveState {
   std::bitset<kWaveSize> cmask;
   uint64_t smask = 0;
   uint32_t thread_count = 0;
+  bool valid_entry = false;
+  bool memory_wait = false;
+  bool branch_pending = false;
   bool waiting_at_barrier = false;
   uint64_t barrier_generation = 0;
   std::array<std::vector<std::byte>, kWaveSize> private_memory;
@@ -44,6 +47,11 @@ struct WaveState {
     }
     cmask.reset();
     smask = 0;
+    valid_entry = true;
+    memory_wait = false;
+    branch_pending = false;
+    waiting_at_barrier = false;
+    barrier_generation = 0;
   }
 
   bool ScalarMaskBit0() const { return (smask & 1ULL) != 0; }
