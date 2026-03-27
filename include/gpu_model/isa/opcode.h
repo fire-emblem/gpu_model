@@ -172,11 +172,11 @@ inline std::string_view ToString(Opcode opcode) {
     case Opcode::VSelectCmask:
       return "v_cndmask_b32";
     case Opcode::MLoadGlobal:
-      return "global_load_dword";
+      return "buffer_load_dword";
     case Opcode::MStoreGlobal:
-      return "global_store_dword";
+      return "buffer_store_dword";
     case Opcode::MAtomicAddGlobal:
-      return "global_atomic_add_u32";
+      return "buffer_atomic_add_u32";
     case Opcode::MLoadShared:
       return "ds_read_b32";
     case Opcode::MStoreShared:

@@ -25,10 +25,10 @@ TEST(RuntimeHooksTest, SimulatesMallocMemcpyLaunchAndSynchronizeFlow) {
         s_saveexec_b64 s10
         s_and_exec_cmask_b64
         s_cbranch_execz exit
-        global_load_dword v1, s0, v0, 4
-        global_load_dword v2, s1, v0, 4
+        buffer_load_dword v1, s0, v0, 4
+        buffer_load_dword v2, s1, v0, 4
         v_add_i32 v3, v1, v2
-        global_store_dword s2, v0, v3, 4
+        buffer_store_dword s2, v0, v3, 4
       exit:
         s_restoreexec_b64 s10
         s_endpgm
@@ -81,7 +81,7 @@ TEST(RuntimeHooksTest, RegistersProgramImagesAndLaunchesByModuleAndKernelName) {
         s_and_exec_cmask_b64
         s_cbranch_execz exit
         scalar_buffer_load_dword v1, v0, 4
-        global_store_dword s0, v0, v1, 4
+        buffer_store_dword s0, v0, v1, 4
       exit:
         s_restoreexec_b64 s10
         s_endpgm
@@ -134,7 +134,7 @@ TEST(RuntimeHooksTest, LoadsSectionedExecutableImageAndLaunchesRegisteredKernel)
         s_and_exec_cmask_b64
         s_cbranch_execz exit
         v_mov_b32 v1, 9
-        global_store_dword s0, v0, v1, 4
+        buffer_store_dword s0, v0, v1, 4
       exit:
         s_restoreexec_b64 s10
         s_endpgm
@@ -186,7 +186,7 @@ TEST(RuntimeHooksTest, LoadsBundleAndLooseFilesByModuleAndCanUnload) {
         s_and_exec_cmask_b64
         s_cbranch_execz exit
         v_mov_b32 v1, 4
-        global_store_dword s0, v0, v1, 4
+        buffer_store_dword s0, v0, v1, 4
       exit:
         s_restoreexec_b64 s10
         s_endpgm
@@ -207,7 +207,7 @@ TEST(RuntimeHooksTest, LoadsBundleAndLooseFilesByModuleAndCanUnload) {
       s_and_exec_cmask_b64
       s_cbranch_execz exit
       v_mov_b32 v1, 6
-      global_store_dword s0, v0, v1, 4
+      buffer_store_dword s0, v0, v1, 4
     exit:
       s_restoreexec_b64 s10
       s_endpgm

@@ -40,7 +40,7 @@ TEST(ProgramFileLoaderTest, LoadsProgramImageFromFilesAndLaunchesIt) {
       s_and_exec_cmask_b64
       s_cbranch_execz exit
       scalar_buffer_load_dword v1, v0, 4
-      global_store_dword s0, v0, v1, 4
+      buffer_store_dword s0, v0, v1, 4
     exit:
       s_restoreexec_b64 s10
       s_endpgm

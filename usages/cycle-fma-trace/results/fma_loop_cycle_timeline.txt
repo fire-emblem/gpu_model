@@ -1,5 +1,5 @@
 cycle_timeline scale=4 cycle(s)/col range=[0x0, 0x81]
-legend: P=global_store_dword O=s_branch A=s_load_kernarg B=v_get_global_id_x D=s_saveexec_b64 C=v_cmp_lt_i32_cmask L=s_cbranch_scc1 E=s_and_exec_cmask_b64 F=s_cbranch_execz J=s_endpgm N=s_add_u32 M=v_mad_i32 G=v_mov_b32 H=s_restoreexec_b64 I=s_mov_b32 K=s_cmp_lt_i32 R=arrive B=barrier-arrive |=barrier-release X=exit S=stall L=wave-launch #=block-launch
+legend: O=s_branch A=s_load_kernarg B=v_get_global_id_x D=s_saveexec_b64 C=v_cmp_lt_i32_cmask L=s_cbranch_scc1 E=s_and_exec_cmask_b64 F=s_cbranch_execz J=s_endpgm P=buffer_store_dword N=s_add_u32 M=v_mad_i32 G=v_mov_b32 H=s_restoreexec_b64 I=s_mov_b32 K=s_cmp_lt_i32 R=arrive B=barrier-arrive |=barrier-release X=exit S=stall L=wave-launch #=block-launch
 cycles      0x0    0x20    0x40    0x60    0x80
 B0       LAAAAAABCDEFHJXLMMNOKLMMNOKLOPHJR
 B1       LAAAAAABCDEFHJX..................

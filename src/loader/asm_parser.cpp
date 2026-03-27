@@ -404,15 +404,15 @@ KernelProgram AsmParser::Parse(const ProgramImage& image) const {
     } else if (opcode == "v_cndmask_b32") {
       RequireOperandCount(opcode, operands, 3);
       builder.VSelectCmask(operands[0], operands[1], operands[2]);
-    } else if (opcode == "global_load_dword") {
+    } else if (opcode == "buffer_load_dword") {
       RequireOperandCount(opcode, operands, 4);
       builder.MLoadGlobal(operands[0], operands[1], operands[2],
                           static_cast<uint32_t>(ParseImmediate(operands[3])));
-    } else if (opcode == "global_store_dword") {
+    } else if (opcode == "buffer_store_dword") {
       RequireOperandCount(opcode, operands, 4);
       builder.MStoreGlobal(operands[0], operands[1], operands[2],
                            static_cast<uint32_t>(ParseImmediate(operands[3])));
-    } else if (opcode == "global_atomic_add_u32") {
+    } else if (opcode == "buffer_atomic_add_u32") {
       RequireOperandCount(opcode, operands, 4);
       builder.MAtomicAddGlobal(operands[0], operands[1], operands[2],
                                static_cast<uint32_t>(ParseImmediate(operands[3])));

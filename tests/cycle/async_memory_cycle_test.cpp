@@ -87,7 +87,7 @@ TEST(AsyncMemoryCycleTest, LoadAllowsIndependentScalarIssueBeforeArrive) {
   ASSERT_TRUE(result.ok) << result.error_message;
   EXPECT_EQ(NthWaveStepCycle(trace.events(), "s_mov_b32", 0), 0u);
   EXPECT_EQ(NthWaveStepCycle(trace.events(), "s_mov_b32", 1), 4u);
-  EXPECT_EQ(FirstWaveStepCycle(trace.events(), "global_load_dword"), 8u);
+  EXPECT_EQ(FirstWaveStepCycle(trace.events(), "buffer_load_dword"), 8u);
   EXPECT_EQ(NthWaveStepCycle(trace.events(), "s_mov_b32", 2), 12u);
   EXPECT_EQ(result.total_cycles, 32u);
 }
@@ -119,7 +119,7 @@ TEST(AsyncMemoryCycleTest, WaitCntCanWaitForGlobalMemoryOnly) {
 
   const auto result = runtime.Launch(request);
   ASSERT_TRUE(result.ok) << result.error_message;
-  EXPECT_EQ(FirstWaveStepCycle(trace.events(), "global_load_dword"), 8u);
+  EXPECT_EQ(FirstWaveStepCycle(trace.events(), "buffer_load_dword"), 8u);
   EXPECT_EQ(FirstWaveStepCycle(trace.events(), "s_waitcnt"), 32u);
   EXPECT_EQ(NthWaveStepCycle(trace.events(), "s_mov_b32", 3), 36u);
   EXPECT_EQ(result.total_cycles, 44u);
@@ -152,7 +152,7 @@ TEST(AsyncMemoryCycleTest, WaitCntIgnoresGlobalWhenWaitingSharedOnly) {
 
   const auto result = runtime.Launch(request);
   ASSERT_TRUE(result.ok) << result.error_message;
-  EXPECT_EQ(FirstWaveStepCycle(trace.events(), "global_load_dword"), 8u);
+  EXPECT_EQ(FirstWaveStepCycle(trace.events(), "buffer_load_dword"), 8u);
   EXPECT_EQ(FirstWaveStepCycle(trace.events(), "s_waitcnt"), 16u);
   EXPECT_EQ(NthWaveStepCycle(trace.events(), "s_mov_b32", 3), 20u);
   EXPECT_EQ(result.total_cycles, 32u);
