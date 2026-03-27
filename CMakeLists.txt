@@ -29,6 +29,7 @@ add_library(gpu_model STATIC
   src/memory/cache_model.cpp
   src/memory/shared_bank_model.cpp
   src/exec/semantics.cpp
+  src/exec/issue_model.cpp
   src/exec/functional_executor.cpp
   src/exec/scoreboard.cpp
   src/exec/event_queue.cpp
