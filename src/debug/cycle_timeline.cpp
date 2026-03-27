@@ -80,6 +80,22 @@ std::string DpcLabel(const WaveKey& key) {
   return "D" + std::to_string(key.dpc_id);
 }
 
+std::string ProcessName(const WaveKey& key, CycleTimelineGroupBy group_by) {
+  switch (group_by) {
+    case CycleTimelineGroupBy::Wave:
+      return "Device/" + DpcLabel(key) + "/" + ApLabel(key) + "/" + PeuLabel(key);
+    case CycleTimelineGroupBy::Block:
+      return "Device/Blocks";
+    case CycleTimelineGroupBy::Peu:
+      return "Device/" + DpcLabel(key) + "/" + ApLabel(key);
+    case CycleTimelineGroupBy::Ap:
+      return "Device/" + DpcLabel(key);
+    case CycleTimelineGroupBy::Dpc:
+      return "Device";
+  }
+  return "Device";
+}
+
 std::string BlockLabel(uint32_t block_id) {
   return "B" + std::to_string(block_id);
 }
@@ -240,6 +256,38 @@ uint32_t TraceTid(const WaveKey& key, CycleTimelineGroupBy group_by) {
       return key.dpc_id;
   }
   return key.wave_id;
+}
+
+int32_t ProcessSortIndex(const WaveKey& key, CycleTimelineGroupBy group_by) {
+  switch (group_by) {
+    case CycleTimelineGroupBy::Wave:
+      return static_cast<int32_t>((key.dpc_id << 8) + (key.ap_id << 4) + key.peu_id);
+    case CycleTimelineGroupBy::Block:
+      return 0;
+    case CycleTimelineGroupBy::Peu:
+      return static_cast<int32_t>((key.dpc_id << 8) + key.ap_id);
+    case CycleTimelineGroupBy::Ap:
+      return static_cast<int32_t>(key.dpc_id);
+    case CycleTimelineGroupBy::Dpc:
+      return 0;
+  }
+  return 0;
+}
+
+int32_t ThreadSortIndex(const WaveKey& key, CycleTimelineGroupBy group_by) {
+  switch (group_by) {
+    case CycleTimelineGroupBy::Wave:
+      return static_cast<int32_t>((key.block_id << 8) + key.wave_id);
+    case CycleTimelineGroupBy::Block:
+      return static_cast<int32_t>(key.block_id);
+    case CycleTimelineGroupBy::Peu:
+      return static_cast<int32_t>(key.peu_id);
+    case CycleTimelineGroupBy::Ap:
+      return static_cast<int32_t>(key.ap_id);
+    case CycleTimelineGroupBy::Dpc:
+      return static_cast<int32_t>(key.dpc_id);
+  }
+  return 0;
 }
 
 std::string MarkerName(const Marker& marker) {
@@ -403,35 +451,27 @@ std::string CycleTimelineRenderer::RenderGoogleTrace(const std::vector<TraceEven
   }
 
   std::set<std::pair<uint32_t, uint32_t>> declared_rows;
+  std::set<uint32_t> declared_processes;
   for (const auto& key : data.seen_waves) {
     const uint32_t pid = TracePid(key, options.group_by);
     const uint32_t tid = TraceTid(key, options.group_by);
+    if (declared_processes.insert(pid).second) {
+      append("{\"name\":\"process_name\",\"ph\":\"M\",\"pid\":" + std::to_string(pid) +
+             ",\"tid\":0,\"args\":{\"name\":\"" +
+             EscapeJson(ProcessName(key, options.group_by)) + "\"}}");
+      append("{\"name\":\"process_sort_index\",\"ph\":\"M\",\"pid\":" + std::to_string(pid) +
+             ",\"tid\":0,\"args\":{\"sort_index\":" +
+             std::to_string(ProcessSortIndex(key, options.group_by)) + "}}");
+    }
     if (!declared_rows.insert({pid, tid}).second) {
       continue;
     }
-    std::string process_name;
-    switch (options.group_by) {
-      case CycleTimelineGroupBy::Wave:
-        process_name = PeuLabel(key);
-        break;
-      case CycleTimelineGroupBy::Block:
-        process_name = "Blocks";
-        break;
-      case CycleTimelineGroupBy::Peu:
-        process_name = ApLabel(key);
-        break;
-      case CycleTimelineGroupBy::Ap:
-        process_name = DpcLabel(key);
-        break;
-      case CycleTimelineGroupBy::Dpc:
-        process_name = "GPU";
-        break;
-    }
-    append("{\"name\":\"process_name\",\"ph\":\"M\",\"pid\":" + std::to_string(pid) +
-           ",\"tid\":0,\"args\":{\"name\":\"" + EscapeJson(process_name) + "\"}}");
     append("{\"name\":\"thread_name\",\"ph\":\"M\",\"pid\":" + std::to_string(pid) + ",\"tid\":" +
            std::to_string(tid) + ",\"args\":{\"name\":\"" +
            EscapeJson(ThreadLabel(key, options.group_by)) + "\"}}");
+    append("{\"name\":\"thread_sort_index\",\"ph\":\"M\",\"pid\":" + std::to_string(pid) +
+           ",\"tid\":" + std::to_string(tid) + ",\"args\":{\"sort_index\":" +
+           std::to_string(ThreadSortIndex(key, options.group_by)) + "}}");
   }
 
   for (const auto& [key, row_segments] : data.segments) {

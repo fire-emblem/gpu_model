@@ -82,8 +82,9 @@ TEST(CycleTimelineTest, RendersGoogleTraceForWaveTimeline) {
   EXPECT_NE(timeline.find("\"traceEvents\""), std::string::npos);
   EXPECT_NE(timeline.find("\"ph\":\"X\""), std::string::npos);
   EXPECT_NE(timeline.find("\"thread_name\""), std::string::npos);
-  EXPECT_NE(timeline.find("\"name\":\"B0W0\""), std::string::npos);
+  EXPECT_NE(timeline.find("B0W0"), std::string::npos);
   EXPECT_NE(timeline.find("\"name\":\"v_fma\""), std::string::npos);
+  EXPECT_NE(timeline.find("\"thread_sort_index\""), std::string::npos);
 }
 
 TEST(CycleTimelineTest, GoogleTraceCanGroupByBlock) {
@@ -105,8 +106,8 @@ TEST(CycleTimelineTest, GoogleTraceCanGroupByBlock) {
                                            .cycle_begin = std::nullopt,
                                            .cycle_end = std::nullopt,
                                            .group_by = CycleTimelineGroupBy::Block});
-  EXPECT_NE(timeline.find("\"name\":\"B0\""), std::string::npos);
-  EXPECT_NE(timeline.find("\"name\":\"B1\""), std::string::npos);
+  EXPECT_NE(timeline.find("B0"), std::string::npos);
+  EXPECT_NE(timeline.find("B1"), std::string::npos);
   EXPECT_EQ(timeline.find("\"name\":\"B0W0\""), std::string::npos);
 }
 
@@ -129,9 +130,10 @@ TEST(CycleTimelineTest, GoogleTraceCanGroupByPeu) {
                                            .cycle_begin = std::nullopt,
                                            .cycle_end = std::nullopt,
                                            .group_by = CycleTimelineGroupBy::Peu});
-  EXPECT_NE(timeline.find("\"name\":\"D0A0\""), std::string::npos);
+  EXPECT_NE(timeline.find("Device/D0/D0A0"), std::string::npos);
   EXPECT_NE(timeline.find("\"name\":\"D0A0P0\""), std::string::npos);
   EXPECT_NE(timeline.find("\"name\":\"D0A0P1\""), std::string::npos);
+  EXPECT_NE(timeline.find("\"process_sort_index\""), std::string::npos);
 }
 
 }  // namespace
