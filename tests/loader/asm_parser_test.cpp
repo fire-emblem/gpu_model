@@ -162,5 +162,57 @@ TEST(AsmParserTest, LaunchesParsedVectorFloatAddKernelFunctionally) {
   }
 }
 
+TEST(AsmParserTest, LaunchesParsedGlobalAddressLoadAndStoreFunctionally) {
+  ProgramImage image(
+      "global_addr_asm",
+      R"(
+        .meta arch=c500
+        s_load_kernarg s0, 0
+        s_load_kernarg s1, 1
+        s_load_kernarg s2, 2
+        s_mov_b32 s20, 1
+        v_get_global_id_x v0
+        v_cmp_lt_i32_cmask v0, s20
+        s_saveexec_b64 s10
+        s_and_exec_cmask_b64
+        s_cbranch_execz load_exit
+        v_mov_b32 v2, s1
+        v_mov_b32 v3, s2
+        global_load_dword_addr v4, v2, v3, 0
+        buffer_store_dword s0, v0, v4, 4
+      load_exit:
+        s_restoreexec_b64 s10
+        v_cmp_lt_i32_cmask v0, s20
+        s_saveexec_b64 s11
+        s_and_exec_cmask_b64
+        s_cbranch_execz store_exit
+        v_mov_b32 v5, 99
+        global_store_dword_addr v2, v3, v5, 0
+      store_exit:
+        s_restoreexec_b64 s11
+        s_endpgm
+      )");
+
+  const auto kernel = AsmParser{}.Parse(image);
+  HostRuntime runtime;
+  const uint64_t out_addr = runtime.memory().AllocateGlobal(sizeof(uint32_t));
+  const uint64_t target_addr = runtime.memory().AllocateGlobal(sizeof(uint32_t));
+  runtime.memory().StoreGlobalValue<uint32_t>(out_addr, 0u);
+  runtime.memory().StoreGlobalValue<uint32_t>(target_addr, 77u);
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+  request.args.PushU64(out_addr);
+  request.args.PushU64(target_addr & 0xffffffffULL);
+  request.args.PushU64(target_addr >> 32ULL);
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+  EXPECT_EQ(runtime.memory().LoadGlobalValue<uint32_t>(out_addr), 77u);
+  EXPECT_EQ(runtime.memory().LoadGlobalValue<uint32_t>(target_addr), 99u);
+}
+
 }  // namespace
 }  // namespace gpu_model

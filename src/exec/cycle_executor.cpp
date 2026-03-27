@@ -266,6 +266,7 @@ std::vector<ReadyRef> CollectReadRefs(const Instruction& instruction) {
       AddOperandDependency(instruction.operands.at(2), refs);
       break;
     case Opcode::MLoadGlobal:
+    case Opcode::MLoadGlobalAddr:
     case Opcode::MLoadShared:
     case Opcode::MLoadPrivate:
     case Opcode::MLoadConst:
@@ -273,12 +274,15 @@ std::vector<ReadyRef> CollectReadRefs(const Instruction& instruction) {
       AddOperandDependency(instruction.operands.at(1), refs);
       if (instruction.opcode == Opcode::MLoadGlobal) {
         AddOperandDependency(instruction.operands.at(2), refs);
+      } else if (instruction.opcode == Opcode::MLoadGlobalAddr) {
+        AddOperandDependency(instruction.operands.at(2), refs);
       }
       break;
     case Opcode::SBufferLoadDword:
       AddOperandDependency(instruction.operands.at(1), refs);
       break;
     case Opcode::MStoreGlobal:
+    case Opcode::MStoreGlobalAddr:
     case Opcode::MAtomicAddGlobal:
     case Opcode::MStoreShared:
     case Opcode::MStorePrivate:
@@ -286,7 +290,8 @@ std::vector<ReadyRef> CollectReadRefs(const Instruction& instruction) {
       refs.push_back(ExecRef());
       AddOperandDependency(instruction.operands.at(0), refs);
       AddOperandDependency(instruction.operands.at(1), refs);
-      if (instruction.opcode == Opcode::MStoreGlobal || instruction.opcode == Opcode::MAtomicAddGlobal) {
+      if (instruction.opcode == Opcode::MStoreGlobal || instruction.opcode == Opcode::MAtomicAddGlobal ||
+          instruction.opcode == Opcode::MStoreGlobalAddr) {
         AddOperandDependency(instruction.operands.at(2), refs);
       }
       break;

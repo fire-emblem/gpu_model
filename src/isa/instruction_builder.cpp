@@ -473,6 +473,24 @@ InstructionBuilder& InstructionBuilder::MAtomicAddGlobal(std::string_view base,
                          ImmediateOperand(scale_bytes), ImmediateOperand(offset_bytes)});
 }
 
+InstructionBuilder& InstructionBuilder::MLoadGlobalAddr(std::string_view dest,
+                                                        std::string_view addr_lo,
+                                                        std::string_view addr_hi,
+                                                        uint32_t offset_bytes) {
+  return AddInstruction(Opcode::MLoadGlobalAddr,
+                        {ParseRegOperand(dest), ParseRegOperand(addr_lo), ParseRegOperand(addr_hi),
+                         ImmediateOperand(offset_bytes)});
+}
+
+InstructionBuilder& InstructionBuilder::MStoreGlobalAddr(std::string_view addr_lo,
+                                                         std::string_view addr_hi,
+                                                         std::string_view src,
+                                                         uint32_t offset_bytes) {
+  return AddInstruction(Opcode::MStoreGlobalAddr,
+                        {ParseRegOperand(addr_lo), ParseRegOperand(addr_hi), ParseRegOperand(src),
+                         ImmediateOperand(offset_bytes)});
+}
+
 InstructionBuilder& InstructionBuilder::MLoadShared(std::string_view dest,
                                                     std::string_view index,
                                                     uint32_t scale_bytes) {

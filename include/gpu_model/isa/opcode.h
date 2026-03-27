@@ -58,6 +58,8 @@ enum class Opcode {
   MLoadGlobal,
   MStoreGlobal,
   MAtomicAddGlobal,
+  MLoadGlobalAddr,
+  MStoreGlobalAddr,
   MLoadShared,
   MStoreShared,
   MAtomicAddShared,
@@ -183,6 +185,10 @@ inline std::string_view ToString(Opcode opcode) {
       return "buffer_store_dword";
     case Opcode::MAtomicAddGlobal:
       return "buffer_atomic_add_u32";
+    case Opcode::MLoadGlobalAddr:
+      return "global_load_dword_addr";
+    case Opcode::MStoreGlobalAddr:
+      return "global_store_dword_addr";
     case Opcode::MLoadShared:
       return "ds_read_b32";
     case Opcode::MStoreShared:

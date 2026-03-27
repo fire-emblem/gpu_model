@@ -116,6 +116,8 @@ const OpcodeExecutionInfo& GetOpcodeExecutionInfo(Opcode opcode) {
     case Opcode::MLoadGlobal:
     case Opcode::MStoreGlobal:
     case Opcode::MAtomicAddGlobal:
+    case Opcode::MLoadGlobalAddr:
+    case Opcode::MStoreGlobalAddr:
     case Opcode::MLoadPrivate:
     case Opcode::MStorePrivate:
     case Opcode::MLoadConst:

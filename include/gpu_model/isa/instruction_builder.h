@@ -110,6 +110,14 @@ class InstructionBuilder {
                                        std::string_view src,
                                        uint32_t scale_bytes = 1,
                                        uint32_t offset_bytes = 0);
+  InstructionBuilder& MLoadGlobalAddr(std::string_view dest,
+                                      std::string_view addr_lo,
+                                      std::string_view addr_hi,
+                                      uint32_t offset_bytes = 0);
+  InstructionBuilder& MStoreGlobalAddr(std::string_view addr_lo,
+                                       std::string_view addr_hi,
+                                       std::string_view src,
+                                       uint32_t offset_bytes = 0);
   InstructionBuilder& MLoadShared(std::string_view dest,
                                   std::string_view index,
                                   uint32_t scale_bytes = 1);

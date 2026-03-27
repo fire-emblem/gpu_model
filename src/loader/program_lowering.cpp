@@ -91,6 +91,54 @@ std::vector<std::string> LowerGcnInstruction(const GcnTextInstruction& instructi
         "s_and_exec_cmask_b64",
     };
   }
+  if (instruction.mnemonic == "global_load_dword") {
+    if (instruction.operands.size() < 2 || instruction.operands.size() > 3) {
+      throw std::invalid_argument("global_load_dword expects 2 or 3 operands");
+    }
+    if (instruction.operands[1].kind != GcnTextOperandKind::RegisterRange ||
+        instruction.operands[1].reg_range->prefix != 'v' ||
+        instruction.operands[1].reg_range->last != instruction.operands[1].reg_range->first + 1) {
+      throw std::invalid_argument("global_load_dword currently requires v[lo:hi] address pair");
+    }
+    uint32_t offset = 0;
+    if (instruction.operands.size() == 3) {
+      if (instruction.operands[2].kind == GcnTextOperandKind::Off) {
+        offset = 0;
+      } else if (instruction.operands[2].kind == GcnTextOperandKind::Immediate &&
+                 instruction.operands[2].immediate.has_value()) {
+        offset = static_cast<uint32_t>(*instruction.operands[2].immediate);
+      } else {
+        throw std::invalid_argument("global_load_dword currently supports only off or immediate offset");
+      }
+    }
+    return {"global_load_dword_addr " + RenderCanonicalOperand(instruction.operands[0]) + ", v" +
+            std::to_string(instruction.operands[1].reg_range->first) + ", v" +
+            std::to_string(instruction.operands[1].reg_range->last) + ", " + std::to_string(offset)};
+  }
+  if (instruction.mnemonic == "global_store_dword") {
+    if (instruction.operands.size() < 2 || instruction.operands.size() > 3) {
+      throw std::invalid_argument("global_store_dword expects 2 or 3 operands");
+    }
+    if (instruction.operands[0].kind != GcnTextOperandKind::RegisterRange ||
+        instruction.operands[0].reg_range->prefix != 'v' ||
+        instruction.operands[0].reg_range->last != instruction.operands[0].reg_range->first + 1) {
+      throw std::invalid_argument("global_store_dword currently requires v[lo:hi] address pair");
+    }
+    uint32_t offset = 0;
+    if (instruction.operands.size() == 3) {
+      if (instruction.operands[2].kind == GcnTextOperandKind::Off) {
+        offset = 0;
+      } else if (instruction.operands[2].kind == GcnTextOperandKind::Immediate &&
+                 instruction.operands[2].immediate.has_value()) {
+        offset = static_cast<uint32_t>(*instruction.operands[2].immediate);
+      } else {
+        throw std::invalid_argument("global_store_dword currently supports only off or immediate offset");
+      }
+    }
+    return {"global_store_dword_addr v" + std::to_string(instruction.operands[0].reg_range->first) +
+            ", v" + std::to_string(instruction.operands[0].reg_range->last) + ", " +
+            RenderCanonicalOperand(instruction.operands[1]) + ", " + std::to_string(offset)};
+  }
 
   std::ostringstream line;
   line << instruction.mnemonic;

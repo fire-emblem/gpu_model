@@ -91,6 +91,8 @@ std::optional<uint64_t> IssueClassOverrideForOpcode(
     case Opcode::MLoadGlobal:
     case Opcode::MStoreGlobal:
     case Opcode::MAtomicAddGlobal:
+    case Opcode::MLoadGlobalAddr:
+    case Opcode::MStoreGlobalAddr:
     case Opcode::MLoadShared:
     case Opcode::MStoreShared:
     case Opcode::MAtomicAddShared:
@@ -821,6 +823,35 @@ OpPlan Semantics::BuildPlan(const Instruction& instruction,
       plan.memory = request;
       return plan;
     }
+    case Opcode::MLoadGlobalAddr: {
+      MemoryRequest request;
+      request.space = MemorySpace::Global;
+      request.kind = AccessKind::Load;
+      request.exec_snapshot = wave.exec;
+      request.dst = RegRef{.file = RegisterFile::Vector,
+                           .index = RequireVectorReg(instruction.operands.at(0))};
+      request.block_id = wave.block_id;
+      request.wave_id = wave.wave_id;
+
+      const uint64_t offset = instruction.operands.size() > 3
+                                  ? ReadScalarOperand(instruction.operands.at(3), wave)
+                                  : 0;
+      for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+        if (!wave.exec.test(lane)) {
+          continue;
+        }
+        const uint64_t lo = ReadVectorLaneOperand(instruction.operands.at(1), wave, lane) & 0xffffffffULL;
+        const uint64_t hi = ReadVectorLaneOperand(instruction.operands.at(2), wave, lane) & 0xffffffffULL;
+        request.lanes[lane] = LaneAccess{
+            .active = true,
+            .addr = (hi << 32ULL) | lo,
+            .bytes = 4,
+        };
+        request.lanes[lane].addr += offset;
+      }
+      plan.memory = request;
+      return plan;
+    }
     case Opcode::MStoreGlobal: {
       MemoryRequest request;
       request.space = MemorySpace::Global;
@@ -844,6 +875,34 @@ OpPlan Semantics::BuildPlan(const Instruction& instruction,
             .active = true,
             .addr = base + offset + index * scale,
             .bytes = static_cast<uint32_t>(scale),
+            .value = value,
+        };
+      }
+      plan.memory = request;
+      return plan;
+    }
+    case Opcode::MStoreGlobalAddr: {
+      MemoryRequest request;
+      request.space = MemorySpace::Global;
+      request.kind = AccessKind::Store;
+      request.exec_snapshot = wave.exec;
+      request.block_id = wave.block_id;
+      request.wave_id = wave.wave_id;
+
+      const uint64_t offset = instruction.operands.size() > 3
+                                  ? ReadScalarOperand(instruction.operands.at(3), wave)
+                                  : 0;
+      for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+        if (!wave.exec.test(lane)) {
+          continue;
+        }
+        const uint64_t lo = ReadVectorLaneOperand(instruction.operands.at(0), wave, lane) & 0xffffffffULL;
+        const uint64_t hi = ReadVectorLaneOperand(instruction.operands.at(1), wave, lane) & 0xffffffffULL;
+        const uint64_t value = ReadVectorLaneOperand(instruction.operands.at(2), wave, lane);
+        request.lanes[lane] = LaneAccess{
+            .active = true,
+            .addr = ((hi << 32ULL) | lo) + offset,
+            .bytes = 4,
             .value = value,
         };
       }

@@ -59,6 +59,9 @@ Current simplification:
   - scalar register ranges such as `s[2:3]`
   - `off`
   - representative control-flow forms such as `v_cmp_*_e32 ... -> cmask` and `s_and_saveexec_b64`
+  - vector-address global memory forms lowered into canonical address-based ops:
+    - `global_load_dword`
+    - `global_store_dword`
 - wider GCN coverage is still pending
 
 ### ISA Descriptor Layer
@@ -117,6 +120,23 @@ Current semantic families:
 - sync
 - special
 
+## New Canonical Address-Based Global Memory Path
+
+The canonical ISA now includes an explicit vector-addressed global-memory path for
+instructions that already carry a lane-local 64-bit address:
+
+- `global_load_dword_addr`
+- `global_store_dword_addr`
+
+This is intentionally separate from the existing `buffer_*` canonical form:
+
+- `buffer_*` remains the base-plus-index-plus-scale model
+- `global_*_addr` covers cases where GCN lowering has already materialized a 64-bit
+  vector address pair
+
+This split keeps the execution core simple while avoiding incorrect lowering of
+GCN `global_load_dword vN, v[lo:hi], off` into scalar-base buffer operations.
+
 ## Runtime Integration
 
 [`host_runtime.cpp`](/data/gpu_model/src/runtime/host_runtime.cpp) now lowers
@@ -145,8 +165,8 @@ That means:
    - `v_addc_co_u32`
    - `v_lshlrev_b64`
    - `s_load_dwordx2/x4`
-   - `global_load_dword`
-   - `global_store_dword`
+   - wider `global_load_dword`
+   - wider `global_store_dword`
 2. Add remaining operand forms:
    - `exec`
    - `scc`

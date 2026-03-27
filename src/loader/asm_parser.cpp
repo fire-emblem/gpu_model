@@ -435,6 +435,22 @@ KernelProgram AsmParser::Parse(const ProgramImage& image) const {
       builder.MAtomicAddGlobal(operands[0], operands[1], operands[2],
                                static_cast<uint32_t>(ParseImmediate(operands[3])),
                                operands.size() == 5 ? static_cast<uint32_t>(ParseImmediate(operands[4])) : 0);
+    } else if (opcode == "global_load_dword_addr") {
+      if (operands.size() != 3 && operands.size() != 4) {
+        throw std::invalid_argument("opcode " + opcode + " expects 3 or 4 operands");
+      }
+      builder.MLoadGlobalAddr(operands[0], operands[1], operands[2],
+                              operands.size() == 4
+                                  ? static_cast<uint32_t>(ParseImmediate(operands[3]))
+                                  : 0);
+    } else if (opcode == "global_store_dword_addr") {
+      if (operands.size() != 3 && operands.size() != 4) {
+        throw std::invalid_argument("opcode " + opcode + " expects 3 or 4 operands");
+      }
+      builder.MStoreGlobalAddr(operands[0], operands[1], operands[2],
+                               operands.size() == 4
+                                   ? static_cast<uint32_t>(ParseImmediate(operands[3]))
+                                   : 0);
     } else if (opcode == "ds_read_b32") {
       RequireOperandCount(opcode, operands, 3);
       builder.MLoadShared(operands[0], operands[1],

@@ -63,6 +63,8 @@ constexpr auto kDescriptors = std::to_array<OpcodeDescriptor>({
     {Opcode::MLoadGlobal, "buffer_load_dword", VectorMemory, true, false, true},
     {Opcode::MStoreGlobal, "buffer_store_dword", VectorMemory, true, false, true},
     {Opcode::MAtomicAddGlobal, "buffer_atomic_add_u32", VectorMemory, true, false, true},
+    {Opcode::MLoadGlobalAddr, "global_load_dword_addr", VectorMemory, true, false, true},
+    {Opcode::MStoreGlobalAddr, "global_store_dword_addr", VectorMemory, true, false, true},
     {Opcode::MLoadShared, "ds_read_b32", LocalDataShare, true, false, true},
     {Opcode::MStoreShared, "ds_write_b32", LocalDataShare, true, false, true},
     {Opcode::MAtomicAddShared, "ds_add_u32", LocalDataShare, true, false, true},
