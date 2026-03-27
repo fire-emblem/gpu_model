@@ -198,6 +198,38 @@ TEST(AsyncMemoryCycleTest, WaitCntCanWaitForScalarBufferOnly) {
   EXPECT_EQ(result.total_cycles, 20u);
 }
 
+TEST(AsyncMemoryCycleTest, WaitCntCanWaitForScalarBufferScalarLoadOnly) {
+  CollectingTraceSink trace;
+  HostRuntime runtime(&trace);
+
+  ConstSegment const_segment;
+  const_segment.bytes.resize(sizeof(int32_t));
+  const int32_t value = 11;
+  std::memcpy(const_segment.bytes.data(), &value, sizeof(value));
+
+  InstructionBuilder builder;
+  builder.SMov("s0", 0);
+  builder.SBufferLoadDword("s1", "s0", 4);
+  builder.SWaitCnt(/*global_count=*/UINT32_MAX, /*shared_count=*/UINT32_MAX,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/0);
+  builder.SMov("s2", 1);
+  builder.BExit();
+  const auto kernel = builder.Build("waitcnt_scalar_buffer_scalar", {}, std::move(const_segment));
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+  EXPECT_EQ(FirstWaveStepCycle(trace.events(), "s_buffer_load_dword"), 4u);
+  EXPECT_EQ(FirstWaveStepCycle(trace.events(), "s_waitcnt"), 8u);
+  EXPECT_EQ(NthWaveStepCycle(trace.events(), "s_mov_b32", 1), 12u);
+  EXPECT_EQ(result.total_cycles, 20u);
+}
+
 TEST(AsyncMemoryCycleTest, BufferLoadUsesImmediateOffset) {
   CollectingTraceSink trace;
   HostRuntime runtime(&trace);

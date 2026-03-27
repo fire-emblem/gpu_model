@@ -471,6 +471,7 @@ MemoryWaitDomain MemoryDomainForOpcode(Opcode opcode) {
     case Opcode::MLoadPrivate:
     case Opcode::MStorePrivate:
       return MemoryWaitDomain::Private;
+    case Opcode::SBufferLoadDword:
     case Opcode::MLoadConst:
       return MemoryWaitDomain::ScalarBuffer;
     default:
