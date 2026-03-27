@@ -292,19 +292,28 @@ uint64_t FunctionalExecutor::Run(ExecutionContext& context) {
               }
             }
           } else if (request.kind == AccessKind::Atomic) {
-            if (request.space != MemorySpace::Shared) {
-              throw std::invalid_argument("unsupported atomic memory space");
-            }
             for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
               if (!request.lanes[lane].active) {
                 continue;
               }
-              const int32_t prior = static_cast<int32_t>(
-                  LoadLaneValue(block.shared_memory, request.lanes[lane]));
+              int32_t prior = 0;
+              if (request.space == MemorySpace::Shared) {
+                prior = static_cast<int32_t>(
+                    LoadLaneValue(block.shared_memory, request.lanes[lane]));
+              } else if (request.space == MemorySpace::Global) {
+                prior = static_cast<int32_t>(
+                    LoadLaneValue(context.memory, request.lanes[lane]));
+              } else {
+                throw std::invalid_argument("unsupported atomic memory space");
+              }
               const int32_t updated = prior + static_cast<int32_t>(request.lanes[lane].value);
               LaneAccess writeback = request.lanes[lane];
               writeback.value = static_cast<uint64_t>(static_cast<int64_t>(updated));
-              StoreLaneValue(block.shared_memory, writeback);
+              if (request.space == MemorySpace::Shared) {
+                StoreLaneValue(block.shared_memory, writeback);
+              } else {
+                StoreLaneValue(context.memory, writeback);
+              }
             }
           } else {
             throw std::invalid_argument("unsupported memory access kind in functional executor");

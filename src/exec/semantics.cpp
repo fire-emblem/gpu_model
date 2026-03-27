@@ -167,6 +167,20 @@ OpPlan Semantics::BuildPlan(const Instruction& instruction,
       plan.vector_writes.push_back(write);
       return plan;
     }
+    case Opcode::VSub: {
+      VectorWrite write;
+      write.reg_index = RequireVectorReg(instruction.operands.at(0));
+      write.mask = wave.exec;
+      for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+        if (wave.exec.test(lane)) {
+          const int64_t lhs = AsSigned(ReadVectorLaneOperand(instruction.operands.at(1), wave, lane));
+          const int64_t rhs = AsSigned(ReadVectorLaneOperand(instruction.operands.at(2), wave, lane));
+          write.values[lane] = static_cast<uint64_t>(lhs - rhs);
+        }
+      }
+      plan.vector_writes.push_back(write);
+      return plan;
+    }
     case Opcode::VMul: {
       VectorWrite write;
       write.reg_index = RequireVectorReg(instruction.operands.at(0));
@@ -176,6 +190,34 @@ OpPlan Semantics::BuildPlan(const Instruction& instruction,
           const int64_t lhs = AsSigned(ReadVectorLaneOperand(instruction.operands.at(1), wave, lane));
           const int64_t rhs = AsSigned(ReadVectorLaneOperand(instruction.operands.at(2), wave, lane));
           write.values[lane] = static_cast<uint64_t>(lhs * rhs);
+        }
+      }
+      plan.vector_writes.push_back(write);
+      return plan;
+    }
+    case Opcode::VMin: {
+      VectorWrite write;
+      write.reg_index = RequireVectorReg(instruction.operands.at(0));
+      write.mask = wave.exec;
+      for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+        if (wave.exec.test(lane)) {
+          const int64_t lhs = AsSigned(ReadVectorLaneOperand(instruction.operands.at(1), wave, lane));
+          const int64_t rhs = AsSigned(ReadVectorLaneOperand(instruction.operands.at(2), wave, lane));
+          write.values[lane] = static_cast<uint64_t>(std::min(lhs, rhs));
+        }
+      }
+      plan.vector_writes.push_back(write);
+      return plan;
+    }
+    case Opcode::VMax: {
+      VectorWrite write;
+      write.reg_index = RequireVectorReg(instruction.operands.at(0));
+      write.mask = wave.exec;
+      for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+        if (wave.exec.test(lane)) {
+          const int64_t lhs = AsSigned(ReadVectorLaneOperand(instruction.operands.at(1), wave, lane));
+          const int64_t rhs = AsSigned(ReadVectorLaneOperand(instruction.operands.at(2), wave, lane));
+          write.values[lane] = static_cast<uint64_t>(std::max(lhs, rhs));
         }
       }
       plan.vector_writes.push_back(write);
@@ -214,6 +256,51 @@ OpPlan Semantics::BuildPlan(const Instruction& instruction,
       plan.cmask_write = cmask;
       return plan;
     }
+    case Opcode::VCmpEqCmask: {
+      std::bitset<64> cmask;
+      for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+        if (!wave.exec.test(lane)) {
+          continue;
+        }
+        const int64_t lhs = AsSigned(ReadVectorLaneOperand(instruction.operands.at(0), wave, lane));
+        const int64_t rhs = AsSigned(ReadVectorLaneOperand(instruction.operands.at(1), wave, lane));
+        if (lhs == rhs) {
+          cmask.set(lane);
+        }
+      }
+      plan.cmask_write = cmask;
+      return plan;
+    }
+    case Opcode::VCmpGtCmask: {
+      std::bitset<64> cmask;
+      for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+        if (!wave.exec.test(lane)) {
+          continue;
+        }
+        const int64_t lhs = AsSigned(ReadVectorLaneOperand(instruction.operands.at(0), wave, lane));
+        const int64_t rhs = AsSigned(ReadVectorLaneOperand(instruction.operands.at(1), wave, lane));
+        if (lhs > rhs) {
+          cmask.set(lane);
+        }
+      }
+      plan.cmask_write = cmask;
+      return plan;
+    }
+    case Opcode::VSelectCmask: {
+      VectorWrite write;
+      write.reg_index = RequireVectorReg(instruction.operands.at(0));
+      write.mask = wave.exec;
+      for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+        if (!wave.exec.test(lane)) {
+          continue;
+        }
+        const Operand& selected = wave.cmask.test(lane) ? instruction.operands.at(1)
+                                                        : instruction.operands.at(2);
+        write.values[lane] = ReadVectorLaneOperand(selected, wave, lane);
+      }
+      plan.vector_writes.push_back(write);
+      return plan;
+    }
     case Opcode::MLoadGlobal: {
       MemoryRequest request;
       request.space = MemorySpace::Global;
@@ -244,6 +331,32 @@ OpPlan Semantics::BuildPlan(const Instruction& instruction,
       MemoryRequest request;
       request.space = MemorySpace::Global;
       request.kind = AccessKind::Store;
+      request.exec_snapshot = wave.exec;
+      request.block_id = wave.block_id;
+      request.wave_id = wave.wave_id;
+
+      const uint64_t scale = ReadScalarOperand(instruction.operands.at(3), wave);
+      for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+        if (!wave.exec.test(lane)) {
+          continue;
+        }
+        const uint64_t base = ReadScalarOperand(instruction.operands.at(0), wave);
+        const uint64_t index = ReadVectorLaneOperand(instruction.operands.at(1), wave, lane);
+        const uint64_t value = ReadVectorLaneOperand(instruction.operands.at(2), wave, lane);
+        request.lanes[lane] = LaneAccess{
+            .active = true,
+            .addr = base + index * scale,
+            .bytes = static_cast<uint32_t>(scale),
+            .value = value,
+        };
+      }
+      plan.memory = request;
+      return plan;
+    }
+    case Opcode::MAtomicAddGlobal: {
+      MemoryRequest request;
+      request.space = MemorySpace::Global;
+      request.kind = AccessKind::Atomic;
       request.exec_snapshot = wave.exec;
       request.block_id = wave.block_id;
       request.wave_id = wave.wave_id;

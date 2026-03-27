@@ -148,11 +148,32 @@ InstructionBuilder& InstructionBuilder::VAdd(std::string_view dest,
       Opcode::VAdd, {ParseRegOperand(dest), ParseRegOperand(lhs), ParseRegOperand(rhs)});
 }
 
+InstructionBuilder& InstructionBuilder::VSub(std::string_view dest,
+                                             std::string_view lhs,
+                                             std::string_view rhs) {
+  return AddInstruction(
+      Opcode::VSub, {ParseRegOperand(dest), ParseRegOperand(lhs), ParseRegOperand(rhs)});
+}
+
 InstructionBuilder& InstructionBuilder::VMul(std::string_view dest,
                                              std::string_view lhs,
                                              std::string_view rhs) {
   return AddInstruction(
       Opcode::VMul, {ParseRegOperand(dest), ParseRegOperand(lhs), ParseRegOperand(rhs)});
+}
+
+InstructionBuilder& InstructionBuilder::VMin(std::string_view dest,
+                                             std::string_view lhs,
+                                             std::string_view rhs) {
+  return AddInstruction(
+      Opcode::VMin, {ParseRegOperand(dest), ParseRegOperand(lhs), ParseRegOperand(rhs)});
+}
+
+InstructionBuilder& InstructionBuilder::VMax(std::string_view dest,
+                                             std::string_view lhs,
+                                             std::string_view rhs) {
+  return AddInstruction(
+      Opcode::VMax, {ParseRegOperand(dest), ParseRegOperand(lhs), ParseRegOperand(rhs)});
 }
 
 InstructionBuilder& InstructionBuilder::VFma(std::string_view dest,
@@ -166,6 +187,22 @@ InstructionBuilder& InstructionBuilder::VFma(std::string_view dest,
 
 InstructionBuilder& InstructionBuilder::VCmpLtCmask(std::string_view lhs, std::string_view rhs) {
   return AddInstruction(Opcode::VCmpLtCmask, {ParseRegOperand(lhs), ParseRegOperand(rhs)});
+}
+
+InstructionBuilder& InstructionBuilder::VCmpEqCmask(std::string_view lhs, std::string_view rhs) {
+  return AddInstruction(Opcode::VCmpEqCmask, {ParseRegOperand(lhs), ParseRegOperand(rhs)});
+}
+
+InstructionBuilder& InstructionBuilder::VCmpGtCmask(std::string_view lhs, std::string_view rhs) {
+  return AddInstruction(Opcode::VCmpGtCmask, {ParseRegOperand(lhs), ParseRegOperand(rhs)});
+}
+
+InstructionBuilder& InstructionBuilder::VSelectCmask(std::string_view dest,
+                                                     std::string_view true_value,
+                                                     std::string_view false_value) {
+  return AddInstruction(Opcode::VSelectCmask,
+                        {ParseRegOperand(dest), ParseRegOperand(true_value),
+                         ParseRegOperand(false_value)});
 }
 
 InstructionBuilder& InstructionBuilder::MLoadGlobal(std::string_view dest,
@@ -182,6 +219,15 @@ InstructionBuilder& InstructionBuilder::MStoreGlobal(std::string_view base,
                                                      std::string_view src,
                                                      uint32_t scale_bytes) {
   return AddInstruction(Opcode::MStoreGlobal,
+                        {ParseRegOperand(base), ParseRegOperand(index), ParseRegOperand(src),
+                         ImmediateOperand(scale_bytes)});
+}
+
+InstructionBuilder& InstructionBuilder::MAtomicAddGlobal(std::string_view base,
+                                                         std::string_view index,
+                                                         std::string_view src,
+                                                         uint32_t scale_bytes) {
+  return AddInstruction(Opcode::MAtomicAddGlobal,
                         {ParseRegOperand(base), ParseRegOperand(index), ParseRegOperand(src),
                          ImmediateOperand(scale_bytes)});
 }

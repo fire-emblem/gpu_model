@@ -200,7 +200,10 @@ std::vector<ReadyRef> CollectReadRefs(const Instruction& instruction) {
       AddOperandDependency(instruction.operands.at(1), refs);
       break;
     case Opcode::VAdd:
+    case Opcode::VSub:
     case Opcode::VMul:
+    case Opcode::VMin:
+    case Opcode::VMax:
     case Opcode::VFma:
       refs.push_back(ExecRef());
       AddOperandDependency(instruction.operands.at(1), refs);
@@ -210,9 +213,17 @@ std::vector<ReadyRef> CollectReadRefs(const Instruction& instruction) {
       }
       break;
     case Opcode::VCmpLtCmask:
+    case Opcode::VCmpEqCmask:
+    case Opcode::VCmpGtCmask:
       refs.push_back(ExecRef());
       AddOperandDependency(instruction.operands.at(0), refs);
       AddOperandDependency(instruction.operands.at(1), refs);
+      break;
+    case Opcode::VSelectCmask:
+      refs.push_back(ExecRef());
+      refs.push_back(CmaskRef());
+      AddOperandDependency(instruction.operands.at(1), refs);
+      AddOperandDependency(instruction.operands.at(2), refs);
       break;
     case Opcode::MLoadGlobal:
     case Opcode::MLoadShared:
@@ -225,13 +236,14 @@ std::vector<ReadyRef> CollectReadRefs(const Instruction& instruction) {
       }
       break;
     case Opcode::MStoreGlobal:
+    case Opcode::MAtomicAddGlobal:
     case Opcode::MStoreShared:
     case Opcode::MStorePrivate:
     case Opcode::MAtomicAddShared:
       refs.push_back(ExecRef());
       AddOperandDependency(instruction.operands.at(0), refs);
       AddOperandDependency(instruction.operands.at(1), refs);
-      if (instruction.opcode == Opcode::MStoreGlobal) {
+      if (instruction.opcode == Opcode::MStoreGlobal || instruction.opcode == Opcode::MAtomicAddGlobal) {
         AddOperandDependency(instruction.operands.at(2), refs);
       }
       break;
@@ -459,7 +471,7 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
           if (request.space == MemorySpace::Global) {
             if (request.kind == AccessKind::Load) {
               ++context.stats->global_loads;
-            } else if (request.kind == AccessKind::Store) {
+            } else if (request.kind == AccessKind::Store || request.kind == AccessKind::Atomic) {
               ++context.stats->global_stores;
             }
           } else if (request.space == MemorySpace::Shared) {
@@ -581,6 +593,19 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                                   if (request.lanes[lane].active) {
                                     StoreLaneValue(context.memory, request.lanes[lane]);
                                   }
+                                }
+                              } else if (request.kind == AccessKind::Atomic) {
+                                for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+                                  if (!request.lanes[lane].active) {
+                                    continue;
+                                  }
+                                  const int32_t prior = static_cast<int32_t>(
+                                      LoadLaneValue(context.memory, request.lanes[lane]));
+                                  const int32_t updated =
+                                      prior + static_cast<int32_t>(request.lanes[lane].value);
+                                  LaneAccess writeback = request.lanes[lane];
+                                  writeback.value = static_cast<uint64_t>(static_cast<int64_t>(updated));
+                                  StoreLaneValue(context.memory, writeback);
                                 }
                               }
 

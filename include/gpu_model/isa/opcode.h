@@ -17,11 +17,18 @@ enum class Opcode {
   SCmpEq,
   VMov,
   VAdd,
+  VSub,
   VMul,
+  VMin,
+  VMax,
   VFma,
   VCmpLtCmask,
+  VCmpEqCmask,
+  VCmpGtCmask,
+  VSelectCmask,
   MLoadGlobal,
   MStoreGlobal,
+  MAtomicAddGlobal,
   MLoadShared,
   MStoreShared,
   MAtomicAddShared,
@@ -65,16 +72,30 @@ inline std::string_view ToString(Opcode opcode) {
       return "v_mov";
     case Opcode::VAdd:
       return "v_add";
+    case Opcode::VSub:
+      return "v_sub";
     case Opcode::VMul:
       return "v_mul";
+    case Opcode::VMin:
+      return "v_min";
+    case Opcode::VMax:
+      return "v_max";
     case Opcode::VFma:
       return "v_fma";
     case Opcode::VCmpLtCmask:
       return "v_cmp_lt_cmask";
+    case Opcode::VCmpEqCmask:
+      return "v_cmp_eq_cmask";
+    case Opcode::VCmpGtCmask:
+      return "v_cmp_gt_cmask";
+    case Opcode::VSelectCmask:
+      return "v_select_cmask";
     case Opcode::MLoadGlobal:
       return "m_load_global";
     case Opcode::MStoreGlobal:
       return "m_store_global";
+    case Opcode::MAtomicAddGlobal:
+      return "m_atomic_add_global";
     case Opcode::MLoadShared:
       return "m_load_shared";
     case Opcode::MStoreShared:

@@ -167,15 +167,33 @@ KernelProgram AsmParser::Parse(const ProgramImage& image) const {
     } else if (opcode == "v_add") {
       RequireOperandCount(opcode, operands, 3);
       builder.VAdd(operands[0], operands[1], operands[2]);
+    } else if (opcode == "v_sub") {
+      RequireOperandCount(opcode, operands, 3);
+      builder.VSub(operands[0], operands[1], operands[2]);
     } else if (opcode == "v_mul") {
       RequireOperandCount(opcode, operands, 3);
       builder.VMul(operands[0], operands[1], operands[2]);
+    } else if (opcode == "v_min") {
+      RequireOperandCount(opcode, operands, 3);
+      builder.VMin(operands[0], operands[1], operands[2]);
+    } else if (opcode == "v_max") {
+      RequireOperandCount(opcode, operands, 3);
+      builder.VMax(operands[0], operands[1], operands[2]);
     } else if (opcode == "v_fma") {
       RequireOperandCount(opcode, operands, 4);
       builder.VFma(operands[0], operands[1], operands[2], operands[3]);
     } else if (opcode == "v_cmp_lt_cmask") {
       RequireOperandCount(opcode, operands, 2);
       builder.VCmpLtCmask(operands[0], operands[1]);
+    } else if (opcode == "v_cmp_eq_cmask") {
+      RequireOperandCount(opcode, operands, 2);
+      builder.VCmpEqCmask(operands[0], operands[1]);
+    } else if (opcode == "v_cmp_gt_cmask") {
+      RequireOperandCount(opcode, operands, 2);
+      builder.VCmpGtCmask(operands[0], operands[1]);
+    } else if (opcode == "v_select_cmask") {
+      RequireOperandCount(opcode, operands, 3);
+      builder.VSelectCmask(operands[0], operands[1], operands[2]);
     } else if (opcode == "m_load_global") {
       RequireOperandCount(opcode, operands, 4);
       builder.MLoadGlobal(operands[0], operands[1], operands[2],
@@ -184,6 +202,10 @@ KernelProgram AsmParser::Parse(const ProgramImage& image) const {
       RequireOperandCount(opcode, operands, 4);
       builder.MStoreGlobal(operands[0], operands[1], operands[2],
                            static_cast<uint32_t>(ParseImmediate(operands[3])));
+    } else if (opcode == "m_atomic_add_global") {
+      RequireOperandCount(opcode, operands, 4);
+      builder.MAtomicAddGlobal(operands[0], operands[1], operands[2],
+                               static_cast<uint32_t>(ParseImmediate(operands[3])));
     } else if (opcode == "m_load_shared") {
       RequireOperandCount(opcode, operands, 3);
       builder.MLoadShared(operands[0], operands[1],

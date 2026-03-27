@@ -35,12 +35,20 @@ class InstructionBuilder {
   InstructionBuilder& VMov(std::string_view dest, std::string_view src);
   InstructionBuilder& VMov(std::string_view dest, uint64_t imm);
   InstructionBuilder& VAdd(std::string_view dest, std::string_view lhs, std::string_view rhs);
+  InstructionBuilder& VSub(std::string_view dest, std::string_view lhs, std::string_view rhs);
   InstructionBuilder& VMul(std::string_view dest, std::string_view lhs, std::string_view rhs);
+  InstructionBuilder& VMin(std::string_view dest, std::string_view lhs, std::string_view rhs);
+  InstructionBuilder& VMax(std::string_view dest, std::string_view lhs, std::string_view rhs);
   InstructionBuilder& VFma(std::string_view dest,
                            std::string_view lhs,
                            std::string_view rhs,
                            std::string_view addend);
   InstructionBuilder& VCmpLtCmask(std::string_view lhs, std::string_view rhs);
+  InstructionBuilder& VCmpEqCmask(std::string_view lhs, std::string_view rhs);
+  InstructionBuilder& VCmpGtCmask(std::string_view lhs, std::string_view rhs);
+  InstructionBuilder& VSelectCmask(std::string_view dest,
+                                   std::string_view true_value,
+                                   std::string_view false_value);
 
   InstructionBuilder& MLoadGlobal(std::string_view dest,
                                   std::string_view base,
@@ -50,6 +58,10 @@ class InstructionBuilder {
                                    std::string_view index,
                                    std::string_view src,
                                    uint32_t scale_bytes = 1);
+  InstructionBuilder& MAtomicAddGlobal(std::string_view base,
+                                       std::string_view index,
+                                       std::string_view src,
+                                       uint32_t scale_bytes = 1);
   InstructionBuilder& MLoadShared(std::string_view dest,
                                   std::string_view index,
                                   uint32_t scale_bytes = 1);
