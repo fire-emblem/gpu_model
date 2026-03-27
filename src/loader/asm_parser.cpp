@@ -129,6 +129,9 @@ WaitCntThresholds ParseWaitCnt(std::string_view text) {
       thresholds.scalar_buffer = *value;
       continue;
     }
+    if (parse_named(term, "expcnt")) {
+      continue;
+    }
     throw std::invalid_argument("unsupported s_waitcnt term: " + term);
   }
 

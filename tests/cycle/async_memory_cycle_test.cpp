@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <cstring>
 #include <cstdint>
 #include <limits>
 #include <string_view>
@@ -155,6 +156,38 @@ TEST(AsyncMemoryCycleTest, WaitCntIgnoresGlobalWhenWaitingSharedOnly) {
   EXPECT_EQ(FirstWaveStepCycle(trace.events(), "s_waitcnt"), 16u);
   EXPECT_EQ(NthWaveStepCycle(trace.events(), "s_mov", 3), 20u);
   EXPECT_EQ(result.total_cycles, 32u);
+}
+
+TEST(AsyncMemoryCycleTest, WaitCntCanWaitForScalarBufferOnly) {
+  CollectingTraceSink trace;
+  HostRuntime runtime(&trace);
+
+  ConstSegment const_segment;
+  const_segment.bytes.resize(sizeof(int32_t));
+  const int32_t value = 9;
+  std::memcpy(const_segment.bytes.data(), &value, sizeof(value));
+
+  InstructionBuilder builder;
+  builder.VMov("v0", 0);
+  builder.MLoadConst("v1", "v0", 4);
+  builder.SWaitCnt(/*global_count=*/UINT32_MAX, /*shared_count=*/UINT32_MAX,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/0);
+  builder.SMov("s0", 1);
+  builder.BExit();
+  const auto kernel = builder.Build("waitcnt_scalar_buffer", {}, std::move(const_segment));
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+  EXPECT_EQ(FirstWaveStepCycle(trace.events(), "m_load_const"), 4u);
+  EXPECT_EQ(FirstWaveStepCycle(trace.events(), "s_waitcnt"), 8u);
+  EXPECT_EQ(FirstWaveStepCycle(trace.events(), "s_mov"), 12u);
+  EXPECT_EQ(result.total_cycles, 20u);
 }
 
 }  // namespace
