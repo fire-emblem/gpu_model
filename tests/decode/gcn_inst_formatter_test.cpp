@@ -22,8 +22,15 @@ TEST(GcnInstFormatterTest, FormatsRawInstructionWithEncodingInfo) {
       .size_bytes = 8,
       .words = {0xc0020002u, 0x0000002cu},
       .format_class = GcnInstFormatClass::Smrd,
+      .encoding_id = 2,
       .mnemonic = "s_load_dword",
       .operands = "s0, s[4:5], 0x2c",
+      .decoded_operands =
+          {
+              RawGcnOperand{.kind = RawGcnOperandKind::ScalarReg, .text = "s0"},
+              RawGcnOperand{.kind = RawGcnOperandKind::ScalarRegRange, .text = "s[4:5]"},
+              RawGcnOperand{.kind = RawGcnOperandKind::Immediate, .text = "0x2c"},
+          },
   };
 
   const std::string text = GcnInstFormatter{}.Format(instruction);

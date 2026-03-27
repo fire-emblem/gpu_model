@@ -58,6 +58,7 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesRawInstructionsFromAmdgpuObject) {
   EXPECT_EQ(image.instructions.front().mnemonic, "s_endpgm");
   EXPECT_EQ(image.instructions.front().size_bytes, 4u);
   EXPECT_EQ(image.instructions.front().format_class, GcnInstFormatClass::Sopp);
+  EXPECT_EQ(image.instructions.front().encoding_id, 1u);
   EXPECT_EQ(image.code_bytes.size(), 4u);
 }
 
@@ -88,6 +89,9 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesRawInstructionsFromHipExecutable) {
   ASSERT_FALSE(image.instructions.empty());
   EXPECT_EQ(image.instructions.front().mnemonic, "s_load_dword");
   EXPECT_EQ(image.instructions.front().format_class, GcnInstFormatClass::Smrd);
+  EXPECT_EQ(image.instructions.front().encoding_id, 2u);
+  ASSERT_EQ(image.instructions.front().decoded_operands.size(), 3u);
+  EXPECT_EQ(image.instructions.front().decoded_operands[0].text, "s0");
   EXPECT_GT(image.instructions.size(), 20u);
   EXPECT_GT(image.code_bytes.size(), 100u);
 }

@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "gpu_model/decode/gcn_inst_format.h"
+#include "gpu_model/decode/raw_gcn_instruction.h"
 
 namespace gpu_model {
 
@@ -16,6 +17,7 @@ struct GcnInstEncodingDef {
   std::string_view mnemonic;
 };
 
+void DecodeGcnOperands(RawGcnInstruction& instruction);
 const GcnInstEncodingDef* FindGcnInstEncodingDef(const std::vector<uint32_t>& words);
 
 }  // namespace gpu_model

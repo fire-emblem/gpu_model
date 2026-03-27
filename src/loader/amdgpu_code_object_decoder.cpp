@@ -207,6 +207,7 @@ RawGcnInstruction ParseInstructionLine(const std::string& line) {
   if (const auto* def = FindGcnInstEncodingDef(instruction.words)) {
     instruction.mnemonic = std::string(def->mnemonic);
   }
+  DecodeGcnOperands(instruction);
   return instruction;
 }
 
