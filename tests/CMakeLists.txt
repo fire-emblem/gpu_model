@@ -1,5 +1,6 @@
 add_executable(gpu_model_tests
   arch/arch_registry_test.cpp
+  decode/gcn_inst_formatter_test.cpp
   decode/gcn_inst_format_test.cpp
   exec/issue_model_test.cpp
   exec/issue_eligibility_test.cpp

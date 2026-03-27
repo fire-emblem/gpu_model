@@ -13,6 +13,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "gpu_model/decode/gcn_inst_encoding_def.h"
 #include "gpu_model/loader/amdgpu_obj_loader.h"
 
 namespace gpu_model {
@@ -203,6 +204,9 @@ RawGcnInstruction ParseInstructionLine(const std::string& line) {
   instruction.words = ParseRawWords(line);
   instruction.size_bytes = static_cast<uint32_t>(instruction.words.size() * sizeof(uint32_t));
   instruction.format_class = ClassifyGcnInstFormat(instruction.words);
+  if (const auto* def = FindGcnInstEncodingDef(instruction.words)) {
+    instruction.mnemonic = std::string(def->mnemonic);
+  }
   return instruction;
 }
 
