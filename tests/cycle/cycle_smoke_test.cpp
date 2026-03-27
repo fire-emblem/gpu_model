@@ -145,5 +145,47 @@ TEST(CycleSmokeTest, AsyncLoadPromotesOverflowResidentWavesPerPeu) {
   EXPECT_GT(result.total_cycles, 0u);
 }
 
+TEST(CycleSmokeTest, ReadyWavesIssueRoundRobinWithinPeu) {
+  CollectingTraceSink trace;
+  HostRuntime runtime(&trace);
+  runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
+                                 /*kernel_launch_cycles=*/0,
+                                 /*block_launch_cycles=*/0,
+                                 /*wave_launch_cycles=*/0,
+                                 /*warp_switch_cycles=*/1,
+                                 /*arg_load_cycles=*/4);
+
+  InstructionBuilder builder;
+  builder.SMov("s0", 1);
+  builder.VMov("v0", "s0");
+  builder.VAdd("v1", "v0", "s0");
+  builder.BExit();
+  const auto kernel = builder.Build("round_robin_issue_kernel");
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 128;
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  std::vector<uint32_t> issued_waves;
+  for (const auto& event : trace.events()) {
+    if (event.kind == TraceEventKind::WaveStep) {
+      issued_waves.push_back(event.wave_id);
+    }
+  }
+
+  ASSERT_GE(issued_waves.size(), 6u);
+  EXPECT_EQ(issued_waves[0], 0u);
+  EXPECT_EQ(issued_waves[1], 1u);
+  EXPECT_EQ(issued_waves[2], 0u);
+  EXPECT_EQ(issued_waves[3], 1u);
+  EXPECT_EQ(issued_waves[4], 0u);
+  EXPECT_EQ(issued_waves[5], 1u);
+}
+
 }  // namespace
 }  // namespace gpu_model

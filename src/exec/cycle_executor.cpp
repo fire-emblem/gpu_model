@@ -54,6 +54,7 @@ struct PeuSlot {
   uint32_t peu_id = 0;
   uint64_t busy_until = 0;
   uint64_t last_wave_tag = std::numeric_limits<uint64_t>::max();
+  size_t last_issue_index = std::numeric_limits<size_t>::max();
   std::vector<ScheduledWave*> waves;
 };
 
@@ -533,6 +534,36 @@ void FillDispatchWindow(PeuSlot& slot,
   }
 }
 
+ScheduledWave* PickNextReadyWave(PeuSlot& slot,
+                                 const KernelProgram& kernel,
+                                 uint64_t cycle) {
+  if (slot.waves.empty()) {
+    return nullptr;
+  }
+
+  const size_t count = slot.waves.size();
+  const size_t start =
+      slot.last_issue_index == std::numeric_limits<size_t>::max() ? 0 : (slot.last_issue_index + 1) % count;
+  for (size_t offset = 0; offset < count; ++offset) {
+    const size_t index = (start + offset) % count;
+    ScheduledWave* scheduled_wave = slot.waves[index];
+    if (!scheduled_wave->dispatch_enabled || scheduled_wave->wave.status != WaveStatus::Active) {
+      continue;
+    }
+    if (scheduled_wave->wave.pc >= kernel.instructions().size()) {
+      throw std::out_of_range("wave pc out of range");
+    }
+    const auto& instruction = kernel.instructions().at(scheduled_wave->wave.pc);
+    if (!DependenciesReady(instruction, scheduled_wave->scoreboard, cycle)) {
+      continue;
+    }
+    slot.last_issue_index = index;
+    return scheduled_wave;
+  }
+
+  return nullptr;
+}
+
 }  // namespace
 
 uint64_t CycleExecutor::Run(ExecutionContext& context) {
@@ -582,20 +613,7 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
         continue;
       }
 
-      ScheduledWave* candidate = nullptr;
-      for (auto* scheduled_wave : slot.waves) {
-        if (!scheduled_wave->dispatch_enabled || scheduled_wave->wave.status != WaveStatus::Active) {
-          continue;
-        }
-        if (scheduled_wave->wave.pc >= context.kernel.instructions().size()) {
-          throw std::out_of_range("wave pc out of range");
-        }
-        const auto& instruction = context.kernel.instructions().at(scheduled_wave->wave.pc);
-        if (DependenciesReady(instruction, scheduled_wave->scoreboard, cycle)) {
-          candidate = scheduled_wave;
-          break;
-        }
-      }
+      ScheduledWave* candidate = PickNextReadyWave(slot, context.kernel, cycle);
 
       if (candidate == nullptr) {
         continue;
