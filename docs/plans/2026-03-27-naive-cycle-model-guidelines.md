@@ -72,6 +72,7 @@ Recommended practice:
 
 - keep `default_issue_cycles = 4`
 - only override a small set of AMD-facing instructions that compiler and library teams actively tune
+- allow category-level defaults and sparse per-op overrides, but keep both tables small
 - keep latency modeling separate from issue overrides
 
 ## Recommended Modeling Layers
