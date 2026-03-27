@@ -12,6 +12,7 @@
 #include <tuple>
 #include <vector>
 
+#include "gpu_model/debug/instruction_trace.h"
 #include "gpu_model/debug/trace_event.h"
 #include "gpu_model/exec/event_queue.h"
 #include "gpu_model/exec/scoreboard.h"
@@ -200,9 +201,13 @@ std::vector<ReadyRef> CollectReadRefs(const Instruction& instruction) {
       break;
     case Opcode::VAdd:
     case Opcode::VMul:
+    case Opcode::VFma:
       refs.push_back(ExecRef());
       AddOperandDependency(instruction.operands.at(1), refs);
       AddOperandDependency(instruction.operands.at(2), refs);
+      if (instruction.opcode == Opcode::VFma) {
+        AddOperandDependency(instruction.operands.at(3), refs);
+      }
       break;
     case Opcode::VCmpLtCmask:
       refs.push_back(ExecRef());
@@ -437,7 +442,7 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
           .block_id = wave.block_id,
           .wave_id = wave.wave_id,
           .pc = wave.pc,
-          .message = std::string(ToString(instruction.opcode)),
+          .message = FormatWaveStepMessage(instruction, wave),
       });
 
       const OpPlan plan = semantics_.BuildPlan(instruction, wave, context);

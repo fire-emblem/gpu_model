@@ -41,7 +41,8 @@ uint64_t FirstCycle(const std::vector<TraceEvent>& events,
                     TraceEventKind kind,
                     std::string_view message = {}) {
   for (const auto& event : events) {
-    if (event.kind == kind && (message.empty() || event.message == message)) {
+    if (event.kind == kind &&
+        (message.empty() || event.message.find(std::string(message)) != std::string::npos)) {
       return event.cycle;
     }
   }

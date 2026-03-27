@@ -155,6 +155,15 @@ InstructionBuilder& InstructionBuilder::VMul(std::string_view dest,
       Opcode::VMul, {ParseRegOperand(dest), ParseRegOperand(lhs), ParseRegOperand(rhs)});
 }
 
+InstructionBuilder& InstructionBuilder::VFma(std::string_view dest,
+                                             std::string_view lhs,
+                                             std::string_view rhs,
+                                             std::string_view addend) {
+  return AddInstruction(Opcode::VFma,
+                        {ParseRegOperand(dest), ParseRegOperand(lhs), ParseRegOperand(rhs),
+                         ParseRegOperand(addend)});
+}
+
 InstructionBuilder& InstructionBuilder::VCmpLtCmask(std::string_view lhs, std::string_view rhs) {
   return AddInstruction(Opcode::VCmpLtCmask, {ParseRegOperand(lhs), ParseRegOperand(rhs)});
 }

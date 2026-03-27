@@ -18,6 +18,7 @@ enum class Opcode {
   VMov,
   VAdd,
   VMul,
+  VFma,
   VCmpLtCmask,
   MLoadGlobal,
   MStoreGlobal,
@@ -64,6 +65,8 @@ inline std::string_view ToString(Opcode opcode) {
       return "v_add";
     case Opcode::VMul:
       return "v_mul";
+    case Opcode::VFma:
+      return "v_fma";
     case Opcode::VCmpLtCmask:
       return "v_cmp_lt_cmask";
     case Opcode::MLoadGlobal:

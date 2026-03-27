@@ -170,6 +170,9 @@ KernelProgram AsmParser::Parse(const ProgramImage& image) const {
     } else if (opcode == "v_mul") {
       RequireOperandCount(opcode, operands, 3);
       builder.VMul(operands[0], operands[1], operands[2]);
+    } else if (opcode == "v_fma") {
+      RequireOperandCount(opcode, operands, 4);
+      builder.VFma(operands[0], operands[1], operands[2], operands[3]);
     } else if (opcode == "v_cmp_lt_cmask") {
       RequireOperandCount(opcode, operands, 2);
       builder.VCmpLtCmask(operands[0], operands[1]);

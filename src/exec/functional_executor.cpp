@@ -8,6 +8,7 @@
 #include <stdexcept>
 #include <vector>
 
+#include "gpu_model/debug/instruction_trace.h"
 #include "gpu_model/debug/trace_event.h"
 #include "gpu_model/isa/opcode.h"
 
@@ -180,7 +181,7 @@ uint64_t FunctionalExecutor::Run(ExecutionContext& context) {
             .block_id = wave.block_id,
             .wave_id = wave.wave_id,
             .pc = wave.pc,
-            .message = std::string(ToString(instruction.opcode)),
+            .message = FormatWaveStepMessage(instruction, wave),
         });
 
         const OpPlan plan = semantics_.BuildPlan(instruction, wave, context);

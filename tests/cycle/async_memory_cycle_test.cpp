@@ -14,7 +14,8 @@ namespace {
 
 uint64_t FirstWaveStepCycle(const std::vector<TraceEvent>& events, std::string_view opcode) {
   for (const auto& event : events) {
-    if (event.kind == TraceEventKind::WaveStep && event.message == opcode) {
+    if (event.kind == TraceEventKind::WaveStep &&
+        event.message.find(std::string(opcode)) != std::string::npos) {
       return event.cycle;
     }
   }

@@ -36,6 +36,10 @@ class InstructionBuilder {
   InstructionBuilder& VMov(std::string_view dest, uint64_t imm);
   InstructionBuilder& VAdd(std::string_view dest, std::string_view lhs, std::string_view rhs);
   InstructionBuilder& VMul(std::string_view dest, std::string_view lhs, std::string_view rhs);
+  InstructionBuilder& VFma(std::string_view dest,
+                           std::string_view lhs,
+                           std::string_view rhs,
+                           std::string_view addend);
   InstructionBuilder& VCmpLtCmask(std::string_view lhs, std::string_view rhs);
 
   InstructionBuilder& MLoadGlobal(std::string_view dest,
