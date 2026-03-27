@@ -228,7 +228,7 @@ uint64_t FunctionalExecutor::Run(ExecutionContext& context) {
             } else if (request.space == MemorySpace::Shared) {
               if (request.kind == AccessKind::Load) {
                 ++context.stats->shared_loads;
-              } else if (request.kind == AccessKind::Store) {
+              } else if (request.kind == AccessKind::Store || request.kind == AccessKind::Atomic) {
                 ++context.stats->shared_stores;
               }
             } else if (request.space == MemorySpace::Private) {
@@ -291,12 +291,40 @@ uint64_t FunctionalExecutor::Run(ExecutionContext& context) {
                 }
               }
             }
+          } else if (request.kind == AccessKind::Atomic) {
+            if (request.space != MemorySpace::Shared) {
+              throw std::invalid_argument("unsupported atomic memory space");
+            }
+            for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+              if (!request.lanes[lane].active) {
+                continue;
+              }
+              const int32_t prior = static_cast<int32_t>(
+                  LoadLaneValue(block.shared_memory, request.lanes[lane]));
+              const int32_t updated = prior + static_cast<int32_t>(request.lanes[lane].value);
+              LaneAccess writeback = request.lanes[lane];
+              writeback.value = static_cast<uint64_t>(static_cast<int64_t>(updated));
+              StoreLaneValue(block.shared_memory, writeback);
+            }
           } else {
             throw std::invalid_argument("unsupported memory access kind in functional executor");
           }
         }
 
-        if (plan.sync_barrier) {
+        if (plan.sync_wave_barrier) {
+          if (context.stats != nullptr) {
+            ++context.stats->barriers;
+          }
+          context.trace.OnEvent(TraceEvent{
+              .kind = TraceEventKind::Barrier,
+              .cycle = context.cycle,
+              .block_id = wave.block_id,
+              .wave_id = wave.wave_id,
+              .pc = wave.pc,
+              .message = "wave",
+          });
+          ++wave.pc;
+        } else if (plan.sync_barrier) {
           if (context.stats != nullptr) {
             ++context.stats->barriers;
           }

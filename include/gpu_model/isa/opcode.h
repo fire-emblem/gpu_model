@@ -24,6 +24,7 @@ enum class Opcode {
   MStoreGlobal,
   MLoadShared,
   MStoreShared,
+  MAtomicAddShared,
   MLoadPrivate,
   MStorePrivate,
   MLoadConst,
@@ -33,6 +34,7 @@ enum class Opcode {
   BBranch,
   BIfSmask,
   BIfNoexec,
+  SyncWaveBarrier,
   SyncBarrier,
   BExit,
 };
@@ -77,6 +79,8 @@ inline std::string_view ToString(Opcode opcode) {
       return "m_load_shared";
     case Opcode::MStoreShared:
       return "m_store_shared";
+    case Opcode::MAtomicAddShared:
+      return "m_atomic_add_shared";
     case Opcode::MLoadPrivate:
       return "m_load_private";
     case Opcode::MStorePrivate:
@@ -95,6 +99,8 @@ inline std::string_view ToString(Opcode opcode) {
       return "b_if_smask";
     case Opcode::BIfNoexec:
       return "b_if_noexec";
+    case Opcode::SyncWaveBarrier:
+      return "sync_wave_barrier";
     case Opcode::SyncBarrier:
       return "sync_barrier";
     case Opcode::BExit:

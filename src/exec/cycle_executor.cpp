@@ -227,6 +227,7 @@ std::vector<ReadyRef> CollectReadRefs(const Instruction& instruction) {
     case Opcode::MStoreGlobal:
     case Opcode::MStoreShared:
     case Opcode::MStorePrivate:
+    case Opcode::MAtomicAddShared:
       refs.push_back(ExecRef());
       AddOperandDependency(instruction.operands.at(0), refs);
       AddOperandDependency(instruction.operands.at(1), refs);
@@ -250,6 +251,7 @@ std::vector<ReadyRef> CollectReadRefs(const Instruction& instruction) {
     case Opcode::BIfNoexec:
       refs.push_back(ExecRef());
       break;
+    case Opcode::SyncWaveBarrier:
     case Opcode::SyncBarrier:
       break;
   }
@@ -463,7 +465,7 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
           } else if (request.space == MemorySpace::Shared) {
             if (request.kind == AccessKind::Load) {
               ++context.stats->shared_loads;
-            } else if (request.kind == AccessKind::Store) {
+            } else if (request.kind == AccessKind::Store || request.kind == AccessKind::Atomic) {
               ++context.stats->shared_stores;
             }
           } else if (request.space == MemorySpace::Private) {
@@ -625,6 +627,19 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                                     StoreLaneValue(candidate->block->shared_memory, request.lanes[lane]);
                                   }
                                 }
+                              } else if (request.kind == AccessKind::Atomic) {
+                                for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+                                  if (!request.lanes[lane].active) {
+                                    continue;
+                                  }
+                                  const int32_t prior = static_cast<int32_t>(
+                                      LoadLaneValue(candidate->block->shared_memory, request.lanes[lane]));
+                                  const int32_t updated =
+                                      prior + static_cast<int32_t>(request.lanes[lane].value);
+                                  LaneAccess writeback = request.lanes[lane];
+                                  writeback.value = static_cast<uint64_t>(static_cast<int64_t>(updated));
+                                  StoreLaneValue(candidate->block->shared_memory, writeback);
+                                }
                               }
 
                               if (branch_target.has_value()) {
@@ -676,6 +691,27 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                   } else {
                     throw std::invalid_argument("unsupported memory space in cycle executor");
                   }
+                }
+
+                if (plan.sync_wave_barrier) {
+                  if (context.stats != nullptr) {
+                    ++context.stats->barriers;
+                  }
+                  context.trace.OnEvent(TraceEvent{
+                      .kind = TraceEventKind::Barrier,
+                      .cycle = commit_cycle,
+                      .block_id = candidate->wave.block_id,
+                      .wave_id = candidate->wave.wave_id,
+                      .pc = candidate->wave.pc,
+                      .message = "wave",
+                  });
+                  if (plan.branch_target.has_value()) {
+                    candidate->wave.pc = *plan.branch_target;
+                  } else if (plan.advance_pc) {
+                    ++candidate->wave.pc;
+                  }
+                  candidate->wave.status = WaveStatus::Active;
+                  return;
                 }
 
                 if (plan.sync_barrier) {

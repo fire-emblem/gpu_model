@@ -10,6 +10,7 @@ add_executable(gpu_model_tests
   functional/constant_memory_functional_test.cpp
   functional/fma_loop_functional_test.cpp
   functional/scaling_functional_test.cpp
+  functional/shared_sync_functional_test.cpp
   cycle/cycle_smoke_test.cpp
   cycle/async_memory_cycle_test.cpp
   cycle/shared_barrier_cycle_test.cpp
@@ -19,6 +20,7 @@ add_executable(gpu_model_tests
   cycle/shared_bank_conflict_cycle_test.cpp
   cycle/fma_loop_cycle_test.cpp
   cycle/scaling_cycle_test.cpp
+  cycle/shared_sync_cycle_test.cpp
   loader/asm_parser_test.cpp
   loader/executable_image_io_test.cpp
   loader/program_bundle_io_test.cpp

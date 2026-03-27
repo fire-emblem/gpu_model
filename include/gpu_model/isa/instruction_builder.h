@@ -56,6 +56,9 @@ class InstructionBuilder {
   InstructionBuilder& MStoreShared(std::string_view index,
                                    std::string_view src,
                                    uint32_t scale_bytes = 1);
+  InstructionBuilder& MAtomicAddShared(std::string_view index,
+                                       std::string_view src,
+                                       uint32_t scale_bytes = 1);
   InstructionBuilder& MLoadPrivate(std::string_view dest,
                                    std::string_view index,
                                    uint32_t scale_bytes = 1);
@@ -73,6 +76,7 @@ class InstructionBuilder {
   InstructionBuilder& BBranch(std::string_view label);
   InstructionBuilder& BIfSmask(std::string_view label);
   InstructionBuilder& BIfNoexec(std::string_view label);
+  InstructionBuilder& SyncWaveBarrier();
   InstructionBuilder& SyncBarrier();
   InstructionBuilder& BExit();
 

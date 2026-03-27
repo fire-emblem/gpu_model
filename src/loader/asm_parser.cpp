@@ -192,6 +192,10 @@ KernelProgram AsmParser::Parse(const ProgramImage& image) const {
       RequireOperandCount(opcode, operands, 3);
       builder.MStoreShared(operands[0], operands[1],
                            static_cast<uint32_t>(ParseImmediate(operands[2])));
+    } else if (opcode == "m_atomic_add_shared") {
+      RequireOperandCount(opcode, operands, 3);
+      builder.MAtomicAddShared(operands[0], operands[1],
+                               static_cast<uint32_t>(ParseImmediate(operands[2])));
     } else if (opcode == "m_load_private") {
       RequireOperandCount(opcode, operands, 3);
       builder.MLoadPrivate(operands[0], operands[1],
@@ -222,6 +226,9 @@ KernelProgram AsmParser::Parse(const ProgramImage& image) const {
     } else if (opcode == "b_if_noexec") {
       RequireOperandCount(opcode, operands, 1);
       builder.BIfNoexec(operands[0]);
+    } else if (opcode == "sync_wave_barrier") {
+      RequireOperandCount(opcode, operands, 0);
+      builder.SyncWaveBarrier();
     } else if (opcode == "sync_barrier") {
       RequireOperandCount(opcode, operands, 0);
       builder.SyncBarrier();
