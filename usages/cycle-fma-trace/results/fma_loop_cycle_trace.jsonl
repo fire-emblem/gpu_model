@@ -1,6 +1,12 @@
 {"pc":"0x0","cycle":"0x0","kind":"Launch","block_id":"0x0","wave_id":"0x0","message":"kernel=fma_loop_cycle_trace arch=c500"}
-{"pc":"0x0","cycle":"0x0","kind":"BlockPlaced","block_id":"0x0","wave_id":"0x0","message":"block=0 dpc=0 ap=0 waves=2"}
-{"pc":"0x0","cycle":"0x0","kind":"BlockPlaced","block_id":"0x1","wave_id":"0x0","message":"block=1 dpc=0 ap=1 waves=2"}
+{"pc":"0x0","cycle":"0x0","kind":"BlockPlaced","block_id":"0x0","wave_id":"0x0","message":"block=0 block_xy=(0,0) dpc=0 ap=0 waves=2"}
+{"pc":"0x0","cycle":"0x0","kind":"BlockPlaced","block_id":"0x1","wave_id":"0x0","message":"block=1 block_xy=(1,0) dpc=0 ap=1 waves=2"}
+{"pc":"0x0","cycle":"0x0","kind":"BlockLaunch","block_id":"0x0","wave_id":"0x0","message":"ap=0"}
+{"pc":"0x0","cycle":"0x0","kind":"BlockLaunch","block_id":"0x1","wave_id":"0x0","message":"ap=1"}
+{"pc":"0x0","cycle":"0x0","kind":"WaveLaunch","block_id":"0x0","wave_id":"0x0","message":"peu=0"}
+{"pc":"0x0","cycle":"0x0","kind":"WaveLaunch","block_id":"0x0","wave_id":"0x1","message":"peu=1"}
+{"pc":"0x0","cycle":"0x0","kind":"WaveLaunch","block_id":"0x1","wave_id":"0x0","message":"peu=0"}
+{"pc":"0x0","cycle":"0x0","kind":"WaveLaunch","block_id":"0x1","wave_id":"0x1","message":"peu=1"}
 {"pc":"0x0","cycle":"0x0","kind":"WaveStep","block_id":"0x0","wave_id":"0x0","message":"pc=0x0 op=sys_load_arg exec_lanes=0x40\n  operands:\n  [0x00] s0 = 0x0\n  [0x01] arg[0x0]"}
 {"pc":"0x0","cycle":"0x0","kind":"WaveStep","block_id":"0x0","wave_id":"0x1","message":"pc=0x0 op=sys_load_arg exec_lanes=0x1\n  operands:\n  [0x00] s0 = 0x0\n  [0x01] arg[0x0]"}
 {"pc":"0x0","cycle":"0x0","kind":"WaveStep","block_id":"0x1","wave_id":"0x0","message":"pc=0x0 op=sys_load_arg exec_lanes=0x40\n  operands:\n  [0x00] s0 = 0x0\n  [0x01] arg[0x0]"}
@@ -156,10 +162,10 @@
 {"pc":"0x15","cycle":"0x74","kind":"WaveStep","block_id":"0x0","wave_id":"0x0","message":"pc=0x15 op=m_store_global exec_lanes=0x8\n  operands:\n  [0x00] s0 = 0x0\n  [0x01] v0:\n    lane[0x00] = 0x0\n    lane[0x01] = 0x1\n    lane[0x02] = 0x2\n    lane[0x03] = 0x3\n    lane[0x04] = 0x4\n    lane[0x05] = 0x5\n    lane[0x06] = 0x6\n    lane[0x07] = 0x7\n\n  [0x02] v1:\n    lane[0x00] = 0x23\n    lane[0x01] = 0x47\n    lane[0x02] = 0x6b\n    lane[0x03] = 0x8f\n    lane[0x04] = 0xb3\n    lane[0x05] = 0xd7\n    lane[0x06] = 0xfb\n    lane[0x07] = 0x11f\n\n  [0x03] 0x4"}
 {"pc":"0x15","cycle":"0x74","kind":"MemoryAccess","block_id":"0x0","wave_id":"0x0","message":"store_issue"}
 {"pc":"0x15","cycle":"0x78","kind":"Commit","block_id":"0x0","wave_id":"0x0","message":"m_store_global"}
-{"pc":"0x16","cycle":"0x78","kind":"WaveStep","block_id":"0x0","wave_id":"0x0","message":"pc=0x16 op=mask_restore_exec exec_lanes=0x8\n  operands:\n  [0x00] s10 = 0xffffffffffffffff"}
-{"pc":"0x16","cycle":"0x7c","kind":"ExecMaskUpdate","block_id":"0x0","wave_id":"0x0","message":"1111111111111111111111111111111111111111111111111111111111111111"}
-{"pc":"0x16","cycle":"0x7c","kind":"Commit","block_id":"0x0","wave_id":"0x0","message":"mask_restore_exec"}
-{"pc":"0x17","cycle":"0x7c","kind":"WaveStep","block_id":"0x0","wave_id":"0x0","message":"pc=0x17 op=b_exit exec_lanes=0x40"}
-{"pc":"0x17","cycle":"0x80","kind":"Commit","block_id":"0x0","wave_id":"0x0","message":"b_exit"}
-{"pc":"0x17","cycle":"0x80","kind":"WaveExit","block_id":"0x0","wave_id":"0x0","message":"exit"}
-{"pc":"0x17","cycle":"0x81","kind":"Arrive","block_id":"0x0","wave_id":"0x0","message":"store_arrive"}
+{"pc":"0x16","cycle":"0x81","kind":"Arrive","block_id":"0x0","wave_id":"0x0","message":"store_arrive"}
+{"pc":"0x16","cycle":"0x81","kind":"WaveStep","block_id":"0x0","wave_id":"0x0","message":"pc=0x16 op=mask_restore_exec exec_lanes=0x8\n  operands:\n  [0x00] s10 = 0xffffffffffffffff"}
+{"pc":"0x16","cycle":"0x85","kind":"ExecMaskUpdate","block_id":"0x0","wave_id":"0x0","message":"1111111111111111111111111111111111111111111111111111111111111111"}
+{"pc":"0x16","cycle":"0x85","kind":"Commit","block_id":"0x0","wave_id":"0x0","message":"mask_restore_exec"}
+{"pc":"0x17","cycle":"0x85","kind":"WaveStep","block_id":"0x0","wave_id":"0x0","message":"pc=0x17 op=b_exit exec_lanes=0x40"}
+{"pc":"0x17","cycle":"0x89","kind":"Commit","block_id":"0x0","wave_id":"0x0","message":"b_exit"}
+{"pc":"0x17","cycle":"0x89","kind":"WaveExit","block_id":"0x0","wave_id":"0x0","message":"exit"}

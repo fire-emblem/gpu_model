@@ -25,9 +25,11 @@ Expected artifacts:
 - `results/fma_loop_cycle_trace.txt`
 - `results/fma_loop_cycle_trace.jsonl`
 - `results/fma_loop_cycle_timeline.txt`
+- `results/fma_loop_cycle_trace.google_trace.json`
 
 Expected behavior:
 
 - returns a non-zero `total_cycles`,
 - prints per-element output values,
-- writes both raw traces and an aggregated block-level timeline.
+- writes raw traces, an aggregated block-level ASCII timeline, and a Google Trace Event Format JSON file.
+- the Google trace file can be opened in Perfetto UI or Chrome trace viewers for per-wave instruction timelines.

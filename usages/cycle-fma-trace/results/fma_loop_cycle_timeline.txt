@@ -1,5 +1,5 @@
-cycle_timeline scale=4 cycle(s)/col range=[0x0, 0x81]
-legend: O=b_branch N=s_add P=m_store_global A=sys_load_arg F=b_if_noexec B=sys_global_id_x I=s_mov E=mask_and_exec_cmask K=s_cmp_lt C=v_cmp_lt_cmask G=v_mov H=mask_restore_exec D=mask_save_exec J=b_exit L=b_if_smask M=v_fma R=arrive B=barrier-arrive |=barrier-release X=exit
+cycle_timeline scale=4 cycle(s)/col range=[0x0, 0x89]
+legend: O=b_branch N=s_add P=m_store_global A=sys_load_arg F=b_if_noexec B=sys_global_id_x I=s_mov E=mask_and_exec_cmask K=s_cmp_lt C=v_cmp_lt_cmask G=v_mov H=mask_restore_exec D=mask_save_exec J=b_exit L=b_if_smask M=v_fma R=arrive B=barrier-arrive |=barrier-release X=exit S=stall L=wave-launch #=block-launch
 cycles      0x0    0x20    0x40    0x60    0x80
-B0       AAAAAAABCDEFHJXLMMNOKLMMNOKLOPHJR
-B1       AAAAAAABCDEFHJX..................
+B0       LAAAAAABCDEFHJXLMMNOKLMMNOKLOP..RJX
+B1       LAAAAAABCDEFHJX....................

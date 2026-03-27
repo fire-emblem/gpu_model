@@ -48,6 +48,7 @@ struct Config {
   bool write_text = true;
   bool write_json = true;
   bool write_timeline = true;
+  bool write_google_trace = true;
   bool print_results = true;
   std::filesystem::path out_dir = "/tmp";
 };
@@ -71,6 +72,8 @@ struct Config {
       << "  --text-only              only write text trace\n"
       << "  --json-only              only write json trace\n"
       << "  --timeline-only          only write timeline\n"
+      << "  --google-trace-only      only write Google trace json\n"
+      << "  --no-google-trace        disable Google trace json export\n"
       << "  --no-results             suppress result buffer printout\n"
       << "  --help                   show this message\n";
   std::exit(exit_code);
@@ -160,6 +163,14 @@ Config ParseArgs(int argc, char** argv) {
       config.write_text = false;
       config.write_json = false;
       config.write_timeline = true;
+      config.write_google_trace = false;
+    } else if (arg == "--google-trace-only") {
+      config.write_text = false;
+      config.write_json = false;
+      config.write_timeline = false;
+      config.write_google_trace = true;
+    } else if (arg == "--no-google-trace") {
+      config.write_google_trace = false;
     } else if (arg == "--no-results") {
       config.print_results = false;
     } else {
@@ -221,6 +232,7 @@ int main(int argc, char** argv) {
   const std::filesystem::path text_trace = config.out_dir / "fma_loop_cycle_trace.txt";
   const std::filesystem::path json_trace = config.out_dir / "fma_loop_cycle_trace.jsonl";
   const std::filesystem::path ascii_timeline = config.out_dir / "fma_loop_cycle_timeline.txt";
+  const std::filesystem::path google_trace = config.out_dir / "fma_loop_cycle_trace.google_trace.json";
 
   std::optional<gpu_model::FileTraceSink> text_sink;
   if (config.write_text) {
@@ -271,6 +283,17 @@ int main(int argc, char** argv) {
             .group_by = config.group_by,
         });
   }
+  if (config.write_google_trace) {
+    std::ofstream out(google_trace);
+    out << gpu_model::CycleTimelineRenderer::RenderGoogleTrace(
+        collecting_sink.events(),
+        gpu_model::CycleTimelineOptions{
+            .max_columns = config.timeline_columns,
+            .cycle_begin = std::nullopt,
+            .cycle_end = std::nullopt,
+            .group_by = config.group_by,
+        });
+  }
 
   std::cout << "total_cycles=" << result.total_cycles << '\n';
   if (config.write_text) {
@@ -281,6 +304,9 @@ int main(int argc, char** argv) {
   }
   if (config.write_timeline) {
     std::cout << "timeline=" << ascii_timeline.string() << '\n';
+  }
+  if (config.write_google_trace) {
+    std::cout << "google_trace=" << google_trace.string() << '\n';
   }
   if (config.print_results) {
     for (uint32_t i = 0; i < config.n; ++i) {

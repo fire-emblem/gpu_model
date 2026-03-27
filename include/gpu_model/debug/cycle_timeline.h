@@ -25,6 +25,8 @@ class CycleTimelineRenderer {
  public:
   static std::string RenderAscii(const std::vector<TraceEvent>& events,
                                  CycleTimelineOptions options = {});
+  static std::string RenderGoogleTrace(const std::vector<TraceEvent>& events,
+                                       CycleTimelineOptions options = {});
 };
 
 }  // namespace gpu_model
