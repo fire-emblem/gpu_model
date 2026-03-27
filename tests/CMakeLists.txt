@@ -1,6 +1,8 @@
 add_executable(gpu_model_tests
   arch/arch_registry_test.cpp
   exec/issue_model_test.cpp
+  exec/issue_eligibility_test.cpp
+  exec/issue_scheduler_test.cpp
   isa/kernel_program_test.cpp
   state/wave_state_test.cpp
   functional/mapper_test.cpp

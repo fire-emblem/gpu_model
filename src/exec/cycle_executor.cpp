@@ -16,6 +16,7 @@
 #include "gpu_model/debug/instruction_trace.h"
 #include "gpu_model/debug/trace_event.h"
 #include "gpu_model/exec/event_queue.h"
+#include "gpu_model/exec/issue_eligibility.h"
 #include "gpu_model/exec/scoreboard.h"
 #include "gpu_model/isa/opcode.h"
 #include "gpu_model/memory/cache_model.h"
@@ -450,216 +451,6 @@ uint64_t WaveTag(const WaveState& wave) {
   return (static_cast<uint64_t>(wave.block_id) << 32) | wave.wave_id;
 }
 
-enum class MemoryWaitDomain {
-  None,
-  Global,
-  Shared,
-  Private,
-  ScalarBuffer,
-};
-
-MemoryWaitDomain MemoryDomainForOpcode(Opcode opcode) {
-  switch (opcode) {
-    case Opcode::MLoadGlobal:
-    case Opcode::MStoreGlobal:
-    case Opcode::MAtomicAddGlobal:
-      return MemoryWaitDomain::Global;
-    case Opcode::MLoadShared:
-    case Opcode::MStoreShared:
-    case Opcode::MAtomicAddShared:
-      return MemoryWaitDomain::Shared;
-    case Opcode::MLoadPrivate:
-    case Opcode::MStorePrivate:
-      return MemoryWaitDomain::Private;
-    case Opcode::SBufferLoadDword:
-    case Opcode::MLoadConst:
-      return MemoryWaitDomain::ScalarBuffer;
-    default:
-      return MemoryWaitDomain::None;
-  }
-}
-
-struct WaitCntThresholds {
-  uint32_t global = UINT32_MAX;
-  uint32_t shared = UINT32_MAX;
-  uint32_t private_mem = UINT32_MAX;
-  uint32_t scalar_buffer = UINT32_MAX;
-};
-
-uint32_t PendingMemoryOpsForDomain(const WaveState& wave, MemoryWaitDomain domain) {
-  switch (domain) {
-    case MemoryWaitDomain::Global:
-      return wave.pending_global_mem_ops;
-    case MemoryWaitDomain::Shared:
-      return wave.pending_shared_mem_ops;
-    case MemoryWaitDomain::Private:
-      return wave.pending_private_mem_ops;
-    case MemoryWaitDomain::ScalarBuffer:
-      return wave.pending_scalar_buffer_mem_ops;
-    case MemoryWaitDomain::None:
-      return 0;
-  }
-  return 0;
-}
-
-void IncrementPendingMemoryOps(WaveState& wave, MemoryWaitDomain domain) {
-  switch (domain) {
-    case MemoryWaitDomain::Global:
-      ++wave.pending_global_mem_ops;
-      return;
-    case MemoryWaitDomain::Shared:
-      ++wave.pending_shared_mem_ops;
-      return;
-    case MemoryWaitDomain::Private:
-      ++wave.pending_private_mem_ops;
-      return;
-    case MemoryWaitDomain::ScalarBuffer:
-      ++wave.pending_scalar_buffer_mem_ops;
-      return;
-    case MemoryWaitDomain::None:
-      return;
-  }
-}
-
-void DecrementPendingMemoryOps(WaveState& wave, MemoryWaitDomain domain) {
-  switch (domain) {
-    case MemoryWaitDomain::Global:
-      if (wave.pending_global_mem_ops > 0) {
-        --wave.pending_global_mem_ops;
-      }
-      return;
-    case MemoryWaitDomain::Shared:
-      if (wave.pending_shared_mem_ops > 0) {
-        --wave.pending_shared_mem_ops;
-      }
-      return;
-    case MemoryWaitDomain::Private:
-      if (wave.pending_private_mem_ops > 0) {
-        --wave.pending_private_mem_ops;
-      }
-      return;
-    case MemoryWaitDomain::ScalarBuffer:
-      if (wave.pending_scalar_buffer_mem_ops > 0) {
-        --wave.pending_scalar_buffer_mem_ops;
-      }
-      return;
-    case MemoryWaitDomain::None:
-      return;
-  }
-}
-
-WaitCntThresholds WaitCntThresholdsForInstruction(const Instruction& instruction) {
-  WaitCntThresholds thresholds;
-  if (instruction.opcode != Opcode::SWaitCnt) {
-    return thresholds;
-  }
-  thresholds.global = static_cast<uint32_t>(instruction.operands.at(0).immediate);
-  thresholds.shared = static_cast<uint32_t>(instruction.operands.at(1).immediate);
-  thresholds.private_mem = static_cast<uint32_t>(instruction.operands.at(2).immediate);
-  thresholds.scalar_buffer = static_cast<uint32_t>(instruction.operands.at(3).immediate);
-  return thresholds;
-}
-
-bool WaitCntSatisfied(const WaveState& wave, const Instruction& instruction) {
-  if (instruction.opcode != Opcode::SWaitCnt) {
-    return true;
-  }
-  const auto thresholds = WaitCntThresholdsForInstruction(instruction);
-  return wave.pending_global_mem_ops <= thresholds.global &&
-         wave.pending_shared_mem_ops <= thresholds.shared &&
-         wave.pending_private_mem_ops <= thresholds.private_mem &&
-         wave.pending_scalar_buffer_mem_ops <= thresholds.scalar_buffer;
-}
-
-std::optional<std::string> WaitCntBlockReason(const WaveState& wave,
-                                              const Instruction& instruction) {
-  if (instruction.opcode != Opcode::SWaitCnt) {
-    return std::nullopt;
-  }
-  const auto thresholds = WaitCntThresholdsForInstruction(instruction);
-  if (wave.pending_global_mem_ops > thresholds.global) {
-    return "waitcnt_global";
-  }
-  if (wave.pending_shared_mem_ops > thresholds.shared) {
-    return "waitcnt_shared";
-  }
-  if (wave.pending_private_mem_ops > thresholds.private_mem) {
-    return "waitcnt_private";
-  }
-  if (wave.pending_scalar_buffer_mem_ops > thresholds.scalar_buffer) {
-    return "waitcnt_scalar_buffer";
-  }
-  return std::nullopt;
-}
-
-std::optional<std::string> MemoryDomainBlockReason(const WaveState& wave,
-                                                   const Instruction& instruction) {
-  switch (MemoryDomainForOpcode(instruction.opcode)) {
-    case MemoryWaitDomain::Global:
-      if (wave.pending_global_mem_ops > 0) {
-        return "waitcnt_global";
-      }
-      break;
-    case MemoryWaitDomain::Shared:
-      if (wave.pending_shared_mem_ops > 0) {
-        return "waitcnt_shared";
-      }
-      break;
-    case MemoryWaitDomain::Private:
-      if (wave.pending_private_mem_ops > 0) {
-        return "waitcnt_private";
-      }
-      break;
-    case MemoryWaitDomain::ScalarBuffer:
-      if (wave.pending_scalar_buffer_mem_ops > 0) {
-        return "waitcnt_scalar_buffer";
-      }
-      break;
-    case MemoryWaitDomain::None:
-      break;
-  }
-  return std::nullopt;
-}
-
-bool CanIssueInstruction(const ScheduledWave& scheduled_wave, const Instruction& instruction) {
-  const auto& wave = scheduled_wave.wave;
-  const MemoryWaitDomain memory_domain = MemoryDomainForOpcode(instruction.opcode);
-  return scheduled_wave.dispatch_enabled && wave.status == WaveStatus::Active && wave.valid_entry &&
-         (memory_domain == MemoryWaitDomain::None ||
-          PendingMemoryOpsForDomain(wave, memory_domain) == 0) &&
-         WaitCntSatisfied(wave, instruction) &&
-         !wave.branch_pending &&
-         !wave.waiting_at_barrier;
-}
-
-std::optional<std::string> IssueBlockReason(const ScheduledWave& scheduled_wave,
-                                            const Instruction& instruction,
-                                            uint64_t cycle) {
-  const auto& wave = scheduled_wave.wave;
-  if (!scheduled_wave.dispatch_enabled || wave.status != WaveStatus::Active) {
-    return std::nullopt;
-  }
-  if (!wave.valid_entry) {
-    return std::string("front_end_wait");
-  }
-  if (wave.waiting_at_barrier) {
-    return std::string("barrier_wait");
-  }
-  if (wave.branch_pending) {
-    return std::string("branch_wait");
-  }
-  if (const auto reason = WaitCntBlockReason(wave, instruction)) {
-    return reason;
-  }
-  if (const auto reason = MemoryDomainBlockReason(wave, instruction)) {
-    return reason;
-  }
-  if (!DependenciesReady(instruction, scheduled_wave.scoreboard, cycle)) {
-    return std::string("dependency_wait");
-  }
-  return std::nullopt;
-}
-
 void ScheduleWaveLaunch(ScheduledWave& scheduled_wave,
                         uint64_t cycle,
                         EventQueue& events,
@@ -775,10 +566,8 @@ ScheduledWave* PickNextReadyWave(PeuSlot& slot,
       throw std::out_of_range("wave pc out of range");
     }
     const auto& instruction = kernel.instructions().at(scheduled_wave->wave.pc);
-    if (!CanIssueInstruction(*scheduled_wave, instruction)) {
-      continue;
-    }
-    if (!DependenciesReady(instruction, scheduled_wave->scoreboard, cycle)) {
+    if (!CanIssueInstruction(scheduled_wave->dispatch_enabled, scheduled_wave->wave, instruction,
+                             DependenciesReady(instruction, scheduled_wave->scoreboard, cycle))) {
       continue;
     }
     slot.last_issue_index = index;
@@ -808,7 +597,9 @@ std::optional<std::pair<ScheduledWave*, std::string>> PickFirstBlockedWave(PeuSl
       continue;
     }
     const auto& instruction = kernel.instructions().at(scheduled_wave->wave.pc);
-    if (const auto reason = IssueBlockReason(*scheduled_wave, instruction, cycle)) {
+    if (const auto reason =
+            IssueBlockReason(scheduled_wave->dispatch_enabled, scheduled_wave->wave, instruction,
+                             DependenciesReady(instruction, scheduled_wave->scoreboard, cycle))) {
       return std::make_pair(scheduled_wave, *reason);
     }
   }
