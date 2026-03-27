@@ -172,11 +172,34 @@ OpPlan Semantics::BuildPlan(const Instruction& instruction,
       plan.scalar_writes.push_back(ScalarWrite{.reg_index = dest, .value = lhs + rhs});
       return plan;
     }
+    case Opcode::SSub: {
+      const uint32_t dest = RequireScalarReg(instruction.operands.at(0));
+      const uint64_t lhs = ReadScalarOperand(instruction.operands.at(1), wave);
+      const uint64_t rhs = ReadScalarOperand(instruction.operands.at(2), wave);
+      plan.scalar_writes.push_back(ScalarWrite{.reg_index = dest, .value = lhs - rhs});
+      return plan;
+    }
     case Opcode::SMul: {
       const uint32_t dest = RequireScalarReg(instruction.operands.at(0));
       const uint64_t lhs = ReadScalarOperand(instruction.operands.at(1), wave);
       const uint64_t rhs = ReadScalarOperand(instruction.operands.at(2), wave);
       plan.scalar_writes.push_back(ScalarWrite{.reg_index = dest, .value = lhs * rhs});
+      return plan;
+    }
+    case Opcode::SDiv: {
+      const uint32_t dest = RequireScalarReg(instruction.operands.at(0));
+      const int64_t lhs = AsSigned(ReadScalarOperand(instruction.operands.at(1), wave));
+      const int64_t rhs = AsSigned(ReadScalarOperand(instruction.operands.at(2), wave));
+      plan.scalar_writes.push_back(
+          ScalarWrite{.reg_index = dest, .value = rhs == 0 ? 0ULL : static_cast<uint64_t>(lhs / rhs)});
+      return plan;
+    }
+    case Opcode::SRem: {
+      const uint32_t dest = RequireScalarReg(instruction.operands.at(0));
+      const int64_t lhs = AsSigned(ReadScalarOperand(instruction.operands.at(1), wave));
+      const int64_t rhs = AsSigned(ReadScalarOperand(instruction.operands.at(2), wave));
+      plan.scalar_writes.push_back(
+          ScalarWrite{.reg_index = dest, .value = rhs == 0 ? 0ULL : static_cast<uint64_t>(lhs % rhs)});
       return plan;
     }
     case Opcode::SAnd: {
@@ -224,6 +247,18 @@ OpPlan Semantics::BuildPlan(const Instruction& instruction,
       const uint64_t lhs = ReadScalarOperand(instruction.operands.at(0), wave);
       const uint64_t rhs = ReadScalarOperand(instruction.operands.at(1), wave);
       plan.smask_write = lhs == rhs ? 1ULL : 0ULL;
+      return plan;
+    }
+    case Opcode::SCmpGt: {
+      const int64_t lhs = AsSigned(ReadScalarOperand(instruction.operands.at(0), wave));
+      const int64_t rhs = AsSigned(ReadScalarOperand(instruction.operands.at(1), wave));
+      plan.smask_write = lhs > rhs ? 1ULL : 0ULL;
+      return plan;
+    }
+    case Opcode::SCmpGe: {
+      const int64_t lhs = AsSigned(ReadScalarOperand(instruction.operands.at(0), wave));
+      const int64_t rhs = AsSigned(ReadScalarOperand(instruction.operands.at(1), wave));
+      plan.smask_write = lhs >= rhs ? 1ULL : 0ULL;
       return plan;
     }
     case Opcode::VMov: {
@@ -336,6 +371,34 @@ OpPlan Semantics::BuildPlan(const Instruction& instruction,
       plan.vector_writes.push_back(write);
       return plan;
     }
+    case Opcode::VDiv: {
+      VectorWrite write;
+      write.reg_index = RequireVectorReg(instruction.operands.at(0));
+      write.mask = wave.exec;
+      for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+        if (wave.exec.test(lane)) {
+          const int64_t lhs = AsSigned(ReadVectorLaneOperand(instruction.operands.at(1), wave, lane));
+          const int64_t rhs = AsSigned(ReadVectorLaneOperand(instruction.operands.at(2), wave, lane));
+          write.values[lane] = rhs == 0 ? 0ULL : static_cast<uint64_t>(lhs / rhs);
+        }
+      }
+      plan.vector_writes.push_back(write);
+      return plan;
+    }
+    case Opcode::VRem: {
+      VectorWrite write;
+      write.reg_index = RequireVectorReg(instruction.operands.at(0));
+      write.mask = wave.exec;
+      for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+        if (wave.exec.test(lane)) {
+          const int64_t lhs = AsSigned(ReadVectorLaneOperand(instruction.operands.at(1), wave, lane));
+          const int64_t rhs = AsSigned(ReadVectorLaneOperand(instruction.operands.at(2), wave, lane));
+          write.values[lane] = rhs == 0 ? 0ULL : static_cast<uint64_t>(lhs % rhs);
+        }
+      }
+      plan.vector_writes.push_back(write);
+      return plan;
+    }
     case Opcode::VMul: {
       VectorWrite write;
       write.reg_index = RequireVectorReg(instruction.operands.at(0));
@@ -420,6 +483,21 @@ OpPlan Semantics::BuildPlan(const Instruction& instruction,
         const int64_t lhs = AsSigned(ReadVectorLaneOperand(instruction.operands.at(0), wave, lane));
         const int64_t rhs = AsSigned(ReadVectorLaneOperand(instruction.operands.at(1), wave, lane));
         if (lhs == rhs) {
+          cmask.set(lane);
+        }
+      }
+      plan.cmask_write = cmask;
+      return plan;
+    }
+    case Opcode::VCmpGeCmask: {
+      std::bitset<64> cmask;
+      for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+        if (!wave.exec.test(lane)) {
+          continue;
+        }
+        const int64_t lhs = AsSigned(ReadVectorLaneOperand(instruction.operands.at(0), wave, lane));
+        const int64_t rhs = AsSigned(ReadVectorLaneOperand(instruction.operands.at(1), wave, lane));
+        if (lhs >= rhs) {
           cmask.set(lane);
         }
       }

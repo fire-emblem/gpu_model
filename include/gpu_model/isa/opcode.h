@@ -15,7 +15,10 @@ enum class Opcode {
   SysLaneId,
   SMov,
   SAdd,
+  SSub,
   SMul,
+  SDiv,
+  SRem,
   SAnd,
   SOr,
   SXor,
@@ -23,6 +26,8 @@ enum class Opcode {
   SShr,
   SCmpLt,
   SCmpEq,
+  SCmpGt,
+  SCmpGe,
   VMov,
   VAdd,
   VAnd,
@@ -31,12 +36,15 @@ enum class Opcode {
   VShl,
   VShr,
   VSub,
+  VDiv,
+  VRem,
   VMul,
   VMin,
   VMax,
   VFma,
   VCmpLtCmask,
   VCmpEqCmask,
+  VCmpGeCmask,
   VCmpGtCmask,
   VSelectCmask,
   MLoadGlobal,
@@ -81,8 +89,14 @@ inline std::string_view ToString(Opcode opcode) {
       return "s_mov";
     case Opcode::SAdd:
       return "s_add";
+    case Opcode::SSub:
+      return "s_sub";
     case Opcode::SMul:
       return "s_mul";
+    case Opcode::SDiv:
+      return "s_div";
+    case Opcode::SRem:
+      return "s_rem";
     case Opcode::SAnd:
       return "s_and";
     case Opcode::SOr:
@@ -97,6 +111,10 @@ inline std::string_view ToString(Opcode opcode) {
       return "s_cmp_lt";
     case Opcode::SCmpEq:
       return "s_cmp_eq";
+    case Opcode::SCmpGt:
+      return "s_cmp_gt";
+    case Opcode::SCmpGe:
+      return "s_cmp_ge";
     case Opcode::VMov:
       return "v_mov";
     case Opcode::VAdd:
@@ -113,6 +131,10 @@ inline std::string_view ToString(Opcode opcode) {
       return "v_shr";
     case Opcode::VSub:
       return "v_sub";
+    case Opcode::VDiv:
+      return "v_div";
+    case Opcode::VRem:
+      return "v_rem";
     case Opcode::VMul:
       return "v_mul";
     case Opcode::VMin:
@@ -125,6 +147,8 @@ inline std::string_view ToString(Opcode opcode) {
       return "v_cmp_lt_cmask";
     case Opcode::VCmpEqCmask:
       return "v_cmp_eq_cmask";
+    case Opcode::VCmpGeCmask:
+      return "v_cmp_ge_cmask";
     case Opcode::VCmpGtCmask:
       return "v_cmp_gt_cmask";
     case Opcode::VSelectCmask:

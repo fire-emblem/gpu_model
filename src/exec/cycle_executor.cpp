@@ -189,7 +189,10 @@ std::vector<ReadyRef> CollectReadRefs(const Instruction& instruction) {
       AddOperandDependency(instruction.operands.at(1), refs);
       break;
     case Opcode::SAdd:
+    case Opcode::SSub:
     case Opcode::SMul:
+    case Opcode::SDiv:
+    case Opcode::SRem:
     case Opcode::SAnd:
     case Opcode::SOr:
     case Opcode::SXor:
@@ -200,6 +203,8 @@ std::vector<ReadyRef> CollectReadRefs(const Instruction& instruction) {
       break;
     case Opcode::SCmpLt:
     case Opcode::SCmpEq:
+    case Opcode::SCmpGt:
+    case Opcode::SCmpGe:
       AddOperandDependency(instruction.operands.at(0), refs);
       AddOperandDependency(instruction.operands.at(1), refs);
       break;
@@ -214,6 +219,8 @@ std::vector<ReadyRef> CollectReadRefs(const Instruction& instruction) {
     case Opcode::VShl:
     case Opcode::VShr:
     case Opcode::VSub:
+    case Opcode::VDiv:
+    case Opcode::VRem:
     case Opcode::VMul:
     case Opcode::VMin:
     case Opcode::VMax:
@@ -227,6 +234,7 @@ std::vector<ReadyRef> CollectReadRefs(const Instruction& instruction) {
       break;
     case Opcode::VCmpLtCmask:
     case Opcode::VCmpEqCmask:
+    case Opcode::VCmpGeCmask:
     case Opcode::VCmpGtCmask:
       refs.push_back(ExecRef());
       AddOperandDependency(instruction.operands.at(0), refs);

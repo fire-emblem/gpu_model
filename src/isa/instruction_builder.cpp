@@ -115,6 +115,20 @@ InstructionBuilder& InstructionBuilder::SAdd(std::string_view dest,
       Opcode::SAdd, {ParseRegOperand(dest), ParseRegOperand(lhs), ImmediateOperand(rhs)});
 }
 
+InstructionBuilder& InstructionBuilder::SSub(std::string_view dest,
+                                             std::string_view lhs,
+                                             std::string_view rhs) {
+  return AddInstruction(
+      Opcode::SSub, {ParseRegOperand(dest), ParseRegOperand(lhs), ParseRegOperand(rhs)});
+}
+
+InstructionBuilder& InstructionBuilder::SSub(std::string_view dest,
+                                             std::string_view lhs,
+                                             uint64_t rhs) {
+  return AddInstruction(
+      Opcode::SSub, {ParseRegOperand(dest), ParseRegOperand(lhs), ImmediateOperand(rhs)});
+}
+
 InstructionBuilder& InstructionBuilder::SMul(std::string_view dest,
                                              std::string_view lhs,
                                              std::string_view rhs) {
@@ -127,6 +141,34 @@ InstructionBuilder& InstructionBuilder::SMul(std::string_view dest,
                                              uint64_t rhs) {
   return AddInstruction(
       Opcode::SMul, {ParseRegOperand(dest), ParseRegOperand(lhs), ImmediateOperand(rhs)});
+}
+
+InstructionBuilder& InstructionBuilder::SDiv(std::string_view dest,
+                                             std::string_view lhs,
+                                             std::string_view rhs) {
+  return AddInstruction(
+      Opcode::SDiv, {ParseRegOperand(dest), ParseRegOperand(lhs), ParseRegOperand(rhs)});
+}
+
+InstructionBuilder& InstructionBuilder::SDiv(std::string_view dest,
+                                             std::string_view lhs,
+                                             uint64_t rhs) {
+  return AddInstruction(
+      Opcode::SDiv, {ParseRegOperand(dest), ParseRegOperand(lhs), ImmediateOperand(rhs)});
+}
+
+InstructionBuilder& InstructionBuilder::SRem(std::string_view dest,
+                                             std::string_view lhs,
+                                             std::string_view rhs) {
+  return AddInstruction(
+      Opcode::SRem, {ParseRegOperand(dest), ParseRegOperand(lhs), ParseRegOperand(rhs)});
+}
+
+InstructionBuilder& InstructionBuilder::SRem(std::string_view dest,
+                                             std::string_view lhs,
+                                             uint64_t rhs) {
+  return AddInstruction(
+      Opcode::SRem, {ParseRegOperand(dest), ParseRegOperand(lhs), ImmediateOperand(rhs)});
 }
 
 InstructionBuilder& InstructionBuilder::SAnd(std::string_view dest,
@@ -215,6 +257,22 @@ InstructionBuilder& InstructionBuilder::SCmpEq(std::string_view lhs, uint64_t rh
   return AddInstruction(Opcode::SCmpEq, {ParseRegOperand(lhs), ImmediateOperand(rhs)});
 }
 
+InstructionBuilder& InstructionBuilder::SCmpGt(std::string_view lhs, std::string_view rhs) {
+  return AddInstruction(Opcode::SCmpGt, {ParseRegOperand(lhs), ParseRegOperand(rhs)});
+}
+
+InstructionBuilder& InstructionBuilder::SCmpGt(std::string_view lhs, uint64_t rhs) {
+  return AddInstruction(Opcode::SCmpGt, {ParseRegOperand(lhs), ImmediateOperand(rhs)});
+}
+
+InstructionBuilder& InstructionBuilder::SCmpGe(std::string_view lhs, std::string_view rhs) {
+  return AddInstruction(Opcode::SCmpGe, {ParseRegOperand(lhs), ParseRegOperand(rhs)});
+}
+
+InstructionBuilder& InstructionBuilder::SCmpGe(std::string_view lhs, uint64_t rhs) {
+  return AddInstruction(Opcode::SCmpGe, {ParseRegOperand(lhs), ImmediateOperand(rhs)});
+}
+
 InstructionBuilder& InstructionBuilder::VMov(std::string_view dest, std::string_view src) {
   return AddInstruction(Opcode::VMov, {ParseRegOperand(dest), ParseRegOperand(src)});
 }
@@ -272,6 +330,20 @@ InstructionBuilder& InstructionBuilder::VSub(std::string_view dest,
       Opcode::VSub, {ParseRegOperand(dest), ParseRegOperand(lhs), ParseRegOperand(rhs)});
 }
 
+InstructionBuilder& InstructionBuilder::VDiv(std::string_view dest,
+                                             std::string_view lhs,
+                                             std::string_view rhs) {
+  return AddInstruction(
+      Opcode::VDiv, {ParseRegOperand(dest), ParseRegOperand(lhs), ParseRegOperand(rhs)});
+}
+
+InstructionBuilder& InstructionBuilder::VRem(std::string_view dest,
+                                             std::string_view lhs,
+                                             std::string_view rhs) {
+  return AddInstruction(
+      Opcode::VRem, {ParseRegOperand(dest), ParseRegOperand(lhs), ParseRegOperand(rhs)});
+}
+
 InstructionBuilder& InstructionBuilder::VMul(std::string_view dest,
                                              std::string_view lhs,
                                              std::string_view rhs) {
@@ -308,6 +380,10 @@ InstructionBuilder& InstructionBuilder::VCmpLtCmask(std::string_view lhs, std::s
 
 InstructionBuilder& InstructionBuilder::VCmpEqCmask(std::string_view lhs, std::string_view rhs) {
   return AddInstruction(Opcode::VCmpEqCmask, {ParseRegOperand(lhs), ParseRegOperand(rhs)});
+}
+
+InstructionBuilder& InstructionBuilder::VCmpGeCmask(std::string_view lhs, std::string_view rhs) {
+  return AddInstruction(Opcode::VCmpGeCmask, {ParseRegOperand(lhs), ParseRegOperand(rhs)});
 }
 
 InstructionBuilder& InstructionBuilder::VCmpGtCmask(std::string_view lhs, std::string_view rhs) {

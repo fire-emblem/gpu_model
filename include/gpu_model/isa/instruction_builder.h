@@ -28,8 +28,14 @@ class InstructionBuilder {
   InstructionBuilder& SMov(std::string_view dest, uint64_t imm);
   InstructionBuilder& SAdd(std::string_view dest, std::string_view lhs, std::string_view rhs);
   InstructionBuilder& SAdd(std::string_view dest, std::string_view lhs, uint64_t rhs);
+  InstructionBuilder& SSub(std::string_view dest, std::string_view lhs, std::string_view rhs);
+  InstructionBuilder& SSub(std::string_view dest, std::string_view lhs, uint64_t rhs);
   InstructionBuilder& SMul(std::string_view dest, std::string_view lhs, std::string_view rhs);
   InstructionBuilder& SMul(std::string_view dest, std::string_view lhs, uint64_t rhs);
+  InstructionBuilder& SDiv(std::string_view dest, std::string_view lhs, std::string_view rhs);
+  InstructionBuilder& SDiv(std::string_view dest, std::string_view lhs, uint64_t rhs);
+  InstructionBuilder& SRem(std::string_view dest, std::string_view lhs, std::string_view rhs);
+  InstructionBuilder& SRem(std::string_view dest, std::string_view lhs, uint64_t rhs);
   InstructionBuilder& SAnd(std::string_view dest, std::string_view lhs, std::string_view rhs);
   InstructionBuilder& SAnd(std::string_view dest, std::string_view lhs, uint64_t rhs);
   InstructionBuilder& SOr(std::string_view dest, std::string_view lhs, std::string_view rhs);
@@ -44,6 +50,10 @@ class InstructionBuilder {
   InstructionBuilder& SCmpLt(std::string_view lhs, uint64_t rhs);
   InstructionBuilder& SCmpEq(std::string_view lhs, std::string_view rhs);
   InstructionBuilder& SCmpEq(std::string_view lhs, uint64_t rhs);
+  InstructionBuilder& SCmpGt(std::string_view lhs, std::string_view rhs);
+  InstructionBuilder& SCmpGt(std::string_view lhs, uint64_t rhs);
+  InstructionBuilder& SCmpGe(std::string_view lhs, std::string_view rhs);
+  InstructionBuilder& SCmpGe(std::string_view lhs, uint64_t rhs);
 
   InstructionBuilder& VMov(std::string_view dest, std::string_view src);
   InstructionBuilder& VMov(std::string_view dest, uint64_t imm);
@@ -54,6 +64,8 @@ class InstructionBuilder {
   InstructionBuilder& VShl(std::string_view dest, std::string_view lhs, std::string_view rhs);
   InstructionBuilder& VShr(std::string_view dest, std::string_view lhs, std::string_view rhs);
   InstructionBuilder& VSub(std::string_view dest, std::string_view lhs, std::string_view rhs);
+  InstructionBuilder& VDiv(std::string_view dest, std::string_view lhs, std::string_view rhs);
+  InstructionBuilder& VRem(std::string_view dest, std::string_view lhs, std::string_view rhs);
   InstructionBuilder& VMul(std::string_view dest, std::string_view lhs, std::string_view rhs);
   InstructionBuilder& VMin(std::string_view dest, std::string_view lhs, std::string_view rhs);
   InstructionBuilder& VMax(std::string_view dest, std::string_view lhs, std::string_view rhs);
@@ -63,6 +75,7 @@ class InstructionBuilder {
                            std::string_view addend);
   InstructionBuilder& VCmpLtCmask(std::string_view lhs, std::string_view rhs);
   InstructionBuilder& VCmpEqCmask(std::string_view lhs, std::string_view rhs);
+  InstructionBuilder& VCmpGeCmask(std::string_view lhs, std::string_view rhs);
   InstructionBuilder& VCmpGtCmask(std::string_view lhs, std::string_view rhs);
   InstructionBuilder& VSelectCmask(std::string_view dest,
                                    std::string_view true_value,

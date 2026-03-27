@@ -145,12 +145,33 @@ KernelProgram AsmParser::Parse(const ProgramImage& image) const {
       } else {
         builder.SAdd(operands[0], operands[1], ParseImmediate(operands[2]));
       }
+    } else if (opcode == "s_sub") {
+      RequireOperandCount(opcode, operands, 3);
+      if (IsRegister(operands[2])) {
+        builder.SSub(operands[0], operands[1], operands[2]);
+      } else {
+        builder.SSub(operands[0], operands[1], ParseImmediate(operands[2]));
+      }
     } else if (opcode == "s_mul") {
       RequireOperandCount(opcode, operands, 3);
       if (IsRegister(operands[2])) {
         builder.SMul(operands[0], operands[1], operands[2]);
       } else {
         builder.SMul(operands[0], operands[1], ParseImmediate(operands[2]));
+      }
+    } else if (opcode == "s_div") {
+      RequireOperandCount(opcode, operands, 3);
+      if (IsRegister(operands[2])) {
+        builder.SDiv(operands[0], operands[1], operands[2]);
+      } else {
+        builder.SDiv(operands[0], operands[1], ParseImmediate(operands[2]));
+      }
+    } else if (opcode == "s_rem") {
+      RequireOperandCount(opcode, operands, 3);
+      if (IsRegister(operands[2])) {
+        builder.SRem(operands[0], operands[1], operands[2]);
+      } else {
+        builder.SRem(operands[0], operands[1], ParseImmediate(operands[2]));
       }
     } else if (opcode == "s_and") {
       RequireOperandCount(opcode, operands, 3);
@@ -201,6 +222,20 @@ KernelProgram AsmParser::Parse(const ProgramImage& image) const {
       } else {
         builder.SCmpEq(operands[0], ParseImmediate(operands[1]));
       }
+    } else if (opcode == "s_cmp_gt") {
+      RequireOperandCount(opcode, operands, 2);
+      if (IsRegister(operands[1])) {
+        builder.SCmpGt(operands[0], operands[1]);
+      } else {
+        builder.SCmpGt(operands[0], ParseImmediate(operands[1]));
+      }
+    } else if (opcode == "s_cmp_ge") {
+      RequireOperandCount(opcode, operands, 2);
+      if (IsRegister(operands[1])) {
+        builder.SCmpGe(operands[0], operands[1]);
+      } else {
+        builder.SCmpGe(operands[0], ParseImmediate(operands[1]));
+      }
     } else if (opcode == "v_mov") {
       RequireOperandCount(opcode, operands, 2);
       if (IsRegister(operands[1])) {
@@ -229,6 +264,12 @@ KernelProgram AsmParser::Parse(const ProgramImage& image) const {
     } else if (opcode == "v_sub") {
       RequireOperandCount(opcode, operands, 3);
       builder.VSub(operands[0], operands[1], operands[2]);
+    } else if (opcode == "v_div") {
+      RequireOperandCount(opcode, operands, 3);
+      builder.VDiv(operands[0], operands[1], operands[2]);
+    } else if (opcode == "v_rem") {
+      RequireOperandCount(opcode, operands, 3);
+      builder.VRem(operands[0], operands[1], operands[2]);
     } else if (opcode == "v_mul") {
       RequireOperandCount(opcode, operands, 3);
       builder.VMul(operands[0], operands[1], operands[2]);
@@ -247,6 +288,9 @@ KernelProgram AsmParser::Parse(const ProgramImage& image) const {
     } else if (opcode == "v_cmp_eq_cmask") {
       RequireOperandCount(opcode, operands, 2);
       builder.VCmpEqCmask(operands[0], operands[1]);
+    } else if (opcode == "v_cmp_ge_cmask") {
+      RequireOperandCount(opcode, operands, 2);
+      builder.VCmpGeCmask(operands[0], operands[1]);
     } else if (opcode == "v_cmp_gt_cmask") {
       RequireOperandCount(opcode, operands, 2);
       builder.VCmpGtCmask(operands[0], operands[1]);
