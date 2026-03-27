@@ -22,6 +22,8 @@ std::string_view KindToString(TraceEventKind kind) {
       return "BlockPlaced";
     case TraceEventKind::WaveStep:
       return "WaveStep";
+    case TraceEventKind::Commit:
+      return "Commit";
     case TraceEventKind::ExecMaskUpdate:
       return "ExecMaskUpdate";
     case TraceEventKind::MemoryAccess:

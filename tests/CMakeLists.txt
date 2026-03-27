@@ -26,6 +26,7 @@ add_executable(gpu_model_tests
   loader/program_file_loader_test.cpp
   runtime/kernel_metadata_test.cpp
   runtime/debug_info_io_test.cpp
+  runtime/cycle_timeline_test.cpp
   runtime/trace_test.cpp
   runtime/runtime_hooks_test.cpp
   runtime/execution_stats_test.cpp

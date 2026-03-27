@@ -39,6 +39,7 @@ add_library(gpu_model STATIC
   src/runtime/host_runtime.cpp
   src/runtime/runtime_hooks.cpp
   src/debug/instruction_trace.cpp
+  src/debug/cycle_timeline.cpp
   src/debug/debug_info_io.cpp
   src/debug/trace_sink.cpp
 )
@@ -58,3 +59,10 @@ add_executable(vecadd_main
 
 target_link_libraries(vecadd_main PRIVATE gpu_model)
 gpu_model_enable_warnings(vecadd_main)
+
+add_executable(fma_loop_cycle_trace_main
+  examples/fma_loop_cycle_trace_main.cpp
+)
+
+target_link_libraries(fma_loop_cycle_trace_main PRIVATE gpu_model)
+gpu_model_enable_warnings(fma_loop_cycle_trace_main)

@@ -9,6 +9,7 @@ enum class TraceEventKind {
   Launch,
   BlockPlaced,
   WaveStep,
+  Commit,
   ExecMaskUpdate,
   MemoryAccess,
   Barrier,

@@ -524,6 +524,15 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                   });
                 }
 
+                context.trace.OnEvent(TraceEvent{
+                    .kind = TraceEventKind::Commit,
+                    .cycle = commit_cycle,
+                    .block_id = candidate->wave.block_id,
+                    .wave_id = candidate->wave.wave_id,
+                    .pc = candidate->wave.pc,
+                    .message = std::string(ToString(instruction.opcode)),
+                });
+
                 if (plan.memory.has_value()) {
                   const MemoryRequest request = *plan.memory;
                   if (request.space == MemorySpace::Global) {
