@@ -191,6 +191,12 @@ Current status:
 
 - `buffer_*` names exist, but semantics are still simplified base+index addressing.
 
+Current implemented simplification:
+
+- `buffer_*` and `scalar_buffer_*` now support a lightweight
+  `base + offset + index * scale` form.
+- This is intentionally not a full AMD resource descriptor model.
+
 Why it matters:
 
 - Compiler output and library kernels often assume resource-descriptor style addressing.

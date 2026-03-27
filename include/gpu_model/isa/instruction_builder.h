@@ -57,7 +57,8 @@ class InstructionBuilder {
                                uint32_t scalar_buffer_count);
   InstructionBuilder& SBufferLoadDword(std::string_view dest,
                                        std::string_view index,
-                                       uint32_t scale_bytes = 1);
+                                       uint32_t scale_bytes = 1,
+                                       uint32_t offset_bytes = 0);
   InstructionBuilder& SCmpLt(std::string_view lhs, std::string_view rhs);
   InstructionBuilder& SCmpLt(std::string_view lhs, uint64_t rhs);
   InstructionBuilder& SCmpEq(std::string_view lhs, std::string_view rhs);
@@ -96,15 +97,18 @@ class InstructionBuilder {
   InstructionBuilder& MLoadGlobal(std::string_view dest,
                                   std::string_view base,
                                   std::string_view index,
-                                  uint32_t scale_bytes = 1);
+                                  uint32_t scale_bytes = 1,
+                                  uint32_t offset_bytes = 0);
   InstructionBuilder& MStoreGlobal(std::string_view base,
                                    std::string_view index,
                                    std::string_view src,
-                                   uint32_t scale_bytes = 1);
+                                   uint32_t scale_bytes = 1,
+                                   uint32_t offset_bytes = 0);
   InstructionBuilder& MAtomicAddGlobal(std::string_view base,
                                        std::string_view index,
                                        std::string_view src,
-                                       uint32_t scale_bytes = 1);
+                                       uint32_t scale_bytes = 1,
+                                       uint32_t offset_bytes = 0);
   InstructionBuilder& MLoadShared(std::string_view dest,
                                   std::string_view index,
                                   uint32_t scale_bytes = 1);
@@ -122,7 +126,8 @@ class InstructionBuilder {
                                     uint32_t scale_bytes = 1);
   InstructionBuilder& MLoadConst(std::string_view dest,
                                  std::string_view index,
-                                 uint32_t scale_bytes = 1);
+                                 uint32_t scale_bytes = 1,
+                                 uint32_t offset_bytes = 0);
 
   InstructionBuilder& MaskSaveExec(std::string_view dest);
   InstructionBuilder& MaskRestoreExec(std::string_view src);

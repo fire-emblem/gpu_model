@@ -272,9 +272,11 @@ InstructionBuilder& InstructionBuilder::SWaitCnt(uint32_t global_count,
 
 InstructionBuilder& InstructionBuilder::SBufferLoadDword(std::string_view dest,
                                                          std::string_view index,
-                                                         uint32_t scale_bytes) {
+                                                         uint32_t scale_bytes,
+                                                         uint32_t offset_bytes) {
   return AddInstruction(Opcode::SBufferLoadDword,
-                        {ParseRegOperand(dest), ParseRegOperand(index), ImmediateOperand(scale_bytes)});
+                        {ParseRegOperand(dest), ParseRegOperand(index), ImmediateOperand(scale_bytes),
+                         ImmediateOperand(offset_bytes)});
 }
 
 InstructionBuilder& InstructionBuilder::SCmpLt(std::string_view lhs, std::string_view rhs) {
@@ -437,28 +439,31 @@ InstructionBuilder& InstructionBuilder::VSelectCmask(std::string_view dest,
 InstructionBuilder& InstructionBuilder::MLoadGlobal(std::string_view dest,
                                                     std::string_view base,
                                                     std::string_view index,
-                                                    uint32_t scale_bytes) {
+                                                    uint32_t scale_bytes,
+                                                    uint32_t offset_bytes) {
   return AddInstruction(Opcode::MLoadGlobal,
                         {ParseRegOperand(dest), ParseRegOperand(base), ParseRegOperand(index),
-                         ImmediateOperand(scale_bytes)});
+                         ImmediateOperand(scale_bytes), ImmediateOperand(offset_bytes)});
 }
 
 InstructionBuilder& InstructionBuilder::MStoreGlobal(std::string_view base,
                                                      std::string_view index,
                                                      std::string_view src,
-                                                     uint32_t scale_bytes) {
+                                                     uint32_t scale_bytes,
+                                                     uint32_t offset_bytes) {
   return AddInstruction(Opcode::MStoreGlobal,
                         {ParseRegOperand(base), ParseRegOperand(index), ParseRegOperand(src),
-                         ImmediateOperand(scale_bytes)});
+                         ImmediateOperand(scale_bytes), ImmediateOperand(offset_bytes)});
 }
 
 InstructionBuilder& InstructionBuilder::MAtomicAddGlobal(std::string_view base,
                                                          std::string_view index,
                                                          std::string_view src,
-                                                         uint32_t scale_bytes) {
+                                                         uint32_t scale_bytes,
+                                                         uint32_t offset_bytes) {
   return AddInstruction(Opcode::MAtomicAddGlobal,
                         {ParseRegOperand(base), ParseRegOperand(index), ParseRegOperand(src),
-                         ImmediateOperand(scale_bytes)});
+                         ImmediateOperand(scale_bytes), ImmediateOperand(offset_bytes)});
 }
 
 InstructionBuilder& InstructionBuilder::MLoadShared(std::string_view dest,
@@ -503,10 +508,11 @@ InstructionBuilder& InstructionBuilder::MStorePrivate(std::string_view index,
 
 InstructionBuilder& InstructionBuilder::MLoadConst(std::string_view dest,
                                                    std::string_view index,
-                                                   uint32_t scale_bytes) {
+                                                   uint32_t scale_bytes,
+                                                   uint32_t offset_bytes) {
   return AddInstruction(Opcode::MLoadConst,
                         {ParseRegOperand(dest), ParseRegOperand(index),
-                         ImmediateOperand(scale_bytes)});
+                         ImmediateOperand(scale_bytes), ImmediateOperand(offset_bytes)});
 }
 
 InstructionBuilder& InstructionBuilder::MaskSaveExec(std::string_view dest) {

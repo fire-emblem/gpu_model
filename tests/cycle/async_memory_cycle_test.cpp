@@ -198,5 +198,35 @@ TEST(AsyncMemoryCycleTest, WaitCntCanWaitForScalarBufferOnly) {
   EXPECT_EQ(result.total_cycles, 20u);
 }
 
+TEST(AsyncMemoryCycleTest, BufferLoadUsesImmediateOffset) {
+  CollectingTraceSink trace;
+  HostRuntime runtime(&trace);
+  runtime.SetFixedGlobalMemoryLatency(20);
+
+  const uint64_t base_addr = runtime.memory().AllocateGlobal(2 * sizeof(int32_t));
+  runtime.memory().StoreGlobalValue<int32_t>(base_addr + 0 * sizeof(int32_t), 5);
+  runtime.memory().StoreGlobalValue<int32_t>(base_addr + 1 * sizeof(int32_t), 17);
+
+  InstructionBuilder builder;
+  builder.SMov("s0", base_addr);
+  builder.SMov("s1", 0);
+  builder.MLoadGlobal("v1", "s0", "s1", 4, 4);
+  builder.VAdd("v2", "v1", "v1");
+  builder.BExit();
+  const auto kernel = builder.Build("buffer_offset_load");
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+  EXPECT_EQ(FirstWaveStepCycle(trace.events(), "buffer_load_dword"), 8u);
+  EXPECT_EQ(FirstWaveStepCycle(trace.events(), "v_add_i32"), 32u);
+  EXPECT_EQ(result.total_cycles, 40u);
+}
+
 }  // namespace
 }  // namespace gpu_model

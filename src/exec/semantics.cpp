@@ -465,10 +465,13 @@ OpPlan Semantics::BuildPlan(const Instruction& instruction,
       request.wave_id = wave.wave_id;
 
       const uint64_t scale = ReadScalarOperand(instruction.operands.at(2), wave);
+      const uint64_t offset = instruction.operands.size() > 3
+                                  ? ReadScalarOperand(instruction.operands.at(3), wave)
+                                  : 0;
       const uint64_t index = ReadScalarOperand(instruction.operands.at(1), wave);
       request.lanes[0] = LaneAccess{
           .active = true,
-          .addr = index * scale,
+          .addr = offset + index * scale,
           .bytes = static_cast<uint32_t>(scale),
       };
       plan.memory = request;
@@ -782,6 +785,9 @@ OpPlan Semantics::BuildPlan(const Instruction& instruction,
       request.wave_id = wave.wave_id;
 
       const uint64_t scale = ReadScalarOperand(instruction.operands.at(3), wave);
+      const uint64_t offset = instruction.operands.size() > 4
+                                  ? ReadScalarOperand(instruction.operands.at(4), wave)
+                                  : 0;
       for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
         if (!wave.exec.test(lane)) {
           continue;
@@ -790,7 +796,7 @@ OpPlan Semantics::BuildPlan(const Instruction& instruction,
         const uint64_t index = ReadVectorLaneOperand(instruction.operands.at(2), wave, lane);
         request.lanes[lane] = LaneAccess{
             .active = true,
-            .addr = base + index * scale,
+            .addr = base + offset + index * scale,
             .bytes = static_cast<uint32_t>(scale),
         };
       }
@@ -806,6 +812,9 @@ OpPlan Semantics::BuildPlan(const Instruction& instruction,
       request.wave_id = wave.wave_id;
 
       const uint64_t scale = ReadScalarOperand(instruction.operands.at(3), wave);
+      const uint64_t offset = instruction.operands.size() > 4
+                                  ? ReadScalarOperand(instruction.operands.at(4), wave)
+                                  : 0;
       for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
         if (!wave.exec.test(lane)) {
           continue;
@@ -815,7 +824,7 @@ OpPlan Semantics::BuildPlan(const Instruction& instruction,
         const uint64_t value = ReadVectorLaneOperand(instruction.operands.at(2), wave, lane);
         request.lanes[lane] = LaneAccess{
             .active = true,
-            .addr = base + index * scale,
+            .addr = base + offset + index * scale,
             .bytes = static_cast<uint32_t>(scale),
             .value = value,
         };
@@ -832,6 +841,9 @@ OpPlan Semantics::BuildPlan(const Instruction& instruction,
       request.wave_id = wave.wave_id;
 
       const uint64_t scale = ReadScalarOperand(instruction.operands.at(3), wave);
+      const uint64_t offset = instruction.operands.size() > 4
+                                  ? ReadScalarOperand(instruction.operands.at(4), wave)
+                                  : 0;
       for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
         if (!wave.exec.test(lane)) {
           continue;
@@ -841,7 +853,7 @@ OpPlan Semantics::BuildPlan(const Instruction& instruction,
         const uint64_t value = ReadVectorLaneOperand(instruction.operands.at(2), wave, lane);
         request.lanes[lane] = LaneAccess{
             .active = true,
-            .addr = base + index * scale,
+            .addr = base + offset + index * scale,
             .bytes = static_cast<uint32_t>(scale),
             .value = value,
         };
@@ -860,6 +872,9 @@ OpPlan Semantics::BuildPlan(const Instruction& instruction,
       request.wave_id = wave.wave_id;
 
       const uint64_t scale = ReadScalarOperand(instruction.operands.at(2), wave);
+      const uint64_t offset = instruction.operands.size() > 3
+                                  ? ReadScalarOperand(instruction.operands.at(3), wave)
+                                  : 0;
       for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
         if (!wave.exec.test(lane)) {
           continue;
@@ -867,7 +882,7 @@ OpPlan Semantics::BuildPlan(const Instruction& instruction,
         const uint64_t index = ReadVectorLaneOperand(instruction.operands.at(1), wave, lane);
         request.lanes[lane] = LaneAccess{
             .active = true,
-            .addr = index * scale,
+            .addr = offset + index * scale,
             .bytes = static_cast<uint32_t>(scale),
         };
       }

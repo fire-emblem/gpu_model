@@ -316,9 +316,12 @@ KernelProgram AsmParser::Parse(const ProgramImage& image) const {
       builder.SWaitCnt(thresholds.global, thresholds.shared, thresholds.private_mem,
                        thresholds.scalar_buffer);
     } else if (opcode == "s_buffer_load_dword") {
-      RequireOperandCount(opcode, operands, 3);
+      if (operands.size() != 3 && operands.size() != 4) {
+        throw std::invalid_argument("opcode " + opcode + " expects 3 or 4 operands");
+      }
       builder.SBufferLoadDword(operands[0], operands[1],
-                               static_cast<uint32_t>(ParseImmediate(operands[2])));
+                               static_cast<uint32_t>(ParseImmediate(operands[2])),
+                               operands.size() == 4 ? static_cast<uint32_t>(ParseImmediate(operands[3])) : 0);
     } else if (opcode == "s_cmp_lt_i32") {
       RequireOperandCount(opcode, operands, 2);
       if (IsRegister(operands[1])) {
@@ -409,17 +412,26 @@ KernelProgram AsmParser::Parse(const ProgramImage& image) const {
       RequireOperandCount(opcode, operands, 3);
       builder.VSelectCmask(operands[0], operands[1], operands[2]);
     } else if (opcode == "buffer_load_dword") {
-      RequireOperandCount(opcode, operands, 4);
+      if (operands.size() != 4 && operands.size() != 5) {
+        throw std::invalid_argument("opcode " + opcode + " expects 4 or 5 operands");
+      }
       builder.MLoadGlobal(operands[0], operands[1], operands[2],
-                          static_cast<uint32_t>(ParseImmediate(operands[3])));
+                          static_cast<uint32_t>(ParseImmediate(operands[3])),
+                          operands.size() == 5 ? static_cast<uint32_t>(ParseImmediate(operands[4])) : 0);
     } else if (opcode == "buffer_store_dword") {
-      RequireOperandCount(opcode, operands, 4);
+      if (operands.size() != 4 && operands.size() != 5) {
+        throw std::invalid_argument("opcode " + opcode + " expects 4 or 5 operands");
+      }
       builder.MStoreGlobal(operands[0], operands[1], operands[2],
-                           static_cast<uint32_t>(ParseImmediate(operands[3])));
+                           static_cast<uint32_t>(ParseImmediate(operands[3])),
+                           operands.size() == 5 ? static_cast<uint32_t>(ParseImmediate(operands[4])) : 0);
     } else if (opcode == "buffer_atomic_add_u32") {
-      RequireOperandCount(opcode, operands, 4);
+      if (operands.size() != 4 && operands.size() != 5) {
+        throw std::invalid_argument("opcode " + opcode + " expects 4 or 5 operands");
+      }
       builder.MAtomicAddGlobal(operands[0], operands[1], operands[2],
-                               static_cast<uint32_t>(ParseImmediate(operands[3])));
+                               static_cast<uint32_t>(ParseImmediate(operands[3])),
+                               operands.size() == 5 ? static_cast<uint32_t>(ParseImmediate(operands[4])) : 0);
     } else if (opcode == "ds_read_b32") {
       RequireOperandCount(opcode, operands, 3);
       builder.MLoadShared(operands[0], operands[1],
@@ -437,9 +449,12 @@ KernelProgram AsmParser::Parse(const ProgramImage& image) const {
       builder.MLoadPrivate(operands[0], operands[1],
                            static_cast<uint32_t>(ParseImmediate(operands[2])));
     } else if (opcode == "scalar_buffer_load_dword") {
-      RequireOperandCount(opcode, operands, 3);
+      if (operands.size() != 3 && operands.size() != 4) {
+        throw std::invalid_argument("opcode " + opcode + " expects 3 or 4 operands");
+      }
       builder.MLoadConst(operands[0], operands[1],
-                         static_cast<uint32_t>(ParseImmediate(operands[2])));
+                         static_cast<uint32_t>(ParseImmediate(operands[2])),
+                         operands.size() == 4 ? static_cast<uint32_t>(ParseImmediate(operands[3])) : 0);
     } else if (opcode == "scratch_store_dword") {
       RequireOperandCount(opcode, operands, 3);
       builder.MStorePrivate(operands[0], operands[1],
