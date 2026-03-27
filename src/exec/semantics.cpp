@@ -53,6 +53,37 @@ OpPlan Semantics::BuildPlan(const Instruction& instruction,
       plan.vector_writes.push_back(write);
       return plan;
     }
+    case Opcode::SysLocalIdX: {
+      const uint32_t dest = RequireVectorReg(instruction.operands.at(0));
+      VectorWrite write;
+      write.reg_index = dest;
+      write.mask = ThreadMask(wave);
+      for (uint32_t lane = 0; lane < wave.thread_count && lane < kWaveSize; ++lane) {
+        write.values[lane] = static_cast<uint64_t>(wave.wave_id * kWaveSize + lane);
+      }
+      plan.vector_writes.push_back(write);
+      return plan;
+    }
+    case Opcode::SysBlockOffsetX: {
+      const Operand& dest = instruction.operands.at(0);
+      const uint64_t offset =
+          static_cast<uint64_t>(wave.block_id) * static_cast<uint64_t>(context.launch_config.block_dim_x);
+      if (dest.kind != OperandKind::Register) {
+        throw std::invalid_argument("sys_block_offset_x requires register destination");
+      }
+      if (dest.reg.file == RegisterFile::Scalar) {
+        plan.scalar_writes.push_back(ScalarWrite{.reg_index = dest.reg.index, .value = offset});
+      } else {
+        VectorWrite write;
+        write.reg_index = dest.reg.index;
+        write.mask = ThreadMask(wave);
+        for (uint32_t lane = 0; lane < wave.thread_count && lane < kWaveSize; ++lane) {
+          write.values[lane] = offset;
+        }
+        plan.vector_writes.push_back(write);
+      }
+      return plan;
+    }
     case Opcode::SysBlockIdxX: {
       const Operand& dest = instruction.operands.at(0);
       if (dest.kind != OperandKind::Register) {
@@ -162,6 +193,76 @@ OpPlan Semantics::BuildPlan(const Instruction& instruction,
           const int64_t lhs = AsSigned(ReadVectorLaneOperand(instruction.operands.at(1), wave, lane));
           const int64_t rhs = AsSigned(ReadVectorLaneOperand(instruction.operands.at(2), wave, lane));
           write.values[lane] = static_cast<uint64_t>(lhs + rhs);
+        }
+      }
+      plan.vector_writes.push_back(write);
+      return plan;
+    }
+    case Opcode::VAnd: {
+      VectorWrite write;
+      write.reg_index = RequireVectorReg(instruction.operands.at(0));
+      write.mask = wave.exec;
+      for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+        if (wave.exec.test(lane)) {
+          const uint64_t lhs = ReadVectorLaneOperand(instruction.operands.at(1), wave, lane);
+          const uint64_t rhs = ReadVectorLaneOperand(instruction.operands.at(2), wave, lane);
+          write.values[lane] = lhs & rhs;
+        }
+      }
+      plan.vector_writes.push_back(write);
+      return plan;
+    }
+    case Opcode::VOr: {
+      VectorWrite write;
+      write.reg_index = RequireVectorReg(instruction.operands.at(0));
+      write.mask = wave.exec;
+      for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+        if (wave.exec.test(lane)) {
+          const uint64_t lhs = ReadVectorLaneOperand(instruction.operands.at(1), wave, lane);
+          const uint64_t rhs = ReadVectorLaneOperand(instruction.operands.at(2), wave, lane);
+          write.values[lane] = lhs | rhs;
+        }
+      }
+      plan.vector_writes.push_back(write);
+      return plan;
+    }
+    case Opcode::VXor: {
+      VectorWrite write;
+      write.reg_index = RequireVectorReg(instruction.operands.at(0));
+      write.mask = wave.exec;
+      for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+        if (wave.exec.test(lane)) {
+          const uint64_t lhs = ReadVectorLaneOperand(instruction.operands.at(1), wave, lane);
+          const uint64_t rhs = ReadVectorLaneOperand(instruction.operands.at(2), wave, lane);
+          write.values[lane] = lhs ^ rhs;
+        }
+      }
+      plan.vector_writes.push_back(write);
+      return plan;
+    }
+    case Opcode::VShl: {
+      VectorWrite write;
+      write.reg_index = RequireVectorReg(instruction.operands.at(0));
+      write.mask = wave.exec;
+      for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+        if (wave.exec.test(lane)) {
+          const uint64_t lhs = ReadVectorLaneOperand(instruction.operands.at(1), wave, lane);
+          const uint64_t rhs = ReadVectorLaneOperand(instruction.operands.at(2), wave, lane) & 63ULL;
+          write.values[lane] = lhs << rhs;
+        }
+      }
+      plan.vector_writes.push_back(write);
+      return plan;
+    }
+    case Opcode::VShr: {
+      VectorWrite write;
+      write.reg_index = RequireVectorReg(instruction.operands.at(0));
+      write.mask = wave.exec;
+      for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+        if (wave.exec.test(lane)) {
+          const uint64_t lhs = ReadVectorLaneOperand(instruction.operands.at(1), wave, lane);
+          const uint64_t rhs = ReadVectorLaneOperand(instruction.operands.at(2), wave, lane) & 63ULL;
+          write.values[lane] = lhs >> rhs;
         }
       }
       plan.vector_writes.push_back(write);

@@ -7,6 +7,8 @@ namespace gpu_model {
 enum class Opcode {
   SysLoadArg,
   SysGlobalIdX,
+  SysLocalIdX,
+  SysBlockOffsetX,
   SysBlockIdxX,
   SysBlockDimX,
   SysLaneId,
@@ -17,6 +19,11 @@ enum class Opcode {
   SCmpEq,
   VMov,
   VAdd,
+  VAnd,
+  VOr,
+  VXor,
+  VShl,
+  VShr,
   VSub,
   VMul,
   VMin,
@@ -52,6 +59,10 @@ inline std::string_view ToString(Opcode opcode) {
       return "sys_load_arg";
     case Opcode::SysGlobalIdX:
       return "sys_global_id_x";
+    case Opcode::SysLocalIdX:
+      return "sys_local_id_x";
+    case Opcode::SysBlockOffsetX:
+      return "sys_block_offset_x";
     case Opcode::SysBlockIdxX:
       return "sys_block_idx_x";
     case Opcode::SysBlockDimX:
@@ -72,6 +83,16 @@ inline std::string_view ToString(Opcode opcode) {
       return "v_mov";
     case Opcode::VAdd:
       return "v_add";
+    case Opcode::VAnd:
+      return "v_and";
+    case Opcode::VOr:
+      return "v_or";
+    case Opcode::VXor:
+      return "v_xor";
+    case Opcode::VShl:
+      return "v_shl";
+    case Opcode::VShr:
+      return "v_shr";
     case Opcode::VSub:
       return "v_sub";
     case Opcode::VMul:

@@ -113,6 +113,12 @@ KernelProgram AsmParser::Parse(const ProgramImage& image) const {
     } else if (opcode == "sys_global_id_x") {
       RequireOperandCount(opcode, operands, 1);
       builder.SysGlobalIdX(operands[0]);
+    } else if (opcode == "sys_local_id_x") {
+      RequireOperandCount(opcode, operands, 1);
+      builder.SysLocalIdX(operands[0]);
+    } else if (opcode == "sys_block_offset_x") {
+      RequireOperandCount(opcode, operands, 1);
+      builder.SysBlockOffsetX(operands[0]);
     } else if (opcode == "sys_block_idx_x") {
       RequireOperandCount(opcode, operands, 1);
       builder.SysBlockIdxX(operands[0]);
@@ -167,6 +173,21 @@ KernelProgram AsmParser::Parse(const ProgramImage& image) const {
     } else if (opcode == "v_add") {
       RequireOperandCount(opcode, operands, 3);
       builder.VAdd(operands[0], operands[1], operands[2]);
+    } else if (opcode == "v_and") {
+      RequireOperandCount(opcode, operands, 3);
+      builder.VAnd(operands[0], operands[1], operands[2]);
+    } else if (opcode == "v_or") {
+      RequireOperandCount(opcode, operands, 3);
+      builder.VOr(operands[0], operands[1], operands[2]);
+    } else if (opcode == "v_xor") {
+      RequireOperandCount(opcode, operands, 3);
+      builder.VXor(operands[0], operands[1], operands[2]);
+    } else if (opcode == "v_shl") {
+      RequireOperandCount(opcode, operands, 3);
+      builder.VShl(operands[0], operands[1], operands[2]);
+    } else if (opcode == "v_shr") {
+      RequireOperandCount(opcode, operands, 3);
+      builder.VShr(operands[0], operands[1], operands[2]);
     } else if (opcode == "v_sub") {
       RequireOperandCount(opcode, operands, 3);
       builder.VSub(operands[0], operands[1], operands[2]);

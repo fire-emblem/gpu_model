@@ -17,6 +17,8 @@ class InstructionBuilder {
 
   InstructionBuilder& SLoadArg(std::string_view dest, uint32_t arg_index);
   InstructionBuilder& SysGlobalIdX(std::string_view dest);
+  InstructionBuilder& SysLocalIdX(std::string_view dest);
+  InstructionBuilder& SysBlockOffsetX(std::string_view dest);
   InstructionBuilder& SysBlockIdxX(std::string_view dest);
   InstructionBuilder& SysBlockDimX(std::string_view dest);
   InstructionBuilder& SysLaneId(std::string_view dest);
@@ -35,6 +37,11 @@ class InstructionBuilder {
   InstructionBuilder& VMov(std::string_view dest, std::string_view src);
   InstructionBuilder& VMov(std::string_view dest, uint64_t imm);
   InstructionBuilder& VAdd(std::string_view dest, std::string_view lhs, std::string_view rhs);
+  InstructionBuilder& VAnd(std::string_view dest, std::string_view lhs, std::string_view rhs);
+  InstructionBuilder& VOr(std::string_view dest, std::string_view lhs, std::string_view rhs);
+  InstructionBuilder& VXor(std::string_view dest, std::string_view lhs, std::string_view rhs);
+  InstructionBuilder& VShl(std::string_view dest, std::string_view lhs, std::string_view rhs);
+  InstructionBuilder& VShr(std::string_view dest, std::string_view lhs, std::string_view rhs);
   InstructionBuilder& VSub(std::string_view dest, std::string_view lhs, std::string_view rhs);
   InstructionBuilder& VMul(std::string_view dest, std::string_view lhs, std::string_view rhs);
   InstructionBuilder& VMin(std::string_view dest, std::string_view lhs, std::string_view rhs);

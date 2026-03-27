@@ -69,6 +69,14 @@ InstructionBuilder& InstructionBuilder::SysGlobalIdX(std::string_view dest) {
   return AddInstruction(Opcode::SysGlobalIdX, {ParseRegOperand(dest)});
 }
 
+InstructionBuilder& InstructionBuilder::SysLocalIdX(std::string_view dest) {
+  return AddInstruction(Opcode::SysLocalIdX, {ParseRegOperand(dest)});
+}
+
+InstructionBuilder& InstructionBuilder::SysBlockOffsetX(std::string_view dest) {
+  return AddInstruction(Opcode::SysBlockOffsetX, {ParseRegOperand(dest)});
+}
+
 InstructionBuilder& InstructionBuilder::SysBlockIdxX(std::string_view dest) {
   return AddInstruction(Opcode::SysBlockIdxX, {ParseRegOperand(dest)});
 }
@@ -146,6 +154,41 @@ InstructionBuilder& InstructionBuilder::VAdd(std::string_view dest,
                                              std::string_view rhs) {
   return AddInstruction(
       Opcode::VAdd, {ParseRegOperand(dest), ParseRegOperand(lhs), ParseRegOperand(rhs)});
+}
+
+InstructionBuilder& InstructionBuilder::VAnd(std::string_view dest,
+                                             std::string_view lhs,
+                                             std::string_view rhs) {
+  return AddInstruction(
+      Opcode::VAnd, {ParseRegOperand(dest), ParseRegOperand(lhs), ParseRegOperand(rhs)});
+}
+
+InstructionBuilder& InstructionBuilder::VOr(std::string_view dest,
+                                            std::string_view lhs,
+                                            std::string_view rhs) {
+  return AddInstruction(
+      Opcode::VOr, {ParseRegOperand(dest), ParseRegOperand(lhs), ParseRegOperand(rhs)});
+}
+
+InstructionBuilder& InstructionBuilder::VXor(std::string_view dest,
+                                             std::string_view lhs,
+                                             std::string_view rhs) {
+  return AddInstruction(
+      Opcode::VXor, {ParseRegOperand(dest), ParseRegOperand(lhs), ParseRegOperand(rhs)});
+}
+
+InstructionBuilder& InstructionBuilder::VShl(std::string_view dest,
+                                             std::string_view lhs,
+                                             std::string_view rhs) {
+  return AddInstruction(
+      Opcode::VShl, {ParseRegOperand(dest), ParseRegOperand(lhs), ParseRegOperand(rhs)});
+}
+
+InstructionBuilder& InstructionBuilder::VShr(std::string_view dest,
+                                             std::string_view lhs,
+                                             std::string_view rhs) {
+  return AddInstruction(
+      Opcode::VShr, {ParseRegOperand(dest), ParseRegOperand(lhs), ParseRegOperand(rhs)});
 }
 
 InstructionBuilder& InstructionBuilder::VSub(std::string_view dest,
