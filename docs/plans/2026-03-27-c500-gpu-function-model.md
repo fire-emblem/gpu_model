@@ -117,7 +117,7 @@
 
 - Configure: `cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug`
 - Build: `cmake --build build`
-- Run all tests: `ctest --test-dir build --output-on-failure`
+- Run all tests: `./build/tests/gpu_model_tests`
 - Run one test binary: `./build/tests/gpu_model_tests --gtest_filter=Suite.Name`
 
 ## Task 1: Bootstrap The CMake Project
@@ -172,7 +172,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(googletest)
 
-enable_testing()
 
 add_library(gpu_model STATIC)
 target_include_directories(gpu_model PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
@@ -187,8 +186,6 @@ add_executable(gpu_model_tests
   arch/arch_registry_test.cpp
 )
 target_link_libraries(gpu_model_tests PRIVATE gpu_model GTest::gtest_main)
-include(GoogleTest)
-gtest_discover_tests(gpu_model_tests)
 ```
 
 **Step 4: Run test to verify it now fails for the right reason**
@@ -290,7 +287,7 @@ Run:
 
 ```bash
 cmake --build build
-ctest --test-dir build -R ArchRegistryTest --output-on-failure
+./build/tests/gpu_model_tests --gtest_filter=ArchRegistryTest.*
 ```
 
 Expected: `ArchRegistryTest.C500SpecExists` and `ArchRegistryTest.C500FieldsMatchDesign` pass.
@@ -404,7 +401,7 @@ Run:
 
 ```bash
 cmake --build build
-ctest --test-dir build -R KernelProgramTest --output-on-failure
+./build/tests/gpu_model_tests --gtest_filter=KernelProgramTest.*
 ```
 
 Expected: label resolution and instruction count test pass.
@@ -495,7 +492,7 @@ Run:
 
 ```bash
 cmake --build build
-ctest --test-dir build -R WaveStateTest --output-on-failure
+./build/tests/gpu_model_tests --gtest_filter=WaveStateTest.*
 ```
 
 Expected: the new wave state test passes.
@@ -596,7 +593,7 @@ Run:
 
 ```bash
 cmake --build build
-ctest --test-dir build -R MapperTest --output-on-failure
+./build/tests/gpu_model_tests --gtest_filter=MapperTest.*
 ```
 
 Expected: placement test passes and confirms the basic `c500` mapping rules.
@@ -687,7 +684,7 @@ Run:
 
 ```bash
 cmake --build build
-ctest --test-dir build -R TraceTest --output-on-failure
+./build/tests/gpu_model_tests --gtest_filter=TraceTest.*
 ```
 
 Expected: trace test passes with non-empty events.
@@ -740,7 +737,7 @@ Run:
 
 ```bash
 cmake --build build
-ctest --test-dir build -R FunctionalVecAddTest --output-on-failure
+./build/tests/gpu_model_tests --gtest_filter=FunctionalVecAddTest.*
 ```
 
 Expected: the new test fails because no executor exists.
@@ -793,7 +790,7 @@ Run:
 
 ```bash
 cmake --build build
-ctest --test-dir build -R FunctionalVecAddTest --output-on-failure
+./build/tests/gpu_model_tests --gtest_filter=FunctionalVecAddTest.*
 ```
 
 Expected: `vecadd` passes for `N=300`, `grid=3`, `block=128`.
@@ -852,7 +849,7 @@ Run:
 
 ```bash
 cmake --build build
-ctest --test-dir build -R PredicatedIfFunctionalTest --output-on-failure
+./build/tests/gpu_model_tests --gtest_filter=PredicatedIfFunctionalTest.*
 ```
 
 Expected: test fails because one or more mask instructions are incorrect.
@@ -873,7 +870,7 @@ Run:
 
 ```bash
 cmake --build build
-ctest --test-dir build -R PredicatedIfFunctionalTest --output-on-failure
+./build/tests/gpu_model_tests --gtest_filter=PredicatedIfFunctionalTest.*
 ```
 
 Expected: the positive-copy kernel passes and verifies the explicit mask flow.
@@ -924,7 +921,7 @@ Run:
 
 ```bash
 cmake --build build
-ctest --test-dir build -R "FunctionalVecAddTest|MapperTest" --output-on-failure
+./build/tests/gpu_model_tests --gtest_filter="FunctionalVecAddTest.*:MapperTest.*"
 ```
 
 Expected: at least one trace or tail-wave assertion fails.
@@ -943,7 +940,7 @@ Run:
 
 ```bash
 cmake --build build
-ctest --test-dir build -R "FunctionalVecAddTest|MapperTest" --output-on-failure
+./build/tests/gpu_model_tests --gtest_filter="FunctionalVecAddTest.*:MapperTest.*"
 ```
 
 Expected: placement and trace coverage both pass.
@@ -986,7 +983,7 @@ Run:
 
 ```bash
 cmake --build build
-ctest --test-dir build -R CycleSmokeTest --output-on-failure
+./build/tests/gpu_model_tests --gtest_filter=CycleSmokeTest.*
 ```
 
 Expected: missing cycle executor components.
@@ -1017,7 +1014,7 @@ Run:
 
 ```bash
 cmake --build build
-ctest --test-dir build -R CycleSmokeTest --output-on-failure
+./build/tests/gpu_model_tests --gtest_filter=CycleSmokeTest.*
 ```
 
 Expected: the simple arithmetic kernel reports `12` cycles.
@@ -1059,7 +1056,7 @@ Run:
 
 ```bash
 cmake --build build
-ctest --test-dir build -R AsyncMemoryCycleTest --output-on-failure
+./build/tests/gpu_model_tests --gtest_filter=AsyncMemoryCycleTest.*
 ```
 
 Expected: load completion is treated as immediate or the dependency ordering is wrong.
@@ -1085,7 +1082,7 @@ Run:
 
 ```bash
 cmake --build build
-ctest --test-dir build -R AsyncMemoryCycleTest --output-on-failure
+./build/tests/gpu_model_tests --gtest_filter=AsyncMemoryCycleTest.*
 ```
 
 Expected: total cycle count and dependency ordering both pass.
@@ -1125,7 +1122,7 @@ Run:
 
 ```bash
 cmake --build build
-ctest --test-dir build -R PublicApiTest --output-on-failure
+./build/tests/gpu_model_tests --gtest_filter=PublicApiTest.*
 ```
 
 Expected: one or more required public structs are still too internal or awkward to construct.
@@ -1157,7 +1154,7 @@ Run:
 
 ```bash
 cmake --build build
-ctest --test-dir build --output-on-failure
+./build/tests/gpu_model_tests
 ./build/examples/vecadd_main
 ```
 
@@ -1181,7 +1178,7 @@ git commit -m "chore: finalize public runtime api and example"
 - Trace output contains `Launch`, `BlockPlaced`, `WaveStep`, `ExecMaskUpdate`, `MemoryAccess`, and `WaveExit`.
 - `CycleExecutor` reuses the same semantics and applies fixed `4 cycle` issue cost to normal instructions.
 - `MLoadGlobal` in cycle mode uses `4 cycle` issue and asynchronous `arrive`.
-- All tests pass under `ctest --test-dir build --output-on-failure`.
+- All tests pass under `./build/tests/gpu_model_tests`.
 
 ## Follow-On Work After This Plan
 

@@ -15,8 +15,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(googletest)
 
-enable_testing()
-
 add_library(gpu_model STATIC
   src/arch/arch_registry.cpp
   src/arch/c500_spec.cpp
