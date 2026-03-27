@@ -83,6 +83,13 @@ void RuntimeHooks::RegisterProgramImage(std::string module_name, ProgramImage im
   modules_[module_name][image.kernel_name()] = std::move(image);
 }
 
+void RuntimeHooks::LoadAmdgpuObject(std::string module_name,
+                                    const std::filesystem::path& path,
+                                    std::optional<std::string> kernel_name) {
+  RegisterProgramImage(std::move(module_name),
+                       AmdgpuObjLoader{}.LoadFromObject(path, std::move(kernel_name)));
+}
+
 void RuntimeHooks::LoadProgramBundle(std::string module_name, const std::filesystem::path& path) {
   RegisterProgramImage(std::move(module_name), ProgramBundleIO::Read(path));
 }
@@ -162,6 +169,18 @@ LaunchResult RuntimeHooks::LaunchRegisteredKernel(const std::string& module_name
   }
   return LaunchProgramImage(kernel_it->second, std::move(config), std::move(args), mode,
                             std::move(arch_name), trace);
+}
+
+LaunchResult RuntimeHooks::LaunchAmdgpuObject(const std::filesystem::path& path,
+                                              LaunchConfig config,
+                                              KernelArgPack args,
+                                              ExecutionMode mode,
+                                              std::string arch_name,
+                                              TraceSink* trace,
+                                              std::optional<std::string> kernel_name) {
+  const auto image = AmdgpuObjLoader{}.LoadFromObject(path, std::move(kernel_name));
+  return LaunchProgramImage(image, std::move(config), std::move(args), mode, std::move(arch_name),
+                            trace);
 }
 
 }  // namespace gpu_model

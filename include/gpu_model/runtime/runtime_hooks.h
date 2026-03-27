@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "gpu_model/loader/executable_image_io.h"
+#include "gpu_model/loader/amdgpu_obj_loader.h"
 #include "gpu_model/loader/program_bundle_io.h"
 #include "gpu_model/loader/program_file_loader.h"
 #include "gpu_model/isa/kernel_program.h"
@@ -53,6 +54,9 @@ class RuntimeHooks {
                                   std::string arch_name = "",
                                   TraceSink* trace = nullptr);
   void RegisterProgramImage(std::string module_name, ProgramImage image);
+  void LoadAmdgpuObject(std::string module_name,
+                        const std::filesystem::path& path,
+                        std::optional<std::string> kernel_name = std::nullopt);
   void LoadProgramBundle(std::string module_name, const std::filesystem::path& path);
   void LoadExecutableImage(std::string module_name, const std::filesystem::path& path);
   void LoadProgramFileStem(std::string module_name, const std::filesystem::path& path);
@@ -68,6 +72,13 @@ class RuntimeHooks {
                                       ExecutionMode mode = ExecutionMode::Functional,
                                       std::string arch_name = "",
                                       TraceSink* trace = nullptr);
+  LaunchResult LaunchAmdgpuObject(const std::filesystem::path& path,
+                                  LaunchConfig config,
+                                  KernelArgPack args,
+                                  ExecutionMode mode = ExecutionMode::Functional,
+                                  std::string arch_name = "",
+                                  TraceSink* trace = nullptr,
+                                  std::optional<std::string> kernel_name = std::nullopt);
 
   HostRuntime& runtime() { return *runtime_; }
   const HostRuntime& runtime() const { return *runtime_; }

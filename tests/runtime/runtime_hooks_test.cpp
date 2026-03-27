@@ -290,6 +290,41 @@ TEST(RuntimeHooksTest, SupportsDeviceToDeviceCopyAndMemsetOperations) {
   }
 }
 
+TEST(RuntimeHooksTest, LaunchesAmdgpuObjectFileThroughObjLoaderPath) {
+  if (std::system("command -v llc >/dev/null 2>&1") != 0 ||
+      std::system("command -v llvm-objdump >/dev/null 2>&1") != 0 ||
+      std::system("command -v readelf >/dev/null 2>&1") != 0) {
+    GTEST_SKIP() << "required LLVM/binutils tools not available";
+  }
+
+  const auto temp_dir = std::filesystem::temp_directory_path() / "gpu_model_amdgpu_runtime_object";
+  std::filesystem::remove_all(temp_dir);
+  std::filesystem::create_directories(temp_dir);
+  const auto ir_path = temp_dir / "empty_kernel.ll";
+  const auto obj_path = temp_dir / "empty_kernel.out";
+
+  {
+    std::ofstream out(ir_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "target triple = \"amdgcn-amd-amdhsa\"\n\n"
+           "define amdgpu_kernel void @empty_kernel() {\n"
+           "entry:\n"
+           "  ret void\n"
+           "}\n";
+  }
+
+  const std::string command =
+      "llc -march=amdgcn -mcpu=gfx900 -filetype=obj " + ir_path.string() + " -o " + obj_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  RuntimeHooks hooks;
+  const auto result =
+      hooks.LaunchAmdgpuObject(obj_path, LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64}, {});
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  std::filesystem::remove_all(temp_dir);
+}
+
 TEST(RuntimeHooksTest, ListsModulesAndKernels) {
   RuntimeHooks hooks;
   hooks.RegisterProgramImage(

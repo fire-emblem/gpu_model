@@ -39,6 +39,7 @@ add_executable(gpu_model_tests
   cycle/two_dimensional_cycle_test.cpp
   cycle/transpose_shared_cycle_test.cpp
   loader/asm_parser_test.cpp
+  loader/amdgpu_obj_loader_test.cpp
   loader/executable_image_io_test.cpp
   loader/program_bundle_io_test.cpp
   loader/program_image_launch_test.cpp
