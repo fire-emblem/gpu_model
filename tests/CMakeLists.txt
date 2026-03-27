@@ -42,6 +42,7 @@ add_executable(gpu_model_tests
   cycle/transpose_shared_cycle_test.cpp
   loader/asm_parser_test.cpp
   loader/amdgpu_obj_loader_test.cpp
+  loader/gcn_text_parser_test.cpp
   loader/program_lowering_test.cpp
   loader/executable_image_io_test.cpp
   loader/program_bundle_io_test.cpp

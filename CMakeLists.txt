@@ -26,6 +26,7 @@ add_library(gpu_model STATIC
   src/loader/asm_parser.cpp
   src/loader/amdgpu_obj_loader.cpp
   src/loader/executable_image_io.cpp
+  src/loader/gcn_text_parser.cpp
   src/loader/program_lowering.cpp
   src/loader/program_bundle_io.cpp
   src/loader/program_file_loader.cpp

@@ -1,12 +1,131 @@
 #include "gpu_model/loader/program_lowering.h"
 
+#include <sstream>
 #include <stdexcept>
 
 #include "gpu_model/loader/asm_parser.h"
+#include "gpu_model/loader/gcn_text_parser.h"
 
 namespace gpu_model {
 
 namespace {
+
+std::string LowerRegisterRangeToScalarHead(const GcnTextOperand& operand) {
+  if (!operand.reg_range.has_value() || operand.reg_range->prefix != 's') {
+    throw std::invalid_argument("expected scalar register range operand");
+  }
+  return "s" + std::to_string(operand.reg_range->first);
+}
+
+std::string RenderCanonicalOperand(const GcnTextOperand& operand) {
+  switch (operand.kind) {
+    case GcnTextOperandKind::Register:
+    case GcnTextOperandKind::Immediate:
+    case GcnTextOperandKind::Identifier:
+    case GcnTextOperandKind::Off:
+      return operand.text;
+    case GcnTextOperandKind::SpecialRegister:
+      return operand.text;
+    case GcnTextOperandKind::RegisterRange:
+      return operand.text;
+  }
+  throw std::invalid_argument("unsupported GCN operand kind");
+}
+
+std::vector<std::string> LowerGcnInstruction(const GcnTextInstruction& instruction) {
+  if (instruction.mnemonic == "v_mov_b32_e32") {
+    if (instruction.operands.size() != 2) {
+      throw std::invalid_argument("v_mov_b32_e32 expects 2 operands");
+    }
+    return {"v_mov_b32 " + RenderCanonicalOperand(instruction.operands[0]) + ", " +
+            RenderCanonicalOperand(instruction.operands[1])};
+  }
+  if (instruction.mnemonic == "v_add_f32_e32") {
+    if (instruction.operands.size() != 3) {
+      throw std::invalid_argument("v_add_f32_e32 expects 3 operands");
+    }
+    return {"v_add_f32 " + RenderCanonicalOperand(instruction.operands[0]) + ", " +
+            RenderCanonicalOperand(instruction.operands[1]) + ", " +
+            RenderCanonicalOperand(instruction.operands[2])};
+  }
+  if (instruction.mnemonic == "v_add_u32_e32" || instruction.mnemonic == "v_add_i32_e32") {
+    if (instruction.operands.size() != 3) {
+      throw std::invalid_argument("v_add_*_e32 expects 3 operands");
+    }
+    return {"v_add_i32 " + RenderCanonicalOperand(instruction.operands[0]) + ", " +
+            RenderCanonicalOperand(instruction.operands[1]) + ", " +
+            RenderCanonicalOperand(instruction.operands[2])};
+  }
+  if (instruction.mnemonic == "v_cmp_gt_i32_e32" || instruction.mnemonic == "v_cmp_lt_i32_e32" ||
+      instruction.mnemonic == "v_cmp_eq_i32_e32" || instruction.mnemonic == "v_cmp_ge_i32_e32") {
+    if (instruction.operands.size() != 3) {
+      throw std::invalid_argument("v_cmp_*_e32 expects 3 operands");
+    }
+    if (instruction.operands[0].kind != GcnTextOperandKind::SpecialRegister ||
+        instruction.operands[0].special_reg != GcnSpecialRegister::Vcc) {
+      throw std::invalid_argument("only vcc destination is supported for lowered v_cmp_*_e32");
+    }
+    std::string cmp_mnemonic;
+    if (instruction.mnemonic == "v_cmp_gt_i32_e32") {
+      cmp_mnemonic = "v_cmp_gt_i32_cmask";
+    } else if (instruction.mnemonic == "v_cmp_lt_i32_e32") {
+      cmp_mnemonic = "v_cmp_lt_i32_cmask";
+    } else if (instruction.mnemonic == "v_cmp_eq_i32_e32") {
+      cmp_mnemonic = "v_cmp_eq_i32_cmask";
+    } else {
+      cmp_mnemonic = "v_cmp_ge_i32_cmask";
+    }
+    return {cmp_mnemonic + " " + RenderCanonicalOperand(instruction.operands[1]) + ", " +
+            RenderCanonicalOperand(instruction.operands[2])};
+  }
+  if (instruction.mnemonic == "s_and_saveexec_b64") {
+    if (instruction.operands.size() != 2) {
+      throw std::invalid_argument("s_and_saveexec_b64 expects 2 operands");
+    }
+    if (instruction.operands[1].kind != GcnTextOperandKind::SpecialRegister ||
+        instruction.operands[1].special_reg != GcnSpecialRegister::Vcc) {
+      throw std::invalid_argument("only vcc source is supported for s_and_saveexec_b64");
+    }
+    return {
+        "s_saveexec_b64 " + LowerRegisterRangeToScalarHead(instruction.operands[0]),
+        "s_and_exec_cmask_b64",
+    };
+  }
+
+  std::ostringstream line;
+  line << instruction.mnemonic;
+  bool first = true;
+  for (const auto& operand : instruction.operands) {
+    line << (first ? " " : ", ") << RenderCanonicalOperand(operand);
+    first = false;
+  }
+  return {line.str()};
+}
+
+ProgramImage LowerGcnTextProgramImage(const ProgramImage& image) {
+  MetadataBlob metadata = image.metadata();
+  SetTargetIsa(metadata, TargetIsa::CanonicalAsm);
+
+  std::istringstream input(image.assembly_text());
+  std::ostringstream lowered;
+  std::string line;
+  while (std::getline(input, line)) {
+    const std::string stripped = GcnTextParser::StripComments(line);
+    if (stripped.empty()) {
+      continue;
+    }
+    if (stripped.rfind(".meta ", 0) == 0 || stripped.back() == ':') {
+      lowered << stripped << '\n';
+      continue;
+    }
+
+    const auto instruction = GcnTextParser::ParseInstruction(stripped);
+    for (const auto& lowered_line : LowerGcnInstruction(instruction)) {
+      lowered << lowered_line << '\n';
+    }
+  }
+  return ProgramImage(image.kernel_name(), lowered.str(), std::move(metadata), image.const_segment());
+}
 
 class CanonicalAsmLowerer final : public IProgramLowerer {
  public:
@@ -20,9 +139,7 @@ class GcnAsmLowerer final : public IProgramLowerer {
   TargetIsa target_isa() const override { return TargetIsa::GcnAsm; }
 
   KernelProgram Lower(const ProgramImage& image) const override {
-    // Current bridge path still relies on the canonical parser for the already-supported
-    // AMD-style subset. A dedicated GCN text lowerer will replace this for wider coverage.
-    return AsmParser{}.Parse(image);
+    return AsmParser{}.Parse(LowerGcnTextProgramImage(image));
   }
 };
 

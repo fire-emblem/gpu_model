@@ -37,6 +37,8 @@ Files:
 
 - [program_lowering.h](/data/gpu_model/include/gpu_model/loader/program_lowering.h)
 - [program_lowering.cpp](/data/gpu_model/src/loader/program_lowering.cpp)
+- [gcn_text_parser.h](/data/gpu_model/include/gpu_model/loader/gcn_text_parser.h)
+- [gcn_text_parser.cpp](/data/gpu_model/src/loader/gcn_text_parser.cpp)
 
 Role:
 
@@ -46,12 +48,18 @@ Role:
 Current lowerers:
 
 - canonical asm lowerer
-- GCN asm lowerer bridge
+- GCN asm lowerer
 
 Current simplification:
 
-- the GCN lowerer still reuses the existing asm parser for the already-supported subset
-- this is an extension seam, not the final full-GCN implementation
+- the GCN lowerer now parses GCN text operands itself and lowers a supported subset into
+  canonical asm before execution
+- the currently lowered subset includes:
+  - special registers such as `vcc`
+  - scalar register ranges such as `s[2:3]`
+  - `off`
+  - representative control-flow forms such as `v_cmp_*_e32 ... -> cmask` and `s_and_saveexec_b64`
+- wider GCN coverage is still pending
 
 ### ISA Descriptor Layer
 
@@ -132,11 +140,18 @@ That means:
 
 ## Next Recommended Steps
 
-1. Replace the temporary `gcn_asm -> AsmParser` bridge with a dedicated GCN text lowerer.
-2. Introduce operand forms for:
-   - special registers such as `vcc`, `exec`, `scc`, `m0`
-   - register ranges such as `s[0:1]`, `v[0:1]`
-   - `off`
+1. Extend the dedicated GCN text lowerer to full frequently-emitted GCN subsets:
+   - `v_add_co_u32`
+   - `v_addc_co_u32`
+   - `v_lshlrev_b64`
+   - `s_load_dwordx2/x4`
+   - `global_load_dword`
+   - `global_store_dword`
+2. Add remaining operand forms:
+   - `exec`
+   - `scc`
+   - `m0`
+   - vector register ranges such as `v[0:1]`
 3. Move `Semantics` from large opcode switches toward family-based handlers keyed by
    `SemanticFamily`.
 4. Add a target-specific lowering test suite driven by real `llvm-objdump` text.
