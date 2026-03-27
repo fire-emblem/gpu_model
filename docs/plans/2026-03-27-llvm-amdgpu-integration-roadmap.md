@@ -15,14 +15,26 @@ The goal is to let the simulator ingest real AMDGPU-oriented compiler output so 
 
 ## Current Environment Constraint
 
-At the time this plan was written, the local environment does **not** provide:
+The local environment now provides:
 
 - `clang`
 - `llc`
 - `llvm-mc`
+- `hipcc`
+- `clang-offload-bundler`
+- `llvm-objcopy`
 
-So this phase should first be treated as a **code architecture and artifact-interface design** task,
-not an assumption that the toolchain is immediately runnable in-tree.
+That means this project can already:
+
+- emit real AMDGPU assembly from LLVM IR
+- compile minimal HIP host artifacts that embed `.hip_fatbin`
+- extract an `amdgcn-amd-amdhsa` bundle from those HIP artifacts
+- load the extracted device code object into the existing object-loader path
+
+What is still missing is **ISA coverage**, not external toolchain presence.
+Real HIP kernels can now be parsed out of host artifacts, but only kernels whose
+disassembly stays within the simulator's supported AMD-style instruction subset
+are expected to execute successfully.
 
 ## Recommended Overall Direction
 

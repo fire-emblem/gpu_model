@@ -1,0 +1,2 @@
+hipv4-amdgcn-amd-amdhsa--gfx906
+host-x86_64-unknown-linux-gnu-

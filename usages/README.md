@@ -8,6 +8,8 @@ This directory groups runnable workflows by usage instead of by source module.
   Cycle-mode execution of the FMA loop example with text trace, JSON trace, and ASCII timeline output.
 - `scaling-regression/`
   Parameterized regression coverage for requested functional and cycle launch scales.
+- `hip-fatbin-launch/`
+  Compile a minimal HIP artifact, extract the embedded `.hip_fatbin` device bundle, and run the loader path.
 
 Each usage directory contains:
 

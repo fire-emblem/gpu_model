@@ -3,10 +3,13 @@
 #include <array>
 #include <cctype>
 #include <cstdio>
+#include <cstdlib>
+#include <filesystem>
 #include <sstream>
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <unordered_map>
 #include <vector>
 
@@ -56,6 +59,55 @@ std::string RunCommand(std::string command) {
   return output;
 }
 
+class ScopedTempDir {
+ public:
+  ScopedTempDir() {
+    std::string pattern =
+        (std::filesystem::temp_directory_path() / "gpu_model_hip_bundle_XXXXXX").string();
+    buffer_.assign(pattern.begin(), pattern.end());
+    buffer_.push_back('\0');
+    char* created = ::mkdtemp(buffer_.data());
+    if (created == nullptr) {
+      throw std::runtime_error("failed to create temporary directory for HIP bundle extraction");
+    }
+    path_ = created;
+  }
+
+  ~ScopedTempDir() {
+    if (path_.empty()) {
+      return;
+    }
+    std::error_code ec;
+    std::filesystem::remove_all(path_, ec);
+  }
+
+  const std::filesystem::path& path() const { return path_; }
+
+ private:
+  std::vector<char> buffer_;
+  std::filesystem::path path_;
+};
+
+bool IsAmdgpuElfHeader(const std::string& header) {
+  return header.find("Machine:                           AMD GPU") != std::string::npos;
+}
+
+bool HasHipFatbinSection(const std::string& sections) {
+  return sections.find(".hip_fatbin") != std::string::npos;
+}
+
+std::string SelectAmdgpuBundleTarget(const std::string& bundle_list) {
+  std::istringstream input(bundle_list);
+  std::string line;
+  while (std::getline(input, line)) {
+    const std::string trimmed = Trim(line);
+    if (trimmed.find("amdgcn-amd-amdhsa") != std::string::npos) {
+      return trimmed;
+    }
+  }
+  throw std::runtime_error("HIP fatbin does not contain an AMDGPU device bundle");
+}
+
 bool IsFunctionHeader(const std::string& line) {
   const auto trimmed = Trim(line);
   return !trimmed.empty() && trimmed.back() == ':' && trimmed.find('<') != std::string::npos &&
@@ -101,17 +153,16 @@ std::string ExtractInstruction(const std::string& line) {
   return text;
 }
 
-}  // namespace
-
-ProgramImage AmdgpuObjLoader::LoadFromObject(const std::filesystem::path& path,
-                                             std::optional<std::string> kernel_name) const {
+ProgramImage LoadFromAmdgpuElf(const std::filesystem::path& path,
+                               std::optional<std::string> kernel_name,
+                               MetadataBlob metadata = {}) {
   if (!std::filesystem::exists(path)) {
     throw std::runtime_error("missing AMDGPU object file: " + path.string());
   }
 
   const std::string quoted = ShellQuote(path.string());
   const std::string header = RunCommand("readelf -h " + quoted);
-  if (header.find("Machine:                           AMD GPU") == std::string::npos) {
+  if (!IsAmdgpuElfHeader(header)) {
     throw std::runtime_error("object is not an AMDGPU ELF file: " + path.string());
   }
 
@@ -155,9 +206,55 @@ ProgramImage AmdgpuObjLoader::LoadFromObject(const std::filesystem::path& path,
     asm_text << "  " << instruction << '\n';
   }
 
-  MetadataBlob metadata;
   metadata.values["entry"] = selected;
   return ProgramImage(selected, asm_text.str(), std::move(metadata));
+}
+
+ProgramImage LoadFromHipFatbinHostElf(const std::filesystem::path& path,
+                                      std::optional<std::string> kernel_name) {
+  ScopedTempDir temp_dir;
+  const auto fatbin_path = temp_dir.path() / "kernel.hip_fatbin";
+  const auto device_path = temp_dir.path() / "kernel_device.co";
+
+  const std::string quoted = ShellQuote(path.string());
+  RunCommand("llvm-objcopy --dump-section .hip_fatbin=" + ShellQuote(fatbin_path.string()) + " " +
+             quoted);
+
+  const std::string bundle_list = RunCommand("clang-offload-bundler --list --type=o --input=" +
+                                             ShellQuote(fatbin_path.string()));
+  const std::string bundle_target = SelectAmdgpuBundleTarget(bundle_list);
+  RunCommand("clang-offload-bundler --unbundle --type=o --input=" +
+             ShellQuote(fatbin_path.string()) + " --targets=" + ShellQuote(bundle_target) +
+             " --output=" + ShellQuote(device_path.string()));
+
+  MetadataBlob metadata;
+  metadata.values["bundle_target"] = bundle_target;
+  metadata.values["loader_source"] = "hip_fatbin";
+  metadata.values["artifact_path"] = path.string();
+  return LoadFromAmdgpuElf(device_path, std::move(kernel_name), std::move(metadata));
+}
+
+}  // namespace
+
+ProgramImage AmdgpuObjLoader::LoadFromObject(const std::filesystem::path& path,
+                                             std::optional<std::string> kernel_name) const {
+  if (!std::filesystem::exists(path)) {
+    throw std::runtime_error("missing AMDGPU object file: " + path.string());
+  }
+
+  const std::string quoted = ShellQuote(path.string());
+  const std::string header = RunCommand("readelf -h " + quoted);
+  if (IsAmdgpuElfHeader(header)) {
+    return LoadFromAmdgpuElf(path, std::move(kernel_name));
+  }
+
+  const std::string sections = RunCommand("readelf -S " + quoted);
+  if (HasHipFatbinSection(sections)) {
+    return LoadFromHipFatbinHostElf(path, std::move(kernel_name));
+  }
+
+  throw std::runtime_error("ELF is neither AMDGPU code object nor HIP fatbin host artifact: " +
+                           path.string());
 }
 
 }  // namespace gpu_model
