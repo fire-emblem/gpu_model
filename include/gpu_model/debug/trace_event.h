@@ -8,6 +8,8 @@ namespace gpu_model {
 enum class TraceEventKind {
   Launch,
   BlockPlaced,
+  BlockLaunch,
+  WaveLaunch,
   WaveStep,
   Commit,
   ExecMaskUpdate,

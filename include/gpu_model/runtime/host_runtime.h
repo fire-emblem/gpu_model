@@ -20,6 +20,8 @@ class HostRuntime {
                                      uint64_t l2_hit_latency,
                                      uint64_t l1_hit_latency);
   void SetSharedBankConflictModel(uint32_t bank_count, uint32_t bank_width_bytes);
+  uint64_t device_cycle() const { return device_cycle_; }
+  void ResetDeviceCycle() { device_cycle_ = 0; has_cycle_launch_history_ = false; }
 
   LaunchResult Launch(const LaunchRequest& request);
 
@@ -36,6 +38,8 @@ class HostRuntime {
   std::optional<uint64_t> l1_hit_latency_override_;
   std::optional<uint32_t> shared_bank_count_override_;
   std::optional<uint32_t> shared_bank_width_override_;
+  uint64_t device_cycle_ = 0;
+  bool has_cycle_launch_history_ = false;
 };
 
 }  // namespace gpu_model

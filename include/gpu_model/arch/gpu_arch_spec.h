@@ -29,6 +29,15 @@ struct SharedBankModelSpec {
   uint32_t bank_width_bytes = 4;
 };
 
+struct LaunchTimingSpec {
+  uint64_t kernel_launch_gap_cycles = 8;
+  uint64_t kernel_launch_cycles = 0;
+  uint64_t block_launch_cycles = 0;
+  uint64_t wave_launch_cycles = 0;
+  uint64_t warp_switch_cycles = 1;
+  uint64_t arg_load_cycles = 4;
+};
+
 struct GpuArchSpec {
   std::string name;
   uint32_t wave_size = 64;
@@ -41,6 +50,7 @@ struct GpuArchSpec {
   FeatureFlags features;
   CacheModelSpec cache_model;
   SharedBankModelSpec shared_bank_model;
+  LaunchTimingSpec launch_timing;
 };
 
 }  // namespace gpu_model

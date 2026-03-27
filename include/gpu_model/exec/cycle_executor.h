@@ -8,6 +8,7 @@ namespace gpu_model {
 struct CycleTimingConfig {
   CacheModelSpec cache_model;
   SharedBankModelSpec shared_bank_model;
+  LaunchTimingSpec launch_timing;
 };
 
 class CycleExecutor final : public IExecutionEngine {

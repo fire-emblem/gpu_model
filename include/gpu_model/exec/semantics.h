@@ -27,6 +27,7 @@ struct ExecutionContext {
   TraceSink& trace;
   ExecutionStats* stats = nullptr;
   uint64_t cycle = 0;
+  uint64_t arg_load_cycles = 4;
 };
 
 class Semantics {

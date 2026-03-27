@@ -50,6 +50,9 @@ struct LaunchRequest {
 struct LaunchResult {
   bool ok = false;
   std::string error_message;
+  uint64_t submit_cycle = 0;
+  uint64_t begin_cycle = 0;
+  uint64_t end_cycle = 0;
   uint64_t total_cycles = 0;
   PlacementMap placement;
   ExecutionStats stats;

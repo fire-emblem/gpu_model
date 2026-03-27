@@ -29,14 +29,19 @@ struct ScheduledWave {
   struct ExecutableBlock* block = nullptr;
   WaveState wave;
   Scoreboard scoreboard;
+  uint64_t launch_cycle = 0;
 };
 
 struct ExecutableBlock {
   uint32_t block_id = 0;
   uint32_t dpc_id = 0;
   uint32_t ap_id = 0;
+  uint32_t global_ap_id = 0;
+  uint32_t ap_queue_index = 0;
   uint64_t barrier_generation = 0;
   uint32_t barrier_arrivals = 0;
+  bool active = false;
+  bool completed = false;
   std::vector<std::byte> shared_memory;
   std::vector<ScheduledWave> waves;
 };
@@ -46,6 +51,7 @@ struct PeuSlot {
   uint32_t ap_id = 0;
   uint32_t peu_id = 0;
   uint64_t busy_until = 0;
+  uint64_t last_wave_tag = std::numeric_limits<uint64_t>::max();
   std::vector<ScheduledWave*> waves;
 };
 
@@ -345,6 +351,7 @@ std::vector<ExecutableBlock> MaterializeBlocks(const PlacementMap& placement,
         .block_id = block_placement.block_id,
         .dpc_id = block_placement.dpc_id,
         .ap_id = block_placement.ap_id,
+        .global_ap_id = block_placement.global_ap_id,
         .barrier_generation = 0,
         .barrier_arrivals = 0,
         .shared_memory = std::vector<std::byte>(launch_config.shared_memory_bytes),
@@ -362,6 +369,7 @@ std::vector<ExecutableBlock> MaterializeBlocks(const PlacementMap& placement,
       scheduled.wave.ap_id = block_placement.ap_id;
       scheduled.wave.thread_count = wave_placement.lane_count;
       scheduled.wave.ResetInitialExec();
+      scheduled.wave.status = WaveStatus::Stalled;
       block.waves.push_back(std::move(scheduled));
     }
     blocks.push_back(std::move(block));
@@ -411,6 +419,12 @@ bool AllWavesExited(const std::vector<ExecutableBlock>& blocks) {
   return true;
 }
 
+bool AllWavesExited(const ExecutableBlock& block) {
+  return std::all_of(block.waves.begin(), block.waves.end(), [](const ScheduledWave& wave) {
+    return wave.wave.status == WaveStatus::Exited;
+  });
+}
+
 std::vector<uint64_t> ActiveAddresses(const MemoryRequest& request) {
   std::vector<uint64_t> addrs;
   addrs.reserve(kWaveSize);
@@ -422,6 +436,59 @@ std::vector<uint64_t> ActiveAddresses(const MemoryRequest& request) {
   return addrs;
 }
 
+uint64_t WaveTag(const WaveState& wave) {
+  return (static_cast<uint64_t>(wave.block_id) << 32) | wave.wave_id;
+}
+
+void ActivateBlock(ExecutableBlock& block,
+                   uint64_t cycle,
+                   uint64_t wave_launch_cycles,
+                   EventQueue& events,
+                   TraceSink& trace) {
+  block.active = true;
+  trace.OnEvent(TraceEvent{
+      .kind = TraceEventKind::BlockLaunch,
+      .cycle = cycle,
+      .block_id = block.block_id,
+      .message = "ap=" + std::to_string(block.ap_id),
+  });
+  std::map<uint32_t, uint32_t> peu_launch_order;
+  for (auto& scheduled_wave : block.waves) {
+    const uint64_t launch_cycle =
+        cycle + static_cast<uint64_t>(peu_launch_order[scheduled_wave.wave.peu_id]++) * wave_launch_cycles;
+    scheduled_wave.launch_cycle = launch_cycle;
+    if (launch_cycle == cycle) {
+      scheduled_wave.wave.status = WaveStatus::Active;
+      trace.OnEvent(TraceEvent{
+          .kind = TraceEventKind::WaveLaunch,
+          .cycle = launch_cycle,
+          .block_id = block.block_id,
+          .wave_id = scheduled_wave.wave.wave_id,
+          .pc = scheduled_wave.wave.pc,
+          .message = "peu=" + std::to_string(scheduled_wave.wave.peu_id),
+      });
+    } else {
+      scheduled_wave.wave.status = WaveStatus::Stalled;
+      ScheduledWave* wave_ptr = &scheduled_wave;
+      events.Schedule(TimedEvent{
+          .cycle = launch_cycle,
+          .action =
+              [wave_ptr, &trace, block_id = block.block_id, peu_id = scheduled_wave.wave.peu_id]() {
+                wave_ptr->wave.status = WaveStatus::Active;
+                trace.OnEvent(TraceEvent{
+                    .kind = TraceEventKind::WaveLaunch,
+                    .cycle = wave_ptr->launch_cycle,
+                    .block_id = block_id,
+                    .wave_id = wave_ptr->wave.wave_id,
+                    .pc = wave_ptr->wave.pc,
+                    .message = "peu=" + std::to_string(peu_id),
+                });
+              },
+      });
+    }
+  }
+}
+
 }  // namespace
 
 uint64_t CycleExecutor::Run(ExecutionContext& context) {
@@ -431,6 +498,7 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
   std::map<L1Key, CacheModel> l1_caches;
   CacheModel l2_cache(timing_config_.cache_model);
   SharedBankModel shared_bank_model(timing_config_.shared_bank_model);
+  std::map<uint32_t, std::vector<ExecutableBlock*>> ap_queues;
 
   for (auto& slot : slots) {
     slot.busy_until = 0;
@@ -438,7 +506,20 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                       CacheModel(timing_config_.cache_model));
   }
 
-  uint64_t cycle = 0;
+  for (auto& block : blocks) {
+    auto& queue = ap_queues[block.global_ap_id];
+    block.ap_queue_index = static_cast<uint32_t>(queue.size());
+    queue.push_back(&block);
+  }
+  for (auto& [global_ap_id, queue] : ap_queues) {
+    (void)global_ap_id;
+    if (!queue.empty()) {
+      ActivateBlock(*queue.front(), context.cycle, timing_config_.launch_timing.wave_launch_cycles,
+                    events, context.trace);
+    }
+  }
+
+  uint64_t cycle = context.cycle;
   while (true) {
     context.cycle = cycle;
     events.RunReady(cycle);
@@ -488,8 +569,25 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
       });
 
       const OpPlan plan = semantics_.BuildPlan(instruction, wave, context);
-      const uint64_t commit_cycle = cycle + plan.issue_cycles;
+      const uint64_t wave_tag = WaveTag(wave);
+      const uint64_t switch_penalty =
+          slot.last_wave_tag != std::numeric_limits<uint64_t>::max() &&
+                  slot.last_wave_tag != wave_tag
+              ? timing_config_.launch_timing.warp_switch_cycles
+              : 0;
+      if (switch_penalty > 0) {
+        context.trace.OnEvent(TraceEvent{
+            .kind = TraceEventKind::Stall,
+            .cycle = cycle,
+            .block_id = wave.block_id,
+            .wave_id = wave.wave_id,
+            .pc = wave.pc,
+            .message = "warp_switch",
+        });
+      }
+      const uint64_t commit_cycle = cycle + switch_penalty + plan.issue_cycles;
       slot.busy_until = commit_cycle;
+      slot.last_wave_tag = wave_tag;
       wave.status = WaveStatus::Stalled;
 
       if (plan.memory.has_value()) {
@@ -819,6 +917,30 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                       .pc = candidate->wave.pc,
                       .message = "exit",
                   });
+                  if (candidate->block->active && !candidate->block->completed &&
+                      AllWavesExited(*candidate->block)) {
+                    candidate->block->active = false;
+                    candidate->block->completed = true;
+                    const auto queue_it = ap_queues.find(candidate->block->global_ap_id);
+                    if (queue_it != ap_queues.end()) {
+                      const uint32_t next_index = candidate->block->ap_queue_index + 1;
+                      if (next_index < queue_it->second.size()) {
+                        ExecutableBlock* next_block = queue_it->second[next_index];
+                        events.Schedule(TimedEvent{
+                            .cycle = commit_cycle + timing_config_.launch_timing.block_launch_cycles,
+                            .action =
+                                [next_block, &context, &events, commit_cycle, this]() {
+                                  ActivateBlock(
+                                      *next_block,
+                                      commit_cycle + timing_config_.launch_timing.block_launch_cycles,
+                                      timing_config_.launch_timing.wave_launch_cycles,
+                                      events,
+                                      context.trace);
+                                },
+                        });
+                      }
+                    }
+                  }
                   return;
                 }
 

@@ -117,12 +117,19 @@ LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
   }
 
   auto& trace = ResolveTraceSink(request.trace);
-  trace.OnEvent(TraceEvent{
-      .kind = TraceEventKind::Launch,
-      .message = "kernel=" + kernel->name() + " arch=" + spec->name,
-  });
-
   try {
+    if (request.mode == ExecutionMode::Cycle) {
+      result.submit_cycle =
+          has_cycle_launch_history_ ? device_cycle_ + spec->launch_timing.kernel_launch_gap_cycles
+                                    : 0;
+      result.begin_cycle = result.submit_cycle + spec->launch_timing.kernel_launch_cycles;
+    }
+    trace.OnEvent(TraceEvent{
+        .kind = TraceEventKind::Launch,
+        .cycle = result.submit_cycle,
+        .message = "kernel=" + kernel->name() + " arch=" + spec->name,
+    });
+
     result.placement = Mapper::Place(*spec, request.config);
     for (const auto& block : result.placement.blocks) {
       std::ostringstream message;
@@ -145,14 +152,20 @@ LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
         .memory = memory_,
         .trace = trace,
         .stats = &result.stats,
+        .arg_load_cycles = spec->launch_timing.arg_load_cycles,
     };
 
     if (request.mode == ExecutionMode::Functional) {
       FunctionalExecutor executor;
       result.total_cycles = executor.Run(context);
+      result.end_cycle = result.total_cycles;
     } else if (request.mode == ExecutionMode::Cycle) {
+      context.cycle = result.begin_cycle;
       CycleExecutor executor(ResolveCycleTimingConfig(*spec));
-      result.total_cycles = executor.Run(context);
+      result.end_cycle = executor.Run(context);
+      result.total_cycles = result.end_cycle - result.begin_cycle;
+      device_cycle_ = result.end_cycle;
+      has_cycle_launch_history_ = true;
     } else {
       result.error_message = "requested execution mode is not implemented";
       return result;
@@ -171,6 +184,7 @@ CycleTimingConfig HostRuntime::ResolveCycleTimingConfig(const GpuArchSpec& spec)
   CycleTimingConfig config;
   config.cache_model = spec.cache_model;
   config.shared_bank_model = spec.shared_bank_model;
+  config.launch_timing = spec.launch_timing;
 
   if (flat_global_latency_override_.has_value()) {
     config.cache_model.enabled = false;

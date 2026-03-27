@@ -42,6 +42,7 @@ OpPlan Semantics::BuildPlan(const Instruction& instruction,
     case Opcode::SysLoadArg: {
       const uint32_t dest = RequireScalarReg(instruction.operands.at(0));
       const uint32_t arg_index = static_cast<uint32_t>(instruction.operands.at(1).immediate);
+      plan.issue_cycles = static_cast<uint32_t>(context.arg_load_cycles);
       plan.scalar_writes.push_back(ScalarWrite{.reg_index = dest, .value = context.args.GetU64(arg_index)});
       return plan;
     }
