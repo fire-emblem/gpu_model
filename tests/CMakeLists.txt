@@ -43,6 +43,3 @@ target_link_libraries(gpu_model_tests
 )
 
 gpu_model_enable_warnings(gpu_model_tests)
-
-include(GoogleTest)
-gtest_discover_tests(gpu_model_tests)
