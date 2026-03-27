@@ -1,11 +1,18 @@
 #include "gpu_model/debug/trace_sink.h"
 
+#include <iomanip>
 #include <stdexcept>
 #include <string_view>
 
 namespace gpu_model {
 
 namespace {
+
+std::string HexU64(uint64_t value) {
+  std::ostringstream out;
+  out << "0x" << std::hex << std::nouppercase << value;
+  return out.str();
+}
 
 std::string_view KindToString(TraceEventKind kind) {
   switch (kind) {
@@ -48,8 +55,9 @@ FileTraceSink::FileTraceSink(const std::filesystem::path& path) : out_(path) {
 }
 
 void FileTraceSink::OnEvent(const TraceEvent& event) {
-  out_ << "cycle=" << event.cycle << " kind=" << KindToString(event.kind)
-       << " block=" << event.block_id << " wave=" << event.wave_id << " pc=" << event.pc
+  out_ << "pc=" << HexU64(event.pc) << " cycle=" << HexU64(event.cycle)
+       << " kind=" << KindToString(event.kind) << " block=" << HexU64(event.block_id)
+       << " wave=" << HexU64(event.wave_id)
        << " msg=" << event.message << '\n';
 }
 
@@ -60,9 +68,10 @@ JsonTraceSink::JsonTraceSink(const std::filesystem::path& path) : out_(path) {
 }
 
 void JsonTraceSink::OnEvent(const TraceEvent& event) {
-  out_ << "{\"cycle\":" << event.cycle << ",\"kind\":\"" << KindToString(event.kind)
-       << "\",\"block_id\":" << event.block_id << ",\"wave_id\":" << event.wave_id
-       << ",\"pc\":" << event.pc << ",\"message\":\"" << EscapeJson(event.message) << "\"}\n";
+  out_ << "{\"pc\":\"" << HexU64(event.pc) << "\",\"cycle\":\"" << HexU64(event.cycle)
+       << "\",\"kind\":\"" << KindToString(event.kind) << "\",\"block_id\":\""
+       << HexU64(event.block_id) << "\",\"wave_id\":\"" << HexU64(event.wave_id)
+       << "\",\"message\":\"" << EscapeJson(event.message) << "\"}\n";
 }
 
 std::string JsonTraceSink::EscapeJson(const std::string& text) {

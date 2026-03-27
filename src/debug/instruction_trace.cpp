@@ -1,6 +1,7 @@
 #include "gpu_model/debug/instruction_trace.h"
 
 #include <algorithm>
+#include <iomanip>
 #include <sstream>
 #include <string_view>
 
@@ -11,6 +12,16 @@ namespace gpu_model {
 
 namespace {
 
+std::string HexU64(uint64_t value, int width = 0) {
+  std::ostringstream out;
+  out << "0x" << std::hex << std::nouppercase;
+  if (width > 0) {
+    out << std::setfill('0') << std::setw(width);
+  }
+  out << value;
+  return out.str();
+}
+
 std::string RegisterName(const RegRef& reg) {
   const char prefix = reg.file == RegisterFile::Scalar ? 's' : 'v';
   return std::string(1, prefix) + std::to_string(reg.index);
@@ -18,25 +29,19 @@ std::string RegisterName(const RegRef& reg) {
 
 std::string FormatVectorValue(uint32_t reg_index, const WaveState& wave) {
   std::ostringstream out;
-  out << '{';
-  uint32_t emitted = 0;
+  out << '\n';
+  bool emitted = false;
   for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
     if (!wave.exec.test(lane)) {
       continue;
     }
-    if (emitted > 0) {
-      out << ',';
-    }
-    out << lane << ':' << static_cast<int64_t>(wave.vgpr.Read(reg_index, lane));
-    ++emitted;
-    if (emitted == 4) {
-      if (wave.exec.count() > emitted) {
-        out << ",...";
-      }
-      break;
-    }
+    emitted = true;
+    out << "    lane[" << HexU64(lane, 2) << "] = "
+        << HexU64(wave.vgpr.Read(reg_index, lane)) << '\n';
   }
-  out << '}';
+  if (!emitted) {
+    out << "    <no active lanes>\n";
+  }
   return out.str();
 }
 
@@ -44,16 +49,15 @@ std::string FormatOperand(const Operand& operand, const WaveState& wave) {
   switch (operand.kind) {
     case OperandKind::Register:
       if (operand.reg.file == RegisterFile::Scalar) {
-        return RegisterName(operand.reg) + "=" +
-               std::to_string(static_cast<int64_t>(wave.sgpr.Read(operand.reg.index)));
+        return RegisterName(operand.reg) + " = " + HexU64(wave.sgpr.Read(operand.reg.index));
       }
-      return RegisterName(operand.reg) + "=" + FormatVectorValue(operand.reg.index, wave);
+      return RegisterName(operand.reg) + ":" + FormatVectorValue(operand.reg.index, wave);
     case OperandKind::Immediate:
-      return "#" + std::to_string(static_cast<int64_t>(operand.immediate));
+      return HexU64(operand.immediate);
     case OperandKind::ArgumentIndex:
-      return "arg" + std::to_string(operand.immediate);
+      return "arg[" + HexU64(operand.immediate) + "]";
     case OperandKind::BranchTarget:
-      return "pc=" + std::to_string(operand.immediate);
+      return "pc = " + HexU64(operand.immediate);
     case OperandKind::None:
       break;
   }
@@ -64,14 +68,15 @@ std::string FormatOperand(const Operand& operand, const WaveState& wave) {
 
 std::string FormatWaveStepMessage(const Instruction& instruction, const WaveState& wave) {
   std::ostringstream out;
-  out << ToString(instruction.opcode) << " | exec=" << wave.exec.count() << " | operands=[";
-  for (size_t i = 0; i < instruction.operands.size(); ++i) {
-    if (i > 0) {
-      out << ", ";
-    }
-    out << FormatOperand(instruction.operands[i], wave);
+  out << "pc=" << HexU64(wave.pc) << " op=" << ToString(instruction.opcode)
+      << " exec_lanes=" << HexU64(wave.exec.count());
+  if (instruction.operands.empty()) {
+    return out.str();
   }
-  out << ']';
+  out << "\n  operands:";
+  for (size_t i = 0; i < instruction.operands.size(); ++i) {
+    out << "\n  [" << HexU64(i, 2) << "] " << FormatOperand(instruction.operands[i], wave);
+  }
   return out.str();
 }
 

@@ -59,6 +59,7 @@ TEST(TraceTest, WritesHumanReadableTraceFile) {
   const std::string text = buffer.str();
   EXPECT_NE(text.find("kind=Launch"), std::string::npos);
   EXPECT_NE(text.find("kind=WaveExit"), std::string::npos);
+  EXPECT_NE(text.find("pc=0x0"), std::string::npos);
   std::filesystem::remove(path);
 }
 
@@ -87,6 +88,7 @@ TEST(TraceTest, WritesJsonTraceFile) {
   std::string line;
   ASSERT_TRUE(static_cast<bool>(std::getline(input, line)));
   EXPECT_NE(line.find("\"kind\":\"Launch\""), std::string::npos);
+  EXPECT_NE(line.find("\"pc\":\"0x0\""), std::string::npos);
   EXPECT_NE(line.find("\"message\":\"kernel=json_trace_kernel arch=c500\""), std::string::npos);
   std::filesystem::remove(path);
 }
