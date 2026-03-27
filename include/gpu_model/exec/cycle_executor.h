@@ -9,6 +9,8 @@ struct CycleTimingConfig {
   CacheModelSpec cache_model;
   SharedBankModelSpec shared_bank_model;
   LaunchTimingSpec launch_timing;
+  IssueCycleClassOverridesSpec issue_cycle_class_overrides;
+  IssueCycleOpOverridesSpec issue_cycle_op_overrides;
 };
 
 class CycleExecutor final : public IExecutionEngine {

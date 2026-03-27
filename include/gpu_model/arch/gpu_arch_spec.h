@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
 
 namespace gpu_model {
@@ -38,6 +39,27 @@ struct LaunchTimingSpec {
   uint64_t arg_load_cycles = 4;
 };
 
+struct IssueCycleClassOverridesSpec {
+  std::optional<uint64_t> scalar_alu;
+  std::optional<uint64_t> vector_alu;
+  std::optional<uint64_t> scalar_memory;
+  std::optional<uint64_t> vector_memory;
+  std::optional<uint64_t> branch;
+  std::optional<uint64_t> sync_wait;
+  std::optional<uint64_t> mask;
+};
+
+struct IssueCycleOpOverridesSpec {
+  std::optional<uint64_t> s_waitcnt;
+  std::optional<uint64_t> s_buffer_load_dword;
+  std::optional<uint64_t> buffer_load_dword;
+  std::optional<uint64_t> buffer_store_dword;
+  std::optional<uint64_t> buffer_atomic_add_u32;
+  std::optional<uint64_t> ds_read_b32;
+  std::optional<uint64_t> ds_write_b32;
+  std::optional<uint64_t> ds_add_u32;
+};
+
 struct GpuArchSpec {
   std::string name;
   uint32_t wave_size = 64;
@@ -51,6 +73,8 @@ struct GpuArchSpec {
   CacheModelSpec cache_model;
   SharedBankModelSpec shared_bank_model;
   LaunchTimingSpec launch_timing;
+  IssueCycleClassOverridesSpec issue_cycle_class_overrides;
+  IssueCycleOpOverridesSpec issue_cycle_op_overrides;
 };
 
 }  // namespace gpu_model

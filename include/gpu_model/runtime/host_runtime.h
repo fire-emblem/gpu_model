@@ -26,6 +26,8 @@ class HostRuntime {
                               uint64_t wave_launch_cycles,
                               uint64_t warp_switch_cycles,
                               uint64_t arg_load_cycles);
+  void SetIssueCycleClassOverrides(const IssueCycleClassOverridesSpec& overrides);
+  void SetIssueCycleOpOverrides(const IssueCycleOpOverridesSpec& overrides);
   uint64_t device_cycle() const { return device_cycle_; }
   void ResetDeviceCycle() { device_cycle_ = 0; has_cycle_launch_history_ = false; }
 
@@ -50,6 +52,8 @@ class HostRuntime {
   std::optional<uint64_t> wave_launch_cycles_override_;
   std::optional<uint64_t> warp_switch_cycles_override_;
   std::optional<uint64_t> arg_load_cycles_override_;
+  std::optional<IssueCycleClassOverridesSpec> issue_cycle_class_overrides_;
+  std::optional<IssueCycleOpOverridesSpec> issue_cycle_op_overrides_;
   uint64_t device_cycle_ = 0;
   bool has_cycle_launch_history_ = false;
 };

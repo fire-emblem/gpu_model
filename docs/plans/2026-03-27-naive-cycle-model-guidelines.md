@@ -62,6 +62,18 @@ When more control is needed, support two override levels:
 
 Category defaults should stay compact. Specific overrides should be sparse.
 
+Priority rule:
+
+1. specific instruction override
+2. instruction category override
+3. `default_issue_cycles`
+
+Recommended practice:
+
+- keep `default_issue_cycles = 4`
+- only override a small set of AMD-facing instructions that compiler and library teams actively tune
+- keep latency modeling separate from issue overrides
+
 ## Recommended Modeling Layers
 
 The project should evolve in layers, but stop before hardware-faithful complexity:

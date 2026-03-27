@@ -49,6 +49,14 @@ void HostRuntime::SetLaunchTimingProfile(uint64_t kernel_launch_gap_cycles,
   arg_load_cycles_override_ = arg_load_cycles;
 }
 
+void HostRuntime::SetIssueCycleClassOverrides(const IssueCycleClassOverridesSpec& overrides) {
+  issue_cycle_class_overrides_ = overrides;
+}
+
+void HostRuntime::SetIssueCycleOpOverrides(const IssueCycleOpOverridesSpec& overrides) {
+  issue_cycle_op_overrides_ = overrides;
+}
+
 LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
   LaunchResult result;
 
@@ -169,6 +177,8 @@ LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
         .trace = trace,
         .stats = &result.stats,
         .arg_load_cycles = spec->launch_timing.arg_load_cycles,
+        .issue_cycle_class_overrides = ResolveCycleTimingConfig(*spec).issue_cycle_class_overrides,
+        .issue_cycle_op_overrides = ResolveCycleTimingConfig(*spec).issue_cycle_op_overrides,
     };
 
     if (request.mode == ExecutionMode::Functional) {
@@ -201,6 +211,8 @@ CycleTimingConfig HostRuntime::ResolveCycleTimingConfig(const GpuArchSpec& spec)
   config.cache_model = spec.cache_model;
   config.shared_bank_model = spec.shared_bank_model;
   config.launch_timing = spec.launch_timing;
+  config.issue_cycle_class_overrides = spec.issue_cycle_class_overrides;
+  config.issue_cycle_op_overrides = spec.issue_cycle_op_overrides;
 
   if (flat_global_latency_override_.has_value()) {
     config.cache_model.enabled = false;
@@ -245,6 +257,12 @@ CycleTimingConfig HostRuntime::ResolveCycleTimingConfig(const GpuArchSpec& spec)
   }
   if (arg_load_cycles_override_.has_value()) {
     config.launch_timing.arg_load_cycles = *arg_load_cycles_override_;
+  }
+  if (issue_cycle_class_overrides_.has_value()) {
+    config.issue_cycle_class_overrides = *issue_cycle_class_overrides_;
+  }
+  if (issue_cycle_op_overrides_.has_value()) {
+    config.issue_cycle_op_overrides = *issue_cycle_op_overrides_;
   }
 
   return config;

@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <cstring>
 
 #include "gpu_model/debug/trace_sink.h"
 #include "gpu_model/isa/instruction_builder.h"
@@ -185,6 +186,65 @@ TEST(CycleSmokeTest, ReadyWavesIssueRoundRobinWithinPeu) {
   EXPECT_EQ(issued_waves[3], 1u);
   EXPECT_EQ(issued_waves[4], 0u);
   EXPECT_EQ(issued_waves[5], 1u);
+}
+
+TEST(CycleSmokeTest, IssueCycleClassOverrideChangesSelectedInstructionCategory) {
+  ConstSegment const_segment;
+  const int32_t value = 7;
+  const_segment.bytes.resize(sizeof(value));
+  std::memcpy(const_segment.bytes.data(), &value, sizeof(value));
+
+  InstructionBuilder builder;
+  builder.SMov("s0", 0);
+  builder.SBufferLoadDword("s1", "s0", 4);
+  builder.BExit();
+  const auto kernel = builder.Build("class_override_kernel", {}, std::move(const_segment));
+
+  HostRuntime runtime;
+  IssueCycleClassOverridesSpec class_overrides;
+  class_overrides.scalar_memory = 6;
+  runtime.SetIssueCycleClassOverrides(class_overrides);
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+  EXPECT_EQ(result.total_cycles, 14u);
+}
+
+TEST(CycleSmokeTest, IssueCycleOpOverrideTakesPriorityOverClassOverride) {
+  ConstSegment const_segment;
+  const int32_t value = 7;
+  const_segment.bytes.resize(sizeof(value));
+  std::memcpy(const_segment.bytes.data(), &value, sizeof(value));
+
+  InstructionBuilder builder;
+  builder.SMov("s0", 0);
+  builder.SBufferLoadDword("s1", "s0", 4);
+  builder.BExit();
+  const auto kernel = builder.Build("op_override_kernel", {}, std::move(const_segment));
+
+  HostRuntime runtime;
+  IssueCycleClassOverridesSpec class_overrides;
+  class_overrides.scalar_memory = 6;
+  runtime.SetIssueCycleClassOverrides(class_overrides);
+  IssueCycleOpOverridesSpec op_overrides;
+  op_overrides.s_buffer_load_dword = 9;
+  runtime.SetIssueCycleOpOverrides(op_overrides);
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+  EXPECT_EQ(result.total_cycles, 17u);
 }
 
 }  // namespace
