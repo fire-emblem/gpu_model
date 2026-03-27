@@ -11,6 +11,8 @@ std::string_view ToString(TargetIsa isa) {
       return "canonical_asm";
     case TargetIsa::GcnAsm:
       return "gcn_asm";
+    case TargetIsa::GcnRawAsm:
+      return "gcn_raw_asm";
   }
   return "canonical_asm";
 }
@@ -21,6 +23,9 @@ TargetIsa ParseTargetIsa(std::string_view text) {
   }
   if (text == "gcn_asm") {
     return TargetIsa::GcnAsm;
+  }
+  if (text == "gcn_raw_asm") {
+    return TargetIsa::GcnRawAsm;
   }
   throw std::invalid_argument("unknown target ISA: " + std::string(text));
 }

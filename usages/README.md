@@ -10,6 +10,8 @@ This directory groups runnable workflows by usage instead of by source module.
   Parameterized regression coverage for requested functional and cycle launch scales.
 - `hip-fatbin-launch/`
   Compile a minimal HIP artifact, extract the embedded `.hip_fatbin` device bundle, and run the loader path.
+- `hip-command-line-interposer/`
+  Run a real HIP `.out` executable with `LD_PRELOAD` so host code executes normally while kernel launches are redirected into the model.
 
 Each usage directory contains:
 

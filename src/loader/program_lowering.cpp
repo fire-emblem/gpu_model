@@ -78,6 +78,15 @@ class GcnAsmLowerer final : public IProgramLowerer {
   }
 };
 
+class GcnRawAsmLowerer final : public IProgramLowerer {
+ public:
+  TargetIsa target_isa() const override { return TargetIsa::GcnRawAsm; }
+
+  KernelProgram Lower(const ProgramImage& image) const override {
+    return AsmParser{}.Parse(image);
+  }
+};
+
 struct LowererBinding {
   TargetIsa isa = TargetIsa::CanonicalAsm;
   const IProgramLowerer* lowerer = nullptr;
@@ -86,9 +95,11 @@ struct LowererBinding {
 const std::vector<LowererBinding>& LowererBindings() {
   static const CanonicalAsmLowerer kCanonicalAsmLowerer;
   static const GcnAsmLowerer kGcnAsmLowerer;
+  static const GcnRawAsmLowerer kGcnRawAsmLowerer;
   static const std::vector<LowererBinding> kBindings = {
       {.isa = TargetIsa::CanonicalAsm, .lowerer = &kCanonicalAsmLowerer},
       {.isa = TargetIsa::GcnAsm, .lowerer = &kGcnAsmLowerer},
+      {.isa = TargetIsa::GcnRawAsm, .lowerer = &kGcnRawAsmLowerer},
   };
   return kBindings;
 }

@@ -108,6 +108,13 @@ void RuntimeHooks::UnloadModule(const std::string& module_name) {
   modules_.erase(module_name);
 }
 
+void RuntimeHooks::Reset() {
+  owned_runtime_ = HostRuntime{};
+  runtime_ = &owned_runtime_;
+  allocations_.clear();
+  modules_.clear();
+}
+
 bool RuntimeHooks::HasModule(const std::string& module_name) const {
   return modules_.find(module_name) != modules_.end();
 }

@@ -1,0 +1,15 @@
+hip_4.2 {
+  global:
+    __hipRegisterFatBinary;
+    __hipRegisterFunction;
+    __hipUnregisterFatBinary;
+    __hipPushCallConfiguration;
+    __hipPopCallConfiguration;
+    hipMalloc;
+    hipFree;
+    hipMemcpy;
+    hipDeviceSynchronize;
+    hipLaunchKernel;
+  local:
+    *;
+};

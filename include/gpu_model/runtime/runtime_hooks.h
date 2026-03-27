@@ -61,6 +61,7 @@ class RuntimeHooks {
   void LoadExecutableImage(std::string module_name, const std::filesystem::path& path);
   void LoadProgramFileStem(std::string module_name, const std::filesystem::path& path);
   void UnloadModule(const std::string& module_name);
+  void Reset();
   bool HasModule(const std::string& module_name) const;
   bool HasKernel(const std::string& module_name, const std::string& kernel_name) const;
   std::vector<std::string> ListModules() const;

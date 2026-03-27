@@ -9,6 +9,7 @@ namespace gpu_model {
 enum class TargetIsa {
   CanonicalAsm,
   GcnAsm,
+  GcnRawAsm,
 };
 
 std::string_view ToString(TargetIsa isa);

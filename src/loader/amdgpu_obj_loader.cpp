@@ -156,6 +156,106 @@ std::string ExtractInstruction(const std::string& line) {
   return text;
 }
 
+struct KernelArgLayoutEntry {
+  std::string value_kind;
+  uint32_t size = 0;
+};
+
+struct NoteKernelMetadata {
+  std::string name;
+  std::vector<KernelArgLayoutEntry> args;
+};
+
+std::vector<NoteKernelMetadata> ParseKernelMetadataNotes(const std::string& notes) {
+  std::vector<NoteKernelMetadata> kernels;
+  std::optional<NoteKernelMetadata> current;
+  std::optional<KernelArgLayoutEntry> current_arg;
+
+  const auto finalize_arg = [&]() {
+    if (current.has_value() && current_arg.has_value() && !current_arg->value_kind.empty() &&
+        current_arg->size != 0 && current_arg->value_kind.rfind("hidden_", 0) != 0) {
+      current->args.push_back(*current_arg);
+    }
+    current_arg.reset();
+  };
+  const auto finalize_kernel = [&]() {
+    finalize_arg();
+    if (current.has_value()) {
+      kernels.push_back(*current);
+      current.reset();
+    }
+  };
+
+  std::istringstream input(notes);
+  std::string line;
+  while (std::getline(input, line)) {
+    const std::string trimmed = Trim(line);
+    if (trimmed == "amdhsa.kernels:" || trimmed.empty()) {
+      continue;
+    }
+    if (trimmed == "- .args:") {
+      finalize_kernel();
+      current = NoteKernelMetadata{};
+      continue;
+    }
+    if (!current.has_value()) {
+      continue;
+    }
+    if (trimmed.rfind("- .", 0) == 0) {
+      finalize_arg();
+      current_arg = KernelArgLayoutEntry{};
+      const auto size_pos = trimmed.find(".size:");
+      if (size_pos != std::string::npos) {
+        current_arg->size = static_cast<uint32_t>(
+            std::stoul(Trim(std::string_view(trimmed).substr(size_pos + 6))));
+      }
+      const auto kind_pos = trimmed.find(".value_kind:");
+      if (kind_pos != std::string::npos) {
+        current_arg->value_kind =
+            Trim(std::string_view(trimmed).substr(kind_pos + 12));
+      }
+      continue;
+    }
+    if (trimmed.rfind(".size:", 0) == 0 && current_arg.has_value()) {
+      current_arg->size =
+          static_cast<uint32_t>(std::stoul(Trim(std::string_view(trimmed).substr(6))));
+      continue;
+    }
+    if (trimmed.rfind(".value_kind:", 0) == 0 && current_arg.has_value()) {
+      current_arg->value_kind = Trim(std::string_view(trimmed).substr(12));
+      continue;
+    }
+    if (trimmed.rfind(".name:", 0) == 0) {
+      current->name = Trim(std::string_view(trimmed).substr(6));
+      continue;
+    }
+  }
+  finalize_kernel();
+  return kernels;
+}
+
+void PopulateMetadataFromNotes(const std::filesystem::path& path,
+                               const std::string& selected_kernel,
+                               MetadataBlob& metadata) {
+  const std::string notes = RunCommand("llvm-readelf --notes " + ShellQuote(path.string()));
+  const auto kernels = ParseKernelMetadataNotes(notes);
+  for (const auto& kernel : kernels) {
+    if (kernel.name != selected_kernel) {
+      continue;
+    }
+    std::ostringstream layout;
+    for (size_t i = 0; i < kernel.args.size(); ++i) {
+      if (i != 0) {
+        layout << ',';
+      }
+      layout << kernel.args[i].value_kind << ':' << kernel.args[i].size;
+    }
+    metadata.values["arg_layout"] = layout.str();
+    metadata.values["arg_count"] = std::to_string(kernel.args.size());
+    break;
+  }
+}
+
 ProgramImage DecodeAmdgpuElfToProgramImage(const std::filesystem::path& path,
                                            std::optional<std::string> kernel_name,
                                            MetadataBlob metadata = {}) {
@@ -210,6 +310,7 @@ ProgramImage DecodeAmdgpuElfToProgramImage(const std::filesystem::path& path,
   }
 
   metadata.values["entry"] = selected;
+  PopulateMetadataFromNotes(path, selected, metadata);
   if (metadata.values.find("target_isa") == metadata.values.end()) {
     SetTargetIsa(metadata, TargetIsa::GcnAsm);
   }

@@ -1,0 +1,1 @@
+vecadd host path ok

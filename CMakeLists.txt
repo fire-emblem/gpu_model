@@ -46,12 +46,15 @@ add_library(gpu_model STATIC
   src/exec/cycle_executor.cpp
   src/runtime/mapper.cpp
   src/runtime/host_runtime.cpp
+  src/runtime/hip_interposer_state.cpp
   src/runtime/runtime_hooks.cpp
   src/debug/instruction_trace.cpp
   src/debug/cycle_timeline.cpp
   src/debug/debug_info_io.cpp
   src/debug/trace_sink.cpp
 )
+
+set_target_properties(gpu_model PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 target_include_directories(gpu_model
   PUBLIC
@@ -68,6 +71,18 @@ add_executable(vecadd_main
 
 target_link_libraries(vecadd_main PRIVATE gpu_model)
 gpu_model_enable_warnings(vecadd_main)
+
+if(EXISTS "/opt/rocm/include/hip/hip_runtime_api.h")
+  add_library(gpu_model_hip_interposer SHARED
+    src/runtime/hip_interposer.cpp
+  )
+  target_include_directories(gpu_model_hip_interposer PRIVATE /opt/rocm/include)
+  target_link_libraries(gpu_model_hip_interposer PRIVATE gpu_model)
+  target_compile_definitions(gpu_model_hip_interposer PRIVATE _GNU_SOURCE __HIP_PLATFORM_AMD__)
+  target_link_options(gpu_model_hip_interposer PRIVATE
+    "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/cmake/hip_interposer.version")
+  gpu_model_enable_warnings(gpu_model_hip_interposer)
+endif()
 
 add_executable(fma_loop_cycle_trace_main
   examples/fma_loop_cycle_trace_main.cpp
