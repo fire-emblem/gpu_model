@@ -21,6 +21,12 @@ const std::vector<GcnInstEncodingDef>& EncodingDefs() {
       {.id = 9, .format_class = GcnInstFormatClass::Sop1, .op = 65, .size_bytes = 4, .mnemonic = "s_and_saveexec_b64"},
       {.id = 10, .format_class = GcnInstFormatClass::Sopp, .op = 8, .size_bytes = 4, .mnemonic = "s_cbranch_execz"},
       {.id = 11, .format_class = GcnInstFormatClass::Vop2, .op = 1, .size_bytes = 4, .mnemonic = "v_add_f32_e32"},
+      {.id = 12, .format_class = GcnInstFormatClass::Sopp, .op = 12, .size_bytes = 4, .mnemonic = "s_waitcnt"},
+      {.id = 13, .format_class = GcnInstFormatClass::Vop1, .op = 1, .size_bytes = 4, .mnemonic = "v_mov_b32_e32"},
+      {.id = 14, .format_class = GcnInstFormatClass::Vop2, .op = 17, .size_bytes = 4, .mnemonic = "v_ashrrev_i32_e32"},
+      {.id = 15, .format_class = GcnInstFormatClass::Vop2, .op = 25, .size_bytes = 4, .mnemonic = "v_add_co_u32_e32"},
+      {.id = 16, .format_class = GcnInstFormatClass::Vop2, .op = 28, .size_bytes = 4, .mnemonic = "v_addc_co_u32_e32"},
+      {.id = 17, .format_class = GcnInstFormatClass::Vop3a, .op = 71, .size_bytes = 8, .mnemonic = "v_lshlrev_b64"},
   };
   return kDefs;
 }
@@ -39,6 +45,10 @@ uint32_t ExtractOp(const GcnInstLayout& layout, GcnInstFormatClass format_class)
       return layout.vopc.op;
     case GcnInstFormatClass::Sop1:
       return layout.sop1.op;
+    case GcnInstFormatClass::Vop1:
+      return layout.vop1.op;
+    case GcnInstFormatClass::Vop3a:
+      return (layout.words.low >> 17u) & 0x1ffu;
     default:
       return 0xffffffffu;
   }
@@ -73,6 +83,41 @@ std::string FormatImmediate(uint32_t value) {
   return out.str();
 }
 
+RawGcnOperand DecodeSrc9(uint32_t value) {
+  if (value <= 103u) {
+    return MakeOperand(RawGcnOperandKind::ScalarReg, FormatScalarReg(value));
+  }
+  if (value >= 256u) {
+    return MakeOperand(RawGcnOperandKind::VectorReg, FormatVectorReg(value - 256u));
+  }
+  if (value >= 128u && value <= 192u) {
+    return MakeOperand(RawGcnOperandKind::Immediate, std::to_string(value - 128u));
+  }
+  if (value >= 193u && value <= 208u) {
+    return MakeOperand(RawGcnOperandKind::Immediate, std::to_string(-1 - static_cast<int32_t>(value - 193u)));
+  }
+  if (value == 106u || value == 107u) {
+    return MakeOperand(RawGcnOperandKind::SpecialReg, "vcc");
+  }
+  if (value == 126u || value == 127u) {
+    return MakeOperand(RawGcnOperandKind::SpecialReg, "exec");
+  }
+  return MakeOperand(RawGcnOperandKind::Unknown, "src" + std::to_string(value));
+}
+
+RawGcnOperand DecodeSrc8(uint32_t value) {
+  if (value <= 103u) {
+    return MakeOperand(RawGcnOperandKind::ScalarReg, FormatScalarReg(value));
+  }
+  if (value == 106u || value == 107u) {
+    return MakeOperand(RawGcnOperandKind::SpecialReg, "vcc");
+  }
+  if (value == 126u || value == 127u) {
+    return MakeOperand(RawGcnOperandKind::SpecialReg, "exec");
+  }
+  return MakeOperand(RawGcnOperandKind::Unknown, "s" + std::to_string(value));
+}
+
 }  // namespace
 
 void DecodeGcnOperands(RawGcnInstruction& instruction) {
@@ -82,70 +127,116 @@ void DecodeGcnOperands(RawGcnInstruction& instruction) {
     return;
   }
   instruction.encoding_id = def->id;
-  const auto layout = MakeGcnInstLayout(instruction.words);
+  const uint32_t low = instruction.words.empty() ? 0u : instruction.words[0];
+  const uint32_t high = instruction.words.size() > 1 ? instruction.words[1] : 0u;
 
   switch (def->id) {
     case 1:
       break;
     case 2:
+      instruction.decoded_operands.push_back(MakeOperand(
+          RawGcnOperandKind::ScalarReg, FormatScalarReg((low >> 15u) & 0x7fu)));
       instruction.decoded_operands.push_back(
-          MakeOperand(RawGcnOperandKind::ScalarReg, FormatScalarReg(layout.smrd.sdst)));
+          MakeOperand(RawGcnOperandKind::ScalarRegRange,
+                      FormatScalarRegRange(((low >> 9u) & 0x3fu) * 2u, 2)));
       instruction.decoded_operands.push_back(
-          MakeOperand(RawGcnOperandKind::ScalarRegRange, FormatScalarRegRange(layout.smrd.sbase * 2, 2)));
-      instruction.decoded_operands.push_back(
-          MakeOperand(RawGcnOperandKind::Immediate, FormatImmediate(layout.words.high)));
+          MakeOperand(RawGcnOperandKind::Immediate, FormatImmediate(high)));
       break;
     case 3:
       instruction.decoded_operands.push_back(
-          MakeOperand(RawGcnOperandKind::ScalarRegRange, FormatScalarRegRange(layout.smrd.sdst, 2)));
+          MakeOperand(RawGcnOperandKind::ScalarRegRange,
+                      FormatScalarRegRange((low >> 15u) & 0x7fu, 2)));
       instruction.decoded_operands.push_back(
-          MakeOperand(RawGcnOperandKind::ScalarRegRange, FormatScalarRegRange(layout.smrd.sbase * 2, 2)));
+          MakeOperand(RawGcnOperandKind::ScalarRegRange,
+                      FormatScalarRegRange(((low >> 9u) & 0x3fu) * 2u, 2)));
       instruction.decoded_operands.push_back(
-          MakeOperand(RawGcnOperandKind::Immediate, FormatImmediate(layout.words.high)));
+          MakeOperand(RawGcnOperandKind::Immediate, FormatImmediate(high)));
       break;
     case 4:
       instruction.decoded_operands.push_back(
-          MakeOperand(RawGcnOperandKind::ScalarRegRange, FormatScalarRegRange(layout.smrd.sdst, 4)));
+          MakeOperand(RawGcnOperandKind::ScalarRegRange,
+                      FormatScalarRegRange((low >> 15u) & 0x7fu, 4)));
       instruction.decoded_operands.push_back(
-          MakeOperand(RawGcnOperandKind::ScalarRegRange, FormatScalarRegRange(layout.smrd.sbase * 2, 2)));
+          MakeOperand(RawGcnOperandKind::ScalarRegRange,
+                      FormatScalarRegRange(((low >> 9u) & 0x3fu) * 2u, 2)));
       instruction.decoded_operands.push_back(
-          MakeOperand(RawGcnOperandKind::Immediate, FormatImmediate(layout.words.high)));
+          MakeOperand(RawGcnOperandKind::Immediate, FormatImmediate(high)));
       break;
     case 5:
     case 6:
       instruction.decoded_operands.push_back(
-          MakeOperand(RawGcnOperandKind::ScalarReg, FormatScalarReg(layout.sop2.sdst)));
-      instruction.decoded_operands.push_back(
-          MakeOperand(RawGcnOperandKind::ScalarReg, FormatScalarReg(layout.sop2.ssrc0)));
-      instruction.decoded_operands.push_back(
-          MakeOperand(RawGcnOperandKind::ScalarReg, FormatScalarReg(layout.sop2.ssrc1)));
+          MakeOperand(RawGcnOperandKind::ScalarReg, FormatScalarReg((low >> 16u) & 0x7fu)));
+      instruction.decoded_operands.push_back(DecodeSrc8(low & 0xffu));
+      instruction.decoded_operands.push_back(DecodeSrc8((low >> 8u) & 0xffu));
       break;
     case 7:
     case 11:
       instruction.decoded_operands.push_back(
-          MakeOperand(RawGcnOperandKind::VectorReg, FormatVectorReg(layout.vop2.vdst)));
+          MakeOperand(RawGcnOperandKind::VectorReg, FormatVectorReg((low >> 17u) & 0xffu)));
+      instruction.decoded_operands.push_back(DecodeSrc9(low & 0x1ffu));
       instruction.decoded_operands.push_back(
-          MakeOperand(RawGcnOperandKind::ScalarReg, FormatScalarReg(layout.vop2.src0)));
-      instruction.decoded_operands.push_back(
-          MakeOperand(RawGcnOperandKind::VectorReg, FormatVectorReg(layout.vop2.vsrc1)));
+          MakeOperand(RawGcnOperandKind::VectorReg, FormatVectorReg((low >> 9u) & 0xffu)));
       break;
     case 8:
       instruction.decoded_operands.push_back(
           MakeOperand(RawGcnOperandKind::SpecialReg, FormatSpecialReg("vcc")));
+      instruction.decoded_operands.push_back(DecodeSrc9(low & 0x1ffu));
       instruction.decoded_operands.push_back(
-          MakeOperand(RawGcnOperandKind::ScalarReg, FormatScalarReg(layout.vopc.src0)));
-      instruction.decoded_operands.push_back(
-          MakeOperand(RawGcnOperandKind::VectorReg, FormatVectorReg(layout.vopc.vsrc1)));
+          MakeOperand(RawGcnOperandKind::VectorReg, FormatVectorReg((low >> 9u) & 0xffu)));
       break;
     case 9:
       instruction.decoded_operands.push_back(
-          MakeOperand(RawGcnOperandKind::ScalarRegRange, FormatScalarRegRange(layout.sop1.sdst, 2)));
+          MakeOperand(RawGcnOperandKind::ScalarRegRange,
+                      FormatScalarRegRange((low >> 16u) & 0x7fu, 2)));
       instruction.decoded_operands.push_back(
           MakeOperand(RawGcnOperandKind::SpecialReg, FormatSpecialReg("vcc")));
       break;
     case 10:
       instruction.decoded_operands.push_back(
-          MakeOperand(RawGcnOperandKind::BranchTarget, std::to_string(layout.sopp.simm16)));
+          MakeOperand(RawGcnOperandKind::BranchTarget, std::to_string(low & 0xffffu)));
+      break;
+    case 12:
+      instruction.decoded_operands.push_back(
+          MakeOperand(RawGcnOperandKind::Immediate, "lgkmcnt(" + std::to_string((low >> 8u) & 0x7fu) + ")"));
+      break;
+    case 13:
+      instruction.decoded_operands.push_back(
+          MakeOperand(RawGcnOperandKind::VectorReg, FormatVectorReg((low >> 17u) & 0xffu)));
+      instruction.decoded_operands.push_back(DecodeSrc9(low & 0x1ffu));
+      break;
+    case 14:
+      instruction.decoded_operands.push_back(
+          MakeOperand(RawGcnOperandKind::VectorReg, FormatVectorReg((low >> 17u) & 0xffu)));
+      instruction.decoded_operands.push_back(DecodeSrc9(low & 0x1ffu));
+      instruction.decoded_operands.push_back(
+          MakeOperand(RawGcnOperandKind::VectorReg, FormatVectorReg((low >> 9u) & 0xffu)));
+      break;
+    case 15:
+      instruction.decoded_operands.push_back(
+          MakeOperand(RawGcnOperandKind::VectorReg, FormatVectorReg((low >> 17u) & 0xffu)));
+      instruction.decoded_operands.push_back(
+          MakeOperand(RawGcnOperandKind::SpecialReg, "vcc"));
+      instruction.decoded_operands.push_back(DecodeSrc9(low & 0x1ffu));
+      instruction.decoded_operands.push_back(
+          MakeOperand(RawGcnOperandKind::VectorReg, FormatVectorReg((low >> 9u) & 0xffu)));
+      break;
+    case 16:
+      instruction.decoded_operands.push_back(
+          MakeOperand(RawGcnOperandKind::VectorReg, FormatVectorReg((low >> 17u) & 0xffu)));
+      instruction.decoded_operands.push_back(
+          MakeOperand(RawGcnOperandKind::SpecialReg, "vcc"));
+      instruction.decoded_operands.push_back(DecodeSrc9(low & 0x1ffu));
+      instruction.decoded_operands.push_back(
+          MakeOperand(RawGcnOperandKind::VectorReg, FormatVectorReg((low >> 9u) & 0xffu)));
+      instruction.decoded_operands.push_back(
+          MakeOperand(RawGcnOperandKind::SpecialReg, "vcc"));
+      break;
+    case 17:
+      instruction.decoded_operands.push_back(
+          MakeOperand(RawGcnOperandKind::VectorReg,
+                      "v[" + std::to_string(low & 0xffu) + ":" + std::to_string((low & 0xffu) + 1u) + "]"));
+      instruction.decoded_operands.push_back(DecodeSrc9((high >> 0u) & 0x1ffu));
+      instruction.decoded_operands.push_back(DecodeSrc9((high >> 9u) & 0x1ffu));
       break;
     default:
       break;
