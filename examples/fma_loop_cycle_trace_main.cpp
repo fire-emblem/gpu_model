@@ -33,6 +33,7 @@ class FanoutTraceSink final : public TraceSink {
 };
 
 struct Config {
+  gpu_model::ExecutionMode mode = gpu_model::ExecutionMode::Cycle;
   uint32_t grid_dim_x = 1;
   uint32_t block_dim_x = 128;
   uint32_t n = 16;
@@ -43,12 +44,18 @@ struct Config {
   int32_t add1 = 2;
   uint64_t global_latency = 12;
   uint32_t timeline_columns = 120;
+  gpu_model::CycleTimelineGroupBy group_by = gpu_model::CycleTimelineGroupBy::Wave;
+  bool write_text = true;
+  bool write_json = true;
+  bool write_timeline = true;
+  bool print_results = true;
   std::filesystem::path out_dir = "/tmp";
 };
 
 [[noreturn]] void PrintUsageAndExit(std::string_view program_name, int exit_code) {
   std::ostream& out = exit_code == 0 ? std::cout : std::cerr;
   out << "Usage: " << program_name << " [options]\n"
+      << "  --mode <functional|cycle> run mode\n"
       << "  --grid <u32>             gridDim.x\n"
       << "  --block <u32>            blockDim.x\n"
       << "  --n <u32>                active element count\n"
@@ -59,7 +66,12 @@ struct Config {
       << "  --add1 <i32>             second FMA add scalar\n"
       << "  --latency <u64>          fixed global memory latency for cycle mode\n"
       << "  --timeline-columns <u32> ASCII timeline width\n"
+      << "  --group-by <wave|block>  timeline grouping\n"
       << "  --out-dir <path>         directory for trace outputs\n"
+      << "  --text-only              only write text trace\n"
+      << "  --json-only              only write json trace\n"
+      << "  --timeline-only          only write timeline\n"
+      << "  --no-results             suppress result buffer printout\n"
       << "  --help                   show this message\n";
   std::exit(exit_code);
 }
@@ -96,6 +108,15 @@ Config ParseArgs(int argc, char** argv) {
 
     if (arg == "--help") {
       PrintUsageAndExit(argv[0], 0);
+    } else if (arg == "--mode") {
+      const std::string value = require_value(arg);
+      if (value == "functional") {
+        config.mode = gpu_model::ExecutionMode::Functional;
+      } else if (value == "cycle") {
+        config.mode = gpu_model::ExecutionMode::Cycle;
+      } else {
+        throw std::invalid_argument("invalid mode: " + value);
+      }
     } else if (arg == "--grid") {
       config.grid_dim_x = ParseNumber<uint32_t>(require_value(arg));
     } else if (arg == "--block") {
@@ -116,8 +137,31 @@ Config ParseArgs(int argc, char** argv) {
       config.global_latency = ParseNumber<uint64_t>(require_value(arg));
     } else if (arg == "--timeline-columns") {
       config.timeline_columns = ParseNumber<uint32_t>(require_value(arg));
+    } else if (arg == "--group-by") {
+      const std::string value = require_value(arg);
+      if (value == "wave") {
+        config.group_by = gpu_model::CycleTimelineGroupBy::Wave;
+      } else if (value == "block") {
+        config.group_by = gpu_model::CycleTimelineGroupBy::Block;
+      } else {
+        throw std::invalid_argument("invalid group-by: " + value);
+      }
     } else if (arg == "--out-dir") {
       config.out_dir = require_value(arg);
+    } else if (arg == "--text-only") {
+      config.write_text = true;
+      config.write_json = false;
+      config.write_timeline = false;
+    } else if (arg == "--json-only") {
+      config.write_text = false;
+      config.write_json = true;
+      config.write_timeline = false;
+    } else if (arg == "--timeline-only") {
+      config.write_text = false;
+      config.write_json = false;
+      config.write_timeline = true;
+    } else if (arg == "--no-results") {
+      config.print_results = false;
     } else {
       throw std::invalid_argument("unknown option: " + arg);
     }
@@ -178,9 +222,12 @@ int main(int argc, char** argv) {
   const std::filesystem::path json_trace = config.out_dir / "fma_loop_cycle_trace.jsonl";
   const std::filesystem::path ascii_timeline = config.out_dir / "fma_loop_cycle_timeline.txt";
 
-  gpu_model::FileTraceSink text_sink(text_trace);
+  std::optional<gpu_model::FileTraceSink> text_sink;
+  if (config.write_text) {
+    text_sink.emplace(text_trace);
+  }
   gpu_model::CollectingTraceSink collecting_sink;
-  gpu_model::FanoutTraceSink fanout(&text_sink, &collecting_sink);
+  gpu_model::FanoutTraceSink fanout(text_sink ? &*text_sink : nullptr, &collecting_sink);
   gpu_model::HostRuntime runtime(&fanout);
   runtime.SetFixedGlobalMemoryLatency(config.global_latency);
 
@@ -190,7 +237,7 @@ int main(int argc, char** argv) {
 
   gpu_model::LaunchRequest request;
   request.kernel = &kernel;
-  request.mode = gpu_model::ExecutionMode::Cycle;
+  request.mode = config.mode;
   request.config.grid_dim_x = config.grid_dim_x;
   request.config.block_dim_x = config.block_dim_x;
   request.args.PushU64(out_addr);
@@ -207,13 +254,13 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  {
+  if (config.write_json) {
     gpu_model::JsonTraceSink json_sink(json_trace);
     for (const auto& event : collecting_sink.events()) {
       json_sink.OnEvent(event);
     }
   }
-  {
+  if (config.write_timeline) {
     std::ofstream out(ascii_timeline);
     out << gpu_model::CycleTimelineRenderer::RenderAscii(
         collecting_sink.events(),
@@ -221,17 +268,26 @@ int main(int argc, char** argv) {
             .max_columns = config.timeline_columns,
             .cycle_begin = std::nullopt,
             .cycle_end = std::nullopt,
+            .group_by = config.group_by,
         });
   }
 
   std::cout << "total_cycles=" << result.total_cycles << '\n';
-  std::cout << "text_trace=" << text_trace << '\n';
-  std::cout << "json_trace=" << json_trace << '\n';
-  std::cout << "timeline=" << ascii_timeline << '\n';
-  for (uint32_t i = 0; i < config.n; ++i) {
-    const int32_t value = runtime.memory().LoadGlobalValue<int32_t>(
-        out_addr + static_cast<uint64_t>(i) * sizeof(int32_t));
-    std::cout << "out[" << i << "]=" << value << '\n';
+  if (config.write_text) {
+    std::cout << "text_trace=" << text_trace.string() << '\n';
+  }
+  if (config.write_json) {
+    std::cout << "json_trace=" << json_trace.string() << '\n';
+  }
+  if (config.write_timeline) {
+    std::cout << "timeline=" << ascii_timeline.string() << '\n';
+  }
+  if (config.print_results) {
+    for (uint32_t i = 0; i < config.n; ++i) {
+      const int32_t value = runtime.memory().LoadGlobalValue<int32_t>(
+          out_addr + static_cast<uint64_t>(i) * sizeof(int32_t));
+      std::cout << "out[" << i << "]=" << value << '\n';
+    }
   }
   return 0;
 }

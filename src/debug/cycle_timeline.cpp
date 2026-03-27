@@ -49,6 +49,10 @@ std::string WaveLabel(const WaveKey& key) {
   return out.str();
 }
 
+std::string BlockLabel(uint32_t block_id) {
+  return "B" + std::to_string(block_id);
+}
+
 std::string ExtractOpName(const std::string& message) {
   const auto pos = message.find("op=");
   if (pos == std::string::npos) {
@@ -154,9 +158,18 @@ std::string CycleTimelineRenderer::RenderAscii(const std::vector<TraceEvent>& ev
   }
   out << '\n';
 
+  std::map<std::string, std::vector<Segment>> grouped_segments;
+  std::map<std::string, std::vector<Marker>> grouped_markers;
   for (const auto& key : seen_waves) {
+    const std::string label =
+        options.group_by == CycleTimelineGroupBy::Block ? BlockLabel(key.block_id) : WaveLabel(key);
+    grouped_segments[label].insert(grouped_segments[label].end(), segments[key].begin(), segments[key].end());
+    grouped_markers[label].insert(grouped_markers[label].end(), markers[key].begin(), markers[key].end());
+  }
+
+  for (const auto& [label, row_segments] : grouped_segments) {
     std::string row(width, '.');
-    for (const auto& segment : segments[key]) {
+    for (const auto& segment : row_segments) {
       const char symbol = symbols.at(segment.op);
       for (uint32_t col = 0; col < width; ++col) {
         const uint64_t col_begin = begin + static_cast<uint64_t>(col) * cycles_per_column;
@@ -166,7 +179,7 @@ std::string CycleTimelineRenderer::RenderAscii(const std::vector<TraceEvent>& ev
         }
       }
     }
-    for (const auto& marker : markers[key]) {
+    for (const auto& marker : grouped_markers[label]) {
       if (marker.cycle < begin || marker.cycle > end) {
         continue;
       }
@@ -175,7 +188,7 @@ std::string CycleTimelineRenderer::RenderAscii(const std::vector<TraceEvent>& ev
         row[col] = marker.symbol;
       }
     }
-    out << std::left << std::setw(8) << WaveLabel(key) << ' ' << row << '\n';
+    out << std::left << std::setw(8) << label << ' ' << row << '\n';
   }
 
   return out.str();
