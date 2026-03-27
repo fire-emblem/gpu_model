@@ -74,6 +74,7 @@ Recommended practice:
 - only override a small set of AMD-facing instructions that compiler and library teams actively tune
 - allow category-level defaults and sparse per-op overrides, but keep both tables small
 - keep latency modeling separate from issue overrides
+- keep memory instructions on a linear-address model; do not introduce descriptor complexity
 
 ## Recommended Modeling Layers
 

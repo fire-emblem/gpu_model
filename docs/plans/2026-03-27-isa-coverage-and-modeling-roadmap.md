@@ -185,26 +185,28 @@ Assessment:
 
 ## What Still Needs Improvement
 
-### 1. Buffer Descriptor Semantics
+### 1. Linear Address Memory Semantics Refinement
 
 Current status:
 
-- `buffer_*` names exist, but semantics are still simplified base+index addressing.
+- `buffer_*` names exist, and semantics are simplified linear address forms.
 
 Current implemented simplification:
 
 - `buffer_*` and `scalar_buffer_*` now support a lightweight
   `base + offset + index * scale` form.
 - This is intentionally not a full AMD resource descriptor model.
+- The project should stay with linear-address access only.
 
 Why it matters:
 
-- Compiler output and library kernels often assume resource-descriptor style addressing.
+- Compiler output and library kernels still benefit from a stable, AMD-like linear-address syntax.
 
 Recommended scope:
 
 - Keep it simple.
-- Introduce a minimal descriptor/base+offset model rather than full AMD buffer resource encoding.
+- Keep linear-address access only.
+- Do not introduce descriptor/resource-table semantics.
 
 Priority:
 
@@ -342,8 +344,9 @@ These would make the model heavier without proportionate benefit for compiler an
 
 ### Phase C
 
-- add small descriptor-style memory semantics
-- only enough to let compiler output look natural
+- refine linear-address memory semantics where useful
+- keep `buffer_*`, `ds_*`, `scratch_*`, and `scalar_buffer_*` simple and compiler-friendly
+- explicitly avoid descriptor/resource complexity
 
 ### Phase D
 
