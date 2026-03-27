@@ -81,7 +81,7 @@ TEST(FmaLoopCycleTest, ExecutesLoopAndProducesExpectedValues) {
   bool saw_loop_fma = false;
   for (const auto& event : trace.events()) {
     if (event.kind == TraceEventKind::WaveStep &&
-        event.message.find("v_fma") != std::string::npos) {
+        event.message.find("v_mad_i32") != std::string::npos) {
       saw_loop_fma = true;
       break;
     }

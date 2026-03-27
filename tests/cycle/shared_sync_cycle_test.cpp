@@ -78,7 +78,7 @@ TEST(SharedSyncCycleTest, SharedAtomicReductionAndWaveBarrierWorkInCycleMode) {
       saw_wave_barrier = true;
     }
     if (event.kind == TraceEventKind::WaveStep &&
-        event.message.find("m_atomic_add_shared") != std::string::npos) {
+        event.message.find("ds_add_u32") != std::string::npos) {
       saw_atomic = true;
     }
   }

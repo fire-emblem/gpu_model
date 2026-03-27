@@ -16,9 +16,9 @@ TEST(AsmParserTest, PreservesMetadataConstSegmentAndLabels) {
       "tiny_kernel",
       R"(
         .meta arch=c500
-        s_load_arg s0, 0
+        s_load_kernarg s0, 0
       exit:
-        b_exit
+        s_endpgm
       )",
       MetadataBlob{.values = {{"source", "asm"}}},
       ConstSegment{.bytes = {std::byte{0x01}, std::byte{0x02}, std::byte{0x03}}});
@@ -37,22 +37,22 @@ TEST(AsmParserTest, LaunchesParsedVecAddKernelFunctionally) {
       "vecadd_asm",
       R"(
         .meta arch=c500
-        s_load_arg s0, 0
-        s_load_arg s1, 1
-        s_load_arg s2, 2
-        s_load_arg s3, 3
-        sys_global_id_x v0
-        v_cmp_lt_cmask v0, s3
-        mask_save_exec s10
-        mask_and_exec_cmask
-        b_if_noexec exit
-        m_load_global v1, s0, v0, 4
-        m_load_global v2, s1, v0, 4
-        v_add v3, v1, v2
-        m_store_global s2, v0, v3, 4
+        s_load_kernarg s0, 0
+        s_load_kernarg s1, 1
+        s_load_kernarg s2, 2
+        s_load_kernarg s3, 3
+        v_get_global_id_x v0
+        v_cmp_lt_i32_cmask v0, s3
+        s_saveexec_b64 s10
+        s_and_exec_cmask_b64
+        s_cbranch_execz exit
+        global_load_dword v1, s0, v0, 4
+        global_load_dword v2, s1, v0, 4
+        v_add_i32 v3, v1, v2
+        global_store_dword s2, v0, v3, 4
       exit:
-        mask_restore_exec s10
-        b_exit
+        s_restoreexec_b64 s10
+        s_endpgm
       )");
 
   const auto kernel = AsmParser{}.Parse(image);
@@ -95,7 +95,7 @@ TEST(AsmParserTest, ParsesWaitCntAssemblySyntax) {
       R"(
         .meta arch=c500
         s_waitcnt vmcnt(0) & lgkmcnt(1)
-        b_exit
+        s_endpgm
       )");
 
   const auto kernel = AsmParser{}.Parse(image);

@@ -53,9 +53,9 @@ TEST(DebugInfoIOTest, PreservesAsmParserLineMappings) {
   ProgramImage image(
       "asm_debug",
       R"(
-        s_load_arg s0, 0
+        s_load_kernarg s0, 0
       label_exit:
-        b_exit
+        s_endpgm
       )");
   const auto kernel = AsmParser{}.Parse(image);
   const auto info = KernelDebugInfo::FromKernel(kernel);

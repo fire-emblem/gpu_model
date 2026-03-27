@@ -67,7 +67,7 @@ TEST(SharedBarrierCycleTest, BarrierWaitsForSlowerWaveAndSharedLoadStartsAfterRe
   const uint64_t first_arrive = FirstCycle(trace.events(), TraceEventKind::Barrier, "arrive");
   const uint64_t release = FirstCycle(trace.events(), TraceEventKind::Barrier, "release");
   const uint64_t shared_load_issue =
-      FirstCycle(trace.events(), TraceEventKind::WaveStep, "m_load_shared");
+      FirstCycle(trace.events(), TraceEventKind::WaveStep, "ds_read_b32");
 
   EXPECT_EQ(first_arrive, 64u);
   EXPECT_EQ(release, 68u);

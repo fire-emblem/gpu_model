@@ -31,18 +31,18 @@ TEST(ProgramBundleIOTest, RoundTripsProgramImageAndLaunchesLoadedBundle) {
       "bundle_const_kernel",
       R"(
         .meta arch=c500
-        s_load_arg s0, 0
-        s_load_arg s1, 1
-        sys_global_id_x v0
-        v_cmp_lt_cmask v0, s1
-        mask_save_exec s10
-        mask_and_exec_cmask
-        b_if_noexec exit
-        m_load_const v1, v0, 4
-        m_store_global s0, v0, v1, 4
+        s_load_kernarg s0, 0
+        s_load_kernarg s1, 1
+        v_get_global_id_x v0
+        v_cmp_lt_i32_cmask v0, s1
+        s_saveexec_b64 s10
+        s_and_exec_cmask_b64
+        s_cbranch_execz exit
+        scalar_buffer_load_dword v1, v0, 4
+        global_store_dword s0, v0, v1, 4
       exit:
-        mask_restore_exec s10
-        b_exit
+        s_restoreexec_b64 s10
+        s_endpgm
       )",
       MetadataBlob{.values = {{"arch", "c500"}, {"format", "bundle"}}},
       MakeConstSegment(table));

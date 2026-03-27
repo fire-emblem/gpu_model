@@ -37,7 +37,7 @@ TEST(CycleTimelineTest, RendersAsciiTimelineForMultipleWaves) {
   EXPECT_NE(timeline.find("cycle_timeline"), std::string::npos);
   EXPECT_NE(timeline.find("B0W0"), std::string::npos);
   EXPECT_NE(timeline.find("B0W1"), std::string::npos);
-  EXPECT_NE(timeline.find("v_fma"), std::string::npos);
+  EXPECT_NE(timeline.find("v_mad_i32"), std::string::npos);
 }
 
 TEST(CycleTimelineTest, CanGroupTimelineByBlock) {
@@ -83,7 +83,7 @@ TEST(CycleTimelineTest, RendersGoogleTraceForWaveTimeline) {
   EXPECT_NE(timeline.find("\"ph\":\"X\""), std::string::npos);
   EXPECT_NE(timeline.find("\"thread_name\""), std::string::npos);
   EXPECT_NE(timeline.find("B0W0"), std::string::npos);
-  EXPECT_NE(timeline.find("\"name\":\"v_fma\""), std::string::npos);
+  EXPECT_NE(timeline.find("\"name\":\"v_mad_i32\""), std::string::npos);
   EXPECT_NE(timeline.find("\"thread_sort_index\""), std::string::npos);
 }
 

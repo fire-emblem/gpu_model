@@ -76,137 +76,137 @@ enum class Opcode {
 inline std::string_view ToString(Opcode opcode) {
   switch (opcode) {
     case Opcode::SysLoadArg:
-      return "sys_load_arg";
+      return "s_load_kernarg";
     case Opcode::SysGlobalIdX:
-      return "sys_global_id_x";
+      return "v_get_global_id_x";
     case Opcode::SysGlobalIdY:
-      return "sys_global_id_y";
+      return "v_get_global_id_y";
     case Opcode::SysLocalIdX:
-      return "sys_local_id_x";
+      return "v_get_local_id_x";
     case Opcode::SysLocalIdY:
-      return "sys_local_id_y";
+      return "v_get_local_id_y";
     case Opcode::SysBlockOffsetX:
-      return "sys_block_offset_x";
+      return "s_get_block_offset_x";
     case Opcode::SysBlockIdxX:
-      return "sys_block_idx_x";
+      return "s_get_block_id_x";
     case Opcode::SysBlockIdxY:
-      return "sys_block_idx_y";
+      return "s_get_block_id_y";
     case Opcode::SysBlockDimX:
-      return "sys_block_dim_x";
+      return "s_get_block_dim_x";
     case Opcode::SysBlockDimY:
-      return "sys_block_dim_y";
+      return "s_get_block_dim_y";
     case Opcode::SysGridDimX:
-      return "sys_grid_dim_x";
+      return "s_get_grid_dim_x";
     case Opcode::SysGridDimY:
-      return "sys_grid_dim_y";
+      return "s_get_grid_dim_y";
     case Opcode::SysLaneId:
-      return "sys_lane_id";
+      return "v_lane_id_u32";
     case Opcode::SMov:
-      return "s_mov";
+      return "s_mov_b32";
     case Opcode::SAdd:
-      return "s_add";
+      return "s_add_u32";
     case Opcode::SSub:
-      return "s_sub";
+      return "s_sub_u32";
     case Opcode::SMul:
-      return "s_mul";
+      return "s_mul_i32";
     case Opcode::SDiv:
-      return "s_div";
+      return "s_div_i32";
     case Opcode::SRem:
-      return "s_rem";
+      return "s_rem_i32";
     case Opcode::SAnd:
-      return "s_and";
+      return "s_and_b32";
     case Opcode::SOr:
-      return "s_or";
+      return "s_or_b32";
     case Opcode::SXor:
-      return "s_xor";
+      return "s_xor_b32";
     case Opcode::SShl:
-      return "s_shl";
+      return "s_lshl_b32";
     case Opcode::SShr:
-      return "s_shr";
+      return "s_lshr_b32";
     case Opcode::SWaitCnt:
       return "s_waitcnt";
     case Opcode::SCmpLt:
-      return "s_cmp_lt";
+      return "s_cmp_lt_i32";
     case Opcode::SCmpEq:
-      return "s_cmp_eq";
+      return "s_cmp_eq_u32";
     case Opcode::SCmpGt:
-      return "s_cmp_gt";
+      return "s_cmp_gt_i32";
     case Opcode::SCmpGe:
-      return "s_cmp_ge";
+      return "s_cmp_ge_i32";
     case Opcode::VMov:
-      return "v_mov";
+      return "v_mov_b32";
     case Opcode::VAdd:
-      return "v_add";
+      return "v_add_i32";
     case Opcode::VAnd:
-      return "v_and";
+      return "v_and_b32";
     case Opcode::VOr:
-      return "v_or";
+      return "v_or_b32";
     case Opcode::VXor:
-      return "v_xor";
+      return "v_xor_b32";
     case Opcode::VShl:
-      return "v_shl";
+      return "v_lshl_b32";
     case Opcode::VShr:
-      return "v_shr";
+      return "v_lshr_b32";
     case Opcode::VSub:
-      return "v_sub";
+      return "v_sub_i32";
     case Opcode::VDiv:
-      return "v_div";
+      return "v_div_i32";
     case Opcode::VRem:
-      return "v_rem";
+      return "v_rem_i32";
     case Opcode::VMul:
-      return "v_mul";
+      return "v_mul_lo_i32";
     case Opcode::VMin:
-      return "v_min";
+      return "v_min_i32";
     case Opcode::VMax:
-      return "v_max";
+      return "v_max_i32";
     case Opcode::VFma:
-      return "v_fma";
+      return "v_mad_i32";
     case Opcode::VCmpLtCmask:
-      return "v_cmp_lt_cmask";
+      return "v_cmp_lt_i32_cmask";
     case Opcode::VCmpEqCmask:
-      return "v_cmp_eq_cmask";
+      return "v_cmp_eq_i32_cmask";
     case Opcode::VCmpGeCmask:
-      return "v_cmp_ge_cmask";
+      return "v_cmp_ge_i32_cmask";
     case Opcode::VCmpGtCmask:
-      return "v_cmp_gt_cmask";
+      return "v_cmp_gt_i32_cmask";
     case Opcode::VSelectCmask:
-      return "v_select_cmask";
+      return "v_cndmask_b32";
     case Opcode::MLoadGlobal:
-      return "m_load_global";
+      return "global_load_dword";
     case Opcode::MStoreGlobal:
-      return "m_store_global";
+      return "global_store_dword";
     case Opcode::MAtomicAddGlobal:
-      return "m_atomic_add_global";
+      return "global_atomic_add_u32";
     case Opcode::MLoadShared:
-      return "m_load_shared";
+      return "ds_read_b32";
     case Opcode::MStoreShared:
-      return "m_store_shared";
+      return "ds_write_b32";
     case Opcode::MAtomicAddShared:
-      return "m_atomic_add_shared";
+      return "ds_add_u32";
     case Opcode::MLoadPrivate:
-      return "m_load_private";
+      return "scratch_load_dword";
     case Opcode::MStorePrivate:
-      return "m_store_private";
+      return "scratch_store_dword";
     case Opcode::MLoadConst:
-      return "m_load_const";
+      return "scalar_buffer_load_dword";
     case Opcode::MaskSaveExec:
-      return "mask_save_exec";
+      return "s_saveexec_b64";
     case Opcode::MaskRestoreExec:
-      return "mask_restore_exec";
+      return "s_restoreexec_b64";
     case Opcode::MaskAndExecCmask:
-      return "mask_and_exec_cmask";
+      return "s_and_exec_cmask_b64";
     case Opcode::BBranch:
-      return "b_branch";
+      return "s_branch";
     case Opcode::BIfSmask:
-      return "b_if_smask";
+      return "s_cbranch_scc1";
     case Opcode::BIfNoexec:
-      return "b_if_noexec";
+      return "s_cbranch_execz";
     case Opcode::SyncWaveBarrier:
-      return "sync_wave_barrier";
+      return "s_wave_barrier";
     case Opcode::SyncBarrier:
-      return "sync_barrier";
+      return "s_barrier";
     case Opcode::BExit:
-      return "b_exit";
+      return "s_endpgm";
   }
   return "unknown";
 }

@@ -16,22 +16,22 @@ TEST(RuntimeHooksTest, SimulatesMallocMemcpyLaunchAndSynchronizeFlow) {
   ProgramImage image(
       "vecadd_runtime_image",
       R"(
-        s_load_arg s0, 0
-        s_load_arg s1, 1
-        s_load_arg s2, 2
-        s_load_arg s3, 3
-        sys_global_id_x v0
-        v_cmp_lt_cmask v0, s3
-        mask_save_exec s10
-        mask_and_exec_cmask
-        b_if_noexec exit
-        m_load_global v1, s0, v0, 4
-        m_load_global v2, s1, v0, 4
-        v_add v3, v1, v2
-        m_store_global s2, v0, v3, 4
+        s_load_kernarg s0, 0
+        s_load_kernarg s1, 1
+        s_load_kernarg s2, 2
+        s_load_kernarg s3, 3
+        v_get_global_id_x v0
+        v_cmp_lt_i32_cmask v0, s3
+        s_saveexec_b64 s10
+        s_and_exec_cmask_b64
+        s_cbranch_execz exit
+        global_load_dword v1, s0, v0, 4
+        global_load_dword v2, s1, v0, 4
+        v_add_i32 v3, v1, v2
+        global_store_dword s2, v0, v3, 4
       exit:
-        mask_restore_exec s10
-        b_exit
+        s_restoreexec_b64 s10
+        s_endpgm
       )",
       MetadataBlob{.values = {{"arch", "c500"}}});
 
@@ -73,18 +73,18 @@ TEST(RuntimeHooksTest, RegistersProgramImagesAndLaunchesByModuleAndKernelName) {
       "const_from_registry",
       R"(
         .meta arch=c500
-        s_load_arg s0, 0
-        s_load_arg s1, 1
-        sys_global_id_x v0
-        v_cmp_lt_cmask v0, s1
-        mask_save_exec s10
-        mask_and_exec_cmask
-        b_if_noexec exit
-        m_load_const v1, v0, 4
-        m_store_global s0, v0, v1, 4
+        s_load_kernarg s0, 0
+        s_load_kernarg s1, 1
+        v_get_global_id_x v0
+        v_cmp_lt_i32_cmask v0, s1
+        s_saveexec_b64 s10
+        s_and_exec_cmask_b64
+        s_cbranch_execz exit
+        scalar_buffer_load_dword v1, v0, 4
+        global_store_dword s0, v0, v1, 4
       exit:
-        mask_restore_exec s10
-        b_exit
+        s_restoreexec_b64 s10
+        s_endpgm
       )");
 
   std::vector<int32_t> table(n);
@@ -126,18 +126,18 @@ TEST(RuntimeHooksTest, LoadsSectionedExecutableImageAndLaunchesRegisteredKernel)
       "sectioned_registry_kernel",
       R"(
         .meta arch=c500
-        s_load_arg s0, 0
-        s_load_arg s1, 1
-        sys_global_id_x v0
-        v_cmp_lt_cmask v0, s1
-        mask_save_exec s10
-        mask_and_exec_cmask
-        b_if_noexec exit
-        v_mov v1, 9
-        m_store_global s0, v0, v1, 4
+        s_load_kernarg s0, 0
+        s_load_kernarg s1, 1
+        v_get_global_id_x v0
+        v_cmp_lt_i32_cmask v0, s1
+        s_saveexec_b64 s10
+        s_and_exec_cmask_b64
+        s_cbranch_execz exit
+        v_mov_b32 v1, 9
+        global_store_dword s0, v0, v1, 4
       exit:
-        mask_restore_exec s10
-        b_exit
+        s_restoreexec_b64 s10
+        s_endpgm
       )",
       MetadataBlob{.values = {{"arch", "c500"}}});
 
@@ -178,18 +178,18 @@ TEST(RuntimeHooksTest, LoadsBundleAndLooseFilesByModuleAndCanUnload) {
       "bundle_kernel",
       R"(
         .meta arch=c500
-        s_load_arg s0, 0
-        s_load_arg s1, 1
-        sys_global_id_x v0
-        v_cmp_lt_cmask v0, s1
-        mask_save_exec s10
-        mask_and_exec_cmask
-        b_if_noexec exit
-        v_mov v1, 4
-        m_store_global s0, v0, v1, 4
+        s_load_kernarg s0, 0
+        s_load_kernarg s1, 1
+        v_get_global_id_x v0
+        v_cmp_lt_i32_cmask v0, s1
+        s_saveexec_b64 s10
+        s_and_exec_cmask_b64
+        s_cbranch_execz exit
+        v_mov_b32 v1, 4
+        global_store_dword s0, v0, v1, 4
       exit:
-        mask_restore_exec s10
-        b_exit
+        s_restoreexec_b64 s10
+        s_endpgm
       )",
       MetadataBlob{.values = {{"arch", "c500"}}});
   const auto bundle_path = temp_dir / "bundle_kernel.gpubin";
@@ -199,18 +199,18 @@ TEST(RuntimeHooksTest, LoadsBundleAndLooseFilesByModuleAndCanUnload) {
     std::ofstream asm_file(temp_dir / "stem_kernel.gasm");
     ASSERT_TRUE(static_cast<bool>(asm_file));
     asm_file << R"(
-      s_load_arg s0, 0
-      s_load_arg s1, 1
-      sys_global_id_x v0
-      v_cmp_lt_cmask v0, s1
-      mask_save_exec s10
-      mask_and_exec_cmask
-      b_if_noexec exit
-      v_mov v1, 6
-      m_store_global s0, v0, v1, 4
+      s_load_kernarg s0, 0
+      s_load_kernarg s1, 1
+      v_get_global_id_x v0
+      v_cmp_lt_i32_cmask v0, s1
+      s_saveexec_b64 s10
+      s_and_exec_cmask_b64
+      s_cbranch_execz exit
+      v_mov_b32 v1, 6
+      global_store_dword s0, v0, v1, 4
     exit:
-      mask_restore_exec s10
-      b_exit
+      s_restoreexec_b64 s10
+      s_endpgm
     )";
   }
   {
@@ -293,13 +293,13 @@ TEST(RuntimeHooksTest, SupportsDeviceToDeviceCopyAndMemsetOperations) {
 TEST(RuntimeHooksTest, ListsModulesAndKernels) {
   RuntimeHooks hooks;
   hooks.RegisterProgramImage(
-      "mod_b", ProgramImage("k2", "b_exit\n",
+      "mod_b", ProgramImage("k2", "s_endpgm\n",
                              MetadataBlob{.values = {{"module_name", "mod_b"}, {"module_kernels", "k2"}}}));
   hooks.RegisterProgramImage(
-      "mod_a", ProgramImage("k1", "b_exit\n",
+      "mod_a", ProgramImage("k1", "s_endpgm\n",
                              MetadataBlob{.values = {{"module_name", "mod_a"}, {"module_kernels", "k0,k1"}}}));
   hooks.RegisterProgramImage(
-      "mod_a", ProgramImage("k0", "b_exit\n",
+      "mod_a", ProgramImage("k0", "s_endpgm\n",
                              MetadataBlob{.values = {{"module_name", "mod_a"}, {"module_kernels", "k0,k1"}}}));
 
   EXPECT_TRUE(hooks.HasModule("mod_a"));
