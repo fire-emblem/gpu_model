@@ -521,6 +521,13 @@ uint32_t ScalarMemoryDestCount(std::string_view mnemonic) {
   return 1;
 }
 
+uint32_t MatrixDestCount(std::string_view mnemonic) {
+  if (mnemonic == "v_mfma_f32_16x16x4f32") {
+    return 4;
+  }
+  return 1;
+}
+
 bool DecodeViStyleScalarMemoryOperands(RawGcnInstruction& instruction) {
   if (instruction.words.size() != 2) {
     return false;
@@ -561,9 +568,41 @@ bool DecodeViStyleScalarMemoryOperands(RawGcnInstruction& instruction) {
   return true;
 }
 
+bool DecodeVop3pOperands(RawGcnInstruction& instruction) {
+  if (instruction.words.size() != 2) {
+    return false;
+  }
+  const uint32_t low = instruction.words[0];
+  const uint32_t high = instruction.words[1];
+  const uint32_t vdst = low & 0xffu;
+  const uint32_t src0 = high & 0x1ffu;
+  const uint32_t src1 = (high >> 9u) & 0x1ffu;
+  const uint32_t src2 = (high >> 18u) & 0x1ffu;
+  const uint32_t dest_count = MatrixDestCount(instruction.mnemonic);
+
+  if (dest_count == 1u) {
+    instruction.decoded_operands.push_back(MakeVectorRegOperand(vdst));
+  } else {
+    instruction.decoded_operands.push_back(MakeVectorRegRangeOperand(vdst, dest_count));
+  }
+  instruction.decoded_operands.push_back(DecodeSrc9(src0));
+  instruction.decoded_operands.push_back(DecodeSrc9(src1));
+  instruction.decoded_operands.push_back(DecodeSrc9(src2));
+  return true;
+}
+
+bool NeedsScalarPairDest(std::string_view mnemonic) {
+  return mnemonic == "s_mov_b64" || mnemonic == "s_cselect_b64" || mnemonic == "s_andn2_b64" ||
+         mnemonic == "s_or_b64" || mnemonic == "s_and_b64" || mnemonic == "s_lshl_b64";
+}
+
 bool TryDecodeGeneratedOperands(RawGcnInstruction& instruction, const GcnGeneratedInstDef& inst_def) {
   if (instruction.format_class == GcnInstFormatClass::Smrd &&
       DecodeViStyleScalarMemoryOperands(instruction)) {
+    return true;
+  }
+  if (instruction.format_class == GcnInstFormatClass::Vop3p &&
+      DecodeVop3pOperands(instruction)) {
     return true;
   }
   const auto* format_def = FindGeneratedFormatDefByClass(inst_def.format_class);
@@ -584,7 +623,10 @@ bool TryDecodeGeneratedOperands(RawGcnInstruction& instruction, const GcnGenerat
       }
     }
     const uint32_t raw_value = field != nullptr ? ExtractGeneratedFieldValue(instruction.words, *field) : 0;
-    if (std::string_view(spec.kind) == "scalar_reg") {
+    if (spec.field == std::string_view("sdst") && spec.role == std::string_view("def") &&
+        NeedsScalarPairDest(instruction.mnemonic)) {
+      instruction.decoded_operands.push_back(DecodeScalarPairDest(raw_value));
+    } else if (std::string_view(spec.kind) == "scalar_reg") {
       instruction.decoded_operands.push_back(MakeScalarRegOperand(raw_value));
     } else if (std::string_view(spec.kind) == "scalar_reg_range") {
       instruction.decoded_operands.push_back(
@@ -648,6 +690,10 @@ bool TryDecodeGeneratedOperands(RawGcnInstruction& instruction, const GcnGenerat
 
 void DecodeGcnOperands(RawGcnInstruction& instruction) {
   instruction.decoded_operands.clear();
+  if (instruction.format_class == GcnInstFormatClass::Vop3p &&
+      DecodeVop3pOperands(instruction)) {
+    return;
+  }
   const auto* def = FindGcnInstEncodingDef(instruction.words);
   if (def == nullptr) {
     return;

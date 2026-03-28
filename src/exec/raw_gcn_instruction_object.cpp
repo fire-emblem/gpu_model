@@ -1,6 +1,9 @@
 #include "gpu_model/exec/raw_gcn_instruction_object.h"
 
 #include <bitset>
+#include <cstdarg>
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <stdexcept>
 #include <string>
@@ -11,6 +14,22 @@
 namespace gpu_model {
 
 namespace {
+
+bool DebugEnabled() {
+  return std::getenv("GPU_MODEL_RAW_GCN_DEBUG") != nullptr;
+}
+
+void DebugLog(const char* fmt, ...) {
+  if (!DebugEnabled()) {
+    return;
+  }
+  va_list args;
+  va_start(args, fmt);
+  std::fputs("[gpu_model_raw_gcn] ", stderr);
+  std::vfprintf(stderr, fmt, args);
+  std::fputc('\n', stderr);
+  va_end(args);
+}
 
 class UnsupportedInstructionHandler final : public IRawGcnSemanticHandler {
  public:
@@ -180,6 +199,11 @@ class SAndSaveexecB64Instruction final : public Sop1InstructionBase {
     context.wave.sgpr.Write(sdst + 1, static_cast<uint32_t>(exec_before >> 32u));
     const uint64_t mask = ResolveScalarPair(instruction.operands.at(1), context);
     context.wave.exec = context.wave.exec & MaskFromU64(mask);
+    DebugLog("pc=0x%llx s_and_saveexec_b64 before=0x%llx mask=0x%llx after=0x%llx",
+             static_cast<unsigned long long>(instruction.pc),
+             static_cast<unsigned long long>(exec_before),
+             static_cast<unsigned long long>(mask),
+             static_cast<unsigned long long>(context.wave.exec.to_ullong()));
     context.wave.pc += instruction.size_bytes;
   }
 };
@@ -383,6 +407,7 @@ DEFINE_RAW_GCN_OPCODE_CLASS(VLdexpF32Instruction, Vop3aInstructionBase, "v_ldexp
 DEFINE_RAW_GCN_OPCODE_CLASS(VDivFmasF32Instruction, Vop3aInstructionBase, "v_div_fmas_f32");
 DEFINE_RAW_GCN_OPCODE_CLASS(VDivFixupF32Instruction, Vop3aInstructionBase, "v_div_fixup_f32");
 DEFINE_RAW_GCN_OPCODE_CLASS(VCndmaskB32E64Instruction, Vop3aInstructionBase, "v_cndmask_b32_e64");
+DEFINE_RAW_GCN_OPCODE_CLASS(VCmpGtI32E64Instruction, Vop3aInstructionBase, "v_cmp_gt_i32_e64");
 
 DEFINE_RAW_GCN_OPCODE_CLASS(VAddCoU32E64Instruction, Vop3bInstructionBase, "v_add_co_u32_e64");
 DEFINE_RAW_GCN_OPCODE_CLASS(VAddcCoU32E64Instruction, Vop3bInstructionBase, "v_addc_co_u32_e64");
@@ -686,6 +711,9 @@ RawGcnInstructionObjectPtr CreateVectorInstruction(const GcnIsaOpcodeDescriptor&
       switch (descriptor.opcode) {
         case 0x100:
           return std::make_unique<VCndmaskB32E64Instruction>(
+              std::move(instruction), RawGcnSemanticHandlerRegistry::Get(instruction));
+        case 0x0c4:
+          return std::make_unique<VCmpGtI32E64Instruction>(
               std::move(instruction), RawGcnSemanticHandlerRegistry::Get(instruction));
         case 0x1cb:
           return std::make_unique<VFmaF32Instruction>(

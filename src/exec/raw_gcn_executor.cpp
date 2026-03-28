@@ -156,28 +156,16 @@ uint64_t HiddenArgValue(const HiddenArgLayoutEntry& entry, const LaunchConfig& c
 std::vector<std::byte> BuildKernargBytes(const MetadataBlob& metadata,
                                          const KernelArgPack& args,
                                          const LaunchConfig& config) {
-  std::vector<std::byte> bytes(std::max(128u, ParseKernargSegmentSize(metadata)), std::byte{0});
+  const uint32_t descriptor_kernarg_size = ParseKernargSegmentSize(metadata);
+  std::vector<std::byte> bytes(
+      descriptor_kernarg_size != 0 ? descriptor_kernarg_size : 128u, std::byte{0});
   const auto arg_sizes = ParseArgLayoutSizes(metadata);
-  if (DebugEnabled()) {
-    std::ostringstream args_text;
-    for (size_t i = 0; i < args.values().size(); ++i) {
-      if (i != 0) {
-        args_text << ' ';
-      }
-      args_text << "arg" << i << "=0x" << std::hex << args.values()[i];
-    }
-    DebugLog("launch args %s", args_text.str().c_str());
-  }
   uint32_t arg_offset = 0;
   for (size_t i = 0; i < args.values().size(); ++i) {
     const uint64_t value = args.values()[i];
     const uint32_t size = i < arg_sizes.size()
                               ? arg_sizes[i]
                               : (i < 3 ? 8u : 4u);
-    if (DebugEnabled()) {
-      DebugLog("pack arg%zu off=0x%x size=%u value=0x%llx",
-               i, arg_offset, size, static_cast<unsigned long long>(value));
-    }
     if (size == 8u) {
       std::memcpy(bytes.data() + arg_offset, &value, sizeof(uint64_t));
     } else if (size == 4u) {
@@ -185,13 +173,6 @@ std::vector<std::byte> BuildKernargBytes(const MetadataBlob& metadata,
       std::memcpy(bytes.data() + arg_offset, &narrowed, sizeof(uint32_t));
     } else {
       throw std::invalid_argument("unsupported kernarg scalar size: " + std::to_string(size));
-    }
-    if (DebugEnabled() && i == 0 && bytes.size() >= 8) {
-      uint32_t after0 = 0;
-      uint32_t after1 = 0;
-      std::memcpy(&after0, bytes.data() + 0, sizeof(uint32_t));
-      std::memcpy(&after1, bytes.data() + 4, sizeof(uint32_t));
-      DebugLog("after arg0 dwords[0:1]=0x%x 0x%x", after0, after1);
     }
     arg_offset += size;
   }
@@ -214,6 +195,9 @@ std::vector<std::byte> BuildKernargBytes(const MetadataBlob& metadata,
                                       std::to_string(entry.size));
       }
     }
+    return bytes;
+  }
+  if (descriptor_kernarg_size != 0) {
     return bytes;
   }
 
@@ -365,28 +349,14 @@ LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
     pc_to_index[image.instructions[i].pc] = i;
   }
   const auto kernarg = BuildKernargBytes(image.metadata, args, config);
-  if (DebugEnabled() && kernarg.size() >= 24) {
-    uint32_t d0 = 0;
-    uint32_t d1 = 0;
-    uint32_t d2 = 0;
-    uint32_t d3 = 0;
-    uint32_t d4 = 0;
-    uint32_t d5 = 0;
-    std::memcpy(&d0, kernarg.data() + 0, sizeof(uint32_t));
-    std::memcpy(&d1, kernarg.data() + 4, sizeof(uint32_t));
-    std::memcpy(&d2, kernarg.data() + 8, sizeof(uint32_t));
-    std::memcpy(&d3, kernarg.data() + 12, sizeof(uint32_t));
-    std::memcpy(&d4, kernarg.data() + 16, sizeof(uint32_t));
-    std::memcpy(&d5, kernarg.data() + 20, sizeof(uint32_t));
-    DebugLog("kernarg dwords[0:5]=0x%x 0x%x 0x%x 0x%x 0x%x 0x%x",
-             d0, d1, d2, d3, d4, d5);
-  }
   uint64_t kernarg_base = memory.Allocate(MemoryPoolKind::Kernarg, kernarg.size());
   if (device_load != nullptr) {
     for (const auto& loaded : device_load->segments) {
       if (loaded.segment.kind == DeviceSegmentKind::KernargTemplate) {
         if (loaded.allocation.range.size < kernarg.size()) {
-          throw std::runtime_error("loaded kernarg segment is smaller than launch kernarg image");
+          throw std::runtime_error("loaded kernarg segment is smaller than launch kernarg image: loaded=" +
+                                   std::to_string(loaded.allocation.range.size) +
+                                   " launch=" + std::to_string(kernarg.size()));
         }
         kernarg_base = loaded.allocation.range.base;
         break;

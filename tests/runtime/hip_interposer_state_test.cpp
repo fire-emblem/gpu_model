@@ -141,7 +141,7 @@ TEST(HipInterposerStateTest, BuildsExecutableLoadPlanThroughRegisteredHostFuncti
   EXPECT_EQ(plan.segments[1].pool, MemoryPoolKind::Kernarg);
   EXPECT_GT(plan.segments[0].required_bytes, 0u);
   EXPECT_EQ(plan.required_shared_bytes, 256u);
-  EXPECT_EQ(plan.preferred_kernarg_bytes, 128u);
+  EXPECT_EQ(plan.preferred_kernarg_bytes, 280u);
 
   std::filesystem::remove_all(temp_dir);
 }
