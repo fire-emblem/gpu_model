@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import pathlib
+import re
 from typing import Any
 
 import yaml
@@ -31,6 +32,36 @@ FORMAT_ENUM = {
     "exp": "Exp",
 }
 
+FORMAT_ENCODING_VALUES = {
+    "vop2": 0x0,
+    "sop2": 0x2,
+    "sopk": 0xB,
+    "smrd": 0x18,
+    "vop3a": 0x34,
+    "ds": 0x36,
+    "flat": 0x37,
+    "vopc": 0x3E,
+    "vop1": 0x3F,
+    "sop1": 0x17D,
+    "sopc": 0x17E,
+    "sopp": 0x17F,
+}
+
+FORMAT_OPCODE_ENUM = {
+    "sop2": "GcnSop2Opcode",
+    "sopk": "GcnSopkOpcode",
+    "sop1": "GcnSop1Opcode",
+    "sopc": "GcnSopcOpcode",
+    "sopp": "GcnSoppOpcode",
+    "smrd": "GcnSmrdOpcode",
+    "vop2": "GcnVop2Opcode",
+    "vop1": "GcnVop1Opcode",
+    "vopc": "GcnVopcOpcode",
+    "vop3a": "GcnVop3aOpcode",
+    "ds": "GcnDsOpcode",
+    "flat": "GcnFlatOpcode",
+}
+
 FLAG_ENUM = {
     "is_branch": "kGcnInstFlagIsBranch",
     "is_memory": "kGcnInstFlagIsMemory",
@@ -47,6 +78,12 @@ FLAG_ENUM = {
 def c_str(text: str) -> str:
     escaped = text.replace("\\", "\\\\").replace('"', '\\"')
     return f'"{escaped}"'
+
+
+def to_enum_symbol(text: str) -> str:
+    text = re.sub(r"[^0-9A-Za-z]+", "_", text)
+    text = re.sub(r"_+", "_", text).strip("_")
+    return text.upper()
 
 
 def load_yaml(path: pathlib.Path) -> Any:
@@ -161,6 +198,123 @@ const std::vector<GcnInstEncodingDef>& GeneratedGcnEncodingDefs();
 }  // namespace gpu_model
 """
     out_path.write_text(text, encoding="utf-8")
+
+
+def emit_opcode_enum_header(inst_rows: list[dict[str, Any]], out_path: pathlib.Path) -> None:
+    grouped: dict[str, list[tuple[int, str]]] = {}
+    for inst in inst_rows:
+        fmt = inst["format"]
+        grouped.setdefault(fmt, [])
+        key = (inst["opcode"], inst["mnemonic"])
+        if key not in grouped[fmt]:
+          grouped[fmt].append(key)
+
+    lines = []
+    lines.append("#pragma once")
+    lines.append("")
+    lines.append("#include <cstdint>")
+    lines.append("#include <optional>")
+    lines.append("#include <string_view>")
+    lines.append("")
+    lines.append("namespace gpu_model {")
+    lines.append("")
+    lines.append("enum class GcnOpTypeEncoding : uint16_t {")
+    lines.append("  Unknown = 0xffff,")
+    for fmt, value in sorted(FORMAT_ENCODING_VALUES.items(), key=lambda x: x[1]):
+        lines.append(f"  {to_enum_symbol(fmt)} = 0x{value:x},")
+    lines.append("};")
+    lines.append("")
+    for fmt, entries in grouped.items():
+        if fmt not in FORMAT_OPCODE_ENUM:
+            continue
+        lines.append(f"enum class {FORMAT_OPCODE_ENUM[fmt]} : uint16_t {{")
+        for opcode, mnemonic in entries:
+            lines.append(f"  {to_enum_symbol(mnemonic)} = {opcode},")
+        lines.append("};")
+        lines.append("")
+    lines.append("std::string_view ToString(GcnOpTypeEncoding op_type);")
+    lines.append("std::optional<GcnOpTypeEncoding> ParseGcnOpTypeEncoding(std::string_view text);")
+    lines.append("")
+    lines.append("struct GcnOpcodeDescriptor {")
+    lines.append("  GcnOpTypeEncoding op_type = GcnOpTypeEncoding::Unknown;")
+    lines.append("  uint16_t opcode = 0;")
+    lines.append("  const char* name = nullptr;")
+    lines.append("};")
+    lines.append("")
+    lines.append(
+        "const GcnOpcodeDescriptor* FindGcnOpcodeDescriptor(GcnOpTypeEncoding op_type, uint16_t opcode);"
+    )
+    lines.append(
+        "const GcnOpcodeDescriptor* FindGcnOpcodeDescriptorByName(std::string_view name);"
+    )
+    lines.append("}  // namespace gpu_model")
+    lines.append("")
+    out_path.write_text("\n".join(lines), encoding="utf-8")
+
+
+def emit_opcode_enum_cpp(inst_rows: list[dict[str, Any]], out_path: pathlib.Path) -> None:
+    grouped: dict[str, list[tuple[int, str]]] = {}
+    descriptors: list[tuple[str, int, str]] = []
+    seen_desc = set()
+    for inst in inst_rows:
+        fmt = inst["format"]
+        grouped.setdefault(fmt, [])
+        key = (inst["opcode"], inst["mnemonic"])
+        if key not in grouped[fmt]:
+            grouped[fmt].append(key)
+        desc_key = (fmt, inst["opcode"], inst["mnemonic"])
+        if desc_key not in seen_desc:
+            descriptors.append((fmt, inst["opcode"], inst["mnemonic"]))
+            seen_desc.add(desc_key)
+
+    lines = []
+    lines.append('#include "gpu_model/decode/generated_gcn_opcode_enums.h"')
+    lines.append("")
+    lines.append("#include <vector>")
+    lines.append("")
+    lines.append("namespace gpu_model {")
+    lines.append("")
+    lines.append("namespace {")
+    lines.append("const std::vector<GcnOpcodeDescriptor> kOpcodeDescriptors = {")
+    for i, (fmt, opcode, mnemonic) in enumerate(descriptors):
+        comma = "," if i + 1 < len(descriptors) else ""
+        lines.append(
+            f"  {{ GcnOpTypeEncoding::{to_enum_symbol(fmt)}, static_cast<uint16_t>({FORMAT_OPCODE_ENUM[fmt]}::{to_enum_symbol(mnemonic)}), {c_str(mnemonic)} }}{comma}"
+        )
+    lines.append("};")
+    lines.append("}  // namespace")
+    lines.append("")
+    lines.append("std::string_view ToString(GcnOpTypeEncoding op_type) {")
+    lines.append("  switch (op_type) {")
+    lines.append("    case GcnOpTypeEncoding::Unknown: return \"unknown\";")
+    for fmt in FORMAT_ENCODING_VALUES:
+        lines.append(f"    case GcnOpTypeEncoding::{to_enum_symbol(fmt)}: return \"{fmt}\";")
+    lines.append("  }")
+    lines.append("  return \"unknown\";")
+    lines.append("}")
+    lines.append("")
+    lines.append("std::optional<GcnOpTypeEncoding> ParseGcnOpTypeEncoding(std::string_view text) {")
+    for fmt in FORMAT_ENCODING_VALUES:
+        lines.append(f"  if (text == \"{fmt}\") return GcnOpTypeEncoding::{to_enum_symbol(fmt)};")
+    lines.append("  return std::nullopt;")
+    lines.append("}")
+    lines.append("")
+    lines.append("const GcnOpcodeDescriptor* FindGcnOpcodeDescriptor(GcnOpTypeEncoding op_type, uint16_t opcode) {")
+    lines.append("  for (const auto& desc : kOpcodeDescriptors) {")
+    lines.append("    if (desc.op_type == op_type && desc.opcode == opcode) return &desc;")
+    lines.append("  }")
+    lines.append("  return nullptr;")
+    lines.append("}")
+    lines.append("")
+    lines.append("const GcnOpcodeDescriptor* FindGcnOpcodeDescriptorByName(std::string_view name) {")
+    lines.append("  for (const auto& desc : kOpcodeDescriptors) {")
+    lines.append("    if (desc.name == name) return &desc;")
+    lines.append("  }")
+    lines.append("  return nullptr;")
+    lines.append("}")
+    lines.append("}  // namespace gpu_model")
+    lines.append("")
+    out_path.write_text("\n".join(lines), encoding="utf-8")
 
 
 def emit_cpp(db_dir: pathlib.Path, out_path: pathlib.Path) -> None:
@@ -312,10 +466,11 @@ def emit_cpp(db_dir: pathlib.Path, out_path: pathlib.Path) -> None:
         implicit_index += len(implicit_reads) + len(implicit_writes)
         operand_index += len(operands)
         encoding_entries.append(
-            "  GcnInstEncodingDef{{ .id = {id}, .format_class = GcnInstFormatClass::{fmt}, .op = {opcode}, .size_bytes = {size_bytes}, .mnemonic = {mnemonic} }}".format(
+            "  GcnInstEncodingDef{{ .id = {id}, .format_class = GcnInstFormatClass::{fmt}, .op = static_cast<uint32_t>({opcode_enum}::{opcode_name}), .size_bytes = {size_bytes}, .mnemonic = {mnemonic} }}".format(
                 id=inst["id"],
                 fmt=fmt_enum,
-                opcode=inst["opcode"],
+                opcode_enum=FORMAT_OPCODE_ENUM[inst["format"]],
+                opcode_name=to_enum_symbol(inst["mnemonic"]),
                 size_bytes=inst["size_bytes"],
                 mnemonic=c_str(inst["mnemonic"]),
             )
@@ -323,6 +478,7 @@ def emit_cpp(db_dir: pathlib.Path, out_path: pathlib.Path) -> None:
 
     lines: list[str] = []
     lines.append('#include "gpu_model/decode/generated_gcn_inst_db.h"')
+    lines.append('#include "gpu_model/decode/generated_gcn_opcode_enums.h"')
     lines.append("")
     lines.append("#include <vector>")
     lines.append("")
@@ -419,6 +575,8 @@ def main() -> None:
     parser.add_argument("--db-dir", required=True)
     parser.add_argument("--out-header", required=True)
     parser.add_argument("--out-cpp", required=True)
+    parser.add_argument("--out-opcode-header")
+    parser.add_argument("--out-opcode-cpp")
     args = parser.parse_args()
 
     db_dir = pathlib.Path(args.db_dir)
@@ -429,6 +587,16 @@ def main() -> None:
 
     emit_header(out_header)
     emit_cpp(db_dir, out_cpp)
+    if args.out_opcode_header:
+        out_opcode_header = pathlib.Path(args.out_opcode_header)
+        out_opcode_header.parent.mkdir(parents=True, exist_ok=True)
+        emit_opcode_enum_header(inst_rows=load_yaml(db_dir / "instructions.yaml")["instructions"],
+                                out_path=out_opcode_header)
+    if args.out_opcode_cpp:
+        out_opcode_cpp = pathlib.Path(args.out_opcode_cpp)
+        out_opcode_cpp.parent.mkdir(parents=True, exist_ok=True)
+        emit_opcode_enum_cpp(inst_rows=load_yaml(db_dir / "instructions.yaml")["instructions"],
+                             out_path=out_opcode_cpp)
 
 
 if __name__ == "__main__":
