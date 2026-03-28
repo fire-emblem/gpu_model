@@ -27,13 +27,13 @@ TEST(RawGcnInstructionArrayParserTest, CreatesConcreteAndPlaceholderInstructionO
   ASSERT_EQ(objects.size(), decoded.size());
 
   EXPECT_EQ(objects[0]->class_name(), "s_load_dword");
-  EXPECT_EQ(objects[0]->op_type_name(), "scalar_memory");
+  EXPECT_EQ(objects[0]->op_type_name(), "smrd");
 
   EXPECT_EQ(objects[1]->class_name(), "v_add_u32_e32");
-  EXPECT_EQ(objects[1]->op_type_name(), "vector_alu");
+  EXPECT_EQ(objects[1]->op_type_name(), "vop2");
 
   EXPECT_EQ(objects[2]->class_name(), "global_load_dword");
-  EXPECT_EQ(objects[2]->op_type_name(), "vector_memory");
+  EXPECT_EQ(objects[2]->op_type_name(), "flat");
 
   EXPECT_EQ(objects[3]->class_name(), "mimg_placeholder");
   EXPECT_EQ(objects[3]->op_type_name(), "mimg");

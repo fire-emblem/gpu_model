@@ -16,58 +16,88 @@ class UnsupportedInstructionHandler final : public IRawGcnSemanticHandler {
   }
 };
 
-class ScalarMemoryInstructionBase : public RawGcnInstructionObject {
+class SmrdInstructionBase : public RawGcnInstructionObject {
  public:
   using RawGcnInstructionObject::RawGcnInstructionObject;
-  std::string_view op_type_name() const override { return "scalar_memory"; }
+  std::string_view op_type_name() const override { return "smrd"; }
 };
 
-class ScalarAluInstructionBase : public RawGcnInstructionObject {
+class Sop1InstructionBase : public RawGcnInstructionObject {
  public:
   using RawGcnInstructionObject::RawGcnInstructionObject;
-  std::string_view op_type_name() const override { return "scalar_alu"; }
+  std::string_view op_type_name() const override { return "sop1"; }
 };
 
-class ScalarCompareInstructionBase : public RawGcnInstructionObject {
+class Sop2InstructionBase : public RawGcnInstructionObject {
  public:
   using RawGcnInstructionObject::RawGcnInstructionObject;
-  std::string_view op_type_name() const override { return "scalar_compare"; }
+  std::string_view op_type_name() const override { return "sop2"; }
 };
 
-class VectorAluInstructionBase : public RawGcnInstructionObject {
+class SopkInstructionBase : public RawGcnInstructionObject {
  public:
   using RawGcnInstructionObject::RawGcnInstructionObject;
-  std::string_view op_type_name() const override { return "vector_alu"; }
+  std::string_view op_type_name() const override { return "sopk"; }
 };
 
-class VectorCompareInstructionBase : public RawGcnInstructionObject {
+class SopcInstructionBase : public RawGcnInstructionObject {
  public:
   using RawGcnInstructionObject::RawGcnInstructionObject;
-  std::string_view op_type_name() const override { return "vector_compare"; }
+  std::string_view op_type_name() const override { return "sopc"; }
 };
 
-class FlatMemoryInstructionBase : public RawGcnInstructionObject {
+class SoppInstructionBase : public RawGcnInstructionObject {
  public:
   using RawGcnInstructionObject::RawGcnInstructionObject;
-  std::string_view op_type_name() const override { return "vector_memory"; }
+  std::string_view op_type_name() const override { return "sopp"; }
 };
 
-class SharedMemoryInstructionBase : public RawGcnInstructionObject {
+class Vop1InstructionBase : public RawGcnInstructionObject {
  public:
   using RawGcnInstructionObject::RawGcnInstructionObject;
-  std::string_view op_type_name() const override { return "lds"; }
+  std::string_view op_type_name() const override { return "vop1"; }
 };
 
-class BranchInstructionBase : public RawGcnInstructionObject {
+class Vop2InstructionBase : public RawGcnInstructionObject {
  public:
   using RawGcnInstructionObject::RawGcnInstructionObject;
-  std::string_view op_type_name() const override { return "branch"; }
+  std::string_view op_type_name() const override { return "vop2"; }
 };
 
-class SpecialInstructionBase : public RawGcnInstructionObject {
+class Vop3aInstructionBase : public RawGcnInstructionObject {
  public:
   using RawGcnInstructionObject::RawGcnInstructionObject;
-  std::string_view op_type_name() const override { return "special"; }
+  std::string_view op_type_name() const override { return "vop3a"; }
+};
+
+class Vop3bInstructionBase : public RawGcnInstructionObject {
+ public:
+  using RawGcnInstructionObject::RawGcnInstructionObject;
+  std::string_view op_type_name() const override { return "vop3b"; }
+};
+
+class Vop3pInstructionBase : public RawGcnInstructionObject {
+ public:
+  using RawGcnInstructionObject::RawGcnInstructionObject;
+  std::string_view op_type_name() const override { return "vop3p"; }
+};
+
+class VopcInstructionBase : public RawGcnInstructionObject {
+ public:
+  using RawGcnInstructionObject::RawGcnInstructionObject;
+  std::string_view op_type_name() const override { return "vopc"; }
+};
+
+class FlatInstructionBase : public RawGcnInstructionObject {
+ public:
+  using RawGcnInstructionObject::RawGcnInstructionObject;
+  std::string_view op_type_name() const override { return "flat"; }
+};
+
+class DsInstructionBase : public RawGcnInstructionObject {
+ public:
+  using RawGcnInstructionObject::RawGcnInstructionObject;
+  std::string_view op_type_name() const override { return "ds"; }
 };
 
 class PlaceholderInstructionBase : public RawGcnInstructionObject {
@@ -95,93 +125,95 @@ class PlaceholderInstructionBase : public RawGcnInstructionObject {
     std::string_view class_name() const override { return TextName; } \
   }
 
-DEFINE_RAW_GCN_OPCODE_CLASS(SLoadDwordInstruction, ScalarMemoryInstructionBase, "s_load_dword");
-DEFINE_RAW_GCN_OPCODE_CLASS(SLoadDwordx2Instruction, ScalarMemoryInstructionBase, "s_load_dwordx2");
-DEFINE_RAW_GCN_OPCODE_CLASS(SLoadDwordx4Instruction, ScalarMemoryInstructionBase, "s_load_dwordx4");
+DEFINE_RAW_GCN_OPCODE_CLASS(SLoadDwordInstruction, SmrdInstructionBase, "s_load_dword");
+DEFINE_RAW_GCN_OPCODE_CLASS(SLoadDwordx2Instruction, SmrdInstructionBase, "s_load_dwordx2");
+DEFINE_RAW_GCN_OPCODE_CLASS(SLoadDwordx4Instruction, SmrdInstructionBase, "s_load_dwordx4");
 
-DEFINE_RAW_GCN_OPCODE_CLASS(SAndSaveexecB64Instruction, ScalarAluInstructionBase, "s_and_saveexec_b64");
-DEFINE_RAW_GCN_OPCODE_CLASS(SMovB32Instruction, ScalarAluInstructionBase, "s_mov_b32");
-DEFINE_RAW_GCN_OPCODE_CLASS(SMovB64Instruction, ScalarAluInstructionBase, "s_mov_b64");
-DEFINE_RAW_GCN_OPCODE_CLASS(SBcnt1I32B64Instruction, ScalarAluInstructionBase, "s_bcnt1_i32_b64");
-DEFINE_RAW_GCN_OPCODE_CLASS(SMovkI32Instruction, ScalarAluInstructionBase, "s_movk_i32");
-DEFINE_RAW_GCN_OPCODE_CLASS(SCselectB64Instruction, ScalarAluInstructionBase, "s_cselect_b64");
-DEFINE_RAW_GCN_OPCODE_CLASS(SAndn2B64Instruction, ScalarAluInstructionBase, "s_andn2_b64");
-DEFINE_RAW_GCN_OPCODE_CLASS(SOrB64Instruction, ScalarAluInstructionBase, "s_or_b64");
-DEFINE_RAW_GCN_OPCODE_CLASS(SAndB64Instruction, ScalarAluInstructionBase, "s_and_b64");
-DEFINE_RAW_GCN_OPCODE_CLASS(SAndB32Instruction, ScalarAluInstructionBase, "s_and_b32");
-DEFINE_RAW_GCN_OPCODE_CLASS(SMulI32Instruction, ScalarAluInstructionBase, "s_mul_i32");
-DEFINE_RAW_GCN_OPCODE_CLASS(SAddI32Instruction, ScalarAluInstructionBase, "s_add_i32");
-DEFINE_RAW_GCN_OPCODE_CLASS(SAddU32Instruction, ScalarAluInstructionBase, "s_add_u32");
-DEFINE_RAW_GCN_OPCODE_CLASS(SAddcU32Instruction, ScalarAluInstructionBase, "s_addc_u32");
-DEFINE_RAW_GCN_OPCODE_CLASS(SLshrB32Instruction, ScalarAluInstructionBase, "s_lshr_b32");
-DEFINE_RAW_GCN_OPCODE_CLASS(SAshrI32Instruction, ScalarAluInstructionBase, "s_ashr_i32");
-DEFINE_RAW_GCN_OPCODE_CLASS(SLshlB64Instruction, ScalarAluInstructionBase, "s_lshl_b64");
+DEFINE_RAW_GCN_OPCODE_CLASS(SAndSaveexecB64Instruction, Sop1InstructionBase, "s_and_saveexec_b64");
+DEFINE_RAW_GCN_OPCODE_CLASS(SMovB32Instruction, Sop1InstructionBase, "s_mov_b32");
+DEFINE_RAW_GCN_OPCODE_CLASS(SMovB64Instruction, Sop1InstructionBase, "s_mov_b64");
+DEFINE_RAW_GCN_OPCODE_CLASS(SBcnt1I32B64Instruction, Sop1InstructionBase, "s_bcnt1_i32_b64");
+DEFINE_RAW_GCN_OPCODE_CLASS(SMovkI32Instruction, SopkInstructionBase, "s_movk_i32");
+DEFINE_RAW_GCN_OPCODE_CLASS(SCselectB64Instruction, Sop2InstructionBase, "s_cselect_b64");
+DEFINE_RAW_GCN_OPCODE_CLASS(SAndn2B64Instruction, Sop2InstructionBase, "s_andn2_b64");
+DEFINE_RAW_GCN_OPCODE_CLASS(SOrB64Instruction, Sop2InstructionBase, "s_or_b64");
+DEFINE_RAW_GCN_OPCODE_CLASS(SAndB64Instruction, Sop2InstructionBase, "s_and_b64");
+DEFINE_RAW_GCN_OPCODE_CLASS(SAndB32Instruction, Sop2InstructionBase, "s_and_b32");
+DEFINE_RAW_GCN_OPCODE_CLASS(SMulI32Instruction, Sop2InstructionBase, "s_mul_i32");
+DEFINE_RAW_GCN_OPCODE_CLASS(SAddI32Instruction, Sop2InstructionBase, "s_add_i32");
+DEFINE_RAW_GCN_OPCODE_CLASS(SAddU32Instruction, Sop2InstructionBase, "s_add_u32");
+DEFINE_RAW_GCN_OPCODE_CLASS(SAddcU32Instruction, Sop2InstructionBase, "s_addc_u32");
+DEFINE_RAW_GCN_OPCODE_CLASS(SLshrB32Instruction, Sop2InstructionBase, "s_lshr_b32");
+DEFINE_RAW_GCN_OPCODE_CLASS(SAshrI32Instruction, Sop2InstructionBase, "s_ashr_i32");
+DEFINE_RAW_GCN_OPCODE_CLASS(SLshlB64Instruction, Sop2InstructionBase, "s_lshl_b64");
 
-DEFINE_RAW_GCN_OPCODE_CLASS(SCmpLtI32Instruction, ScalarCompareInstructionBase, "s_cmp_lt_i32");
-DEFINE_RAW_GCN_OPCODE_CLASS(SCmpEqU32Instruction, ScalarCompareInstructionBase, "s_cmp_eq_u32");
-DEFINE_RAW_GCN_OPCODE_CLASS(SCmpGtU32Instruction, ScalarCompareInstructionBase, "s_cmp_gt_u32");
-DEFINE_RAW_GCN_OPCODE_CLASS(SCmpLtU32Instruction, ScalarCompareInstructionBase, "s_cmp_lt_u32");
+DEFINE_RAW_GCN_OPCODE_CLASS(SCmpLtI32Instruction, SopcInstructionBase, "s_cmp_lt_i32");
+DEFINE_RAW_GCN_OPCODE_CLASS(SCmpEqU32Instruction, SopcInstructionBase, "s_cmp_eq_u32");
+DEFINE_RAW_GCN_OPCODE_CLASS(SCmpGtU32Instruction, SopcInstructionBase, "s_cmp_gt_u32");
+DEFINE_RAW_GCN_OPCODE_CLASS(SCmpLtU32Instruction, SopcInstructionBase, "s_cmp_lt_u32");
 
-DEFINE_RAW_GCN_OPCODE_CLASS(VNotB32Instruction, VectorAluInstructionBase, "v_not_b32_e32");
-DEFINE_RAW_GCN_OPCODE_CLASS(VAddU32Instruction, VectorAluInstructionBase, "v_add_u32_e32");
-DEFINE_RAW_GCN_OPCODE_CLASS(VAshrrevI32Instruction, VectorAluInstructionBase, "v_ashrrev_i32_e32");
-DEFINE_RAW_GCN_OPCODE_CLASS(VLshlrevB64Instruction, VectorAluInstructionBase, "v_lshlrev_b64");
-DEFINE_RAW_GCN_OPCODE_CLASS(VMovB32Instruction, VectorAluInstructionBase, "v_mov_b32_e32");
-DEFINE_RAW_GCN_OPCODE_CLASS(VLshlrevB32Instruction, VectorAluInstructionBase, "v_lshlrev_b32_e32");
-DEFINE_RAW_GCN_OPCODE_CLASS(VLshlAddU32Instruction, VectorAluInstructionBase, "v_lshl_add_u32");
-DEFINE_RAW_GCN_OPCODE_CLASS(VAddCoU32E32Instruction, VectorAluInstructionBase, "v_add_co_u32_e32");
-DEFINE_RAW_GCN_OPCODE_CLASS(VAddcCoU32E32Instruction, VectorAluInstructionBase, "v_addc_co_u32_e32");
-DEFINE_RAW_GCN_OPCODE_CLASS(VAddCoU32E64Instruction, VectorAluInstructionBase, "v_add_co_u32_e64");
-DEFINE_RAW_GCN_OPCODE_CLASS(VAddcCoU32E64Instruction, VectorAluInstructionBase, "v_addc_co_u32_e64");
-DEFINE_RAW_GCN_OPCODE_CLASS(VAddF32Instruction, VectorAluInstructionBase, "v_add_f32_e32");
-DEFINE_RAW_GCN_OPCODE_CLASS(VSubF32Instruction, VectorAluInstructionBase, "v_sub_f32_e32");
-DEFINE_RAW_GCN_OPCODE_CLASS(VMulF32Instruction, VectorAluInstructionBase, "v_mul_f32_e32");
-DEFINE_RAW_GCN_OPCODE_CLASS(VMaxF32Instruction, VectorAluInstructionBase, "v_max_f32_e32");
-DEFINE_RAW_GCN_OPCODE_CLASS(VFmacF32Instruction, VectorAluInstructionBase, "v_fmac_f32_e32");
-DEFINE_RAW_GCN_OPCODE_CLASS(VFmaF32Instruction, VectorAluInstructionBase, "v_fma_f32");
-DEFINE_RAW_GCN_OPCODE_CLASS(VMfmaF32Instruction, VectorAluInstructionBase, "v_mfma_f32_16x16x4f32");
-DEFINE_RAW_GCN_OPCODE_CLASS(VRndneF32Instruction, VectorAluInstructionBase, "v_rndne_f32_e32");
-DEFINE_RAW_GCN_OPCODE_CLASS(VCvtI32F32Instruction, VectorAluInstructionBase, "v_cvt_i32_f32_e32");
-DEFINE_RAW_GCN_OPCODE_CLASS(VCvtF32I32Instruction, VectorAluInstructionBase, "v_cvt_f32_i32_e32");
-DEFINE_RAW_GCN_OPCODE_CLASS(VMbcntLoInstruction, VectorAluInstructionBase, "v_mbcnt_lo_u32_b32");
-DEFINE_RAW_GCN_OPCODE_CLASS(VMbcntHiInstruction, VectorAluInstructionBase, "v_mbcnt_hi_u32_b32");
-DEFINE_RAW_GCN_OPCODE_CLASS(VExpF32Instruction, VectorAluInstructionBase, "v_exp_f32_e32");
-DEFINE_RAW_GCN_OPCODE_CLASS(VRcpF32Instruction, VectorAluInstructionBase, "v_rcp_f32_e32");
-DEFINE_RAW_GCN_OPCODE_CLASS(VLdexpF32Instruction, VectorAluInstructionBase, "v_ldexp_f32");
-DEFINE_RAW_GCN_OPCODE_CLASS(VDivScaleF32Instruction, VectorAluInstructionBase, "v_div_scale_f32");
-DEFINE_RAW_GCN_OPCODE_CLASS(VDivFmasF32Instruction, VectorAluInstructionBase, "v_div_fmas_f32");
-DEFINE_RAW_GCN_OPCODE_CLASS(VDivFixupF32Instruction, VectorAluInstructionBase, "v_div_fixup_f32");
-DEFINE_RAW_GCN_OPCODE_CLASS(VCndmaskB32E32Instruction, VectorAluInstructionBase, "v_cndmask_b32_e32");
-DEFINE_RAW_GCN_OPCODE_CLASS(VCndmaskB32E64Instruction, VectorAluInstructionBase, "v_cndmask_b32_e64");
-DEFINE_RAW_GCN_OPCODE_CLASS(VMadU64U32Instruction, VectorAluInstructionBase, "v_mad_u64_u32");
+DEFINE_RAW_GCN_OPCODE_CLASS(VNotB32Instruction, Vop1InstructionBase, "v_not_b32_e32");
+DEFINE_RAW_GCN_OPCODE_CLASS(VMovB32Instruction, Vop1InstructionBase, "v_mov_b32_e32");
+DEFINE_RAW_GCN_OPCODE_CLASS(VRndneF32Instruction, Vop1InstructionBase, "v_rndne_f32_e32");
+DEFINE_RAW_GCN_OPCODE_CLASS(VCvtI32F32Instruction, Vop1InstructionBase, "v_cvt_i32_f32_e32");
+DEFINE_RAW_GCN_OPCODE_CLASS(VCvtF32I32Instruction, Vop1InstructionBase, "v_cvt_f32_i32_e32");
+DEFINE_RAW_GCN_OPCODE_CLASS(VExpF32Instruction, Vop1InstructionBase, "v_exp_f32_e32");
+DEFINE_RAW_GCN_OPCODE_CLASS(VRcpF32Instruction, Vop1InstructionBase, "v_rcp_f32_e32");
 
-DEFINE_RAW_GCN_OPCODE_CLASS(VCmpGtI32Instruction, VectorCompareInstructionBase, "v_cmp_gt_i32");
-DEFINE_RAW_GCN_OPCODE_CLASS(VCmpLeI32Instruction, VectorCompareInstructionBase, "v_cmp_le_i32_e32");
-DEFINE_RAW_GCN_OPCODE_CLASS(VCmpLtI32Instruction, VectorCompareInstructionBase, "v_cmp_lt_i32_e32");
-DEFINE_RAW_GCN_OPCODE_CLASS(VCmpGtU32Instruction, VectorCompareInstructionBase, "v_cmp_gt_u32_e32");
-DEFINE_RAW_GCN_OPCODE_CLASS(VCmpEqU32Instruction, VectorCompareInstructionBase, "v_cmp_eq_u32_e32");
-DEFINE_RAW_GCN_OPCODE_CLASS(VCmpNgtF32Instruction, VectorCompareInstructionBase, "v_cmp_ngt_f32_e32");
-DEFINE_RAW_GCN_OPCODE_CLASS(VCmpNltF32Instruction, VectorCompareInstructionBase, "v_cmp_nlt_f32_e32");
+DEFINE_RAW_GCN_OPCODE_CLASS(VAddU32Instruction, Vop2InstructionBase, "v_add_u32_e32");
+DEFINE_RAW_GCN_OPCODE_CLASS(VAshrrevI32Instruction, Vop2InstructionBase, "v_ashrrev_i32_e32");
+DEFINE_RAW_GCN_OPCODE_CLASS(VLshlrevB32Instruction, Vop2InstructionBase, "v_lshlrev_b32_e32");
+DEFINE_RAW_GCN_OPCODE_CLASS(VAddCoU32E32Instruction, Vop2InstructionBase, "v_add_co_u32_e32");
+DEFINE_RAW_GCN_OPCODE_CLASS(VAddcCoU32E32Instruction, Vop2InstructionBase, "v_addc_co_u32_e32");
+DEFINE_RAW_GCN_OPCODE_CLASS(VAddF32Instruction, Vop2InstructionBase, "v_add_f32_e32");
+DEFINE_RAW_GCN_OPCODE_CLASS(VSubF32Instruction, Vop2InstructionBase, "v_sub_f32_e32");
+DEFINE_RAW_GCN_OPCODE_CLASS(VMulF32Instruction, Vop2InstructionBase, "v_mul_f32_e32");
+DEFINE_RAW_GCN_OPCODE_CLASS(VMaxF32Instruction, Vop2InstructionBase, "v_max_f32_e32");
+DEFINE_RAW_GCN_OPCODE_CLASS(VFmacF32Instruction, Vop2InstructionBase, "v_fmac_f32_e32");
+DEFINE_RAW_GCN_OPCODE_CLASS(VCndmaskB32E32Instruction, Vop2InstructionBase, "v_cndmask_b32_e32");
 
-DEFINE_RAW_GCN_OPCODE_CLASS(GlobalLoadDwordInstruction, FlatMemoryInstructionBase, "global_load_dword");
-DEFINE_RAW_GCN_OPCODE_CLASS(GlobalStoreDwordInstruction, FlatMemoryInstructionBase, "global_store_dword");
-DEFINE_RAW_GCN_OPCODE_CLASS(GlobalAtomicAddInstruction, FlatMemoryInstructionBase, "global_atomic_add");
+DEFINE_RAW_GCN_OPCODE_CLASS(VLshlrevB64Instruction, Vop3aInstructionBase, "v_lshlrev_b64");
+DEFINE_RAW_GCN_OPCODE_CLASS(VLshlAddU32Instruction, Vop3aInstructionBase, "v_lshl_add_u32");
+DEFINE_RAW_GCN_OPCODE_CLASS(VFmaF32Instruction, Vop3aInstructionBase, "v_fma_f32");
+DEFINE_RAW_GCN_OPCODE_CLASS(VMbcntLoInstruction, Vop3aInstructionBase, "v_mbcnt_lo_u32_b32");
+DEFINE_RAW_GCN_OPCODE_CLASS(VMbcntHiInstruction, Vop3aInstructionBase, "v_mbcnt_hi_u32_b32");
+DEFINE_RAW_GCN_OPCODE_CLASS(VLdexpF32Instruction, Vop3aInstructionBase, "v_ldexp_f32");
+DEFINE_RAW_GCN_OPCODE_CLASS(VDivFmasF32Instruction, Vop3aInstructionBase, "v_div_fmas_f32");
+DEFINE_RAW_GCN_OPCODE_CLASS(VDivFixupF32Instruction, Vop3aInstructionBase, "v_div_fixup_f32");
+DEFINE_RAW_GCN_OPCODE_CLASS(VCndmaskB32E64Instruction, Vop3aInstructionBase, "v_cndmask_b32_e64");
 
-DEFINE_RAW_GCN_OPCODE_CLASS(DsWriteB32Instruction, SharedMemoryInstructionBase, "ds_write_b32");
-DEFINE_RAW_GCN_OPCODE_CLASS(DsReadB32Instruction, SharedMemoryInstructionBase, "ds_read_b32");
+DEFINE_RAW_GCN_OPCODE_CLASS(VAddCoU32E64Instruction, Vop3bInstructionBase, "v_add_co_u32_e64");
+DEFINE_RAW_GCN_OPCODE_CLASS(VAddcCoU32E64Instruction, Vop3bInstructionBase, "v_addc_co_u32_e64");
+DEFINE_RAW_GCN_OPCODE_CLASS(VDivScaleF32Instruction, Vop3bInstructionBase, "v_div_scale_f32");
+DEFINE_RAW_GCN_OPCODE_CLASS(VMadU64U32Instruction, Vop3bInstructionBase, "v_mad_u64_u32");
 
-DEFINE_RAW_GCN_OPCODE_CLASS(SAndSaveexecMaskInstruction, SpecialInstructionBase, "s_and_saveexec_b64");
-DEFINE_RAW_GCN_OPCODE_CLASS(SBarrierInstruction, SpecialInstructionBase, "s_barrier");
-DEFINE_RAW_GCN_OPCODE_CLASS(SNopInstruction, SpecialInstructionBase, "s_nop");
-DEFINE_RAW_GCN_OPCODE_CLASS(SWaitcntInstruction, SpecialInstructionBase, "s_waitcnt");
-DEFINE_RAW_GCN_OPCODE_CLASS(SEndpgmInstruction, SpecialInstructionBase, "s_endpgm");
+DEFINE_RAW_GCN_OPCODE_CLASS(VMfmaF32Instruction, Vop3pInstructionBase, "v_mfma_f32_16x16x4f32");
 
-DEFINE_RAW_GCN_OPCODE_CLASS(SBranchInstruction, BranchInstructionBase, "s_branch");
-DEFINE_RAW_GCN_OPCODE_CLASS(SCbranchScc0Instruction, BranchInstructionBase, "s_cbranch_scc0");
-DEFINE_RAW_GCN_OPCODE_CLASS(SCbranchScc1Instruction, BranchInstructionBase, "s_cbranch_scc1");
-DEFINE_RAW_GCN_OPCODE_CLASS(SCbranchVcczInstruction, BranchInstructionBase, "s_cbranch_vccz");
-DEFINE_RAW_GCN_OPCODE_CLASS(SCbranchExeczInstruction, BranchInstructionBase, "s_cbranch_execz");
-DEFINE_RAW_GCN_OPCODE_CLASS(SCbranchExecnzInstruction, BranchInstructionBase, "s_cbranch_execnz");
+DEFINE_RAW_GCN_OPCODE_CLASS(VCmpGtI32Instruction, VopcInstructionBase, "v_cmp_gt_i32");
+DEFINE_RAW_GCN_OPCODE_CLASS(VCmpLeI32Instruction, VopcInstructionBase, "v_cmp_le_i32_e32");
+DEFINE_RAW_GCN_OPCODE_CLASS(VCmpLtI32Instruction, VopcInstructionBase, "v_cmp_lt_i32_e32");
+DEFINE_RAW_GCN_OPCODE_CLASS(VCmpGtU32Instruction, VopcInstructionBase, "v_cmp_gt_u32_e32");
+DEFINE_RAW_GCN_OPCODE_CLASS(VCmpEqU32Instruction, VopcInstructionBase, "v_cmp_eq_u32_e32");
+DEFINE_RAW_GCN_OPCODE_CLASS(VCmpNgtF32Instruction, VopcInstructionBase, "v_cmp_ngt_f32_e32");
+DEFINE_RAW_GCN_OPCODE_CLASS(VCmpNltF32Instruction, VopcInstructionBase, "v_cmp_nlt_f32_e32");
+
+DEFINE_RAW_GCN_OPCODE_CLASS(GlobalLoadDwordInstruction, FlatInstructionBase, "global_load_dword");
+DEFINE_RAW_GCN_OPCODE_CLASS(GlobalStoreDwordInstruction, FlatInstructionBase, "global_store_dword");
+DEFINE_RAW_GCN_OPCODE_CLASS(GlobalAtomicAddInstruction, FlatInstructionBase, "global_atomic_add");
+
+DEFINE_RAW_GCN_OPCODE_CLASS(DsWriteB32Instruction, DsInstructionBase, "ds_write_b32");
+DEFINE_RAW_GCN_OPCODE_CLASS(DsReadB32Instruction, DsInstructionBase, "ds_read_b32");
+
+DEFINE_RAW_GCN_OPCODE_CLASS(SBarrierInstruction, SoppInstructionBase, "s_barrier");
+DEFINE_RAW_GCN_OPCODE_CLASS(SNopInstruction, SoppInstructionBase, "s_nop");
+DEFINE_RAW_GCN_OPCODE_CLASS(SWaitcntInstruction, SoppInstructionBase, "s_waitcnt");
+DEFINE_RAW_GCN_OPCODE_CLASS(SEndpgmInstruction, SoppInstructionBase, "s_endpgm");
+DEFINE_RAW_GCN_OPCODE_CLASS(SBranchInstruction, SoppInstructionBase, "s_branch");
+DEFINE_RAW_GCN_OPCODE_CLASS(SCbranchScc0Instruction, SoppInstructionBase, "s_cbranch_scc0");
+DEFINE_RAW_GCN_OPCODE_CLASS(SCbranchScc1Instruction, SoppInstructionBase, "s_cbranch_scc1");
+DEFINE_RAW_GCN_OPCODE_CLASS(SCbranchVcczInstruction, SoppInstructionBase, "s_cbranch_vccz");
+DEFINE_RAW_GCN_OPCODE_CLASS(SCbranchExeczInstruction, SoppInstructionBase, "s_cbranch_execz");
+DEFINE_RAW_GCN_OPCODE_CLASS(SCbranchExecnzInstruction, SoppInstructionBase, "s_cbranch_execnz");
 
 #undef DEFINE_RAW_GCN_OPCODE_CLASS
 
