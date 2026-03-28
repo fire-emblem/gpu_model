@@ -884,6 +884,70 @@ TEST(RuntimeHooksTest, ReportsUnsupportedHipMfmaExecutableInRawGcnPath) {
   std::filesystem::remove_all(temp_dir);
 }
 
+TEST(RuntimeHooksTest, LaunchesHipSharedReverseExecutableAndValidatesOutput) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_shared_reverse_executable");
+  const auto src_path = temp_dir / "hip_shared_reverse.cpp";
+  const auto exe_path = temp_dir / "hip_shared_reverse.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n\n"
+           "extern \"C\" __global__ void shared_reverse(const int* in, int* out, int n) {\n"
+           "  __shared__ int scratch[64];\n"
+           "  int tid = threadIdx.x;\n"
+           "  int idx = blockIdx.x * blockDim.x + tid;\n"
+           "  if (idx < n) scratch[tid] = in[idx];\n"
+           "  __syncthreads();\n"
+           "  if (idx < n) out[idx] = scratch[blockDim.x - 1 - tid];\n"
+           "}\n\n"
+           "int main() { return 0; }\n";
+  }
+
+  const std::string command =
+      "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  constexpr uint32_t n = 128;
+  std::vector<int32_t> in(n), out(n, -1), expect(n, -1);
+  for (uint32_t i = 0; i < n; ++i) {
+    in[i] = static_cast<int32_t>(i + 1);
+  }
+  for (uint32_t block = 0; block < 2; ++block) {
+    const uint32_t base = block * 64;
+    for (uint32_t lane = 0; lane < 64; ++lane) {
+      expect[base + lane] = in[base + (63 - lane)];
+    }
+  }
+
+  RuntimeHooks hooks;
+  const uint64_t in_addr = hooks.Malloc(n * sizeof(int32_t));
+  const uint64_t out_addr = hooks.Malloc(n * sizeof(int32_t));
+  hooks.MemcpyHtoD<int32_t>(in_addr, std::span<const int32_t>(in));
+  hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(out));
+
+  KernelArgPack args;
+  args.PushU64(in_addr);
+  args.PushU64(out_addr);
+  args.PushU32(n);
+
+  const auto result = hooks.LaunchAmdgpuObject(
+      exe_path, LaunchConfig{.grid_dim_x = 2, .block_dim_x = 64}, std::move(args),
+      ExecutionMode::Functional, "c500", nullptr, "shared_reverse");
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(out));
+  for (uint32_t i = 0; i < n; ++i) {
+    EXPECT_EQ(out[i], expect[i]);
+  }
+
+  std::filesystem::remove_all(temp_dir);
+}
+
 TEST(RuntimeHooksTest, ListsModulesAndKernels) {
   RuntimeHooks hooks;
   hooks.RegisterProgramImage(

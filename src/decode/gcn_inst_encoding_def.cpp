@@ -43,6 +43,15 @@ const std::vector<GcnInstEncodingDef>& EncodingDefs() {
       {.id = 25, .format_class = GcnInstFormatClass::Vop3a, .op = 229, .size_bytes = 8, .mnemonic = "v_fma_f32"},
       {.id = 26, .format_class = GcnInstFormatClass::Sopp, .op = 4, .size_bytes = 4, .mnemonic = "s_cbranch_scc0"},
       {.id = 27, .format_class = GcnInstFormatClass::Sopp, .op = 2, .size_bytes = 4, .mnemonic = "s_branch"},
+      {.id = 28, .format_class = GcnInstFormatClass::Sop2, .op = 15, .size_bytes = 4, .mnemonic = "s_or_b64"},
+      {.id = 29, .format_class = GcnInstFormatClass::Sopp, .op = 10, .size_bytes = 4, .mnemonic = "s_barrier"},
+      {.id = 30, .format_class = GcnInstFormatClass::Ds, .op = 13, .size_bytes = 8, .mnemonic = "ds_write_b32"},
+      {.id = 31, .format_class = GcnInstFormatClass::Ds, .op = 54, .size_bytes = 8, .mnemonic = "ds_read_b32"},
+      {.id = 32, .format_class = GcnInstFormatClass::Vop1, .op = 43, .size_bytes = 4, .mnemonic = "v_not_b32_e32"},
+      {.id = 33, .format_class = GcnInstFormatClass::Vop2, .op = 18, .size_bytes = 4, .mnemonic = "v_lshlrev_b32_e32"},
+      {.id = 34, .format_class = GcnInstFormatClass::Vop3a, .op = 254, .size_bytes = 8, .mnemonic = "v_lshl_add_u32"},
+      {.id = 35, .format_class = GcnInstFormatClass::Vop3a, .op = 140, .size_bytes = 8, .mnemonic = "v_add_co_u32_e64"},
+      {.id = 36, .format_class = GcnInstFormatClass::Vop3a, .op = 142, .size_bytes = 8, .mnemonic = "v_addc_co_u32_e64"},
   };
   return kDefs;
 }
@@ -70,6 +79,8 @@ uint32_t ExtractOp(const std::vector<uint32_t>& words, GcnInstFormatClass format
       return (low >> 17u) & 0x1ffu;
     case GcnInstFormatClass::Flat:
       return (low >> 18u) & 0x7fu;
+    case GcnInstFormatClass::Ds:
+      return (low >> 17u) & 0xffu;
     default:
       return 0xffffffffu;
   }
@@ -319,6 +330,16 @@ void DecodeGcnOperands(RawGcnInstruction& instruction) {
       instruction.decoded_operands.push_back(DecodeSrc8(low & 0xffu));
       instruction.decoded_operands.push_back(DecodeSrc8((low >> 8u) & 0xffu));
       break;
+    case 28:
+      instruction.decoded_operands.push_back(MakeSpecialRegOperand(GcnSpecialReg::Exec, "exec"));
+      instruction.decoded_operands.push_back(DecodeSrc8(low & 0xffu));
+      if (((low >> 8u) & 0xffu) == 0x7eu || ((low >> 8u) & 0xffu) == 0x7fu) {
+        instruction.decoded_operands.push_back(MakeSpecialRegOperand(GcnSpecialReg::Exec, "exec"));
+      } else {
+        instruction.decoded_operands.push_back(
+            MakeScalarRegRangeOperand((low >> 8u) & 0xffu, 2));
+      }
+      break;
     case 20:
       instruction.decoded_operands.push_back(MakeScalarRegOperand((low >> 16u) & 0x7fu));
       instruction.decoded_operands.push_back(DecodeSrc8(low & 0xffu));
@@ -345,6 +366,8 @@ void DecodeGcnOperands(RawGcnInstruction& instruction) {
     case 27:
       instruction.decoded_operands.push_back(MakeBranchTargetOperand(static_cast<int16_t>(low & 0xffffu)));
       break;
+    case 29:
+      break;
     case 21:
     case 24:
       instruction.decoded_operands.push_back(DecodeSrc8(low & 0xffu));
@@ -357,7 +380,12 @@ void DecodeGcnOperands(RawGcnInstruction& instruction) {
       instruction.decoded_operands.push_back(MakeVectorRegOperand((low >> 17u) & 0xffu));
       instruction.decoded_operands.push_back(DecodeSrc9(low & 0x1ffu));
       break;
+    case 32:
+      instruction.decoded_operands.push_back(MakeVectorRegOperand((low >> 17u) & 0xffu));
+      instruction.decoded_operands.push_back(DecodeSrc9(low & 0x1ffu));
+      break;
     case 14:
+    case 33:
       instruction.decoded_operands.push_back(MakeVectorRegOperand((low >> 17u) & 0xffu));
       instruction.decoded_operands.push_back(DecodeSrc9(low & 0x1ffu));
       instruction.decoded_operands.push_back(MakeVectorRegOperand((low >> 9u) & 0xffu));
@@ -390,6 +418,28 @@ void DecodeGcnOperands(RawGcnInstruction& instruction) {
       instruction.decoded_operands.push_back(DecodeSrc9((high >> 0u) & 0x1ffu));
       instruction.decoded_operands.push_back(DecodeSrc9((high >> 9u) & 0x1ffu));
       instruction.decoded_operands.push_back(DecodeSrc9((high >> 18u) & 0x1ffu));
+      break;
+    case 34:
+      instruction.decoded_operands.push_back(MakeVectorRegOperand(low & 0xffu));
+      instruction.decoded_operands.push_back(DecodeSrc9((high >> 0u) & 0x1ffu));
+      instruction.decoded_operands.push_back(DecodeSrc9((high >> 9u) & 0x1ffu));
+      instruction.decoded_operands.push_back(DecodeSrc9((high >> 18u) & 0x1ffu));
+      break;
+    case 35:
+      instruction.decoded_operands.push_back(MakeVectorRegOperand(low & 0xffu));
+      instruction.decoded_operands.push_back(
+          MakeScalarRegRangeOperand((low >> 8u) & 0x7fu, 2));
+      instruction.decoded_operands.push_back(DecodeSrc9((high >> 0u) & 0x1ffu));
+      instruction.decoded_operands.push_back(DecodeSrc9((high >> 9u) & 0x1ffu));
+      break;
+    case 36:
+      instruction.decoded_operands.push_back(MakeVectorRegOperand(low & 0xffu));
+      instruction.decoded_operands.push_back(
+          MakeScalarRegRangeOperand((low >> 8u) & 0x7fu, 2));
+      instruction.decoded_operands.push_back(DecodeSrc9((high >> 0u) & 0x1ffu));
+      instruction.decoded_operands.push_back(DecodeSrc9((high >> 9u) & 0x1ffu));
+      instruction.decoded_operands.push_back(
+          MakeScalarRegRangeOperand((high >> 18u) & 0x1ffu, 2));
       break;
     case 18: {
       const uint32_t addr = high & 0xffu;
@@ -428,6 +478,14 @@ void DecodeGcnOperands(RawGcnInstruction& instruction) {
       }
       break;
     }
+    case 30:
+      instruction.decoded_operands.push_back(MakeVectorRegOperand(high & 0xffu));
+      instruction.decoded_operands.push_back(MakeVectorRegOperand((high >> 8u) & 0xffu));
+      break;
+    case 31:
+      instruction.decoded_operands.push_back(MakeVectorRegOperand((high >> 24u) & 0xffu));
+      instruction.decoded_operands.push_back(MakeVectorRegOperand(high & 0xffu));
+      break;
     default:
       break;
   }

@@ -305,5 +305,48 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipMfmaExecutableWithUnknownInstruction
   EXPECT_GT(unknown_count, 0);
 }
 
+TEST(AmdgpuCodeObjectDecoderTest, DecodesHipSharedReverseExecutable) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_code_object_hip_shared_reverse");
+  const auto src_path = temp_dir / "hip_shared_reverse.cpp";
+  const auto exe_path = temp_dir / "hip_shared_reverse.out";
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n"
+           "extern \"C\" __global__ void shared_reverse(const int* in, int* out, int n) {\n"
+           "  __shared__ int scratch[64];\n"
+           "  int tid = threadIdx.x;\n"
+           "  int idx = blockIdx.x * blockDim.x + tid;\n"
+           "  if (idx < n) scratch[tid] = in[idx];\n"
+           "  __syncthreads();\n"
+           "  if (idx < n) out[idx] = scratch[blockDim.x - 1 - tid];\n"
+           "}\n"
+           "int main() { return 0; }\n";
+  }
+  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  const auto image = AmdgpuCodeObjectDecoder{}.Decode(exe_path, "shared_reverse");
+  EXPECT_EQ(image.kernel_name, "shared_reverse");
+  EXPECT_EQ(image.metadata.values.at("arg_count"), "3");
+  EXPECT_EQ(image.metadata.values.at("group_segment_fixed_size"), "256");
+  const auto ds_write_it = std::find_if(
+      image.instructions.begin(), image.instructions.end(),
+      [](const RawGcnInstruction& inst) { return inst.mnemonic == "ds_write_b32"; });
+  ASSERT_NE(ds_write_it, image.instructions.end());
+  const auto ds_read_it = std::find_if(
+      image.instructions.begin(), image.instructions.end(),
+      [](const RawGcnInstruction& inst) { return inst.mnemonic == "ds_read_b32"; });
+  ASSERT_NE(ds_read_it, image.instructions.end());
+  const auto barrier_it = std::find_if(
+      image.instructions.begin(), image.instructions.end(),
+      [](const RawGcnInstruction& inst) { return inst.mnemonic == "s_barrier"; });
+  ASSERT_NE(barrier_it, image.instructions.end());
+}
+
 }  // namespace
 }  // namespace gpu_model

@@ -11,12 +11,20 @@
 
 namespace gpu_model {
 
+struct RawGcnBlockContext {
+  std::vector<std::byte>& shared_memory;
+  uint64_t& barrier_generation;
+  uint32_t& barrier_arrivals;
+  uint32_t wave_count = 0;
+};
+
 struct RawGcnWaveContext {
   WaveState& wave;
   uint64_t& vcc;
   const std::vector<std::byte>& kernarg;
   MemorySystem& memory;
   ExecutionStats& stats;
+  RawGcnBlockContext& block;
 };
 
 class IRawGcnSemanticHandler {

@@ -1,5 +1,6 @@
 #include "gpu_model/exec/raw_gcn_executor.h"
 
+#include <algorithm>
 #include <array>
 #include <cstdarg>
 #include <cstdio>
@@ -21,6 +22,13 @@ namespace {
 struct RawWave {
   WaveState wave;
   uint64_t vcc = 0;
+};
+
+struct RawBlock {
+  std::vector<RawWave> waves;
+  std::vector<std::byte> shared_memory;
+  uint64_t barrier_generation = 0;
+  uint32_t barrier_arrivals = 0;
 };
 
 uint32_t LaneCount(const RawWave& raw_wave) {
@@ -47,6 +55,14 @@ std::vector<uint32_t> ParseArgLayoutSizes(const MetadataBlob& metadata) {
     sizes.push_back(static_cast<uint32_t>(std::stoul(token.substr(colon + 1))));
   }
   return sizes;
+}
+
+uint32_t ParseGroupSegmentFixedSize(const MetadataBlob& metadata) {
+  const auto it = metadata.values.find("group_segment_fixed_size");
+  if (it == metadata.values.end() || it->second.empty()) {
+    return 0;
+  }
+  return static_cast<uint32_t>(std::stoul(it->second));
 }
 
 std::vector<std::byte> BuildKernargBytes(const MetadataBlob& metadata,
@@ -128,10 +144,13 @@ LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
     pc_to_index[image.instructions[i].pc] = i;
   }
   const auto kernarg = BuildKernargBytes(image.metadata, args, config);
+  const uint32_t shared_bytes = std::max(config.shared_memory_bytes,
+                                         ParseGroupSegmentFixedSize(image.metadata));
 
   for (const auto& block : result.placement.blocks) {
-    std::vector<RawWave> waves;
-    waves.reserve(block.waves.size());
+    RawBlock raw_block;
+    raw_block.shared_memory.resize(shared_bytes);
+    raw_block.waves.reserve(block.waves.size());
     for (const auto& wave_placement : block.waves) {
       RawWave raw_wave;
       raw_wave.wave.block_id = block.block_id;
@@ -150,11 +169,43 @@ LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
       for (uint32_t lane = 0; lane < LaneCount(raw_wave); ++lane) {
         raw_wave.wave.vgpr.Write(0, lane, raw_wave.wave.wave_id * kWaveSize + lane);
       }
-      waves.push_back(std::move(raw_wave));
+      raw_block.waves.push_back(std::move(raw_wave));
     }
 
-    for (auto& raw_wave : waves) {
-      while (raw_wave.wave.status == WaveStatus::Active) {
+    while (true) {
+      uint32_t active_wave_count = 0;
+      uint32_t waiting_wave_count = 0;
+      for (const auto& raw_wave : raw_block.waves) {
+        if (raw_wave.wave.status == WaveStatus::Active ||
+            raw_wave.wave.status == WaveStatus::Stalled) {
+          ++active_wave_count;
+          if (raw_wave.wave.waiting_at_barrier) {
+            ++waiting_wave_count;
+          }
+        }
+      }
+      if (active_wave_count == 0) {
+        break;
+      }
+
+      if (waiting_wave_count == active_wave_count) {
+        for (auto& raw_wave : raw_block.waves) {
+          if (raw_wave.wave.waiting_at_barrier &&
+              raw_wave.wave.barrier_generation == raw_block.barrier_generation) {
+            raw_wave.wave.waiting_at_barrier = false;
+            raw_wave.wave.status = WaveStatus::Active;
+            raw_wave.wave.pc += 4;
+          }
+        }
+        raw_block.barrier_arrivals = 0;
+        ++raw_block.barrier_generation;
+      }
+
+      bool made_progress = false;
+      for (auto& raw_wave : raw_block.waves) {
+        if (raw_wave.wave.status != WaveStatus::Active || raw_wave.wave.waiting_at_barrier) {
+          continue;
+        }
         const auto it = pc_to_index.find(raw_wave.wave.pc);
         if (it == pc_to_index.end()) {
           throw std::out_of_range("raw GCN wave pc out of range");
@@ -166,19 +217,30 @@ LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
                  inst.operands.c_str());
         ++result.stats.wave_steps;
         ++result.stats.instructions_issued;
+        RawGcnBlockContext block_context{
+            .shared_memory = raw_block.shared_memory,
+            .barrier_generation = raw_block.barrier_generation,
+            .barrier_arrivals = raw_block.barrier_arrivals,
+            .wave_count = static_cast<uint32_t>(raw_block.waves.size()),
+        };
         RawGcnWaveContext context{
             .wave = raw_wave.wave,
             .vcc = raw_wave.vcc,
             .kernarg = kernarg,
             .memory = memory,
             .stats = result.stats,
+            .block = block_context,
         };
         try {
           const auto& handler = RawGcnSemanticHandlerRegistry::Get(inst.mnemonic);
           handler.Execute(decoded, context);
+          made_progress = true;
         } catch (const std::exception& ex) {
           throw std::runtime_error(inst.mnemonic + ": " + ex.what());
         }
+      }
+      if (!made_progress) {
+        throw std::runtime_error("raw GCN block made no progress");
       }
     }
   }

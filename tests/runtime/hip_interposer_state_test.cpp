@@ -275,5 +275,68 @@ TEST(HipInterposerStateTest, LaunchesHipVecAddExecutableThroughRegisteredHostFun
   std::filesystem::remove_all(temp_dir);
 }
 
+TEST(HipInterposerStateTest, LaunchesHipSharedReverseExecutableThroughRegisteredHostFunction) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_interposer_shared_reverse");
+  const auto src_path = temp_dir / "hip_shared_reverse.cpp";
+  const auto exe_path = temp_dir / "hip_shared_reverse.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n\n"
+           "extern \"C\" __global__ void shared_reverse(const int* in, int* out, int n) {\n"
+           "  __shared__ int scratch[64];\n"
+           "  int tid = threadIdx.x;\n"
+           "  int idx = blockIdx.x * blockDim.x + tid;\n"
+           "  if (idx < n) scratch[tid] = in[idx];\n"
+           "  __syncthreads();\n"
+           "  if (idx < n) out[idx] = scratch[blockDim.x - 1 - tid];\n"
+           "}\n\n"
+           "int main() { return 0; }\n";
+  }
+
+  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  auto& state = HipInterposerState::Instance();
+  state.ResetForTest();
+  static int host_symbol = 0;
+  state.RegisterFunction(&host_symbol, "shared_reverse");
+
+  constexpr uint32_t n = 128;
+  std::vector<int32_t> in(n), out(n, -1), expect(n, -1);
+  for (uint32_t i = 0; i < n; ++i) {
+    in[i] = static_cast<int32_t>(i + 1);
+  }
+  for (uint32_t block = 0; block < 2; ++block) {
+    const uint32_t base = block * 64;
+    for (uint32_t lane = 0; lane < 64; ++lane) {
+      expect[base + lane] = in[base + (63 - lane)];
+    }
+  }
+
+  void* in_dev = state.AllocateDevice(n * sizeof(int32_t));
+  void* out_dev = state.AllocateDevice(n * sizeof(int32_t));
+  state.MemcpyHostToDevice(in_dev, in.data(), n * sizeof(int32_t));
+  state.MemcpyHostToDevice(out_dev, out.data(), n * sizeof(int32_t));
+
+  uint32_t n_arg = n;
+  void* args[] = {&in_dev, &out_dev, &n_arg};
+  const auto result = state.LaunchExecutableKernel(
+      exe_path, &host_symbol, LaunchConfig{.grid_dim_x = 2, .block_dim_x = 64}, args);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  state.MemcpyDeviceToHost(out.data(), out_dev, n * sizeof(int32_t));
+  for (uint32_t i = 0; i < n; ++i) {
+    EXPECT_EQ(out[i], expect[i]);
+  }
+
+  std::filesystem::remove_all(temp_dir);
+}
+
 }  // namespace
 }  // namespace gpu_model

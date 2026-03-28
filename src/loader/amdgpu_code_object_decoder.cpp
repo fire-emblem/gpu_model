@@ -165,6 +165,7 @@ struct KernelArgLayoutEntry {
 struct NoteKernelMetadata {
   std::string name;
   std::vector<KernelArgLayoutEntry> args;
+  uint32_t group_segment_fixed_size = 0;
 };
 
 TextSectionInfo ParseTextSectionInfo(const std::string& sections) {
@@ -294,6 +295,11 @@ std::vector<NoteKernelMetadata> ParseKernelMetadataNotes(const std::string& note
       current->name = Trim(std::string_view(trimmed).substr(6));
       continue;
     }
+    if (trimmed.rfind(".group_segment_fixed_size:", 0) == 0) {
+      current->group_segment_fixed_size =
+          static_cast<uint32_t>(std::stoul(Trim(std::string_view(trimmed).substr(26))));
+      continue;
+    }
   }
   finalize_kernel();
   return kernels;
@@ -323,6 +329,8 @@ MetadataBlob BuildMetadataFromNotes(const std::filesystem::path& note_source_pat
     }
     metadata.values["arg_layout"] = layout.str();
     metadata.values["arg_count"] = std::to_string(kernel.args.size());
+    metadata.values["group_segment_fixed_size"] =
+        std::to_string(kernel.group_segment_fixed_size);
     break;
   }
   return metadata;
