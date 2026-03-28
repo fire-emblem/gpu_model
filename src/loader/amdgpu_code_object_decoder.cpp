@@ -357,54 +357,6 @@ std::vector<std::byte> ReadBinaryFile(const std::filesystem::path& path) {
   return bytes;
 }
 
-uint32_t InstructionSizeForFormat(const std::vector<uint32_t>& words,
-                                 GcnInstFormatClass format_class) {
-  const uint32_t low = words.empty() ? 0u : words[0];
-  switch (format_class) {
-    case GcnInstFormatClass::Sopp:
-    case GcnInstFormatClass::Sopk:
-      return 4;
-    case GcnInstFormatClass::Sop2:
-    case GcnInstFormatClass::Sopc:
-      return ((low & 0xffu) == 255u || ((low >> 8u) & 0xffu) == 255u) ? 8u : 4u;
-    case GcnInstFormatClass::Sop1:
-      return (low & 0xffu) == 255u ? 8u : 4u;
-    case GcnInstFormatClass::Vop2:
-    case GcnInstFormatClass::Vopc:
-      return (low & 0x1ffu) == 255u ? 8u : 4u;
-    case GcnInstFormatClass::Vop1:
-      return (low & 0x1ffu) == 255u ? 8u : 4u;
-    case GcnInstFormatClass::Smrd:
-    case GcnInstFormatClass::Smem:
-    case GcnInstFormatClass::Vop3a:
-    case GcnInstFormatClass::Vop3b:
-    case GcnInstFormatClass::Vop3p:
-    case GcnInstFormatClass::Ds:
-    case GcnInstFormatClass::Flat:
-    case GcnInstFormatClass::Mubuf:
-    case GcnInstFormatClass::Mtbuf:
-    case GcnInstFormatClass::Mimg:
-    case GcnInstFormatClass::Exp:
-      return 8;
-    case GcnInstFormatClass::Vintrp:
-      return (((low >> 26u) & 0x3fu) == 0x32u) ? 4u : 8u;
-    case GcnInstFormatClass::Unknown:
-      break;
-  }
-  throw std::runtime_error("failed to determine raw instruction size");
-}
-
-std::vector<uint32_t> ReadWords(const std::vector<std::byte>& bytes, size_t offset, uint32_t size_bytes) {
-  std::vector<uint32_t> words;
-  words.reserve(size_bytes / 4);
-  for (uint32_t i = 0; i < size_bytes; i += 4) {
-    uint32_t word = 0;
-    std::memcpy(&word, bytes.data() + offset + i, sizeof(word));
-    words.push_back(word);
-  }
-  return words;
-}
-
 }  // namespace
 
 AmdgpuCodeObjectImage AmdgpuCodeObjectDecoder::Decode(const std::filesystem::path& path,
@@ -431,29 +383,16 @@ AmdgpuCodeObjectImage AmdgpuCodeObjectDecoder::Decode(const std::filesystem::pat
     throw std::runtime_error("kernel symbol range exceeds dumped .text bytes");
   }
 
-  size_t offset = static_cast<size_t>(kernel_offset);
-  const size_t end = static_cast<size_t>(kernel_offset + symbol_info.size);
-  while (offset < end) {
-    uint32_t low = 0;
-    std::memcpy(&low, text_bytes.data() + offset, sizeof(low));
-    const auto format_class = ClassifyGcnInstFormat({low});
-    const uint32_t size_guess = InstructionSizeForFormat({low}, format_class);
-    const uint32_t size_bytes = size_guess;
-    if (offset + size_bytes > end) {
-      throw std::runtime_error("raw instruction exceeds kernel symbol bounds");
-    }
-    RawGcnInstruction instruction;
-    instruction.pc = symbol_info.value + (offset - static_cast<size_t>(kernel_offset));
-    instruction.words = ReadWords(text_bytes, offset, size_bytes);
-    instruction.size_bytes = size_bytes;
-    instruction.format_class = format_class;
-    if (const auto* def = FindGcnInstEncodingDef(instruction.words)) {
-      instruction.encoding_id = def->id;
-      instruction.mnemonic = std::string(def->mnemonic);
-    } else {
-      instruction.mnemonic = std::string(LookupGcnOpcodeName(instruction.words));
-    }
-    DecodeGcnOperands(instruction);
+  const auto code_begin = static_cast<size_t>(kernel_offset);
+  const auto code_size = static_cast<size_t>(symbol_info.size);
+  std::span<const std::byte> kernel_text{text_bytes.data() + code_begin, code_size};
+  auto parsed = RawGcnInstructionArrayParser::Parse(kernel_text, symbol_info.value);
+  code_object.instructions = std::move(parsed.raw_instructions);
+  code_object.decoded_instructions = std::move(parsed.decoded_instructions);
+  code_object.instruction_objects = std::move(parsed.instruction_objects);
+  code_object.code_bytes.assign(kernel_text.begin(), kernel_text.end());
+
+  for (auto& instruction : code_object.instructions) {
     if (instruction.operands.empty() && !instruction.decoded_operands.empty()) {
       std::ostringstream operand_text;
       for (size_t i = 0; i < instruction.decoded_operands.size(); ++i) {
@@ -464,22 +403,11 @@ AmdgpuCodeObjectImage AmdgpuCodeObjectDecoder::Decode(const std::filesystem::pat
       }
       instruction.operands = operand_text.str();
     }
-    code_object.instructions.push_back(instruction);
-    code_object.decoded_instructions.push_back(GcnInstDecoder{}.Decode(instruction));
-    for (uint32_t word : instruction.words) {
-      code_object.code_bytes.push_back(static_cast<std::byte>(word & 0xffu));
-      code_object.code_bytes.push_back(static_cast<std::byte>((word >> 8u) & 0xffu));
-      code_object.code_bytes.push_back(static_cast<std::byte>((word >> 16u) & 0xffu));
-      code_object.code_bytes.push_back(static_cast<std::byte>((word >> 24u) & 0xffu));
-    }
-    offset += size_bytes;
   }
 
   if (code_object.instructions.empty()) {
     throw std::runtime_error("failed to decode AMDGPU kernel instructions: " + code_object.kernel_name);
   }
-  code_object.instruction_objects =
-      RawGcnInstructionArrayParser::Parse(code_object.decoded_instructions);
   return code_object;
 }
 

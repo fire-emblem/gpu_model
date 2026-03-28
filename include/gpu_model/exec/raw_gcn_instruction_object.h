@@ -1,10 +1,12 @@
 #pragma once
 
 #include <memory>
+#include <span>
 #include <string_view>
 #include <vector>
 
 #include "gpu_model/decode/decoded_gcn_instruction.h"
+#include "gpu_model/decode/raw_gcn_instruction.h"
 #include "gpu_model/exec/raw_gcn_semantic_handler.h"
 
 namespace gpu_model {
@@ -27,8 +29,17 @@ class RawGcnInstructionObject {
 
 using RawGcnInstructionObjectPtr = std::unique_ptr<RawGcnInstructionObject>;
 
+struct RawGcnParsedInstructionArray {
+  std::vector<RawGcnInstruction> raw_instructions;
+  std::vector<DecodedGcnInstruction> decoded_instructions;
+  std::vector<RawGcnInstructionObjectPtr> instruction_objects;
+};
+
 class RawGcnInstructionArrayParser {
  public:
+  static RawGcnParsedInstructionArray Parse(std::span<const std::byte> text_bytes,
+                                            uint64_t start_pc);
+  static RawGcnParsedInstructionArray Parse(const std::vector<RawGcnInstruction>& instructions);
   static std::vector<RawGcnInstructionObjectPtr> Parse(
       const std::vector<DecodedGcnInstruction>& instructions);
 };

@@ -42,5 +42,54 @@ TEST(RawGcnInstructionArrayParserTest, CreatesConcreteAndPlaceholderInstructionO
   EXPECT_EQ(objects[4]->op_type_name(), "exp");
 }
 
+TEST(RawGcnInstructionArrayParserTest, ParsesRawInstructionArrayIntoDecodedAndObjects) {
+  std::vector<RawGcnInstruction> raw;
+  raw.push_back(RawGcnInstruction{
+      .pc = 0x1000,
+      .size_bytes = 8,
+      .words = {0xc0020002u, 0x0000002cu},
+      .format_class = GcnInstFormatClass::Smrd,
+      .encoding_id = 2,
+      .mnemonic = "s_load_dword",
+      .operands = "",
+      .decoded_operands = {},
+  });
+  raw.push_back(RawGcnInstruction{
+      .pc = 0x1008,
+      .size_bytes = 4,
+      .words = {0x68000006u},
+      .format_class = GcnInstFormatClass::Vop2,
+      .encoding_id = 7,
+      .mnemonic = "v_add_u32_e32",
+      .operands = "",
+      .decoded_operands = {},
+  });
+
+  auto parsed = RawGcnInstructionArrayParser::Parse(raw);
+  ASSERT_EQ(parsed.decoded_instructions.size(), 2u);
+  ASSERT_EQ(parsed.instruction_objects.size(), 2u);
+  EXPECT_EQ(parsed.decoded_instructions[0].mnemonic, "s_load_dword");
+  EXPECT_EQ(parsed.instruction_objects[0]->class_name(), "s_load_dword");
+  EXPECT_EQ(parsed.decoded_instructions[1].mnemonic, "v_add_u32_e32");
+  EXPECT_EQ(parsed.instruction_objects[1]->class_name(), "v_add_u32_e32");
+}
+
+TEST(RawGcnInstructionArrayParserTest, ParsesTextBytesIntoInstructionArrays) {
+  const std::vector<std::byte> text = {
+      std::byte{0x02}, std::byte{0x00}, std::byte{0x02}, std::byte{0xc0},
+      std::byte{0x2c}, std::byte{0x00}, std::byte{0x00}, std::byte{0x00},
+      std::byte{0x06}, std::byte{0x00}, std::byte{0x00}, std::byte{0x68},
+  };
+
+  auto parsed = RawGcnInstructionArrayParser::Parse(text, 0x1000);
+  ASSERT_EQ(parsed.raw_instructions.size(), 2u);
+  ASSERT_EQ(parsed.decoded_instructions.size(), 2u);
+  ASSERT_EQ(parsed.instruction_objects.size(), 2u);
+  EXPECT_EQ(parsed.raw_instructions[0].pc, 0x1000u);
+  EXPECT_EQ(parsed.raw_instructions[1].pc, 0x1008u);
+  EXPECT_EQ(parsed.instruction_objects[0]->class_name(), "s_load_dword");
+  EXPECT_EQ(parsed.instruction_objects[1]->class_name(), "v_add_u32_e32");
+}
+
 }  // namespace
 }  // namespace gpu_model
