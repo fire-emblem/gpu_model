@@ -12,6 +12,8 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeScalarMemoryInstruction) {
       .words = {0xc0020002u, 0x0000002cu},
       .format_class = GcnInstFormatClass::Smrd,
       .mnemonic = "s_load_dword",
+      .operands = "",
+      .decoded_operands = {},
   };
 
   const auto decoded = GcnInstDecoder{}.Decode(raw);
@@ -28,6 +30,8 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeBranchInstruction) {
       .words = {0xbf880019u},
       .format_class = GcnInstFormatClass::Sopp,
       .mnemonic = "s_cbranch_execz",
+      .operands = "",
+      .decoded_operands = {},
   };
 
   const auto decoded = GcnInstDecoder{}.Decode(raw);
@@ -36,6 +40,8 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeBranchInstruction) {
   ASSERT_EQ(decoded.operands.size(), 1u);
   EXPECT_EQ(decoded.operands[0].text, "25");
   EXPECT_EQ(decoded.operands[0].kind, DecodedGcnOperandKind::BranchTarget);
+  EXPECT_TRUE(decoded.operands[0].info.has_immediate);
+  EXPECT_EQ(decoded.operands[0].info.immediate, 25);
 }
 
 TEST(GcnInstDecoderTest, DecodesRepresentativeWaitcntInstruction) {
@@ -45,6 +51,8 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeWaitcntInstruction) {
       .words = {0xbf8cc07fu},
       .format_class = GcnInstFormatClass::Sopp,
       .mnemonic = "s_waitcnt",
+      .operands = "",
+      .decoded_operands = {},
   };
 
   const auto decoded = GcnInstDecoder{}.Decode(raw);
@@ -61,6 +69,8 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeVectorMoveInstruction) {
       .words = {0x7e060203u},
       .format_class = GcnInstFormatClass::Vop1,
       .mnemonic = "v_mov_b32_e32",
+      .operands = "",
+      .decoded_operands = {},
   };
 
   const auto decoded = GcnInstDecoder{}.Decode(raw);
@@ -77,6 +87,8 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeGlobalLoadInstruction) {
       .words = {0xdc508000u, 0x067f0004u},
       .format_class = GcnInstFormatClass::Flat,
       .mnemonic = "global_load_dword",
+      .operands = "",
+      .decoded_operands = {},
   };
 
   const auto decoded = GcnInstDecoder{}.Decode(raw);
@@ -85,8 +97,12 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeGlobalLoadInstruction) {
   ASSERT_EQ(decoded.operands.size(), 3u);
   EXPECT_EQ(decoded.operands[1].kind, DecodedGcnOperandKind::VectorRegRange);
   EXPECT_EQ(decoded.operands[1].text, "v[4:5]");
+  EXPECT_EQ(decoded.operands[1].info.reg_first, 4u);
+  EXPECT_EQ(decoded.operands[1].info.reg_count, 2u);
   EXPECT_EQ(decoded.operands[0].text, "v6");
   EXPECT_EQ(decoded.operands[2].text, "off");
+  EXPECT_TRUE(decoded.operands[2].info.has_immediate);
+  EXPECT_EQ(decoded.operands[2].info.immediate, 0);
 }
 
 }  // namespace

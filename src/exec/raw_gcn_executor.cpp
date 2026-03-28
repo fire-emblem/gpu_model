@@ -10,7 +10,6 @@
 #include <stdexcept>
 #include <unordered_map>
 
-#include "gpu_model/loader/gcn_text_parser.h"
 #include "gpu_model/runtime/mapper.h"
 #include "gpu_model/state/wave_state.h"
 
@@ -63,10 +62,6 @@ uint32_t LoadU32(const std::vector<std::byte>& bytes, uint32_t offset) {
   return value;
 }
 
-void StoreU32(std::vector<std::byte>& bytes, uint32_t offset, uint32_t value) {
-  std::memcpy(bytes.data() + offset, &value, sizeof(value));
-}
-
 uint64_t LoadKernarg64(const std::vector<std::byte>& bytes, uint32_t offset) {
   uint64_t value = 0;
   std::memcpy(&value, bytes.data() + offset, sizeof(value));
@@ -77,8 +72,9 @@ uint32_t LoadKernarg32(const std::vector<std::byte>& bytes, uint32_t offset) {
   return LoadU32(bytes, offset);
 }
 
-uint64_t BranchTarget(uint64_t pc, uint32_t simm16) {
-  return pc + 4ull + static_cast<uint64_t>(simm16) * 4ull;
+uint64_t BranchTarget(uint64_t pc, int32_t simm16) {
+  const int64_t target = static_cast<int64_t>(pc) + 4 + static_cast<int64_t>(simm16) * 4;
+  return static_cast<uint64_t>(target);
 }
 
 float U32AsFloat(uint32_t bits) {
@@ -105,67 +101,47 @@ void DebugLog(const char* fmt, ...) {
   va_end(args);
 }
 
-uint32_t ParseIndex(std::string_view text, char prefix) {
-  if (text.size() < 2 || text.front() != prefix) {
-    throw std::invalid_argument("expected register operand");
-  }
-  return static_cast<uint32_t>(std::stoul(std::string(text.substr(1))));
-}
-
 uint32_t RequireScalarIndex(const DecodedGcnOperand& operand) {
-  if (operand.kind != DecodedGcnOperandKind::ScalarReg) {
+  if (operand.kind != DecodedGcnOperandKind::ScalarReg || operand.info.reg_count != 1) {
     throw std::invalid_argument("expected scalar register operand");
   }
-  return ParseIndex(operand.text, 's');
+  return operand.info.reg_first;
 }
 
 uint32_t RequireVectorIndex(const DecodedGcnOperand& operand) {
-  if (operand.kind != DecodedGcnOperandKind::VectorReg) {
+  if (operand.kind != DecodedGcnOperandKind::VectorReg || operand.info.reg_count != 1) {
     throw std::invalid_argument("expected vector register operand");
   }
-  return ParseIndex(operand.text, 'v');
-}
-
-std::pair<uint32_t, uint32_t> ParseRange(std::string_view text, char prefix) {
-  if (text.size() < 5 || text.front() != prefix || text[1] != '[' || text.back() != ']') {
-    throw std::invalid_argument("expected register range operand");
-  }
-  const auto colon = text.find(':');
-  if (colon == std::string::npos) {
-    throw std::invalid_argument("invalid register range operand");
-  }
-  const uint32_t first = static_cast<uint32_t>(std::stoul(std::string(text.substr(2, colon - 2))));
-  const uint32_t last = static_cast<uint32_t>(
-      std::stoul(std::string(text.substr(colon + 1, text.size() - colon - 2))));
-  return {first, last};
+  return operand.info.reg_first;
 }
 
 std::pair<uint32_t, uint32_t> RequireScalarRange(const DecodedGcnOperand& operand) {
-  if (operand.kind != DecodedGcnOperandKind::ScalarRegRange) {
+  if (operand.kind != DecodedGcnOperandKind::ScalarRegRange || operand.info.reg_count == 0) {
     throw std::invalid_argument("expected scalar register range operand");
   }
-  return ParseRange(operand.text, 's');
+  return {operand.info.reg_first, operand.info.reg_first + operand.info.reg_count - 1};
 }
 
 std::pair<uint32_t, uint32_t> RequireVectorRange(const DecodedGcnOperand& operand) {
-  if (operand.text.size() < 4 || operand.text.front() != 'v' || operand.text[1] != '[') {
+  if (operand.kind != DecodedGcnOperandKind::VectorRegRange || operand.info.reg_count == 0) {
     throw std::invalid_argument("expected vector register range operand");
   }
-  return ParseRange(operand.text, 'v');
+  return {operand.info.reg_first, operand.info.reg_first + operand.info.reg_count - 1};
 }
 
 uint64_t ResolveScalarLike(const DecodedGcnOperand& operand, const RawWave& raw_wave) {
   if (operand.kind == DecodedGcnOperandKind::Immediate ||
       operand.kind == DecodedGcnOperandKind::BranchTarget) {
-    if (operand.text == "off") {
-      return 0;
+    if (!operand.info.has_immediate) {
+      throw std::invalid_argument("immediate operand missing value");
     }
-    return static_cast<uint64_t>(std::stoll(operand.text, nullptr, 0));
+    return static_cast<uint64_t>(operand.info.immediate);
   }
   if (operand.kind == DecodedGcnOperandKind::ScalarReg) {
-    return raw_wave.wave.sgpr.Read(ParseIndex(operand.text, 's'));
+    return raw_wave.wave.sgpr.Read(RequireScalarIndex(operand));
   }
-  if (operand.kind == DecodedGcnOperandKind::SpecialReg && operand.text == "vcc") {
+  if (operand.kind == DecodedGcnOperandKind::SpecialReg &&
+      operand.info.special_reg == GcnSpecialReg::Vcc) {
     return raw_wave.vcc;
   }
   throw std::invalid_argument("unsupported scalar-like raw operand");
@@ -173,23 +149,18 @@ uint64_t ResolveScalarLike(const DecodedGcnOperand& operand, const RawWave& raw_
 
 uint64_t ResolveVectorLane(const DecodedGcnOperand& operand, const RawWave& raw_wave, uint32_t lane) {
   if (operand.kind == DecodedGcnOperandKind::Immediate) {
-    if (operand.text == "off") {
-      return 0;
+    if (!operand.info.has_immediate) {
+      throw std::invalid_argument("immediate operand missing value");
     }
-    return static_cast<uint64_t>(std::stoll(operand.text, nullptr, 0));
+    return static_cast<uint64_t>(operand.info.immediate);
   }
   if (operand.kind == DecodedGcnOperandKind::ScalarReg) {
-    return raw_wave.wave.sgpr.Read(ParseIndex(operand.text, 's'));
+    return raw_wave.wave.sgpr.Read(RequireScalarIndex(operand));
   }
-  if (operand.kind == DecodedGcnOperandKind::VectorReg && operand.text.size() > 1 &&
-      operand.text[1] != '[') {
-    return raw_wave.wave.vgpr.Read(ParseIndex(operand.text, 'v'), lane);
+  if (operand.kind == DecodedGcnOperandKind::VectorReg) {
+    return raw_wave.wave.vgpr.Read(RequireVectorIndex(operand), lane);
   }
   throw std::invalid_argument("unsupported vector-lane raw operand");
-}
-
-GcnTextInstruction ParseTextOperands(const RawGcnInstruction& inst) {
-  return GcnTextParser::ParseInstruction(inst.mnemonic + (inst.operands.empty() ? "" : " " + inst.operands));
 }
 
 }  // namespace
@@ -258,41 +229,22 @@ LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
         ++result.stats.instructions_issued;
         try {
         if (inst.mnemonic == "s_load_dword") {
-          const bool use_decoded = decoded.operands.size() >= 3;
-          const auto parsed = use_decoded ? std::optional<GcnTextInstruction>{}
-                                          : std::optional<GcnTextInstruction>(ParseTextOperands(inst));
-          const uint32_t offset = use_decoded
-                                      ? static_cast<uint32_t>(ResolveScalarLike(decoded.operands.at(2), raw_wave))
-                                      : static_cast<uint32_t>(parsed->operands.at(2).immediate.value_or(0));
-          const uint32_t sdst = use_decoded ? RequireScalarIndex(decoded.operands.at(0))
-                                            : parsed->operands.at(0).reg->index;
+          const uint32_t offset =
+              static_cast<uint32_t>(ResolveScalarLike(decoded.operands.at(2), raw_wave));
+          const uint32_t sdst = RequireScalarIndex(decoded.operands.at(0));
           raw_wave.wave.sgpr.Write(sdst, LoadKernarg32(kernarg, offset));
           raw_wave.wave.pc += inst.size_bytes;
         } else if (inst.mnemonic == "s_load_dwordx2") {
-          const bool use_decoded = decoded.operands.size() >= 3;
-          const auto parsed = use_decoded ? std::optional<GcnTextInstruction>{}
-                                          : std::optional<GcnTextInstruction>(ParseTextOperands(inst));
-          const uint32_t offset = use_decoded
-                                      ? static_cast<uint32_t>(ResolveScalarLike(decoded.operands.at(2), raw_wave))
-                                      : static_cast<uint32_t>(parsed->operands.at(2).immediate.value_or(0));
-          const auto [sdst, _] = use_decoded
-                                     ? RequireScalarRange(decoded.operands.at(0))
-                                     : std::pair<uint32_t, uint32_t>{parsed->operands.at(0).reg_range->first,
-                                                                     parsed->operands.at(0).reg_range->last};
+          const uint32_t offset =
+              static_cast<uint32_t>(ResolveScalarLike(decoded.operands.at(2), raw_wave));
+          const auto [sdst, _] = RequireScalarRange(decoded.operands.at(0));
           raw_wave.wave.sgpr.Write(sdst, LoadKernarg64(kernarg, offset) & 0xffffffffu);
           raw_wave.wave.sgpr.Write(sdst + 1, LoadKernarg64(kernarg, offset) >> 32u);
           raw_wave.wave.pc += inst.size_bytes;
         } else if (inst.mnemonic == "s_load_dwordx4") {
-          const bool use_decoded = decoded.operands.size() >= 3;
-          const auto parsed = use_decoded ? std::optional<GcnTextInstruction>{}
-                                          : std::optional<GcnTextInstruction>(ParseTextOperands(inst));
-          const uint32_t offset = use_decoded
-                                      ? static_cast<uint32_t>(ResolveScalarLike(decoded.operands.at(2), raw_wave))
-                                      : static_cast<uint32_t>(parsed->operands.at(2).immediate.value_or(0));
-          const auto [sdst, _] = use_decoded
-                                     ? RequireScalarRange(decoded.operands.at(0))
-                                     : std::pair<uint32_t, uint32_t>{parsed->operands.at(0).reg_range->first,
-                                                                     parsed->operands.at(0).reg_range->last};
+          const uint32_t offset =
+              static_cast<uint32_t>(ResolveScalarLike(decoded.operands.at(2), raw_wave));
+          const auto [sdst, _] = RequireScalarRange(decoded.operands.at(0));
           raw_wave.wave.sgpr.Write(sdst + 0, LoadKernarg32(kernarg, offset + 0));
           raw_wave.wave.sgpr.Write(sdst + 1, LoadKernarg32(kernarg, offset + 4));
           raw_wave.wave.sgpr.Write(sdst + 2, LoadKernarg32(kernarg, offset + 8));
@@ -351,7 +303,9 @@ LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
           raw_wave.wave.pc += inst.size_bytes;
         } else if (inst.mnemonic == "s_cbranch_execz") {
           if (raw_wave.wave.exec.none()) {
-            raw_wave.wave.pc = BranchTarget(raw_wave.wave.pc, static_cast<uint32_t>(ResolveScalarLike(decoded.operands.at(0), raw_wave)));
+            raw_wave.wave.pc = BranchTarget(
+                raw_wave.wave.pc,
+                static_cast<int32_t>(decoded.operands.at(0).info.immediate));
           } else {
             raw_wave.wave.pc += inst.size_bytes;
           }
@@ -372,8 +326,7 @@ LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
           const auto [vdst, _vdst_hi] = RequireVectorRange(decoded.operands.at(0));
           const uint32_t shift = static_cast<uint32_t>(ResolveVectorLane(decoded.operands.at(1), raw_wave, 0));
           uint32_t src_pair = 0;
-          if (decoded.operands.at(2).kind == DecodedGcnOperandKind::VectorRegRange ||
-              (decoded.operands.at(2).text.size() >= 4 && decoded.operands.at(2).text[1] == '[')) {
+          if (decoded.operands.at(2).kind == DecodedGcnOperandKind::VectorRegRange) {
             const auto [src_lo, _src_hi] = RequireVectorRange(decoded.operands.at(2));
             src_pair = src_lo;
           } else {

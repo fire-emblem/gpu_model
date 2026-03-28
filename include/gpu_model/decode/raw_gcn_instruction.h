@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "gpu_model/decode/gcn_inst_format.h"
+#include "gpu_model/decode/gcn_operand_info.h"
 
 namespace gpu_model {
 
@@ -22,6 +23,7 @@ enum class RawGcnOperandKind {
 struct RawGcnOperand {
   RawGcnOperandKind kind = RawGcnOperandKind::Unknown;
   std::string text;
+  GcnOperandInfo info;
 };
 
 struct RawGcnInstruction {

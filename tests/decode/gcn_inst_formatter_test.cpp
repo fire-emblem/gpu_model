@@ -27,9 +27,9 @@ TEST(GcnInstFormatterTest, FormatsRawInstructionWithEncodingInfo) {
       .operands = "s0, s[4:5], 0x2c",
       .decoded_operands =
           {
-              RawGcnOperand{.kind = RawGcnOperandKind::ScalarReg, .text = "s0"},
-              RawGcnOperand{.kind = RawGcnOperandKind::ScalarRegRange, .text = "s[4:5]"},
-              RawGcnOperand{.kind = RawGcnOperandKind::Immediate, .text = "0x2c"},
+              RawGcnOperand{.kind = RawGcnOperandKind::ScalarReg, .text = "s0", .info = {}},
+              RawGcnOperand{.kind = RawGcnOperandKind::ScalarRegRange, .text = "s[4:5]", .info = {}},
+              RawGcnOperand{.kind = RawGcnOperandKind::Immediate, .text = "0x2c", .info = {}},
           },
   };
 
@@ -48,9 +48,9 @@ TEST(GcnInstFormatterTest, FormatsDecodedInstructionWithDecodedOperands) {
       .mnemonic = "global_load_dword",
       .operands =
           {
-              DecodedGcnOperand{.kind = DecodedGcnOperandKind::VectorReg, .text = "v6"},
-              DecodedGcnOperand{.kind = DecodedGcnOperandKind::VectorRegRange, .text = "v[4:5]"},
-              DecodedGcnOperand{.kind = DecodedGcnOperandKind::Immediate, .text = "off"},
+              DecodedGcnOperand{.kind = DecodedGcnOperandKind::VectorReg, .text = "v6", .info = {}},
+              DecodedGcnOperand{.kind = DecodedGcnOperandKind::VectorRegRange, .text = "v[4:5]", .info = {}},
+              DecodedGcnOperand{.kind = DecodedGcnOperandKind::Immediate, .text = "off", .info = {}},
           },
   };
 

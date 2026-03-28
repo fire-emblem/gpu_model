@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cstdlib>
 #include <filesystem>
@@ -92,6 +93,19 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesRawInstructionsFromHipExecutable) {
   EXPECT_EQ(image.instructions.front().encoding_id, 2u);
   ASSERT_EQ(image.instructions.front().decoded_operands.size(), 3u);
   EXPECT_FALSE(image.instructions.front().decoded_operands[0].text.empty());
+  EXPECT_EQ(image.instructions.front().decoded_operands[0].info.reg_first, 0u);
+  EXPECT_EQ(image.instructions.front().decoded_operands[1].info.reg_first, 4u);
+  EXPECT_EQ(image.instructions.front().decoded_operands[1].info.reg_count, 2u);
+  const auto v_lshl_it = std::find_if(
+      image.instructions.begin(), image.instructions.end(),
+      [](const RawGcnInstruction& inst) { return inst.mnemonic == "v_lshlrev_b64"; });
+  ASSERT_NE(v_lshl_it, image.instructions.end());
+  ASSERT_EQ(v_lshl_it->decoded_operands.size(), 3u);
+  EXPECT_EQ(v_lshl_it->decoded_operands[0].text, "v[0:1]");
+  EXPECT_EQ(v_lshl_it->decoded_operands[0].info.reg_count, 2u);
+  EXPECT_EQ(v_lshl_it->decoded_operands[2].text, "v[0:1]");
+  EXPECT_EQ(v_lshl_it->decoded_operands[2].info.reg_first, 0u);
+  EXPECT_EQ(v_lshl_it->decoded_operands[2].info.reg_count, 2u);
   EXPECT_GT(image.instructions.size(), 20u);
   EXPECT_GT(image.code_bytes.size(), 100u);
 }
