@@ -375,8 +375,10 @@ uint32_t InstructionSizeForFormat(const std::vector<uint32_t>& words,
     case GcnInstFormatClass::Vop1:
       return (low & 0x1ffu) == 255u ? 8u : 4u;
     case GcnInstFormatClass::Smrd:
+    case GcnInstFormatClass::Smem:
     case GcnInstFormatClass::Vop3a:
     case GcnInstFormatClass::Vop3b:
+    case GcnInstFormatClass::Vop3p:
     case GcnInstFormatClass::Ds:
     case GcnInstFormatClass::Flat:
     case GcnInstFormatClass::Mubuf:
@@ -385,7 +387,7 @@ uint32_t InstructionSizeForFormat(const std::vector<uint32_t>& words,
     case GcnInstFormatClass::Exp:
       return 8;
     case GcnInstFormatClass::Vintrp:
-      return 4u;
+      return (((low >> 26u) & 0x3fu) == 0x32u) ? 4u : 8u;
     case GcnInstFormatClass::Unknown:
       break;
   }

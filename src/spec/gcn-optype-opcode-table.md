@@ -14,6 +14,13 @@ Scope of this table:
 - when LLVM TD contains multiple generation-specific opcodes for the same mnemonic, the table prefers `gfx9` rows, then generic `vi` rows, then older `ci/si/gfx6/gfx7` rows
 - address-mode variants such as `_OFFSET` / `_OFFEN` / `_BOTHEN` are deduplicated into one opcode row
 
+Execution-model scope note:
+
+- descriptor-based `MUBUF` / `MTBUF` are currently treated as placeholder families
+- graphics-oriented `MIMG` / `EXP` / `VINTRP` are also placeholder families in the compute-first model
+- for these families, phase 1 requires opcode coverage, format classification, and disassembly names
+- deep descriptor semantics or graphics pipeline behavior are intentionally deferred
+
 Encoding note:
 
 - some families reuse the same raw prefix value but with different prefix widths

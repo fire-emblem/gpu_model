@@ -300,7 +300,7 @@ def emit_header(rows: list[OpcodeRow], out_path: pathlib.Path) -> None:
     lines.append("")
     for op_type, op_rows in grouped.items():
         info = OP_TYPES[op_type]
-        lines.append(f"enum class Gcn{info.enum_name}Opcode : uint16_t {{")
+        lines.append(f"enum class GcnIsa{info.enum_name}Opcode : uint16_t {{")
         for row in op_rows:
             lines.append(f"  {to_enum_symbol(row.opname)} = 0x{row.opcode:x},")
         lines.append("};")

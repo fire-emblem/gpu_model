@@ -31,7 +31,7 @@ enum class GcnIsaOpType : uint16_t {
   Exp,
 };
 
-enum class GcnDsOpcode : uint16_t {
+enum class GcnIsaDsOpcode : uint16_t {
   DS_ADD_U32 = 0x0,
   DS_SUB_U32 = 0x1,
   DS_RSUB_U32 = 0x2,
@@ -190,11 +190,11 @@ enum class GcnDsOpcode : uint16_t {
   DS_READ_B128 = 0xff,
 };
 
-enum class GcnExpOpcode : uint16_t {
+enum class GcnIsaExpOpcode : uint16_t {
   EXP = 0x0,
 };
 
-enum class GcnFlatOpcode : uint16_t {
+enum class GcnIsaFlatOpcode : uint16_t {
   FLAT_LOAD_UBYTE = 0x10,
   GLOBAL_LOAD_UBYTE = 0x10,
   SCRATCH_LOAD_UBYTE = 0x10,
@@ -323,7 +323,7 @@ enum class GcnFlatOpcode : uint16_t {
   GLOBAL_ATOMIC_DEC_X2 = 0x6c,
 };
 
-enum class GcnMimgOpcode : uint16_t {
+enum class GcnIsaMimgOpcode : uint16_t {
   IMAGE_LOAD = 0x0,
   IMAGE_LOAD_MIP = 0x1,
   IMAGE_LOAD_PCK = 0x2,
@@ -438,7 +438,7 @@ enum class GcnMimgOpcode : uint16_t {
   IMAGE_SAMPLE_C_CD_CL_O_G16 = 0xef,
 };
 
-enum class GcnMtbufOpcode : uint16_t {
+enum class GcnIsaMtbufOpcode : uint16_t {
   TBUFFER_LOAD_FORMAT_X = 0x0,
   TBUFFER_LOAD_FORMAT_XY = 0x1,
   TBUFFER_LOAD_FORMAT_XYZ = 0x2,
@@ -457,7 +457,7 @@ enum class GcnMtbufOpcode : uint16_t {
   TBUFFER_STORE_FORMAT_D16_XYZW = 0xf,
 };
 
-enum class GcnMubufOpcode : uint16_t {
+enum class GcnIsaMubufOpcode : uint16_t {
   BUFFER_LOAD_FORMAT_X = 0x0,
   BUFFER_LOAD_FORMAT_XY = 0x1,
   BUFFER_LOAD_FORMAT_XYZ = 0x2,
@@ -531,7 +531,7 @@ enum class GcnMubufOpcode : uint16_t {
   BUFFER_ATOMIC_DEC_X2 = 0x6c,
 };
 
-enum class GcnSmemOpcode : uint16_t {
+enum class GcnIsaSmemOpcode : uint16_t {
   S_LOAD_DWORD = 0x0,
   S_LOAD_DWORDX2 = 0x1,
   S_LOAD_DWORDX4 = 0x2,
@@ -616,7 +616,7 @@ enum class GcnSmemOpcode : uint16_t {
   S_ATOMIC_DEC_X2 = 0xac,
 };
 
-enum class GcnSmrdOpcode : uint16_t {
+enum class GcnIsaSmrdOpcode : uint16_t {
   S_LOAD_DWORD = 0x0,
   S_LOAD_DWORD_IMM = 0x0,
   S_LOAD_DWORDX2 = 0x1,
@@ -642,7 +642,7 @@ enum class GcnSmrdOpcode : uint16_t {
   S_DCACHE_INV = 0x1f,
 };
 
-enum class GcnSopcOpcode : uint16_t {
+enum class GcnIsaSopcOpcode : uint16_t {
   S_CMP_EQ_I32 = 0x0,
   S_CMP_LG_I32 = 0x1,
   S_CMP_GT_I32 = 0x2,
@@ -665,7 +665,7 @@ enum class GcnSopcOpcode : uint16_t {
   S_CMP_LG_U64 = 0x13,
 };
 
-enum class GcnSoppOpcode : uint16_t {
+enum class GcnIsaSoppOpcode : uint16_t {
   S_NOP = 0x0,
   S_ENDPGM = 0x1,
   S_BRANCH = 0x2,
@@ -699,13 +699,13 @@ enum class GcnSoppOpcode : uint16_t {
   S_ENDPGM_ORDERED_PS_DONE = 0x1e,
 };
 
-enum class GcnVintrpOpcode : uint16_t {
+enum class GcnIsaVintrpOpcode : uint16_t {
   V_INTERP_P1_F32 = 0x0,
   V_INTERP_P2_F32 = 0x1,
   V_INTERP_MOV_F32 = 0x2,
 };
 
-enum class GcnVop1Opcode : uint16_t {
+enum class GcnIsaVop1Opcode : uint16_t {
   V_NOP_E32 = 0x0,
   V_MOV_B32_E32 = 0x1,
   V_CVT_I32_F64_E32 = 0x3,
@@ -786,7 +786,7 @@ enum class GcnVop1Opcode : uint16_t {
   V_ACCVGPR_MOV_B32_E32 = 0x52,
 };
 
-enum class GcnVop2Opcode : uint16_t {
+enum class GcnIsaVop2Opcode : uint16_t {
   V_CNDMASK_B32_E32 = 0x0,
   V_ADD_F32_E32 = 0x1,
   V_SUB_F32_E32 = 0x2,
@@ -845,7 +845,7 @@ enum class GcnVop2Opcode : uint16_t {
   V_XNOR_B32_E32 = 0x3d,
 };
 
-enum class GcnVop3aOpcode : uint16_t {
+enum class GcnIsaVop3aOpcode : uint16_t {
   V_CMP_CLASS_F32_E64 = 0x10,
   V_CMPX_CLASS_F32_E64 = 0x11,
   V_CMP_CLASS_F64_E64 = 0x12,
@@ -1230,7 +1230,7 @@ enum class GcnVop3aOpcode : uint16_t {
   V_SUB_I32 = 0x29d,
 };
 
-enum class GcnVop3bOpcode : uint16_t {
+enum class GcnIsaVop3bOpcode : uint16_t {
   V_ADD_CO_U32_E64 = 0x119,
   V_ADD_U32_E64 = 0x119,
   V_SUB_CO_U32_E64 = 0x11a,
@@ -1249,7 +1249,7 @@ enum class GcnVop3bOpcode : uint16_t {
   V_MAD_I64_I32 = 0x1e9,
 };
 
-enum class GcnVop3pOpcode : uint16_t {
+enum class GcnIsaVop3pOpcode : uint16_t {
   V_PK_MAD_I16 = 0x0,
   V_PK_MUL_LO_U16 = 0x1,
   V_PK_ADD_I16 = 0x2,
@@ -1288,7 +1288,7 @@ enum class GcnVop3pOpcode : uint16_t {
   V_PK_MOV_B32 = 0x33,
 };
 
-enum class GcnVopcOpcode : uint16_t {
+enum class GcnIsaVopcOpcode : uint16_t {
   V_CMP_CLASS_F32_E32 = 0x10,
   V_CMPX_CLASS_F32_E32 = 0x11,
   V_CMP_CLASS_F64_E32 = 0x12,

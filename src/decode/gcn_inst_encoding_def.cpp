@@ -2,6 +2,7 @@
 
 #include <sstream>
 
+#include "gpu_model/decode/generated_gcn_full_opcode_table.h"
 #include "gpu_model/decode/generated_gcn_inst_db.h"
 #include "gpu_model/decode/generated_gcn_opcode_enums.h"
 #include "gpu_model/decode/gcn_inst_db_lookup.h"
@@ -24,6 +25,8 @@ uint32_t ExtractOp(const std::vector<uint32_t>& words, GcnInstFormatClass format
       return (low >> 16u) & 0x7fu;
     case GcnInstFormatClass::Smrd:
       return (((low >> 18u) & 0x3u) << 5u) | ((low >> 22u) & 0x1fu);
+    case GcnInstFormatClass::Smem:
+      return (low >> 18u) & 0xffu;
     case GcnInstFormatClass::Sop2:
       return (low >> 23u) & 0x7fu;
     case GcnInstFormatClass::Sopk:
@@ -40,10 +43,25 @@ uint32_t ExtractOp(const std::vector<uint32_t>& words, GcnInstFormatClass format
       return (low >> 9u) & 0xffu;
     case GcnInstFormatClass::Vop3a:
       return (low >> 17u) & 0x1ffu;
+    case GcnInstFormatClass::Vop3p:
+      return (low >> 16u) & 0x7fu;
     case GcnInstFormatClass::Flat:
       return (low >> 18u) & 0x7fu;
     case GcnInstFormatClass::Ds:
       return (low >> 17u) & 0xffu;
+    case GcnInstFormatClass::Mubuf:
+      return (low >> 18u) & 0x7fu;
+    case GcnInstFormatClass::Mtbuf:
+      return (low >> 15u) & 0x0fu;
+    case GcnInstFormatClass::Mimg:
+      return (((low >> 0u) & 0x1u) << 7u) | ((low >> 18u) & 0x7fu);
+    case GcnInstFormatClass::Exp:
+      return 0u;
+    case GcnInstFormatClass::Vintrp:
+      if (((low >> 26u) & 0x3fu) == 0x32u) {
+        return (low >> 16u) & 0x3u;
+      }
+      return (low >> 16u) & 0x7fu;
     default:
       return 0xffffffffu;
   }
@@ -187,6 +205,57 @@ RawGcnOperand DecodeFlatOffset13Operand(const std::vector<uint32_t>& words) {
     return MakeImmediateOperand(std::to_string(offset), offset);
   }
   return MakeImmediateOperand("off", 0);
+}
+
+bool StartsWith(std::string_view text, std::string_view prefix) {
+  return text.size() >= prefix.size() && text.substr(0, prefix.size()) == prefix;
+}
+
+const GcnIsaOpcodeDescriptor* FindDescriptorByPairAndPrefix(GcnIsaOpType op_type,
+                                                            uint32_t opcode,
+                                                            std::string_view prefix) {
+  const auto& descriptors = GcnIsaOpcodeDescriptors();
+  for (const auto& descriptor : descriptors) {
+    if (descriptor.op_type == op_type && descriptor.opcode == opcode &&
+        StartsWith(descriptor.opname, prefix)) {
+      return &descriptor;
+    }
+  }
+  return nullptr;
+}
+
+const GcnIsaOpcodeDescriptor* FindDescriptorByPair(GcnIsaOpType op_type, uint32_t opcode) {
+  return FindGcnIsaOpcodeDescriptor(op_type, static_cast<uint16_t>(opcode));
+}
+
+const GcnIsaOpcodeDescriptor* FindFlatDescriptor(const std::vector<uint32_t>& words, uint32_t opcode) {
+  const uint32_t low = words.empty() ? 0u : words[0];
+  const uint32_t seg = (low >> 14u) & 0x3u;
+  if (seg == 0x2u) {
+    if (const auto* descriptor = FindDescriptorByPairAndPrefix(GcnIsaOpType::Flat, opcode, "global_");
+        descriptor != nullptr) {
+      return descriptor;
+    }
+  } else if (seg == 0x1u) {
+    if (const auto* descriptor = FindDescriptorByPairAndPrefix(GcnIsaOpType::Flat, opcode, "scratch_");
+        descriptor != nullptr) {
+      return descriptor;
+    }
+  } else {
+    if (const auto* descriptor = FindDescriptorByPairAndPrefix(GcnIsaOpType::Flat, opcode, "flat_");
+        descriptor != nullptr) {
+      return descriptor;
+    }
+  }
+  return FindDescriptorByPair(GcnIsaOpType::Flat, opcode);
+}
+
+const GcnIsaOpcodeDescriptor* FindVop3Descriptor(uint32_t opcode) {
+  if (const auto* descriptor = FindDescriptorByPair(GcnIsaOpType::Vop3a, opcode);
+      descriptor != nullptr) {
+    return descriptor;
+  }
+  return FindDescriptorByPair(GcnIsaOpType::Vop3b, opcode);
 }
 
 std::string FormatWaitCnt(const WaitCntInfo& info) {
@@ -511,6 +580,65 @@ const GcnInstEncodingDef* FindGcnInstEncodingDef(const std::vector<uint32_t>& wo
     }
   }
   return nullptr;
+}
+
+const GcnIsaOpcodeDescriptor* FindGcnFallbackOpcodeDescriptor(const std::vector<uint32_t>& words) {
+  const auto format_class = ClassifyGcnInstFormat(words);
+  const uint32_t opcode = ExtractOp(words, format_class);
+  switch (format_class) {
+    case GcnInstFormatClass::Sop2:
+      return FindDescriptorByPair(GcnIsaOpType::Sop2, opcode);
+    case GcnInstFormatClass::Sopk:
+      return FindDescriptorByPair(GcnIsaOpType::Sopk, opcode);
+    case GcnInstFormatClass::Sop1:
+      return FindDescriptorByPair(GcnIsaOpType::Sop1, opcode);
+    case GcnInstFormatClass::Sopc:
+      return FindDescriptorByPair(GcnIsaOpType::Sopc, opcode);
+    case GcnInstFormatClass::Sopp:
+      return FindDescriptorByPair(GcnIsaOpType::Sopp, opcode);
+    case GcnInstFormatClass::Smrd:
+      return FindDescriptorByPair(GcnIsaOpType::Smrd, opcode);
+    case GcnInstFormatClass::Smem:
+      return FindDescriptorByPair(GcnIsaOpType::Smem, opcode);
+    case GcnInstFormatClass::Vop2:
+      return FindDescriptorByPair(GcnIsaOpType::Vop2, opcode);
+    case GcnInstFormatClass::Vop1:
+      return FindDescriptorByPair(GcnIsaOpType::Vop1, opcode);
+    case GcnInstFormatClass::Vopc:
+      return FindDescriptorByPair(GcnIsaOpType::Vopc, opcode);
+    case GcnInstFormatClass::Vop3a:
+    case GcnInstFormatClass::Vop3b:
+      return FindVop3Descriptor(opcode);
+    case GcnInstFormatClass::Vop3p:
+      return FindDescriptorByPair(GcnIsaOpType::Vop3p, opcode);
+    case GcnInstFormatClass::Vintrp:
+      return FindDescriptorByPair(GcnIsaOpType::Vintrp, opcode);
+    case GcnInstFormatClass::Ds:
+      return FindDescriptorByPair(GcnIsaOpType::Ds, opcode);
+    case GcnInstFormatClass::Flat:
+      return FindFlatDescriptor(words, opcode);
+    case GcnInstFormatClass::Mubuf:
+      return FindDescriptorByPair(GcnIsaOpType::Mubuf, opcode);
+    case GcnInstFormatClass::Mtbuf:
+      return FindDescriptorByPair(GcnIsaOpType::Mtbuf, opcode);
+    case GcnInstFormatClass::Mimg:
+      return FindDescriptorByPair(GcnIsaOpType::Mimg, opcode);
+    case GcnInstFormatClass::Exp:
+      return FindDescriptorByPair(GcnIsaOpType::Exp, opcode);
+    case GcnInstFormatClass::Unknown:
+      return nullptr;
+  }
+  return nullptr;
+}
+
+std::string_view LookupGcnOpcodeName(const std::vector<uint32_t>& words) {
+  if (const auto* def = FindGcnInstEncodingDef(words); def != nullptr) {
+    return def->mnemonic;
+  }
+  if (const auto* descriptor = FindGcnFallbackOpcodeDescriptor(words); descriptor != nullptr) {
+    return descriptor->opname;
+  }
+  return "unknown";
 }
 
 }  // namespace gpu_model

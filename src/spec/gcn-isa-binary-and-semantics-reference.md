@@ -250,6 +250,14 @@ Representative behavior:
 - buffer/image access depending on ISA subset
 - global atomics
 
+Phase-1 simplification for this project:
+
+- `MUBUF` / `MTBUF` stay as descriptor-shaped placeholder families
+- decode / classify / disassemble are kept
+- execution semantics stay on the existing linear-address path
+- full resource descriptor semantics are intentionally deferred
+- this keeps compute-kernel modeling simple and avoids graphics/resource-table complexity
+
 Representative state touched:
 
 - VGPR
@@ -271,6 +279,15 @@ For a compute-first model, many of these can be marked:
 - execute later or stub if not needed for HIP compute kernels
 
 But the decode database must still know they exist.
+
+Phase-1 simplification for this project:
+
+- `MIMG`, `EXP`, and `VINTRP` are reserved placeholder families
+- they should keep:
+  - opcode coverage
+  - format classification
+  - disassembly / trace names
+- they do not need deep functional execution expansion in the compute-first stage
 
 ### 7. Matrix / Tensor
 

@@ -294,6 +294,14 @@ Recommended scope:
 - Keep it simple.
 - Keep linear-address access only.
 - Do not introduce descriptor/resource-table semantics.
+- Treat descriptor-based `MUBUF` / `MTBUF` as placeholder ISA families in phase 1:
+  decode, classify, and disassemble them, but do not expand full descriptor behavior.
+
+For graphics-oriented families:
+
+- Keep `MIMG`, `EXP`, and `VINTRP` as placeholder coverage in phase 1.
+- They should exist in opcode tables, decode, and trace/disassembly output.
+- Their detailed execution semantics can stay stubbed until a non-compute workload requires them.
 
 Priority:
 

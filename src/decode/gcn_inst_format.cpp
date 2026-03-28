@@ -41,6 +41,15 @@ GcnInstFormatClass ClassifyGcnInstFormat(const std::vector<uint32_t>& words) {
   if (enc4 == static_cast<uint32_t>(GcnOpTypeEncoding::SOPK)) {
     return GcnInstFormatClass::Sopk;
   }
+  if (enc9 == 0x1a7u) {
+    return GcnInstFormatClass::Vop3p;
+  }
+  if (enc6 == 0x3eu) {
+    return GcnInstFormatClass::Exp;
+  }
+  if (enc6 == 0x3cu) {
+    return GcnInstFormatClass::Mimg;
+  }
   if (enc5 == static_cast<uint32_t>(GcnOpTypeEncoding::SMRD)) {
     return GcnInstFormatClass::Smrd;
   }
@@ -53,8 +62,14 @@ GcnInstFormatClass ClassifyGcnInstFormat(const std::vector<uint32_t>& words) {
   if (enc6 == static_cast<uint32_t>(GcnOpTypeEncoding::FLAT)) {
     return GcnInstFormatClass::Flat;
   }
-  if (enc6 == 0x3A) {
+  if (enc6 == 0x3Au) {
     return GcnInstFormatClass::Mtbuf;
+  }
+  if (enc6 == 0x38u) {
+    return GcnInstFormatClass::Mubuf;
+  }
+  if (enc6 == 0x32u || (enc6 == 0x33u && ((low >> 24u) & 0x3u) == 0x1u)) {
+    return GcnInstFormatClass::Vintrp;
   }
   if (enc7 == static_cast<uint32_t>(GcnOpTypeEncoding::VOP1)) {
     return GcnInstFormatClass::Vop1;
@@ -87,6 +102,8 @@ std::string_view ToString(GcnInstFormatClass format_class) {
       return "sopp";
     case GcnInstFormatClass::Smrd:
       return "smrd";
+    case GcnInstFormatClass::Smem:
+      return "smem";
     case GcnInstFormatClass::Vop2:
       return "vop2";
     case GcnInstFormatClass::Vop1:
@@ -97,6 +114,8 @@ std::string_view ToString(GcnInstFormatClass format_class) {
       return "vop3a";
     case GcnInstFormatClass::Vop3b:
       return "vop3b";
+    case GcnInstFormatClass::Vop3p:
+      return "vop3p";
     case GcnInstFormatClass::Vintrp:
       return "vintrp";
     case GcnInstFormatClass::Ds:
