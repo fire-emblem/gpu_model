@@ -8,6 +8,7 @@
 #include <mutex>
 #include <sstream>
 #include <stdexcept>
+#include <thread>
 #include <vector>
 
 #ifdef GPU_MODEL_HAS_MARL
@@ -34,6 +35,7 @@ struct ExecutableBlock {
   std::vector<WaveState> waves;
   std::vector<std::vector<size_t>> wave_indices_per_peu;
   std::vector<size_t> next_wave_rr_per_peu;
+  std::unique_ptr<std::mutex> execution_mutex;
 };
 
 uint64_t LoadLaneValue(const std::vector<std::byte>& memory, const LaneAccess& lane) {
@@ -110,6 +112,7 @@ std::vector<ExecutableBlock> MaterializeBlocks(const PlacementMap& placement,
         .waves = {},
         .wave_indices_per_peu = {},
         .next_wave_rr_per_peu = {},
+        .execution_mutex = std::make_unique<std::mutex>(),
     };
     block.waves.reserve(block_placement.waves.size());
     for (const auto& wave_placement : block_placement.waves) {
@@ -211,17 +214,46 @@ class FunctionalExecutionCoreImpl {
     std::mutex failure_mutex;
 
     for (size_t i = 0; i < blocks_.size(); ++i) {
-      marl::schedule([&, i] {
-        ExecutionStats block_stats;
-        try {
-          ExecuteBlock(blocks_[i], block_stats);
-          CommitStats(block_stats);
-        } catch (...) {
-          std::lock_guard<std::mutex> lock(failure_mutex);
-          if (failure == nullptr) {
-            failure = std::current_exception();
-          }
+      const size_t peu_count = std::max<size_t>(1, blocks_[i].wave_indices_per_peu.size());
+      marl::schedule([&, i, peu_count] {
+        marl::WaitGroup block_done(static_cast<int>(peu_count));
+        for (size_t peu_index = 0; peu_index < peu_count; ++peu_index) {
+          marl::schedule([&, i, peu_index] {
+            ExecutionStats peu_stats;
+            try {
+              while (true) {
+                bool block_complete = false;
+                bool had_wave = false;
+                {
+                  std::lock_guard<std::mutex> lock(*blocks_[i].execution_mutex);
+                  block_complete = !HasActiveWave(blocks_[i]);
+                  if (!block_complete) {
+                    ReleaseBlockBarrierIfReady(blocks_[i]);
+                    const auto wave_index = SelectNextWaveIndexForPeu(blocks_[i], peu_index);
+                    if (wave_index.has_value()) {
+                      had_wave = true;
+                      ExecuteWave(blocks_[i], blocks_[i].waves[*wave_index], peu_stats);
+                    }
+                  }
+                }
+                if (block_complete) {
+                  break;
+                }
+                if (!had_wave) {
+                  std::this_thread::yield();
+                }
+              }
+            } catch (...) {
+              std::lock_guard<std::mutex> lock(failure_mutex);
+              if (failure == nullptr) {
+                failure = std::current_exception();
+              }
+            }
+            CommitStats(peu_stats);
+            block_done.done();
+          });
         }
+        block_done.wait();
         done.done();
       });
     }
@@ -302,16 +334,35 @@ class FunctionalExecutionCoreImpl {
   }
 
   void ExecuteBlock(ExecutableBlock& block, ExecutionStats& stats) {
-    auto has_active_wave = [&block]() {
-      for (const auto& wave : block.waves) {
-        if (wave.status == WaveStatus::Active) {
-          return true;
-        }
-      }
-      return false;
-    };
+    while (HasActiveWave(block)) {
+      bool made_progress = false;
+      ReleaseBlockBarrierIfReady(block);
 
-    auto release_block_barrier_if_ready = [&]() {
+      for (size_t peu_index = 0; peu_index < block.wave_indices_per_peu.size(); ++peu_index) {
+        const auto wave_index = SelectNextWaveIndexForPeu(block, peu_index);
+        if (!wave_index.has_value()) {
+          continue;
+        }
+        ExecuteWave(block, block.waves[*wave_index], stats);
+        made_progress = true;
+      }
+
+      if (!made_progress) {
+        throw std::runtime_error("functional execution stalled without progress");
+      }
+    }
+  }
+
+  bool HasActiveWave(const ExecutableBlock& block) const {
+    for (const auto& wave : block.waves) {
+      if (wave.status == WaveStatus::Active) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool ReleaseBlockBarrierIfReady(ExecutableBlock& block) {
       if (block.waves.empty()) {
         return false;
       }
@@ -344,258 +395,241 @@ class FunctionalExecutionCoreImpl {
           .message = "release",
       });
       return true;
-    };
+  }
 
-    auto select_next_wave_index_for_peu = [&](size_t peu_index) -> std::optional<size_t> {
-      if (peu_index >= block.wave_indices_per_peu.size()) {
-        return std::nullopt;
-      }
-      auto& peu_waves = block.wave_indices_per_peu[peu_index];
-      if (peu_waves.empty()) {
-        return std::nullopt;
-      }
-      const size_t start = block.next_wave_rr_per_peu[peu_index] % peu_waves.size();
-      for (size_t offset = 0; offset < peu_waves.size(); ++offset) {
-        const size_t local_index = (start + offset) % peu_waves.size();
-        const size_t wave_index = peu_waves[local_index];
-        const auto& wave = block.waves[wave_index];
-        if (wave.status == WaveStatus::Active && !wave.waiting_at_barrier) {
-          block.next_wave_rr_per_peu[peu_index] = (local_index + 1) % peu_waves.size();
-          return wave_index;
-        }
-      }
+  std::optional<size_t> SelectNextWaveIndexForPeu(ExecutableBlock& block, size_t peu_index) {
+    if (peu_index >= block.wave_indices_per_peu.size()) {
       return std::nullopt;
-    };
-
-    while (has_active_wave()) {
-      bool made_progress = false;
-
-      release_block_barrier_if_ready();
-
-      for (size_t peu_index = 0; peu_index < block.wave_indices_per_peu.size(); ++peu_index) {
-        const auto wave_index = select_next_wave_index_for_peu(peu_index);
-        if (!wave_index.has_value()) {
-          continue;
-        }
-        auto& wave = block.waves[*wave_index];
-        if (wave.pc >= context_.kernel.instructions().size()) {
-          throw std::out_of_range("wave pc out of range");
-        }
-
-        const Instruction& instruction = context_.kernel.instructions().at(wave.pc);
-        ++stats.wave_steps;
-        ++stats.instructions_issued;
-        TraceEventLocked(TraceEvent{
-            .kind = TraceEventKind::WaveStep,
-            .cycle = context_.cycle,
-            .block_id = wave.block_id,
-            .wave_id = wave.wave_id,
-            .pc = wave.pc,
-            .message = FormatWaveStepMessage(instruction, wave),
-        });
-
-        ExecutionContext block_context = context_;
-        block_context.stats = nullptr;
-        const OpPlan plan = semantics_.BuildPlan(instruction, wave, block_context);
-
-        for (const auto& write : plan.scalar_writes) {
-          wave.sgpr.Write(write.reg_index, write.value);
-        }
-        for (const auto& write : plan.vector_writes) {
-          for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
-            if (write.mask.test(lane)) {
-              wave.vgpr.Write(write.reg_index, lane, write.values[lane]);
-            }
-          }
-        }
-        if (plan.cmask_write.has_value()) {
-          wave.cmask = *plan.cmask_write;
-        }
-        if (plan.smask_write.has_value()) {
-          wave.smask = *plan.smask_write;
-        }
-        if (plan.exec_write.has_value()) {
-          wave.exec = *plan.exec_write;
-          std::ostringstream mask_text;
-          mask_text << wave.exec;
-          TraceEventLocked(TraceEvent{
-              .kind = TraceEventKind::ExecMaskUpdate,
-              .cycle = context_.cycle,
-              .block_id = wave.block_id,
-              .wave_id = wave.wave_id,
-              .pc = wave.pc,
-              .message = mask_text.str(),
-          });
-        }
-        if (plan.memory.has_value()) {
-          const auto& request = *plan.memory;
-          ++stats.memory_ops;
-          if (request.space == MemorySpace::Global) {
-            if (request.kind == AccessKind::Load) {
-              ++stats.global_loads;
-            } else if (request.kind == AccessKind::Store || request.kind == AccessKind::Atomic) {
-              ++stats.global_stores;
-            }
-          } else if (request.space == MemorySpace::Shared) {
-            if (request.kind == AccessKind::Load) {
-              ++stats.shared_loads;
-            } else if (request.kind == AccessKind::Store || request.kind == AccessKind::Atomic) {
-              ++stats.shared_stores;
-            }
-          } else if (request.space == MemorySpace::Private) {
-            if (request.kind == AccessKind::Load) {
-              ++stats.private_loads;
-            } else if (request.kind == AccessKind::Store) {
-              ++stats.private_stores;
-            }
-          } else if (request.space == MemorySpace::Constant && request.kind == AccessKind::Load) {
-            ++stats.constant_loads;
-          }
-
-          TraceEventLocked(TraceEvent{
-              .kind = TraceEventKind::MemoryAccess,
-              .cycle = context_.cycle,
-              .block_id = wave.block_id,
-              .wave_id = wave.wave_id,
-              .pc = wave.pc,
-              .message = request.kind == AccessKind::Load ? "load" : "store",
-          });
-
-          if (request.kind == AccessKind::Load) {
-            if (!request.dst.has_value()) {
-              throw std::invalid_argument("load request missing destination");
-            }
-            if (request.dst->file == RegisterFile::Scalar) {
-              uint64_t loaded_value = 0;
-              for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
-                if (!request.lanes[lane].active) {
-                  continue;
-                }
-                if (request.space == MemorySpace::Constant) {
-                  loaded_value = LoadConstantLaneValue(request.lanes[lane]);
-                } else {
-                  throw std::invalid_argument("scalar load supports constant memory only");
-                }
-                break;
-              }
-              wave.sgpr.Write(request.dst->index, loaded_value);
-            } else {
-              std::array<uint64_t, 64> loaded_values{};
-              for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
-                if (!request.lanes[lane].active) {
-                  continue;
-                }
-                if (request.space == MemorySpace::Global) {
-                  loaded_values[lane] = LoadGlobalLaneValue(request.lanes[lane]);
-                } else if (request.space == MemorySpace::Shared) {
-                  loaded_values[lane] = LoadLaneValue(block.shared_memory, request.lanes[lane]);
-                } else if (request.space == MemorySpace::Private) {
-                  loaded_values[lane] =
-                      LoadLaneValue(wave.private_memory, lane, request.lanes[lane]);
-                } else if (request.space == MemorySpace::Constant) {
-                  loaded_values[lane] = LoadConstantLaneValue(request.lanes[lane]);
-                } else {
-                  throw std::invalid_argument("unsupported load memory space");
-                }
-              }
-              for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
-                if (request.exec_snapshot.test(lane)) {
-                  wave.vgpr.Write(request.dst->index, lane, loaded_values[lane]);
-                }
-              }
-            }
-          } else if (request.kind == AccessKind::Store) {
-            for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
-              if (!request.lanes[lane].active) {
-                continue;
-              }
-              if (request.space == MemorySpace::Global) {
-                StoreGlobalLaneValue(request.lanes[lane]);
-              } else if (request.space == MemorySpace::Shared) {
-                StoreLaneValue(block.shared_memory, request.lanes[lane]);
-              } else if (request.space == MemorySpace::Private) {
-                StoreLaneValue(wave.private_memory, lane, request.lanes[lane]);
-              } else {
-                throw std::invalid_argument("unsupported store memory space");
-              }
-            }
-          } else if (request.kind == AccessKind::Atomic) {
-            for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
-              if (!request.lanes[lane].active) {
-                continue;
-              }
-              if (request.space == MemorySpace::Shared) {
-                int32_t prior = static_cast<int32_t>(LoadLaneValue(block.shared_memory, request.lanes[lane]));
-                const int32_t updated = prior + static_cast<int32_t>(request.lanes[lane].value);
-                LaneAccess writeback = request.lanes[lane];
-                writeback.value = static_cast<uint64_t>(static_cast<int64_t>(updated));
-                StoreLaneValue(block.shared_memory, writeback);
-              } else if (request.space == MemorySpace::Global) {
-                std::lock_guard<std::mutex> lock(global_memory_mutex_);
-                int32_t prior = context_.memory.LoadGlobalValue<int32_t>(request.lanes[lane].addr);
-                const int32_t updated = prior + static_cast<int32_t>(request.lanes[lane].value);
-                context_.memory.StoreGlobalValue<int32_t>(request.lanes[lane].addr, updated);
-              } else {
-                throw std::invalid_argument("unsupported atomic memory space");
-              }
-            }
-          } else {
-            throw std::invalid_argument("unsupported memory access kind in functional executor");
-          }
-        }
-
-        if (plan.sync_wave_barrier) {
-          ++stats.barriers;
-          TraceEventLocked(TraceEvent{
-              .kind = TraceEventKind::Barrier,
-              .cycle = context_.cycle,
-              .block_id = wave.block_id,
-              .wave_id = wave.wave_id,
-              .pc = wave.pc,
-              .message = "wave",
-          });
-          ++wave.pc;
-        } else if (plan.sync_barrier) {
-          ++stats.barriers;
-          wave.status = WaveStatus::Stalled;
-          wave.waiting_at_barrier = true;
-          wave.barrier_generation = block.barrier_generation;
-          ++block.barrier_arrivals;
-          TraceEventLocked(TraceEvent{
-              .kind = TraceEventKind::Barrier,
-              .cycle = context_.cycle,
-              .block_id = wave.block_id,
-              .wave_id = wave.wave_id,
-              .pc = wave.pc,
-              .message = "arrive",
-          });
-
-          release_block_barrier_if_ready();
-        } else if (plan.exit_wave) {
-          ++stats.wave_exits;
-          wave.status = WaveStatus::Exited;
-          TraceEventLocked(TraceEvent{
-              .kind = TraceEventKind::WaveExit,
-              .cycle = context_.cycle,
-              .block_id = wave.block_id,
-              .wave_id = wave.wave_id,
-              .pc = wave.pc,
-              .message = "exit",
-          });
-        } else if (plan.branch_target.has_value()) {
-          wave.pc = *plan.branch_target;
-        } else if (plan.advance_pc) {
-          ++wave.pc;
-        }
-
-        made_progress = true;
-      }
-
-      if (!made_progress) {
-        throw std::runtime_error("functional execution stalled without progress");
+    }
+    auto& peu_waves = block.wave_indices_per_peu[peu_index];
+    if (peu_waves.empty()) {
+      return std::nullopt;
+    }
+    const size_t start = block.next_wave_rr_per_peu[peu_index] % peu_waves.size();
+    for (size_t offset = 0; offset < peu_waves.size(); ++offset) {
+      const size_t local_index = (start + offset) % peu_waves.size();
+      const size_t wave_index = peu_waves[local_index];
+      const auto& wave = block.waves[wave_index];
+      if (wave.status == WaveStatus::Active && !wave.waiting_at_barrier) {
+        block.next_wave_rr_per_peu[peu_index] = (local_index + 1) % peu_waves.size();
+        return wave_index;
       }
     }
+    return std::nullopt;
   }
+
+  void ExecuteWave(ExecutableBlock& block, WaveState& wave, ExecutionStats& stats) {
+    if (wave.pc >= context_.kernel.instructions().size()) {
+      throw std::out_of_range("wave pc out of range");
+    }
+
+    const Instruction& instruction = context_.kernel.instructions().at(wave.pc);
+    ++stats.wave_steps;
+    ++stats.instructions_issued;
+    TraceEventLocked(TraceEvent{
+        .kind = TraceEventKind::WaveStep,
+        .cycle = context_.cycle,
+        .block_id = wave.block_id,
+        .wave_id = wave.wave_id,
+        .pc = wave.pc,
+        .message = FormatWaveStepMessage(instruction, wave),
+    });
+
+    ExecutionContext block_context = context_;
+    block_context.stats = nullptr;
+    const OpPlan plan = semantics_.BuildPlan(instruction, wave, block_context);
+
+    for (const auto& write : plan.scalar_writes) {
+      wave.sgpr.Write(write.reg_index, write.value);
+    }
+    for (const auto& write : plan.vector_writes) {
+      for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+        if (write.mask.test(lane)) {
+          wave.vgpr.Write(write.reg_index, lane, write.values[lane]);
+        }
+      }
+    }
+    if (plan.cmask_write.has_value()) {
+      wave.cmask = *plan.cmask_write;
+    }
+    if (plan.smask_write.has_value()) {
+      wave.smask = *plan.smask_write;
+    }
+    if (plan.exec_write.has_value()) {
+      wave.exec = *plan.exec_write;
+      std::ostringstream mask_text;
+      mask_text << wave.exec;
+      TraceEventLocked(TraceEvent{
+          .kind = TraceEventKind::ExecMaskUpdate,
+          .cycle = context_.cycle,
+          .block_id = wave.block_id,
+          .wave_id = wave.wave_id,
+          .pc = wave.pc,
+          .message = mask_text.str(),
+      });
+    }
+    if (plan.memory.has_value()) {
+      const auto& request = *plan.memory;
+      ++stats.memory_ops;
+      if (request.space == MemorySpace::Global) {
+        if (request.kind == AccessKind::Load) {
+          ++stats.global_loads;
+        } else if (request.kind == AccessKind::Store || request.kind == AccessKind::Atomic) {
+          ++stats.global_stores;
+        }
+      } else if (request.space == MemorySpace::Shared) {
+        if (request.kind == AccessKind::Load) {
+          ++stats.shared_loads;
+        } else if (request.kind == AccessKind::Store || request.kind == AccessKind::Atomic) {
+          ++stats.shared_stores;
+        }
+      } else if (request.space == MemorySpace::Private) {
+        if (request.kind == AccessKind::Load) {
+          ++stats.private_loads;
+        } else if (request.kind == AccessKind::Store) {
+          ++stats.private_stores;
+        }
+      } else if (request.space == MemorySpace::Constant && request.kind == AccessKind::Load) {
+        ++stats.constant_loads;
+      }
+
+      TraceEventLocked(TraceEvent{
+          .kind = TraceEventKind::MemoryAccess,
+          .cycle = context_.cycle,
+          .block_id = wave.block_id,
+          .wave_id = wave.wave_id,
+          .pc = wave.pc,
+          .message = request.kind == AccessKind::Load ? "load" : "store",
+      });
+
+      if (request.kind == AccessKind::Load) {
+        if (!request.dst.has_value()) {
+          throw std::invalid_argument("load request missing destination");
+        }
+        if (request.dst->file == RegisterFile::Scalar) {
+          uint64_t loaded_value = 0;
+          for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+            if (!request.lanes[lane].active) {
+              continue;
+            }
+            if (request.space == MemorySpace::Constant) {
+              loaded_value = LoadConstantLaneValue(request.lanes[lane]);
+            } else {
+              throw std::invalid_argument("scalar load supports constant memory only");
+            }
+            break;
+          }
+          wave.sgpr.Write(request.dst->index, loaded_value);
+        } else {
+          std::array<uint64_t, 64> loaded_values{};
+          for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+            if (!request.lanes[lane].active) {
+              continue;
+            }
+            if (request.space == MemorySpace::Global) {
+              loaded_values[lane] = LoadGlobalLaneValue(request.lanes[lane]);
+            } else if (request.space == MemorySpace::Shared) {
+              loaded_values[lane] = LoadLaneValue(block.shared_memory, request.lanes[lane]);
+            } else if (request.space == MemorySpace::Private) {
+              loaded_values[lane] =
+                  LoadLaneValue(wave.private_memory, lane, request.lanes[lane]);
+            } else if (request.space == MemorySpace::Constant) {
+              loaded_values[lane] = LoadConstantLaneValue(request.lanes[lane]);
+            } else {
+              throw std::invalid_argument("unsupported load memory space");
+            }
+          }
+          for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+            if (request.exec_snapshot.test(lane)) {
+              wave.vgpr.Write(request.dst->index, lane, loaded_values[lane]);
+            }
+          }
+        }
+      } else if (request.kind == AccessKind::Store) {
+        for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+          if (!request.lanes[lane].active) {
+            continue;
+          }
+          if (request.space == MemorySpace::Global) {
+            StoreGlobalLaneValue(request.lanes[lane]);
+          } else if (request.space == MemorySpace::Shared) {
+            StoreLaneValue(block.shared_memory, request.lanes[lane]);
+          } else if (request.space == MemorySpace::Private) {
+            StoreLaneValue(wave.private_memory, lane, request.lanes[lane]);
+          } else {
+            throw std::invalid_argument("unsupported store memory space");
+          }
+        }
+      } else if (request.kind == AccessKind::Atomic) {
+        for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+          if (!request.lanes[lane].active) {
+            continue;
+          }
+          if (request.space == MemorySpace::Shared) {
+            int32_t prior = static_cast<int32_t>(LoadLaneValue(block.shared_memory, request.lanes[lane]));
+            const int32_t updated = prior + static_cast<int32_t>(request.lanes[lane].value);
+            LaneAccess writeback = request.lanes[lane];
+            writeback.value = static_cast<uint64_t>(static_cast<int64_t>(updated));
+            StoreLaneValue(block.shared_memory, writeback);
+          } else if (request.space == MemorySpace::Global) {
+            std::lock_guard<std::mutex> lock(global_memory_mutex_);
+            int32_t prior = context_.memory.LoadGlobalValue<int32_t>(request.lanes[lane].addr);
+            const int32_t updated = prior + static_cast<int32_t>(request.lanes[lane].value);
+            context_.memory.StoreGlobalValue<int32_t>(request.lanes[lane].addr, updated);
+          } else {
+            throw std::invalid_argument("unsupported atomic memory space");
+          }
+        }
+      } else {
+        throw std::invalid_argument("unsupported memory access kind in functional executor");
+      }
+    }
+
+    if (plan.sync_wave_barrier) {
+      ++stats.barriers;
+      TraceEventLocked(TraceEvent{
+          .kind = TraceEventKind::Barrier,
+          .cycle = context_.cycle,
+          .block_id = wave.block_id,
+          .wave_id = wave.wave_id,
+          .pc = wave.pc,
+          .message = "wave",
+      });
+      ++wave.pc;
+    } else if (plan.sync_barrier) {
+      ++stats.barriers;
+      wave.status = WaveStatus::Stalled;
+      wave.waiting_at_barrier = true;
+      wave.barrier_generation = block.barrier_generation;
+      ++block.barrier_arrivals;
+      TraceEventLocked(TraceEvent{
+          .kind = TraceEventKind::Barrier,
+          .cycle = context_.cycle,
+          .block_id = wave.block_id,
+          .wave_id = wave.wave_id,
+          .pc = wave.pc,
+          .message = "arrive",
+      });
+
+      ReleaseBlockBarrierIfReady(block);
+    } else if (plan.exit_wave) {
+      ++stats.wave_exits;
+      wave.status = WaveStatus::Exited;
+      TraceEventLocked(TraceEvent{
+          .kind = TraceEventKind::WaveExit,
+          .cycle = context_.cycle,
+          .block_id = wave.block_id,
+          .wave_id = wave.wave_id,
+          .pc = wave.pc,
+          .message = "exit",
+      });
+    } else if (plan.branch_target.has_value()) {
+      wave.pc = *plan.branch_target;
+    } else if (plan.advance_pc) {
+      ++wave.pc;
+    }
+  }
+
 };
 
 }  // namespace
