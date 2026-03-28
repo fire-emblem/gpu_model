@@ -49,9 +49,14 @@ Move to wave-granular parallel dispatch:
 
 Status:
 
-- not complete
-- next step is to move from block-parallel execution to `PEU` worker execution
-- each `PEU` should own a resident wave pool and issue ready waves in round-robin order
+- partially complete
+- block execution now enters `PEU`-worker mode in `MarlParallel`
+- each `PEU` owns a resident wave pool and selects ready waves in round-robin order
+- shared-memory, shared-atomic, and block-barrier kernels now run on the same `PEU`-parallel path
+- remaining gap is to replace yield-based waiting with explicit wait / resume primitives for:
+  - barrier
+  - waitcnt
+  - pending memory completion
 
 ## Phase 3
 
