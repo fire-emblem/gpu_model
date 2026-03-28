@@ -136,11 +136,12 @@ TEST(HipInterposerStateTest, BuildsExecutableLoadPlanThroughRegisteredHostFuncti
   state.RegisterFunction(&host_symbol, "shared_reverse");
 
   const auto plan = state.BuildExecutableLoadPlan(exe_path, &host_symbol);
-  ASSERT_EQ(plan.segments.size(), 1u);
+  ASSERT_EQ(plan.segments.size(), 2u);
   EXPECT_EQ(plan.segments[0].pool, MemoryPoolKind::Code);
+  EXPECT_EQ(plan.segments[1].pool, MemoryPoolKind::Kernarg);
   EXPECT_GT(plan.segments[0].required_bytes, 0u);
   EXPECT_EQ(plan.required_shared_bytes, 256u);
-  EXPECT_EQ(plan.preferred_kernarg_bytes, 20u);
+  EXPECT_EQ(plan.preferred_kernarg_bytes, 128u);
 
   std::filesystem::remove_all(temp_dir);
 }

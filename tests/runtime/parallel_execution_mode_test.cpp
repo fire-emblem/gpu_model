@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 
+#include <cstdlib>
 #include <cstdint>
+#include <string>
 #include <vector>
 
 #include "gpu_model/isa/instruction_builder.h"
@@ -8,6 +10,28 @@
 
 namespace gpu_model {
 namespace {
+
+class ScopedEnvUnset {
+ public:
+  explicit ScopedEnvUnset(const char* name) : name_(name) {
+    if (const char* current = std::getenv(name_); current != nullptr) {
+      had_value_ = true;
+      value_ = current;
+      ::unsetenv(name_);
+    }
+  }
+
+  ~ScopedEnvUnset() {
+    if (had_value_) {
+      ::setenv(name_, value_.c_str(), 1);
+    }
+  }
+
+ private:
+  const char* name_;
+  bool had_value_ = false;
+  std::string value_;
+};
 
 KernelProgram BuildParallelModeKernel() {
   InstructionBuilder builder;
@@ -27,6 +51,8 @@ KernelProgram BuildParallelModeKernel() {
 }
 
 TEST(ParallelExecutionModeTest, HostRuntimeDefaultsToSingleThreadedFunctionalMode) {
+  ScopedEnvUnset unset_mode("GPU_MODEL_FUNCTIONAL_MODE");
+  ScopedEnvUnset unset_workers("GPU_MODEL_FUNCTIONAL_WORKERS");
   HostRuntime runtime;
   EXPECT_EQ(runtime.functional_execution_config().mode,
             FunctionalExecutionMode::SingleThreaded);
