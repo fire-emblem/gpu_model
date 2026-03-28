@@ -172,5 +172,48 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesRawInstructionsFromHipFmaLoopExecutable
   EXPECT_EQ(branch_it->decoded_operands[0].info.immediate, -6);
 }
 
+TEST(AmdgpuCodeObjectDecoderTest, DecodesRawInstructionsFromHipBiasChainExecutable) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_code_object_hip_bias");
+  const auto src_path = temp_dir / "hip_bias_chain.cpp";
+  const auto exe_path = temp_dir / "hip_bias_chain.out";
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n"
+           "extern \"C\" __global__ void bias_chain(const float* a, const float* b, float* c, int n, float b0, float b1, float b2) {\n"
+           "  int i = blockIdx.x * blockDim.x + threadIdx.x;\n"
+           "  if (i < n) {\n"
+           "    c[i] = a[i] + b[i] + b0 + b1 + b2;\n"
+           "  }\n"
+           "}\n"
+           "int main() { return 0; }\n";
+  }
+  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  const auto image = AmdgpuCodeObjectDecoder{}.Decode(exe_path, "bias_chain");
+  EXPECT_EQ(image.kernel_name, "bias_chain");
+  EXPECT_EQ(image.metadata.values.at("arg_count"), "7");
+  EXPECT_EQ(image.metadata.values.at("arg_layout"),
+            "global_buffer:8,global_buffer:8,global_buffer:8,by_value:4,by_value:4,by_value:4,by_value:4");
+
+  const auto add_float_count = std::count_if(
+      image.instructions.begin(), image.instructions.end(),
+      [](const RawGcnInstruction& inst) { return inst.mnemonic == "v_add_f32_e32"; });
+  EXPECT_GE(add_float_count, 4);
+
+  const auto load_scalar_count = std::count_if(
+      image.instructions.begin(), image.instructions.end(),
+      [](const RawGcnInstruction& inst) {
+        return inst.mnemonic == "s_load_dword" || inst.mnemonic == "s_load_dwordx4" ||
+               inst.mnemonic == "s_load_dwordx2";
+      });
+  EXPECT_GE(load_scalar_count, 4);
+}
+
 }  // namespace
 }  // namespace gpu_model

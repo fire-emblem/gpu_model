@@ -510,6 +510,126 @@ TEST(RuntimeHooksTest, LaunchesHipFmaLoopExecutableAndValidatesOutput) {
   std::filesystem::remove_all(temp_dir);
 }
 
+TEST(RuntimeHooksTest, LaunchesHipBiasChainExecutableAndValidatesOutput) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_bias_chain_executable");
+  const auto src_path = temp_dir / "hip_bias_chain.cpp";
+  const auto exe_path = temp_dir / "hip_bias_chain.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n\n"
+           "extern \"C\" __global__ void bias_chain(const float* a, const float* b, float* c, int n, float b0, float b1, float b2) {\n"
+           "  int i = blockIdx.x * blockDim.x + threadIdx.x;\n"
+           "  if (i < n) {\n"
+           "    c[i] = a[i] + b[i] + b0 + b1 + b2;\n"
+           "  }\n"
+           "}\n\n"
+           "int main() {\n"
+           "  return 0;\n"
+           "}\n";
+  }
+
+  const std::string command =
+      "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  constexpr uint32_t n = 129;
+  constexpr float b0 = 1.5f;
+  constexpr float b1 = -2.0f;
+  constexpr float b2 = 3.25f;
+  std::vector<float> a(n), b(n), c(n, -1.0f), expect(n);
+  for (uint32_t i = 0; i < n; ++i) {
+    a[i] = static_cast<float>(i) * 0.5f;
+    b[i] = static_cast<float>(100 + i) * 0.25f;
+    expect[i] = a[i] + b[i] + b0 + b1 + b2;
+  }
+
+  RuntimeHooks hooks;
+  const uint64_t a_addr = hooks.Malloc(n * sizeof(float));
+  const uint64_t b_addr = hooks.Malloc(n * sizeof(float));
+  const uint64_t c_addr = hooks.Malloc(n * sizeof(float));
+  hooks.MemcpyHtoD<float>(a_addr, std::span<const float>(a));
+  hooks.MemcpyHtoD<float>(b_addr, std::span<const float>(b));
+  hooks.MemcpyHtoD<float>(c_addr, std::span<const float>(c));
+
+  KernelArgPack args;
+  args.PushU64(a_addr);
+  args.PushU64(b_addr);
+  args.PushU64(c_addr);
+  args.PushU32(n);
+  args.PushF32(b0);
+  args.PushF32(b1);
+  args.PushF32(b2);
+
+  const auto result = hooks.LaunchAmdgpuObject(
+      exe_path, LaunchConfig{.grid_dim_x = 3, .block_dim_x = 64}, std::move(args),
+      ExecutionMode::Functional, "c500", nullptr, "bias_chain");
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  hooks.MemcpyDtoH<float>(c_addr, std::span<float>(c));
+  for (uint32_t i = 0; i < n; ++i) {
+    EXPECT_FLOAT_EQ(c[i], expect[i]);
+  }
+
+  std::filesystem::remove_all(temp_dir);
+}
+
+TEST(RuntimeHooksTest, RejectsHipTwoDimensionalExecutableInRawGcnPath) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_two_dimensional_executable");
+  const auto src_path = temp_dir / "hip_two_dimensional.cpp";
+  const auto exe_path = temp_dir / "hip_two_dimensional.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n\n"
+           "extern \"C\" __global__ void two_dimensional(float* out, int width, int height) {\n"
+           "  int x = blockIdx.x * blockDim.x + threadIdx.x;\n"
+           "  int y = blockIdx.y * blockDim.y + threadIdx.y;\n"
+           "  if (x < width && y < height) {\n"
+           "    out[y * width + x] = static_cast<float>(x + y);\n"
+           "  }\n"
+           "}\n\n"
+           "int main() {\n"
+           "  return 0;\n"
+           "}\n";
+  }
+
+  const std::string command =
+      "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  constexpr uint32_t width = 16;
+  constexpr uint32_t height = 8;
+  RuntimeHooks hooks;
+  const uint64_t out_addr = hooks.Malloc(width * height * sizeof(float));
+  std::vector<float> out(width * height, -1.0f);
+  hooks.MemcpyHtoD<float>(out_addr, std::span<const float>(out));
+
+  KernelArgPack args;
+  args.PushU64(out_addr);
+  args.PushU32(width);
+  args.PushU32(height);
+
+  const auto result = hooks.LaunchAmdgpuObject(
+      exe_path,
+      LaunchConfig{.grid_dim_x = 2, .grid_dim_y = 2, .block_dim_x = 8, .block_dim_y = 4},
+      std::move(args), ExecutionMode::Functional, "c500", nullptr, "two_dimensional");
+  ASSERT_FALSE(result.ok);
+  EXPECT_NE(result.error_message.find("supports only 1D launches"), std::string::npos);
+
+  std::filesystem::remove_all(temp_dir);
+}
+
 TEST(RuntimeHooksTest, ListsModulesAndKernels) {
   RuntimeHooks hooks;
   hooks.RegisterProgramImage(

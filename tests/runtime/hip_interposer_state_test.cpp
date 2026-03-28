@@ -154,5 +154,70 @@ TEST(HipInterposerStateTest, LaunchesHipFmaLoopExecutableThroughRegisteredHostFu
   std::filesystem::remove_all(temp_dir);
 }
 
+TEST(HipInterposerStateTest, LaunchesHipBiasChainExecutableThroughRegisteredHostFunction) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_interposer_bias_chain");
+  const auto src_path = temp_dir / "hip_bias_chain.cpp";
+  const auto exe_path = temp_dir / "hip_bias_chain.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n\n"
+           "extern \"C\" __global__ void bias_chain(const float* a, const float* b, float* c, int n, float b0, float b1, float b2) {\n"
+           "  int i = blockIdx.x * blockDim.x + threadIdx.x;\n"
+           "  if (i < n) {\n"
+           "    c[i] = a[i] + b[i] + b0 + b1 + b2;\n"
+           "  }\n"
+           "}\n\n"
+           "int main() { return 0; }\n";
+  }
+
+  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  auto& state = HipInterposerState::Instance();
+  state.ResetForTest();
+  static int host_symbol = 0;
+  state.RegisterFunction(&host_symbol, "bias_chain");
+
+  constexpr uint32_t n = 129;
+  constexpr float b0 = 1.5f;
+  constexpr float b1 = -2.0f;
+  constexpr float b2 = 3.25f;
+  std::vector<float> a(n), b(n), c(n, -1.0f), expect(n);
+  for (uint32_t i = 0; i < n; ++i) {
+    a[i] = static_cast<float>(i) * 0.5f;
+    b[i] = static_cast<float>(100 + i) * 0.25f;
+    expect[i] = a[i] + b[i] + b0 + b1 + b2;
+  }
+
+  void* a_dev = state.AllocateDevice(n * sizeof(float));
+  void* b_dev = state.AllocateDevice(n * sizeof(float));
+  void* c_dev = state.AllocateDevice(n * sizeof(float));
+  state.MemcpyHostToDevice(a_dev, a.data(), n * sizeof(float));
+  state.MemcpyHostToDevice(b_dev, b.data(), n * sizeof(float));
+  state.MemcpyHostToDevice(c_dev, c.data(), n * sizeof(float));
+
+  float b0_arg = b0;
+  float b1_arg = b1;
+  float b2_arg = b2;
+  uint32_t n_arg = n;
+  void* args[] = {&a_dev, &b_dev, &c_dev, &n_arg, &b0_arg, &b1_arg, &b2_arg};
+  const auto result = state.LaunchExecutableKernel(
+      exe_path, &host_symbol, LaunchConfig{.grid_dim_x = 3, .block_dim_x = 64}, args);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  state.MemcpyDeviceToHost(c.data(), c_dev, n * sizeof(float));
+  for (uint32_t i = 0; i < n; ++i) {
+    EXPECT_FLOAT_EQ(c[i], expect[i]);
+  }
+
+  std::filesystem::remove_all(temp_dir);
+}
+
 }  // namespace
 }  // namespace gpu_model
