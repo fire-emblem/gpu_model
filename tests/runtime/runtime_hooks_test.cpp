@@ -579,6 +579,66 @@ TEST(RuntimeHooksTest, LaunchesHipBiasChainExecutableAndValidatesOutput) {
   std::filesystem::remove_all(temp_dir);
 }
 
+TEST(RuntimeHooksTest, LaunchesHipVecAddExecutableAtLargeScaleAndValidatesOutput) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_vecadd_large_executable");
+  const auto src_path = temp_dir / "hip_vecadd_large.cpp";
+  const auto exe_path = temp_dir / "hip_vecadd_large.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n\n"
+           "extern \"C\" __global__ void vecadd(const float* a, const float* b, float* c, int n) {\n"
+           "  int i = blockIdx.x * blockDim.x + threadIdx.x;\n"
+           "  if (i < n) c[i] = a[i] + b[i];\n"
+           "}\n\n"
+           "int main() {\n"
+           "  return 0;\n"
+           "}\n";
+  }
+
+  const std::string command =
+      "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  constexpr uint32_t n = 30u * 1024u;
+  std::vector<float> a(n), b(n), c(n, -1.0f);
+  for (uint32_t i = 0; i < n; ++i) {
+    a[i] = static_cast<float>(i) * 0.5f;
+    b[i] = static_cast<float>(100 + i) * 0.25f;
+  }
+
+  RuntimeHooks hooks;
+  const uint64_t a_addr = hooks.Malloc(n * sizeof(float));
+  const uint64_t b_addr = hooks.Malloc(n * sizeof(float));
+  const uint64_t c_addr = hooks.Malloc(n * sizeof(float));
+  hooks.MemcpyHtoD<float>(a_addr, std::span<const float>(a));
+  hooks.MemcpyHtoD<float>(b_addr, std::span<const float>(b));
+  hooks.MemcpyHtoD<float>(c_addr, std::span<const float>(c));
+
+  KernelArgPack args;
+  args.PushU64(a_addr);
+  args.PushU64(b_addr);
+  args.PushU64(c_addr);
+  args.PushU32(n);
+
+  const auto result = hooks.LaunchAmdgpuObject(
+      exe_path, LaunchConfig{.grid_dim_x = 30, .block_dim_x = 1024}, std::move(args),
+      ExecutionMode::Functional, "c500", nullptr, "vecadd");
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  hooks.MemcpyDtoH<float>(c_addr, std::span<float>(c));
+  for (uint32_t i = 0; i < n; ++i) {
+    EXPECT_FLOAT_EQ(c[i], a[i] + b[i]);
+  }
+
+  std::filesystem::remove_all(temp_dir);
+}
+
 TEST(RuntimeHooksTest, RejectsHipTwoDimensionalExecutableInRawGcnPath) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";

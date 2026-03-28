@@ -12,7 +12,7 @@ extern "C" __global__ void vecadd(const float* a, const float* b, float* c, int 
 }
 
 int main() {
-  constexpr int n = 257;
+  constexpr int n = 30*1024;
   std::vector<float> a(n), b(n), c(n, -1.0f);
   for (int i = 0; i < n; ++i) {
     a[i] = 0.5f * static_cast<float>(i);
@@ -47,7 +47,7 @@ int main() {
     return 15;
   }
 
-  hipLaunchKernelGGL(vecadd, dim3(3), dim3(128), 0, 0, da, db, dc, n);
+  hipLaunchKernelGGL(vecadd, dim3(30), dim3(1024), 0, 0, da, db, dc, n);
   if (hipDeviceSynchronize() != hipSuccess) {
     std::fprintf(stderr, "hipDeviceSynchronize failed\n");
     return 16;
