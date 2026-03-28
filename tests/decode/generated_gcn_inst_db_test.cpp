@@ -24,6 +24,7 @@ TEST(GeneratedGcnInstDbTest, ExposesProfileAndSemanticMetadata) {
   const auto semantic_families = GeneratedGcnSemanticFamilyDefs();
   ASSERT_FALSE(semantic_families.empty());
   EXPECT_STREQ(semantic_families.front().id, "scalar_alu");
+  EXPECT_STREQ(semantic_families.front().exec_domain, "compute");
 }
 
 TEST(GeneratedGcnInstDbTest, ExposesFlagsAndImplicitRegisters) {
@@ -32,6 +33,7 @@ TEST(GeneratedGcnInstDbTest, ExposesFlagsAndImplicitRegisters) {
     return std::string_view(def.mnemonic) == "global_atomic_add";
   });
   ASSERT_NE(it, insts.end());
+  EXPECT_STREQ(it->exec_domain, "memory");
   EXPECT_NE((it->flags & kGcnInstFlagIsMemory), 0u);
   EXPECT_NE((it->flags & kGcnInstFlagIsAtomic), 0u);
   ASSERT_GT(it->implicit_count, 0u);

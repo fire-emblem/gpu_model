@@ -33,6 +33,7 @@ struct GcnGeneratedOperandKindDef {
 
 struct GcnGeneratedSemanticFamilyDef {
   const char* id;
+  const char* exec_domain;
   const char* description;
 };
 
@@ -77,6 +78,7 @@ struct GcnGeneratedInstDef {
   uint32_t opcode;
   uint8_t size_bytes;
   const char* mnemonic;
+  const char* exec_domain;
   const char* semantic_family;
   const char* issue_family;
   uint64_t flags;

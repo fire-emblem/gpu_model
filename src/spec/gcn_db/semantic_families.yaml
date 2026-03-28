@@ -1,19 +1,28 @@
 semantic_families:
   - id: scalar_alu
+    exec_domain: compute
     description: scalar arithmetic and logic
   - id: scalar_compare
+    exec_domain: control
     description: scalar compare and condition code update
   - id: scalar_memory
+    exec_domain: memory
     description: scalar memory access
   - id: branch_or_sync
+    exec_domain: sync
     description: scalar branch or synchronization control
   - id: vector_alu
+    exec_domain: compute
     description: vector arithmetic and logic
   - id: vector_compare
+    exec_domain: control
     description: vector compare and mask-producing operations
   - id: vector_memory
+    exec_domain: memory
     description: vector/global/flat memory operations
   - id: lds
+    exec_domain: memory
     description: local data share operations
   - id: special
+    exec_domain: control
     description: export, interpolation, special or not-yet-grouped operations

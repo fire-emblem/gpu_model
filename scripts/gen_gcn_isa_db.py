@@ -90,6 +90,7 @@ struct GcnGeneratedOperandKindDef {
 
 struct GcnGeneratedSemanticFamilyDef {
   const char* id;
+  const char* exec_domain;
   const char* description;
 };
 
@@ -134,6 +135,7 @@ struct GcnGeneratedInstDef {
   uint32_t opcode;
   uint8_t size_bytes;
   const char* mnemonic;
+  const char* exec_domain;
   const char* semantic_family;
   const char* issue_family;
   uint64_t flags;
@@ -240,12 +242,17 @@ def emit_cpp(db_dir: pathlib.Path, out_path: pathlib.Path) -> None:
     ]
 
     semantic_family_entries = [
-        "  {{ {id}, {description} }}".format(
+        "  {{ {id}, {exec_domain}, {description} }}".format(
             id=c_str(row["id"]),
+            exec_domain=c_str(row["exec_domain"]),
             description=c_str(row["description"]),
         )
         for row in semantic_family_rows
     ]
+
+    semantic_domain_by_id = {
+        row["id"]: row["exec_domain"] for row in semantic_family_rows
+    }
 
     generated_inst_entries = []
     encoding_entries = []
@@ -279,13 +286,14 @@ def emit_cpp(db_dir: pathlib.Path, out_path: pathlib.Path) -> None:
                 )
             )
         generated_inst_entries.append(
-            "  {{ {id}, {profile}, GcnInstFormatClass::{fmt}, {opcode}, {size_bytes}, {mnemonic}, {semantic_family}, {issue_family}, {flags}, {implicit_begin}, {implicit_count}, {operand_begin}, {operand_count} }}".format(
+            "  {{ {id}, {profile}, GcnInstFormatClass::{fmt}, {opcode}, {size_bytes}, {mnemonic}, {exec_domain}, {semantic_family}, {issue_family}, {flags}, {implicit_begin}, {implicit_count}, {operand_begin}, {operand_count} }}".format(
                 id=inst["id"],
                 profile=c_str(inst.get("profile", "gfx6_gfx8")),
                 fmt=fmt_enum,
                 opcode=inst["opcode"],
                 size_bytes=inst["size_bytes"],
                 mnemonic=c_str(inst["mnemonic"]),
+                exec_domain=c_str(semantic_domain_by_id.get(inst.get("semantic_family", "unknown"), "special")),
                 semantic_family=c_str(inst.get("semantic_family", "unknown")),
                 issue_family=c_str(inst.get("issue_family", "unknown")),
                 flags=flag_expr,
