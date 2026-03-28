@@ -2112,7 +2112,7 @@ instructions:
   - name: vdst
     kind: vector_reg
     role: def
-    field: addr
+    field: vdst
     reg_count: 1
     scale: 1
     special_reg: ''

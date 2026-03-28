@@ -109,6 +109,27 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeGlobalLoadInstruction) {
   EXPECT_EQ(decoded.operands[2].info.immediate, 0);
 }
 
+TEST(GcnInstDecoderTest, DecodesRepresentativeGlobalStoreInstruction) {
+  RawGcnInstruction raw{
+      .pc = 0x1970,
+      .size_bytes = 8,
+      .words = {0xdc708000u, 0x047f0405u},
+      .format_class = GcnInstFormatClass::Flat,
+      .mnemonic = "global_store_dword",
+      .operands = "",
+      .decoded_operands = {},
+  };
+
+  const auto decoded = GcnInstDecoder{}.Decode(raw);
+  EXPECT_EQ(decoded.encoding_id, 19u);
+  EXPECT_EQ(decoded.mnemonic, "global_store_dword");
+  ASSERT_EQ(decoded.operands.size(), 3u);
+  EXPECT_EQ(decoded.operands[0].kind, DecodedGcnOperandKind::VectorRegRange);
+  EXPECT_EQ(decoded.operands[0].text, "v[5:6]");
+  EXPECT_EQ(decoded.operands[1].text, "v4");
+  EXPECT_EQ(decoded.operands[2].text, "off");
+}
+
 TEST(GcnInstDecoderTest, DecodesRepresentativeVop3aFmaInstruction) {
   RawGcnInstruction raw{
       .pc = 0x1a00,
