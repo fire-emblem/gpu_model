@@ -50,6 +50,7 @@ add_library(gpu_model STATIC
   src/exec/issue_scheduler.cpp
   src/exec/issue_eligibility.cpp
   src/exec/functional_executor.cpp
+  src/exec/functional_execution_core.cpp
   src/exec/parallel_wave_executor.cpp
   src/exec/scoreboard.cpp
   src/exec/event_queue.cpp

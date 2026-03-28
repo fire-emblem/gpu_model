@@ -26,6 +26,14 @@ This phase is intentionally conservative.
 `MarlParallel` uses marl's scheduler, but still delegates the actual instruction execution
 to the existing functional path while the correctness model is preserved.
 
+Status:
+
+- complete
+- `HostRuntime` can switch between `SingleThreaded` and `MarlParallel`
+- both modes now share the same functional execution core
+- block execution already uses a `PEU`-local round-robin wave selection structure
+- parallel mode currently parallelizes blocks, not waves
+
 ## Phase 2
 
 Move to wave-granular parallel dispatch:
@@ -38,6 +46,12 @@ Move to wave-granular parallel dispatch:
   - barrier
   - waitcnt
   - pending memory
+
+Status:
+
+- not complete
+- next step is to move from block-parallel execution to `PEU` worker execution
+- each `PEU` should own a resident wave pool and issue ready waves in round-robin order
 
 ## Phase 3
 
