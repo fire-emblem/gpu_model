@@ -130,6 +130,44 @@
   - + per-op metadata
   - + 少量 op-specific hook
 
+### 3.5 具体计算操作使用 Functor 注册
+
+对于“计算类”指令，不建议继续扩大：
+
+- `switch(opcode)`
+- `if (mnemonic == ...)`
+- 每条指令一个手写派生类
+
+更合适的是：
+
+- `family handler`
+- `functor registry`
+
+例如：
+
+- `ScalarAluHandler` 负责：
+  - 通用读操作数
+  - 通用写回
+  - 通用 trace/stats
+- 具体计算逻辑通过 functor 注册：
+  - `s_add_u32`
+  - `s_mul_i32`
+  - `v_add_u32_e32`
+  - `v_sub_f32_e32`
+  - `v_fma_f32`
+
+也就是说：
+
+- 大类 / family 用类层次
+- 具体计算操作用 functor 注册
+
+这样后续新增指令时，很多情况只需要：
+
+1. 在 `gcn_db` 里补 definition
+2. 在对应 family registry 里注册一个 functor
+
+不需要新增一个完整 C++ 子类
+
 ## 为什么这样分
 
 ### Encoding 层适合类层次
@@ -213,6 +251,14 @@ src/exec/handlers/
 - branch
 - barrier / waitcnt
 
+其中：
+
+- `scalar/vector compute`
+  - 优先做 `family handler + functor registry`
+- `memory/control/sync`
+  - 先做 family handler
+  - 再看是否需要细分 functor
+
 ### Step 4
 
 最后迁移复杂特例：
@@ -231,6 +277,7 @@ src/exec/handlers/
   - `ExecHandlerBase`
   - `大类基类`
   - `family handler`
+  - `compute functor registry`
   - `少量具体指令特例`
 
 这能同时满足：

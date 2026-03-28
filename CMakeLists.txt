@@ -55,6 +55,7 @@ add_library(gpu_model STATIC
   src/exec/parallel_wave_executor.cpp
   src/exec/scoreboard.cpp
   src/exec/event_queue.cpp
+  src/exec/handlers/compute_functor_registry.cpp
   src/exec/cycle_executor.cpp
   src/runtime/mapper.cpp
   src/runtime/host_runtime.cpp

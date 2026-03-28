@@ -14,5 +14,13 @@ This directory is the skeleton for the future execution-layer hierarchy:
    - branch/mask/builtin
    - waitcnt/barrier
 
+For compute-family handlers, the preferred per-op extension style is:
+
+- `family handler + functor registry`
+
+not:
+
+- one subclass per arithmetic opcode
+
 At this stage the files are interface scaffolding only.
 The current implementation still lives in the existing semantic/exec pipeline.
