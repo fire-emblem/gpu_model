@@ -381,7 +381,35 @@ instructions:
   mnemonic: v_add_co_u32_e32
   semantic_family: vector_alu
   issue_family: vector_alu
-  operands: []
+  operands:
+  - name: vdst
+    kind: vector_reg
+    role: def
+    field: vdst
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: vcc
+    kind: special_reg
+    role: def
+    field: ''
+    special_reg: vcc
+    reg_count: 1
+    scale: 1
+  - name: src0
+    kind: src9
+    role: use
+    field: src0
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: vsrc1
+    kind: vector_reg
+    role: use
+    field: vsrc1
+    reg_count: 1
+    scale: 1
+    special_reg: ''
 - id: 16
   profile: gfx6_gfx8
   format: vop2
@@ -390,7 +418,42 @@ instructions:
   mnemonic: v_addc_co_u32_e32
   semantic_family: vector_alu
   issue_family: vector_alu
-  operands: []
+  operands:
+  - name: vdst
+    kind: vector_reg
+    role: def
+    field: vdst
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: vcc_dst
+    kind: special_reg
+    role: def
+    field: ''
+    special_reg: vcc
+    reg_count: 1
+    scale: 1
+  - name: src0
+    kind: src9
+    role: use
+    field: src0
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: vsrc1
+    kind: vector_reg
+    role: use
+    field: vsrc1
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: vcc_src
+    kind: special_reg
+    role: use
+    field: ''
+    special_reg: vcc
+    reg_count: 1
+    scale: 1
 - id: 17
   profile: gfx6_gfx8
   format: vop3a
@@ -431,6 +494,28 @@ instructions:
   mnemonic: s_and_b32
   semantic_family: scalar_alu
   issue_family: scalar_alu_or_memory
+  operands:
+  - name: sdst
+    kind: scalar_reg
+    role: def
+    field: sdst
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src0
+    kind: scalar_src8
+    role: use
+    field: ssrc0
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: literal
+    kind: immediate_literal32
+    role: use
+    field: ''
+    reg_count: 1
+    scale: 1
+    special_reg: ''
 - id: 21
   profile: gfx6_gfx8
   format: sopc
@@ -820,6 +905,21 @@ instructions:
   mnemonic: v_mov_b32_e32
   semantic_family: vector_alu
   issue_family: vector_alu
+  operands:
+  - name: vdst
+    kind: vector_reg
+    role: def
+    field: vdst
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: literal
+    kind: immediate_literal32
+    role: use
+    field: ''
+    reg_count: 1
+    scale: 1
+    special_reg: ''
 - id: 38
   profile: gfx6_gfx8
   format: vop3a
@@ -1792,6 +1892,28 @@ instructions:
   mnemonic: s_and_b64
   semantic_family: scalar_alu
   issue_family: scalar_alu_or_memory
+  operands:
+  - name: dst
+    kind: scalar_reg_pair_dest
+    role: def
+    field: sdst
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src0
+    kind: scalar_src8
+    role: use
+    field: ssrc0
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src1
+    kind: scalar_src8_pair
+    role: use
+    field: ssrc1
+    reg_count: 1
+    scale: 1
+    special_reg: ''
 - id: 78
   profile: gfx6_gfx8
   format: sopk

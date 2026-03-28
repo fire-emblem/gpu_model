@@ -79,6 +79,12 @@ TEST(GeneratedGcnInstDbTest, ExposesBatchOperandSchemasForSimpleFormats) {
   });
   ASSERT_NE(sop1, insts.end());
   EXPECT_EQ(sop1->operand_count, 2u);
+
+  const auto sopk = std::find_if(insts.begin(), insts.end(), [](const auto& def) {
+    return std::string_view(def.mnemonic) == "s_movk_i32";
+  });
+  ASSERT_NE(sopk, insts.end());
+  EXPECT_EQ(sopk->operand_count, 2u);
 }
 
 TEST(GeneratedGcnInstDbTest, ExposesImportedEncodingDefinitions) {
