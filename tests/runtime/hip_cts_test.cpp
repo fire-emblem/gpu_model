@@ -272,13 +272,14 @@ std::vector<HipCtsCase> MakeRuntimeHooksCases() {
     cases.push_back(std::move(c));
   };
 
-  for (const auto [n, block] :
+  for (const auto& [n, block] :
        std::vector<std::pair<uint32_t, uint32_t>>{{1, 1},   {32, 32}, {60, 60},  {64, 64},
                                                   {65, 65}, {96, 96}, {127, 64}, {128, 128},
                                                   {129, 128}, {191, 64}, {192, 64}, {255, 128},
                                                   {256, 128}, {257, 128}, {511, 256}, {512, 256},
                                                   {777, 256}, {1024, 1024}, {2048, 512}, {30720, 1024}}) {
     add(HipCtsCase{
+        .name = {},
         .artifact = ArtifactKind::Common,
         .kernel = KernelKind::VecAdd,
         .grid_x = (n + block - 1) / block,
@@ -288,13 +289,14 @@ std::vector<HipCtsCase> MakeRuntimeHooksCases() {
     });
   }
 
-  for (const auto [n, iters, block] :
+  for (const auto& [n, iters, block] :
        std::vector<std::tuple<uint32_t, uint32_t, uint32_t>>{
            {64, 1, 64},    {64, 2, 64},    {64, 4, 64},   {128, 3, 64},
            {128, 7, 128},  {192, 5, 64},   {257, 7, 128}, {257, 3, 64},
            {512, 2, 128},  {512, 8, 128},  {768, 4, 256}, {1024, 1, 256},
            {1024, 6, 128}, {1536, 3, 256}, {2048, 5, 256}}) {
     add(HipCtsCase{
+        .name = {},
         .artifact = ArtifactKind::Common,
         .kernel = KernelKind::FmaLoop,
         .grid_x = (n + block - 1) / block,
@@ -305,7 +307,7 @@ std::vector<HipCtsCase> MakeRuntimeHooksCases() {
     });
   }
 
-  for (const auto [n, block, b0, b1, b2] :
+  for (const auto& [n, block, b0, b1, b2] :
        std::vector<std::tuple<uint32_t, uint32_t, float, float, float>>{
            {64, 64, 1.5f, -2.0f, 3.25f},   {96, 96, 0.5f, 1.0f, -0.5f},
            {128, 64, -1.0f, 2.0f, 4.0f},   {129, 64, 3.5f, -1.0f, 0.25f},
@@ -313,6 +315,7 @@ std::vector<HipCtsCase> MakeRuntimeHooksCases() {
            {257, 128, -2.5f, 1.5f, 0.75f}, {512, 128, 4.0f, -1.0f, -3.0f},
            {1024, 256, 0.25f, 0.5f, 0.75f}, {2048, 256, -1.5f, -0.5f, 2.0f}}) {
     add(HipCtsCase{
+        .name = {},
         .artifact = ArtifactKind::Common,
         .kernel = KernelKind::BiasChain,
         .grid_x = (n + block - 1) / block,
@@ -327,6 +330,7 @@ std::vector<HipCtsCase> MakeRuntimeHooksCases() {
 
   for (const auto blocks : std::vector<uint32_t>{1, 2, 4, 8, 16, 3, 5, 6, 7, 10}) {
     add(HipCtsCase{
+        .name = {},
         .artifact = ArtifactKind::Common,
         .kernel = KernelKind::SharedReverse,
         .grid_x = blocks,
@@ -338,6 +342,7 @@ std::vector<HipCtsCase> MakeRuntimeHooksCases() {
 
   for (const auto blocks : std::vector<uint32_t>{1, 2, 4, 8, 16, 3, 5, 6, 7, 10}) {
     add(HipCtsCase{
+        .name = {},
         .artifact = ArtifactKind::Common,
         .kernel = KernelKind::Softmax,
         .grid_x = blocks,
@@ -349,6 +354,7 @@ std::vector<HipCtsCase> MakeRuntimeHooksCases() {
 
   for (int i = 0; i < 15; ++i) {
     add(HipCtsCase{
+        .name = {},
         .artifact = ArtifactKind::Mfma,
         .kernel = KernelKind::Mfma,
         .grid_x = 1,
@@ -369,10 +375,11 @@ std::vector<HipCtsCase> MakeInterposerCases() {
     cases.push_back(std::move(c));
   };
 
-  for (const auto [n, block] :
+  for (const auto& [n, block] :
        std::vector<std::pair<uint32_t, uint32_t>>{{64, 64}, {128, 128}, {129, 64},
                                                   {257, 128}, {1024, 256}, {30720, 1024}}) {
     add(HipCtsCase{
+        .name = {},
         .artifact = ArtifactKind::Common,
         .kernel = KernelKind::VecAdd,
         .grid_x = (n + block - 1) / block,
@@ -381,10 +388,11 @@ std::vector<HipCtsCase> MakeInterposerCases() {
         .pattern = id % 4u,
     });
   }
-  for (const auto [n, iters, block] :
+  for (const auto& [n, iters, block] :
        std::vector<std::tuple<uint32_t, uint32_t, uint32_t>>{{64, 2, 64}, {128, 7, 128},
                                                               {257, 7, 128}, {1024, 4, 256}}) {
     add(HipCtsCase{
+        .name = {},
         .artifact = ArtifactKind::Common,
         .kernel = KernelKind::FmaLoop,
         .grid_x = (n + block - 1) / block,
@@ -394,12 +402,13 @@ std::vector<HipCtsCase> MakeInterposerCases() {
         .pattern = id % 4u,
     });
   }
-  for (const auto [n, block, b0, b1, b2] :
+  for (const auto& [n, block, b0, b1, b2] :
        std::vector<std::tuple<uint32_t, uint32_t, float, float, float>>{
            {129, 64, 1.5f, -2.0f, 3.25f},
            {257, 128, -2.5f, 1.5f, 0.75f},
            {1024, 256, 0.25f, 0.5f, 0.75f}}) {
     add(HipCtsCase{
+        .name = {},
         .artifact = ArtifactKind::Common,
         .kernel = KernelKind::BiasChain,
         .grid_x = (n + block - 1) / block,
@@ -413,6 +422,7 @@ std::vector<HipCtsCase> MakeInterposerCases() {
   }
   for (const auto blocks : std::vector<uint32_t>{2, 4, 8}) {
     add(HipCtsCase{
+        .name = {},
         .artifact = ArtifactKind::Common,
         .kernel = KernelKind::SharedReverse,
         .grid_x = blocks,
@@ -423,6 +433,7 @@ std::vector<HipCtsCase> MakeInterposerCases() {
   }
   for (const auto blocks : std::vector<uint32_t>{1, 4}) {
     add(HipCtsCase{
+        .name = {},
         .artifact = ArtifactKind::Common,
         .kernel = KernelKind::Softmax,
         .grid_x = blocks,
@@ -433,6 +444,7 @@ std::vector<HipCtsCase> MakeInterposerCases() {
   }
   for (int i = 0; i < 2; ++i) {
     add(HipCtsCase{
+        .name = {},
         .artifact = ArtifactKind::Mfma,
         .kernel = KernelKind::Mfma,
         .grid_x = 1,

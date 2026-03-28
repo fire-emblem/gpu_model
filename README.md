@@ -25,6 +25,7 @@
   - HIP runtime API 被 `LD_PRELOAD` 拦截
   - kernel launch 转到 model 执行
   - 返回 host 继续执行
+- global / constant / kernarg / raw-data / managed pool 支持
 - raw code object decode scaffolding
   - `.text` 原始指令 words 提取
   - GCN format classify
@@ -77,7 +78,7 @@
 当前已经支持：
 
 - host CPU 原生执行 `main()`
-- `hipMalloc/hipMemcpy/hipLaunchKernel/...` 被 interposer 拦截
+- `hipMalloc/hipMallocManaged/hipMemcpy/hipLaunchKernel/...` 被 interposer 拦截
 - kernel launch 进入 model
 - host 继续执行并做结果校验
 

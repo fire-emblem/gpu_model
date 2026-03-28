@@ -31,6 +31,7 @@ class HipInterposerState {
   std::optional<std::string> ResolveKernelName(const void* host_function) const;
 
   void* AllocateDevice(size_t bytes);
+  void* AllocateManaged(size_t bytes);
   bool FreeDevice(void* device_ptr);
   bool IsDevicePointer(const void* ptr) const;
   uint64_t ResolveDeviceAddress(const void* ptr) const;
@@ -59,6 +60,7 @@ class HipInterposerState {
   struct Allocation {
     uint64_t model_addr = 0;
     size_t bytes = 0;
+    MemoryPoolKind pool = MemoryPoolKind::Global;
   };
 
   std::vector<HipInterposerArgDesc> ParseArgLayout(const MetadataBlob& metadata) const;

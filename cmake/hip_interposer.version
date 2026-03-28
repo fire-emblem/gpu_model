@@ -6,6 +6,7 @@ hip_4.2 {
     __hipPushCallConfiguration;
     __hipPopCallConfiguration;
     hipMalloc;
+    hipMallocManaged;
     hipFree;
     hipMemcpy;
     hipDeviceSynchronize;

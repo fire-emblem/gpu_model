@@ -317,6 +317,64 @@ TEST(HipInterposerStateTest, LaunchesHipVecAddExecutableThroughRegisteredHostFun
   std::filesystem::remove_all(temp_dir);
 }
 
+TEST(HipInterposerStateTest, LaunchesHipVecAddExecutableThroughManagedAllocations) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_interposer_managed_vecadd");
+  const auto src_path = temp_dir / "hip_managed_vecadd.cpp";
+  const auto exe_path = temp_dir / "hip_managed_vecadd.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n\n"
+           "extern \"C\" __global__ void vecadd(const float* a, const float* b, float* c, int n) {\n"
+           "  int i = blockIdx.x * blockDim.x + threadIdx.x;\n"
+           "  if (i < n) c[i] = a[i] + b[i];\n"
+           "}\n\n"
+           "int main() { return 0; }\n";
+  }
+
+  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  auto& state = HipInterposerState::Instance();
+  state.ResetForTest();
+  static int host_symbol = 0;
+  state.RegisterFunction(&host_symbol, "vecadd");
+
+  constexpr uint32_t n = 257;
+  std::vector<float> a(n), b(n), c(n, -1.0f);
+  for (uint32_t i = 0; i < n; ++i) {
+    a[i] = 0.5f * static_cast<float>(i);
+    b[i] = 0.25f * static_cast<float>(100 + i);
+  }
+
+  void* a_dev = state.AllocateManaged(n * sizeof(float));
+  void* b_dev = state.AllocateManaged(n * sizeof(float));
+  void* c_dev = state.AllocateManaged(n * sizeof(float));
+  EXPECT_EQ(state.hooks().runtime().memory().pool_memory_size(MemoryPoolKind::Managed),
+            3u * n * sizeof(float));
+  state.MemcpyHostToDevice(a_dev, a.data(), n * sizeof(float));
+  state.MemcpyHostToDevice(b_dev, b.data(), n * sizeof(float));
+  state.MemcpyHostToDevice(c_dev, c.data(), n * sizeof(float));
+
+  uint32_t n_arg = n;
+  void* args[] = {&a_dev, &b_dev, &c_dev, &n_arg};
+  const auto result = state.LaunchExecutableKernel(
+      exe_path, &host_symbol, LaunchConfig{.grid_dim_x = 3, .block_dim_x = 128}, args);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  state.MemcpyDeviceToHost(c.data(), c_dev, n * sizeof(float));
+  for (uint32_t i = 0; i < n; ++i) {
+    EXPECT_FLOAT_EQ(c[i], a[i] + b[i]);
+  }
+
+  std::filesystem::remove_all(temp_dir);
+}
+
 TEST(HipInterposerStateTest, LaunchesHipSharedReverseExecutableThroughRegisteredHostFunction) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";

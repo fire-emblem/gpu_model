@@ -44,6 +44,7 @@ void HipInterposerState::ResetForTest() {
   kernel_symbols_.clear();
   allocations_.clear();
   next_fake_device_ptr_ = 0x100000000ULL;
+  pending_launch_config_.reset();
 }
 
 void HipInterposerState::RegisterFunction(const void* host_function, std::string kernel_name) {
@@ -61,7 +62,17 @@ std::optional<std::string> HipInterposerState::ResolveKernelName(const void* hos
 void* HipInterposerState::AllocateDevice(size_t bytes) {
   const uint64_t model_addr = hooks_.Malloc(bytes);
   const uintptr_t fake_addr = static_cast<uintptr_t>(next_fake_device_ptr_);
-  allocations_[fake_addr] = Allocation{.model_addr = model_addr, .bytes = bytes};
+  allocations_[fake_addr] =
+      Allocation{.model_addr = model_addr, .bytes = bytes, .pool = MemoryPoolKind::Global};
+  next_fake_device_ptr_ += static_cast<uint64_t>(((bytes + 0xfffULL) / 0x1000ULL) * 0x1000ULL + 0x1000ULL);
+  return reinterpret_cast<void*>(fake_addr);
+}
+
+void* HipInterposerState::AllocateManaged(size_t bytes) {
+  const uint64_t model_addr = hooks_.MallocManaged(bytes);
+  const uintptr_t fake_addr = static_cast<uintptr_t>(next_fake_device_ptr_);
+  allocations_[fake_addr] =
+      Allocation{.model_addr = model_addr, .bytes = bytes, .pool = MemoryPoolKind::Managed};
   next_fake_device_ptr_ += static_cast<uint64_t>(((bytes + 0xfffULL) / 0x1000ULL) * 0x1000ULL + 0x1000ULL);
   return reinterpret_cast<void*>(fake_addr);
 }

@@ -94,6 +94,15 @@ hipError_t hipMalloc(void** devPtr, size_t size) {
   return hipSuccess;
 }
 
+hipError_t hipMallocManaged(void** devPtr, size_t size, unsigned int flags) {
+  if (devPtr == nullptr) {
+    return hipErrorInvalidValue;
+  }
+  *devPtr = HipInterposerState::Instance().AllocateManaged(size);
+  DebugLog("hipMallocManaged size=%zu flags=%u -> %p", size, flags, *devPtr);
+  return hipSuccess;
+}
+
 hipError_t hipFree(void* ptr) {
   return HipInterposerState::Instance().FreeDevice(ptr) ? hipSuccess : hipErrorInvalidValue;
 }
