@@ -99,5 +99,36 @@ TEST(RawGcnInstructionArrayParserTest, ParsesTextBytesIntoInstructionArrays) {
   EXPECT_EQ(parsed.instruction_objects[1]->class_name(), "v_add_u32_e32");
 }
 
+TEST(RawGcnInstructionArrayParserTest, UsesCanonicalOpcodeExtractionForViStyleObjects) {
+  std::vector<RawGcnInstruction> raw;
+  raw.push_back(RawGcnInstruction{
+      .pc = 0x2000,
+      .size_bytes = 8,
+      .words = {0xc00a0002u, 0x00000000u},
+      .format_class = GcnInstFormatClass::Smrd,
+      .encoding_id = 4,
+      .mnemonic = "s_load_dwordx4",
+      .operands = "",
+      .decoded_operands = {},
+  });
+  raw.push_back(RawGcnInstruction{
+      .pc = 0x2008,
+      .size_bytes = 8,
+      .words = {0xc0060182u, 0x00000010u},
+      .format_class = GcnInstFormatClass::Smrd,
+      .encoding_id = 3,
+      .mnemonic = "s_load_dwordx2",
+      .operands = "",
+      .decoded_operands = {},
+  });
+
+  auto parsed = RawGcnInstructionArrayParser::Parse(raw);
+  ASSERT_EQ(parsed.instruction_objects.size(), 2u);
+  EXPECT_EQ(parsed.instruction_objects[0]->class_name(), "s_load_dwordx4");
+  EXPECT_EQ(parsed.instruction_objects[0]->op_type_name(), "smrd");
+  EXPECT_EQ(parsed.instruction_objects[1]->class_name(), "s_load_dwordx2");
+  EXPECT_EQ(parsed.instruction_objects[1]->op_type_name(), "smrd");
+}
+
 }  // namespace
 }  // namespace gpu_model

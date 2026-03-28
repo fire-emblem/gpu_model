@@ -1,30 +1,30 @@
 kernel=vecadd
-pc=0x0 size=8 fmt=smrd text=s_load_dword s4, s[0:1], 0x2c ; format=smrd op=0
-pc=0x0 size=8 fmt=smrd text=s_load_dword s4, s[0:1], 0x18 ; format=smrd op=0
-pc=0x0 size=4 fmt=sopp text=s_waitcnt lgkmcnt(0) ; format=sopp
-pc=0x0 size=8 fmt=sop2 text=s_and_b32 s0, s0, 0xffff ; format=sop2
-pc=0x0 size=4 fmt=sop2 text=s_mul_i32 s6, s6, s0 ; format=sop2
-pc=0x0 size=4 fmt=vop2 text=v_add_u32_e32 v0, s6, v0 ; format=vop2
-pc=0x0 size=4 fmt=vopc text=v_cmp_gt_i32_e32 vcc, s1, v0 ; format=vopc
-pc=0x0 size=4 fmt=sop1 text=s_and_saveexec_b64 s[0:1], vcc ; format=sop1
-pc=0x0 size=4 fmt=sopp text=s_cbranch_execz 25 ; format=sopp
-pc=0x0 size=8 fmt=smrd text=s_load_dword s20, s[0:1], 0x0 ; format=smrd op=0
-pc=0x0 size=8 fmt=smrd text=s_load_dword s12, s[0:1], 0x10 ; format=smrd op=0
-pc=0x0 size=4 fmt=vop2 text=v_ashrrev_i32_e32 v1, 31, v0 ; format=vop2
-pc=0x0 size=8 fmt=vop3a text=v_lshlrev_b64 v[0:1], 2, v[0:1] ; format=vop3a
-pc=0x0 size=4 fmt=sopp text=s_waitcnt lgkmcnt(0) ; format=sopp
-pc=0x0 size=4 fmt=vop1 text=v_mov_b32_e32 v3, s3 ; format=vop1
-pc=0x0 size=4 fmt=vop2 text=v_add_co_u32_e32 v2, vcc, s2, v0 ; format=vop2
-pc=0x0 size=4 fmt=vop2 text=v_addc_co_u32_e32 v3, vcc, v3, v1, vcc ; format=vop2
-pc=0x0 size=4 fmt=vop1 text=v_mov_b32_e32 v5, s1 ; format=vop1
-pc=0x0 size=4 fmt=vop2 text=v_add_co_u32_e32 v4, vcc, s0, v0 ; format=vop2
-pc=0x0 size=4 fmt=vop2 text=v_addc_co_u32_e32 v5, vcc, v5, v1, vcc ; format=vop2
-pc=0x0 size=8 fmt=unknown text=global_load_dword v6, v[4:5], off ; format=unknown
-pc=0x0 size=8 fmt=unknown text=global_load_dword v7, v[2:3], off ; format=unknown
-pc=0x0 size=4 fmt=vop1 text=v_mov_b32_e32 v2, s7 ; format=vop1
-pc=0x0 size=4 fmt=vop2 text=v_add_co_u32_e32 v0, vcc, s6, v0 ; format=vop2
-pc=0x0 size=4 fmt=vop2 text=v_addc_co_u32_e32 v1, vcc, v2, v1, vcc ; format=vop2
-pc=0x0 size=4 fmt=sopp text=s_waitcnt vmcnt(0) ; format=sopp
-pc=0x0 size=4 fmt=vop2 text=v_add_f32_e32 v2, s262, v7 ; format=vop2 op=1
-pc=0x0 size=8 fmt=unknown text=global_store_dword v[0:1], v2, off ; format=unknown
-pc=0x0 size=4 fmt=sopp text=s_endpgm ; format=sopp op=1
+pc=0x1900 size=8 fmt=smrd op_type=smrd class=s_load_dword text=s_load_dword s4, s[0:1], 0x2 ; format=smrd op=0
+pc=0x1908 size=8 fmt=smrd op_type=smrd class=s_load_dword text=s_load_dword s4, s[0:1], 0x42 ; format=smrd op=0
+pc=0x1910 size=4 fmt=sopp op_type=sopp class=s_waitcnt text=s_waitcnt lgkmcnt(0) ; format=sopp op=12
+pc=0x1914 size=8 fmt=sop2 op_type=sop2 class=s_and_b32 text=s_and_b32 s0, s0, 0xffff ; format=sop2 op=12
+pc=0x191c size=4 fmt=sop2 op_type=sop2 class=s_mul_i32 text=s_mul_i32 s6, s6, s0 ; format=sop2 op=36
+pc=0x1920 size=4 fmt=vop2 op_type=vop2 class=v_add_u32_e32 text=v_add_u32_e32 v0, s6, v0 ; format=vop2 op=52
+pc=0x1924 size=4 fmt=vopc op_type=vopc class=v_cmp_gt_i32 text=v_cmp_gt_i32_e32 vcc, s1, v0 ; format=vopc op=196
+pc=0x1928 size=4 fmt=sop1 op_type=sop1 class=s_and_saveexec_b64 text=s_and_saveexec_b64 s[0:1], vcc ; format=sop1 op=32
+pc=0x192c size=4 fmt=sopp op_type=sopp class=s_cbranch_execz text=s_cbranch_execz 25 ; format=sopp op=8
+pc=0x1930 size=8 fmt=smrd op_type=smrd class=s_load_dwordx4 text=s_load_dwordx4 s[20:23], s[0:1], 0x2 ; format=smrd op=64
+pc=0x1938 size=8 fmt=smrd op_type=smrd class=s_load_dwordx2 text=s_load_dwordx2 s[12:13], s[0:1], 0x82 ; format=smrd op=32
+pc=0x1940 size=4 fmt=vop2 op_type=vop2 class=v_ashrrev_i32_e32 text=v_ashrrev_i32_e32 v1, 31, v0 ; format=vop2 op=17
+pc=0x1944 size=8 fmt=vop3a op_type=vop3a class=v_lshlrev_b64 text=v_lshlrev_b64 v[0:1], 2, v[0:1] ; format=vop3a op=327
+pc=0x194c size=4 fmt=sopp op_type=sopp class=s_waitcnt text=s_waitcnt lgkmcnt(0) ; format=sopp op=12
+pc=0x1950 size=4 fmt=vop1 op_type=vop1 class=v_mov_b32_e32 text=v_mov_b32_e32 v3, s3 ; format=vop1 op=1
+pc=0x1954 size=4 fmt=vop2 op_type=vop2 class=v_add_co_u32_e32 text=v_add_co_u32_e32 v2, vcc, s2, v0 ; format=vop2 op=25
+pc=0x1958 size=4 fmt=vop2 op_type=vop2 class=v_addc_co_u32_e32 text=v_addc_co_u32_e32 v3, vcc, v3, v1, vcc ; format=vop2 op=28
+pc=0x195c size=4 fmt=vop1 op_type=vop1 class=v_mov_b32_e32 text=v_mov_b32_e32 v5, s1 ; format=vop1 op=1
+pc=0x1960 size=4 fmt=vop2 op_type=vop2 class=v_add_co_u32_e32 text=v_add_co_u32_e32 v4, vcc, s0, v0 ; format=vop2 op=25
+pc=0x1964 size=4 fmt=vop2 op_type=vop2 class=v_addc_co_u32_e32 text=v_addc_co_u32_e32 v5, vcc, v5, v1, vcc ; format=vop2 op=28
+pc=0x1968 size=8 fmt=flat op_type=flat class=global_load_dword text=global_load_dword v6, v[4:5], off ; format=flat op=20
+pc=0x1970 size=8 fmt=flat op_type=flat class=global_load_dword text=global_load_dword v7, v[2:3], off ; format=flat op=20
+pc=0x1978 size=4 fmt=vop1 op_type=vop1 class=v_mov_b32_e32 text=v_mov_b32_e32 v2, s7 ; format=vop1 op=1
+pc=0x197c size=4 fmt=vop2 op_type=vop2 class=v_add_co_u32_e32 text=v_add_co_u32_e32 v0, vcc, s6, v0 ; format=vop2 op=25
+pc=0x1980 size=4 fmt=vop2 op_type=vop2 class=v_addc_co_u32_e32 text=v_addc_co_u32_e32 v1, vcc, v2, v1, vcc ; format=vop2 op=28
+pc=0x1984 size=4 fmt=sopp op_type=sopp class=s_waitcnt text=s_waitcnt vmcnt(0) & lgkmcnt(15) ; format=sopp op=12
+pc=0x1988 size=4 fmt=vop2 op_type=vop2 class=v_add_f32_e32 text=v_add_f32_e32 v2, v6, v7 ; format=vop2 op=1
+pc=0x198c size=8 fmt=flat op_type=flat class=global_store_dword text=global_store_dword v[0:1], v2, off ; format=flat op=28
+pc=0x1994 size=4 fmt=sopp op_type=sopp class=s_endpgm text=s_endpgm ; format=sopp op=1

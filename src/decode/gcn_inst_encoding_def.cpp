@@ -66,6 +66,29 @@ uint32_t ExtractOp(const std::vector<uint32_t>& words, GcnInstFormatClass format
   }
 }
 
+uint32_t ExtractCanonicalOpcode(const std::vector<uint32_t>& words,
+                                GcnInstFormatClass format_class) {
+  const uint32_t low = words.empty() ? 0u : words[0];
+  switch (format_class) {
+    case GcnInstFormatClass::Smrd:
+      return (((low >> 18u) & 0x3u) << 5u) | ((low >> 22u) & 0x1fu);
+    case GcnInstFormatClass::Smem:
+      return (low >> 18u) & 0xffu;
+    case GcnInstFormatClass::Vop3a:
+    case GcnInstFormatClass::Vop3b:
+      return (low >> 16u) & 0x3ffu;
+    case GcnInstFormatClass::Vop3p:
+      return (low >> 16u) & 0x7fu;
+    case GcnInstFormatClass::Vintrp:
+      if (((low >> 26u) & 0x3fu) == 0x32u) {
+        return (low >> 16u) & 0x3u;
+      }
+      return (low >> 16u) & 0x7fu;
+    default:
+      return ExtractOp(words, format_class);
+  }
+}
+
 RawGcnOperand MakeOperand(RawGcnOperandKind kind, std::string text) {
   return RawGcnOperand{
       .kind = kind,
@@ -225,6 +248,26 @@ const GcnIsaOpcodeDescriptor* FindDescriptorByPairAndPrefix(GcnIsaOpType op_type
 
 const GcnIsaOpcodeDescriptor* FindDescriptorByPair(GcnIsaOpType op_type, uint32_t opcode) {
   return FindGcnIsaOpcodeDescriptor(op_type, static_cast<uint16_t>(opcode));
+}
+
+const GcnIsaOpcodeDescriptor* FindSmrdDescriptor(uint32_t opcode) {
+  if (const auto* descriptor = FindDescriptorByPair(GcnIsaOpType::Smrd, opcode);
+      descriptor != nullptr) {
+    return descriptor;
+  }
+  if (opcode == 32u) {
+    return FindDescriptorByPair(GcnIsaOpType::Smrd, 1u);
+  }
+  if (opcode == 64u) {
+    return FindDescriptorByPair(GcnIsaOpType::Smrd, 2u);
+  }
+  if (opcode == 96u) {
+    return FindDescriptorByPair(GcnIsaOpType::Smrd, 3u);
+  }
+  if (opcode == 128u) {
+    return FindDescriptorByPair(GcnIsaOpType::Smrd, 4u);
+  }
+  return nullptr;
 }
 
 const GcnIsaOpcodeDescriptor* FindFlatDescriptor(const std::vector<uint32_t>& words, uint32_t opcode) {
@@ -583,7 +626,7 @@ const GcnInstEncodingDef* FindGcnInstEncodingDef(const std::vector<uint32_t>& wo
 
 const GcnIsaOpcodeDescriptor* FindGcnFallbackOpcodeDescriptor(const std::vector<uint32_t>& words) {
   const auto format_class = ClassifyGcnInstFormat(words);
-  const uint32_t opcode = ExtractOp(words, format_class);
+  const uint32_t opcode = ExtractCanonicalOpcode(words, format_class);
   switch (format_class) {
     case GcnInstFormatClass::Sop2:
       return FindDescriptorByPair(GcnIsaOpType::Sop2, opcode);
@@ -596,7 +639,7 @@ const GcnIsaOpcodeDescriptor* FindGcnFallbackOpcodeDescriptor(const std::vector<
     case GcnInstFormatClass::Sopp:
       return FindDescriptorByPair(GcnIsaOpType::Sopp, opcode);
     case GcnInstFormatClass::Smrd:
-      return FindDescriptorByPair(GcnIsaOpType::Smrd, opcode);
+      return FindSmrdDescriptor(opcode);
     case GcnInstFormatClass::Smem:
       return FindDescriptorByPair(GcnIsaOpType::Smem, opcode);
     case GcnInstFormatClass::Vop2:
