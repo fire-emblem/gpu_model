@@ -151,5 +151,48 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeVop3aFmaInstruction) {
   EXPECT_EQ(decoded.operands[3].text, "v5");
 }
 
+TEST(GcnInstDecoderTest, DecodesRepresentativeCarryProducingVectorAddInstruction) {
+  RawGcnInstruction raw{
+      .pc = 0x1a20,
+      .size_bytes = 4,
+      .words = {0x32060401u},
+      .format_class = GcnInstFormatClass::Vop2,
+      .mnemonic = "v_add_co_u32_e32",
+      .operands = "",
+      .decoded_operands = {},
+  };
+
+  const auto decoded = GcnInstDecoder{}.Decode(raw);
+  EXPECT_EQ(decoded.encoding_id, 15u);
+  EXPECT_EQ(decoded.mnemonic, "v_add_co_u32_e32");
+  ASSERT_EQ(decoded.operands.size(), 4u);
+  EXPECT_EQ(decoded.operands[0].text, "v3");
+  EXPECT_EQ(decoded.operands[1].text, "vcc");
+  EXPECT_EQ(decoded.operands[2].text, "s1");
+  EXPECT_EQ(decoded.operands[3].text, "v2");
+}
+
+TEST(GcnInstDecoderTest, DecodesRepresentativeCarryConsumingVectorAddInstruction) {
+  RawGcnInstruction raw{
+      .pc = 0x1a24,
+      .size_bytes = 4,
+      .words = {0x38060401u},
+      .format_class = GcnInstFormatClass::Vop2,
+      .mnemonic = "v_addc_co_u32_e32",
+      .operands = "",
+      .decoded_operands = {},
+  };
+
+  const auto decoded = GcnInstDecoder{}.Decode(raw);
+  EXPECT_EQ(decoded.encoding_id, 16u);
+  EXPECT_EQ(decoded.mnemonic, "v_addc_co_u32_e32");
+  ASSERT_EQ(decoded.operands.size(), 5u);
+  EXPECT_EQ(decoded.operands[0].text, "v3");
+  EXPECT_EQ(decoded.operands[1].text, "vcc");
+  EXPECT_EQ(decoded.operands[2].text, "s1");
+  EXPECT_EQ(decoded.operands[3].text, "v2");
+  EXPECT_EQ(decoded.operands[4].text, "vcc");
+}
+
 }  // namespace
 }  // namespace gpu_model
