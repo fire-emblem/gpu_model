@@ -770,6 +770,120 @@ TEST(RuntimeHooksTest, RejectsHipTwoDimensionalExecutableInRawGcnPath) {
   std::filesystem::remove_all(temp_dir);
 }
 
+TEST(RuntimeHooksTest, ReportsUnsupportedHipSoftmaxExecutableInRawGcnPath) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_softmax_executable");
+  const auto src_path = temp_dir / "hip_softmax.cpp";
+  const auto exe_path = temp_dir / "hip_softmax.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n"
+           "#include <math.h>\n"
+           "extern \"C\" __global__ void softmax_row(const float* in, float* out, int n) {\n"
+           "  __shared__ float scratch[64];\n"
+           "  int tid = threadIdx.x;\n"
+           "  int idx = blockIdx.x * blockDim.x + tid;\n"
+           "  float x = idx < n ? in[idx] : -1.0e20f;\n"
+           "  scratch[tid] = x;\n"
+           "  __syncthreads();\n"
+           "  for (int stride = blockDim.x / 2; stride > 0; stride >>= 1) {\n"
+           "    if (tid < stride) scratch[tid] = fmaxf(scratch[tid], scratch[tid + stride]);\n"
+           "    __syncthreads();\n"
+           "  }\n"
+           "  float m = scratch[0];\n"
+           "  float e = idx < n ? expf(x - m) : 0.0f;\n"
+           "  scratch[tid] = e;\n"
+           "  __syncthreads();\n"
+           "  for (int stride = blockDim.x / 2; stride > 0; stride >>= 1) {\n"
+           "    if (tid < stride) scratch[tid] += scratch[tid + stride];\n"
+           "    __syncthreads();\n"
+           "  }\n"
+           "  if (idx < n) out[idx] = e / scratch[0];\n"
+           "}\n"
+           "int main() { return 0; }\n";
+  }
+
+  const std::string command =
+      "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  constexpr uint32_t n = 64;
+  RuntimeHooks hooks;
+  const uint64_t in_addr = hooks.Malloc(n * sizeof(float));
+  const uint64_t out_addr = hooks.Malloc(n * sizeof(float));
+  std::vector<float> input(n, 1.0f);
+  std::vector<float> output(n, 0.0f);
+  hooks.MemcpyHtoD<float>(in_addr, std::span<const float>(input));
+  hooks.MemcpyHtoD<float>(out_addr, std::span<const float>(output));
+
+  KernelArgPack args;
+  args.PushU64(in_addr);
+  args.PushU64(out_addr);
+  args.PushU32(n);
+
+  const auto result = hooks.LaunchAmdgpuObject(
+      exe_path, LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64}, std::move(args),
+      ExecutionMode::Functional, "c500", nullptr, "softmax_row");
+  ASSERT_FALSE(result.ok);
+  EXPECT_NE(result.error_message.find("unsupported raw GCN opcode"), std::string::npos);
+
+  std::filesystem::remove_all(temp_dir);
+}
+
+TEST(RuntimeHooksTest, ReportsUnsupportedHipMfmaExecutableInRawGcnPath) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_mfma_executable");
+  const auto src_path = temp_dir / "hip_mfma.cpp";
+  const auto exe_path = temp_dir / "hip_mfma.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n"
+           "typedef float v4f __attribute__((ext_vector_type(4)));\n"
+           "extern \"C\" __global__ void mfma_probe(float* out) {\n"
+           "#if defined(__AMDGCN__)\n"
+           "  v4f acc = {0.0f, 0.0f, 0.0f, 0.0f};\n"
+           "  acc = __builtin_amdgcn_mfma_f32_16x16x4f32(1.0f, 1.0f, acc, 0, 0, 0);\n"
+           "  if (threadIdx.x == 0) out[0] = acc[0];\n"
+           "#else\n"
+           "  if (threadIdx.x == 0) out[0] = 0.0f;\n"
+           "#endif\n"
+           "}\n"
+           "int main() { return 0; }\n";
+  }
+
+  const std::string command =
+      "hipcc --offload-arch=gfx90a " + src_path.string() + " -o " + exe_path.string();
+  if (std::system(command.c_str()) != 0) {
+    GTEST_SKIP() << "gfx90a mfma compilation not available";
+  }
+
+  RuntimeHooks hooks;
+  const uint64_t out_addr = hooks.Malloc(sizeof(float));
+  float init = 0.0f;
+  hooks.MemcpyHtoD<float>(out_addr, std::span<const float>(&init, 1));
+
+  KernelArgPack args;
+  args.PushU64(out_addr);
+
+  const auto result = hooks.LaunchAmdgpuObject(
+      exe_path, LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64}, std::move(args),
+      ExecutionMode::Functional, "c500", nullptr, "mfma_probe");
+  ASSERT_FALSE(result.ok);
+  EXPECT_FALSE(result.error_message.empty());
+
+  std::filesystem::remove_all(temp_dir);
+}
+
 TEST(RuntimeHooksTest, ListsModulesAndKernels) {
   RuntimeHooks hooks;
   hooks.RegisterProgramImage(

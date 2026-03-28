@@ -20,6 +20,7 @@ add_executable(gpu_model_tests
   functional/fma_loop_functional_test.cpp
   functional/scaling_functional_test.cpp
   functional/shared_sync_functional_test.cpp
+  functional/softmax_shared_functional_test.cpp
   functional/representative_kernels_functional_test.cpp
   functional/advanced_syntax_functional_test.cpp
   functional/local_bitwise_functional_test.cpp
@@ -37,6 +38,7 @@ add_executable(gpu_model_tests
   cycle/fma_loop_cycle_test.cpp
   cycle/scaling_cycle_test.cpp
   cycle/shared_sync_cycle_test.cpp
+  cycle/softmax_shared_cycle_test.cpp
   cycle/representative_kernels_cycle_test.cpp
   cycle/advanced_syntax_cycle_test.cpp
   cycle/local_bitwise_cycle_test.cpp
