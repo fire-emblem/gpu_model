@@ -1,6 +1,7 @@
 #include "gpu_model/exec/functional_execution_core.h"
 
 #include <array>
+#include <condition_variable>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -37,6 +38,7 @@ struct ExecutableBlock {
   std::vector<size_t> next_wave_rr_per_peu;
   std::vector<bool> wave_busy;
   std::unique_ptr<std::mutex> control_mutex;
+  std::unique_ptr<std::condition_variable> control_cv;
   std::unique_ptr<std::mutex> shared_mutex;
 };
 
@@ -116,6 +118,7 @@ std::vector<ExecutableBlock> MaterializeBlocks(const PlacementMap& placement,
         .next_wave_rr_per_peu = {},
         .wave_busy = {},
         .control_mutex = std::make_unique<std::mutex>(),
+        .control_cv = std::make_unique<std::condition_variable>(),
         .shared_mutex = std::make_unique<std::mutex>(),
     };
     block.waves.reserve(block_placement.waves.size());
@@ -225,43 +228,34 @@ class FunctionalExecutionCoreImpl {
         for (size_t peu_index = 0; peu_index < peu_count; ++peu_index) {
           marl::schedule([&, i, peu_index] {
             ExecutionStats peu_stats;
-            uint64_t idle_spins = 0;
             try {
               while (true) {
-                bool block_complete = false;
-                bool had_wave = false;
                 std::optional<size_t> wave_index;
                 {
-                  std::lock_guard<std::mutex> lock(*blocks_[i].control_mutex);
-                  block_complete = IsBlockComplete(blocks_[i]);
-                  if (!block_complete) {
+                  std::unique_lock<std::mutex> lock(*blocks_[i].control_mutex);
+                  while (true) {
+                    if (IsBlockComplete(blocks_[i])) {
+                      break;
+                    }
                     ReleaseBlockBarrierIfReady(blocks_[i]);
                     wave_index = SelectNextWaveIndexForPeu(blocks_[i], peu_index);
                     if (wave_index.has_value()) {
                       blocks_[i].wave_busy[*wave_index] = true;
-                      had_wave = true;
+                      break;
                     }
+                    blocks_[i].control_cv->wait(lock);
                   }
                 }
-                if (block_complete) {
+                if (!wave_index.has_value()) {
                   break;
                 }
-                if (wave_index.has_value()) {
-                  idle_spins = 0;
-                  ExecuteWave(blocks_[i], blocks_[i].waves[*wave_index], peu_stats);
+                ExecuteWave(blocks_[i], blocks_[i].waves[*wave_index], peu_stats);
+                {
                   std::lock_guard<std::mutex> lock(*blocks_[i].control_mutex);
                   blocks_[i].wave_busy[*wave_index] = false;
                   ReleaseBlockBarrierIfReady(blocks_[i]);
                 }
-                if (!had_wave) {
-                  ++idle_spins;
-                  if (idle_spins >= 1000000) {
-                    std::lock_guard<std::mutex> lock(*blocks_[i].control_mutex);
-                    throw std::runtime_error("parallel functional execution stalled: " +
-                                             FormatBlockState(blocks_[i]));
-                  }
-                  std::this_thread::yield();
-                }
+                blocks_[i].control_cv->notify_all();
               }
             } catch (...) {
               std::lock_guard<std::mutex> lock(failure_mutex);

@@ -53,7 +53,8 @@ Status:
 - block execution now enters `PEU`-worker mode in `MarlParallel`
 - each `PEU` owns a resident wave pool and selects ready waves in round-robin order
 - shared-memory, shared-atomic, and block-barrier kernels now run on the same `PEU`-parallel path
-- remaining gap is to replace yield-based waiting with explicit wait / resume primitives for:
+- block-local wait now uses condition-variable wakeup instead of pure yield spinning
+- remaining gap is to generalize the current block-local wakeup path into explicit wait / resume primitives for:
   - barrier
   - waitcnt
   - pending memory completion
