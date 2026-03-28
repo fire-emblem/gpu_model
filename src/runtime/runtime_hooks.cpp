@@ -90,6 +90,20 @@ DeviceLoadPlan RuntimeHooks::BuildLoadPlanFromAmdgpuObject(
   return BuildDeviceLoadPlan(image);
 }
 
+DeviceLoadResult RuntimeHooks::MaterializeLoadPlan(const DeviceLoadPlan& plan) {
+  return DeviceImageLoader{}.Materialize(plan, runtime_->memory());
+}
+
+DeviceLoadResult RuntimeHooks::LoadProgramImageToDevice(const ProgramImage& image) {
+  return MaterializeLoadPlan(BuildLoadPlan(image));
+}
+
+DeviceLoadResult RuntimeHooks::LoadAmdgpuObjectToDevice(
+    const std::filesystem::path& path,
+    std::optional<std::string> kernel_name) {
+  return MaterializeLoadPlan(BuildLoadPlanFromAmdgpuObject(path, std::move(kernel_name)));
+}
+
 void RuntimeHooks::RegisterProgramImage(std::string module_name, ProgramImage image) {
   modules_[module_name][image.kernel_name()] = std::move(image);
 }

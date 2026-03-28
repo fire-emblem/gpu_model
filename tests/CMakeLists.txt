@@ -49,6 +49,7 @@ add_executable(gpu_model_tests
   loader/asm_parser_test.cpp
   loader/amdgpu_code_object_decoder_test.cpp
   loader/amdgpu_obj_loader_test.cpp
+  loader/device_image_loader_test.cpp
   loader/device_segment_image_test.cpp
   loader/gcn_text_parser_test.cpp
   loader/program_lowering_test.cpp

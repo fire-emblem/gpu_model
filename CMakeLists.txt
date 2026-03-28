@@ -30,6 +30,7 @@ add_library(gpu_model STATIC
   src/loader/asm_parser.cpp
   src/loader/amdgpu_code_object_decoder.cpp
   src/loader/amdgpu_obj_loader.cpp
+  src/loader/device_image_loader.cpp
   src/loader/device_segment_image.cpp
   src/loader/executable_image_io.cpp
   src/loader/gcn_lowering_rules.cpp

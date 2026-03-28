@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "gpu_model/loader/executable_image_io.h"
+#include "gpu_model/loader/device_image_loader.h"
 #include "gpu_model/loader/amdgpu_obj_loader.h"
 #include "gpu_model/loader/device_segment_image.h"
 #include "gpu_model/loader/program_bundle_io.h"
@@ -58,6 +59,11 @@ class RuntimeHooks {
   DeviceLoadPlan BuildLoadPlanFromAmdgpuObject(
       const std::filesystem::path& path,
       std::optional<std::string> kernel_name = std::nullopt) const;
+  DeviceLoadResult MaterializeLoadPlan(const DeviceLoadPlan& plan);
+  DeviceLoadResult LoadProgramImageToDevice(const ProgramImage& image);
+  DeviceLoadResult LoadAmdgpuObjectToDevice(
+      const std::filesystem::path& path,
+      std::optional<std::string> kernel_name = std::nullopt);
   void RegisterProgramImage(std::string module_name, ProgramImage image);
   void LoadAmdgpuObject(std::string module_name,
                         const std::filesystem::path& path,
