@@ -554,6 +554,67 @@ TEST(HipInterposerStateTest, LaunchesHipSharedReverseExecutableThroughRegistered
   std::filesystem::remove_all(temp_dir);
 }
 
+TEST(HipInterposerStateTest, LaunchesHipAtomicCountExecutableThroughRegisteredHostFunction) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_interposer_atomic_count");
+  const auto src_path = temp_dir / "hip_atomic_count.cpp";
+  const auto exe_path = temp_dir / "hip_atomic_count.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n\n"
+           "extern \"C\" __global__ void atomic_count(int* out, int n) {\n"
+           "  int i = blockIdx.x * blockDim.x + threadIdx.x;\n"
+           "  if (i < n) atomicAdd(out, 1);\n"
+           "}\n\n"
+           "int main() { return 0; }\n";
+  }
+
+  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  auto& state = HipInterposerState::Instance();
+  state.ResetForTest();
+  static int host_symbol = 0;
+  state.RegisterFunction(&host_symbol, "atomic_count");
+
+  struct AtomicCase {
+    const char* name = nullptr;
+    uint32_t grid_dim_x = 1;
+    uint32_t block_dim_x = 1;
+    uint32_t n = 1;
+  };
+  const std::vector<AtomicCase> cases = {
+      {.name = "single", .grid_dim_x = 1, .block_dim_x = 1, .n = 1},
+      {.name = "wave", .grid_dim_x = 1, .block_dim_x = 64, .n = 64},
+      {.name = "multi_block", .grid_dim_x = 3, .block_dim_x = 128, .n = 257},
+  };
+
+  for (const auto& test_case : cases) {
+    SCOPED_TRACE(test_case.name);
+    int32_t zero = 0;
+    void* out_dev = state.AllocateDevice(sizeof(int32_t));
+    state.MemcpyHostToDevice(out_dev, &zero, sizeof(zero));
+    uint32_t n_arg = test_case.n;
+    void* args[] = {&out_dev, &n_arg};
+    const auto result = state.LaunchExecutableKernel(
+        exe_path, &host_symbol,
+        LaunchConfig{.grid_dim_x = test_case.grid_dim_x, .block_dim_x = test_case.block_dim_x},
+        args);
+    ASSERT_TRUE(result.ok) << result.error_message;
+
+    int32_t value = -1;
+    state.MemcpyDeviceToHost(&value, out_dev, sizeof(value));
+    EXPECT_EQ(value, static_cast<int32_t>(test_case.n));
+  }
+
+  std::filesystem::remove_all(temp_dir);
+}
+
 TEST(HipInterposerStateTest, LaunchesHipSoftmaxExecutableThroughRegisteredHostFunction) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";

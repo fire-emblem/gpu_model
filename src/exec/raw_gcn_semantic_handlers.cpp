@@ -121,6 +121,11 @@ uint64_t ResolveScalarPair(const DecodedGcnOperand& operand, const RawGcnWaveCon
     }
     return static_cast<uint64_t>(operand.info.immediate);
   }
+  if (operand.kind == DecodedGcnOperandKind::ScalarReg) {
+    const uint32_t first = operand.info.reg_first;
+    return static_cast<uint64_t>(context.wave.sgpr.Read(first)) |
+           (static_cast<uint64_t>(context.wave.sgpr.Read(first + 1)) << 32u);
+  }
   if (operand.kind == DecodedGcnOperandKind::ScalarRegRange && operand.info.reg_count == 2) {
     const uint32_t first = operand.info.reg_first;
     return static_cast<uint64_t>(context.wave.sgpr.Read(first)) |
@@ -138,6 +143,12 @@ uint64_t ResolveScalarPair(const DecodedGcnOperand& operand, const RawGcnWaveCon
 }
 
 void StoreScalarPair(const DecodedGcnOperand& operand, RawGcnWaveContext& context, uint64_t value) {
+  if (operand.kind == DecodedGcnOperandKind::ScalarReg) {
+    const uint32_t first = operand.info.reg_first;
+    context.wave.sgpr.Write(first, static_cast<uint32_t>(value & 0xffffffffu));
+    context.wave.sgpr.Write(first + 1, static_cast<uint32_t>(value >> 32u));
+    return;
+  }
   if (operand.kind == DecodedGcnOperandKind::ScalarRegRange && operand.info.reg_count == 2) {
     const uint32_t first = operand.info.reg_first;
     context.wave.sgpr.Write(first, static_cast<uint32_t>(value & 0xffffffffu));
@@ -301,6 +312,10 @@ class ScalarAluHandler final : public IRawGcnSemanticHandler {
       const int32_t value =
           static_cast<int32_t>(ResolveScalarLike(instruction.operands.at(1), context));
       context.wave.sgpr.Write(sdst, static_cast<uint32_t>(value));
+    } else if (instruction.mnemonic == "s_bcnt1_i32_b64") {
+      const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
+      const uint64_t value = ResolveScalarPair(instruction.operands.at(1), context);
+      context.wave.sgpr.Write(sdst, static_cast<uint32_t>(std::popcount(value)));
     } else {
       throw std::invalid_argument("unsupported scalar alu opcode: " + instruction.mnemonic);
     }
@@ -626,6 +641,35 @@ class VectorAluHandler final : public IRawGcnSemanticHandler {
         const int32_t src = static_cast<int32_t>(
             ResolveVectorLane(instruction.operands.at(1), context, lane));
         context.wave.vgpr.Write(vdst, lane, FloatAsU32(static_cast<float>(src)));
+      }
+    } else if (instruction.mnemonic == "v_mbcnt_lo_u32_b32") {
+      const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
+      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        if (!context.wave.exec.test(lane)) {
+          continue;
+        }
+        const uint32_t mask = static_cast<uint32_t>(
+            ResolveVectorLane(instruction.operands.at(1), context, lane));
+        const uint32_t carry = static_cast<uint32_t>(
+            ResolveVectorLane(instruction.operands.at(2), context, lane));
+        const uint32_t lane_mask =
+            lane >= 32 ? 0xffffffffu : ((lane == 0) ? 0u : ((1u << lane) - 1u));
+        context.wave.vgpr.Write(vdst, lane, carry + std::popcount(mask & lane_mask));
+      }
+    } else if (instruction.mnemonic == "v_mbcnt_hi_u32_b32") {
+      const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
+      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        if (!context.wave.exec.test(lane)) {
+          continue;
+        }
+        const uint32_t mask = static_cast<uint32_t>(
+            ResolveVectorLane(instruction.operands.at(1), context, lane));
+        const uint32_t carry = static_cast<uint32_t>(
+            ResolveVectorLane(instruction.operands.at(2), context, lane));
+        const uint32_t upper_lane = lane > 32 ? (lane - 32) : 0;
+        const uint32_t lane_mask =
+            upper_lane >= 32 ? 0xffffffffu : ((upper_lane == 0) ? 0u : ((1u << upper_lane) - 1u));
+        context.wave.vgpr.Write(vdst, lane, carry + std::popcount(mask & lane_mask));
       }
     } else if (instruction.mnemonic == "v_exp_f32_e32") {
       const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
@@ -1006,6 +1050,23 @@ class FlatMemoryHandler final : public IRawGcnSemanticHandler {
         }
       }
       ++context.stats.global_stores;
+    } else if (instruction.mnemonic == "global_atomic_add") {
+      const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
+      const uint32_t data = RequireVectorIndex(instruction.operands.at(1));
+      const uint32_t saddr = RequireScalarRange(instruction.operands.at(2)).first;
+      const uint64_t base = static_cast<uint64_t>(context.wave.sgpr.Read(saddr)) |
+                            (static_cast<uint64_t>(context.wave.sgpr.Read(saddr + 1)) << 32u);
+      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        if (!context.wave.exec.test(lane)) {
+          continue;
+        }
+        const uint32_t old_value = context.memory.LoadGlobalValue<uint32_t>(base);
+        const uint32_t add_value = static_cast<uint32_t>(context.wave.vgpr.Read(data, lane));
+        context.memory.StoreGlobalValue<uint32_t>(base, old_value + add_value);
+        context.wave.vgpr.Write(vdst, lane, old_value);
+      }
+      ++context.stats.global_loads;
+      ++context.stats.global_stores;
     } else {
       throw std::invalid_argument("unsupported flat memory opcode: " + instruction.mnemonic);
     }
@@ -1104,6 +1165,7 @@ const std::vector<HandlerBinding>& HandlerBindings() {
       {.mnemonic = "s_load_dwordx4", .handler = &kScalarMemoryHandler},
       {.mnemonic = "s_mov_b32", .handler = &kScalarAluHandler},
       {.mnemonic = "s_mov_b64", .handler = &kScalarAluHandler},
+      {.mnemonic = "s_bcnt1_i32_b64", .handler = &kScalarAluHandler},
       {.mnemonic = "s_cselect_b64", .handler = &kScalarAluHandler},
       {.mnemonic = "s_andn2_b64", .handler = &kScalarAluHandler},
       {.mnemonic = "s_or_b64", .handler = &kScalarAluHandler},
@@ -1142,6 +1204,8 @@ const std::vector<HandlerBinding>& HandlerBindings() {
       {.mnemonic = "v_rndne_f32_e32", .handler = &kVectorAluHandler},
       {.mnemonic = "v_cvt_i32_f32_e32", .handler = &kVectorAluHandler},
       {.mnemonic = "v_cvt_f32_i32_e32", .handler = &kVectorAluHandler},
+      {.mnemonic = "v_mbcnt_lo_u32_b32", .handler = &kVectorAluHandler},
+      {.mnemonic = "v_mbcnt_hi_u32_b32", .handler = &kVectorAluHandler},
       {.mnemonic = "v_exp_f32_e32", .handler = &kVectorAluHandler},
       {.mnemonic = "v_rcp_f32_e32", .handler = &kVectorAluHandler},
       {.mnemonic = "v_ldexp_f32", .handler = &kVectorAluHandler},
@@ -1168,6 +1232,7 @@ const std::vector<HandlerBinding>& HandlerBindings() {
       {.mnemonic = "s_branch", .handler = &kBranchHandler},
       {.mnemonic = "global_load_dword", .handler = &kFlatMemoryHandler},
       {.mnemonic = "global_store_dword", .handler = &kFlatMemoryHandler},
+      {.mnemonic = "global_atomic_add", .handler = &kFlatMemoryHandler},
       {.mnemonic = "ds_read_b32", .handler = &kSharedMemoryHandler},
       {.mnemonic = "ds_write_b32", .handler = &kSharedMemoryHandler},
       {.mnemonic = "s_barrier", .handler = &kSpecialHandler},
