@@ -180,6 +180,12 @@ cmake --build build --target gpu_model_hip_interposer -j
 - [usages/hip-fatbin-launch/README.md](/data/gpu_model/usages/hip-fatbin-launch/README.md)
 - [usages/hip-command-line-interposer/README.md](/data/gpu_model/usages/hip-command-line-interposer/README.md)
 
+## 顶层开发状态
+
+功能主线开发状态与推进顺序见：
+
+- [docs/module-development-status.md](/data/gpu_model/docs/module-development-status.md)
+
 ## 近期路线
 
 接下来主线应继续收敛到：
