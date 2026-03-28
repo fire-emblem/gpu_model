@@ -1,9 +1,11 @@
 #include "gpu_model/runtime/host_runtime.h"
 
 #include <cstdlib>
+#include <cstdio>
 #include <sstream>
 #include <stdexcept>
 #include <string_view>
+#include <thread>
 
 #include "gpu_model/arch/arch_registry.h"
 #include "gpu_model/exec/cycle_executor.h"
@@ -20,6 +22,21 @@ namespace gpu_model {
 
 namespace {
 
+uint32_t DefaultMarlWorkerThreadCount() {
+  const uint32_t cpu_count = std::max(1u, std::thread::hardware_concurrency());
+  return std::max(1u, (cpu_count * 2u) / 3u);
+}
+
+const char* ToEnvModeName(FunctionalExecutionMode mode) {
+  switch (mode) {
+    case FunctionalExecutionMode::SingleThreaded:
+      return "st";
+    case FunctionalExecutionMode::MarlParallel:
+      return "mt";
+  }
+  return "unknown";
+}
+
 std::optional<FunctionalExecutionConfig> FunctionalExecutionConfigFromEnv() {
   const char* mode_env = std::getenv("GPU_MODEL_FUNCTIONAL_MODE");
   if (mode_env == nullptr) {
@@ -28,9 +45,9 @@ std::optional<FunctionalExecutionConfig> FunctionalExecutionConfigFromEnv() {
 
   FunctionalExecutionConfig config;
   const std::string_view mode(mode_env);
-  if (mode == "marl" || mode == "parallel" || mode == "marl_parallel") {
+  if (mode == "mt" || mode == "marl" || mode == "parallel" || mode == "marl_parallel") {
     config.mode = FunctionalExecutionMode::MarlParallel;
-  } else if (mode == "single" || mode == "single_threaded") {
+  } else if (mode == "st" || mode == "single" || mode == "single_threaded") {
     config.mode = FunctionalExecutionMode::SingleThreaded;
   } else {
     return std::nullopt;
@@ -43,6 +60,8 @@ std::optional<FunctionalExecutionConfig> FunctionalExecutionConfigFromEnv() {
     } catch (const std::exception&) {
       return std::nullopt;
     }
+  } else if (config.mode == FunctionalExecutionMode::MarlParallel) {
+    config.worker_threads = DefaultMarlWorkerThreadCount();
   }
   return config;
 }
@@ -52,6 +71,10 @@ std::optional<FunctionalExecutionConfig> FunctionalExecutionConfigFromEnv() {
 HostRuntime::HostRuntime(TraceSink* default_trace) : default_trace_(default_trace) {
   if (const auto config = FunctionalExecutionConfigFromEnv(); config.has_value()) {
     functional_execution_config_ = *config;
+    std::fprintf(stderr,
+                 "[gpu_model] functional_mode=%s workers=%u\n",
+                 ToEnvModeName(functional_execution_config_.mode),
+                 functional_execution_config_.worker_threads);
   }
 }
 

@@ -1,6 +1,7 @@
 #include "gpu_model/exec/parallel_wave_executor.h"
 
 #include <exception>
+#include <thread>
 
 #ifdef GPU_MODEL_HAS_MARL
 #include "marl/scheduler.h"
@@ -9,11 +10,20 @@
 
 namespace gpu_model {
 
+namespace {
+
+uint32_t DefaultMarlWorkerThreadCount() {
+  const uint32_t cpu_count = std::max(1u, std::thread::hardware_concurrency());
+  return std::max(1u, (cpu_count * 2u) / 3u);
+}
+
+}  // namespace
+
 uint64_t ParallelWaveExecutor::Run(ExecutionContext& context) {
 #ifdef GPU_MODEL_HAS_MARL
   marl::Scheduler::Config scheduler_config;
   if (config_.worker_threads == 0) {
-    scheduler_config = marl::Scheduler::Config::allCores();
+    scheduler_config.setWorkerThreadCount(static_cast<int>(DefaultMarlWorkerThreadCount()));
   } else {
     scheduler_config.setWorkerThreadCount(static_cast<int>(config_.worker_threads));
   }
