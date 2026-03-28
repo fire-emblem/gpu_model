@@ -209,6 +209,59 @@ TEST(RuntimeHooksTest, LaunchProgramImagePopulatesLastLoadResult) {
   EXPECT_EQ(hooks.last_load_result()->segments[2].allocation.pool, MemoryPoolKind::Kernarg);
 }
 
+TEST(RuntimeHooksTest, LaunchProgramImageUsesLatestConstantPoolResidency) {
+  auto make_image = [](const std::string& kernel_name, std::vector<int32_t> table) {
+    ConstSegment const_segment;
+    const_segment.bytes.resize(table.size() * sizeof(int32_t));
+    std::memcpy(const_segment.bytes.data(), table.data(), const_segment.bytes.size());
+    return ProgramImage(
+        kernel_name,
+        R"(
+          .meta arch=c500
+          s_load_kernarg s0, 0
+          s_load_kernarg s1, 1
+          v_get_global_id_x v0
+          v_cmp_lt_i32_cmask v0, s1
+          s_saveexec_b64 s10
+          s_and_exec_cmask_b64
+          s_cbranch_execz exit
+          scalar_buffer_load_dword v1, v0, 4
+          buffer_store_dword s0, v0, v1, 4
+        exit:
+          s_restoreexec_b64 s10
+          s_endpgm
+        )",
+        MetadataBlob{.values = {{"arch", "c500"}}}, std::move(const_segment));
+  };
+
+  RuntimeHooks hooks;
+  auto first = make_image("const_kernel_a", {1, 2, 3, 4});
+  auto second = make_image("const_kernel_b", {9, 8, 7, 6});
+
+  const uint64_t out_addr = hooks.Malloc(4 * sizeof(int32_t));
+  std::vector<int32_t> out(4, 0);
+
+  KernelArgPack args_a;
+  args_a.PushU64(out_addr);
+  args_a.PushU32(4);
+  const auto result_a = hooks.LaunchProgramImage(
+      first, LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64}, std::move(args_a));
+  ASSERT_TRUE(result_a.ok) << result_a.error_message;
+
+  KernelArgPack args_b;
+  args_b.PushU64(out_addr);
+  args_b.PushU32(4);
+  const auto result_b = hooks.LaunchProgramImage(
+      second, LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64}, std::move(args_b));
+  ASSERT_TRUE(result_b.ok) << result_b.error_message;
+
+  hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(out));
+  EXPECT_EQ(out[0], 9);
+  EXPECT_EQ(out[1], 8);
+  EXPECT_EQ(out[2], 7);
+  EXPECT_EQ(out[3], 6);
+}
+
 TEST(RuntimeHooksTest, LoadsSectionedExecutableImageAndLaunchesRegisteredKernel) {
   const std::filesystem::path path =
       std::filesystem::temp_directory_path() / "gpu_model_runtime_sectioned.gpusec";

@@ -197,6 +197,7 @@ LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
         .launch_config = request.config,
         .args = request.args,
         .placement = result.placement,
+        .device_load = request.device_load,
         .memory = memory_,
         .trace = trace,
         .stats = &result.stats,

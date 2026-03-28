@@ -12,6 +12,7 @@ namespace gpu_model {
 
 class KernelProgram;
 class TraceSink;
+struct DeviceLoadResult;
 
 enum class ExecutionMode {
   Functional,
@@ -41,6 +42,7 @@ struct LaunchRequest {
   std::string arch_name = "c500";
   const KernelProgram* kernel = nullptr;
   const ProgramImage* program_image = nullptr;
+  const DeviceLoadResult* device_load = nullptr;
   LaunchConfig config;
   KernelArgPack args;
   ExecutionMode mode = ExecutionMode::Functional;

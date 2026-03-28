@@ -19,6 +19,7 @@
 #include "gpu_model/exec/issue_eligibility.h"
 #include "gpu_model/exec/scoreboard.h"
 #include "gpu_model/isa/opcode.h"
+#include "gpu_model/loader/device_image_loader.h"
 #include "gpu_model/memory/cache_model.h"
 #include "gpu_model/memory/shared_bank_model.h"
 
@@ -89,17 +90,33 @@ ReadyRef SmaskRef() {
   return ReadyRef{.kind = ReadyKind::Smask};
 }
 
-uint64_t LoadLaneValue(const MemorySystem& memory, const LaneAccess& lane) {
+uint64_t LoadLaneValue(const MemorySystem& memory, MemoryPoolKind pool, const LaneAccess& lane) {
   switch (lane.bytes) {
     case 4: {
-      const int32_t value = memory.LoadGlobalValue<int32_t>(lane.addr);
+      const int32_t value = memory.LoadValue<int32_t>(pool, lane.addr);
       return static_cast<uint64_t>(static_cast<int64_t>(value));
     }
     case 8:
-      return memory.LoadGlobalValue<uint64_t>(lane.addr);
+      return memory.LoadValue<uint64_t>(pool, lane.addr);
     default:
       throw std::invalid_argument("unsupported load width");
   }
+}
+
+uint64_t LoadLaneValue(const MemorySystem& memory, const LaneAccess& lane) {
+  return LoadLaneValue(memory, MemoryPoolKind::Global, lane);
+}
+
+uint64_t ConstantPoolBase(const ExecutionContext& context) {
+  if (context.device_load == nullptr) {
+    return 0;
+  }
+  for (const auto& segment : context.device_load->segments) {
+    if (segment.segment.kind == DeviceSegmentKind::ConstantData) {
+      return segment.allocation.range.base;
+    }
+  }
+  return 0;
 }
 
 void StoreLaneValue(MemorySystem& memory, const LaneAccess& lane) {
@@ -999,9 +1016,16 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                         if (!request.lanes[lane].active) {
                           continue;
                         }
-                        if (context.memory.HasRange(MemoryPoolKind::Constant, request.lanes[lane].addr,
+                        const LaneAccess pool_lane{
+                            .active = request.lanes[lane].active,
+                            .addr = ConstantPoolBase(context) + request.lanes[lane].addr,
+                            .bytes = request.lanes[lane].bytes,
+                            .value = request.lanes[lane].value,
+                        };
+                        if (context.memory.HasRange(MemoryPoolKind::Constant, pool_lane.addr,
                                                     request.lanes[lane].bytes)) {
-                          loaded_value = LoadLaneValue(context.memory, request.lanes[lane]);
+                          loaded_value =
+                              LoadLaneValue(context.memory, MemoryPoolKind::Constant, pool_lane);
                         } else {
                           loaded_value =
                               LoadLaneValue(context.kernel.const_segment().bytes, request.lanes[lane]);
@@ -1014,11 +1038,17 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                     } else {
                       for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
                         if (request.lanes[lane].active) {
+                          const LaneAccess pool_lane{
+                              .active = request.lanes[lane].active,
+                              .addr = ConstantPoolBase(context) + request.lanes[lane].addr,
+                              .bytes = request.lanes[lane].bytes,
+                              .value = request.lanes[lane].value,
+                          };
                           const uint64_t value =
                               context.memory.HasRange(MemoryPoolKind::Constant,
-                                                      request.lanes[lane].addr,
+                                                      pool_lane.addr,
                                                       request.lanes[lane].bytes)
-                                  ? LoadLaneValue(context.memory, request.lanes[lane])
+                                  ? LoadLaneValue(context.memory, MemoryPoolKind::Constant, pool_lane)
                                   : LoadLaneValue(context.kernel.const_segment().bytes,
                                                   request.lanes[lane]);
                           candidate->wave.vgpr.Write(request.dst->index, lane, value);

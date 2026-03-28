@@ -11,6 +11,7 @@
 #include "gpu_model/debug/instruction_trace.h"
 #include "gpu_model/debug/trace_event.h"
 #include "gpu_model/isa/opcode.h"
+#include "gpu_model/loader/device_image_loader.h"
 
 namespace gpu_model {
 
@@ -119,17 +120,33 @@ std::vector<ExecutableBlock> MaterializeBlocks(const PlacementMap& placement,
   return blocks;
 }
 
-uint64_t LoadLaneValue(const MemorySystem& memory, const LaneAccess& lane) {
+uint64_t LoadLaneValue(const MemorySystem& memory, MemoryPoolKind pool, const LaneAccess& lane) {
   switch (lane.bytes) {
     case 4: {
-      const int32_t value = memory.LoadGlobalValue<int32_t>(lane.addr);
+      const int32_t value = memory.LoadValue<int32_t>(pool, lane.addr);
       return static_cast<uint64_t>(static_cast<int64_t>(value));
     }
     case 8:
-      return memory.LoadGlobalValue<uint64_t>(lane.addr);
+      return memory.LoadValue<uint64_t>(pool, lane.addr);
     default:
       throw std::invalid_argument("unsupported load width");
   }
+}
+
+uint64_t LoadLaneValue(const MemorySystem& memory, const LaneAccess& lane) {
+  return LoadLaneValue(memory, MemoryPoolKind::Global, lane);
+}
+
+uint64_t ConstantPoolBase(const ExecutionContext& context) {
+  if (context.device_load == nullptr) {
+    return 0;
+  }
+  for (const auto& segment : context.device_load->segments) {
+    if (segment.segment.kind == DeviceSegmentKind::ConstantData) {
+      return segment.allocation.range.base;
+    }
+  }
+  return 0;
 }
 
 void StoreLaneValue(MemorySystem& memory, const LaneAccess& lane) {
@@ -264,9 +281,15 @@ uint64_t FunctionalExecutor::Run(ExecutionContext& context) {
                   continue;
                 }
                 if (request.space == MemorySpace::Constant) {
-                  if (context.memory.HasRange(MemoryPoolKind::Constant, request.lanes[lane].addr,
+                  const LaneAccess pool_lane{
+                      .active = request.lanes[lane].active,
+                      .addr = ConstantPoolBase(context) + request.lanes[lane].addr,
+                      .bytes = request.lanes[lane].bytes,
+                      .value = request.lanes[lane].value,
+                  };
+                  if (context.memory.HasRange(MemoryPoolKind::Constant, pool_lane.addr,
                                               request.lanes[lane].bytes)) {
-                    loaded_value = LoadLaneValue(context.memory, request.lanes[lane]);
+                    loaded_value = LoadLaneValue(context.memory, MemoryPoolKind::Constant, pool_lane);
                   } else {
                     loaded_value =
                         LoadLaneValue(context.kernel.const_segment().bytes, request.lanes[lane]);
@@ -289,9 +312,16 @@ uint64_t FunctionalExecutor::Run(ExecutionContext& context) {
                     loaded_values[lane] =
                         LoadLaneValue(wave.private_memory, lane, request.lanes[lane]);
                   } else if (request.space == MemorySpace::Constant) {
-                    if (context.memory.HasRange(MemoryPoolKind::Constant, request.lanes[lane].addr,
+                    const LaneAccess pool_lane{
+                        .active = request.lanes[lane].active,
+                        .addr = ConstantPoolBase(context) + request.lanes[lane].addr,
+                        .bytes = request.lanes[lane].bytes,
+                        .value = request.lanes[lane].value,
+                    };
+                    if (context.memory.HasRange(MemoryPoolKind::Constant, pool_lane.addr,
                                                 request.lanes[lane].bytes)) {
-                      loaded_values[lane] = LoadLaneValue(context.memory, request.lanes[lane]);
+                      loaded_values[lane] =
+                          LoadLaneValue(context.memory, MemoryPoolKind::Constant, pool_lane);
                     } else {
                       loaded_values[lane] =
                           LoadLaneValue(context.kernel.const_segment().bytes, request.lanes[lane]);

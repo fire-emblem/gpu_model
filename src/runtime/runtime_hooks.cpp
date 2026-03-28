@@ -87,6 +87,7 @@ LaunchResult RuntimeHooks::LaunchProgramImage(const ProgramImage& image,
   LaunchRequest request;
   request.arch_name = std::move(arch_name);
   request.program_image = &image;
+  request.device_load = last_load_result_.has_value() ? &*last_load_result_ : nullptr;
   request.config = config;
   request.args = std::move(args);
   request.mode = mode;
@@ -237,6 +238,7 @@ LaunchResult RuntimeHooks::LaunchAmdgpuObject(const std::filesystem::path& path,
   LaunchRequest request;
   request.arch_name = std::move(arch_name);
   request.program_image = &image;
+  request.device_load = last_load_result_.has_value() ? &*last_load_result_ : nullptr;
   request.config = config;
   request.args = std::move(args);
   request.mode = mode;

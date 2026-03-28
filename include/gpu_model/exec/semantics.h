@@ -17,12 +17,15 @@
 
 namespace gpu_model {
 
+struct DeviceLoadResult;
+
 struct ExecutionContext {
   const GpuArchSpec& spec;
   const KernelProgram& kernel;
   const LaunchConfig& launch_config;
   const KernelArgPack& args;
   const PlacementMap& placement;
+  const DeviceLoadResult* device_load = nullptr;
   MemorySystem& memory;
   TraceSink& trace;
   ExecutionStats* stats = nullptr;
