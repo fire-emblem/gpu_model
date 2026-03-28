@@ -19,6 +19,7 @@ add_library(gpu_model STATIC
   src/arch/arch_registry.cpp
   src/arch/c500_spec.cpp
   src/decode/generated_gcn_inst_db.cpp
+  src/decode/gcn_inst_db_lookup.cpp
   src/decode/gcn_inst_format.cpp
   src/decode/gcn_inst_encoding_def.cpp
   src/decode/gcn_inst_decoder.cpp

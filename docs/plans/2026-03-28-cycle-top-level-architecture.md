@@ -43,6 +43,30 @@
 - `exec/execution_state.h`
 - `exec/execution_state_builder.*`
 
+建议关键数据结构：
+
+- `ExecutionState`
+  - `std::vector<BlockState> blocks`
+  - `std::vector<PeuState> peu_slots`
+  - `uint64_t current_cycle`
+- `BlockState`
+  - `block_id/dpc_id/ap_id`
+  - `shared_memory`
+  - `barrier_generation`
+  - `barrier_arrivals`
+  - `std::vector<WaveRuntimeState> waves`
+- `WaveRuntimeState`
+  - `WaveState arch`
+  - `Scoreboard scoreboard`
+  - `uint64_t launch_cycle`
+  - `bool dispatch_enabled`
+  - `bool launch_scheduled`
+- `PeuState`
+  - `peu_id`
+  - `busy_until`
+  - `last_wave_tag`
+  - resident wave refs
+
 ### 2. Front-End / Eligibility
 
 负责：
@@ -58,6 +82,12 @@
 
 - [issue_eligibility.h](/data/gpu_model/include/gpu_model/exec/issue_eligibility.h)
 - [issue_eligibility.cpp](/data/gpu_model/src/exec/issue_eligibility.cpp)
+
+建议文件：
+
+- `exec/front_end_state.h`
+- `exec/front_end_state.cpp`
+- `exec/issue_eligibility.*`
 
 ### 3. Issue / Scheduling
 
@@ -79,6 +109,13 @@
 - [issue_model.h](/data/gpu_model/include/gpu_model/exec/issue_model.h)
 - [issue_scheduler.h](/data/gpu_model/include/gpu_model/exec/issue_scheduler.h)
 
+建议文件：
+
+- `exec/issue_candidate.h`
+- `exec/issue_candidate.cpp`
+- `exec/issue_model.*`
+- `exec/issue_scheduler.*`
+
 ### 4. Timing / In-Flight
 
 负责：
@@ -95,6 +132,15 @@
 - [scoreboard.h](/data/gpu_model/include/gpu_model/exec/scoreboard.h)
 - [event_queue.h](/data/gpu_model/include/gpu_model/exec/event_queue.h)
 
+建议文件：
+
+- `exec/timing_model.h`
+- `exec/timing_model.cpp`
+- `exec/scoreboard.*`
+- `exec/event_queue.*`
+- `exec/memory_return_model.h`
+- `exec/memory_return_model.cpp`
+
 ### 5. Plan Apply / Commit
 
 负责：
@@ -107,6 +153,15 @@
 - memory request commit / arrive 后写回
 
 这是和 functional 最应该共享的一层。
+
+建议文件：
+
+- `exec/op_plan_apply.h`
+- `exec/op_plan_apply.cpp`
+- `exec/memory_apply.h`
+- `exec/memory_apply.cpp`
+- `exec/sync_apply.h`
+- `exec/sync_apply.cpp`
 
 ### 6. Trace / Analysis
 
@@ -123,6 +178,13 @@
 
 - [trace_event.h](/data/gpu_model/include/gpu_model/debug/trace_event.h)
 - [cycle_timeline.cpp](/data/gpu_model/src/debug/cycle_timeline.cpp)
+
+建议文件：
+
+- `debug/cycle_trace_builder.h`
+- `debug/cycle_trace_builder.cpp`
+- `debug/cycle_metrics.h`
+- `debug/cycle_metrics.cpp`
 
 ## 和 Function Model 的共享边界
 
@@ -194,6 +256,31 @@
 - `per_wave_active_cycles`
 - `per_wave_stall_cycles`
 
+建议聚合结构：
+
+```cpp
+struct CycleMetrics {
+  uint64_t total_cycles = 0;
+  uint64_t issued_insts = 0;
+  uint64_t committed_insts = 0;
+  uint64_t waves_launched = 0;
+  uint64_t waves_exited = 0;
+  uint64_t stall_cycles_total = 0;
+  uint64_t stall_cycles_dependency = 0;
+  uint64_t stall_cycles_waitcnt = 0;
+  uint64_t stall_cycles_barrier = 0;
+  uint64_t stall_cycles_memory = 0;
+  uint64_t stall_cycles_issue_slot_busy = 0;
+  uint64_t stall_cycles_warp_switch = 0;
+  uint64_t global_mem_issue_count = 0;
+  uint64_t shared_mem_issue_count = 0;
+  uint64_t shared_bank_conflict_cycles = 0;
+  uint64_t l1_hits = 0;
+  uint64_t l2_hits = 0;
+  uint64_t cache_misses = 0;
+};
+```
+
 这些指标可以直接回答：
 
 - 是 `compute bound` 还是 `memory bound`
@@ -255,6 +342,29 @@
 - `memory_latency`
 - `l1_hit/l2_hit/miss`
 - `shared_bank_penalty`
+
+建议统一事件扩展字段：
+
+```cpp
+struct CycleTraceArgs {
+  uint32_t block_id = 0;
+  uint32_t wave_id = 0;
+  uint32_t dpc_id = 0;
+  uint32_t ap_id = 0;
+  uint32_t peu_id = 0;
+  uint64_t pc = 0;
+  const char* opcode = nullptr;
+  const char* stall_reason = nullptr;
+  const char* memory_space = nullptr;
+  uint64_t issue_cycle = 0;
+  uint64_t commit_cycle = 0;
+  uint64_t memory_latency = 0;
+  bool l1_hit = false;
+  bool l2_hit = false;
+  bool cache_miss = false;
+  uint32_t shared_bank_penalty = 0;
+};
+```
 
 ## Perfetto / Google Trace 组织方式
 
@@ -335,12 +445,25 @@
 - constant pool base
 - byte-level memory helper
 
+涉及文件：
+
+- 新增 `include/gpu_model/exec/execution_state.h`
+- 新增 `src/exec/execution_state_builder.cpp`
+- 从 [functional_execution_core.cpp](/data/gpu_model/src/exec/functional_execution_core.cpp) 和 [cycle_executor.cpp](/data/gpu_model/src/exec/cycle_executor.cpp) 搬迁 materialize 逻辑
+
 ### Step 2
 
 抽共享 sync / memory helper：
 
 - barrier arrive / release
 - global / shared / private / constant 的同步访问 helper
+
+涉及文件：
+
+- 新增 `include/gpu_model/exec/memory_apply.h`
+- 新增 `src/exec/memory_apply.cpp`
+- 新增 `include/gpu_model/exec/sync_apply.h`
+- 新增 `src/exec/sync_apply.cpp`
 
 ### Step 3
 
@@ -355,6 +478,13 @@
 functional 立即 apply。
 cycle 在 commit / event 时调用。
 
+涉及文件：
+
+- 新增 `include/gpu_model/exec/op_plan_apply.h`
+- 新增 `src/exec/op_plan_apply.cpp`
+- [functional_execution_core.cpp](/data/gpu_model/src/exec/functional_execution_core.cpp)
+- [cycle_executor.cpp](/data/gpu_model/src/exec/cycle_executor.cpp)
+
 ### Step 4
 
 缩 `CycleExecutor`：
@@ -364,6 +494,52 @@ cycle 在 commit / event 时调用。
 - issue bundle 选择
 - event queue 推进
 - trace 发射点
+
+涉及文件：
+
+- [cycle_executor.cpp](/data/gpu_model/src/exec/cycle_executor.cpp)
+- 新增 `include/gpu_model/exec/timing_model.h`
+- 新增 `src/exec/timing_model.cpp`
+- 新增 `include/gpu_model/debug/cycle_metrics.h`
+- 新增 `src/debug/cycle_metrics.cpp`
+
+## 落地阶段
+
+### Phase 1
+
+目标：
+
+- 不改变当前行为
+- 只拆共享状态和 apply helper
+
+验收：
+
+- 现有 cycle tests 行为不变
+- trace 事件数量不减少
+
+### Phase 2
+
+目标：
+
+- 把 stall reason 和 memory return 模型从大循环里分离
+- 指标结构稳定输出
+
+验收：
+
+- `CycleMetrics` 可稳定导出
+- Google Trace / Perfetto 轨道字段稳定
+
+### Phase 3
+
+目标：
+
+- 允许基于参数变更评估新 issue 规则 / latency 提案
+- 保持相对趋势稳定
+
+验收：
+
+- 新 issue class / latency knob 不需要改 `CycleExecutor` 主体
+- trace 能直观看出 `compute bound` / `memory bound`
 
 ## 最终建议
 
