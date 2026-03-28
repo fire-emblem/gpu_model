@@ -175,6 +175,19 @@ cmake --build build --target gpu_model_hip_interposer -j
 - parser/工厂实例化后的 `op_type`
 - 具体指令对象 `class`
 
+### 顶层执行检查脚本
+
+当前稳定的执行检查可直接跑：
+
+```bash
+./scripts/run_exec_checks.sh
+```
+
+它会串起来执行：
+
+- `raw-code-object-decode` usage
+- `hip-command-line-interposer` usage
+
 ## usages
 
 可复现脚本见：

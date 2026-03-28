@@ -40,6 +40,9 @@ uint32_t AlignUp(uint32_t value, uint32_t alignment) {
   return ((value + alignment - 1) / alignment) * alignment;
 }
 
+bool DebugEnabled();
+void DebugLog(const char* fmt, ...);
+
 std::vector<uint32_t> ParseArgLayoutSizes(const MetadataBlob& metadata) {
   std::vector<uint32_t> sizes;
   const auto it = metadata.values.find("arg_layout");
@@ -58,6 +61,35 @@ std::vector<uint32_t> ParseArgLayoutSizes(const MetadataBlob& metadata) {
   return sizes;
 }
 
+struct HiddenArgLayoutEntry {
+  std::string kind;
+  uint32_t offset = 0;
+  uint32_t size = 0;
+};
+
+std::vector<HiddenArgLayoutEntry> ParseHiddenArgLayout(const MetadataBlob& metadata) {
+  std::vector<HiddenArgLayoutEntry> entries;
+  const auto it = metadata.values.find("hidden_arg_layout");
+  if (it == metadata.values.end() || it->second.empty()) {
+    return entries;
+  }
+  std::istringstream input(it->second);
+  std::string token;
+  while (std::getline(input, token, ',')) {
+    const auto first = token.find(':');
+    const auto second = token.find(':', first == std::string::npos ? first : first + 1);
+    if (first == std::string::npos || second == std::string::npos) {
+      continue;
+    }
+    HiddenArgLayoutEntry entry;
+    entry.kind = token.substr(0, first);
+    entry.offset = static_cast<uint32_t>(std::stoul(token.substr(first + 1, second - first - 1)));
+    entry.size = static_cast<uint32_t>(std::stoul(token.substr(second + 1)));
+    entries.push_back(std::move(entry));
+  }
+  return entries;
+}
+
 uint32_t ParseGroupSegmentFixedSize(const MetadataBlob& metadata) {
   const auto it = metadata.values.find("group_segment_fixed_size");
   if (it == metadata.values.end() || it->second.empty()) {
@@ -66,17 +98,86 @@ uint32_t ParseGroupSegmentFixedSize(const MetadataBlob& metadata) {
   return static_cast<uint32_t>(std::stoul(it->second));
 }
 
+uint32_t ParseKernargSegmentSize(const MetadataBlob& metadata) {
+  const auto it = metadata.values.find("kernarg_segment_size");
+  if (it == metadata.values.end() || it->second.empty()) {
+    return 0;
+  }
+  return static_cast<uint32_t>(std::stoul(it->second));
+}
+
+template <typename T>
+void WriteScalar(std::vector<std::byte>& bytes, uint32_t offset, T value) {
+  const uint32_t end = offset + static_cast<uint32_t>(sizeof(T));
+  if (bytes.size() < end) {
+    bytes.resize(end, std::byte{0});
+  }
+  std::memcpy(bytes.data() + offset, &value, sizeof(T));
+}
+
+uint64_t HiddenArgValue(const HiddenArgLayoutEntry& entry, const LaunchConfig& config) {
+  if (entry.kind == "hidden_block_count_x") {
+    return config.grid_dim_x;
+  }
+  if (entry.kind == "hidden_block_count_y") {
+    return config.grid_dim_y;
+  }
+  if (entry.kind == "hidden_block_count_z") {
+    return 1;
+  }
+  if (entry.kind == "hidden_group_size_x") {
+    return config.block_dim_x;
+  }
+  if (entry.kind == "hidden_group_size_y") {
+    return config.block_dim_y;
+  }
+  if (entry.kind == "hidden_group_size_z") {
+    return 1;
+  }
+  if (entry.kind == "hidden_remainder_x") {
+    return config.block_dim_x;
+  }
+  if (entry.kind == "hidden_remainder_y") {
+    return config.block_dim_y;
+  }
+  if (entry.kind == "hidden_remainder_z") {
+    return 1;
+  }
+  if (entry.kind == "hidden_global_offset_x" || entry.kind == "hidden_global_offset_y" ||
+      entry.kind == "hidden_global_offset_z") {
+    return 0;
+  }
+  if (entry.kind == "hidden_grid_dims") {
+    return config.grid_dim_y > 1 || config.block_dim_y > 1 ? 2 : 1;
+  }
+  return 0;
+}
+
 std::vector<std::byte> BuildKernargBytes(const MetadataBlob& metadata,
                                          const KernelArgPack& args,
                                          const LaunchConfig& config) {
-  std::vector<std::byte> bytes(128, std::byte{0});
+  std::vector<std::byte> bytes(std::max(128u, ParseKernargSegmentSize(metadata)), std::byte{0});
   const auto arg_sizes = ParseArgLayoutSizes(metadata);
+  if (DebugEnabled()) {
+    std::ostringstream args_text;
+    for (size_t i = 0; i < args.values().size(); ++i) {
+      if (i != 0) {
+        args_text << ' ';
+      }
+      args_text << "arg" << i << "=0x" << std::hex << args.values()[i];
+    }
+    DebugLog("launch args %s", args_text.str().c_str());
+  }
   uint32_t arg_offset = 0;
   for (size_t i = 0; i < args.values().size(); ++i) {
     const uint64_t value = args.values()[i];
     const uint32_t size = i < arg_sizes.size()
                               ? arg_sizes[i]
                               : (i < 3 ? 8u : 4u);
+    if (DebugEnabled()) {
+      DebugLog("pack arg%zu off=0x%x size=%u value=0x%llx",
+               i, arg_offset, size, static_cast<unsigned long long>(value));
+    }
     if (size == 8u) {
       std::memcpy(bytes.data() + arg_offset, &value, sizeof(uint64_t));
     } else if (size == 4u) {
@@ -85,22 +186,144 @@ std::vector<std::byte> BuildKernargBytes(const MetadataBlob& metadata,
     } else {
       throw std::invalid_argument("unsupported kernarg scalar size: " + std::to_string(size));
     }
+    if (DebugEnabled() && i == 0 && bytes.size() >= 8) {
+      uint32_t after0 = 0;
+      uint32_t after1 = 0;
+      std::memcpy(&after0, bytes.data() + 0, sizeof(uint32_t));
+      std::memcpy(&after1, bytes.data() + 4, sizeof(uint32_t));
+      DebugLog("after arg0 dwords[0:1]=0x%x 0x%x", after0, after1);
+    }
     arg_offset += size;
   }
+  const auto hidden_args = ParseHiddenArgLayout(metadata);
+  if (!hidden_args.empty()) {
+    for (const auto& entry : hidden_args) {
+      const uint64_t value = HiddenArgValue(entry, config);
+      switch (entry.size) {
+        case 2:
+          WriteScalar(bytes, entry.offset, static_cast<uint16_t>(value));
+          break;
+        case 4:
+          WriteScalar(bytes, entry.offset, static_cast<uint32_t>(value));
+          break;
+        case 8:
+          WriteScalar(bytes, entry.offset, value);
+          break;
+        default:
+          throw std::invalid_argument("unsupported hidden kernarg scalar size: " +
+                                      std::to_string(entry.size));
+      }
+    }
+    return bytes;
+  }
+
   const uint32_t hidden_offset = AlignUp(arg_offset, 8u);
-  const uint32_t block_count_x = config.grid_dim_x;
-  const uint32_t block_count_y = config.grid_dim_y;
-  const uint32_t block_count_z = 1;
-  const uint16_t group_size_x = static_cast<uint16_t>(config.block_dim_x);
-  const uint16_t group_size_y = static_cast<uint16_t>(config.block_dim_y);
-  const uint16_t group_size_z = 1;
-  std::memcpy(bytes.data() + hidden_offset + 0, &block_count_x, sizeof(block_count_x));
-  std::memcpy(bytes.data() + hidden_offset + 4, &block_count_y, sizeof(block_count_y));
-  std::memcpy(bytes.data() + hidden_offset + 8, &block_count_z, sizeof(block_count_z));
-  std::memcpy(bytes.data() + hidden_offset + 12, &group_size_x, sizeof(group_size_x));
-  std::memcpy(bytes.data() + hidden_offset + 14, &group_size_y, sizeof(group_size_y));
-  std::memcpy(bytes.data() + hidden_offset + 16, &group_size_z, sizeof(group_size_z));
+  WriteScalar(bytes, hidden_offset + 0, static_cast<uint32_t>(config.grid_dim_x));
+  WriteScalar(bytes, hidden_offset + 4, static_cast<uint32_t>(config.grid_dim_y));
+  WriteScalar(bytes, hidden_offset + 8, static_cast<uint32_t>(1));
+  WriteScalar(bytes, hidden_offset + 12, static_cast<uint16_t>(config.block_dim_x));
+  WriteScalar(bytes, hidden_offset + 14, static_cast<uint16_t>(config.block_dim_y));
+  WriteScalar(bytes, hidden_offset + 16, static_cast<uint16_t>(1));
   return bytes;
+}
+
+void WriteWaveSgprPair(WaveState& wave, uint32_t first, uint64_t value) {
+  wave.sgpr.Write(first, static_cast<uint32_t>(value & 0xffffffffu));
+  wave.sgpr.Write(first + 1, static_cast<uint32_t>(value >> 32u));
+}
+
+uint32_t PackWorkgroupInfo(bool first_wavefront, uint32_t wave_count) {
+  return (first_wavefront ? (1u << 31u) : 0u) | (wave_count & 0x3fu);
+}
+
+void InitializeWaveAbiState(WaveState& wave,
+                            const AmdgpuCodeObjectImage& image,
+                            const LaunchConfig& config,
+                            uint64_t kernarg_base,
+                            uint32_t wave_count_in_block) {
+  const auto& descriptor = image.kernel_descriptor;
+  const bool has_descriptor_recipe =
+      descriptor.user_sgpr_count != 0 || descriptor.enable_sgpr_kernarg_segment_ptr ||
+      descriptor.enable_sgpr_workgroup_id_x || descriptor.enable_sgpr_workgroup_id_y ||
+      descriptor.enable_sgpr_workgroup_id_z || descriptor.enable_sgpr_workgroup_info;
+  if (!has_descriptor_recipe) {
+    wave.sgpr.Write(4, static_cast<uint32_t>(kernarg_base & 0xffffffffu));
+    wave.sgpr.Write(5, static_cast<uint32_t>(kernarg_base >> 32u));
+    wave.sgpr.Write(6, wave.block_idx_x);
+    wave.sgpr.Write(7, wave.block_idx_y);
+    for (uint32_t lane = 0; lane < wave.thread_count && lane < kWaveSize; ++lane) {
+      const uint32_t linear_local_id = wave.wave_id * kWaveSize + lane;
+      const uint32_t local_x = linear_local_id % config.block_dim_x;
+      const uint32_t local_y = linear_local_id / config.block_dim_x;
+      wave.vgpr.Write(0, lane, local_x);
+      wave.vgpr.Write(1, lane, local_y);
+    }
+    return;
+  }
+
+  uint32_t sgpr_cursor = 0;
+  if (descriptor.enable_sgpr_private_segment_buffer) {
+    wave.sgpr.Write(sgpr_cursor + 0, 0);
+    wave.sgpr.Write(sgpr_cursor + 1, 0);
+    wave.sgpr.Write(sgpr_cursor + 2, 0);
+    wave.sgpr.Write(sgpr_cursor + 3, 0);
+    sgpr_cursor += 4;
+  }
+  if (descriptor.enable_sgpr_dispatch_ptr) {
+    WriteWaveSgprPair(wave, sgpr_cursor, 0);
+    sgpr_cursor += 2;
+  }
+  if (descriptor.enable_sgpr_queue_ptr) {
+    WriteWaveSgprPair(wave, sgpr_cursor, 0);
+    sgpr_cursor += 2;
+  }
+  if (descriptor.enable_sgpr_kernarg_segment_ptr) {
+    WriteWaveSgprPair(wave, sgpr_cursor, kernarg_base);
+    sgpr_cursor += 2;
+  }
+  if (descriptor.enable_sgpr_dispatch_id) {
+    WriteWaveSgprPair(wave, sgpr_cursor, 0);
+    sgpr_cursor += 2;
+  }
+  if (descriptor.enable_sgpr_flat_scratch_init) {
+    WriteWaveSgprPair(wave, sgpr_cursor, 0);
+    sgpr_cursor += 2;
+  }
+  if (descriptor.enable_sgpr_private_segment_size) {
+    wave.sgpr.Write(sgpr_cursor++, descriptor.private_segment_fixed_size);
+  }
+  for (uint32_t i = 0; i < descriptor.kernarg_preload_spec_length; ++i) {
+    wave.sgpr.Write(sgpr_cursor + i, 0);
+  }
+  sgpr_cursor += descriptor.kernarg_preload_spec_length;
+  if (descriptor.enable_sgpr_workgroup_id_x) {
+    wave.sgpr.Write(sgpr_cursor++, wave.block_idx_x);
+  }
+  if (descriptor.enable_sgpr_workgroup_id_y) {
+    wave.sgpr.Write(sgpr_cursor++, wave.block_idx_y);
+  }
+  if (descriptor.enable_sgpr_workgroup_id_z) {
+    wave.sgpr.Write(sgpr_cursor++, 0);
+  }
+  if (descriptor.enable_sgpr_workgroup_info) {
+    wave.sgpr.Write(sgpr_cursor++, PackWorkgroupInfo(wave.wave_id == 0, wave_count_in_block));
+  }
+  if (descriptor.enable_private_segment) {
+    wave.sgpr.Write(sgpr_cursor++, 0);
+  }
+
+  for (uint32_t lane = 0; lane < wave.thread_count && lane < kWaveSize; ++lane) {
+    const uint32_t linear_local_id = wave.wave_id * kWaveSize + lane;
+    const uint32_t local_x = linear_local_id % config.block_dim_x;
+    const uint32_t local_y = linear_local_id / config.block_dim_x;
+    wave.vgpr.Write(0, lane, local_x);
+    if (descriptor.enable_vgpr_workitem_id >= 1) {
+      wave.vgpr.Write(1, lane, local_y);
+    }
+    if (descriptor.enable_vgpr_workitem_id >= 2) {
+      wave.vgpr.Write(2, lane, 0);
+    }
+  }
 }
 
 bool DebugEnabled() {
@@ -142,6 +365,22 @@ LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
     pc_to_index[image.instructions[i].pc] = i;
   }
   const auto kernarg = BuildKernargBytes(image.metadata, args, config);
+  if (DebugEnabled() && kernarg.size() >= 24) {
+    uint32_t d0 = 0;
+    uint32_t d1 = 0;
+    uint32_t d2 = 0;
+    uint32_t d3 = 0;
+    uint32_t d4 = 0;
+    uint32_t d5 = 0;
+    std::memcpy(&d0, kernarg.data() + 0, sizeof(uint32_t));
+    std::memcpy(&d1, kernarg.data() + 4, sizeof(uint32_t));
+    std::memcpy(&d2, kernarg.data() + 8, sizeof(uint32_t));
+    std::memcpy(&d3, kernarg.data() + 12, sizeof(uint32_t));
+    std::memcpy(&d4, kernarg.data() + 16, sizeof(uint32_t));
+    std::memcpy(&d5, kernarg.data() + 20, sizeof(uint32_t));
+    DebugLog("kernarg dwords[0:5]=0x%x 0x%x 0x%x 0x%x 0x%x 0x%x",
+             d0, d1, d2, d3, d4, d5);
+  }
   uint64_t kernarg_base = memory.Allocate(MemoryPoolKind::Kernarg, kernarg.size());
   if (device_load != nullptr) {
     for (const auto& loaded : device_load->segments) {
@@ -174,17 +413,8 @@ LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
       raw_wave.wave.thread_count = wave_placement.lane_count;
       raw_wave.wave.ResetInitialExec();
       raw_wave.wave.pc = image.instructions.front().pc;
-      raw_wave.wave.sgpr.Write(4, static_cast<uint32_t>(kernarg_base & 0xffffffffu));
-      raw_wave.wave.sgpr.Write(5, static_cast<uint32_t>(kernarg_base >> 32u));
-      raw_wave.wave.sgpr.Write(6, block.block_idx_x);
-      raw_wave.wave.sgpr.Write(7, block.block_idx_y);
-      for (uint32_t lane = 0; lane < LaneCount(raw_wave); ++lane) {
-        const uint32_t linear_local_id = raw_wave.wave.wave_id * kWaveSize + lane;
-        const uint32_t local_x = linear_local_id % config.block_dim_x;
-        const uint32_t local_y = linear_local_id / config.block_dim_x;
-        raw_wave.wave.vgpr.Write(0, lane, local_x);
-        raw_wave.wave.vgpr.Write(1, lane, local_y);
-      }
+      InitializeWaveAbiState(raw_wave.wave, image, config, kernarg_base,
+                             static_cast<uint32_t>(block.waves.size()));
       raw_block.waves.push_back(std::move(raw_wave));
     }
 

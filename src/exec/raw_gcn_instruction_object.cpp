@@ -1,5 +1,6 @@
 #include "gpu_model/exec/raw_gcn_instruction_object.h"
 
+#include <bitset>
 #include <cstring>
 #include <stdexcept>
 #include <string>
@@ -17,6 +18,51 @@ class UnsupportedInstructionHandler final : public IRawGcnSemanticHandler {
     throw std::invalid_argument("unsupported instantiated raw GCN opcode: " + instruction.mnemonic);
   }
 };
+
+std::bitset<64> MaskFromU64(uint64_t value) {
+  return std::bitset<64>(value);
+}
+
+uint64_t BranchTarget(uint64_t pc, int32_t simm16) {
+  const int64_t target = static_cast<int64_t>(pc) + 4 + static_cast<int64_t>(simm16) * 4;
+  return static_cast<uint64_t>(target);
+}
+
+std::pair<uint32_t, uint32_t> RequireScalarRange(const DecodedGcnOperand& operand) {
+  if (operand.kind != DecodedGcnOperandKind::ScalarRegRange || operand.info.reg_count == 0) {
+    throw std::invalid_argument("expected scalar register range operand");
+  }
+  return {operand.info.reg_first, operand.info.reg_first + operand.info.reg_count - 1};
+}
+
+uint64_t ResolveScalarPair(const DecodedGcnOperand& operand, const RawGcnWaveContext& context) {
+  if (operand.kind == DecodedGcnOperandKind::Immediate ||
+      operand.kind == DecodedGcnOperandKind::BranchTarget) {
+    if (!operand.info.has_immediate) {
+      throw std::invalid_argument("scalar pair immediate missing value");
+    }
+    return static_cast<uint64_t>(operand.info.immediate);
+  }
+  if (operand.kind == DecodedGcnOperandKind::ScalarReg) {
+    const uint32_t first = operand.info.reg_first;
+    return static_cast<uint64_t>(context.wave.sgpr.Read(first)) |
+           (static_cast<uint64_t>(context.wave.sgpr.Read(first + 1)) << 32u);
+  }
+  if (operand.kind == DecodedGcnOperandKind::ScalarRegRange && operand.info.reg_count == 2) {
+    const uint32_t first = operand.info.reg_first;
+    return static_cast<uint64_t>(context.wave.sgpr.Read(first)) |
+           (static_cast<uint64_t>(context.wave.sgpr.Read(first + 1)) << 32u);
+  }
+  if (operand.kind == DecodedGcnOperandKind::SpecialReg &&
+      operand.info.special_reg == GcnSpecialReg::Vcc) {
+    return context.vcc;
+  }
+  if (operand.kind == DecodedGcnOperandKind::SpecialReg &&
+      operand.info.special_reg == GcnSpecialReg::Exec) {
+    return context.wave.exec.to_ullong();
+  }
+  throw std::invalid_argument("unsupported scalar pair operand");
+}
 
 class SmrdInstructionBase : public RawGcnInstructionObject {
  public:
@@ -120,6 +166,161 @@ class PlaceholderInstructionBase : public RawGcnInstructionObject {
   std::string_view class_name_;
 };
 
+class SAndSaveexecB64Instruction final : public Sop1InstructionBase {
+ public:
+  using Sop1InstructionBase::Sop1InstructionBase;
+
+  std::string_view class_name() const override { return "s_and_saveexec_b64"; }
+
+  void Execute(RawGcnWaveContext& context) const override {
+    const auto& instruction = decoded();
+    const auto [sdst, _] = RequireScalarRange(instruction.operands.at(0));
+    const uint64_t exec_before = context.wave.exec.to_ullong();
+    context.wave.sgpr.Write(sdst, static_cast<uint32_t>(exec_before & 0xffffffffu));
+    context.wave.sgpr.Write(sdst + 1, static_cast<uint32_t>(exec_before >> 32u));
+    const uint64_t mask = ResolveScalarPair(instruction.operands.at(1), context);
+    context.wave.exec = context.wave.exec & MaskFromU64(mask);
+    context.wave.pc += instruction.size_bytes;
+  }
+};
+
+class SNopInstruction final : public SoppInstructionBase {
+ public:
+  using SoppInstructionBase::SoppInstructionBase;
+
+  std::string_view class_name() const override { return "s_nop"; }
+
+  void Execute(RawGcnWaveContext& context) const override {
+    context.wave.pc += decoded().size_bytes;
+  }
+};
+
+class SWaitcntInstruction final : public SoppInstructionBase {
+ public:
+  using SoppInstructionBase::SoppInstructionBase;
+
+  std::string_view class_name() const override { return "s_waitcnt"; }
+
+  void Execute(RawGcnWaveContext& context) const override {
+    context.wave.pc += decoded().size_bytes;
+  }
+};
+
+class SEndpgmInstruction final : public SoppInstructionBase {
+ public:
+  using SoppInstructionBase::SoppInstructionBase;
+
+  std::string_view class_name() const override { return "s_endpgm"; }
+
+  void Execute(RawGcnWaveContext& context) const override {
+    context.wave.status = WaveStatus::Exited;
+    ++context.stats.wave_exits;
+  }
+};
+
+class SBarrierInstruction final : public SoppInstructionBase {
+ public:
+  using SoppInstructionBase::SoppInstructionBase;
+
+  std::string_view class_name() const override { return "s_barrier"; }
+
+  void Execute(RawGcnWaveContext& context) const override {
+    ++context.stats.barriers;
+    context.wave.status = WaveStatus::Stalled;
+    context.wave.waiting_at_barrier = true;
+    context.wave.barrier_generation = context.block.barrier_generation;
+    ++context.block.barrier_arrivals;
+  }
+};
+
+class BranchInstructionBase : public SoppInstructionBase {
+ public:
+  using SoppInstructionBase::SoppInstructionBase;
+
+ protected:
+  int32_t branch_offset() const {
+    const auto& operand = decoded().operands.at(0);
+    if (!operand.info.has_immediate) {
+      throw std::invalid_argument("branch instruction missing immediate");
+    }
+    return static_cast<int32_t>(operand.info.immediate);
+  }
+
+  void BranchOrAdvance(RawGcnWaveContext& context, bool take_branch) const {
+    if (take_branch) {
+      context.wave.pc = BranchTarget(context.wave.pc, branch_offset());
+      return;
+    }
+    context.wave.pc += decoded().size_bytes;
+  }
+};
+
+class SBranchInstruction final : public BranchInstructionBase {
+ public:
+  using BranchInstructionBase::BranchInstructionBase;
+
+  std::string_view class_name() const override { return "s_branch"; }
+
+  void Execute(RawGcnWaveContext& context) const override {
+    BranchOrAdvance(context, true);
+  }
+};
+
+class SCbranchScc0Instruction final : public BranchInstructionBase {
+ public:
+  using BranchInstructionBase::BranchInstructionBase;
+
+  std::string_view class_name() const override { return "s_cbranch_scc0"; }
+
+  void Execute(RawGcnWaveContext& context) const override {
+    BranchOrAdvance(context, !context.wave.ScalarMaskBit0());
+  }
+};
+
+class SCbranchScc1Instruction final : public BranchInstructionBase {
+ public:
+  using BranchInstructionBase::BranchInstructionBase;
+
+  std::string_view class_name() const override { return "s_cbranch_scc1"; }
+
+  void Execute(RawGcnWaveContext& context) const override {
+    BranchOrAdvance(context, context.wave.ScalarMaskBit0());
+  }
+};
+
+class SCbranchVcczInstruction final : public BranchInstructionBase {
+ public:
+  using BranchInstructionBase::BranchInstructionBase;
+
+  std::string_view class_name() const override { return "s_cbranch_vccz"; }
+
+  void Execute(RawGcnWaveContext& context) const override {
+    BranchOrAdvance(context, context.vcc == 0);
+  }
+};
+
+class SCbranchExeczInstruction final : public BranchInstructionBase {
+ public:
+  using BranchInstructionBase::BranchInstructionBase;
+
+  std::string_view class_name() const override { return "s_cbranch_execz"; }
+
+  void Execute(RawGcnWaveContext& context) const override {
+    BranchOrAdvance(context, context.wave.exec.none());
+  }
+};
+
+class SCbranchExecnzInstruction final : public BranchInstructionBase {
+ public:
+  using BranchInstructionBase::BranchInstructionBase;
+
+  std::string_view class_name() const override { return "s_cbranch_execnz"; }
+
+  void Execute(RawGcnWaveContext& context) const override {
+    BranchOrAdvance(context, context.wave.exec.any());
+  }
+};
+
 #define DEFINE_RAW_GCN_OPCODE_CLASS(ClassName, BaseClass, TextName) \
   class ClassName final : public BaseClass {                        \
    public:                                                          \
@@ -131,7 +332,6 @@ DEFINE_RAW_GCN_OPCODE_CLASS(SLoadDwordInstruction, SmrdInstructionBase, "s_load_
 DEFINE_RAW_GCN_OPCODE_CLASS(SLoadDwordx2Instruction, SmrdInstructionBase, "s_load_dwordx2");
 DEFINE_RAW_GCN_OPCODE_CLASS(SLoadDwordx4Instruction, SmrdInstructionBase, "s_load_dwordx4");
 
-DEFINE_RAW_GCN_OPCODE_CLASS(SAndSaveexecB64Instruction, Sop1InstructionBase, "s_and_saveexec_b64");
 DEFINE_RAW_GCN_OPCODE_CLASS(SMovB32Instruction, Sop1InstructionBase, "s_mov_b32");
 DEFINE_RAW_GCN_OPCODE_CLASS(SMovB64Instruction, Sop1InstructionBase, "s_mov_b64");
 DEFINE_RAW_GCN_OPCODE_CLASS(SBcnt1I32B64Instruction, Sop1InstructionBase, "s_bcnt1_i32_b64");
@@ -205,17 +405,6 @@ DEFINE_RAW_GCN_OPCODE_CLASS(GlobalAtomicAddInstruction, FlatInstructionBase, "gl
 
 DEFINE_RAW_GCN_OPCODE_CLASS(DsWriteB32Instruction, DsInstructionBase, "ds_write_b32");
 DEFINE_RAW_GCN_OPCODE_CLASS(DsReadB32Instruction, DsInstructionBase, "ds_read_b32");
-
-DEFINE_RAW_GCN_OPCODE_CLASS(SBarrierInstruction, SoppInstructionBase, "s_barrier");
-DEFINE_RAW_GCN_OPCODE_CLASS(SNopInstruction, SoppInstructionBase, "s_nop");
-DEFINE_RAW_GCN_OPCODE_CLASS(SWaitcntInstruction, SoppInstructionBase, "s_waitcnt");
-DEFINE_RAW_GCN_OPCODE_CLASS(SEndpgmInstruction, SoppInstructionBase, "s_endpgm");
-DEFINE_RAW_GCN_OPCODE_CLASS(SBranchInstruction, SoppInstructionBase, "s_branch");
-DEFINE_RAW_GCN_OPCODE_CLASS(SCbranchScc0Instruction, SoppInstructionBase, "s_cbranch_scc0");
-DEFINE_RAW_GCN_OPCODE_CLASS(SCbranchScc1Instruction, SoppInstructionBase, "s_cbranch_scc1");
-DEFINE_RAW_GCN_OPCODE_CLASS(SCbranchVcczInstruction, SoppInstructionBase, "s_cbranch_vccz");
-DEFINE_RAW_GCN_OPCODE_CLASS(SCbranchExeczInstruction, SoppInstructionBase, "s_cbranch_execz");
-DEFINE_RAW_GCN_OPCODE_CLASS(SCbranchExecnzInstruction, SoppInstructionBase, "s_cbranch_execnz");
 
 #undef DEFINE_RAW_GCN_OPCODE_CLASS
 

@@ -1,6 +1,6 @@
 kernel=vecadd
-pc=0x1900 size=8 fmt=smrd op_type=smrd class=s_load_dword text=s_load_dword s4, s[0:1], 0x2 ; format=smrd op=0
-pc=0x1908 size=8 fmt=smrd op_type=smrd class=s_load_dword text=s_load_dword s4, s[0:1], 0x42 ; format=smrd op=0
+pc=0x1900 size=8 fmt=smrd op_type=smrd class=s_load_dword text=s_load_dword s0, s[4:5], 0x2c ; format=smrd op=0
+pc=0x1908 size=8 fmt=smrd op_type=smrd class=s_load_dword text=s_load_dword s1, s[4:5], 0x18 ; format=smrd op=0
 pc=0x1910 size=4 fmt=sopp op_type=sopp class=s_waitcnt text=s_waitcnt lgkmcnt(0) ; format=sopp op=12
 pc=0x1914 size=8 fmt=sop2 op_type=sop2 class=s_and_b32 text=s_and_b32 s0, s0, 0xffff ; format=sop2 op=12
 pc=0x191c size=4 fmt=sop2 op_type=sop2 class=s_mul_i32 text=s_mul_i32 s6, s6, s0 ; format=sop2 op=36
@@ -8,8 +8,8 @@ pc=0x1920 size=4 fmt=vop2 op_type=vop2 class=v_add_u32_e32 text=v_add_u32_e32 v0
 pc=0x1924 size=4 fmt=vopc op_type=vopc class=v_cmp_gt_i32 text=v_cmp_gt_i32_e32 vcc, s1, v0 ; format=vopc op=196
 pc=0x1928 size=4 fmt=sop1 op_type=sop1 class=s_and_saveexec_b64 text=s_and_saveexec_b64 s[0:1], vcc ; format=sop1 op=32
 pc=0x192c size=4 fmt=sopp op_type=sopp class=s_cbranch_execz text=s_cbranch_execz 25 ; format=sopp op=8
-pc=0x1930 size=8 fmt=smrd op_type=smrd class=s_load_dwordx4 text=s_load_dwordx4 s[20:23], s[0:1], 0x2 ; format=smrd op=64
-pc=0x1938 size=8 fmt=smrd op_type=smrd class=s_load_dwordx2 text=s_load_dwordx2 s[12:13], s[0:1], 0x82 ; format=smrd op=32
+pc=0x1930 size=8 fmt=smrd op_type=smrd class=s_load_dwordx4 text=s_load_dwordx4 s[0:3], s[4:5], 0x0 ; format=smrd op=64
+pc=0x1938 size=8 fmt=smrd op_type=smrd class=s_load_dwordx2 text=s_load_dwordx2 s[6:7], s[4:5], 0x10 ; format=smrd op=32
 pc=0x1940 size=4 fmt=vop2 op_type=vop2 class=v_ashrrev_i32_e32 text=v_ashrrev_i32_e32 v1, 31, v0 ; format=vop2 op=17
 pc=0x1944 size=8 fmt=vop3a op_type=vop3a class=v_lshlrev_b64 text=v_lshlrev_b64 v[0:1], 2, v[0:1] ; format=vop3a op=327
 pc=0x194c size=4 fmt=sopp op_type=sopp class=s_waitcnt text=s_waitcnt lgkmcnt(0) ; format=sopp op=12

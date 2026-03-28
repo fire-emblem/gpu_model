@@ -206,6 +206,10 @@ class ScalarMemoryHandler final : public IRawGcnSemanticHandler {
       const uint64_t base = ResolveScalarPair(instruction.operands.at(1), context);
       context.wave.sgpr.Write(
           sdst, context.memory.LoadGlobalValue<uint32_t>(base + offset));
+      DebugLog("pc=0x%llx s_load_dword s%u=0x%x base=0x%llx off=0x%x",
+               static_cast<unsigned long long>(instruction.pc), sdst,
+               context.wave.sgpr.Read(sdst),
+               static_cast<unsigned long long>(base), offset);
     } else if (instruction.mnemonic == "s_load_dwordx2") {
       const uint32_t offset =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(2), context));
@@ -214,6 +218,10 @@ class ScalarMemoryHandler final : public IRawGcnSemanticHandler {
       const uint64_t value = context.memory.LoadGlobalValue<uint64_t>(base + offset);
       context.wave.sgpr.Write(sdst, static_cast<uint32_t>(value & 0xffffffffu));
       context.wave.sgpr.Write(sdst + 1, static_cast<uint32_t>(value >> 32u));
+      DebugLog("pc=0x%llx s_load_dwordx2 s[%u:%u]=0x%x 0x%x base=0x%llx off=0x%x",
+               static_cast<unsigned long long>(instruction.pc), sdst, sdst + 1,
+               context.wave.sgpr.Read(sdst), context.wave.sgpr.Read(sdst + 1),
+               static_cast<unsigned long long>(base), offset);
     } else if (instruction.mnemonic == "s_load_dwordx4") {
       const uint32_t offset =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(2), context));
@@ -223,6 +231,11 @@ class ScalarMemoryHandler final : public IRawGcnSemanticHandler {
       context.wave.sgpr.Write(sdst + 1, context.memory.LoadGlobalValue<uint32_t>(base + offset + 4));
       context.wave.sgpr.Write(sdst + 2, context.memory.LoadGlobalValue<uint32_t>(base + offset + 8));
       context.wave.sgpr.Write(sdst + 3, context.memory.LoadGlobalValue<uint32_t>(base + offset + 12));
+      DebugLog("pc=0x%llx s_load_dwordx4 s[%u:%u]=0x%x 0x%x 0x%x 0x%x base=0x%llx off=0x%x",
+               static_cast<unsigned long long>(instruction.pc), sdst, sdst + 3,
+               context.wave.sgpr.Read(sdst + 0), context.wave.sgpr.Read(sdst + 1),
+               context.wave.sgpr.Read(sdst + 2), context.wave.sgpr.Read(sdst + 3),
+               static_cast<unsigned long long>(base), offset);
     } else {
       throw std::invalid_argument("unsupported scalar memory opcode: " + instruction.mnemonic);
     }

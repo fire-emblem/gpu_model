@@ -33,7 +33,11 @@ uint32_t EstimateKernargBytes(const MetadataBlob& metadata) {
 }
 
 uint32_t RequiredKernargTemplateBytes(const MetadataBlob& metadata) {
+  const uint32_t descriptor_kernarg_size = ParseU32Metadata(metadata, "kernarg_segment_size");
   const uint32_t visible_args = EstimateKernargBytes(metadata);
+  if (descriptor_kernarg_size != 0) {
+    return descriptor_kernarg_size;
+  }
   if (visible_args == 0) {
     return 0;
   }

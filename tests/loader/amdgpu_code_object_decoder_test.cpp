@@ -90,6 +90,14 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesRawInstructionsFromHipExecutable) {
   const auto image = AmdgpuCodeObjectDecoder{}.Decode(exe_path, "vecadd");
   EXPECT_EQ(image.kernel_name, "vecadd");
   EXPECT_EQ(image.metadata.values.at("arg_count"), "4");
+  EXPECT_EQ(image.metadata.values.at("descriptor_symbol"), "vecadd.kd");
+  EXPECT_EQ(image.metadata.values.at("kernarg_segment_size"), "288");
+  EXPECT_FALSE(image.metadata.values.at("hidden_arg_layout").empty());
+  EXPECT_EQ(image.kernel_descriptor.kernarg_size, 288u);
+  EXPECT_EQ(image.kernel_descriptor.user_sgpr_count, 6u);
+  EXPECT_TRUE(image.kernel_descriptor.enable_sgpr_kernarg_segment_ptr);
+  EXPECT_TRUE(image.kernel_descriptor.enable_sgpr_workgroup_id_x);
+  EXPECT_EQ(image.kernel_descriptor.enable_vgpr_workitem_id, 0u);
   ASSERT_FALSE(image.instructions.empty());
   ASSERT_EQ(image.instruction_objects.size(), image.instructions.size());
   ASSERT_NE(image.instruction_objects.front(), nullptr);
@@ -100,8 +108,11 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesRawInstructionsFromHipExecutable) {
   ASSERT_EQ(image.instructions.front().decoded_operands.size(), 3u);
   EXPECT_FALSE(image.instructions.front().decoded_operands[0].text.empty());
   EXPECT_EQ(image.instructions.front().decoded_operands[0].kind, RawGcnOperandKind::ScalarReg);
+  EXPECT_EQ(image.instructions.front().decoded_operands[0].text, "s0");
   EXPECT_EQ(image.instructions.front().decoded_operands[1].kind, RawGcnOperandKind::ScalarRegRange);
+  EXPECT_EQ(image.instructions.front().decoded_operands[1].text, "s[4:5]");
   EXPECT_EQ(image.instructions.front().decoded_operands[1].info.reg_count, 2u);
+  EXPECT_EQ(image.instructions.front().decoded_operands[2].text, "0x2c");
   const auto v_lshl_it = std::find_if(
       image.instructions.begin(), image.instructions.end(),
       [](const RawGcnInstruction& inst) { return inst.mnemonic == "v_lshlrev_b64"; });

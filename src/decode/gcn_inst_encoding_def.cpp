@@ -505,7 +505,67 @@ RawGcnOperand MakeSpecialOperandFromName(std::string_view name) {
   return MakeOperand(RawGcnOperandKind::Unknown, std::string(name));
 }
 
+uint32_t ScalarMemoryDestCount(std::string_view mnemonic) {
+  if (mnemonic.find("x16") != std::string_view::npos) {
+    return 16;
+  }
+  if (mnemonic.find("x8") != std::string_view::npos) {
+    return 8;
+  }
+  if (mnemonic.find("x4") != std::string_view::npos) {
+    return 4;
+  }
+  if (mnemonic.find("x2") != std::string_view::npos) {
+    return 2;
+  }
+  return 1;
+}
+
+bool DecodeViStyleScalarMemoryOperands(RawGcnInstruction& instruction) {
+  if (instruction.words.size() != 2) {
+    return false;
+  }
+  const uint32_t low = instruction.words[0];
+  if (((low >> 26u) & 0x3fu) != 0x30u) {
+    return false;
+  }
+  const bool has_immediate_offset = ((low >> 17u) & 0x1u) != 0;
+  const bool has_soffset = ((low >> 14u) & 0x1u) != 0;
+
+  const uint32_t sbase_first = (low & 0x3fu) << 1u;
+  const uint32_t sdst_first = (low >> 6u) & 0x7fu;
+  const uint32_t dest_count = ScalarMemoryDestCount(instruction.mnemonic);
+  const bool is_buffer = instruction.mnemonic.rfind("s_buffer_", 0) == 0;
+  const uint32_t base_count = is_buffer ? 4u : 2u;
+
+  if (dest_count == 1u) {
+    instruction.decoded_operands.push_back(MakeScalarRegOperand(sdst_first));
+  } else {
+    instruction.decoded_operands.push_back(MakeScalarRegRangeOperand(sdst_first, dest_count));
+  }
+  instruction.decoded_operands.push_back(MakeScalarRegRangeOperand(sbase_first, base_count));
+
+  if (has_immediate_offset) {
+    const uint32_t raw_offset = instruction.words[1] & 0x1fffffu;
+    const int32_t signed_offset =
+        (raw_offset & (1u << 20u)) != 0 ? static_cast<int32_t>(raw_offset | ~0x1fffffu)
+                                        : static_cast<int32_t>(raw_offset);
+    instruction.decoded_operands.push_back(
+        MakeImmediateOperand(FormatImmediate(static_cast<uint32_t>(signed_offset)), signed_offset));
+  } else if (has_soffset) {
+    const uint32_t soffset = (instruction.words[1] >> 25u) & 0x7fu;
+    instruction.decoded_operands.push_back(MakeScalarRegOperand(soffset));
+  } else {
+    instruction.decoded_operands.push_back(MakeImmediateOperand("0x0", 0));
+  }
+  return true;
+}
+
 bool TryDecodeGeneratedOperands(RawGcnInstruction& instruction, const GcnGeneratedInstDef& inst_def) {
+  if (instruction.format_class == GcnInstFormatClass::Smrd &&
+      DecodeViStyleScalarMemoryOperands(instruction)) {
+    return true;
+  }
   const auto* format_def = FindGeneratedFormatDefByClass(inst_def.format_class);
   if (format_def == nullptr) {
     return false;
