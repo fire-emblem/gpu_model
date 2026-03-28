@@ -30,7 +30,7 @@ DeviceLoadResult DeviceImageLoader::Materialize(const DeviceLoadPlan& plan,
     const uint64_t bytes_to_allocate =
         std::max<uint64_t>(segment.required_bytes, segment.bytes.size());
     const uint64_t base = memory.Allocate(segment.pool, static_cast<size_t>(bytes_to_allocate));
-    if (!segment.bytes.empty()) {
+    if (segment.mapping == MemoryMappingKind::Copy && !segment.bytes.empty()) {
       memory.Write(segment.pool, base, std::span<const std::byte>(segment.bytes));
     }
 

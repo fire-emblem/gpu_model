@@ -53,5 +53,30 @@ TEST(DeviceImageLoaderTest, MaterializesSegmentsIntoMemorySystem) {
   EXPECT_GT(memory.pool_memory_size(MemoryPoolKind::Constant), 0u);
 }
 
+TEST(DeviceImageLoaderTest, MaterializesZeroFillKernargIntoDedicatedPool) {
+  DeviceLoadPlan plan;
+  plan.preferred_kernarg_bytes = 24;
+  plan.segments.push_back(DeviceSegmentImage{
+      .kind = DeviceSegmentKind::KernargTemplate,
+      .pool = MemoryPoolKind::Kernarg,
+      .mapping = MemoryMappingKind::ZeroFill,
+      .name = "kernarg",
+      .alignment = 16,
+      .bytes = {},
+      .required_bytes = 24,
+  });
+
+  MemorySystem memory;
+  const auto result = DeviceImageLoader{}.Materialize(plan, memory);
+  ASSERT_EQ(result.segments.size(), 1u);
+  EXPECT_EQ(result.segments[0].allocation.pool, MemoryPoolKind::Kernarg);
+  EXPECT_EQ(result.segments[0].allocation.range.size, 24u);
+  EXPECT_EQ(memory.pool_memory_size(MemoryPoolKind::Global), 0u);
+  EXPECT_EQ(memory.pool_memory_size(MemoryPoolKind::Kernarg), 24u);
+  for (uint64_t i = 0; i < 24u; ++i) {
+    EXPECT_EQ(memory.LoadValue<uint8_t>(MemoryPoolKind::Kernarg, i), 0u);
+  }
+}
+
 }  // namespace
 }  // namespace gpu_model

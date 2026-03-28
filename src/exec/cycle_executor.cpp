@@ -999,8 +999,13 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                         if (!request.lanes[lane].active) {
                           continue;
                         }
-                        loaded_value =
-                            LoadLaneValue(context.kernel.const_segment().bytes, request.lanes[lane]);
+                        if (context.memory.HasRange(MemoryPoolKind::Constant, request.lanes[lane].addr,
+                                                    request.lanes[lane].bytes)) {
+                          loaded_value = LoadLaneValue(context.memory, request.lanes[lane]);
+                        } else {
+                          loaded_value =
+                              LoadLaneValue(context.kernel.const_segment().bytes, request.lanes[lane]);
+                        }
                         break;
                       }
                       candidate->wave.sgpr.Write(request.dst->index, loaded_value);
@@ -1010,7 +1015,12 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                       for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
                         if (request.lanes[lane].active) {
                           const uint64_t value =
-                              LoadLaneValue(context.kernel.const_segment().bytes, request.lanes[lane]);
+                              context.memory.HasRange(MemoryPoolKind::Constant,
+                                                      request.lanes[lane].addr,
+                                                      request.lanes[lane].bytes)
+                                  ? LoadLaneValue(context.memory, request.lanes[lane])
+                                  : LoadLaneValue(context.kernel.const_segment().bytes,
+                                                  request.lanes[lane]);
                           candidate->wave.vgpr.Write(request.dst->index, lane, value);
                         }
                       }

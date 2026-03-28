@@ -18,6 +18,7 @@ class MemorySystem {
   void Write(MemoryPoolKind pool, uint64_t addr, std::span<const std::byte> data);
   void Read(MemoryPoolKind pool, uint64_t addr, std::span<std::byte> data) const;
   size_t pool_memory_size(MemoryPoolKind pool) const;
+  bool HasRange(MemoryPoolKind pool, uint64_t addr, size_t bytes) const;
 
   uint64_t AllocateGlobal(size_t bytes);
   void EnsureGlobalSize(size_t bytes);

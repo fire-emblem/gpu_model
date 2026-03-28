@@ -70,6 +70,17 @@ DeviceLoadPlan BuildDeviceLoadPlan(const ProgramImage& image) {
   }
   plan.required_shared_bytes = ParseU32Metadata(image.metadata(), "required_shared_bytes");
   plan.preferred_kernarg_bytes = EstimateKernargBytes(image.metadata());
+  if (plan.preferred_kernarg_bytes != 0) {
+    plan.segments.push_back(DeviceSegmentImage{
+        .kind = DeviceSegmentKind::KernargTemplate,
+        .pool = MemoryPoolKind::Kernarg,
+        .mapping = MemoryMappingKind::ZeroFill,
+        .name = image.kernel_name() + ".kernarg",
+        .alignment = 16,
+        .bytes = {},
+        .required_bytes = plan.preferred_kernarg_bytes,
+    });
+  }
   return plan;
 }
 
@@ -78,6 +89,17 @@ DeviceLoadPlan BuildDeviceLoadPlan(const AmdgpuCodeObjectImage& image) {
   plan.segments.push_back(MakeCodeSegment(image.kernel_name + ".text", image.code_bytes));
   plan.required_shared_bytes = ParseU32Metadata(image.metadata, "group_segment_fixed_size");
   plan.preferred_kernarg_bytes = EstimateKernargBytes(image.metadata);
+  if (plan.preferred_kernarg_bytes != 0) {
+    plan.segments.push_back(DeviceSegmentImage{
+        .kind = DeviceSegmentKind::KernargTemplate,
+        .pool = MemoryPoolKind::Kernarg,
+        .mapping = MemoryMappingKind::ZeroFill,
+        .name = image.kernel_name + ".kernarg",
+        .alignment = 16,
+        .bytes = {},
+        .required_bytes = plan.preferred_kernarg_bytes,
+    });
+  }
   return plan;
 }
 

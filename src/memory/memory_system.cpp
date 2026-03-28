@@ -70,6 +70,12 @@ size_t MemorySystem::pool_memory_size(MemoryPoolKind pool) const {
   return pool_memory_[PoolIndex(pool)].size();
 }
 
+bool MemorySystem::HasRange(MemoryPoolKind pool, uint64_t addr, size_t bytes) const {
+  const auto& storage = pool_memory_[PoolIndex(pool)];
+  const size_t end = static_cast<size_t>(addr) + bytes;
+  return end <= storage.size();
+}
+
 uint64_t MemorySystem::AllocateGlobal(size_t bytes) {
   return Allocate(MemoryPoolKind::Global, bytes);
 }

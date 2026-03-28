@@ -264,7 +264,13 @@ uint64_t FunctionalExecutor::Run(ExecutionContext& context) {
                   continue;
                 }
                 if (request.space == MemorySpace::Constant) {
-                  loaded_value = LoadLaneValue(context.kernel.const_segment().bytes, request.lanes[lane]);
+                  if (context.memory.HasRange(MemoryPoolKind::Constant, request.lanes[lane].addr,
+                                              request.lanes[lane].bytes)) {
+                    loaded_value = LoadLaneValue(context.memory, request.lanes[lane]);
+                  } else {
+                    loaded_value =
+                        LoadLaneValue(context.kernel.const_segment().bytes, request.lanes[lane]);
+                  }
                 } else {
                   throw std::invalid_argument("scalar load supports constant memory only");
                 }
@@ -283,8 +289,13 @@ uint64_t FunctionalExecutor::Run(ExecutionContext& context) {
                     loaded_values[lane] =
                         LoadLaneValue(wave.private_memory, lane, request.lanes[lane]);
                   } else if (request.space == MemorySpace::Constant) {
-                    loaded_values[lane] =
-                        LoadLaneValue(context.kernel.const_segment().bytes, request.lanes[lane]);
+                    if (context.memory.HasRange(MemoryPoolKind::Constant, request.lanes[lane].addr,
+                                                request.lanes[lane].bytes)) {
+                      loaded_values[lane] = LoadLaneValue(context.memory, request.lanes[lane]);
+                    } else {
+                      loaded_values[lane] =
+                          LoadLaneValue(context.kernel.const_segment().bytes, request.lanes[lane]);
+                    }
                   } else {
                     throw std::invalid_argument("unsupported load memory space");
                   }

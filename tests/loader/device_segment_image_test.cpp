@@ -13,9 +13,12 @@ TEST(DeviceSegmentImageTest, BuildsPlanForProgramImageWithConstAndSharedMetadata
                      ConstSegment{.bytes = {std::byte{0x1}, std::byte{0x2}}});
 
   const auto plan = BuildDeviceLoadPlan(image);
-  ASSERT_EQ(plan.segments.size(), 2u);
+  ASSERT_EQ(plan.segments.size(), 3u);
   EXPECT_EQ(plan.segments[0].pool, MemoryPoolKind::Code);
   EXPECT_EQ(plan.segments[1].pool, MemoryPoolKind::Constant);
+  EXPECT_EQ(plan.segments[2].pool, MemoryPoolKind::Kernarg);
+  EXPECT_EQ(plan.segments[2].kind, DeviceSegmentKind::KernargTemplate);
+  EXPECT_EQ(plan.segments[2].mapping, MemoryMappingKind::ZeroFill);
   EXPECT_EQ(plan.required_shared_bytes, 256u);
   EXPECT_EQ(plan.preferred_kernarg_bytes, 12u);
 }
@@ -28,9 +31,11 @@ TEST(DeviceSegmentImageTest, BuildsPlanForRawCodeObjectImage) {
   image.code_bytes = {std::byte{0xde}, std::byte{0xad}, std::byte{0xbe}, std::byte{0xef}};
 
   const auto plan = BuildDeviceLoadPlan(image);
-  ASSERT_EQ(plan.segments.size(), 1u);
+  ASSERT_EQ(plan.segments.size(), 2u);
   EXPECT_EQ(plan.segments[0].pool, MemoryPoolKind::Code);
   EXPECT_EQ(plan.segments[0].required_bytes, 4u);
+  EXPECT_EQ(plan.segments[1].pool, MemoryPoolKind::Kernarg);
+  EXPECT_EQ(plan.segments[1].required_bytes, 20u);
   EXPECT_EQ(plan.required_shared_bytes, 128u);
   EXPECT_EQ(plan.preferred_kernarg_bytes, 20u);
 }
