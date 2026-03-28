@@ -79,6 +79,8 @@ const std::vector<GcnInstEncodingDef>& EncodingDefs() {
       {.id = 61, .format_class = GcnInstFormatClass::Vop3a, .op = 240, .size_bytes = 8, .mnemonic = "v_div_scale_f32"},
       {.id = 62, .format_class = GcnInstFormatClass::Vop3a, .op = 241, .size_bytes = 8, .mnemonic = "v_div_fmas_f32"},
       {.id = 63, .format_class = GcnInstFormatClass::Vop3a, .op = 324, .size_bytes = 8, .mnemonic = "v_ldexp_f32"},
+      {.id = 64, .format_class = GcnInstFormatClass::Vop2, .op = 5, .size_bytes = 4, .mnemonic = "v_mul_f32_e32"},
+      {.id = 65, .format_class = GcnInstFormatClass::Vop2, .op = 59, .size_bytes = 4, .mnemonic = "v_fmac_f32_e32"},
   };
   return kDefs;
 }
@@ -460,6 +462,8 @@ void DecodeGcnOperands(RawGcnInstruction& instruction) {
     case 46:
     case 47:
     case 48:
+    case 64:
+    case 65:
       instruction.decoded_operands.push_back(MakeVectorRegOperand((low >> 17u) & 0xffu));
       instruction.decoded_operands.push_back(DecodeSrc9(low & 0x1ffu));
       instruction.decoded_operands.push_back(MakeVectorRegOperand((low >> 9u) & 0xffu));

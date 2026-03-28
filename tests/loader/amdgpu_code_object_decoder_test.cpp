@@ -276,7 +276,7 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipSoftmaxExecutableWithUnknownInstruct
   EXPECT_GT(ds_write_count, 0);
   EXPECT_GT(ds_read_count, 0);
   EXPECT_GT(vmax_count, 0);
-  EXPECT_GT(unknown_count, 0);
+  EXPECT_EQ(unknown_count, 0);
 }
 
 TEST(AmdgpuCodeObjectDecoderTest, DecodesHipMfmaExecutableWithUnknownInstructions) {
