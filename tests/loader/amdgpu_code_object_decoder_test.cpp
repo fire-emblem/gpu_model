@@ -215,6 +215,40 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesRawInstructionsFromHipBiasChainExecutab
   EXPECT_GE(load_scalar_count, 4);
 }
 
+TEST(AmdgpuCodeObjectDecoderTest, DecodesRawInstructionsFromHipAtomicCountExecutable) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_code_object_hip_atomic_count");
+  const auto src_path = temp_dir / "hip_atomic_count.cpp";
+  const auto exe_path = temp_dir / "hip_atomic_count.out";
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n"
+           "extern \"C\" __global__ void atomic_count(int* out, int n) {\n"
+           "  int i = blockIdx.x * blockDim.x + threadIdx.x;\n"
+           "  if (i < n) atomicAdd(out, 1);\n"
+           "}\n"
+           "int main() { return 0; }\n";
+  }
+  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  const auto image = AmdgpuCodeObjectDecoder{}.Decode(exe_path, "atomic_count");
+  EXPECT_EQ(image.kernel_name, "atomic_count");
+
+  const auto atomic_it = std::find_if(
+      image.instructions.begin(), image.instructions.end(),
+      [](const RawGcnInstruction& inst) { return inst.mnemonic == "global_atomic_add"; });
+  ASSERT_NE(atomic_it, image.instructions.end());
+  ASSERT_EQ(atomic_it->decoded_operands.size(), 3u);
+  EXPECT_EQ(atomic_it->decoded_operands[0].text, "v0");
+  EXPECT_EQ(atomic_it->decoded_operands[1].text, "v1");
+  EXPECT_EQ(atomic_it->decoded_operands[2].text, "s[2:3]");
+}
+
 TEST(AmdgpuCodeObjectDecoderTest, DecodesHipSoftmaxExecutableWithoutUnknownInstructions) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
