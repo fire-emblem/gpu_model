@@ -204,6 +204,7 @@ class FunctionalExecutionCoreImpl {
 
   uint64_t RunParallelBlocks(uint32_t worker_threads) {
 #ifdef GPU_MODEL_HAS_MARL
+    const bool requires_block_serial_execution = KernelRequiresBlockSerialExecution();
     marl::Scheduler::Config scheduler_config;
     if (worker_threads == 0) {
       scheduler_config = marl::Scheduler::Config::allCores();
@@ -219,6 +220,22 @@ class FunctionalExecutionCoreImpl {
     std::mutex failure_mutex;
 
     for (size_t i = 0; i < blocks_.size(); ++i) {
+      if (requires_block_serial_execution) {
+        marl::schedule([&, i] {
+          ExecutionStats block_stats;
+          try {
+            ExecuteBlock(blocks_[i], block_stats);
+            CommitStats(block_stats);
+          } catch (...) {
+            std::lock_guard<std::mutex> lock(failure_mutex);
+            if (failure == nullptr) {
+              failure = std::current_exception();
+            }
+          }
+          done.done();
+        });
+        continue;
+      }
       const size_t peu_count = std::max<size_t>(1, blocks_[i].wave_indices_per_peu.size());
       marl::schedule([&, i, peu_count] {
         marl::WaitGroup block_done(static_cast<int>(peu_count));
@@ -229,28 +246,25 @@ class FunctionalExecutionCoreImpl {
               while (true) {
                 bool block_complete = false;
                 bool had_wave = false;
-                std::optional<size_t> wave_index;
                 {
                   std::lock_guard<std::mutex> lock(*blocks_[i].control_mutex);
                   block_complete = !HasActiveWave(blocks_[i]);
                   if (!block_complete) {
                     ReleaseBlockBarrierIfReady(blocks_[i]);
-                    wave_index = SelectNextWaveIndexForPeu(blocks_[i], peu_index);
+                    const auto wave_index = SelectNextWaveIndexForPeu(blocks_[i], peu_index);
                     if (wave_index.has_value()) {
                       blocks_[i].wave_busy[*wave_index] = true;
                       had_wave = true;
+                      ExecuteWave(blocks_[i], blocks_[i].waves[*wave_index], peu_stats);
+                      blocks_[i].wave_busy[*wave_index] = false;
+                      ReleaseBlockBarrierIfReady(blocks_[i]);
                     }
                   }
                 }
                 if (block_complete) {
                   break;
                 }
-                if (had_wave) {
-                  ExecuteWave(blocks_[i], blocks_[i].waves[*wave_index], peu_stats);
-                  std::lock_guard<std::mutex> lock(*blocks_[i].control_mutex);
-                  blocks_[i].wave_busy[*wave_index] = false;
-                  ReleaseBlockBarrierIfReady(blocks_[i]);
-                } else {
+                if (!had_wave) {
                   std::this_thread::yield();
                 }
               }
@@ -288,6 +302,22 @@ class FunctionalExecutionCoreImpl {
   std::mutex trace_mutex_;
   std::mutex stats_mutex_;
   std::mutex global_memory_mutex_;
+
+  bool KernelRequiresBlockSerialExecution() const {
+    for (const auto& instruction : context_.kernel.instructions()) {
+      switch (instruction.opcode) {
+        case Opcode::MLoadShared:
+        case Opcode::MStoreShared:
+        case Opcode::MAtomicAddShared:
+        case Opcode::SyncBarrier:
+        case Opcode::SyncWaveBarrier:
+          return true;
+        default:
+          break;
+      }
+    }
+    return false;
+  }
 
   void TraceEventLocked(TraceEvent event) {
     std::lock_guard<std::mutex> lock(trace_mutex_);

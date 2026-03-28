@@ -179,6 +179,277 @@ AMD / MIAOW 资料里经常会看到：
 - `PEU` 一次只发一条
 - 以后 cycle 层再叠加 issue class 竞争
 
+## 两种不同建模层次
+
+这部分非常重要。
+
+同样是“GPU 调度”，在当前项目里要明确分成两层来建：
+
+1. **functional 层**
+2. **cycle / issue-class 层**
+
+如果不把这两层分开，就会很容易把 AMD 文档里的“最多 5 条 issue”
+直接误解成当前 functional 模型里也要“一次发 5 条”。
+
+### 第一层：functional 建模
+
+这一层的目标是：
+
+- 功能正确
+- 共享资源语义正确
+- block / wave / barrier / atomic 行为正确
+
+这层应该回答的问题是：
+
+- 当前哪个 `wave` 可以往前走一步
+- 一个 `wave` 被选中后，这条指令对寄存器 / memory / barrier / atomic 的结果是什么
+
+在这一层里，最适合的规则是：
+
+- `AP` 管 block 级共享状态
+- `PEU` 管本地 wave pool
+- 每个 `PEU` 一次只选一个 ready wave
+- 该 wave 一次执行一条指令
+- wave 内再按 `exec mask` 跑 64 lane
+
+所以在 current functional model 里：
+
+- 一个 `AP` 最多就是 `4` 个 `PEU` 各推进 `1` 条
+- 也就是最多推进 `4` 条 wave 指令
+- 这 `4` 条不要求必须属于不同类别
+
+例如：
+
+- `PEU0` 发一个 `VALU`
+- `PEU1` 也发一个 `VALU`
+- `PEU2` 也发一个 `VALU`
+- `PEU3` 发一个 `LDS`
+
+在 functional 层这是允许的。
+
+因为这层关心的是：
+
+- 功能和同步语义
+
+而不是：
+
+- 精确的 front-end 类别竞争
+
+### 第二层：cycle / issue-class 建模
+
+这一层的目标是：
+
+- 近似表达 GCN front-end / issue 竞争
+- 给编译器和算子优化提供更像硬件的趋势
+
+这层应该回答的问题是：
+
+- 当前 ready waves 里，哪些 wave 的下一条指令属于哪一类
+- 某个周期里，哪些类别可以同时发
+- 同类指令之间会不会竞争同一类 issue 槽位
+
+这层更适合引入：
+
+- `VALU`
+- `VMEM`
+- `SALU/SMEM`
+- `LDS`
+- `BRANCH`
+
+这样的 issue class。
+
+这时“GCN 文档里最多 5 条 issue”才有意义。
+
+它表达的应该是：
+
+- 在一个周期里
+- 不同类别的执行路径可能都各发一条
+
+也就是说：
+
+- 更像是“每类最多一条”
+- 不是“任意 5 条”
+
+所以在 cycle / issue-class 层里：
+
+- `5` 条通常意味着 `5` 个不同类别的槽位
+- 不是“从全部 wave 里挑 5 个任意 wave”
+
+例如：
+
+- 一个 `VALU`
+- 一个 `VMEM`
+- 一个 `SALU`
+- 一个 `LDS`
+- 一个 `BRANCH`
+
+这更接近文档里“最多 5 条 issue”的含义。
+
+而下面这种理解通常是不对的：
+
+- `5` 条全是 `VALU`
+- 或 `5` 条全是 `SALU`
+- 或者“整个 AP 的 8 个 wave 摊平后统一挑 5 个”
+
+### 两层之间的关系
+
+可以把这两层理解成：
+
+- functional 层决定“谁能走，走一步后状态怎么变”
+- cycle 层决定“这一拍到底让谁先走，哪些人要竞争”
+
+所以更准确的话是：
+
+- **functional 层管正确性**
+- **cycle 层管竞争和时间**
+
+## cycle 级别建模应该怎么组织
+
+cycle 级别建模最合适的主框架是：
+
+- **每一个 cycle 触发一次全局状态推进**
+
+也就是说，cycle 模型不适合写成：
+
+- 谁 ready 就立即一直跑
+- 哪个部件先动都可以
+
+更适合写成：
+
+1. 当前 `cycle = N`
+2. 所有部件观察当前状态
+3. 本拍允许的动作发生
+4. 全局状态被更新
+5. 进入 `cycle = N + 1`
+
+这本质上是一个：
+
+- **全局时钟驱动的离散状态机**
+
+### cycle 模型这一拍通常要做什么
+
+对当前项目，推荐每拍按下面顺序推进：
+
+1. 处理本拍到达的事件
+   - memory return
+   - branch resolve
+   - barrier release
+   - launch ready
+   - waitcnt 相关计数变化
+
+2. 更新 wave / PEU / block 的可发射状态
+   - 哪些 wave valid
+   - 哪些 wave stalled
+   - 哪些 wave ready
+   - 哪些 `PEU` 空闲
+
+3. 每个 `PEU` 做本地 wave 选择
+   - 从自己的 ready wave pool 里按 round-robin 选一个 candidate
+
+4. 做 issue-class / 资源竞争
+   - 如果要引入 GCN 风格类别竞争
+   - 在这一步决定本拍哪些 candidate 真正发出
+
+5. 提交本拍发射结果
+   - 更新 scoreboard
+   - 发起 memory request
+   - 设置 branch pending
+   - 设置 barrier wait
+   - 记录 trace
+
+6. `cycle++`
+
+### 这是不是“每拍统一触发全局部件行动”？
+
+是。
+
+可以直接理解成：
+
+- 每一个 cycle
+- 全局部件都在这个 tick 上前进一步
+- 然后整个系统进入下一个状态
+
+### 但这不等于“一个巨大全局锁”
+
+这里要区分：
+
+- **全局时钟同步**
+- 和
+- **实现上是否粗暴串行**
+
+正确的理解是：
+
+- cycle 是全局同步边界
+- 但内部部件可以各自维护局部状态
+
+例如：
+
+- `PEU`
+- block barrier unit
+- memory return queue
+- branch / wait unit
+- launch unit
+
+都可以有自己的局部状态机。
+
+只是这些局部状态机都在：
+
+- 同一个 `cycle` 边界
+- 统一向前推进一步
+
+### functional 和 cycle 的区别
+
+functional 更像：
+
+- 谁能走就走
+- 重点是最后结果对不对
+
+cycle 更像：
+
+- 每拍统一观察一次状态
+- 每拍统一决定谁能动作
+- 每拍统一推进状态机
+
+所以：
+
+- functional 主要强调语义正确
+- cycle 主要强调时间和竞争
+
+## 用这两层重新回答“AP 里是不是统一选 5 个 wave”
+
+### 在 functional 层
+
+不是。
+
+规则是：
+
+- 先按 `PEU` 分组
+- 每个 `PEU` 自己选 wave
+- 一个 `PEU` 一次一个 wave
+
+所以：
+
+- 整个 `AP` 不是统一选 `5` 个 wave
+- 而是最多 `4` 个 `PEU` 各选 `1` 个 wave
+
+### 在 cycle / issue-class 层
+
+也不应该直接理解成“统一选 5 个 wave”。
+
+更准确的说法是：
+
+- front-end 先经过本地 wave 选择
+- 再把被选中的候选指令映射到 issue class
+- 再决定本周期哪些 class 能同时发
+
+所以这里的 “5” 是：
+
+- `5` 个类别上限
+
+不是：
+
+- `5` 个 wave 的统一全局排序选择
+
 ## 为什么有些 GCN 文档会写“最多 5 条 issue”
 
 这里最容易误解。
