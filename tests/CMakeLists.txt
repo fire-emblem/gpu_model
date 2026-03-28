@@ -62,6 +62,7 @@ add_executable(gpu_model_tests
   runtime/cycle_timeline_test.cpp
   runtime/hip_interposer_state_test.cpp
   runtime/hip_cts_test.cpp
+  runtime/hip_feature_cts_test.cpp
   runtime/trace_test.cpp
   runtime/runtime_hooks_test.cpp
   runtime/execution_stats_test.cpp
