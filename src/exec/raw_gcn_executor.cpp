@@ -128,10 +128,6 @@ LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
                                  const DeviceLoadResult* device_load,
                                  MemorySystem& memory,
                                  TraceSink& trace) const {
-  if (config.grid_dim_y != 1 || config.block_dim_y != 1) {
-    throw std::invalid_argument("raw GCN executor currently supports only 1D launches");
-  }
-
   LaunchResult result;
   result.ok = false;
   result.placement = Mapper::Place(spec, config);
@@ -181,8 +177,13 @@ LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
       raw_wave.wave.sgpr.Write(4, static_cast<uint32_t>(kernarg_base & 0xffffffffu));
       raw_wave.wave.sgpr.Write(5, static_cast<uint32_t>(kernarg_base >> 32u));
       raw_wave.wave.sgpr.Write(6, block.block_idx_x);
+      raw_wave.wave.sgpr.Write(7, block.block_idx_y);
       for (uint32_t lane = 0; lane < LaneCount(raw_wave); ++lane) {
-        raw_wave.wave.vgpr.Write(0, lane, raw_wave.wave.wave_id * kWaveSize + lane);
+        const uint32_t linear_local_id = raw_wave.wave.wave_id * kWaveSize + lane;
+        const uint32_t local_x = linear_local_id % config.block_dim_x;
+        const uint32_t local_y = linear_local_id / config.block_dim_x;
+        raw_wave.wave.vgpr.Write(0, lane, local_x);
+        raw_wave.wave.vgpr.Write(1, lane, local_y);
       }
       raw_block.waves.push_back(std::move(raw_wave));
     }

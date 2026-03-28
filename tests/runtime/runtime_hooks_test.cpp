@@ -1084,7 +1084,7 @@ TEST(RuntimeHooksTest, LaunchesHipVecAddExecutableAcrossLaunchShapes) {
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(RuntimeHooksTest, RejectsHipTwoDimensionalExecutableInRawGcnPath) {
+TEST(RuntimeHooksTest, LaunchesHipTwoDimensionalExecutableInRawGcnPath) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
@@ -1129,8 +1129,14 @@ TEST(RuntimeHooksTest, RejectsHipTwoDimensionalExecutableInRawGcnPath) {
       exe_path,
       LaunchConfig{.grid_dim_x = 2, .grid_dim_y = 2, .block_dim_x = 8, .block_dim_y = 4},
       std::move(args), ExecutionMode::Functional, "c500", nullptr, "two_dimensional");
-  ASSERT_FALSE(result.ok);
-  EXPECT_NE(result.error_message.find("supports only 1D launches"), std::string::npos);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  hooks.MemcpyDtoH<float>(out_addr, std::span<float>(out));
+  for (uint32_t y = 0; y < height; ++y) {
+    for (uint32_t x = 0; x < width; ++x) {
+      EXPECT_FLOAT_EQ(out[y * width + x], static_cast<float>(x + y));
+    }
+  }
 
   std::filesystem::remove_all(temp_dir);
 }
