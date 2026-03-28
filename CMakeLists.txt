@@ -41,6 +41,7 @@ add_library(gpu_model STATIC
   src/memory/shared_bank_model.cpp
   src/exec/opcode_execution_info.cpp
   src/exec/raw_gcn_executor.cpp
+  src/exec/raw_gcn_semantic_handlers.cpp
   src/exec/semantic_handlers.cpp
   src/exec/semantics.cpp
   src/exec/issue_model.cpp
