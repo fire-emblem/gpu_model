@@ -29,6 +29,11 @@ class RawGcnInstructionObject {
 
 using RawGcnInstructionObjectPtr = std::unique_ptr<RawGcnInstructionObject>;
 
+class RawGcnInstructionFactory {
+ public:
+  static RawGcnInstructionObjectPtr Create(DecodedGcnInstruction instruction);
+};
+
 struct RawGcnParsedInstructionArray {
   std::vector<RawGcnInstruction> raw_instructions;
   std::vector<DecodedGcnInstruction> decoded_instructions;

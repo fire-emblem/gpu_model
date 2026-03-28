@@ -631,7 +631,7 @@ RawGcnInstructionObjectPtr CreateMemoryInstruction(const GcnIsaOpcodeDescriptor&
   return MakePlaceholderInstruction(std::move(instruction), "memory", "memory_placeholder");
 }
 
-RawGcnInstructionObjectPtr CreateInstructionObject(DecodedGcnInstruction instruction) {
+RawGcnInstructionObjectPtr CreateInstructionObjectImpl(DecodedGcnInstruction instruction) {
   const auto* descriptor = FindGcnFallbackOpcodeDescriptor(instruction.words);
   if (descriptor == nullptr) {
     return MakePlaceholderInstruction(std::move(instruction), "unknown", "unknown_placeholder");
@@ -683,7 +683,7 @@ std::vector<RawGcnInstructionObjectPtr> RawGcnInstructionArrayParser::Parse(
   std::vector<RawGcnInstructionObjectPtr> objects;
   objects.reserve(instructions.size());
   for (const auto& instruction : instructions) {
-    objects.push_back(CreateInstructionObject(instruction));
+    objects.push_back(RawGcnInstructionFactory::Create(instruction));
   }
   return objects;
 }
@@ -737,6 +737,10 @@ RawGcnParsedInstructionArray RawGcnInstructionArrayParser::Parse(std::span<const
   }
   result.instruction_objects = Parse(result.decoded_instructions);
   return result;
+}
+
+RawGcnInstructionObjectPtr RawGcnInstructionFactory::Create(DecodedGcnInstruction instruction) {
+  return CreateInstructionObjectImpl(std::move(instruction));
 }
 
 }  // namespace gpu_model

@@ -42,6 +42,14 @@ TEST(RawGcnInstructionArrayParserTest, CreatesConcreteAndPlaceholderInstructionO
   EXPECT_EQ(objects[4]->op_type_name(), "exp");
 }
 
+TEST(RawGcnInstructionArrayParserTest, FactoryCreatesConcreteInstructionFromDecodedOpcode) {
+  auto object = RawGcnInstructionFactory::Create(
+      MakeDecoded({0x68000006u}, GcnInstFormatClass::Vop2, "v_add_u32_e32"));
+  ASSERT_NE(object, nullptr);
+  EXPECT_EQ(object->class_name(), "v_add_u32_e32");
+  EXPECT_EQ(object->op_type_name(), "vop2");
+}
+
 TEST(RawGcnInstructionArrayParserTest, ParsesRawInstructionArrayIntoDecodedAndObjects) {
   std::vector<RawGcnInstruction> raw;
   raw.push_back(RawGcnInstruction{
