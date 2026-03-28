@@ -12,6 +12,8 @@
 #include <string>
 #include <vector>
 
+#include "gpu_model/decode/gcn_inst_db_lookup.h"
+
 namespace gpu_model {
 
 namespace {
@@ -1148,7 +1150,8 @@ struct HandlerBinding {
   const IRawGcnSemanticHandler* handler = nullptr;
 };
 
-const std::vector<HandlerBinding>& HandlerBindings() {
+const IRawGcnSemanticHandler* HandlerForSemanticFamily(std::string_view semantic_family,
+                                                       std::string_view mnemonic) {
   static const ScalarMemoryHandler kScalarMemoryHandler;
   static const ScalarAluHandler kScalarAluHandler;
   static const ScalarCompareHandler kScalarCompareHandler;
@@ -1159,86 +1162,42 @@ const std::vector<HandlerBinding>& HandlerBindings() {
   static const FlatMemoryHandler kFlatMemoryHandler;
   static const SharedMemoryHandler kSharedMemoryHandler;
   static const SpecialHandler kSpecialHandler;
+
+  if (semantic_family == "scalar_memory") {
+    return &kScalarMemoryHandler;
+  }
+  if (semantic_family == "scalar_alu") {
+    return &kScalarAluHandler;
+  }
+  if (semantic_family == "scalar_compare") {
+    return &kScalarCompareHandler;
+  }
+  if (semantic_family == "vector_alu") {
+    return &kVectorAluHandler;
+  }
+  if (semantic_family == "vector_compare") {
+    return &kVectorCompareHandler;
+  }
+  if (semantic_family == "vector_memory") {
+    return &kFlatMemoryHandler;
+  }
+  if (semantic_family == "lds") {
+    return &kSharedMemoryHandler;
+  }
+  if (semantic_family == "branch_or_sync") {
+    if (mnemonic == "s_barrier" || mnemonic == "s_waitcnt" || mnemonic == "s_endpgm" ||
+        mnemonic == "s_nop") {
+      return &kSpecialHandler;
+    }
+    return &kBranchHandler;
+  }
+  return nullptr;
+}
+
+const std::vector<HandlerBinding>& HandlerBindings() {
+  static const MaskHandler kMaskHandler;
   static const std::vector<HandlerBinding> kBindings = {
-      {.mnemonic = "s_load_dword", .handler = &kScalarMemoryHandler},
-      {.mnemonic = "s_load_dwordx2", .handler = &kScalarMemoryHandler},
-      {.mnemonic = "s_load_dwordx4", .handler = &kScalarMemoryHandler},
-      {.mnemonic = "s_mov_b32", .handler = &kScalarAluHandler},
-      {.mnemonic = "s_mov_b64", .handler = &kScalarAluHandler},
-      {.mnemonic = "s_bcnt1_i32_b64", .handler = &kScalarAluHandler},
-      {.mnemonic = "s_cselect_b64", .handler = &kScalarAluHandler},
-      {.mnemonic = "s_andn2_b64", .handler = &kScalarAluHandler},
-      {.mnemonic = "s_or_b64", .handler = &kScalarAluHandler},
-      {.mnemonic = "s_and_b64", .handler = &kScalarAluHandler},
-      {.mnemonic = "s_and_b32", .handler = &kScalarAluHandler},
-      {.mnemonic = "s_mul_i32", .handler = &kScalarAluHandler},
-      {.mnemonic = "s_add_i32", .handler = &kScalarAluHandler},
-      {.mnemonic = "s_add_u32", .handler = &kScalarAluHandler},
-      {.mnemonic = "s_addc_u32", .handler = &kScalarAluHandler},
-      {.mnemonic = "s_ashr_i32", .handler = &kScalarAluHandler},
-      {.mnemonic = "s_lshl_b64", .handler = &kScalarAluHandler},
-      {.mnemonic = "s_lshr_b32", .handler = &kScalarAluHandler},
-      {.mnemonic = "s_movk_i32", .handler = &kScalarAluHandler},
-      {.mnemonic = "s_cmp_lt_i32", .handler = &kScalarCompareHandler},
-      {.mnemonic = "s_cmp_eq_u32", .handler = &kScalarCompareHandler},
-      {.mnemonic = "s_cmp_gt_u32", .handler = &kScalarCompareHandler},
-      {.mnemonic = "s_cmp_lt_u32", .handler = &kScalarCompareHandler},
-      {.mnemonic = "v_not_b32_e32", .handler = &kVectorAluHandler},
-      {.mnemonic = "v_add_u32_e32", .handler = &kVectorAluHandler},
-      {.mnemonic = "v_ashrrev_i32_e32", .handler = &kVectorAluHandler},
-      {.mnemonic = "v_lshlrev_b32_e32", .handler = &kVectorAluHandler},
-      {.mnemonic = "v_lshlrev_b64", .handler = &kVectorAluHandler},
-      {.mnemonic = "v_lshl_add_u32", .handler = &kVectorAluHandler},
-      {.mnemonic = "v_mov_b32_e32", .handler = &kVectorAluHandler},
-      {.mnemonic = "v_add_co_u32_e32", .handler = &kVectorAluHandler},
-      {.mnemonic = "v_addc_co_u32_e32", .handler = &kVectorAluHandler},
-      {.mnemonic = "v_add_co_u32_e64", .handler = &kVectorAluHandler},
-      {.mnemonic = "v_addc_co_u32_e64", .handler = &kVectorAluHandler},
-      {.mnemonic = "v_add_f32_e32", .handler = &kVectorAluHandler},
-      {.mnemonic = "v_sub_f32_e32", .handler = &kVectorAluHandler},
-      {.mnemonic = "v_mul_f32_e32", .handler = &kVectorAluHandler},
-      {.mnemonic = "v_max_f32_e32", .handler = &kVectorAluHandler},
-      {.mnemonic = "v_fmac_f32_e32", .handler = &kVectorAluHandler},
-      {.mnemonic = "v_fma_f32", .handler = &kVectorAluHandler},
-      {.mnemonic = "v_mfma_f32_16x16x4f32", .handler = &kVectorAluHandler},
-      {.mnemonic = "v_rndne_f32_e32", .handler = &kVectorAluHandler},
-      {.mnemonic = "v_cvt_i32_f32_e32", .handler = &kVectorAluHandler},
-      {.mnemonic = "v_cvt_f32_i32_e32", .handler = &kVectorAluHandler},
-      {.mnemonic = "v_mbcnt_lo_u32_b32", .handler = &kVectorAluHandler},
-      {.mnemonic = "v_mbcnt_hi_u32_b32", .handler = &kVectorAluHandler},
-      {.mnemonic = "v_exp_f32_e32", .handler = &kVectorAluHandler},
-      {.mnemonic = "v_rcp_f32_e32", .handler = &kVectorAluHandler},
-      {.mnemonic = "v_ldexp_f32", .handler = &kVectorAluHandler},
-      {.mnemonic = "v_div_scale_f32", .handler = &kVectorAluHandler},
-      {.mnemonic = "v_div_fmas_f32", .handler = &kVectorAluHandler},
-      {.mnemonic = "v_div_fixup_f32", .handler = &kVectorAluHandler},
-      {.mnemonic = "v_cndmask_b32_e32", .handler = &kVectorAluHandler},
-      {.mnemonic = "v_cndmask_b32_e64", .handler = &kVectorAluHandler},
-      {.mnemonic = "v_mad_u64_u32", .handler = &kVectorAluHandler},
-      {.mnemonic = "v_cmp_gt_i32_e32", .handler = &kVectorCompareHandler},
-      {.mnemonic = "v_cmp_gt_i32_e64", .handler = &kVectorCompareHandler},
-      {.mnemonic = "v_cmp_le_i32_e32", .handler = &kVectorCompareHandler},
-      {.mnemonic = "v_cmp_lt_i32_e32", .handler = &kVectorCompareHandler},
-      {.mnemonic = "v_cmp_eq_u32_e32", .handler = &kVectorCompareHandler},
-      {.mnemonic = "v_cmp_gt_u32_e32", .handler = &kVectorCompareHandler},
-      {.mnemonic = "v_cmp_ngt_f32_e32", .handler = &kVectorCompareHandler},
-      {.mnemonic = "v_cmp_nlt_f32_e32", .handler = &kVectorCompareHandler},
       {.mnemonic = "s_and_saveexec_b64", .handler = &kMaskHandler},
-      {.mnemonic = "s_cbranch_execz", .handler = &kBranchHandler},
-      {.mnemonic = "s_cbranch_execnz", .handler = &kBranchHandler},
-      {.mnemonic = "s_cbranch_scc1", .handler = &kBranchHandler},
-      {.mnemonic = "s_cbranch_scc0", .handler = &kBranchHandler},
-      {.mnemonic = "s_cbranch_vccz", .handler = &kBranchHandler},
-      {.mnemonic = "s_branch", .handler = &kBranchHandler},
-      {.mnemonic = "global_load_dword", .handler = &kFlatMemoryHandler},
-      {.mnemonic = "global_store_dword", .handler = &kFlatMemoryHandler},
-      {.mnemonic = "global_atomic_add", .handler = &kFlatMemoryHandler},
-      {.mnemonic = "ds_read_b32", .handler = &kSharedMemoryHandler},
-      {.mnemonic = "ds_write_b32", .handler = &kSharedMemoryHandler},
-      {.mnemonic = "s_barrier", .handler = &kSpecialHandler},
-      {.mnemonic = "s_nop", .handler = &kSpecialHandler},
-      {.mnemonic = "s_waitcnt", .handler = &kSpecialHandler},
-      {.mnemonic = "s_endpgm", .handler = &kSpecialHandler},
   };
   return kBindings;
 }
@@ -1246,6 +1205,11 @@ const std::vector<HandlerBinding>& HandlerBindings() {
 }  // namespace
 
 const IRawGcnSemanticHandler& RawGcnSemanticHandlerRegistry::Get(std::string_view mnemonic) {
+  if (const auto* def = FindGeneratedGcnInstDefByMnemonic(mnemonic); def != nullptr) {
+    if (const auto* handler = HandlerForSemanticFamily(def->semantic_family, def->mnemonic)) {
+      return *handler;
+    }
+  }
   for (const auto& binding : HandlerBindings()) {
     if (binding.mnemonic == mnemonic) {
       return *binding.handler;
