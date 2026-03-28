@@ -84,6 +84,44 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeVectorMoveInstruction) {
   EXPECT_EQ(decoded.operands[0].text, "v3");
 }
 
+TEST(GcnInstDecoderTest, DecodesRepresentativeScalarMoveLiteralInstruction) {
+  RawGcnInstruction raw{
+      .pc = 0x1954,
+      .size_bytes = 8,
+      .words = {0xbe8000ffu, 0x0000002au},
+      .format_class = GcnInstFormatClass::Sop1,
+      .mnemonic = "s_mov_b32",
+      .operands = "",
+      .decoded_operands = {},
+  };
+
+  const auto decoded = GcnInstDecoder{}.Decode(raw);
+  EXPECT_EQ(decoded.encoding_id, 54u);
+  EXPECT_EQ(decoded.mnemonic, "s_mov_b32");
+  ASSERT_EQ(decoded.operands.size(), 2u);
+  EXPECT_EQ(decoded.operands[0].text, "s0");
+  EXPECT_EQ(decoded.operands[1].text, "0x2a");
+}
+
+TEST(GcnInstDecoderTest, DecodesRepresentativeScalarMovkInstruction) {
+  RawGcnInstruction raw{
+      .pc = 0x1958,
+      .size_bytes = 4,
+      .words = {0xb000002au},
+      .format_class = GcnInstFormatClass::Sopk,
+      .mnemonic = "s_movk_i32",
+      .operands = "",
+      .decoded_operands = {},
+  };
+
+  const auto decoded = GcnInstDecoder{}.Decode(raw);
+  EXPECT_EQ(decoded.encoding_id, 78u);
+  EXPECT_EQ(decoded.mnemonic, "s_movk_i32");
+  ASSERT_EQ(decoded.operands.size(), 2u);
+  EXPECT_EQ(decoded.operands[0].text, "s0");
+  EXPECT_EQ(decoded.operands[1].text, "42");
+}
+
 TEST(GcnInstDecoderTest, DecodesRepresentativeGlobalLoadInstruction) {
   RawGcnInstruction raw{
       .pc = 0x1968,

@@ -488,6 +488,10 @@ void DecodeGcnOperands(RawGcnInstruction& instruction) {
       inst_def != nullptr && TryDecodeGeneratedOperands(instruction, *inst_def)) {
     return;
   }
+  if (const auto* inst_def = FindGeneratedGcnInstDefById(def->id);
+      inst_def != nullptr && !OperandSpecsForInst(*inst_def).empty()) {
+    return;
+  }
 
   switch (def->id) {
     case 1:
