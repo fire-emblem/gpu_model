@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "gpu_model/exec/raw_gcn_semantic_handler.h"
+#include "gpu_model/loader/device_image_loader.h"
 #include "gpu_model/runtime/mapper.h"
 #include "gpu_model/state/wave_state.h"
 
@@ -124,6 +125,7 @@ LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
                                  const GpuArchSpec& spec,
                                  const LaunchConfig& config,
                                  const KernelArgPack& args,
+                                 const DeviceLoadResult* device_load,
                                  MemorySystem& memory,
                                  TraceSink& trace) const {
   if (config.grid_dim_y != 1 || config.block_dim_y != 1) {
@@ -144,7 +146,18 @@ LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
     pc_to_index[image.instructions[i].pc] = i;
   }
   const auto kernarg = BuildKernargBytes(image.metadata, args, config);
-  const uint64_t kernarg_base = memory.Allocate(MemoryPoolKind::Kernarg, kernarg.size());
+  uint64_t kernarg_base = memory.Allocate(MemoryPoolKind::Kernarg, kernarg.size());
+  if (device_load != nullptr) {
+    for (const auto& loaded : device_load->segments) {
+      if (loaded.segment.kind == DeviceSegmentKind::KernargTemplate) {
+        if (loaded.allocation.range.size < kernarg.size()) {
+          throw std::runtime_error("loaded kernarg segment is smaller than launch kernarg image");
+        }
+        kernarg_base = loaded.allocation.range.base;
+        break;
+      }
+    }
+  }
   memory.Write(MemoryPoolKind::Kernarg, kernarg_base, std::span<const std::byte>(kernarg));
   const uint32_t shared_bytes = std::max(config.shared_memory_bytes,
                                          ParseGroupSegmentFixedSize(image.metadata));

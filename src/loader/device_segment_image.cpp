@@ -32,6 +32,14 @@ uint32_t EstimateKernargBytes(const MetadataBlob& metadata) {
   return total;
 }
 
+uint32_t RequiredKernargTemplateBytes(const MetadataBlob& metadata) {
+  const uint32_t visible_args = EstimateKernargBytes(metadata);
+  if (visible_args == 0) {
+    return 0;
+  }
+  return std::max<uint32_t>(visible_args, 128u);
+}
+
 DeviceSegmentImage MakeCodeSegment(std::string name, std::vector<std::byte> bytes) {
   const uint64_t required_bytes = bytes.size();
   return DeviceSegmentImage{
@@ -84,7 +92,7 @@ DeviceLoadPlan BuildDeviceLoadPlan(const ProgramImage& image) {
     plan.segments.push_back(MakeRawDataSegment(image.raw_data_segment()));
   }
   plan.required_shared_bytes = ParseU32Metadata(image.metadata(), "required_shared_bytes");
-  plan.preferred_kernarg_bytes = EstimateKernargBytes(image.metadata());
+  plan.preferred_kernarg_bytes = RequiredKernargTemplateBytes(image.metadata());
   if (plan.preferred_kernarg_bytes != 0) {
     plan.segments.push_back(DeviceSegmentImage{
         .kind = DeviceSegmentKind::KernargTemplate,
@@ -103,7 +111,7 @@ DeviceLoadPlan BuildDeviceLoadPlan(const AmdgpuCodeObjectImage& image) {
   DeviceLoadPlan plan;
   plan.segments.push_back(MakeCodeSegment(image.kernel_name + ".text", image.code_bytes));
   plan.required_shared_bytes = ParseU32Metadata(image.metadata, "group_segment_fixed_size");
-  plan.preferred_kernarg_bytes = EstimateKernargBytes(image.metadata);
+  plan.preferred_kernarg_bytes = RequiredKernargTemplateBytes(image.metadata);
   if (plan.preferred_kernarg_bytes != 0) {
     plan.segments.push_back(DeviceSegmentImage{
         .kind = DeviceSegmentKind::KernargTemplate,

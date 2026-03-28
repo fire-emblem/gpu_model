@@ -22,7 +22,7 @@ TEST(DeviceSegmentImageTest, BuildsPlanForProgramImageWithConstAndSharedMetadata
   EXPECT_EQ(plan.segments[3].kind, DeviceSegmentKind::KernargTemplate);
   EXPECT_EQ(plan.segments[3].mapping, MemoryMappingKind::ZeroFill);
   EXPECT_EQ(plan.required_shared_bytes, 256u);
-  EXPECT_EQ(plan.preferred_kernarg_bytes, 12u);
+  EXPECT_EQ(plan.preferred_kernarg_bytes, 128u);
 }
 
 TEST(DeviceSegmentImageTest, BuildsPlanForRawCodeObjectImage) {
@@ -37,9 +37,9 @@ TEST(DeviceSegmentImageTest, BuildsPlanForRawCodeObjectImage) {
   EXPECT_EQ(plan.segments[0].pool, MemoryPoolKind::Code);
   EXPECT_EQ(plan.segments[0].required_bytes, 4u);
   EXPECT_EQ(plan.segments[1].pool, MemoryPoolKind::Kernarg);
-  EXPECT_EQ(plan.segments[1].required_bytes, 20u);
+  EXPECT_EQ(plan.segments[1].required_bytes, 128u);
   EXPECT_EQ(plan.required_shared_bytes, 128u);
-  EXPECT_EQ(plan.preferred_kernarg_bytes, 20u);
+  EXPECT_EQ(plan.preferred_kernarg_bytes, 128u);
 }
 
 }  // namespace

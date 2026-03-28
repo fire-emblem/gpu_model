@@ -17,6 +17,7 @@ class RawGcnExecutor {
                    const GpuArchSpec& spec,
                    const LaunchConfig& config,
                    const KernelArgPack& args,
+                   const DeviceLoadResult* device_load,
                    MemorySystem& memory,
                    TraceSink& trace) const;
 };

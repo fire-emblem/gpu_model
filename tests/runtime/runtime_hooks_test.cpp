@@ -155,7 +155,7 @@ TEST(RuntimeHooksTest, BuildsLoadPlanForProgramImage) {
   EXPECT_EQ(plan.segments[1].pool, MemoryPoolKind::Constant);
   EXPECT_EQ(plan.segments[2].pool, MemoryPoolKind::Kernarg);
   EXPECT_EQ(plan.required_shared_bytes, 128u);
-  EXPECT_EQ(plan.preferred_kernarg_bytes, 12u);
+  EXPECT_EQ(plan.preferred_kernarg_bytes, 128u);
 }
 
 TEST(RuntimeHooksTest, MaterializesProgramImageLoadPlanIntoDeviceMemory) {
@@ -170,7 +170,7 @@ TEST(RuntimeHooksTest, MaterializesProgramImageLoadPlanIntoDeviceMemory) {
   const auto result = hooks.LoadProgramImageToDevice(image);
   ASSERT_EQ(result.segments.size(), 3u);
   EXPECT_EQ(result.required_shared_bytes, 128u);
-  EXPECT_EQ(result.preferred_kernarg_bytes, 12u);
+  EXPECT_EQ(result.preferred_kernarg_bytes, 128u);
   EXPECT_EQ(result.segments[0].allocation.pool, MemoryPoolKind::Code);
   EXPECT_EQ(result.segments[1].allocation.pool, MemoryPoolKind::Constant);
   EXPECT_EQ(result.segments[2].allocation.pool, MemoryPoolKind::Kernarg);
@@ -182,7 +182,7 @@ TEST(RuntimeHooksTest, MaterializesProgramImageLoadPlanIntoDeviceMemory) {
             0x44u);
   EXPECT_GT(hooks.runtime().memory().pool_memory_size(MemoryPoolKind::Code), 0u);
   EXPECT_GT(hooks.runtime().memory().pool_memory_size(MemoryPoolKind::Constant), 0u);
-  EXPECT_EQ(hooks.runtime().memory().pool_memory_size(MemoryPoolKind::Kernarg), 12u);
+  EXPECT_EQ(hooks.runtime().memory().pool_memory_size(MemoryPoolKind::Kernarg), 128u);
 }
 
 TEST(RuntimeHooksTest, LaunchProgramImagePopulatesLastLoadResult) {
@@ -202,7 +202,7 @@ TEST(RuntimeHooksTest, LaunchProgramImagePopulatesLastLoadResult) {
   ASSERT_TRUE(result.ok) << result.error_message;
   ASSERT_TRUE(hooks.last_load_result().has_value());
   EXPECT_EQ(hooks.last_load_result()->required_shared_bytes, 64u);
-  EXPECT_EQ(hooks.last_load_result()->preferred_kernarg_bytes, 12u);
+  EXPECT_EQ(hooks.last_load_result()->preferred_kernarg_bytes, 128u);
   ASSERT_EQ(hooks.last_load_result()->segments.size(), 3u);
   EXPECT_EQ(hooks.last_load_result()->segments[0].allocation.pool, MemoryPoolKind::Code);
   EXPECT_EQ(hooks.last_load_result()->segments[1].allocation.pool, MemoryPoolKind::Constant);
@@ -533,7 +533,7 @@ TEST(RuntimeHooksTest, BuildsLoadPlanFromHipSharedReverseExecutable) {
   EXPECT_EQ(plan.segments[1].pool, MemoryPoolKind::Kernarg);
   EXPECT_GT(plan.segments[0].required_bytes, 0u);
   EXPECT_EQ(plan.required_shared_bytes, 256u);
-  EXPECT_EQ(plan.preferred_kernarg_bytes, 20u);
+  EXPECT_EQ(plan.preferred_kernarg_bytes, 128u);
 
   std::filesystem::remove_all(temp_dir);
 }
@@ -570,12 +570,12 @@ TEST(RuntimeHooksTest, MaterializesHipSharedReverseCodeIntoDeviceMemory) {
   const auto result = hooks.LoadAmdgpuObjectToDevice(exe_path, "shared_reverse");
   ASSERT_EQ(result.segments.size(), 2u);
   EXPECT_EQ(result.required_shared_bytes, 256u);
-  EXPECT_EQ(result.preferred_kernarg_bytes, 20u);
+  EXPECT_EQ(result.preferred_kernarg_bytes, 128u);
   EXPECT_EQ(result.segments[0].allocation.pool, MemoryPoolKind::Code);
   EXPECT_EQ(result.segments[1].allocation.pool, MemoryPoolKind::Kernarg);
   EXPECT_GT(result.segments[0].allocation.range.size, 0u);
   EXPECT_GT(hooks.runtime().memory().pool_memory_size(MemoryPoolKind::Code), 0u);
-  EXPECT_EQ(hooks.runtime().memory().pool_memory_size(MemoryPoolKind::Kernarg), 20u);
+  EXPECT_EQ(hooks.runtime().memory().pool_memory_size(MemoryPoolKind::Kernarg), 128u);
 
   std::filesystem::remove_all(temp_dir);
 }
@@ -626,14 +626,12 @@ TEST(RuntimeHooksTest, LaunchAmdgpuObjectPopulatesLastLoadResult) {
   ASSERT_TRUE(result.ok) << result.error_message;
   ASSERT_TRUE(hooks.last_load_result().has_value());
   EXPECT_EQ(hooks.last_load_result()->required_shared_bytes, 256u);
-  EXPECT_EQ(hooks.last_load_result()->preferred_kernarg_bytes, 20u);
+  EXPECT_EQ(hooks.last_load_result()->preferred_kernarg_bytes, 128u);
   ASSERT_EQ(hooks.last_load_result()->segments.size(), 2u);
   EXPECT_EQ(hooks.last_load_result()->segments[0].allocation.pool, MemoryPoolKind::Code);
   EXPECT_EQ(hooks.last_load_result()->segments[1].allocation.pool, MemoryPoolKind::Kernarg);
-  const uint64_t kernarg_pool_bytes =
-      hooks.runtime().memory().pool_memory_size(MemoryPoolKind::Kernarg);
-  EXPECT_GE(kernarg_pool_bytes, 128u);
-  const uint64_t runtime_kernarg_base = kernarg_pool_bytes - 128u;
+  const uint64_t runtime_kernarg_base =
+      hooks.last_load_result()->segments[1].allocation.range.base;
   EXPECT_EQ(hooks.runtime().memory().LoadValue<uint64_t>(MemoryPoolKind::Kernarg,
                                                          runtime_kernarg_base + 0),
             in_addr);

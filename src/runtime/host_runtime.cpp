@@ -209,7 +209,8 @@ LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
     if (request.mode == ExecutionMode::Functional) {
       if (use_raw_gcn_executor) {
         const auto raw_result =
-            RawGcnExecutor{}.Run(raw_code_object, *spec, request.config, request.args, memory_, trace);
+            RawGcnExecutor{}.Run(raw_code_object, *spec, request.config, request.args,
+                                 request.device_load, memory_, trace);
         result.ok = raw_result.ok;
         result.error_message = raw_result.error_message;
         result.total_cycles = raw_result.total_cycles;
