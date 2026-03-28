@@ -491,6 +491,105 @@ int main() {
   std::filesystem::remove_all(temp_dir);
 }
 
+TEST(HipInterposerStateTest, RunsHipHostExecutableWithEventsThroughLdPreloadInterposer) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto build_dir = BuildDirPath();
+  const auto interposer_path = build_dir / "libgpu_model_hip_interposer.so";
+  if (!std::filesystem::exists(interposer_path)) {
+    GTEST_SKIP() << "missing interposer library: " << interposer_path;
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_ld_preload_events");
+  const auto src_path = temp_dir / "hip_ld_preload_events.cpp";
+  const auto exe_path = temp_dir / "hip_ld_preload_events.out";
+  const auto stdout_path = temp_dir / "stdout.txt";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << R"(
+#include <hip/hip_runtime.h>
+#include <cstdio>
+#include <vector>
+
+extern "C" __global__ void vecadd(const float* a, const float* b, float* c, int n) {
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n) c[i] = a[i] + b[i];
+}
+
+int main() {
+  constexpr int n = 257;
+  std::vector<float> a(n), b(n), c(n, -1.0f);
+  for (int i = 0; i < n; ++i) {
+    a[i] = 0.5f * i;
+    b[i] = 0.25f * (100 + i);
+  }
+
+  hipStream_t stream = nullptr;
+  hipEvent_t start = nullptr;
+  hipEvent_t stop = nullptr;
+  if (hipStreamCreate(&stream) != hipSuccess) return 10;
+  if (hipEventCreate(&start) != hipSuccess) return 11;
+  if (hipEventCreateWithFlags(&stop, 0) != hipSuccess) return 12;
+
+  float *da = nullptr, *db = nullptr, *dc = nullptr;
+  if (hipMalloc(&da, n * sizeof(float)) != hipSuccess) return 13;
+  if (hipMalloc(&db, n * sizeof(float)) != hipSuccess) return 14;
+  if (hipMalloc(&dc, n * sizeof(float)) != hipSuccess) return 15;
+  if (hipMemcpyAsync(da, a.data(), n * sizeof(float), hipMemcpyHostToDevice, stream) != hipSuccess) return 16;
+  if (hipMemcpyAsync(db, b.data(), n * sizeof(float), hipMemcpyHostToDevice, stream) != hipSuccess) return 17;
+  if (hipEventRecord(start, stream) != hipSuccess) return 18;
+  hipLaunchKernelGGL(vecadd, dim3(3), dim3(128), 0, stream, da, db, dc, n);
+  if (hipEventRecord(stop, stream) != hipSuccess) return 19;
+  if (hipStreamWaitEvent(stream, stop, 0) != hipSuccess) return 20;
+  if (hipEventSynchronize(stop) != hipSuccess) return 21;
+  float ms = -1.0f;
+  if (hipEventElapsedTime(&ms, start, stop) != hipSuccess) return 22;
+  if (ms < 0.0f) return 23;
+  if (hipMemcpyAsync(c.data(), dc, n * sizeof(float), hipMemcpyDeviceToHost, stream) != hipSuccess) return 24;
+  if (hipStreamSynchronize(stream) != hipSuccess) return 25;
+
+  for (int i = 0; i < n; ++i) {
+    const float expected = a[i] + b[i];
+    if (c[i] != expected) {
+      std::printf("mismatch %d got=%f expected=%f\n", i, c[i], expected);
+      return 30;
+    }
+  }
+
+  if (hipEventDestroy(start) != hipSuccess) return 31;
+  if (hipEventDestroy(stop) != hipSuccess) return 32;
+  if (hipStreamDestroy(stream) != hipSuccess) return 33;
+  if (hipFree(da) != hipSuccess) return 34;
+  if (hipFree(db) != hipSuccess) return 35;
+  if (hipFree(dc) != hipSuccess) return 36;
+  std::puts("ld_preload events path ok");
+  return 0;
+}
+)";
+  }
+
+  const std::string compile_command =
+      "env -u LD_PRELOAD hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(compile_command.c_str()), 0);
+
+  const std::string run_command =
+      "env LD_PRELOAD=" + interposer_path.string() +
+      " GPU_MODEL_HIP_INTERPOSER_DEBUG=1 " + exe_path.string() + " > " + stdout_path.string() +
+      " 2>&1";
+  ASSERT_EQ(std::system(run_command.c_str()), 0);
+
+  std::ifstream in(stdout_path);
+  ASSERT_TRUE(static_cast<bool>(in));
+  const std::string output((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+  EXPECT_NE(output.find("ld_preload events path ok"), std::string::npos);
+
+  std::filesystem::remove_all(temp_dir);
+}
+
 TEST(HipInterposerStateTest, LaunchesHipSharedReverseExecutableThroughRegisteredHostFunction) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";

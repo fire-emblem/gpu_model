@@ -10,9 +10,17 @@ hip_4.2 {
     hipSetDevice;
     hipGetLastError;
     hipPeekAtLastError;
+    hipEventCreate;
+    hipEventCreateWithFlags;
+    hipEventDestroy;
+    hipEventRecord;
+    hipEventRecordWithFlags;
+    hipEventSynchronize;
+    hipEventElapsedTime;
     hipStreamCreate;
     hipStreamDestroy;
     hipStreamSynchronize;
+    hipStreamWaitEvent;
     hipMalloc;
     hipMallocManaged;
     hipFree;
@@ -26,3 +34,8 @@ hip_4.2 {
   local:
     *;
 };
+
+hip_6.4 {
+  global:
+    hipEventRecordWithFlags;
+} hip_4.2;

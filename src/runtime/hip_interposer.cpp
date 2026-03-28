@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstdint>
+#include <unordered_map>
 
 #include "gpu_model/runtime/hip_interposer_state.h"
 
@@ -16,6 +17,14 @@ namespace {
 thread_local hipError_t g_last_error = hipSuccess;
 thread_local int g_current_device = 0;
 uintptr_t g_next_stream_id = 1;
+uintptr_t g_next_event_id = 1;
+
+struct EventState {
+  bool recorded = false;
+  hipStream_t stream = nullptr;
+};
+
+std::unordered_map<uintptr_t, EventState> g_events;
 
 bool DebugEnabled() {
   return std::getenv("GPU_MODEL_HIP_INTERPOSER_DEBUG") != nullptr;
@@ -229,6 +238,72 @@ hipError_t hipStreamDestroy(hipStream_t) {
 }
 
 hipError_t hipStreamSynchronize(hipStream_t) {
+  return Remember(hipSuccess);
+}
+
+hipError_t hipStreamWaitEvent(hipStream_t, hipEvent_t event, unsigned int) {
+  const auto it = g_events.find(reinterpret_cast<uintptr_t>(event));
+  if (it == g_events.end()) {
+    return Remember(hipErrorInvalidHandle);
+  }
+  return Remember(hipSuccess);
+}
+
+hipError_t hipEventCreate(hipEvent_t* event) {
+  if (event == nullptr) {
+    return Remember(hipErrorInvalidValue);
+  }
+  const uintptr_t id = g_next_event_id++;
+  g_events[id] = EventState{};
+  *event = reinterpret_cast<hipEvent_t>(id);
+  return Remember(hipSuccess);
+}
+
+hipError_t hipEventCreateWithFlags(hipEvent_t* event, unsigned) {
+  return hipEventCreate(event);
+}
+
+hipError_t hipEventDestroy(hipEvent_t event) {
+  const auto it = g_events.find(reinterpret_cast<uintptr_t>(event));
+  if (it == g_events.end()) {
+    return Remember(hipErrorInvalidHandle);
+  }
+  g_events.erase(it);
+  return Remember(hipSuccess);
+}
+
+hipError_t hipEventRecord(hipEvent_t event, hipStream_t stream) {
+  const auto it = g_events.find(reinterpret_cast<uintptr_t>(event));
+  if (it == g_events.end()) {
+    return Remember(hipErrorInvalidHandle);
+  }
+  it->second.recorded = true;
+  it->second.stream = stream;
+  return Remember(hipSuccess);
+}
+
+hipError_t hipEventRecordWithFlags(hipEvent_t event, hipStream_t stream, unsigned) {
+  return hipEventRecord(event, stream);
+}
+
+hipError_t hipEventSynchronize(hipEvent_t event) {
+  const auto it = g_events.find(reinterpret_cast<uintptr_t>(event));
+  if (it == g_events.end()) {
+    return Remember(hipErrorInvalidHandle);
+  }
+  return Remember(hipSuccess);
+}
+
+hipError_t hipEventElapsedTime(float* ms, hipEvent_t start, hipEvent_t stop) {
+  if (ms == nullptr) {
+    return Remember(hipErrorInvalidValue);
+  }
+  const auto start_it = g_events.find(reinterpret_cast<uintptr_t>(start));
+  const auto stop_it = g_events.find(reinterpret_cast<uintptr_t>(stop));
+  if (start_it == g_events.end() || stop_it == g_events.end()) {
+    return Remember(hipErrorInvalidHandle);
+  }
+  *ms = 0.0f;
   return Remember(hipSuccess);
 }
 
