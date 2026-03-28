@@ -254,7 +254,7 @@ const std::vector<GcnGeneratedOperandSpec>& GeneratedGcnOperandSpecs() {
   { "src1", "src9", "use", "src1", 1, 1, "" },
   { "sdst", "scalar_reg", "def", "sdst", 1, 1, "" },
   { "src0", "scalar_src8_pair", "use", "ssrc0", 1, 1, "" },
-  { "vdst", "vector_reg", "def", "vdst", 1, 1, "" },
+  { "vdst", "vector_reg", "def", "addr", 1, 1, "" },
   { "data", "vector_reg", "use", "data", 1, 1, "" },
   { "saddr", "scalar_reg_range", "use", "saddr", 2, 1, "" }
   };

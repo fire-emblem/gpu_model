@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <string_view>
 
+#include "gpu_model/decode/gcn_inst_db_lookup.h"
 #include "gpu_model/decode/generated_gcn_inst_db.h"
 
 namespace gpu_model {
@@ -42,6 +43,10 @@ TEST(GeneratedGcnInstDbTest, ExposesFlagsAndImplicitRegisters) {
   ASSERT_LT(it->implicit_begin, implicits.size());
   EXPECT_STREQ(implicits[it->implicit_begin].name, "exec");
   EXPECT_FALSE(implicits[it->implicit_begin].is_write);
+
+  const auto operands = OperandSpecsForInst(*it);
+  ASSERT_EQ(operands.size(), 3u);
+  EXPECT_STREQ(operands[0].field, "addr");
 }
 
 TEST(GeneratedGcnInstDbTest, ExposesOperandSchema) {
