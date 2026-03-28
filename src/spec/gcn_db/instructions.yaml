@@ -19,6 +19,19 @@ instructions:
   issue_family: scalar_alu_or_memory
   flags:
     is_memory: true
+  operands:
+  - name: sdst
+    kind: scalar_reg
+    role: def
+    field: sdst
+  - name: sbase
+    kind: scalar_reg_range
+    role: use
+    field: sbase
+  - name: offset
+    kind: immediate
+    role: use
+    field: offset
 - id: 3
   profile: gfx6_gfx8
   format: smrd
@@ -29,6 +42,19 @@ instructions:
   issue_family: scalar_alu_or_memory
   flags:
     is_memory: true
+  operands:
+  - name: sdst
+    kind: scalar_reg_range
+    role: def
+    field: sdst
+  - name: sbase
+    kind: scalar_reg_range
+    role: use
+    field: sbase
+  - name: offset
+    kind: immediate
+    role: use
+    field: offset
 - id: 4
   profile: gfx6_gfx8
   format: smrd
@@ -73,6 +99,19 @@ instructions:
   issue_family: vector_alu
   flags:
     writes_vcc: true
+  operands:
+  - name: vcc
+    kind: special_reg
+    role: def
+    field: ''
+  - name: src0
+    kind: immediate
+    role: use
+    field: src0
+  - name: vsrc1
+    kind: vector_reg
+    role: use
+    field: vsrc1
 - id: 9
   profile: gfx6_gfx8
   format: sop1
@@ -95,6 +134,11 @@ instructions:
     is_branch: true
   implicit_reads:
   - exec
+  operands:
+  - name: target
+    kind: branch_target
+    role: use
+    field: simm16
 - id: 11
   profile: gfx6_gfx8
   format: vop2
@@ -113,6 +157,11 @@ instructions:
   issue_family: branch_or_special
   flags:
     is_waitcnt: true
+  operands:
+  - name: waitcnt
+    kind: waitcnt_fields
+    role: use
+    field: simm16
 - id: 13
   profile: gfx6_gfx8
   format: vop1
@@ -121,6 +170,15 @@ instructions:
   mnemonic: v_mov_b32_e32
   semantic_family: vector_alu
   issue_family: vector_alu
+  operands:
+  - name: vdst
+    kind: vector_reg
+    role: def
+    field: vdst
+  - name: src0
+    kind: immediate
+    role: use
+    field: src0
 - id: 14
   profile: gfx6_gfx8
   format: vop2
@@ -165,6 +223,19 @@ instructions:
     is_memory: true
   implicit_reads:
   - exec
+  operands:
+  - name: vdst
+    kind: vector_reg
+    role: def
+    field: vdst
+  - name: addr
+    kind: vector_reg_range
+    role: use
+    field: addr
+  - name: offset
+    kind: immediate
+    role: use
+    field: offset
 - id: 19
   profile: gfx6_gfx8
   format: flat
@@ -177,6 +248,19 @@ instructions:
     is_memory: true
   implicit_reads:
   - exec
+  operands:
+  - name: data
+    kind: vector_reg
+    role: use
+    field: data
+  - name: addr
+    kind: vector_reg_range
+    role: use
+    field: addr
+  - name: offset
+    kind: immediate
+    role: use
+    field: offset
 - id: 20
   profile: gfx6_gfx8
   format: sop2
@@ -271,6 +355,11 @@ instructions:
   issue_family: branch_or_special
   flags:
     is_barrier: true
+  operands:
+  - name: barrier
+    kind: special_reg
+    role: use
+    field: ''
 - id: 30
   profile: gfx6_gfx8
   format: ds
@@ -283,6 +372,15 @@ instructions:
     is_memory: true
   implicit_reads:
   - exec
+  operands:
+  - name: addr
+    kind: vector_reg
+    role: use
+    field: addr
+  - name: data0
+    kind: vector_reg
+    role: use
+    field: data0
 - id: 31
   profile: gfx6_gfx8
   format: ds
@@ -295,6 +393,15 @@ instructions:
     is_memory: true
   implicit_reads:
   - exec
+  operands:
+  - name: vdst
+    kind: vector_reg
+    role: def
+    field: vdst
+  - name: addr
+    kind: vector_reg
+    role: use
+    field: addr
 - id: 32
   profile: gfx6_gfx8
   format: vop1
@@ -587,6 +694,23 @@ instructions:
     is_matrix: true
   implicit_reads:
   - exec
+  operands:
+  - name: vdst
+    kind: vector_reg
+    role: def
+    field: vdst
+  - name: src0
+    kind: vector_reg
+    role: use
+    field: src0
+  - name: src1
+    kind: vector_reg
+    role: use
+    field: src1
+  - name: src2
+    kind: vector_reg
+    role: use
+    field: src2
 - id: 68
   profile: gfx6_gfx8
   format: sopp
@@ -728,3 +852,16 @@ instructions:
     is_atomic: true
   implicit_reads:
   - exec
+  operands:
+  - name: vdst
+    kind: vector_reg
+    role: def
+    field: vdst
+  - name: addr
+    kind: vector_reg_range
+    role: use
+    field: addr
+  - name: data
+    kind: vector_reg
+    role: use
+    field: data

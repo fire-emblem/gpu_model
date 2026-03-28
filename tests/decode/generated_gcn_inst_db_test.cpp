@@ -42,6 +42,22 @@ TEST(GeneratedGcnInstDbTest, ExposesFlagsAndImplicitRegisters) {
   EXPECT_FALSE(implicits[it->implicit_begin].is_write);
 }
 
+TEST(GeneratedGcnInstDbTest, ExposesOperandSchema) {
+  const auto insts = GeneratedGcnInstDefs();
+  const auto it = std::find_if(insts.begin(), insts.end(), [](const auto& def) {
+    return std::string_view(def.mnemonic) == "s_load_dword";
+  });
+  ASSERT_NE(it, insts.end());
+  ASSERT_EQ(it->operand_count, 3u);
+
+  const auto operands = GeneratedGcnOperandSpecs();
+  ASSERT_LT(it->operand_begin + 2, operands.size());
+  EXPECT_STREQ(operands[it->operand_begin + 0].name, "sdst");
+  EXPECT_STREQ(operands[it->operand_begin + 0].role, "def");
+  EXPECT_STREQ(operands[it->operand_begin + 1].kind, "scalar_reg_range");
+  EXPECT_STREQ(operands[it->operand_begin + 2].field, "offset");
+}
+
 TEST(GeneratedGcnInstDbTest, ExposesImportedEncodingDefinitions) {
   const auto defs = GeneratedGcnEncodingDefs();
   ASSERT_GE(defs.size(), 84u);

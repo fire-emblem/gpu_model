@@ -111,6 +111,13 @@ struct GcnGeneratedImplicitRegRef {
   bool is_write;
 };
 
+struct GcnGeneratedOperandSpec {
+  const char* name;
+  const char* kind;
+  const char* role;
+  const char* field;
+};
+
 struct GcnGeneratedFormatDef {
   const char* id;
   GcnInstFormatClass format_class;
@@ -132,12 +139,15 @@ struct GcnGeneratedInstDef {
   uint64_t flags;
   uint16_t implicit_begin;
   uint16_t implicit_count;
+  uint16_t operand_begin;
+  uint16_t operand_count;
 };
 
 const std::vector<GcnGeneratedProfileDef>& GeneratedGcnProfileDefs();
 const std::vector<GcnGeneratedOperandKindDef>& GeneratedGcnOperandKindDefs();
 const std::vector<GcnGeneratedSemanticFamilyDef>& GeneratedGcnSemanticFamilyDefs();
 const std::vector<GcnGeneratedImplicitRegRef>& GeneratedGcnImplicitRegRefs();
+const std::vector<GcnGeneratedOperandSpec>& GeneratedGcnOperandSpecs();
 const std::vector<GcnGeneratedFieldRef>& GeneratedGcnFieldRefs();
 const std::vector<GcnGeneratedFormatDef>& GeneratedGcnFormatDefs();
 const std::vector<GcnGeneratedInstDef>& GeneratedGcnInstDefs();
@@ -240,7 +250,9 @@ def emit_cpp(db_dir: pathlib.Path, out_path: pathlib.Path) -> None:
     generated_inst_entries = []
     encoding_entries = []
     implicit_ref_entries = []
+    operand_spec_entries = []
     implicit_index = 0
+    operand_index = 0
     for inst in inst_rows:
         fmt_enum = FORMAT_ENUM[inst["format"]]
         flags = inst.get("flags", {})
@@ -248,6 +260,7 @@ def emit_cpp(db_dir: pathlib.Path, out_path: pathlib.Path) -> None:
         flag_expr = " | ".join(flag_terms) if flag_terms else "kGcnInstFlagNone"
         implicit_reads = inst.get("implicit_reads", [])
         implicit_writes = inst.get("implicit_writes", [])
+        operands = inst.get("operands", [])
         for ref in implicit_reads:
             implicit_ref_entries.append(
                 "  {{ {name}, false }}".format(name=c_str(ref))
@@ -256,8 +269,17 @@ def emit_cpp(db_dir: pathlib.Path, out_path: pathlib.Path) -> None:
             implicit_ref_entries.append(
                 "  {{ {name}, true }}".format(name=c_str(ref))
             )
+        for operand in operands:
+            operand_spec_entries.append(
+                "  {{ {name}, {kind}, {role}, {field} }}".format(
+                    name=c_str(operand["name"]),
+                    kind=c_str(operand["kind"]),
+                    role=c_str(operand["role"]),
+                    field=c_str(operand.get("field", "")),
+                )
+            )
         generated_inst_entries.append(
-            "  {{ {id}, {profile}, GcnInstFormatClass::{fmt}, {opcode}, {size_bytes}, {mnemonic}, {semantic_family}, {issue_family}, {flags}, {implicit_begin}, {implicit_count} }}".format(
+            "  {{ {id}, {profile}, GcnInstFormatClass::{fmt}, {opcode}, {size_bytes}, {mnemonic}, {semantic_family}, {issue_family}, {flags}, {implicit_begin}, {implicit_count}, {operand_begin}, {operand_count} }}".format(
                 id=inst["id"],
                 profile=c_str(inst.get("profile", "gfx6_gfx8")),
                 fmt=fmt_enum,
@@ -269,9 +291,12 @@ def emit_cpp(db_dir: pathlib.Path, out_path: pathlib.Path) -> None:
                 flags=flag_expr,
                 implicit_begin=implicit_index,
                 implicit_count=len(implicit_reads) + len(implicit_writes),
+                operand_begin=operand_index,
+                operand_count=len(operands),
             )
         )
         implicit_index += len(implicit_reads) + len(implicit_writes)
+        operand_index += len(operands)
         encoding_entries.append(
             "  GcnInstEncodingDef{{ .id = {id}, .format_class = GcnInstFormatClass::{fmt}, .op = {opcode}, .size_bytes = {size_bytes}, .mnemonic = {mnemonic} }}".format(
                 id=inst["id"],
@@ -323,6 +348,15 @@ def emit_cpp(db_dir: pathlib.Path, out_path: pathlib.Path) -> None:
         lines.append(implicit_ref_entries[-1])
     lines.append("  };")
     lines.append("  return kImplicitRegRefs;")
+    lines.append("}")
+    lines.append("")
+    lines.append("const std::vector<GcnGeneratedOperandSpec>& GeneratedGcnOperandSpecs() {")
+    lines.append("  static const std::vector<GcnGeneratedOperandSpec> kOperandSpecs = {")
+    lines.extend([entry + "," for entry in operand_spec_entries[:-1]])
+    if operand_spec_entries:
+        lines.append(operand_spec_entries[-1])
+    lines.append("  };")
+    lines.append("  return kOperandSpecs;")
     lines.append("}")
     lines.append("")
     lines.append("const std::vector<GcnGeneratedFieldRef>& GeneratedGcnFieldRefs() {")

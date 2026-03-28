@@ -54,6 +54,13 @@ struct GcnGeneratedImplicitRegRef {
   bool is_write;
 };
 
+struct GcnGeneratedOperandSpec {
+  const char* name;
+  const char* kind;
+  const char* role;
+  const char* field;
+};
+
 struct GcnGeneratedFormatDef {
   const char* id;
   GcnInstFormatClass format_class;
@@ -75,12 +82,15 @@ struct GcnGeneratedInstDef {
   uint64_t flags;
   uint16_t implicit_begin;
   uint16_t implicit_count;
+  uint16_t operand_begin;
+  uint16_t operand_count;
 };
 
 const std::vector<GcnGeneratedProfileDef>& GeneratedGcnProfileDefs();
 const std::vector<GcnGeneratedOperandKindDef>& GeneratedGcnOperandKindDefs();
 const std::vector<GcnGeneratedSemanticFamilyDef>& GeneratedGcnSemanticFamilyDefs();
 const std::vector<GcnGeneratedImplicitRegRef>& GeneratedGcnImplicitRegRefs();
+const std::vector<GcnGeneratedOperandSpec>& GeneratedGcnOperandSpecs();
 const std::vector<GcnGeneratedFieldRef>& GeneratedGcnFieldRefs();
 const std::vector<GcnGeneratedFormatDef>& GeneratedGcnFormatDefs();
 const std::vector<GcnGeneratedInstDef>& GeneratedGcnInstDefs();
