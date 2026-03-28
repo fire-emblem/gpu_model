@@ -17,6 +17,15 @@ operand_kinds:
   - id: immediate
     category: immediate
     description: inline or decoded immediate operand
+  - id: immediate_field
+    category: immediate
+    description: immediate directly decoded from a named bitfield
+  - id: scalar_src8
+    category: scalar
+    description: 8-bit scalar source selector decoded with inline constant rules
+  - id: src9
+    category: generic
+    description: 9-bit source selector decoded with scalar/vector/immediate rules
   - id: branch_target
     category: control
     description: branch target or branch immediate operand

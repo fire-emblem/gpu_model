@@ -24,14 +24,23 @@ instructions:
     kind: scalar_reg
     role: def
     field: sdst
+    reg_count: 1
+    scale: 1
+    special_reg: ''
   - name: sbase
     kind: scalar_reg_range
     role: use
     field: sbase
+    reg_count: 2
+    scale: 2
+    special_reg: ''
   - name: offset
-    kind: immediate
+    kind: immediate_field
     role: use
     field: offset
+    reg_count: 1
+    scale: 1
+    special_reg: ''
 - id: 3
   profile: gfx6_gfx8
   format: smrd
@@ -47,14 +56,23 @@ instructions:
     kind: scalar_reg_range
     role: def
     field: sdst
+    reg_count: 2
+    scale: 1
+    special_reg: ''
   - name: sbase
     kind: scalar_reg_range
     role: use
     field: sbase
+    reg_count: 2
+    scale: 2
+    special_reg: ''
   - name: offset
-    kind: immediate
+    kind: immediate_field
     role: use
     field: offset
+    reg_count: 1
+    scale: 1
+    special_reg: ''
 - id: 4
   profile: gfx6_gfx8
   format: smrd
@@ -73,6 +91,28 @@ instructions:
   mnemonic: s_and_b32
   semantic_family: scalar_alu
   issue_family: scalar_alu_or_memory
+  operands:
+  - name: sdst
+    kind: scalar_reg
+    role: def
+    field: sdst
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src0
+    kind: scalar_src8
+    role: use
+    field: ssrc0
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src1
+    kind: scalar_src8
+    role: use
+    field: ssrc1
+    reg_count: 1
+    scale: 1
+    special_reg: ''
 - id: 6
   profile: gfx6_gfx8
   format: sop2
@@ -81,6 +121,28 @@ instructions:
   mnemonic: s_mul_i32
   semantic_family: scalar_alu
   issue_family: scalar_alu_or_memory
+  operands:
+  - name: sdst
+    kind: scalar_reg
+    role: def
+    field: sdst
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src0
+    kind: scalar_src8
+    role: use
+    field: ssrc0
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src1
+    kind: scalar_src8
+    role: use
+    field: ssrc1
+    reg_count: 1
+    scale: 1
+    special_reg: ''
 - id: 7
   profile: gfx6_gfx8
   format: vop2
@@ -89,6 +151,7 @@ instructions:
   mnemonic: v_add_u32_e32
   semantic_family: vector_alu
   issue_family: vector_alu
+  operands: []
 - id: 8
   profile: gfx6_gfx8
   format: vopc
@@ -104,14 +167,23 @@ instructions:
     kind: special_reg
     role: def
     field: ''
+    special_reg: vcc
+    reg_count: 1
+    scale: 1
   - name: src0
-    kind: immediate
+    kind: src9
     role: use
     field: src0
+    reg_count: 1
+    scale: 1
+    special_reg: ''
   - name: vsrc1
     kind: vector_reg
     role: use
     field: vsrc1
+    reg_count: 1
+    scale: 1
+    special_reg: ''
 - id: 9
   profile: gfx6_gfx8
   format: sop1
@@ -139,6 +211,9 @@ instructions:
     kind: branch_target
     role: use
     field: simm16
+    reg_count: 1
+    scale: 1
+    special_reg: ''
 - id: 11
   profile: gfx6_gfx8
   format: vop2
@@ -147,6 +222,7 @@ instructions:
   mnemonic: v_add_f32_e32
   semantic_family: vector_alu
   issue_family: vector_alu
+  operands: []
 - id: 12
   profile: gfx6_gfx8
   format: sopp
@@ -162,6 +238,9 @@ instructions:
     kind: waitcnt_fields
     role: use
     field: simm16
+    reg_count: 1
+    scale: 1
+    special_reg: ''
 - id: 13
   profile: gfx6_gfx8
   format: vop1
@@ -175,10 +254,16 @@ instructions:
     kind: vector_reg
     role: def
     field: vdst
+    reg_count: 1
+    scale: 1
+    special_reg: ''
   - name: src0
-    kind: immediate
+    kind: src9
     role: use
     field: src0
+    reg_count: 1
+    scale: 1
+    special_reg: ''
 - id: 14
   profile: gfx6_gfx8
   format: vop2
@@ -187,6 +272,7 @@ instructions:
   mnemonic: v_ashrrev_i32_e32
   semantic_family: vector_alu
   issue_family: vector_alu
+  operands: []
 - id: 15
   profile: gfx6_gfx8
   format: vop2
@@ -195,6 +281,7 @@ instructions:
   mnemonic: v_add_co_u32_e32
   semantic_family: vector_alu
   issue_family: vector_alu
+  operands: []
 - id: 16
   profile: gfx6_gfx8
   format: vop2
@@ -203,6 +290,7 @@ instructions:
   mnemonic: v_addc_co_u32_e32
   semantic_family: vector_alu
   issue_family: vector_alu
+  operands: []
 - id: 17
   profile: gfx6_gfx8
   format: vop3a
@@ -223,19 +311,6 @@ instructions:
     is_memory: true
   implicit_reads:
   - exec
-  operands:
-  - name: vdst
-    kind: vector_reg
-    role: def
-    field: vdst
-  - name: addr
-    kind: vector_reg_range
-    role: use
-    field: addr
-  - name: offset
-    kind: immediate
-    role: use
-    field: offset
 - id: 19
   profile: gfx6_gfx8
   format: flat
@@ -248,19 +323,6 @@ instructions:
     is_memory: true
   implicit_reads:
   - exec
-  operands:
-  - name: data
-    kind: vector_reg
-    role: use
-    field: data
-  - name: addr
-    kind: vector_reg_range
-    role: use
-    field: addr
-  - name: offset
-    kind: immediate
-    role: use
-    field: offset
 - id: 20
   profile: gfx6_gfx8
   format: sop2
@@ -277,6 +339,21 @@ instructions:
   mnemonic: s_cmp_lt_i32
   semantic_family: scalar_compare
   issue_family: scalar_alu_or_memory
+  operands:
+  - name: src0
+    kind: scalar_src8
+    role: use
+    field: ssrc0
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src1
+    kind: scalar_src8
+    role: use
+    field: ssrc1
+    reg_count: 1
+    scale: 1
+    special_reg: ''
 - id: 22
   profile: gfx6_gfx8
   format: sopp
@@ -289,6 +366,14 @@ instructions:
     is_branch: true
   implicit_reads:
   - scc
+  operands:
+  - name: target
+    kind: branch_target
+    role: use
+    field: simm16
+    reg_count: 1
+    scale: 1
+    special_reg: ''
 - id: 23
   profile: gfx6_gfx8
   format: sop2
@@ -297,6 +382,28 @@ instructions:
   mnemonic: s_add_i32
   semantic_family: scalar_alu
   issue_family: scalar_alu_or_memory
+  operands:
+  - name: sdst
+    kind: scalar_reg
+    role: def
+    field: sdst
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src0
+    kind: scalar_src8
+    role: use
+    field: ssrc0
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src1
+    kind: scalar_src8
+    role: use
+    field: ssrc1
+    reg_count: 1
+    scale: 1
+    special_reg: ''
 - id: 24
   profile: gfx6_gfx8
   format: sopc
@@ -307,6 +414,21 @@ instructions:
   issue_family: scalar_alu_or_memory
   flags:
     writes_scc: true
+  operands:
+  - name: src0
+    kind: scalar_src8
+    role: use
+    field: ssrc0
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src1
+    kind: scalar_src8
+    role: use
+    field: ssrc1
+    reg_count: 1
+    scale: 1
+    special_reg: ''
 - id: 25
   profile: gfx6_gfx8
   format: vop3a
@@ -327,6 +449,14 @@ instructions:
     is_branch: true
   implicit_reads:
   - scc
+  operands:
+  - name: target
+    kind: branch_target
+    role: use
+    field: simm16
+    reg_count: 1
+    scale: 1
+    special_reg: ''
 - id: 27
   profile: gfx6_gfx8
   format: sopp
@@ -337,6 +467,14 @@ instructions:
   issue_family: branch_or_special
   flags:
     is_branch: true
+  operands:
+  - name: target
+    kind: branch_target
+    role: use
+    field: simm16
+    reg_count: 1
+    scale: 1
+    special_reg: ''
 - id: 28
   profile: gfx6_gfx8
   format: sop2
@@ -360,6 +498,9 @@ instructions:
     kind: special_reg
     role: use
     field: ''
+    special_reg: barrier
+    reg_count: 1
+    scale: 1
 - id: 30
   profile: gfx6_gfx8
   format: ds
@@ -377,10 +518,16 @@ instructions:
     kind: vector_reg
     role: use
     field: addr
+    reg_count: 1
+    scale: 1
+    special_reg: ''
   - name: data0
     kind: vector_reg
     role: use
     field: data0
+    reg_count: 1
+    scale: 1
+    special_reg: ''
 - id: 31
   profile: gfx6_gfx8
   format: ds
@@ -398,10 +545,16 @@ instructions:
     kind: vector_reg
     role: def
     field: vdst
+    reg_count: 1
+    scale: 1
+    special_reg: ''
   - name: addr
     kind: vector_reg
     role: use
     field: addr
+    reg_count: 1
+    scale: 1
+    special_reg: ''
 - id: 32
   profile: gfx6_gfx8
   format: vop1
@@ -699,18 +852,30 @@ instructions:
     kind: vector_reg
     role: def
     field: vdst
+    reg_count: 1
+    scale: 1
+    special_reg: ''
   - name: src0
     kind: vector_reg
     role: use
     field: src0
+    reg_count: 1
+    scale: 1
+    special_reg: ''
   - name: src1
     kind: vector_reg
     role: use
     field: src1
+    reg_count: 1
+    scale: 1
+    special_reg: ''
   - name: src2
     kind: vector_reg
     role: use
     field: src2
+    reg_count: 1
+    scale: 1
+    special_reg: ''
 - id: 68
   profile: gfx6_gfx8
   format: sopp
@@ -852,16 +1017,3 @@ instructions:
     is_atomic: true
   implicit_reads:
   - exec
-  operands:
-  - name: vdst
-    kind: vector_reg
-    role: def
-    field: vdst
-  - name: addr
-    kind: vector_reg_range
-    role: use
-    field: addr
-  - name: data
-    kind: vector_reg
-    role: use
-    field: data

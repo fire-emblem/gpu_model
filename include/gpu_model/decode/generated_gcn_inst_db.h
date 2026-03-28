@@ -60,6 +60,9 @@ struct GcnGeneratedOperandSpec {
   const char* kind;
   const char* role;
   const char* field;
+  uint8_t reg_count;
+  int8_t scale;
+  const char* special_reg;
 };
 
 struct GcnGeneratedFormatDef {

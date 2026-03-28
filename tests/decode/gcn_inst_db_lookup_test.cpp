@@ -8,7 +8,7 @@ namespace {
 TEST(GcnInstDbLookupTest, FindsInstructionByIdAndMnemonic) {
   const auto* by_id = FindGeneratedGcnInstDefById(2);
   ASSERT_NE(by_id, nullptr);
-  EXPECT_EQ(by_id->mnemonic, "s_load_dword");
+  EXPECT_EQ(std::string_view(by_id->mnemonic), "s_load_dword");
 
   const auto* by_name = FindGeneratedGcnInstDefByMnemonic("global_atomic_add");
   ASSERT_NE(by_name, nullptr);
@@ -18,8 +18,8 @@ TEST(GcnInstDbLookupTest, FindsInstructionByIdAndMnemonic) {
 TEST(GcnInstDbLookupTest, FindsInstructionByFormatOpcodeAndSize) {
   const auto* def = FindGeneratedGcnInstDef(GcnInstFormatClass::Flat, 66, 8);
   ASSERT_NE(def, nullptr);
-  EXPECT_EQ(def->mnemonic, "global_atomic_add");
-  EXPECT_EQ(def->exec_domain, "memory");
+  EXPECT_EQ(std::string_view(def->mnemonic), "global_atomic_add");
+  EXPECT_EQ(std::string_view(def->exec_domain), "memory");
 }
 
 TEST(GcnInstDbLookupTest, ReturnsOperandAndImplicitSlices) {

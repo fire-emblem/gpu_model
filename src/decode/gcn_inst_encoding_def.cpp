@@ -3,6 +3,7 @@
 #include <sstream>
 
 #include "gpu_model/decode/generated_gcn_inst_db.h"
+#include "gpu_model/decode/gcn_inst_db_lookup.h"
 #include "gpu_model/decode/gcn_inst_format.h"
 
 namespace gpu_model {
@@ -280,6 +281,100 @@ RawGcnOperand DecodeSrc8(uint32_t value) {
   return MakeOperand(RawGcnOperandKind::Unknown, "s" + std::to_string(value));
 }
 
+const GcnGeneratedFormatDef* FindGeneratedFormatDefByClass(GcnInstFormatClass format_class) {
+  const auto& defs = GeneratedGcnFormatDefs();
+  for (size_t i = 0; i < defs.size(); ++i) {
+    if (defs[i].format_class == format_class) {
+      return &defs[i];
+    }
+  }
+  return nullptr;
+}
+
+const GcnGeneratedFieldRef* FindGeneratedFieldRef(const GcnGeneratedFormatDef& format_def,
+                                                  std::string_view name) {
+  const auto& fields = GeneratedGcnFieldRefs();
+  for (uint16_t i = 0; i < format_def.field_count; ++i) {
+    const auto& field = fields[format_def.field_begin + i];
+    if (field.name == name) {
+      return &field;
+    }
+  }
+  if (format_def.opcode_field.name == name) {
+    return &format_def.opcode_field;
+  }
+  return nullptr;
+}
+
+uint32_t ExtractGeneratedFieldValue(const std::vector<uint32_t>& words,
+                                    const GcnGeneratedFieldRef& field) {
+  if (field.word_index >= words.size()) {
+    return 0;
+  }
+  const uint32_t word = words[field.word_index];
+  const uint32_t mask =
+      field.width == 32 ? 0xffffffffu : ((static_cast<uint32_t>(1u) << field.width) - 1u);
+  return (word >> field.lsb) & mask;
+}
+
+RawGcnOperand MakeSpecialOperandFromName(std::string_view name) {
+  if (name == "vcc") {
+    return MakeSpecialRegOperand(GcnSpecialReg::Vcc, "vcc");
+  }
+  if (name == "exec") {
+    return MakeSpecialRegOperand(GcnSpecialReg::Exec, "exec");
+  }
+  return MakeOperand(RawGcnOperandKind::Unknown, std::string(name));
+}
+
+bool TryDecodeGeneratedOperands(RawGcnInstruction& instruction, const GcnGeneratedInstDef& inst_def) {
+  const auto* format_def = FindGeneratedFormatDefByClass(inst_def.format_class);
+  if (format_def == nullptr) {
+    return false;
+  }
+
+  const auto operand_specs = OperandSpecsForInst(inst_def);
+  if (operand_specs.empty()) {
+    return false;
+  }
+  for (const auto& spec : operand_specs) {
+    const GcnGeneratedFieldRef* field = nullptr;
+    if (spec.field[0] != '\0') {
+      field = FindGeneratedFieldRef(*format_def, spec.field);
+      if (field == nullptr) {
+        return false;
+      }
+    }
+    const uint32_t raw_value = field != nullptr ? ExtractGeneratedFieldValue(instruction.words, *field) : 0;
+    if (std::string_view(spec.kind) == "scalar_reg") {
+      instruction.decoded_operands.push_back(MakeScalarRegOperand(raw_value));
+    } else if (std::string_view(spec.kind) == "scalar_reg_range") {
+      instruction.decoded_operands.push_back(
+          MakeScalarRegRangeOperand(raw_value * spec.scale, spec.reg_count));
+    } else if (std::string_view(spec.kind) == "vector_reg") {
+      instruction.decoded_operands.push_back(MakeVectorRegOperand(raw_value));
+    } else if (std::string_view(spec.kind) == "vector_reg_range") {
+      instruction.decoded_operands.push_back(MakeVectorRegRangeOperand(raw_value, spec.reg_count));
+    } else if (std::string_view(spec.kind) == "special_reg") {
+      instruction.decoded_operands.push_back(MakeSpecialOperandFromName(spec.special_reg));
+    } else if (std::string_view(spec.kind) == "branch_target") {
+      instruction.decoded_operands.push_back(MakeBranchTargetOperand(static_cast<int16_t>(raw_value)));
+    } else if (std::string_view(spec.kind) == "waitcnt_fields") {
+      instruction.decoded_operands.push_back(MakeWaitCntOperand(static_cast<uint16_t>(raw_value)));
+    } else if (std::string_view(spec.kind) == "scalar_src8") {
+      instruction.decoded_operands.push_back(DecodeSrc8(raw_value));
+    } else if (std::string_view(spec.kind) == "src9") {
+      instruction.decoded_operands.push_back(DecodeSrc9(raw_value));
+    } else if (std::string_view(spec.kind) == "immediate_field") {
+      instruction.decoded_operands.push_back(
+          MakeImmediateOperand(FormatImmediate(raw_value), raw_value));
+    } else {
+      return false;
+    }
+  }
+  return true;
+}
+
 }  // namespace
 
 void DecodeGcnOperands(RawGcnInstruction& instruction) {
@@ -291,6 +386,11 @@ void DecodeGcnOperands(RawGcnInstruction& instruction) {
   instruction.encoding_id = def->id;
   const uint32_t low = instruction.words.empty() ? 0u : instruction.words[0];
   const uint32_t high = instruction.words.size() > 1 ? instruction.words[1] : 0u;
+
+  if (const auto* inst_def = FindGeneratedGcnInstDefById(def->id);
+      inst_def != nullptr && TryDecodeGeneratedOperands(instruction, *inst_def)) {
+    return;
+  }
 
   switch (def->id) {
     case 1:
