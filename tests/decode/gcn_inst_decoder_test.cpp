@@ -189,6 +189,48 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeVop3aFmaInstruction) {
   EXPECT_EQ(decoded.operands[3].text, "v5");
 }
 
+TEST(GcnInstDecoderTest, DecodesRepresentativeVop3B64ShiftInstruction) {
+  RawGcnInstruction raw{
+      .pc = 0x1a04,
+      .size_bytes = 8,
+      .words = {0xd28e0002u, 0x00020c01u},
+      .format_class = GcnInstFormatClass::Vop3a,
+      .mnemonic = "v_lshlrev_b64",
+      .operands = "",
+      .decoded_operands = {},
+  };
+
+  const auto decoded = GcnInstDecoder{}.Decode(raw);
+  EXPECT_EQ(decoded.encoding_id, 17u);
+  EXPECT_EQ(decoded.mnemonic, "v_lshlrev_b64");
+  ASSERT_EQ(decoded.operands.size(), 3u);
+  EXPECT_EQ(decoded.operands[0].text, "v[2:3]");
+  EXPECT_EQ(decoded.operands[1].text, "s1");
+  EXPECT_EQ(decoded.operands[2].text, "v[6:7]");
+}
+
+TEST(GcnInstDecoderTest, DecodesRepresentativeMadU64U32Instruction) {
+  RawGcnInstruction raw{
+      .pc = 0x1a08,
+      .size_bytes = 8,
+      .words = {0xd1e80402u, 0x04180a03u},
+      .format_class = GcnInstFormatClass::Vop3a,
+      .mnemonic = "v_mad_u64_u32",
+      .operands = "",
+      .decoded_operands = {},
+  };
+
+  const auto decoded = GcnInstDecoder{}.Decode(raw);
+  EXPECT_EQ(decoded.encoding_id, 79u);
+  EXPECT_EQ(decoded.mnemonic, "v_mad_u64_u32");
+  ASSERT_EQ(decoded.operands.size(), 5u);
+  EXPECT_EQ(decoded.operands[0].text, "v[2:3]");
+  EXPECT_EQ(decoded.operands[1].text, "s[4:5]");
+  EXPECT_EQ(decoded.operands[2].text, "s3");
+  EXPECT_EQ(decoded.operands[3].text, "s5");
+  EXPECT_EQ(decoded.operands[4].text, "v[6:7]");
+}
+
 TEST(GcnInstDecoderTest, DecodesRepresentativeCarryProducingVectorAddInstruction) {
   RawGcnInstruction raw{
       .pc = 0x1a20,

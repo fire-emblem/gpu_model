@@ -740,16 +740,6 @@ void DecodeGcnOperands(RawGcnInstruction& instruction) {
       instruction.decoded_operands.push_back(MakeVectorRegOperand((low >> 9u) & 0xffu));
       instruction.decoded_operands.push_back(MakeSpecialRegOperand(GcnSpecialReg::Vcc, "vcc"));
       break;
-    case 17:
-      instruction.decoded_operands.push_back(MakeVectorRegRangeOperand(low & 0xffu, 2));
-      instruction.decoded_operands.push_back(DecodeSrc9((high >> 0u) & 0x1ffu));
-      if (((high >> 9u) & 0x1ffu) >= 256u) {
-        instruction.decoded_operands.push_back(
-            MakeVectorRegRangeOperand(((high >> 9u) & 0x1ffu) - 256u, 2));
-      } else {
-        instruction.decoded_operands.push_back(DecodeSrc9((high >> 9u) & 0x1ffu));
-      }
-      break;
     case 25:
       instruction.decoded_operands.push_back(MakeVectorRegOperand(low & 0xffu));
       instruction.decoded_operands.push_back(DecodeSrc9((high >> 0u) & 0x1ffu));
@@ -783,19 +773,6 @@ void DecodeGcnOperands(RawGcnInstruction& instruction) {
           MakeScalarRegRangeOperand((low >> 8u) & 0x7fu, 2));
       instruction.decoded_operands.push_back(DecodeSrc9((high >> 0u) & 0x1ffu));
       instruction.decoded_operands.push_back(DecodeSrc9((high >> 9u) & 0x1ffu));
-      break;
-    case 79:
-      instruction.decoded_operands.push_back(MakeVectorRegRangeOperand(low & 0xffu, 2));
-      instruction.decoded_operands.push_back(
-          MakeScalarRegRangeOperand((low >> 8u) & 0x7fu, 2));
-      instruction.decoded_operands.push_back(DecodeSrc9((high >> 0u) & 0x1ffu));
-      instruction.decoded_operands.push_back(DecodeSrc9((high >> 9u) & 0x1ffu));
-      if (((high >> 18u) & 0x1ffu) >= 256u) {
-        instruction.decoded_operands.push_back(
-            MakeVectorRegRangeOperand(((high >> 18u) & 0x1ffu) - 256u, 2));
-      } else {
-        instruction.decoded_operands.push_back(DecodeSrc9((high >> 18u) & 0x1ffu));
-      }
       break;
     case 59:
       instruction.decoded_operands.push_back(MakeVectorRegOperand(low & 0xffu));
