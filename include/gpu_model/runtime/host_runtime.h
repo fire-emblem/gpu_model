@@ -4,6 +4,7 @@
 
 #include "gpu_model/debug/trace_sink.h"
 #include "gpu_model/exec/cycle_executor.h"
+#include "gpu_model/exec/functional_execution_mode.h"
 #include "gpu_model/memory/memory_system.h"
 #include "gpu_model/runtime/launch_request.h"
 
@@ -28,6 +29,15 @@ class HostRuntime {
                               uint64_t arg_load_cycles);
   void SetIssueCycleClassOverrides(const IssueCycleClassOverridesSpec& overrides);
   void SetIssueCycleOpOverrides(const IssueCycleOpOverridesSpec& overrides);
+  void SetFunctionalExecutionConfig(FunctionalExecutionConfig config) {
+    functional_execution_config_ = config;
+  }
+  void SetFunctionalExecutionMode(FunctionalExecutionMode mode) {
+    functional_execution_config_.mode = mode;
+  }
+  const FunctionalExecutionConfig& functional_execution_config() const {
+    return functional_execution_config_;
+  }
   uint64_t device_cycle() const { return device_cycle_; }
   void ResetDeviceCycle() { device_cycle_ = 0; has_cycle_launch_history_ = false; }
 
@@ -54,6 +64,7 @@ class HostRuntime {
   std::optional<uint64_t> arg_load_cycles_override_;
   std::optional<IssueCycleClassOverridesSpec> issue_cycle_class_overrides_;
   std::optional<IssueCycleOpOverridesSpec> issue_cycle_op_overrides_;
+  FunctionalExecutionConfig functional_execution_config_{};
   uint64_t device_cycle_ = 0;
   bool has_cycle_launch_history_ = false;
 };

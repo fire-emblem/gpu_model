@@ -50,6 +50,7 @@ add_library(gpu_model STATIC
   src/exec/issue_scheduler.cpp
   src/exec/issue_eligibility.cpp
   src/exec/functional_executor.cpp
+  src/exec/parallel_wave_executor.cpp
   src/exec/scoreboard.cpp
   src/exec/event_queue.cpp
   src/exec/cycle_executor.cpp
@@ -69,6 +70,20 @@ target_include_directories(gpu_model
   PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
+
+option(GPU_MODEL_ENABLE_MARL "Enable marl-backed parallel execution scaffolding" ON)
+
+if(GPU_MODEL_ENABLE_MARL AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/marl/CMakeLists.txt")
+  set(MARL_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+  set(MARL_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+  set(MARL_BUILD_BENCHMARKS OFF CACHE BOOL "" FORCE)
+  set(MARL_WARNINGS_AS_ERRORS OFF CACHE BOOL "" FORCE)
+  set(_gpu_model_saved_cxx_standard ${CMAKE_CXX_STANDARD})
+  add_subdirectory(third_party/marl EXCLUDE_FROM_ALL)
+  set(CMAKE_CXX_STANDARD ${_gpu_model_saved_cxx_standard})
+  target_link_libraries(gpu_model PUBLIC marl)
+  target_compile_definitions(gpu_model PUBLIC GPU_MODEL_HAS_MARL=1)
+endif()
 
 gpu_model_enable_warnings(gpu_model)
 

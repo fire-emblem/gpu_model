@@ -6,6 +6,7 @@
 #include "gpu_model/arch/arch_registry.h"
 #include "gpu_model/exec/cycle_executor.h"
 #include "gpu_model/exec/functional_executor.h"
+#include "gpu_model/exec/parallel_wave_executor.h"
 #include "gpu_model/exec/raw_gcn_executor.h"
 #include "gpu_model/isa/kernel_metadata.h"
 #include "gpu_model/isa/kernel_program.h"
@@ -217,8 +218,13 @@ LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
         result.end_cycle = raw_result.end_cycle;
         result.stats = raw_result.stats;
       } else {
-        FunctionalExecutor executor;
-        result.total_cycles = executor.Run(context);
+        if (functional_execution_config_.mode == FunctionalExecutionMode::MarlParallel) {
+          ParallelWaveExecutor executor(functional_execution_config_);
+          result.total_cycles = executor.Run(context);
+        } else {
+          FunctionalExecutor executor;
+          result.total_cycles = executor.Run(context);
+        }
         result.end_cycle = result.total_cycles;
       }
     } else if (request.mode == ExecutionMode::Cycle) {

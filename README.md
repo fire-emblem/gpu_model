@@ -18,6 +18,9 @@
 - `c500` 架构参数注册与运行时选择
 - functional execution
 - naive cycle execution
+- functional execution mode switch
+  - `SingleThreaded`
+  - `MarlParallel`
 - trace / debug / ASCII timeline / Google trace
 - AMDGPU object / HIP fatbin / HIP `.out` 的加载入口
 - HIP command-line interposer
@@ -49,7 +52,7 @@
 - `decode/`
   GCN format bitfield / encoding def / formatter
 - `exec/`
-  issue model、semantic handlers、functional/cycle executor
+  issue model、semantic handlers、functional/cycle executor、parallel-wave executor scaffold
 - `runtime/`
   host runtime、runtime hooks、HIP interposer
 - `debug/`
@@ -186,3 +189,23 @@ cmake --build build --target gpu_model_hip_interposer -j
 3. raw instruction IR
 4. raw semantic handler / raw execute
 5. 逐步替换当前 device 文本兼容路径
+
+## Marl
+
+当前仓库已 vendor：
+
+- `third_party/marl`
+
+当前 `HostRuntime` 已支持 functional 执行模式切换：
+
+- `SingleThreaded`
+- `MarlParallel`
+
+现阶段 `MarlParallel` 先作为 scheduler-backed 执行骨架接入，
+保证：
+
+- 构建链闭合
+- 运行时模式可切换
+- 结果与当前 single-thread functional 路径一致
+
+下一阶段再把真正的 wave 并行、block 内 barrier/atomic/wait 协调逐步落到这个骨架上。
