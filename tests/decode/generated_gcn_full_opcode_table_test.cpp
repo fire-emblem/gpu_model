@@ -58,6 +58,21 @@ TEST(GeneratedGcnFullOpcodeTableTest, ResolvesRepresentativeInstructionsByName) 
   ASSERT_NE(mimg, nullptr);
   EXPECT_EQ(mimg->op_type, GcnIsaOpType::Mimg);
   EXPECT_EQ(mimg->opcode, 0x20u);
+
+  const auto* ldexp = FindGcnIsaOpcodeDescriptorByName("v_ldexp_f32");
+  ASSERT_NE(ldexp, nullptr);
+  EXPECT_EQ(ldexp->op_type, GcnIsaOpType::Vop3a);
+  EXPECT_EQ(ldexp->opcode, 0x288u);
+
+  const auto* mbcnt = FindGcnIsaOpcodeDescriptorByName("v_mbcnt_lo_u32_b32");
+  ASSERT_NE(mbcnt, nullptr);
+  EXPECT_EQ(mbcnt->op_type, GcnIsaOpType::Vop3a);
+  EXPECT_EQ(mbcnt->opcode, 0x28cu);
+
+  const auto* mfma = FindGcnIsaOpcodeDescriptorByName("v_mfma_f32_16x16x4f32");
+  ASSERT_NE(mfma, nullptr);
+  EXPECT_EQ(mfma->op_type, GcnIsaOpType::Vop3p);
+  EXPECT_EQ(mfma->opcode, 0x45u);
 }
 
 TEST(GeneratedGcnFullOpcodeTableTest, ResolvesRepresentativeInstructionsByTypeAndOpcode) {

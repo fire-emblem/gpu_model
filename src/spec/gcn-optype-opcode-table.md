@@ -16,7 +16,7 @@ Scope of this table:
 
 Canonical coverage summary:
 
-- total canonical opcode rows: `1535`
+- total canonical opcode rows: `1575`
 - `DS` rows: `156`
 - `EXP` rows: `1`
 - `FLAT` rows: `126`
@@ -33,9 +33,9 @@ Canonical coverage summary:
 - `VINTRP` rows: `3`
 - `VOP1` rows: `78`
 - `VOP2` rows: `56`
-- `VOP3A` rows: `382`
+- `VOP3A` rows: `393`
 - `VOP3B` rows: `16`
-- `VOP3P` rows: `36`
+- `VOP3P` rows: `65`
 - `VOPC` rows: `198`
 
 Encoding note:
@@ -1418,6 +1418,7 @@ Encoding note:
 | `v_mqsad_pk_u16_u8` | `0x1e6` | `V_MQSAD_PK_U16_U8` | `VOP3Instructions.td` |
 | `v_mqsad_u32_u8` | `0x1e7` | `V_MQSAD_U32_U8` | `VOP3Instructions.td` |
 | `v_perm_b32` | `0x1ed` | `V_PERM_B32` | `VOP3Instructions.td` |
+| `v_cvt_pkaccum_u8_f32` | `0x1f0` | `V_CVT_PKACCUM_U8_F32` | `VOP2Instructions.td` |
 | `v_xad_u32` | `0x1f3` | `V_XAD_U32` | `VOP3Instructions.td` |
 | `v_lshl_add_u32` | `0x1fd` | `V_LSHL_ADD_U32` | `VOP3Instructions.td` |
 | `v_add_lshl_u32` | `0x1fe` | `V_ADD_LSHL_U32` | `VOP3Instructions.td` |
@@ -1434,10 +1435,20 @@ Encoding note:
 | `v_mul_lo_u32` | `0x285` | `V_MUL_LO_U32` | `VOP3Instructions.td` |
 | `v_mul_hi_u32` | `0x286` | `V_MUL_HI_U32` | `VOP3Instructions.td` |
 | `v_mul_hi_i32` | `0x287` | `V_MUL_HI_I32` | `VOP3Instructions.td` |
+| `v_ldexp_f32` | `0x288` | `V_LDEXP_F32` | `VOP2Instructions.td` |
+| `v_bcnt_u32_b32` | `0x28b` | `V_BCNT_U32_B32` | `VOP2Instructions.td` |
+| `v_mbcnt_lo_u32_b32` | `0x28c` | `V_MBCNT_LO_U32_B32` | `VOP2Instructions.td` |
+| `v_mbcnt_hi_u32_b32` | `0x28d` | `V_MBCNT_HI_U32_B32` | `VOP2Instructions.td` |
 | `v_lshlrev_b64` | `0x28f` | `V_LSHLREV_B64` | `VOP3Instructions.td` |
 | `v_lshrrev_b64` | `0x290` | `V_LSHRREV_B64` | `VOP3Instructions.td` |
 | `v_ashrrev_i64` | `0x291` | `V_ASHRREV_I64` | `VOP3Instructions.td` |
 | `v_trig_preop_f64` | `0x292` | `V_TRIG_PREOP_F64` | `VOP3Instructions.td` |
+| `v_bfm_b32` | `0x293` | `V_BFM_B32` | `VOP2Instructions.td` |
+| `v_cvt_pknorm_i16_f32` | `0x294` | `V_CVT_PKNORM_I16_F32` | `VOP2Instructions.td` |
+| `v_cvt_pknorm_u16_f32` | `0x295` | `V_CVT_PKNORM_U16_F32` | `VOP2Instructions.td` |
+| `v_cvt_pkrtz_f16_f32` | `0x296` | `V_CVT_PKRTZ_F16_F32` | `VOP2Instructions.td` |
+| `v_cvt_pk_u16_u32` | `0x297` | `V_CVT_PK_U16_U32` | `VOP2Instructions.td` |
+| `v_cvt_pk_i16_i32` | `0x298` | `V_CVT_PK_I16_I32` | `VOP2Instructions.td` |
 | `v_add_i32` | `0x29c` | `V_ADD_I32` | `VOP3Instructions.td` |
 | `v_sub_i32` | `0x29d` | `V_SUB_I32` | `VOP3Instructions.td` |
 
@@ -1502,6 +1513,35 @@ Encoding note:
 | `v_pk_mul_f32` | `0x31` | `V_PK_MUL_F32` | `VOP3PInstructions.td` |
 | `v_pk_add_f32` | `0x32` | `V_PK_ADD_F32` | `VOP3PInstructions.td` |
 | `v_pk_mov_b32` | `0x33` | `V_PK_MOV_B32` | `VOP3PInstructions.td` |
+| `v_mfma_f32_32x32x1f32` | `0x40` | `V_MFMA_F32_32X32X1F32` | `VOP3PInstructions.td` |
+| `v_mfma_f32_16x16x1f32` | `0x41` | `V_MFMA_F32_16X16X1F32` | `VOP3PInstructions.td` |
+| `v_mfma_f32_4x4x1f32` | `0x42` | `V_MFMA_F32_4X4X1F32` | `VOP3PInstructions.td` |
+| `v_mfma_f32_32x32x2f32` | `0x44` | `V_MFMA_F32_32X32X2F32` | `VOP3PInstructions.td` |
+| `v_mfma_f32_16x16x4f32` | `0x45` | `V_MFMA_F32_16X16X4F32` | `VOP3PInstructions.td` |
+| `v_mfma_f32_32x32x4f16` | `0x48` | `V_MFMA_F32_32X32X4F16` | `VOP3PInstructions.td` |
+| `v_mfma_f32_16x16x4f16` | `0x49` | `V_MFMA_F32_16X16X4F16` | `VOP3PInstructions.td` |
+| `v_mfma_f32_4x4x4f16` | `0x4a` | `V_MFMA_F32_4X4X4F16` | `VOP3PInstructions.td` |
+| `v_mfma_f32_32x32x8f16` | `0x4c` | `V_MFMA_F32_32X32X8F16` | `VOP3PInstructions.td` |
+| `v_mfma_f32_16x16x16f16` | `0x4d` | `V_MFMA_F32_16X16X16F16` | `VOP3PInstructions.td` |
+| `v_mfma_i32_32x32x4i8` | `0x50` | `V_MFMA_I32_32X32X4I8` | `VOP3PInstructions.td` |
+| `v_mfma_i32_16x16x4i8` | `0x51` | `V_MFMA_I32_16X16X4I8` | `VOP3PInstructions.td` |
+| `v_mfma_i32_4x4x4i8` | `0x52` | `V_MFMA_I32_4X4X4I8` | `VOP3PInstructions.td` |
+| `v_mfma_i32_32x32x8i8` | `0x54` | `V_MFMA_I32_32X32X8I8` | `VOP3PInstructions.td` |
+| `v_mfma_i32_16x16x16i8` | `0x55` | `V_MFMA_I32_16X16X16I8` | `VOP3PInstructions.td` |
+| `v_accvgpr_read_b32` | `0x58` | `V_ACCVGPR_READ_B32` | `VOP3PInstructions.td` |
+| `v_accvgpr_write_b32` | `0x59` | `V_ACCVGPR_WRITE_B32` | `VOP3PInstructions.td` |
+| `v_mfma_f32_32x32x4bf16_1k` | `0x63` | `V_MFMA_F32_32X32X4BF16_1K` | `VOP3PInstructions.td` |
+| `v_mfma_f32_16x16x4bf16_1k` | `0x64` | `V_MFMA_F32_16X16X4BF16_1K` | `VOP3PInstructions.td` |
+| `v_mfma_f32_4x4x4bf16_1k` | `0x65` | `V_MFMA_F32_4X4X4BF16_1K` | `VOP3PInstructions.td` |
+| `v_mfma_f32_32x32x8bf16_1k` | `0x66` | `V_MFMA_F32_32X32X8BF16_1K` | `VOP3PInstructions.td` |
+| `v_mfma_f32_16x16x16bf16_1k` | `0x67` | `V_MFMA_F32_16X16X16BF16_1K` | `VOP3PInstructions.td` |
+| `v_mfma_f32_32x32x2bf16` | `0x68` | `V_MFMA_F32_32X32X2BF16` | `VOP3PInstructions.td` |
+| `v_mfma_f32_16x16x2bf16` | `0x69` | `V_MFMA_F32_16X16X2BF16` | `VOP3PInstructions.td` |
+| `v_mfma_f32_4x4x2bf16` | `0x6b` | `V_MFMA_F32_4X4X2BF16` | `VOP3PInstructions.td` |
+| `v_mfma_f32_32x32x4bf16` | `0x6c` | `V_MFMA_F32_32X32X4BF16` | `VOP3PInstructions.td` |
+| `v_mfma_f32_16x16x8bf16` | `0x6d` | `V_MFMA_F32_16X16X8BF16` | `VOP3PInstructions.td` |
+| `v_mfma_f64_16x16x4f64` | `0x6e` | `V_MFMA_F64_16X16X4F64` | `VOP3PInstructions.td` |
+| `v_mfma_f64_4x4x4f64` | `0x6f` | `V_MFMA_F64_4X4X4F64` | `VOP3PInstructions.td` |
 
 ## VOPC
 

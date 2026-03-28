@@ -155,6 +155,10 @@ def parse_td_rows(td_dir: pathlib.Path) -> list[OpcodeRow]:
             opcode = int(m.group(2), 16)
             add("vop2", opcode, f"{m.group(4)}_e32", m.group(1), vop2_path.name)
             add("vop3b", 0x100 + opcode, f"{m.group(4)}_e64", m.group(1), vop2_path.name)
+            continue
+        m = re.match(r"defm\s+([A-Z0-9_]+)\s*:\s*VOP2_Real_e64only_vi\s*<\s*(0x[0-9A-Fa-f]+)", line)
+        if m:
+            add("vop3a", int(m.group(2), 16), m.group(1).lower(), m.group(1), vop2_path.name)
 
     vop3_path = td_dir / "VOP3Instructions.td"
     for line in vop3_path.read_text(encoding="utf-8").splitlines():
@@ -171,6 +175,10 @@ def parse_td_rows(td_dir: pathlib.Path) -> list[OpcodeRow]:
     for line in vop3p_path.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         m = re.match(r"defm\s+([A-Z0-9_]+)\s*:\s*VOP3P_Real_vi\s*<\s*(0x[0-9A-Fa-f]+)", line)
+        if m:
+            add("vop3p", int(m.group(2), 16), m.group(1).lower(), m.group(1), vop3p_path.name)
+            continue
+        m = re.match(r"defm\s+([A-Z0-9_]+)\s*:\s*VOP3P_Real_(?:MAI|MFMA(?:_gfx90a)?)\s*<\s*(0x[0-9A-Fa-f]+)", line)
         if m:
             add("vop3p", int(m.group(2), 16), m.group(1).lower(), m.group(1), vop3p_path.name)
 
