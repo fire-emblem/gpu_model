@@ -212,6 +212,14 @@ def emit_opcode_enum_header(inst_rows: list[dict[str, Any]], out_path: pathlib.P
     lines = []
     lines.append("#pragma once")
     lines.append("")
+    lines.append("// Compatibility subset only.")
+    lines.append("//")
+    lines.append("// Source-of-truth opcode coverage now lives in:")
+    lines.append('//   "gpu_model/decode/generated_gcn_full_opcode_table.h"')
+    lines.append("//")
+    lines.append("// This header is kept to avoid large immediate churn in older tests")
+    lines.append("// and generated subset paths.")
+    lines.append("")
     lines.append("#include <cstdint>")
     lines.append("#include <optional>")
     lines.append("#include <string_view>")
@@ -269,6 +277,10 @@ def emit_opcode_enum_cpp(inst_rows: list[dict[str, Any]], out_path: pathlib.Path
 
     lines = []
     lines.append('#include "gpu_model/decode/generated_gcn_opcode_enums.h"')
+    lines.append("")
+    lines.append("// Compatibility subset implementation.")
+    lines.append("// Full canonical opcode coverage is provided by")
+    lines.append('// "gpu_model/decode/generated_gcn_full_opcode_table.cpp".')
     lines.append("")
     lines.append("#include <vector>")
     lines.append("")
@@ -466,11 +478,10 @@ def emit_cpp(db_dir: pathlib.Path, out_path: pathlib.Path) -> None:
         implicit_index += len(implicit_reads) + len(implicit_writes)
         operand_index += len(operands)
         encoding_entries.append(
-            "  GcnInstEncodingDef{{ .id = {id}, .format_class = GcnInstFormatClass::{fmt}, .op = static_cast<uint32_t>({opcode_enum}::{opcode_name}), .size_bytes = {size_bytes}, .mnemonic = {mnemonic} }}".format(
+            "  GcnInstEncodingDef{{ .id = {id}, .format_class = GcnInstFormatClass::{fmt}, .op = {opcode}, .size_bytes = {size_bytes}, .mnemonic = {mnemonic} }}".format(
                 id=inst["id"],
                 fmt=fmt_enum,
-                opcode_enum=FORMAT_OPCODE_ENUM[inst["format"]],
-                opcode_name=to_enum_symbol(inst["mnemonic"]),
+                opcode=inst["opcode"],
                 size_bytes=inst["size_bytes"],
                 mnemonic=c_str(inst["mnemonic"]),
             )
@@ -478,7 +489,6 @@ def emit_cpp(db_dir: pathlib.Path, out_path: pathlib.Path) -> None:
 
     lines: list[str] = []
     lines.append('#include "gpu_model/decode/generated_gcn_inst_db.h"')
-    lines.append('#include "gpu_model/decode/generated_gcn_opcode_enums.h"')
     lines.append("")
     lines.append("#include <vector>")
     lines.append("")

@@ -78,15 +78,15 @@ def parse_td_rows(td_dir: pathlib.Path) -> list[OpcodeRow]:
     sop_path = td_dir / "SOPInstructions.td"
     for line in sop_path.read_text(encoding="utf-8").splitlines():
         line = line.strip()
-        m = re.match(r"defm\s+([A-Z0-9_]+)\s*:\s*SOP1_Real_vi\s*<\s*(0x[0-9A-Fa-f]+)", line)
+        m = re.match(r"defm?\s+([A-Z0-9_]+)_vi\s*:\s*SOP1_Real_vi\s*<\s*(0x[0-9A-Fa-f]+)", line)
         if m:
             add("sop1", int(m.group(2), 16), m.group(1).lower(), m.group(1), sop_path.name)
             continue
-        m = re.match(r"defm\s+([A-Z0-9_]+)\s*:\s*SOP2_Real_vi\s*<\s*(0x[0-9A-Fa-f]+)", line)
+        m = re.match(r"defm?\s+([A-Z0-9_]+)_vi\s*:\s*SOP2_Real_vi\s*<\s*(0x[0-9A-Fa-f]+)", line)
         if m:
             add("sop2", int(m.group(2), 16), m.group(1).lower(), m.group(1), sop_path.name)
             continue
-        m = re.match(r"defm\s+([A-Z0-9_]+)\s*:\s*SOPK_Real_vi\s*<\s*(0x[0-9A-Fa-f]+)", line)
+        m = re.match(r"defm?\s+([A-Z0-9_]+)_vi\s*:\s*(?:SOPK_Real_vi|SOPK_Real64)\s*<\s*(0x[0-9A-Fa-f]+)", line)
         if m:
             add("sopk", int(m.group(2), 16), m.group(1).lower(), m.group(1), sop_path.name)
             continue
@@ -441,11 +441,20 @@ def emit_md(rows: list[OpcodeRow], out_path: pathlib.Path) -> None:
     lines.append("- when LLVM TD contains multiple generation-specific opcodes for the same mnemonic, the table prefers `gfx9` rows, then generic `vi` rows, then older `ci/si/gfx6/gfx7` rows")
     lines.append("- address-mode variants such as `_OFFSET` / `_OFFEN` / `_BOTHEN` are deduplicated into one opcode row")
     lines.append("")
+    lines.append("Canonical coverage summary:")
+    lines.append("")
+    lines.append(f"- total canonical opcode rows: `{len(rows)}`")
+    for op_type in sorted(grouped.keys()):
+        info = OP_TYPES[op_type]
+        lines.append(f"- `{info.td_format}` rows: `{len(grouped[op_type])}`")
+    lines.append("")
     lines.append("Encoding note:")
     lines.append("")
     lines.append("- some families reuse the same raw prefix value but with different prefix widths")
     lines.append("- for example `EXP` and `VOPC` both use raw value `0x3e`, but `EXP` is 6-bit and `VOPC` is 7-bit")
     lines.append("- `VOP3A` and `VOP3B` share the same raw GFX8/GFX9 prefix `0x34` and are separated here by operand form")
+    lines.append("- this markdown table is the canonical opcode table for the repository")
+    lines.append("- `generated_gcn_opcode_enums.*` is retained only as a compatibility subset")
     lines.append("")
     lines.append("## OpType Encoding")
     lines.append("")

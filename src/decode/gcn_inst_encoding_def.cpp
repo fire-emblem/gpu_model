@@ -4,7 +4,6 @@
 
 #include "gpu_model/decode/generated_gcn_full_opcode_table.h"
 #include "gpu_model/decode/generated_gcn_inst_db.h"
-#include "gpu_model/decode/generated_gcn_opcode_enums.h"
 #include "gpu_model/decode/gcn_inst_db_lookup.h"
 #include "gpu_model/decode/gcn_inst_format.h"
 
@@ -563,7 +562,7 @@ const GcnInstEncodingDef* FindGcnInstEncodingDef(const std::vector<uint32_t>& wo
   const uint32_t op = ExtractOp(words, format_class);
   const auto& defs = GeneratedGcnEncodingDefs();
   if (format_class == GcnInstFormatClass::Vop3a &&
-      op == static_cast<uint32_t>(GcnVop3aOpcode::V_MBCNT_LO_U32_B32) &&
+      op == 326u &&
       static_cast<uint32_t>(words.size() * sizeof(uint32_t)) == 8u) {
     const bool is_hi = (words[0] & 0x00010000u) != 0;
     const uint32_t target_id = is_hi ? 82u : 81u;

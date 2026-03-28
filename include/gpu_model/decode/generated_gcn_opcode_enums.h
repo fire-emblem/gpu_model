@@ -1,5 +1,13 @@
 #pragma once
 
+// Compatibility subset only.
+//
+// Source-of-truth opcode coverage now lives in:
+//   "gpu_model/decode/generated_gcn_full_opcode_table.h"
+//
+// This header is kept to avoid large immediate churn in older tests
+// and generated subset paths.
+
 #include <cstdint>
 #include <optional>
 #include <string_view>

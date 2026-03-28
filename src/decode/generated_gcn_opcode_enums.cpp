@@ -1,5 +1,9 @@
 #include "gpu_model/decode/generated_gcn_opcode_enums.h"
 
+// Compatibility subset implementation.
+// Full canonical opcode coverage is provided by
+// "gpu_model/decode/generated_gcn_full_opcode_table.cpp".
+
 #include <vector>
 
 namespace gpu_model {

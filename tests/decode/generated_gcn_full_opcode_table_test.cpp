@@ -24,6 +24,21 @@ TEST(GeneratedGcnFullOpcodeTableTest, ExposesEncodingMetadataIncludingCollisions
 }
 
 TEST(GeneratedGcnFullOpcodeTableTest, ResolvesRepresentativeInstructionsByName) {
+  const auto* sop1 = FindGcnIsaOpcodeDescriptorByName("s_mov_b32");
+  ASSERT_NE(sop1, nullptr);
+  EXPECT_EQ(sop1->op_type, GcnIsaOpType::Sop1);
+  EXPECT_EQ(sop1->opcode, 0x00u);
+
+  const auto* sop2 = FindGcnIsaOpcodeDescriptorByName("s_add_u32");
+  ASSERT_NE(sop2, nullptr);
+  EXPECT_EQ(sop2->op_type, GcnIsaOpType::Sop2);
+  EXPECT_EQ(sop2->opcode, 0x00u);
+
+  const auto* sopk = FindGcnIsaOpcodeDescriptorByName("s_movk_i32");
+  ASSERT_NE(sopk, nullptr);
+  EXPECT_EQ(sopk->op_type, GcnIsaOpType::Sopk);
+  EXPECT_EQ(sopk->opcode, 0x00u);
+
   const auto* vop3b = FindGcnIsaOpcodeDescriptorByName("v_add_co_u32_e64");
   ASSERT_NE(vop3b, nullptr);
   EXPECT_EQ(vop3b->op_type, GcnIsaOpType::Vop3b);

@@ -14,18 +14,37 @@ Scope of this table:
 - when LLVM TD contains multiple generation-specific opcodes for the same mnemonic, the table prefers `gfx9` rows, then generic `vi` rows, then older `ci/si/gfx6/gfx7` rows
 - address-mode variants such as `_OFFSET` / `_OFFEN` / `_BOTHEN` are deduplicated into one opcode row
 
-Execution-model scope note:
+Canonical coverage summary:
 
-- descriptor-based `MUBUF` / `MTBUF` are currently treated as placeholder families
-- graphics-oriented `MIMG` / `EXP` / `VINTRP` are also placeholder families in the compute-first model
-- for these families, phase 1 requires opcode coverage, format classification, and disassembly names
-- deep descriptor semantics or graphics pipeline behavior are intentionally deferred
+- total canonical opcode rows: `1535`
+- `DS` rows: `156`
+- `EXP` rows: `1`
+- `FLAT` rows: `126`
+- `MIMG` rows: `112`
+- `MTBUF` rows: `16`
+- `MUBUF` rows: `71`
+- `SMEM` rows: `82`
+- `SMRD` rows: `23`
+- `SOP1` rows: `54`
+- `SOP2` rows: `53`
+- `SOPC` rows: `20`
+- `SOPK` rows: `21`
+- `SOPP` rows: `31`
+- `VINTRP` rows: `3`
+- `VOP1` rows: `78`
+- `VOP2` rows: `56`
+- `VOP3A` rows: `382`
+- `VOP3B` rows: `16`
+- `VOP3P` rows: `36`
+- `VOPC` rows: `198`
 
 Encoding note:
 
 - some families reuse the same raw prefix value but with different prefix widths
 - for example `EXP` and `VOPC` both use raw value `0x3e`, but `EXP` is 6-bit and `VOPC` is 7-bit
 - `VOP3A` and `VOP3B` share the same raw GFX8/GFX9 prefix `0x34` and are separated here by operand form
+- this markdown table is the canonical opcode table for the repository
+- `generated_gcn_opcode_enums.*` is retained only as a compatibility subset
 
 ## OpType Encoding
 
@@ -679,6 +698,123 @@ Encoding note:
 | `s_memtime` | `0x1e` | `S_MEMTIME` | `SMInstructions.td` |
 | `s_dcache_inv` | `0x1f` | `S_DCACHE_INV` | `SMInstructions.td` |
 
+## SOP1
+
+| OpName | Opcode | Source Record | Source TD |
+|---|---:|---|---|
+| `s_mov_b32` | `0x0` | `S_MOV_B32` | `SOPInstructions.td` |
+| `s_mov_b64` | `0x1` | `S_MOV_B64` | `SOPInstructions.td` |
+| `s_cmov_b32` | `0x2` | `S_CMOV_B32` | `SOPInstructions.td` |
+| `s_cmov_b64` | `0x3` | `S_CMOV_B64` | `SOPInstructions.td` |
+| `s_not_b32` | `0x4` | `S_NOT_B32` | `SOPInstructions.td` |
+| `s_not_b64` | `0x5` | `S_NOT_B64` | `SOPInstructions.td` |
+| `s_wqm_b32` | `0x6` | `S_WQM_B32` | `SOPInstructions.td` |
+| `s_wqm_b64` | `0x7` | `S_WQM_B64` | `SOPInstructions.td` |
+| `s_brev_b32` | `0x8` | `S_BREV_B32` | `SOPInstructions.td` |
+| `s_brev_b64` | `0x9` | `S_BREV_B64` | `SOPInstructions.td` |
+| `s_bcnt0_i32_b32` | `0xa` | `S_BCNT0_I32_B32` | `SOPInstructions.td` |
+| `s_bcnt0_i32_b64` | `0xb` | `S_BCNT0_I32_B64` | `SOPInstructions.td` |
+| `s_bcnt1_i32_b32` | `0xc` | `S_BCNT1_I32_B32` | `SOPInstructions.td` |
+| `s_bcnt1_i32_b64` | `0xd` | `S_BCNT1_I32_B64` | `SOPInstructions.td` |
+| `s_ff0_i32_b32` | `0xe` | `S_FF0_I32_B32` | `SOPInstructions.td` |
+| `s_ff0_i32_b64` | `0xf` | `S_FF0_I32_B64` | `SOPInstructions.td` |
+| `s_ff1_i32_b32` | `0x10` | `S_FF1_I32_B32` | `SOPInstructions.td` |
+| `s_ff1_i32_b64` | `0x11` | `S_FF1_I32_B64` | `SOPInstructions.td` |
+| `s_flbit_i32_b32` | `0x12` | `S_FLBIT_I32_B32` | `SOPInstructions.td` |
+| `s_flbit_i32_b64` | `0x13` | `S_FLBIT_I32_B64` | `SOPInstructions.td` |
+| `s_flbit_i32` | `0x14` | `S_FLBIT_I32` | `SOPInstructions.td` |
+| `s_flbit_i32_i64` | `0x15` | `S_FLBIT_I32_I64` | `SOPInstructions.td` |
+| `s_sext_i32_i8` | `0x16` | `S_SEXT_I32_I8` | `SOPInstructions.td` |
+| `s_sext_i32_i16` | `0x17` | `S_SEXT_I32_I16` | `SOPInstructions.td` |
+| `s_bitset0_b32` | `0x18` | `S_BITSET0_B32` | `SOPInstructions.td` |
+| `s_bitset0_b64` | `0x19` | `S_BITSET0_B64` | `SOPInstructions.td` |
+| `s_bitset1_b32` | `0x1a` | `S_BITSET1_B32` | `SOPInstructions.td` |
+| `s_bitset1_b64` | `0x1b` | `S_BITSET1_B64` | `SOPInstructions.td` |
+| `s_getpc_b64` | `0x1c` | `S_GETPC_B64` | `SOPInstructions.td` |
+| `s_setpc_b64` | `0x1d` | `S_SETPC_B64` | `SOPInstructions.td` |
+| `s_swappc_b64` | `0x1e` | `S_SWAPPC_B64` | `SOPInstructions.td` |
+| `s_rfe_b64` | `0x1f` | `S_RFE_B64` | `SOPInstructions.td` |
+| `s_and_saveexec_b64` | `0x20` | `S_AND_SAVEEXEC_B64` | `SOPInstructions.td` |
+| `s_or_saveexec_b64` | `0x21` | `S_OR_SAVEEXEC_B64` | `SOPInstructions.td` |
+| `s_xor_saveexec_b64` | `0x22` | `S_XOR_SAVEEXEC_B64` | `SOPInstructions.td` |
+| `s_andn2_saveexec_b64` | `0x23` | `S_ANDN2_SAVEEXEC_B64` | `SOPInstructions.td` |
+| `s_orn2_saveexec_b64` | `0x24` | `S_ORN2_SAVEEXEC_B64` | `SOPInstructions.td` |
+| `s_nand_saveexec_b64` | `0x25` | `S_NAND_SAVEEXEC_B64` | `SOPInstructions.td` |
+| `s_nor_saveexec_b64` | `0x26` | `S_NOR_SAVEEXEC_B64` | `SOPInstructions.td` |
+| `s_xnor_saveexec_b64` | `0x27` | `S_XNOR_SAVEEXEC_B64` | `SOPInstructions.td` |
+| `s_quadmask_b32` | `0x28` | `S_QUADMASK_B32` | `SOPInstructions.td` |
+| `s_quadmask_b64` | `0x29` | `S_QUADMASK_B64` | `SOPInstructions.td` |
+| `s_movrels_b32` | `0x2a` | `S_MOVRELS_B32` | `SOPInstructions.td` |
+| `s_movrels_b64` | `0x2b` | `S_MOVRELS_B64` | `SOPInstructions.td` |
+| `s_movreld_b32` | `0x2c` | `S_MOVRELD_B32` | `SOPInstructions.td` |
+| `s_movreld_b64` | `0x2d` | `S_MOVRELD_B64` | `SOPInstructions.td` |
+| `s_cbranch_join` | `0x2e` | `S_CBRANCH_JOIN` | `SOPInstructions.td` |
+| `s_abs_i32` | `0x30` | `S_ABS_I32` | `SOPInstructions.td` |
+| `s_set_gpr_idx_idx` | `0x32` | `S_SET_GPR_IDX_IDX` | `SOPInstructions.td` |
+| `s_andn1_saveexec_b64` | `0x33` | `S_ANDN1_SAVEEXEC_B64` | `SOPInstructions.td` |
+| `s_orn1_saveexec_b64` | `0x34` | `S_ORN1_SAVEEXEC_B64` | `SOPInstructions.td` |
+| `s_andn1_wrexec_b64` | `0x35` | `S_ANDN1_WREXEC_B64` | `SOPInstructions.td` |
+| `s_andn2_wrexec_b64` | `0x36` | `S_ANDN2_WREXEC_B64` | `SOPInstructions.td` |
+| `s_bitreplicate_b64_b32` | `0x37` | `S_BITREPLICATE_B64_B32` | `SOPInstructions.td` |
+
+## SOP2
+
+| OpName | Opcode | Source Record | Source TD |
+|---|---:|---|---|
+| `s_add_u32` | `0x0` | `S_ADD_U32` | `SOPInstructions.td` |
+| `s_sub_u32` | `0x1` | `S_SUB_U32` | `SOPInstructions.td` |
+| `s_add_i32` | `0x2` | `S_ADD_I32` | `SOPInstructions.td` |
+| `s_sub_i32` | `0x3` | `S_SUB_I32` | `SOPInstructions.td` |
+| `s_addc_u32` | `0x4` | `S_ADDC_U32` | `SOPInstructions.td` |
+| `s_subb_u32` | `0x5` | `S_SUBB_U32` | `SOPInstructions.td` |
+| `s_min_i32` | `0x6` | `S_MIN_I32` | `SOPInstructions.td` |
+| `s_min_u32` | `0x7` | `S_MIN_U32` | `SOPInstructions.td` |
+| `s_max_i32` | `0x8` | `S_MAX_I32` | `SOPInstructions.td` |
+| `s_max_u32` | `0x9` | `S_MAX_U32` | `SOPInstructions.td` |
+| `s_cselect_b32` | `0xa` | `S_CSELECT_B32` | `SOPInstructions.td` |
+| `s_cselect_b64` | `0xb` | `S_CSELECT_B64` | `SOPInstructions.td` |
+| `s_and_b32` | `0xc` | `S_AND_B32` | `SOPInstructions.td` |
+| `s_and_b64` | `0xd` | `S_AND_B64` | `SOPInstructions.td` |
+| `s_or_b32` | `0xe` | `S_OR_B32` | `SOPInstructions.td` |
+| `s_or_b64` | `0xf` | `S_OR_B64` | `SOPInstructions.td` |
+| `s_xor_b32` | `0x10` | `S_XOR_B32` | `SOPInstructions.td` |
+| `s_xor_b64` | `0x11` | `S_XOR_B64` | `SOPInstructions.td` |
+| `s_andn2_b32` | `0x12` | `S_ANDN2_B32` | `SOPInstructions.td` |
+| `s_andn2_b64` | `0x13` | `S_ANDN2_B64` | `SOPInstructions.td` |
+| `s_orn2_b32` | `0x14` | `S_ORN2_B32` | `SOPInstructions.td` |
+| `s_orn2_b64` | `0x15` | `S_ORN2_B64` | `SOPInstructions.td` |
+| `s_nand_b32` | `0x16` | `S_NAND_B32` | `SOPInstructions.td` |
+| `s_nand_b64` | `0x17` | `S_NAND_B64` | `SOPInstructions.td` |
+| `s_nor_b32` | `0x18` | `S_NOR_B32` | `SOPInstructions.td` |
+| `s_nor_b64` | `0x19` | `S_NOR_B64` | `SOPInstructions.td` |
+| `s_xnor_b32` | `0x1a` | `S_XNOR_B32` | `SOPInstructions.td` |
+| `s_xnor_b64` | `0x1b` | `S_XNOR_B64` | `SOPInstructions.td` |
+| `s_lshl_b32` | `0x1c` | `S_LSHL_B32` | `SOPInstructions.td` |
+| `s_lshl_b64` | `0x1d` | `S_LSHL_B64` | `SOPInstructions.td` |
+| `s_lshr_b32` | `0x1e` | `S_LSHR_B32` | `SOPInstructions.td` |
+| `s_lshr_b64` | `0x1f` | `S_LSHR_B64` | `SOPInstructions.td` |
+| `s_ashr_i32` | `0x20` | `S_ASHR_I32` | `SOPInstructions.td` |
+| `s_ashr_i64` | `0x21` | `S_ASHR_I64` | `SOPInstructions.td` |
+| `s_bfm_b32` | `0x22` | `S_BFM_B32` | `SOPInstructions.td` |
+| `s_bfm_b64` | `0x23` | `S_BFM_B64` | `SOPInstructions.td` |
+| `s_mul_i32` | `0x24` | `S_MUL_I32` | `SOPInstructions.td` |
+| `s_bfe_u32` | `0x25` | `S_BFE_U32` | `SOPInstructions.td` |
+| `s_bfe_i32` | `0x26` | `S_BFE_I32` | `SOPInstructions.td` |
+| `s_bfe_u64` | `0x27` | `S_BFE_U64` | `SOPInstructions.td` |
+| `s_bfe_i64` | `0x28` | `S_BFE_I64` | `SOPInstructions.td` |
+| `s_cbranch_g_fork` | `0x29` | `S_CBRANCH_G_FORK` | `SOPInstructions.td` |
+| `s_absdiff_i32` | `0x2a` | `S_ABSDIFF_I32` | `SOPInstructions.td` |
+| `s_rfe_restore_b64` | `0x2b` | `S_RFE_RESTORE_B64` | `SOPInstructions.td` |
+| `s_mul_hi_u32` | `0x2c` | `S_MUL_HI_U32` | `SOPInstructions.td` |
+| `s_mul_hi_i32` | `0x2d` | `S_MUL_HI_I32` | `SOPInstructions.td` |
+| `s_lshl1_add_u32` | `0x2e` | `S_LSHL1_ADD_U32` | `SOPInstructions.td` |
+| `s_lshl2_add_u32` | `0x2f` | `S_LSHL2_ADD_U32` | `SOPInstructions.td` |
+| `s_lshl3_add_u32` | `0x30` | `S_LSHL3_ADD_U32` | `SOPInstructions.td` |
+| `s_lshl4_add_u32` | `0x31` | `S_LSHL4_ADD_U32` | `SOPInstructions.td` |
+| `s_pack_ll_b32_b16` | `0x32` | `S_PACK_LL_B32_B16` | `SOPInstructions.td` |
+| `s_pack_lh_b32_b16` | `0x33` | `S_PACK_LH_B32_B16` | `SOPInstructions.td` |
+| `s_pack_hh_b32_b16` | `0x34` | `S_PACK_HH_B32_B16` | `SOPInstructions.td` |
+
 ## SOPC
 
 | OpName | Opcode | Source Record | Source TD |
@@ -703,6 +839,32 @@ Encoding note:
 | `s_set_gpr_idx_on` | `0x11` | `S_SET_GPR_IDX_ON` | `SOPInstructions.td` |
 | `s_cmp_eq_u64` | `0x12` | `S_CMP_EQ_U64` | `SOPInstructions.td` |
 | `s_cmp_lg_u64` | `0x13` | `S_CMP_LG_U64` | `SOPInstructions.td` |
+
+## SOPK
+
+| OpName | Opcode | Source Record | Source TD |
+|---|---:|---|---|
+| `s_movk_i32` | `0x0` | `S_MOVK_I32` | `SOPInstructions.td` |
+| `s_cmovk_i32` | `0x1` | `S_CMOVK_I32` | `SOPInstructions.td` |
+| `s_cmpk_eq_i32` | `0x2` | `S_CMPK_EQ_I32` | `SOPInstructions.td` |
+| `s_cmpk_lg_i32` | `0x3` | `S_CMPK_LG_I32` | `SOPInstructions.td` |
+| `s_cmpk_gt_i32` | `0x4` | `S_CMPK_GT_I32` | `SOPInstructions.td` |
+| `s_cmpk_ge_i32` | `0x5` | `S_CMPK_GE_I32` | `SOPInstructions.td` |
+| `s_cmpk_lt_i32` | `0x6` | `S_CMPK_LT_I32` | `SOPInstructions.td` |
+| `s_cmpk_le_i32` | `0x7` | `S_CMPK_LE_I32` | `SOPInstructions.td` |
+| `s_cmpk_eq_u32` | `0x8` | `S_CMPK_EQ_U32` | `SOPInstructions.td` |
+| `s_cmpk_lg_u32` | `0x9` | `S_CMPK_LG_U32` | `SOPInstructions.td` |
+| `s_cmpk_gt_u32` | `0xa` | `S_CMPK_GT_U32` | `SOPInstructions.td` |
+| `s_cmpk_ge_u32` | `0xb` | `S_CMPK_GE_U32` | `SOPInstructions.td` |
+| `s_cmpk_lt_u32` | `0xc` | `S_CMPK_LT_U32` | `SOPInstructions.td` |
+| `s_cmpk_le_u32` | `0xd` | `S_CMPK_LE_U32` | `SOPInstructions.td` |
+| `s_addk_i32` | `0xe` | `S_ADDK_I32` | `SOPInstructions.td` |
+| `s_mulk_i32` | `0xf` | `S_MULK_I32` | `SOPInstructions.td` |
+| `s_cbranch_i_fork` | `0x10` | `S_CBRANCH_I_FORK` | `SOPInstructions.td` |
+| `s_getreg_b32` | `0x11` | `S_GETREG_B32` | `SOPInstructions.td` |
+| `s_setreg_b32` | `0x12` | `S_SETREG_B32` | `SOPInstructions.td` |
+| `s_setreg_imm32_b32` | `0x14` | `S_SETREG_IMM32_B32` | `SOPInstructions.td` |
+| `s_call_b64` | `0x15` | `S_CALL_B64` | `SOPInstructions.td` |
 
 ## SOPP
 

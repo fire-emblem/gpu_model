@@ -1,7 +1,5 @@
 #include "gpu_model/decode/gcn_inst_format.h"
 
-#include "gpu_model/decode/generated_gcn_opcode_enums.h"
-
 namespace gpu_model {
 
 GcnInstLayout MakeGcnInstLayout(const std::vector<uint32_t>& words) {
@@ -29,16 +27,16 @@ GcnInstFormatClass ClassifyGcnInstFormat(const std::vector<uint32_t>& words) {
   const uint32_t enc7 = (low >> 25u) & 0x7fu;
   const uint32_t enc9 = (low >> 23u) & 0x1ffu;
 
-  if (enc9 == static_cast<uint32_t>(GcnOpTypeEncoding::SOP1)) {
+  if (enc9 == 0x17du) {
     return GcnInstFormatClass::Sop1;
   }
-  if (enc9 == static_cast<uint32_t>(GcnOpTypeEncoding::SOPC)) {
+  if (enc9 == 0x17eu) {
     return GcnInstFormatClass::Sopc;
   }
-  if (enc9 == static_cast<uint32_t>(GcnOpTypeEncoding::SOPP)) {
+  if (enc9 == 0x17fu) {
     return GcnInstFormatClass::Sopp;
   }
-  if (enc4 == static_cast<uint32_t>(GcnOpTypeEncoding::SOPK)) {
+  if (enc4 == 0x0bu) {
     return GcnInstFormatClass::Sopk;
   }
   if (enc9 == 0x1a7u) {
@@ -50,16 +48,16 @@ GcnInstFormatClass ClassifyGcnInstFormat(const std::vector<uint32_t>& words) {
   if (enc6 == 0x3cu) {
     return GcnInstFormatClass::Mimg;
   }
-  if (enc5 == static_cast<uint32_t>(GcnOpTypeEncoding::SMRD)) {
+  if (enc5 == 0x18u) {
     return GcnInstFormatClass::Smrd;
   }
-  if (enc6 == static_cast<uint32_t>(GcnOpTypeEncoding::VOP3A)) {
+  if (enc6 == 0x34u) {
     return GcnInstFormatClass::Vop3a;
   }
-  if (enc6 == static_cast<uint32_t>(GcnOpTypeEncoding::DS)) {
+  if (enc6 == 0x36u) {
     return GcnInstFormatClass::Ds;
   }
-  if (enc6 == static_cast<uint32_t>(GcnOpTypeEncoding::FLAT)) {
+  if (enc6 == 0x37u) {
     return GcnInstFormatClass::Flat;
   }
   if (enc6 == 0x3Au) {
@@ -71,13 +69,13 @@ GcnInstFormatClass ClassifyGcnInstFormat(const std::vector<uint32_t>& words) {
   if (enc6 == 0x32u || (enc6 == 0x33u && ((low >> 24u) & 0x3u) == 0x1u)) {
     return GcnInstFormatClass::Vintrp;
   }
-  if (enc7 == static_cast<uint32_t>(GcnOpTypeEncoding::VOP1)) {
+  if (enc7 == 0x3fu) {
     return GcnInstFormatClass::Vop1;
   }
-  if (enc7 == static_cast<uint32_t>(GcnOpTypeEncoding::VOPC)) {
+  if (enc7 == 0x3eu) {
     return GcnInstFormatClass::Vopc;
   }
-  if (enc2 == static_cast<uint32_t>(GcnOpTypeEncoding::SOP2)) {
+  if (enc2 == 0x2u) {
     return GcnInstFormatClass::Sop2;
   }
   if (((low >> 31u) & 0x1u) == 0u) {
