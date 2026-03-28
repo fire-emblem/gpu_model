@@ -78,5 +78,26 @@ TEST(DeviceImageLoaderTest, MaterializesZeroFillKernargIntoDedicatedPool) {
   }
 }
 
+TEST(DeviceImageLoaderTest, MaterializesRawDataIntoRawDataPool) {
+  DeviceLoadPlan plan;
+  plan.segments.push_back(DeviceSegmentImage{
+      .kind = DeviceSegmentKind::RawData,
+      .pool = MemoryPoolKind::RawData,
+      .mapping = MemoryMappingKind::Copy,
+      .name = "raw_data",
+      .alignment = 4,
+      .bytes = {std::byte{0x91}, std::byte{0x92}, std::byte{0x93}},
+      .required_bytes = 3,
+  });
+
+  MemorySystem memory;
+  const auto result = DeviceImageLoader{}.Materialize(plan, memory);
+  ASSERT_EQ(result.segments.size(), 1u);
+  EXPECT_EQ(result.segments[0].allocation.pool, MemoryPoolKind::RawData);
+  EXPECT_EQ(memory.pool_memory_size(MemoryPoolKind::RawData), 3u);
+  EXPECT_EQ(memory.LoadValue<uint8_t>(MemoryPoolKind::RawData, 0), 0x91u);
+  EXPECT_EQ(memory.LoadValue<uint8_t>(MemoryPoolKind::RawData, 2), 0x93u);
+}
+
 }  // namespace
 }  // namespace gpu_model

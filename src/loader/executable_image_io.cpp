@@ -234,6 +234,7 @@ void ExecutableImageIO::Write(const std::filesystem::path& path,
       {ExecutableSectionKind::AssemblyText, StringToBytes(image.assembly_text())},
       {ExecutableSectionKind::MetadataKv, EncodeMetadata(image.metadata())},
       {ExecutableSectionKind::ConstData, image.const_segment().bytes},
+      {ExecutableSectionKind::RawData, image.raw_data_segment().bytes},
   };
   if (debug_info.has_value()) {
     sections.push_back({ExecutableSectionKind::DebugInfo, EncodeDebugInfo(*debug_info)});
@@ -297,8 +298,14 @@ ProgramImage ExecutableImageIO::Read(const std::filesystem::path& path) {
     const_segment.bytes = const_it->second;
   }
 
+  RawDataSegment raw_data_segment;
+  if (const auto raw_it = section_map.find(ExecutableSectionKind::RawData);
+      raw_it != section_map.end()) {
+    raw_data_segment.bytes = raw_it->second;
+  }
+
   return ProgramImage(BytesToString(kernel_it->second), BytesToString(asm_it->second),
-                      std::move(metadata), std::move(const_segment));
+                      std::move(metadata), std::move(const_segment), std::move(raw_data_segment));
 }
 
 std::optional<KernelDebugInfo> ExecutableImageIO::ReadDebugInfo(const std::filesystem::path& path) {

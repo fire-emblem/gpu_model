@@ -10,15 +10,17 @@ TEST(DeviceSegmentImageTest, BuildsPlanForProgramImageWithConstAndSharedMetadata
   ProgramImage image("kernel_a", "s_endpgm\n",
                      MetadataBlob{.values = {{"required_shared_bytes", "256"},
                                              {"arg_layout", "global_buffer:8,by_value:4"}}},
-                     ConstSegment{.bytes = {std::byte{0x1}, std::byte{0x2}}});
+                     ConstSegment{.bytes = {std::byte{0x1}, std::byte{0x2}}},
+                     RawDataSegment{.bytes = {std::byte{0x9}, std::byte{0xa}, std::byte{0xb}}});
 
   const auto plan = BuildDeviceLoadPlan(image);
-  ASSERT_EQ(plan.segments.size(), 3u);
+  ASSERT_EQ(plan.segments.size(), 4u);
   EXPECT_EQ(plan.segments[0].pool, MemoryPoolKind::Code);
   EXPECT_EQ(plan.segments[1].pool, MemoryPoolKind::Constant);
-  EXPECT_EQ(plan.segments[2].pool, MemoryPoolKind::Kernarg);
-  EXPECT_EQ(plan.segments[2].kind, DeviceSegmentKind::KernargTemplate);
-  EXPECT_EQ(plan.segments[2].mapping, MemoryMappingKind::ZeroFill);
+  EXPECT_EQ(plan.segments[2].pool, MemoryPoolKind::RawData);
+  EXPECT_EQ(plan.segments[3].pool, MemoryPoolKind::Kernarg);
+  EXPECT_EQ(plan.segments[3].kind, DeviceSegmentKind::KernargTemplate);
+  EXPECT_EQ(plan.segments[3].mapping, MemoryMappingKind::ZeroFill);
   EXPECT_EQ(plan.required_shared_bytes, 256u);
   EXPECT_EQ(plan.preferred_kernarg_bytes, 12u);
 }

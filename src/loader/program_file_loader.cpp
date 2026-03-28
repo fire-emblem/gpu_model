@@ -98,7 +98,7 @@ ProgramImage ProgramFileLoader::LoadFromStem(const std::filesystem::path& stem) 
   }
 
   return ProgramImage(std::move(kernel_name), ReadTextFile(asm_path), std::move(metadata),
-                      std::move(const_segment));
+                      std::move(const_segment), {});
 }
 
 }  // namespace gpu_model

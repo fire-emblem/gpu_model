@@ -103,5 +103,22 @@ TEST(ExecutableImageIOTest, RoundTripsEmbeddedDebugInfoSection) {
   std::filesystem::remove(path);
 }
 
+TEST(ExecutableImageIOTest, RoundTripsRawDataSection) {
+  const std::filesystem::path path =
+      std::filesystem::temp_directory_path() / "gpu_model_rawdata_image.gpusec";
+
+  ProgramImage image("rawdata_kernel", "s_endpgm\n",
+                     MetadataBlob{.values = {{"arch", "c500"}}}, {},
+                     RawDataSegment{.bytes = {std::byte{0x41}, std::byte{0x42}, std::byte{0x43}}});
+  ExecutableImageIO::Write(path, image);
+
+  const ProgramImage loaded = ExecutableImageIO::Read(path);
+  ASSERT_EQ(loaded.raw_data_segment().bytes.size(), 3u);
+  EXPECT_EQ(loaded.raw_data_segment().bytes[0], std::byte{0x41});
+  EXPECT_EQ(loaded.raw_data_segment().bytes[2], std::byte{0x43});
+
+  std::filesystem::remove(path);
+}
+
 }  // namespace
 }  // namespace gpu_model

@@ -14,6 +14,7 @@ enum class ExecutableSectionKind : uint32_t {
   MetadataKv = 3,
   ConstData = 4,
   DebugInfo = 5,
+  RawData = 6,
 };
 
 class ExecutableImageIO {

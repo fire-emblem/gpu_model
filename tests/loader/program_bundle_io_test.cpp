@@ -78,5 +78,25 @@ TEST(ProgramBundleIOTest, RoundTripsProgramImageAndLaunchesLoadedBundle) {
   std::filesystem::remove(bundle_path);
 }
 
+TEST(ProgramBundleIOTest, RoundTripsRawDataSegment) {
+  const std::filesystem::path bundle_path =
+      std::filesystem::temp_directory_path() / "gpu_model_roundtrip_rawdata.gpubin";
+
+  ProgramImage original(
+      "bundle_rawdata_kernel", "s_endpgm\n",
+      MetadataBlob{.values = {{"arch", "c500"}, {"format", "bundle_raw"}}}, {},
+      RawDataSegment{.bytes = {std::byte{0xde}, std::byte{0xad}, std::byte{0xbe}, std::byte{0xef}}});
+
+  ProgramBundleIO::Write(bundle_path, original);
+  const ProgramImage loaded = ProgramBundleIO::Read(bundle_path);
+
+  EXPECT_EQ(loaded.kernel_name(), original.kernel_name());
+  EXPECT_EQ(loaded.raw_data_segment().bytes.size(), 4u);
+  EXPECT_EQ(loaded.raw_data_segment().bytes[0], std::byte{0xde});
+  EXPECT_EQ(loaded.raw_data_segment().bytes[3], std::byte{0xef});
+
+  std::filesystem::remove(bundle_path);
+}
+
 }  // namespace
 }  // namespace gpu_model

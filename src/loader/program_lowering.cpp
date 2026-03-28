@@ -59,7 +59,8 @@ ProgramImage LowerGcnTextProgramImage(const ProgramImage& image) {
       ++line_index;
     }
   }
-  return ProgramImage(image.kernel_name(), lowered.str(), std::move(metadata), image.const_segment());
+  return ProgramImage(image.kernel_name(), lowered.str(), std::move(metadata), image.const_segment(),
+                      image.raw_data_segment());
 }
 
 class CanonicalAsmLowerer final : public IProgramLowerer {

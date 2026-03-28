@@ -57,6 +57,18 @@ DeviceSegmentImage MakeConstSegment(const ConstSegment& const_segment) {
   };
 }
 
+DeviceSegmentImage MakeRawDataSegment(const RawDataSegment& raw_data_segment) {
+  return DeviceSegmentImage{
+      .kind = DeviceSegmentKind::RawData,
+      .pool = MemoryPoolKind::RawData,
+      .mapping = MemoryMappingKind::Copy,
+      .name = "raw_data_segment",
+      .alignment = 16,
+      .bytes = raw_data_segment.bytes,
+      .required_bytes = raw_data_segment.bytes.size(),
+  };
+}
+
 }  // namespace
 
 DeviceLoadPlan BuildDeviceLoadPlan(const ProgramImage& image) {
@@ -67,6 +79,9 @@ DeviceLoadPlan BuildDeviceLoadPlan(const ProgramImage& image) {
   plan.segments.push_back(MakeCodeSegment(image.kernel_name() + ".asm", code_bytes));
   if (!image.const_segment().bytes.empty()) {
     plan.segments.push_back(MakeConstSegment(image.const_segment()));
+  }
+  if (!image.raw_data_segment().bytes.empty()) {
+    plan.segments.push_back(MakeRawDataSegment(image.raw_data_segment()));
   }
   plan.required_shared_bytes = ParseU32Metadata(image.metadata(), "required_shared_bytes");
   plan.preferred_kernarg_bytes = EstimateKernargBytes(image.metadata());
