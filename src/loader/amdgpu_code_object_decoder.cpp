@@ -478,6 +478,8 @@ AmdgpuCodeObjectImage AmdgpuCodeObjectDecoder::Decode(const std::filesystem::pat
   if (code_object.instructions.empty()) {
     throw std::runtime_error("failed to decode AMDGPU kernel instructions: " + code_object.kernel_name);
   }
+  code_object.instruction_objects =
+      RawGcnInstructionArrayParser::Parse(code_object.decoded_instructions);
   return code_object;
 }
 

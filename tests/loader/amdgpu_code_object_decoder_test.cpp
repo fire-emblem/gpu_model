@@ -56,6 +56,9 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesRawInstructionsFromAmdgpuObject) {
   const auto image = AmdgpuCodeObjectDecoder{}.Decode(obj_path, "empty_kernel");
   EXPECT_EQ(image.kernel_name, "empty_kernel");
   ASSERT_FALSE(image.instructions.empty());
+  ASSERT_EQ(image.instruction_objects.size(), image.instructions.size());
+  ASSERT_NE(image.instruction_objects.front(), nullptr);
+  EXPECT_EQ(image.instruction_objects.front()->class_name(), "s_endpgm");
   EXPECT_EQ(image.instructions.front().mnemonic, "s_endpgm");
   EXPECT_EQ(image.instructions.front().size_bytes, 4u);
   EXPECT_EQ(image.instructions.front().format_class, GcnInstFormatClass::Sopp);
@@ -88,13 +91,16 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesRawInstructionsFromHipExecutable) {
   EXPECT_EQ(image.kernel_name, "vecadd");
   EXPECT_EQ(image.metadata.values.at("arg_count"), "4");
   ASSERT_FALSE(image.instructions.empty());
+  ASSERT_EQ(image.instruction_objects.size(), image.instructions.size());
+  ASSERT_NE(image.instruction_objects.front(), nullptr);
+  EXPECT_EQ(image.instruction_objects.front()->class_name(), "s_load_dword");
   EXPECT_EQ(image.instructions.front().mnemonic, "s_load_dword");
   EXPECT_EQ(image.instructions.front().format_class, GcnInstFormatClass::Smrd);
   EXPECT_EQ(image.instructions.front().encoding_id, 2u);
   ASSERT_EQ(image.instructions.front().decoded_operands.size(), 3u);
   EXPECT_FALSE(image.instructions.front().decoded_operands[0].text.empty());
-  EXPECT_EQ(image.instructions.front().decoded_operands[0].info.reg_first, 0u);
-  EXPECT_EQ(image.instructions.front().decoded_operands[1].info.reg_first, 4u);
+  EXPECT_EQ(image.instructions.front().decoded_operands[0].kind, RawGcnOperandKind::ScalarReg);
+  EXPECT_EQ(image.instructions.front().decoded_operands[1].kind, RawGcnOperandKind::ScalarRegRange);
   EXPECT_EQ(image.instructions.front().decoded_operands[1].info.reg_count, 2u);
   const auto v_lshl_it = std::find_if(
       image.instructions.begin(), image.instructions.end(),

@@ -12,6 +12,7 @@
 #include <string>
 #include <vector>
 
+#include "gpu_model/decode/gcn_inst_encoding_def.h"
 #include "gpu_model/decode/gcn_inst_db_lookup.h"
 
 namespace gpu_model {
@@ -188,6 +189,13 @@ uint64_t ResolveVectorLane(const DecodedGcnOperand& operand,
   throw std::invalid_argument("unsupported vector-lane raw operand");
 }
 
+const GcnIsaOpcodeDescriptor& RequireCanonicalOpcode(const DecodedGcnInstruction& instruction) {
+  if (const auto* descriptor = FindGcnFallbackOpcodeDescriptor(instruction.words); descriptor != nullptr) {
+    return *descriptor;
+  }
+  throw std::invalid_argument("missing canonical opcode descriptor: " + instruction.mnemonic);
+}
+
 class ScalarMemoryHandler final : public IRawGcnSemanticHandler {
  public:
   void Execute(const DecodedGcnInstruction& instruction, RawGcnWaveContext& context) const override {
@@ -225,74 +233,64 @@ class ScalarMemoryHandler final : public IRawGcnSemanticHandler {
 class ScalarAluHandler final : public IRawGcnSemanticHandler {
  public:
   void Execute(const DecodedGcnInstruction& instruction, RawGcnWaveContext& context) const override {
-    switch (instruction.encoding_id) {
-      case 41: {  // s_cselect_b64
+    const auto& descriptor = RequireCanonicalOpcode(instruction);
+    if (descriptor.op_type == GcnIsaOpType::Sop2 &&
+        descriptor.opcode == static_cast<uint16_t>(GcnIsaSop2Opcode::S_CSELECT_B64)) {
       const bool take_true = context.wave.ScalarMaskBit0();
       const uint64_t value = take_true ? ResolveScalarPair(instruction.operands.at(1), context)
                                        : ResolveScalarPair(instruction.operands.at(2), context);
       StoreScalarPair(instruction.operands.at(0), context, value);
-      break;
-      }
-      case 42: {  // s_andn2_b64
+    } else if (descriptor.op_type == GcnIsaOpType::Sop2 &&
+               descriptor.opcode == static_cast<uint16_t>(GcnIsaSop2Opcode::S_ANDN2_B64)) {
       const uint64_t lhs = ResolveScalarPair(instruction.operands.at(1), context);
       const uint64_t rhs = ResolveScalarPair(instruction.operands.at(2), context);
       StoreScalarPair(instruction.operands.at(0), context, lhs & ~rhs);
-      break;
-      }
-      case 53:
-      case 54: {  // s_mov_b32
+    } else if (descriptor.op_type == GcnIsaOpType::Sop1 &&
+               descriptor.opcode == static_cast<uint16_t>(GcnIsaSop1Opcode::S_MOV_B32)) {
       const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
       const uint32_t value =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(1), context));
       context.wave.sgpr.Write(sdst, value);
-      break;
-      }
-      case 71: {  // s_mov_b64
+    } else if (descriptor.op_type == GcnIsaOpType::Sop1 &&
+               descriptor.opcode == static_cast<uint16_t>(GcnIsaSop1Opcode::S_MOV_B64)) {
       const uint64_t value = ResolveScalarPair(instruction.operands.at(1), context);
       StoreScalarPair(instruction.operands.at(0), context, value);
-      break;
-      }
-      case 28: {  // s_or_b64
+    } else if (descriptor.op_type == GcnIsaOpType::Sop2 &&
+               descriptor.opcode == static_cast<uint16_t>(GcnIsaSop2Opcode::S_OR_B64)) {
       const uint64_t lhs = ResolveScalarPair(instruction.operands.at(1), context);
       const uint64_t rhs = ResolveScalarPair(instruction.operands.at(2), context);
       StoreScalarPair(instruction.operands.at(0), context, lhs | rhs);
-      break;
-      }
-      case 77: {  // s_and_b64
+    } else if (descriptor.op_type == GcnIsaOpType::Sop2 &&
+               descriptor.opcode == static_cast<uint16_t>(GcnIsaSop2Opcode::S_AND_B64)) {
       const uint64_t lhs = ResolveScalarPair(instruction.operands.at(1), context);
       const uint64_t rhs = ResolveScalarPair(instruction.operands.at(2), context);
       StoreScalarPair(instruction.operands.at(0), context, lhs & rhs);
-      break;
-      }
-      case 5:
-      case 20: {  // s_and_b32
+    } else if (descriptor.op_type == GcnIsaOpType::Sop2 &&
+               descriptor.opcode == static_cast<uint16_t>(GcnIsaSop2Opcode::S_AND_B32)) {
       const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
       const uint32_t lhs =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(1), context));
       const uint32_t rhs =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(2), context));
       context.wave.sgpr.Write(sdst, lhs & rhs);
-      break;
-      }
-      case 6: {  // s_mul_i32
+    } else if (descriptor.op_type == GcnIsaOpType::Sop2 &&
+               descriptor.opcode == static_cast<uint16_t>(GcnIsaSop2Opcode::S_MUL_I32)) {
       const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
       const uint32_t lhs =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(1), context));
       const uint32_t rhs =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(2), context));
       context.wave.sgpr.Write(sdst, lhs * rhs);
-      break;
-      }
-      case 23: {  // s_add_i32
+    } else if (descriptor.op_type == GcnIsaOpType::Sop2 &&
+               descriptor.opcode == static_cast<uint16_t>(GcnIsaSop2Opcode::S_ADD_I32)) {
       const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
       const uint32_t lhs =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(1), context));
       const uint32_t rhs =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(2), context));
       context.wave.sgpr.Write(sdst, lhs + rhs);
-      break;
-      }
-      case 69: {  // s_add_u32
+    } else if (descriptor.op_type == GcnIsaOpType::Sop2 &&
+               descriptor.opcode == static_cast<uint16_t>(GcnIsaSop2Opcode::S_ADD_U32)) {
       const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
       const uint64_t lhs =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(1), context));
@@ -301,9 +299,8 @@ class ScalarAluHandler final : public IRawGcnSemanticHandler {
       const uint64_t sum = lhs + rhs;
       context.wave.sgpr.Write(sdst, static_cast<uint32_t>(sum));
       context.wave.SetScalarMaskBit0((sum >> 32u) != 0);
-      break;
-      }
-      case 70: {  // s_addc_u32
+    } else if (descriptor.op_type == GcnIsaOpType::Sop2 &&
+               descriptor.opcode == static_cast<uint16_t>(GcnIsaSop2Opcode::S_ADDC_U32)) {
       const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
       const uint64_t lhs =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(1), context));
@@ -313,48 +310,41 @@ class ScalarAluHandler final : public IRawGcnSemanticHandler {
       const uint64_t sum = lhs + rhs + carry_in;
       context.wave.sgpr.Write(sdst, static_cast<uint32_t>(sum));
       context.wave.SetScalarMaskBit0((sum >> 32u) != 0);
-      break;
-      }
-      case 55: {  // s_lshr_b32
+    } else if (descriptor.op_type == GcnIsaOpType::Sop2 &&
+               descriptor.opcode == static_cast<uint16_t>(GcnIsaSop2Opcode::S_LSHR_B32)) {
       const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
       const uint32_t lhs =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(1), context));
       const uint32_t rhs =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(2), context));
       context.wave.sgpr.Write(sdst, lhs >> (rhs & 31u));
-      break;
-      }
-      case 72: {  // s_ashr_i32
+    } else if (descriptor.op_type == GcnIsaOpType::Sop2 &&
+               descriptor.opcode == static_cast<uint16_t>(GcnIsaSop2Opcode::S_ASHR_I32)) {
       const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
       const int32_t lhs =
           static_cast<int32_t>(ResolveScalarLike(instruction.operands.at(1), context));
       const uint32_t rhs =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(2), context));
       context.wave.sgpr.Write(sdst, static_cast<uint32_t>(lhs >> (rhs & 31u)));
-      break;
-      }
-      case 73: {  // s_lshl_b64
+    } else if (descriptor.op_type == GcnIsaOpType::Sop2 &&
+               descriptor.opcode == static_cast<uint16_t>(GcnIsaSop2Opcode::S_LSHL_B64)) {
       const uint64_t lhs = ResolveScalarPair(instruction.operands.at(1), context);
       const uint32_t rhs =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(2), context));
       StoreScalarPair(instruction.operands.at(0), context, lhs << (rhs & 63u));
-      break;
-      }
-      case 78: {  // s_movk_i32
+    } else if (descriptor.op_type == GcnIsaOpType::Sopk &&
+               descriptor.opcode == static_cast<uint16_t>(GcnIsaSopkOpcode::S_MOVK_I32)) {
       const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
       const int32_t value =
           static_cast<int32_t>(ResolveScalarLike(instruction.operands.at(1), context));
       context.wave.sgpr.Write(sdst, static_cast<uint32_t>(value));
-      break;
-      }
-      case 83: {  // s_bcnt1_i32_b64
+    } else if (descriptor.op_type == GcnIsaOpType::Sop1 &&
+               descriptor.opcode == static_cast<uint16_t>(GcnIsaSop1Opcode::S_BCNT1_I32_B64)) {
       const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
       const uint64_t value = ResolveScalarPair(instruction.operands.at(1), context);
       context.wave.sgpr.Write(sdst, static_cast<uint32_t>(std::popcount(value)));
-      break;
-      }
-      default:
-        throw std::invalid_argument("unsupported scalar alu opcode: " + instruction.mnemonic);
+    } else {
+      throw std::invalid_argument("unsupported scalar alu opcode: " + instruction.mnemonic);
     }
     context.wave.pc += instruction.size_bytes;
   }
@@ -363,41 +353,37 @@ class ScalarAluHandler final : public IRawGcnSemanticHandler {
 class ScalarCompareHandler final : public IRawGcnSemanticHandler {
  public:
   void Execute(const DecodedGcnInstruction& instruction, RawGcnWaveContext& context) const override {
-    switch (instruction.encoding_id) {
-      case 21: {  // s_cmp_lt_i32
+    const auto& descriptor = RequireCanonicalOpcode(instruction);
+    if (descriptor.op_type == GcnIsaOpType::Sopc &&
+        descriptor.opcode == static_cast<uint16_t>(GcnIsaSopcOpcode::S_CMP_LT_I32)) {
       const int32_t lhs =
           static_cast<int32_t>(ResolveScalarLike(instruction.operands.at(0), context));
       const int32_t rhs =
           static_cast<int32_t>(ResolveScalarLike(instruction.operands.at(1), context));
       context.wave.SetScalarMaskBit0(lhs < rhs);
-      break;
-      }
-      case 24: {  // s_cmp_eq_u32
+    } else if (descriptor.op_type == GcnIsaOpType::Sopc &&
+               descriptor.opcode == static_cast<uint16_t>(GcnIsaSopcOpcode::S_CMP_EQ_U32)) {
       const uint32_t lhs =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(0), context));
       const uint32_t rhs =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(1), context));
       context.wave.SetScalarMaskBit0(lhs == rhs);
-      break;
-      }
-      case 39: {  // s_cmp_gt_u32
+    } else if (descriptor.op_type == GcnIsaOpType::Sopc &&
+               descriptor.opcode == static_cast<uint16_t>(GcnIsaSopcOpcode::S_CMP_GT_U32)) {
       const uint32_t lhs =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(0), context));
       const uint32_t rhs =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(1), context));
       context.wave.SetScalarMaskBit0(lhs > rhs);
-      break;
-      }
-      case 40: {  // s_cmp_lt_u32
+    } else if (descriptor.op_type == GcnIsaOpType::Sopc &&
+               descriptor.opcode == static_cast<uint16_t>(GcnIsaSopcOpcode::S_CMP_LT_U32)) {
       const uint32_t lhs =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(0), context));
       const uint32_t rhs =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(1), context));
       context.wave.SetScalarMaskBit0(lhs < rhs);
-      break;
-      }
-      default:
-        throw std::invalid_argument("unsupported scalar compare opcode: " + instruction.mnemonic);
+    } else {
+      throw std::invalid_argument("unsupported scalar compare opcode: " + instruction.mnemonic);
     }
     context.wave.pc += instruction.size_bytes;
   }
@@ -1281,6 +1267,11 @@ const IRawGcnSemanticHandler& RawGcnSemanticHandlerRegistry::Get(std::string_vie
 
 const IRawGcnSemanticHandler& RawGcnSemanticHandlerRegistry::Get(
     const DecodedGcnInstruction& instruction) {
+  for (const auto& binding : HandlerBindings()) {
+    if (binding.mnemonic == instruction.mnemonic) {
+      return *binding.handler;
+    }
+  }
   if (instruction.encoding_id != 0) {
     if (const auto* def = FindGeneratedGcnInstDefById(instruction.encoding_id); def != nullptr) {
       if (const auto* handler =

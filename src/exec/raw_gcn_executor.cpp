@@ -249,8 +249,13 @@ LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
             .block = block_context,
         };
         try {
-          const auto& handler = RawGcnSemanticHandlerRegistry::Get(decoded);
-          handler.Execute(decoded, context);
+          if (it->second < image.instruction_objects.size() &&
+              image.instruction_objects[it->second] != nullptr) {
+            image.instruction_objects[it->second]->Execute(context);
+          } else {
+            const auto& handler = RawGcnSemanticHandlerRegistry::Get(decoded);
+            handler.Execute(decoded, context);
+          }
           made_progress = true;
         } catch (const std::exception& ex) {
           throw std::runtime_error(inst.mnemonic + ": " + ex.what());
