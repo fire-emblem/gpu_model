@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "gpu_model/decode/gcn_inst_encoding_def.h"
+#include "gpu_model/decode/gcn_inst_decoder.h"
 #include "gpu_model/loader/amdgpu_obj_loader.h"
 
 namespace gpu_model {
@@ -259,6 +260,7 @@ AmdgpuCodeObjectImage AmdgpuCodeObjectDecoder::Decode(const std::filesystem::pat
       continue;
     }
     code_object.instructions.push_back(instruction);
+    code_object.decoded_instructions.push_back(GcnInstDecoder{}.Decode(instruction));
     for (uint32_t word : instruction.words) {
       code_object.code_bytes.push_back(static_cast<std::byte>(word & 0xffu));
       code_object.code_bytes.push_back(static_cast<std::byte>((word >> 8u) & 0xffu));

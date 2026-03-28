@@ -10,7 +10,6 @@
 #include <stdexcept>
 #include <unordered_map>
 
-#include "gpu_model/loader/gcn_text_parser.h"
 #include "gpu_model/runtime/mapper.h"
 #include "gpu_model/state/wave_state.h"
 
@@ -105,62 +104,84 @@ void DebugLog(const char* fmt, ...) {
   va_end(args);
 }
 
-const GcnTextInstruction& ParseText(const RawGcnInstruction& inst) {
-  thread_local GcnTextInstruction parsed;
-  parsed = GcnTextParser::ParseInstruction(
-      inst.operands.empty() ? inst.mnemonic : inst.mnemonic + " " + inst.operands);
-  return parsed;
+uint32_t ParseIndex(std::string_view text, char prefix) {
+  if (text.size() < 2 || text.front() != prefix) {
+    throw std::invalid_argument("expected register operand");
+  }
+  return static_cast<uint32_t>(std::stoul(std::string(text.substr(1))));
 }
 
-uint32_t RequireScalarIndex(const GcnTextOperand& operand) {
-  if (!operand.reg.has_value() || operand.reg->prefix != 's') {
+uint32_t RequireScalarIndex(const DecodedGcnOperand& operand) {
+  if (operand.kind != DecodedGcnOperandKind::ScalarReg) {
     throw std::invalid_argument("expected scalar register operand");
   }
-  return operand.reg->index;
+  return ParseIndex(operand.text, 's');
 }
 
-uint32_t RequireVectorIndex(const GcnTextOperand& operand) {
-  if (!operand.reg.has_value() || operand.reg->prefix != 'v') {
+uint32_t RequireVectorIndex(const DecodedGcnOperand& operand) {
+  if (operand.kind != DecodedGcnOperandKind::VectorReg) {
     throw std::invalid_argument("expected vector register operand");
   }
-  return operand.reg->index;
+  return ParseIndex(operand.text, 'v');
 }
 
-std::pair<uint32_t, uint32_t> RequireScalarRange(const GcnTextOperand& operand) {
-  if (!operand.reg_range.has_value() || operand.reg_range->prefix != 's') {
+std::pair<uint32_t, uint32_t> ParseRange(std::string_view text, char prefix) {
+  if (text.size() < 5 || text.front() != prefix || text[1] != '[' || text.back() != ']') {
+    throw std::invalid_argument("expected register range operand");
+  }
+  const auto colon = text.find(':');
+  if (colon == std::string::npos) {
+    throw std::invalid_argument("invalid register range operand");
+  }
+  const uint32_t first = static_cast<uint32_t>(std::stoul(std::string(text.substr(2, colon - 2))));
+  const uint32_t last = static_cast<uint32_t>(
+      std::stoul(std::string(text.substr(colon + 1, text.size() - colon - 2))));
+  return {first, last};
+}
+
+std::pair<uint32_t, uint32_t> RequireScalarRange(const DecodedGcnOperand& operand) {
+  if (operand.kind != DecodedGcnOperandKind::ScalarRegRange) {
     throw std::invalid_argument("expected scalar register range operand");
   }
-  return {operand.reg_range->first, operand.reg_range->last};
+  return ParseRange(operand.text, 's');
 }
 
-std::pair<uint32_t, uint32_t> RequireVectorRange(const GcnTextOperand& operand) {
-  if (!operand.reg_range.has_value() || operand.reg_range->prefix != 'v') {
+std::pair<uint32_t, uint32_t> RequireVectorRange(const DecodedGcnOperand& operand) {
+  if (operand.kind != DecodedGcnOperandKind::VectorReg) {
     throw std::invalid_argument("expected vector register range operand");
   }
-  return {operand.reg_range->first, operand.reg_range->last};
+  return ParseRange(operand.text, 'v');
 }
 
-uint64_t ResolveScalarLike(const GcnTextOperand& operand, const RawWave& raw_wave) {
-  if (operand.kind == GcnTextOperandKind::Immediate && operand.immediate.has_value()) {
-    return *operand.immediate;
+uint64_t ResolveScalarLike(const DecodedGcnOperand& operand, const RawWave& raw_wave) {
+  if (operand.kind == DecodedGcnOperandKind::Immediate) {
+    if (operand.text == "off") {
+      return 0;
+    }
+    return static_cast<uint64_t>(std::stoll(operand.text, nullptr, 0));
   }
-  if (operand.kind == GcnTextOperandKind::Register && operand.reg->prefix == 's') {
-    return raw_wave.wave.sgpr.Read(operand.reg->index);
+  if (operand.kind == DecodedGcnOperandKind::ScalarReg) {
+    return raw_wave.wave.sgpr.Read(ParseIndex(operand.text, 's'));
+  }
+  if (operand.kind == DecodedGcnOperandKind::SpecialReg && operand.text == "vcc") {
+    return raw_wave.vcc;
   }
   throw std::invalid_argument("unsupported scalar-like raw operand");
 }
 
-uint64_t ResolveVectorLane(const GcnTextOperand& operand, const RawWave& raw_wave, uint32_t lane) {
-  if (operand.kind == GcnTextOperandKind::Immediate && operand.immediate.has_value()) {
-    return *operand.immediate;
+uint64_t ResolveVectorLane(const DecodedGcnOperand& operand, const RawWave& raw_wave, uint32_t lane) {
+  if (operand.kind == DecodedGcnOperandKind::Immediate) {
+    if (operand.text == "off") {
+      return 0;
+    }
+    return static_cast<uint64_t>(std::stoll(operand.text, nullptr, 0));
   }
-  if (operand.kind == GcnTextOperandKind::Register) {
-    if (operand.reg->prefix == 's') {
-      return raw_wave.wave.sgpr.Read(operand.reg->index);
-    }
-    if (operand.reg->prefix == 'v') {
-      return raw_wave.wave.vgpr.Read(operand.reg->index, lane);
-    }
+  if (operand.kind == DecodedGcnOperandKind::ScalarReg) {
+    return raw_wave.wave.sgpr.Read(ParseIndex(operand.text, 's'));
+  }
+  if (operand.kind == DecodedGcnOperandKind::VectorReg && operand.text.size() > 1 &&
+      operand.text[1] != '[') {
+    return raw_wave.wave.vgpr.Read(ParseIndex(operand.text, 'v'), lane);
   }
   throw std::invalid_argument("unsupported vector-lane raw operand");
 }
@@ -223,27 +244,27 @@ LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
           throw std::out_of_range("raw GCN wave pc out of range");
         }
         const auto& inst = image.instructions[it->second];
+        const auto& decoded = image.decoded_instructions[it->second];
         DebugLog("exec pc=0x%llx %s %s",
                  static_cast<unsigned long long>(inst.pc), inst.mnemonic.c_str(),
                  inst.operands.c_str());
-        const auto& parsed = ParseText(inst);
         ++result.stats.wave_steps;
         ++result.stats.instructions_issued;
         try {
         if (inst.mnemonic == "s_load_dword") {
-          const uint32_t offset = static_cast<uint32_t>(parsed.operands.at(2).immediate.value_or(0));
-          const uint32_t sdst = RequireScalarIndex(parsed.operands.at(0));
+          const uint32_t offset = static_cast<uint32_t>(ResolveScalarLike(decoded.operands.at(2), raw_wave));
+          const uint32_t sdst = RequireScalarIndex(decoded.operands.at(0));
           raw_wave.wave.sgpr.Write(sdst, LoadKernarg32(kernarg, offset));
           raw_wave.wave.pc += inst.size_bytes;
         } else if (inst.mnemonic == "s_load_dwordx2") {
-          const uint32_t offset = static_cast<uint32_t>(parsed.operands.at(2).immediate.value_or(0));
-          const auto [sdst, _] = RequireScalarRange(parsed.operands.at(0));
+          const uint32_t offset = static_cast<uint32_t>(ResolveScalarLike(decoded.operands.at(2), raw_wave));
+          const auto [sdst, _] = RequireScalarRange(decoded.operands.at(0));
           raw_wave.wave.sgpr.Write(sdst, LoadKernarg64(kernarg, offset) & 0xffffffffu);
           raw_wave.wave.sgpr.Write(sdst + 1, LoadKernarg64(kernarg, offset) >> 32u);
           raw_wave.wave.pc += inst.size_bytes;
         } else if (inst.mnemonic == "s_load_dwordx4") {
-          const uint32_t offset = static_cast<uint32_t>(parsed.operands.at(2).immediate.value_or(0));
-          const auto [sdst, _] = RequireScalarRange(parsed.operands.at(0));
+          const uint32_t offset = static_cast<uint32_t>(ResolveScalarLike(decoded.operands.at(2), raw_wave));
+          const auto [sdst, _] = RequireScalarRange(decoded.operands.at(0));
           raw_wave.wave.sgpr.Write(sdst + 0, LoadKernarg32(kernarg, offset + 0));
           raw_wave.wave.sgpr.Write(sdst + 1, LoadKernarg32(kernarg, offset + 4));
           raw_wave.wave.sgpr.Write(sdst + 2, LoadKernarg32(kernarg, offset + 8));
@@ -252,31 +273,31 @@ LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
         } else if (inst.mnemonic == "s_waitcnt") {
           raw_wave.wave.pc += inst.size_bytes;
         } else if (inst.mnemonic == "s_and_b32") {
-          const uint32_t sdst = RequireScalarIndex(parsed.operands.at(0));
-          const uint32_t lhs = static_cast<uint32_t>(ResolveScalarLike(parsed.operands.at(1), raw_wave));
-          const uint32_t rhs = static_cast<uint32_t>(ResolveScalarLike(parsed.operands.at(2), raw_wave));
+          const uint32_t sdst = RequireScalarIndex(decoded.operands.at(0));
+          const uint32_t lhs = static_cast<uint32_t>(ResolveScalarLike(decoded.operands.at(1), raw_wave));
+          const uint32_t rhs = static_cast<uint32_t>(ResolveScalarLike(decoded.operands.at(2), raw_wave));
           raw_wave.wave.sgpr.Write(sdst, lhs & rhs);
           raw_wave.wave.pc += inst.size_bytes;
         } else if (inst.mnemonic == "s_mul_i32") {
-          const uint32_t sdst = RequireScalarIndex(parsed.operands.at(0));
-          const uint32_t ssrc0 = static_cast<uint32_t>(ResolveScalarLike(parsed.operands.at(1), raw_wave));
-          const uint32_t ssrc1 = static_cast<uint32_t>(ResolveScalarLike(parsed.operands.at(2), raw_wave));
+          const uint32_t sdst = RequireScalarIndex(decoded.operands.at(0));
+          const uint32_t ssrc0 = static_cast<uint32_t>(ResolveScalarLike(decoded.operands.at(1), raw_wave));
+          const uint32_t ssrc1 = static_cast<uint32_t>(ResolveScalarLike(decoded.operands.at(2), raw_wave));
           raw_wave.wave.sgpr.Write(
               sdst, ssrc0 * ssrc1);
           raw_wave.wave.pc += inst.size_bytes;
         } else if (inst.mnemonic == "v_add_u32_e32") {
-          const uint32_t vdst = RequireVectorIndex(parsed.operands.at(0));
+          const uint32_t vdst = RequireVectorIndex(decoded.operands.at(0));
           for (uint32_t lane = 0; lane < LaneCount(raw_wave); ++lane) {
-            const uint32_t lhs = static_cast<uint32_t>(ResolveVectorLane(parsed.operands.at(1), raw_wave, lane));
-            const uint32_t rhs = static_cast<uint32_t>(ResolveVectorLane(parsed.operands.at(2), raw_wave, lane));
+            const uint32_t lhs = static_cast<uint32_t>(ResolveVectorLane(decoded.operands.at(1), raw_wave, lane));
+            const uint32_t rhs = static_cast<uint32_t>(ResolveVectorLane(decoded.operands.at(2), raw_wave, lane));
             raw_wave.wave.vgpr.Write(vdst, lane, lhs + rhs);
           }
           raw_wave.wave.pc += inst.size_bytes;
         } else if (inst.mnemonic == "v_cmp_gt_i32_e32") {
           raw_wave.vcc = 0;
           for (uint32_t lane = 0; lane < LaneCount(raw_wave); ++lane) {
-            const int32_t lhs = static_cast<int32_t>(ResolveVectorLane(parsed.operands.at(1), raw_wave, lane));
-            const int32_t rhs = static_cast<int32_t>(ResolveVectorLane(parsed.operands.at(2), raw_wave, lane));
+            const int32_t lhs = static_cast<int32_t>(ResolveVectorLane(decoded.operands.at(1), raw_wave, lane));
+            const int32_t rhs = static_cast<int32_t>(ResolveVectorLane(decoded.operands.at(2), raw_wave, lane));
             if (lhs > rhs) {
               raw_wave.vcc |= (1ull << lane);
             }
@@ -286,7 +307,7 @@ LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
                    static_cast<unsigned long long>(raw_wave.vcc));
           raw_wave.wave.pc += inst.size_bytes;
         } else if (inst.mnemonic == "s_and_saveexec_b64") {
-          const auto [sdst, _] = RequireScalarRange(parsed.operands.at(0));
+          const auto [sdst, _] = RequireScalarRange(decoded.operands.at(0));
           const uint64_t exec_before = raw_wave.wave.exec.to_ullong();
           raw_wave.wave.sgpr.Write(sdst, static_cast<uint32_t>(exec_before & 0xffffffffu));
           raw_wave.wave.sgpr.Write(sdst + 1, static_cast<uint32_t>(exec_before >> 32u));
@@ -297,22 +318,22 @@ LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
           raw_wave.wave.pc += inst.size_bytes;
         } else if (inst.mnemonic == "s_cbranch_execz") {
           if (raw_wave.wave.exec.none()) {
-            raw_wave.wave.pc = BranchTarget(raw_wave.wave.pc, static_cast<uint32_t>(parsed.operands.at(0).immediate.value_or(0)));
+            raw_wave.wave.pc = BranchTarget(raw_wave.wave.pc, static_cast<uint32_t>(ResolveScalarLike(decoded.operands.at(0), raw_wave)));
           } else {
             raw_wave.wave.pc += inst.size_bytes;
           }
         } else if (inst.mnemonic == "v_ashrrev_i32_e32") {
-          const uint32_t vdst = RequireVectorIndex(parsed.operands.at(0));
+          const uint32_t vdst = RequireVectorIndex(decoded.operands.at(0));
           for (uint32_t lane = 0; lane < LaneCount(raw_wave); ++lane) {
-            const uint32_t imm = static_cast<uint32_t>(ResolveVectorLane(parsed.operands.at(1), raw_wave, lane));
-            const int32_t rhs = static_cast<int32_t>(ResolveVectorLane(parsed.operands.at(2), raw_wave, lane));
+            const uint32_t imm = static_cast<uint32_t>(ResolveVectorLane(decoded.operands.at(1), raw_wave, lane));
+            const int32_t rhs = static_cast<int32_t>(ResolveVectorLane(decoded.operands.at(2), raw_wave, lane));
             raw_wave.wave.vgpr.Write(vdst, lane, static_cast<uint32_t>(rhs >> (imm & 31u)));
           }
           raw_wave.wave.pc += inst.size_bytes;
         } else if (inst.mnemonic == "v_lshlrev_b64") {
-          const auto [vdst, _vdst_hi] = RequireVectorRange(parsed.operands.at(0));
-          const uint32_t shift = static_cast<uint32_t>(ResolveVectorLane(parsed.operands.at(1), raw_wave, 0));
-          const auto [src_pair, _src_pair_hi] = RequireVectorRange(parsed.operands.at(2));
+          const auto [vdst, _vdst_hi] = RequireVectorRange(decoded.operands.at(0));
+          const uint32_t shift = static_cast<uint32_t>(ResolveVectorLane(decoded.operands.at(1), raw_wave, 0));
+          const auto [src_pair, _src_pair_hi] = RequireVectorRange(decoded.operands.at(2));
           for (uint32_t lane = 0; lane < LaneCount(raw_wave); ++lane) {
             const uint64_t lo = static_cast<uint32_t>(raw_wave.wave.vgpr.Read(src_pair, lane));
             const uint64_t hi = static_cast<uint32_t>(raw_wave.wave.vgpr.Read(src_pair + 1, lane));
@@ -322,18 +343,18 @@ LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
           }
           raw_wave.wave.pc += inst.size_bytes;
         } else if (inst.mnemonic == "v_mov_b32_e32") {
-          const uint32_t vdst = RequireVectorIndex(parsed.operands.at(0));
+          const uint32_t vdst = RequireVectorIndex(decoded.operands.at(0));
           for (uint32_t lane = 0; lane < LaneCount(raw_wave); ++lane) {
             raw_wave.wave.vgpr.Write(vdst, lane,
-                                     static_cast<uint32_t>(ResolveVectorLane(parsed.operands.at(1), raw_wave, lane)));
+                                     static_cast<uint32_t>(ResolveVectorLane(decoded.operands.at(1), raw_wave, lane)));
           }
           raw_wave.wave.pc += inst.size_bytes;
         } else if (inst.mnemonic == "v_add_co_u32_e32") {
-          const uint32_t vdst = RequireVectorIndex(parsed.operands.at(0));
+          const uint32_t vdst = RequireVectorIndex(decoded.operands.at(0));
           raw_wave.vcc = 0;
           for (uint32_t lane = 0; lane < LaneCount(raw_wave); ++lane) {
-            const uint64_t lhs = static_cast<uint32_t>(ResolveVectorLane(parsed.operands.at(2), raw_wave, lane));
-            const uint64_t rhs = static_cast<uint32_t>(ResolveVectorLane(parsed.operands.at(3), raw_wave, lane));
+            const uint64_t lhs = static_cast<uint32_t>(ResolveVectorLane(decoded.operands.at(2), raw_wave, lane));
+            const uint64_t rhs = static_cast<uint32_t>(ResolveVectorLane(decoded.operands.at(3), raw_wave, lane));
             const uint64_t sum = lhs + rhs;
             raw_wave.wave.vgpr.Write(vdst, lane, static_cast<uint32_t>(sum));
             if ((sum >> 32u) != 0) {
@@ -342,12 +363,12 @@ LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
           }
           raw_wave.wave.pc += inst.size_bytes;
         } else if (inst.mnemonic == "v_addc_co_u32_e32") {
-          const uint32_t vdst = RequireVectorIndex(parsed.operands.at(0));
+          const uint32_t vdst = RequireVectorIndex(decoded.operands.at(0));
           uint64_t next_vcc = 0;
           for (uint32_t lane = 0; lane < LaneCount(raw_wave); ++lane) {
             const uint64_t carry_in = (raw_wave.vcc >> lane) & 1ull;
-            const uint64_t lhs = static_cast<uint32_t>(ResolveVectorLane(parsed.operands.at(2), raw_wave, lane));
-            const uint64_t rhs = static_cast<uint32_t>(ResolveVectorLane(parsed.operands.at(3), raw_wave, lane));
+            const uint64_t lhs = static_cast<uint32_t>(ResolveVectorLane(decoded.operands.at(2), raw_wave, lane));
+            const uint64_t rhs = static_cast<uint32_t>(ResolveVectorLane(decoded.operands.at(3), raw_wave, lane));
             const uint64_t sum = lhs + rhs + carry_in;
             raw_wave.wave.vgpr.Write(vdst, lane, static_cast<uint32_t>(sum));
             if ((sum >> 32u) != 0) {
@@ -357,8 +378,8 @@ LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
           raw_wave.vcc = next_vcc;
           raw_wave.wave.pc += inst.size_bytes;
         } else if (inst.mnemonic == "global_load_dword") {
-          const uint32_t vdst = RequireVectorIndex(parsed.operands.at(0));
-          const auto [addr, _addr_hi] = RequireVectorRange(parsed.operands.at(1));
+          const uint32_t vdst = RequireVectorIndex(decoded.operands.at(0));
+          const auto [addr, _addr_hi] = RequireVectorRange(decoded.operands.at(1));
           for (uint32_t lane = 0; lane < LaneCount(raw_wave); ++lane) {
             const uint64_t lo = static_cast<uint32_t>(raw_wave.wave.vgpr.Read(addr, lane));
             const uint64_t hi = static_cast<uint32_t>(raw_wave.wave.vgpr.Read(addr + 1, lane));
@@ -374,16 +395,16 @@ LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
           ++result.stats.global_loads;
           raw_wave.wave.pc += inst.size_bytes;
         } else if (inst.mnemonic == "v_add_f32_e32") {
-          const uint32_t vdst = RequireVectorIndex(parsed.operands.at(0));
+          const uint32_t vdst = RequireVectorIndex(decoded.operands.at(0));
           for (uint32_t lane = 0; lane < LaneCount(raw_wave); ++lane) {
-            const float lhs = U32AsFloat(static_cast<uint32_t>(ResolveVectorLane(parsed.operands.at(1), raw_wave, lane)));
-            const float rhs = U32AsFloat(static_cast<uint32_t>(ResolveVectorLane(parsed.operands.at(2), raw_wave, lane)));
+            const float lhs = U32AsFloat(static_cast<uint32_t>(ResolveVectorLane(decoded.operands.at(1), raw_wave, lane)));
+            const float rhs = U32AsFloat(static_cast<uint32_t>(ResolveVectorLane(decoded.operands.at(2), raw_wave, lane)));
             raw_wave.wave.vgpr.Write(vdst, lane, FloatAsU32(lhs + rhs));
           }
           raw_wave.wave.pc += inst.size_bytes;
         } else if (inst.mnemonic == "global_store_dword") {
-          const auto [addr, _addr_hi] = RequireVectorRange(parsed.operands.at(0));
-          const uint32_t data = RequireVectorIndex(parsed.operands.at(1));
+          const auto [addr, _addr_hi] = RequireVectorRange(decoded.operands.at(0));
+          const uint32_t data = RequireVectorIndex(decoded.operands.at(1));
           for (uint32_t lane = 0; lane < LaneCount(raw_wave); ++lane) {
             const uint64_t lo = static_cast<uint32_t>(raw_wave.wave.vgpr.Read(addr, lane));
             const uint64_t hi = static_cast<uint32_t>(raw_wave.wave.vgpr.Read(addr + 1, lane));
