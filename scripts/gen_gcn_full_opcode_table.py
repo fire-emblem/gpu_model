@@ -454,7 +454,7 @@ def emit_md(rows: list[OpcodeRow], out_path: pathlib.Path) -> None:
     lines.append("- for example `EXP` and `VOPC` both use raw value `0x3e`, but `EXP` is 6-bit and `VOPC` is 7-bit")
     lines.append("- `VOP3A` and `VOP3B` share the same raw GFX8/GFX9 prefix `0x34` and are separated here by operand form")
     lines.append("- this markdown table is the canonical opcode table for the repository")
-    lines.append("- `generated_gcn_opcode_enums.*` is retained only as a compatibility subset")
+    lines.append("- the old subset-only `generated_gcn_opcode_enums.*` path is retired")
     lines.append("")
     lines.append("## OpType Encoding")
     lines.append("")

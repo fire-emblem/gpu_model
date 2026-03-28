@@ -44,7 +44,7 @@ Encoding note:
 - for example `EXP` and `VOPC` both use raw value `0x3e`, but `EXP` is 6-bit and `VOPC` is 7-bit
 - `VOP3A` and `VOP3B` share the same raw GFX8/GFX9 prefix `0x34` and are separated here by operand form
 - this markdown table is the canonical opcode table for the repository
-- `generated_gcn_opcode_enums.*` is retained only as a compatibility subset
+- the old subset-only `generated_gcn_opcode_enums.*` path is retired
 
 ## OpType Encoding
 
