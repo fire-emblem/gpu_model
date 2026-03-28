@@ -257,14 +257,26 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipSoftmaxExecutableWithUnknownInstruct
   const auto image = AmdgpuCodeObjectDecoder{}.Decode(exe_path, "softmax_row");
   EXPECT_EQ(image.kernel_name, "softmax_row");
   EXPECT_EQ(image.metadata.values.at("arg_count"), "3");
+  const auto barrier_count = std::count_if(
+      image.instructions.begin(), image.instructions.end(),
+      [](const RawGcnInstruction& inst) { return inst.mnemonic == "s_barrier"; });
+  const auto ds_write_count = std::count_if(
+      image.instructions.begin(), image.instructions.end(),
+      [](const RawGcnInstruction& inst) { return inst.mnemonic == "ds_write_b32"; });
+  const auto ds_read_count = std::count_if(
+      image.instructions.begin(), image.instructions.end(),
+      [](const RawGcnInstruction& inst) { return inst.mnemonic == "ds_read_b32"; });
+  const auto vmax_count = std::count_if(
+      image.instructions.begin(), image.instructions.end(),
+      [](const RawGcnInstruction& inst) { return inst.mnemonic == "v_max_f32_e32"; });
   const auto unknown_count = std::count_if(
       image.instructions.begin(), image.instructions.end(),
       [](const RawGcnInstruction& inst) { return inst.mnemonic == "unknown"; });
-  const auto ds_count = std::count_if(
-      image.instructions.begin(), image.instructions.end(),
-      [](const RawGcnInstruction& inst) { return inst.format_class == GcnInstFormatClass::Ds; });
+  EXPECT_GT(barrier_count, 0);
+  EXPECT_GT(ds_write_count, 0);
+  EXPECT_GT(ds_read_count, 0);
+  EXPECT_GT(vmax_count, 0);
   EXPECT_GT(unknown_count, 0);
-  EXPECT_GT(ds_count, 0);
 }
 
 TEST(AmdgpuCodeObjectDecoderTest, DecodesHipMfmaExecutableWithUnknownInstructions) {

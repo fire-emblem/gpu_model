@@ -52,6 +52,22 @@ const std::vector<GcnInstEncodingDef>& EncodingDefs() {
       {.id = 34, .format_class = GcnInstFormatClass::Vop3a, .op = 254, .size_bytes = 8, .mnemonic = "v_lshl_add_u32"},
       {.id = 35, .format_class = GcnInstFormatClass::Vop3a, .op = 140, .size_bytes = 8, .mnemonic = "v_add_co_u32_e64"},
       {.id = 36, .format_class = GcnInstFormatClass::Vop3a, .op = 142, .size_bytes = 8, .mnemonic = "v_addc_co_u32_e64"},
+      {.id = 37, .format_class = GcnInstFormatClass::Vop1, .op = 1, .size_bytes = 8, .mnemonic = "v_mov_b32_e32"},
+      {.id = 38, .format_class = GcnInstFormatClass::Vop3a, .op = 98, .size_bytes = 8, .mnemonic = "v_cmp_gt_i32_e64"},
+      {.id = 39, .format_class = GcnInstFormatClass::Sopc, .op = 8, .size_bytes = 4, .mnemonic = "s_cmp_gt_u32"},
+      {.id = 40, .format_class = GcnInstFormatClass::Sopc, .op = 10, .size_bytes = 4, .mnemonic = "s_cmp_lt_u32"},
+      {.id = 41, .format_class = GcnInstFormatClass::Sop2, .op = 11, .size_bytes = 4, .mnemonic = "s_cselect_b64"},
+      {.id = 42, .format_class = GcnInstFormatClass::Sop2, .op = 19, .size_bytes = 4, .mnemonic = "s_andn2_b64"},
+      {.id = 43, .format_class = GcnInstFormatClass::Sopp, .op = 6, .size_bytes = 4, .mnemonic = "s_cbranch_vccz"},
+      {.id = 44, .format_class = GcnInstFormatClass::Vop2, .op = 2, .size_bytes = 4, .mnemonic = "v_sub_f32_e32"},
+      {.id = 45, .format_class = GcnInstFormatClass::Vop2, .op = 5, .size_bytes = 8, .mnemonic = "v_mul_f32_e32"},
+      {.id = 46, .format_class = GcnInstFormatClass::Vop2, .op = 11, .size_bytes = 4, .mnemonic = "v_max_f32_e32"},
+      {.id = 47, .format_class = GcnInstFormatClass::Vop2, .op = 59, .size_bytes = 8, .mnemonic = "v_fmac_f32_e32"},
+      {.id = 48, .format_class = GcnInstFormatClass::Vop2, .op = 0, .size_bytes = 4, .mnemonic = "v_cndmask_b32_e32"},
+      {.id = 49, .format_class = GcnInstFormatClass::Vop1, .op = 8, .size_bytes = 4, .mnemonic = "v_cvt_i32_f32_e32"},
+      {.id = 50, .format_class = GcnInstFormatClass::Vop1, .op = 30, .size_bytes = 4, .mnemonic = "v_rndne_f32_e32"},
+      {.id = 51, .format_class = GcnInstFormatClass::Vop1, .op = 32, .size_bytes = 4, .mnemonic = "v_exp_f32_e32"},
+      {.id = 52, .format_class = GcnInstFormatClass::Vop1, .op = 34, .size_bytes = 4, .mnemonic = "v_rcp_f32_e32"},
   };
   return kDefs;
 }
@@ -340,6 +356,21 @@ void DecodeGcnOperands(RawGcnInstruction& instruction) {
             MakeScalarRegRangeOperand((low >> 8u) & 0xffu, 2));
       }
       break;
+    case 41:
+      instruction.decoded_operands.push_back(MakeScalarRegRangeOperand((low >> 16u) & 0x7fu, 2));
+      instruction.decoded_operands.push_back(DecodeSrc8(low & 0xffu));
+      instruction.decoded_operands.push_back(DecodeSrc8((low >> 8u) & 0xffu));
+      break;
+    case 42:
+      instruction.decoded_operands.push_back(MakeSpecialRegOperand(GcnSpecialReg::Vcc, "vcc"));
+      if ((low & 0xffu) == 0x7eu || (low & 0xffu) == 0x7fu) {
+        instruction.decoded_operands.push_back(MakeSpecialRegOperand(GcnSpecialReg::Exec, "exec"));
+      } else {
+        instruction.decoded_operands.push_back(DecodeSrc8(low & 0xffu));
+      }
+      instruction.decoded_operands.push_back(
+          MakeScalarRegRangeOperand((low >> 8u) & 0xffu, 2));
+      break;
     case 20:
       instruction.decoded_operands.push_back(MakeScalarRegOperand((low >> 16u) & 0x7fu));
       instruction.decoded_operands.push_back(DecodeSrc8(low & 0xffu));
@@ -364,12 +395,15 @@ void DecodeGcnOperands(RawGcnInstruction& instruction) {
     case 22:
     case 26:
     case 27:
+    case 43:
       instruction.decoded_operands.push_back(MakeBranchTargetOperand(static_cast<int16_t>(low & 0xffffu)));
       break;
     case 29:
       break;
     case 21:
     case 24:
+    case 39:
+    case 40:
       instruction.decoded_operands.push_back(DecodeSrc8(low & 0xffu));
       instruction.decoded_operands.push_back(DecodeSrc8((low >> 8u) & 0xffu));
       break;
@@ -377,15 +411,29 @@ void DecodeGcnOperands(RawGcnInstruction& instruction) {
       instruction.decoded_operands.push_back(MakeWaitCntOperand(static_cast<uint16_t>(low & 0xffffu)));
       break;
     case 13:
+    case 37:
       instruction.decoded_operands.push_back(MakeVectorRegOperand((low >> 17u) & 0xffu));
-      instruction.decoded_operands.push_back(DecodeSrc9(low & 0x1ffu));
+      if (def->id == 37) {
+        instruction.decoded_operands.push_back(MakeImmediateOperand(FormatImmediate(high), high));
+      } else {
+        instruction.decoded_operands.push_back(DecodeSrc9(low & 0x1ffu));
+      }
       break;
     case 32:
+    case 49:
+    case 50:
+    case 51:
+    case 52:
       instruction.decoded_operands.push_back(MakeVectorRegOperand((low >> 17u) & 0xffu));
       instruction.decoded_operands.push_back(DecodeSrc9(low & 0x1ffu));
       break;
     case 14:
     case 33:
+    case 44:
+    case 45:
+    case 46:
+    case 47:
+    case 48:
       instruction.decoded_operands.push_back(MakeVectorRegOperand((low >> 17u) & 0xffu));
       instruction.decoded_operands.push_back(DecodeSrc9(low & 0x1ffu));
       instruction.decoded_operands.push_back(MakeVectorRegOperand((low >> 9u) & 0xffu));
@@ -440,6 +488,12 @@ void DecodeGcnOperands(RawGcnInstruction& instruction) {
       instruction.decoded_operands.push_back(DecodeSrc9((high >> 9u) & 0x1ffu));
       instruction.decoded_operands.push_back(
           MakeScalarRegRangeOperand((high >> 18u) & 0x1ffu, 2));
+      break;
+    case 38:
+      instruction.decoded_operands.push_back(
+          MakeScalarRegRangeOperand((low >> 8u) & 0x7fu, 2));
+      instruction.decoded_operands.push_back(DecodeSrc9((high >> 0u) & 0x1ffu));
+      instruction.decoded_operands.push_back(DecodeSrc9((high >> 9u) & 0x1ffu));
       break;
     case 18: {
       const uint32_t addr = high & 0xffu;
