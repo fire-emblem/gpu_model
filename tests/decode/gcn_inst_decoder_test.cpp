@@ -109,5 +109,26 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeGlobalLoadInstruction) {
   EXPECT_EQ(decoded.operands[2].info.immediate, 0);
 }
 
+TEST(GcnInstDecoderTest, DecodesRepresentativeVop3aFmaInstruction) {
+  RawGcnInstruction raw{
+      .pc = 0x1a00,
+      .size_bytes = 8,
+      .words = {0xd1cb0002u, 0x04140503u},
+      .format_class = GcnInstFormatClass::Vop3a,
+      .mnemonic = "v_fma_f32",
+      .operands = "",
+      .decoded_operands = {},
+  };
+
+  const auto decoded = GcnInstDecoder{}.Decode(raw);
+  EXPECT_EQ(decoded.encoding_id, 25u);
+  EXPECT_EQ(decoded.mnemonic, "v_fma_f32");
+  ASSERT_EQ(decoded.operands.size(), 4u);
+  EXPECT_EQ(decoded.operands[0].text, "v2");
+  EXPECT_EQ(decoded.operands[1].text, "v3");
+  EXPECT_EQ(decoded.operands[2].text, "s2");
+  EXPECT_EQ(decoded.operands[3].text, "v5");
+}
+
 }  // namespace
 }  // namespace gpu_model
