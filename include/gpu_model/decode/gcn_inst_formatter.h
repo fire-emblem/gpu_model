@@ -2,12 +2,14 @@
 
 #include <string>
 
+#include "gpu_model/decode/decoded_gcn_instruction.h"
 #include "gpu_model/decode/raw_gcn_instruction.h"
 
 namespace gpu_model {
 
 class GcnInstFormatter {
  public:
+  std::string Format(const DecodedGcnInstruction& instruction) const;
   std::string Format(const RawGcnInstruction& instruction) const;
 };
 

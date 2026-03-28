@@ -130,7 +130,7 @@ DecodedGcnInstruction GcnInstDecoder::Decode(const RawGcnInstruction& instructio
       decoded.operands.push_back(MakeOperand(DecodedGcnOperandKind::SpecialReg, "vcc"));
       break;
     case 10:
-      decoded.operands.push_back(MakeOperand(DecodedGcnOperandKind::Immediate,
+      decoded.operands.push_back(MakeOperand(DecodedGcnOperandKind::BranchTarget,
                                              Imm(low & 0xffffu)));
       break;
     case 12:
@@ -171,14 +171,30 @@ DecodedGcnInstruction GcnInstDecoder::Decode(const RawGcnInstruction& instructio
       decoded.operands.push_back(MakeOperand(DecodedGcnOperandKind::SpecialReg, "vcc"));
       break;
     case 17:
-      decoded.operands.push_back(MakeOperand(DecodedGcnOperandKind::VectorReg,
+      decoded.operands.push_back(MakeOperand(DecodedGcnOperandKind::VectorRegRange,
                                              "v[" + std::to_string(low & 0xffu) + ":" +
                                                  std::to_string((low & 0xffu) + 1u) + "]"));
       decoded.operands.push_back(MakeOperand(DecodedGcnOperandKind::Immediate,
                                              Src9(high & 0x1ffu)));
-      decoded.operands.push_back(MakeOperand(DecodedGcnOperandKind::VectorReg,
+      decoded.operands.push_back(MakeOperand(DecodedGcnOperandKind::VectorRegRange,
                                              "v[" + std::to_string((high >> 9u) & 0x1ffu) + ":" +
                                                  std::to_string(((high >> 9u) & 0x1ffu) + 1u) + "]"));
+      break;
+    case 18:
+      decoded.operands.push_back(MakeOperand(DecodedGcnOperandKind::VectorReg,
+                                             VReg((high >> 24u) & 0xffu)));
+      decoded.operands.push_back(MakeOperand(DecodedGcnOperandKind::VectorRegRange,
+                                             "v[" + std::to_string(high & 0xffu) + ":" +
+                                                 std::to_string((high & 0xffu) + 1u) + "]"));
+      decoded.operands.push_back(MakeOperand(DecodedGcnOperandKind::Immediate, "off"));
+      break;
+    case 19:
+      decoded.operands.push_back(MakeOperand(DecodedGcnOperandKind::VectorRegRange,
+                                             "v[" + std::to_string(high & 0xffu) + ":" +
+                                                 std::to_string((high & 0xffu) + 1u) + "]"));
+      decoded.operands.push_back(MakeOperand(DecodedGcnOperandKind::VectorReg,
+                                             VReg((high >> 8u) & 0xffu)));
+      decoded.operands.push_back(MakeOperand(DecodedGcnOperandKind::Immediate, "off"));
       break;
     default:
       break;

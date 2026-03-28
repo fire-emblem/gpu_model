@@ -38,5 +38,26 @@ TEST(GcnInstFormatterTest, FormatsRawInstructionWithEncodingInfo) {
   EXPECT_NE(text.find("format=smrd"), std::string::npos);
 }
 
+TEST(GcnInstFormatterTest, FormatsDecodedInstructionWithDecodedOperands) {
+  DecodedGcnInstruction instruction{
+      .pc = 0x1968,
+      .size_bytes = 8,
+      .encoding_id = 18,
+      .format_class = GcnInstFormatClass::Flat,
+      .words = {0xdc508000u, 0x067f0004u},
+      .mnemonic = "global_load_dword",
+      .operands =
+          {
+              DecodedGcnOperand{.kind = DecodedGcnOperandKind::VectorReg, .text = "v6"},
+              DecodedGcnOperand{.kind = DecodedGcnOperandKind::VectorRegRange, .text = "v[4:5]"},
+              DecodedGcnOperand{.kind = DecodedGcnOperandKind::Immediate, .text = "off"},
+          },
+  };
+
+  const std::string text = GcnInstFormatter{}.Format(instruction);
+  EXPECT_NE(text.find("global_load_dword v6, v[4:5], off"), std::string::npos);
+  EXPECT_NE(text.find("format=flat"), std::string::npos);
+}
+
 }  // namespace
 }  // namespace gpu_model

@@ -35,6 +35,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeBranchInstruction) {
   EXPECT_EQ(decoded.mnemonic, "s_cbranch_execz");
   ASSERT_EQ(decoded.operands.size(), 1u);
   EXPECT_EQ(decoded.operands[0].text, "25");
+  EXPECT_EQ(decoded.operands[0].kind, DecodedGcnOperandKind::BranchTarget);
 }
 
 TEST(GcnInstDecoderTest, DecodesRepresentativeWaitcntInstruction) {
@@ -82,8 +83,9 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeGlobalLoadInstruction) {
   EXPECT_EQ(decoded.encoding_id, 18u);
   EXPECT_EQ(decoded.mnemonic, "global_load_dword");
   ASSERT_EQ(decoded.operands.size(), 3u);
-  EXPECT_EQ(decoded.operands[0].text, "v6");
+  EXPECT_EQ(decoded.operands[1].kind, DecodedGcnOperandKind::VectorRegRange);
   EXPECT_EQ(decoded.operands[1].text, "v[4:5]");
+  EXPECT_EQ(decoded.operands[0].text, "v6");
   EXPECT_EQ(decoded.operands[2].text, "off");
 }
 

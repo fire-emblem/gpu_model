@@ -6,6 +6,26 @@
 
 namespace gpu_model {
 
+std::string GcnInstFormatter::Format(const DecodedGcnInstruction& instruction) const {
+  std::ostringstream out;
+  out << instruction.mnemonic;
+  if (!instruction.operands.empty()) {
+    out << ' ';
+    for (size_t i = 0; i < instruction.operands.size(); ++i) {
+      if (i != 0) {
+        out << ", ";
+      }
+      out << instruction.operands[i].text;
+    }
+  }
+  if (const auto* def = FindGcnInstEncodingDef(instruction.words)) {
+    out << " ; format=" << ToString(def->format_class) << " op=" << def->op;
+  } else {
+    out << " ; format=" << ToString(instruction.format_class);
+  }
+  return out.str();
+}
+
 std::string GcnInstFormatter::Format(const RawGcnInstruction& instruction) const {
   std::ostringstream out;
   out << instruction.mnemonic;

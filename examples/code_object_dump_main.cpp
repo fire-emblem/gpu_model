@@ -25,7 +25,7 @@ int main(int argc, char** argv) {
     gpu_model::GcnInstFormatter formatter;
 
     std::cout << "kernel=" << image.kernel_name << '\n';
-    for (const auto& instruction : image.instructions) {
+    for (const auto& instruction : image.decoded_instructions) {
       std::cout << "pc=0x" << std::hex << instruction.pc << std::dec
                 << " size=" << instruction.size_bytes
                 << " fmt=" << gpu_model::ToString(instruction.format_class)

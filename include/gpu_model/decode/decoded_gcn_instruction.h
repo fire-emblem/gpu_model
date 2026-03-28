@@ -13,8 +13,10 @@ enum class DecodedGcnOperandKind {
   ScalarReg,
   ScalarRegRange,
   VectorReg,
+  VectorRegRange,
   SpecialReg,
   Immediate,
+  BranchTarget,
 };
 
 struct DecodedGcnOperand {
