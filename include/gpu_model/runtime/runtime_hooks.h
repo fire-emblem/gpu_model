@@ -26,6 +26,7 @@ class RuntimeHooks {
   explicit RuntimeHooks(HostRuntime* runtime = nullptr);
 
   uint64_t Malloc(size_t bytes);
+  uint64_t MallocManaged(size_t bytes);
   void Free(uint64_t addr);
   void DeviceSynchronize() const;
   void MemcpyDeviceToDevice(uint64_t dst_addr, uint64_t src_addr, size_t bytes);

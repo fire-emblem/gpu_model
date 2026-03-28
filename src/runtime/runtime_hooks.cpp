@@ -36,6 +36,12 @@ uint64_t RuntimeHooks::Malloc(size_t bytes) {
   return addr;
 }
 
+uint64_t RuntimeHooks::MallocManaged(size_t bytes) {
+  const uint64_t addr = runtime_->memory().Allocate(MemoryPoolKind::Managed, bytes);
+  allocations_.emplace(addr, bytes);
+  return addr;
+}
+
 void RuntimeHooks::Free(uint64_t addr) {
   allocations_.erase(addr);
 }

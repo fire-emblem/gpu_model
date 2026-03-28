@@ -89,6 +89,13 @@ TEST(RuntimeHooksTest, SimulatesMallocMemcpyLaunchAndSynchronizeFlow) {
   }
 }
 
+TEST(RuntimeHooksTest, MallocManagedUsesManagedPool) {
+  RuntimeHooks hooks;
+  const uint64_t addr = hooks.MallocManaged(64);
+  EXPECT_EQ(hooks.runtime().memory().pool_memory_size(MemoryPoolKind::Managed), 64u);
+  EXPECT_NE(addr & 0xF000000000000000ull, 0ull);
+}
+
 TEST(RuntimeHooksTest, RegistersProgramImagesAndLaunchesByModuleAndKernelName) {
   constexpr uint32_t n = 32;
   ProgramImage image(
@@ -311,6 +318,44 @@ TEST(RuntimeHooksTest, LaunchKernelCanReadMaterializedRawDataPool) {
 
   hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(out));
   EXPECT_EQ(out, table);
+}
+
+TEST(RuntimeHooksTest, LaunchKernelCanReadAndWriteManagedPool) {
+  std::vector<int32_t> input = {3, 6, 9, 12};
+  RuntimeHooks hooks;
+  const uint64_t in_addr = hooks.MallocManaged(input.size() * sizeof(int32_t));
+  const uint64_t out_addr = hooks.MallocManaged(input.size() * sizeof(int32_t));
+  std::vector<int32_t> output(input.size(), 0);
+  hooks.MemcpyHtoD<int32_t>(in_addr, std::span<const int32_t>(input));
+  hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(output));
+
+  InstructionBuilder builder;
+  builder.SLoadArg("s0", 0);
+  builder.SLoadArg("s1", 1);
+  builder.SLoadArg("s2", 2);
+  builder.SysGlobalIdX("v0");
+  builder.VCmpLtCmask("v0", "s2");
+  builder.MaskSaveExec("s10");
+  builder.MaskAndExecCmask();
+  builder.BIfNoexec("exit");
+  builder.MLoadGlobal("v1", "s0", "v0", 4);
+  builder.MStoreGlobal("s1", "v0", "v1", 4);
+  builder.Label("exit");
+  builder.MaskRestoreExec("s10");
+  builder.BExit();
+  const auto kernel = builder.Build("managed_copy");
+
+  KernelArgPack args;
+  args.PushU64(in_addr);
+  args.PushU64(out_addr);
+  args.PushU32(static_cast<uint32_t>(input.size()));
+
+  const auto result =
+      hooks.LaunchKernel(kernel, LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64}, std::move(args));
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(output));
+  EXPECT_EQ(output, input);
 }
 
 TEST(RuntimeHooksTest, LoadsSectionedExecutableImageAndLaunchesRegisteredKernel) {
