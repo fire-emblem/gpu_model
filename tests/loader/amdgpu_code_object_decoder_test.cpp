@@ -279,7 +279,7 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipSoftmaxExecutableWithoutUnknownInstr
   EXPECT_EQ(unknown_count, 0);
 }
 
-TEST(AmdgpuCodeObjectDecoderTest, DecodesHipMfmaExecutableWithUnknownInstructions) {
+TEST(AmdgpuCodeObjectDecoderTest, DecodesHipMfmaExecutableWithoutUnknownInstructions) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
@@ -314,7 +314,13 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipMfmaExecutableWithUnknownInstruction
   const auto unknown_count = std::count_if(
       image.instructions.begin(), image.instructions.end(),
       [](const RawGcnInstruction& inst) { return inst.mnemonic == "unknown"; });
-  EXPECT_GT(unknown_count, 0);
+  EXPECT_EQ(unknown_count, 0);
+  const auto mfma_it = std::find_if(
+      image.instructions.begin(), image.instructions.end(),
+      [](const RawGcnInstruction& inst) {
+        return inst.mnemonic == "v_mfma_f32_16x16x4f32";
+      });
+  ASSERT_NE(mfma_it, image.instructions.end());
 }
 
 TEST(AmdgpuCodeObjectDecoderTest, DecodesHipSharedReverseExecutable) {

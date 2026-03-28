@@ -265,13 +265,19 @@ std::vector<NoteKernelMetadata> ParseKernelMetadataNotes(const std::string& note
   std::istringstream input(notes);
   std::string line;
   while (std::getline(input, line)) {
+    const size_t indent = line.find_first_not_of(' ');
     const std::string trimmed = Trim(line);
     if (trimmed == "amdhsa.kernels:" || trimmed.empty()) {
       continue;
     }
-    if (trimmed == "- .args:") {
+    if (trimmed.rfind("- .", 0) == 0 && indent != std::string::npos && indent <= 2) {
       finalize_kernel();
       current = NoteKernelMetadata{};
+      if (trimmed == "- .args:") {
+        continue;
+      }
+    }
+    if (trimmed == "- .args:") {
       continue;
     }
     if (!current.has_value()) {

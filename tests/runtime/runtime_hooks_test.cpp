@@ -840,7 +840,7 @@ TEST(RuntimeHooksTest, LaunchesHipSoftmaxExecutableInRawGcnPath) {
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(RuntimeHooksTest, ReportsUnsupportedHipMfmaExecutableInRawGcnPath) {
+TEST(RuntimeHooksTest, LaunchesHipMfmaExecutableInRawGcnPath) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
@@ -875,6 +875,7 @@ TEST(RuntimeHooksTest, ReportsUnsupportedHipMfmaExecutableInRawGcnPath) {
   RuntimeHooks hooks;
   const uint64_t out_addr = hooks.Malloc(sizeof(float));
   float init = 0.0f;
+  float output = 0.0f;
   hooks.MemcpyHtoD<float>(out_addr, std::span<const float>(&init, 1));
 
   KernelArgPack args;
@@ -883,8 +884,9 @@ TEST(RuntimeHooksTest, ReportsUnsupportedHipMfmaExecutableInRawGcnPath) {
   const auto result = hooks.LaunchAmdgpuObject(
       exe_path, LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64}, std::move(args),
       ExecutionMode::Functional, "c500", nullptr, "mfma_probe");
-  ASSERT_FALSE(result.ok);
-  EXPECT_FALSE(result.error_message.empty());
+  ASSERT_TRUE(result.ok) << result.error_message;
+  hooks.MemcpyDtoH<float>(out_addr, std::span<float>(&output, 1));
+  EXPECT_NEAR(output, 4.0f, 1.0e-5f);
 
   std::filesystem::remove_all(temp_dir);
 }

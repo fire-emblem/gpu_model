@@ -81,6 +81,9 @@ const std::vector<GcnInstEncodingDef>& EncodingDefs() {
       {.id = 63, .format_class = GcnInstFormatClass::Vop3a, .op = 324, .size_bytes = 8, .mnemonic = "v_ldexp_f32"},
       {.id = 64, .format_class = GcnInstFormatClass::Vop2, .op = 5, .size_bytes = 4, .mnemonic = "v_mul_f32_e32"},
       {.id = 65, .format_class = GcnInstFormatClass::Vop2, .op = 59, .size_bytes = 4, .mnemonic = "v_fmac_f32_e32"},
+      {.id = 66, .format_class = GcnInstFormatClass::Vopc, .op = 202, .size_bytes = 4, .mnemonic = "v_cmp_eq_u32_e32"},
+      {.id = 67, .format_class = GcnInstFormatClass::Vop3a, .op = 482, .size_bytes = 8, .mnemonic = "v_mfma_f32_16x16x4f32"},
+      {.id = 68, .format_class = GcnInstFormatClass::Sopp, .op = 0, .size_bytes = 4, .mnemonic = "s_nop"},
   };
   return kDefs;
 }
@@ -423,6 +426,7 @@ void DecodeGcnOperands(RawGcnInstruction& instruction) {
       instruction.decoded_operands.push_back(MakeVectorRegOperand((low >> 9u) & 0xffu));
       break;
     case 8:
+    case 66:
       instruction.decoded_operands.push_back(MakeSpecialRegOperand(GcnSpecialReg::Vcc, FormatSpecialReg("vcc")));
       instruction.decoded_operands.push_back(DecodeSrc9(low & 0x1ffu));
       instruction.decoded_operands.push_back(MakeVectorRegOperand((low >> 9u) & 0xffu));
@@ -447,6 +451,7 @@ void DecodeGcnOperands(RawGcnInstruction& instruction) {
       instruction.decoded_operands.push_back(MakeImmediateOperand(FormatImmediate(high), high));
       break;
     case 10:
+    case 68:
     case 22:
     case 26:
     case 27:
@@ -565,6 +570,7 @@ void DecodeGcnOperands(RawGcnInstruction& instruction) {
     case 61:
     case 62:
     case 63:
+    case 67:
       instruction.decoded_operands.push_back(MakeVectorRegOperand(low & 0xffu));
       instruction.decoded_operands.push_back(DecodeSrc9((high >> 0u) & 0x1ffu));
       instruction.decoded_operands.push_back(DecodeSrc9((high >> 9u) & 0x1ffu));
