@@ -8,6 +8,8 @@ Current references:
   - GCN/CDNA ISA binary organization, format classes, operand model, semantic-family layering, and generation strategy for decode/disasm/exec tables
 - [gcn-isa-db-format.md](/data/gpu_model/src/spec/gcn-isa-db-format.md)
   - recommended machine-readable source format for opcode/encoding/field definitions and generated C++ decode tables
+- [gcn-optype-opcode-table.md](/data/gpu_model/src/spec/gcn-optype-opcode-table.md)
+  - generated markdown table of `optype` encodings, per-format opcode enums, and opcode names currently present in the system
 - [llvm-amdgpu-model-contract-reference.md](/data/gpu_model/src/spec/llvm-amdgpu-model-contract-reference.md)
   - LLVM AMDGPU backend / AMDHSA code object contract relevant to loader, metadata parsing, module load, kernarg packing, and wave launch ABI initialization
 
