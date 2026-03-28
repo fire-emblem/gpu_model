@@ -169,6 +169,12 @@ cmake --build build --target gpu_model_hip_interposer -j
 ./build/code_object_dump_main <path-to-amdgpu-object-or-hip-out> [kernel_name]
 ```
 
+当前输出会同时展示：
+
+- 原始 decode 的 `fmt`
+- parser/工厂实例化后的 `op_type`
+- 具体指令对象 `class`
+
 ## usages
 
 可复现脚本见：

@@ -25,10 +25,19 @@ int main(int argc, char** argv) {
     gpu_model::GcnInstFormatter formatter;
 
     std::cout << "kernel=" << image.kernel_name << '\n';
-    for (const auto& instruction : image.decoded_instructions) {
+    for (size_t i = 0; i < image.decoded_instructions.size(); ++i) {
+      const auto& instruction = image.decoded_instructions[i];
       std::cout << "pc=0x" << std::hex << instruction.pc << std::dec
                 << " size=" << instruction.size_bytes
                 << " fmt=" << gpu_model::ToString(instruction.format_class)
+                << " op_type="
+                << (i < image.instruction_objects.size() && image.instruction_objects[i] != nullptr
+                        ? image.instruction_objects[i]->op_type_name()
+                        : "none")
+                << " class="
+                << (i < image.instruction_objects.size() && image.instruction_objects[i] != nullptr
+                        ? image.instruction_objects[i]->class_name()
+                        : "none")
                 << " text=" << formatter.Format(instruction) << '\n';
     }
     return 0;
