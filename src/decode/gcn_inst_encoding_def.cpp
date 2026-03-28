@@ -68,6 +68,17 @@ const std::vector<GcnInstEncodingDef>& EncodingDefs() {
       {.id = 50, .format_class = GcnInstFormatClass::Vop1, .op = 30, .size_bytes = 4, .mnemonic = "v_rndne_f32_e32"},
       {.id = 51, .format_class = GcnInstFormatClass::Vop1, .op = 32, .size_bytes = 4, .mnemonic = "v_exp_f32_e32"},
       {.id = 52, .format_class = GcnInstFormatClass::Vop1, .op = 34, .size_bytes = 4, .mnemonic = "v_rcp_f32_e32"},
+      {.id = 53, .format_class = GcnInstFormatClass::Sop1, .op = 0, .size_bytes = 4, .mnemonic = "s_mov_b32"},
+      {.id = 54, .format_class = GcnInstFormatClass::Sop1, .op = 0, .size_bytes = 8, .mnemonic = "s_mov_b32"},
+      {.id = 55, .format_class = GcnInstFormatClass::Sop2, .op = 30, .size_bytes = 4, .mnemonic = "s_lshr_b32"},
+      {.id = 56, .format_class = GcnInstFormatClass::Vopc, .op = 204, .size_bytes = 4, .mnemonic = "v_cmp_gt_u32_e32"},
+      {.id = 57, .format_class = GcnInstFormatClass::Vopc, .op = 75, .size_bytes = 4, .mnemonic = "v_cmp_ngt_f32_e32"},
+      {.id = 58, .format_class = GcnInstFormatClass::Vopc, .op = 78, .size_bytes = 4, .mnemonic = "v_cmp_nlt_f32_e32"},
+      {.id = 59, .format_class = GcnInstFormatClass::Vop3a, .op = 128, .size_bytes = 8, .mnemonic = "v_cndmask_b32_e64"},
+      {.id = 60, .format_class = GcnInstFormatClass::Vop3a, .op = 239, .size_bytes = 8, .mnemonic = "v_div_fixup_f32"},
+      {.id = 61, .format_class = GcnInstFormatClass::Vop3a, .op = 240, .size_bytes = 8, .mnemonic = "v_div_scale_f32"},
+      {.id = 62, .format_class = GcnInstFormatClass::Vop3a, .op = 241, .size_bytes = 8, .mnemonic = "v_div_fmas_f32"},
+      {.id = 63, .format_class = GcnInstFormatClass::Vop3a, .op = 324, .size_bytes = 8, .mnemonic = "v_ldexp_f32"},
   };
   return kDefs;
 }
@@ -387,9 +398,24 @@ void DecodeGcnOperands(RawGcnInstruction& instruction) {
       instruction.decoded_operands.push_back(DecodeSrc9(low & 0x1ffu));
       instruction.decoded_operands.push_back(MakeVectorRegOperand((low >> 9u) & 0xffu));
       break;
+    case 56:
+    case 57:
+    case 58:
+      instruction.decoded_operands.push_back(MakeSpecialRegOperand(GcnSpecialReg::Vcc, "vcc"));
+      instruction.decoded_operands.push_back(DecodeSrc9(low & 0x1ffu));
+      instruction.decoded_operands.push_back(MakeVectorRegOperand((low >> 9u) & 0xffu));
+      break;
     case 9:
       instruction.decoded_operands.push_back(MakeScalarRegRangeOperand((low >> 16u) & 0x7fu, 2));
       instruction.decoded_operands.push_back(MakeSpecialRegOperand(GcnSpecialReg::Vcc, FormatSpecialReg("vcc")));
+      break;
+    case 53:
+      instruction.decoded_operands.push_back(MakeScalarRegOperand((low >> 16u) & 0x7fu));
+      instruction.decoded_operands.push_back(DecodeSrc8(low & 0xffu));
+      break;
+    case 54:
+      instruction.decoded_operands.push_back(MakeScalarRegOperand((low >> 16u) & 0x7fu));
+      instruction.decoded_operands.push_back(MakeImmediateOperand(FormatImmediate(high), high));
       break;
     case 10:
     case 22:
@@ -494,6 +520,22 @@ void DecodeGcnOperands(RawGcnInstruction& instruction) {
           MakeScalarRegRangeOperand((low >> 8u) & 0x7fu, 2));
       instruction.decoded_operands.push_back(DecodeSrc9((high >> 0u) & 0x1ffu));
       instruction.decoded_operands.push_back(DecodeSrc9((high >> 9u) & 0x1ffu));
+      break;
+    case 59:
+      instruction.decoded_operands.push_back(MakeVectorRegOperand(low & 0xffu));
+      instruction.decoded_operands.push_back(DecodeSrc9((high >> 0u) & 0x1ffu));
+      instruction.decoded_operands.push_back(DecodeSrc9((high >> 9u) & 0x1ffu));
+      instruction.decoded_operands.push_back(
+          MakeScalarRegRangeOperand((high >> 18u) & 0x1ffu, 2));
+      break;
+    case 60:
+    case 61:
+    case 62:
+    case 63:
+      instruction.decoded_operands.push_back(MakeVectorRegOperand(low & 0xffu));
+      instruction.decoded_operands.push_back(DecodeSrc9((high >> 0u) & 0x1ffu));
+      instruction.decoded_operands.push_back(DecodeSrc9((high >> 9u) & 0x1ffu));
+      instruction.decoded_operands.push_back(DecodeSrc9((high >> 18u) & 0x1ffu));
       break;
     case 18: {
       const uint32_t addr = high & 0xffu;
