@@ -30,6 +30,13 @@ const std::vector<GcnInstEncodingDef>& EncodingDefs() {
       {.id = 18, .format_class = GcnInstFormatClass::Flat, .op = 20, .size_bytes = 8, .mnemonic = "global_load_dword"},
       {.id = 19, .format_class = GcnInstFormatClass::Flat, .op = 28, .size_bytes = 8, .mnemonic = "global_store_dword"},
       {.id = 20, .format_class = GcnInstFormatClass::Sop2, .op = 12, .size_bytes = 8, .mnemonic = "s_and_b32"},
+      {.id = 21, .format_class = GcnInstFormatClass::Sopc, .op = 4, .size_bytes = 4, .mnemonic = "s_cmp_lt_i32"},
+      {.id = 22, .format_class = GcnInstFormatClass::Sopp, .op = 5, .size_bytes = 4, .mnemonic = "s_cbranch_scc1"},
+      {.id = 23, .format_class = GcnInstFormatClass::Sop2, .op = 2, .size_bytes = 4, .mnemonic = "s_add_i32"},
+      {.id = 24, .format_class = GcnInstFormatClass::Sopc, .op = 6, .size_bytes = 4, .mnemonic = "s_cmp_eq_u32"},
+      {.id = 25, .format_class = GcnInstFormatClass::Vop3a, .op = 229, .size_bytes = 8, .mnemonic = "v_fma_f32"},
+      {.id = 26, .format_class = GcnInstFormatClass::Sopp, .op = 4, .size_bytes = 4, .mnemonic = "s_cbranch_scc0"},
+      {.id = 27, .format_class = GcnInstFormatClass::Sopp, .op = 2, .size_bytes = 4, .mnemonic = "s_branch"},
   };
   return kDefs;
 }
@@ -49,6 +56,8 @@ uint32_t ExtractOp(const std::vector<uint32_t>& words, GcnInstFormatClass format
       return (low >> 17u) & 0xffu;
     case GcnInstFormatClass::Sop1:
       return (low >> 8u) & 0xffu;
+    case GcnInstFormatClass::Sopc:
+      return (low >> 16u) & 0x7fu;
     case GcnInstFormatClass::Vop1:
       return (low >> 9u) & 0xffu;
     case GcnInstFormatClass::Vop3a:
@@ -203,6 +212,13 @@ RawGcnOperand DecodeSrc8(uint32_t value) {
   if (value <= 103u) {
     return MakeScalarRegOperand(value);
   }
+  if (value >= 128u && value <= 192u) {
+    return MakeImmediateOperand(std::to_string(value - 128u), value - 128u);
+  }
+  if (value >= 193u && value <= 208u) {
+    const int64_t immediate = -1 - static_cast<int32_t>(value - 193u);
+    return MakeImmediateOperand(std::to_string(immediate), immediate);
+  }
   if (value == 106u || value == 107u) {
     return MakeSpecialRegOperand(GcnSpecialReg::Vcc, "vcc");
   }
@@ -244,6 +260,7 @@ void DecodeGcnOperands(RawGcnInstruction& instruction) {
       break;
     case 5:
     case 6:
+    case 23:
       instruction.decoded_operands.push_back(MakeScalarRegOperand((low >> 16u) & 0x7fu));
       instruction.decoded_operands.push_back(DecodeSrc8(low & 0xffu));
       instruction.decoded_operands.push_back(DecodeSrc8((low >> 8u) & 0xffu));
@@ -269,7 +286,15 @@ void DecodeGcnOperands(RawGcnInstruction& instruction) {
       instruction.decoded_operands.push_back(MakeSpecialRegOperand(GcnSpecialReg::Vcc, FormatSpecialReg("vcc")));
       break;
     case 10:
+    case 22:
+    case 26:
+    case 27:
       instruction.decoded_operands.push_back(MakeBranchTargetOperand(static_cast<int16_t>(low & 0xffffu)));
+      break;
+    case 21:
+    case 24:
+      instruction.decoded_operands.push_back(DecodeSrc8(low & 0xffu));
+      instruction.decoded_operands.push_back(DecodeSrc8((low >> 8u) & 0xffu));
       break;
     case 12:
       instruction.decoded_operands.push_back(
@@ -307,6 +332,12 @@ void DecodeGcnOperands(RawGcnInstruction& instruction) {
       } else {
         instruction.decoded_operands.push_back(DecodeSrc9((high >> 9u) & 0x1ffu));
       }
+      break;
+    case 25:
+      instruction.decoded_operands.push_back(MakeVectorRegOperand(low & 0xffu));
+      instruction.decoded_operands.push_back(DecodeSrc9((high >> 0u) & 0x1ffu));
+      instruction.decoded_operands.push_back(DecodeSrc9((high >> 9u) & 0x1ffu));
+      instruction.decoded_operands.push_back(DecodeSrc9((high >> 18u) & 0x1ffu));
       break;
     case 18: {
       const uint32_t addr = high & 0xffu;

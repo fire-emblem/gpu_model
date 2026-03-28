@@ -436,6 +436,80 @@ TEST(RuntimeHooksTest, LaunchesHipVecAddExecutableAndValidatesOutput) {
   std::filesystem::remove_all(temp_dir);
 }
 
+TEST(RuntimeHooksTest, LaunchesHipFmaLoopExecutableAndValidatesOutput) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_fma_loop_executable");
+  const auto src_path = temp_dir / "hip_fma_loop.cpp";
+  const auto exe_path = temp_dir / "hip_fma_loop.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n\n"
+           "extern \"C\" __global__ void fma_loop(const float* a, const float* b, float* c, int n, int iters) {\n"
+           "  int i = blockIdx.x * blockDim.x + threadIdx.x;\n"
+           "  if (i >= n) return;\n"
+           "  float x = a[i];\n"
+           "  float y = b[i];\n"
+           "  float acc = 0.0f;\n"
+           "  for (int k = 0; k < iters; ++k) {\n"
+           "    acc = acc * x + y;\n"
+           "  }\n"
+           "  c[i] = acc;\n"
+           "}\n\n"
+           "int main() {\n"
+           "  return 0;\n"
+           "}\n";
+  }
+
+  const std::string command =
+      "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  constexpr uint32_t n = 257;
+  constexpr uint32_t iters = 7;
+  std::vector<float> a(n), b(n), c(n, -1.0f), expect(n);
+  for (uint32_t i = 0; i < n; ++i) {
+    a[i] = 1.0f + 0.001f * static_cast<float>(i);
+    b[i] = 2.0f + 0.002f * static_cast<float>(i);
+    float acc = 0.0f;
+    for (uint32_t k = 0; k < iters; ++k) {
+      acc = acc * a[i] + b[i];
+    }
+    expect[i] = acc;
+  }
+
+  RuntimeHooks hooks;
+  const uint64_t a_addr = hooks.Malloc(n * sizeof(float));
+  const uint64_t b_addr = hooks.Malloc(n * sizeof(float));
+  const uint64_t c_addr = hooks.Malloc(n * sizeof(float));
+  hooks.MemcpyHtoD<float>(a_addr, std::span<const float>(a));
+  hooks.MemcpyHtoD<float>(b_addr, std::span<const float>(b));
+  hooks.MemcpyHtoD<float>(c_addr, std::span<const float>(c));
+
+  KernelArgPack args;
+  args.PushU64(a_addr);
+  args.PushU64(b_addr);
+  args.PushU64(c_addr);
+  args.PushU32(n);
+  args.PushU32(iters);
+
+  const auto result = hooks.LaunchAmdgpuObject(
+      exe_path, LaunchConfig{.grid_dim_x = 3, .block_dim_x = 128}, std::move(args),
+      ExecutionMode::Functional, "c500", nullptr, "fma_loop");
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  hooks.MemcpyDtoH<float>(c_addr, std::span<float>(c));
+  for (uint32_t i = 0; i < n; ++i) {
+    EXPECT_FLOAT_EQ(c[i], expect[i]);
+  }
+
+  std::filesystem::remove_all(temp_dir);
+}
+
 TEST(RuntimeHooksTest, ListsModulesAndKernels) {
   RuntimeHooks hooks;
   hooks.RegisterProgramImage(

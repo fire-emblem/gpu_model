@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <sstream>
 #include <stdexcept>
 #include <unordered_map>
 #include <vector>
@@ -26,29 +27,62 @@ uint32_t LaneCount(const RawWave& raw_wave) {
   return raw_wave.wave.thread_count < kWaveSize ? raw_wave.wave.thread_count : kWaveSize;
 }
 
-std::vector<std::byte> BuildKernargBytes(const KernelArgPack& args, const LaunchConfig& config) {
+uint32_t AlignUp(uint32_t value, uint32_t alignment) {
+  return ((value + alignment - 1) / alignment) * alignment;
+}
+
+std::vector<uint32_t> ParseArgLayoutSizes(const MetadataBlob& metadata) {
+  std::vector<uint32_t> sizes;
+  const auto it = metadata.values.find("arg_layout");
+  if (it == metadata.values.end() || it->second.empty()) {
+    return sizes;
+  }
+  std::istringstream input(it->second);
+  std::string token;
+  while (std::getline(input, token, ',')) {
+    const auto colon = token.rfind(':');
+    if (colon == std::string::npos) {
+      continue;
+    }
+    sizes.push_back(static_cast<uint32_t>(std::stoul(token.substr(colon + 1))));
+  }
+  return sizes;
+}
+
+std::vector<std::byte> BuildKernargBytes(const MetadataBlob& metadata,
+                                         const KernelArgPack& args,
+                                         const LaunchConfig& config) {
   std::vector<std::byte> bytes(128, std::byte{0});
+  const auto arg_sizes = ParseArgLayoutSizes(metadata);
+  uint32_t arg_offset = 0;
   for (size_t i = 0; i < args.values().size(); ++i) {
     const uint64_t value = args.values()[i];
-    if (i < 3) {
-      std::memcpy(bytes.data() + i * 8, &value, sizeof(uint64_t));
-    } else if (i == 3) {
+    const uint32_t size = i < arg_sizes.size()
+                              ? arg_sizes[i]
+                              : (i < 3 ? 8u : 4u);
+    if (size == 8u) {
+      std::memcpy(bytes.data() + arg_offset, &value, sizeof(uint64_t));
+    } else if (size == 4u) {
       const uint32_t narrowed = static_cast<uint32_t>(value);
-      std::memcpy(bytes.data() + 24, &narrowed, sizeof(uint32_t));
+      std::memcpy(bytes.data() + arg_offset, &narrowed, sizeof(uint32_t));
+    } else {
+      throw std::invalid_argument("unsupported kernarg scalar size: " + std::to_string(size));
     }
+    arg_offset += size;
   }
+  const uint32_t hidden_offset = AlignUp(arg_offset, 8u);
   const uint32_t block_count_x = config.grid_dim_x;
   const uint32_t block_count_y = config.grid_dim_y;
   const uint32_t block_count_z = 1;
   const uint16_t group_size_x = static_cast<uint16_t>(config.block_dim_x);
   const uint16_t group_size_y = static_cast<uint16_t>(config.block_dim_y);
   const uint16_t group_size_z = 1;
-  std::memcpy(bytes.data() + 32, &block_count_x, sizeof(block_count_x));
-  std::memcpy(bytes.data() + 36, &block_count_y, sizeof(block_count_y));
-  std::memcpy(bytes.data() + 40, &block_count_z, sizeof(block_count_z));
-  std::memcpy(bytes.data() + 44, &group_size_x, sizeof(group_size_x));
-  std::memcpy(bytes.data() + 46, &group_size_y, sizeof(group_size_y));
-  std::memcpy(bytes.data() + 48, &group_size_z, sizeof(group_size_z));
+  std::memcpy(bytes.data() + hidden_offset + 0, &block_count_x, sizeof(block_count_x));
+  std::memcpy(bytes.data() + hidden_offset + 4, &block_count_y, sizeof(block_count_y));
+  std::memcpy(bytes.data() + hidden_offset + 8, &block_count_z, sizeof(block_count_z));
+  std::memcpy(bytes.data() + hidden_offset + 12, &group_size_x, sizeof(group_size_x));
+  std::memcpy(bytes.data() + hidden_offset + 14, &group_size_y, sizeof(group_size_y));
+  std::memcpy(bytes.data() + hidden_offset + 16, &group_size_z, sizeof(group_size_z));
   return bytes;
 }
 
@@ -93,7 +127,7 @@ LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
   for (size_t i = 0; i < image.instructions.size(); ++i) {
     pc_to_index[image.instructions[i].pc] = i;
   }
-  const auto kernarg = BuildKernargBytes(args, config);
+  const auto kernarg = BuildKernargBytes(image.metadata, args, config);
 
   for (const auto& block : result.placement.blocks) {
     std::vector<RawWave> waves;
