@@ -44,6 +44,23 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeBranchInstruction) {
   EXPECT_EQ(decoded.operands[0].info.immediate, 25);
 }
 
+TEST(GcnInstDecoderTest, DecodesNoOperandTerminationInstruction) {
+  RawGcnInstruction raw{
+      .pc = 0x1904,
+      .size_bytes = 4,
+      .words = {0xbf810000u},
+      .format_class = GcnInstFormatClass::Sopp,
+      .mnemonic = "s_endpgm",
+      .operands = "",
+      .decoded_operands = {},
+  };
+
+  const auto decoded = GcnInstDecoder{}.Decode(raw);
+  EXPECT_EQ(decoded.encoding_id, 1u);
+  EXPECT_EQ(decoded.mnemonic, "s_endpgm");
+  EXPECT_TRUE(decoded.operands.empty());
+}
+
 TEST(GcnInstDecoderTest, DecodesRepresentativeWaitcntInstruction) {
   RawGcnInstruction raw{
       .pc = 0x1910,

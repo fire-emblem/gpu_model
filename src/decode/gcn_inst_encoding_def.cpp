@@ -481,24 +481,10 @@ void DecodeGcnOperands(RawGcnInstruction& instruction) {
     return;
   }
   instruction.encoding_id = def->id;
-  const uint32_t low = instruction.words.empty() ? 0u : instruction.words[0];
-  const uint32_t high = instruction.words.size() > 1 ? instruction.words[1] : 0u;
 
-  if (const auto* inst_def = FindGeneratedGcnInstDefById(def->id);
-      inst_def != nullptr && TryDecodeGeneratedOperands(instruction, *inst_def)) {
+  if (const auto* inst_def = FindGeneratedGcnInstDefById(def->id); inst_def != nullptr) {
+    (void)TryDecodeGeneratedOperands(instruction, *inst_def);
     return;
-  }
-  if (const auto* inst_def = FindGeneratedGcnInstDefById(def->id);
-      inst_def != nullptr && !OperandSpecsForInst(*inst_def).empty()) {
-    return;
-  }
-
-  switch (def->id) {
-    case 1:
-    case 68:
-      break;
-    default:
-      break;
   }
 }
 
