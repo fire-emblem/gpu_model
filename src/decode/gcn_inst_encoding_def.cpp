@@ -683,21 +683,21 @@ void DecodeGcnOperands(RawGcnInstruction& instruction) {
 const GcnInstEncodingDef* FindGcnInstEncodingDef(const std::vector<uint32_t>& words) {
   const auto format_class = ClassifyGcnInstFormat(words);
   const uint32_t op = ExtractOp(words, format_class);
-  const auto defs = GeneratedGcnEncodingDefs();
+  const auto& defs = GeneratedGcnEncodingDefs();
   if (format_class == GcnInstFormatClass::Vop3a && op == 326 &&
       static_cast<uint32_t>(words.size() * sizeof(uint32_t)) == 8u) {
     const bool is_hi = (words[0] & 0x00010000u) != 0;
     const uint32_t target_id = is_hi ? 82u : 81u;
-    for (const auto& def : defs) {
-      if (def.id == target_id) {
-        return &def;
+    for (size_t i = 0; i < defs.size(); ++i) {
+      if (defs[i].id == target_id) {
+        return &defs[i];
       }
     }
   }
-  for (const auto& def : defs) {
-    if (def.format_class == format_class && def.op == op &&
-        def.size_bytes == static_cast<uint32_t>(words.size() * sizeof(uint32_t))) {
-      return &def;
+  for (size_t i = 0; i < defs.size(); ++i) {
+    if (defs[i].format_class == format_class && defs[i].op == op &&
+        defs[i].size_bytes == static_cast<uint32_t>(words.size() * sizeof(uint32_t))) {
+      return &defs[i];
     }
   }
   return nullptr;

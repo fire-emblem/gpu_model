@@ -36,6 +36,24 @@ struct GcnGeneratedSemanticFamilyDef {
   const char* description;
 };
 
+enum GcnGeneratedInstFlags : uint64_t {
+  kGcnInstFlagNone = 0,
+  kGcnInstFlagIsBranch = 1ull << 0,
+  kGcnInstFlagIsMemory = 1ull << 1,
+  kGcnInstFlagIsAtomic = 1ull << 2,
+  kGcnInstFlagIsBarrier = 1ull << 3,
+  kGcnInstFlagWritesExec = 1ull << 4,
+  kGcnInstFlagWritesVcc = 1ull << 5,
+  kGcnInstFlagWritesScc = 1ull << 6,
+  kGcnInstFlagIsWaitcnt = 1ull << 7,
+  kGcnInstFlagIsMatrix = 1ull << 8,
+};
+
+struct GcnGeneratedImplicitRegRef {
+  const char* name;
+  bool is_write;
+};
+
 struct GcnGeneratedFormatDef {
   const char* id;
   GcnInstFormatClass format_class;
@@ -54,11 +72,15 @@ struct GcnGeneratedInstDef {
   const char* mnemonic;
   const char* semantic_family;
   const char* issue_family;
+  uint64_t flags;
+  uint16_t implicit_begin;
+  uint16_t implicit_count;
 };
 
 const std::vector<GcnGeneratedProfileDef>& GeneratedGcnProfileDefs();
 const std::vector<GcnGeneratedOperandKindDef>& GeneratedGcnOperandKindDefs();
 const std::vector<GcnGeneratedSemanticFamilyDef>& GeneratedGcnSemanticFamilyDefs();
+const std::vector<GcnGeneratedImplicitRegRef>& GeneratedGcnImplicitRegRefs();
 const std::vector<GcnGeneratedFieldRef>& GeneratedGcnFieldRefs();
 const std::vector<GcnGeneratedFormatDef>& GeneratedGcnFormatDefs();
 const std::vector<GcnGeneratedInstDef>& GeneratedGcnInstDefs();

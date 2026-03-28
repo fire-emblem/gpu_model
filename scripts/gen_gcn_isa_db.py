@@ -31,6 +31,18 @@ FORMAT_ENUM = {
     "exp": "Exp",
 }
 
+FLAG_ENUM = {
+    "is_branch": "kGcnInstFlagIsBranch",
+    "is_memory": "kGcnInstFlagIsMemory",
+    "is_atomic": "kGcnInstFlagIsAtomic",
+    "is_barrier": "kGcnInstFlagIsBarrier",
+    "writes_exec": "kGcnInstFlagWritesExec",
+    "writes_vcc": "kGcnInstFlagWritesVcc",
+    "writes_scc": "kGcnInstFlagWritesScc",
+    "is_waitcnt": "kGcnInstFlagIsWaitcnt",
+    "is_matrix": "kGcnInstFlagIsMatrix",
+}
+
 
 def c_str(text: str) -> str:
     escaped = text.replace("\\", "\\\\").replace('"', '\\"')
@@ -81,6 +93,24 @@ struct GcnGeneratedSemanticFamilyDef {
   const char* description;
 };
 
+enum GcnGeneratedInstFlags : uint64_t {
+  kGcnInstFlagNone = 0,
+  kGcnInstFlagIsBranch = 1ull << 0,
+  kGcnInstFlagIsMemory = 1ull << 1,
+  kGcnInstFlagIsAtomic = 1ull << 2,
+  kGcnInstFlagIsBarrier = 1ull << 3,
+  kGcnInstFlagWritesExec = 1ull << 4,
+  kGcnInstFlagWritesVcc = 1ull << 5,
+  kGcnInstFlagWritesScc = 1ull << 6,
+  kGcnInstFlagIsWaitcnt = 1ull << 7,
+  kGcnInstFlagIsMatrix = 1ull << 8,
+};
+
+struct GcnGeneratedImplicitRegRef {
+  const char* name;
+  bool is_write;
+};
+
 struct GcnGeneratedFormatDef {
   const char* id;
   GcnInstFormatClass format_class;
@@ -99,11 +129,15 @@ struct GcnGeneratedInstDef {
   const char* mnemonic;
   const char* semantic_family;
   const char* issue_family;
+  uint64_t flags;
+  uint16_t implicit_begin;
+  uint16_t implicit_count;
 };
 
 const std::vector<GcnGeneratedProfileDef>& GeneratedGcnProfileDefs();
 const std::vector<GcnGeneratedOperandKindDef>& GeneratedGcnOperandKindDefs();
 const std::vector<GcnGeneratedSemanticFamilyDef>& GeneratedGcnSemanticFamilyDefs();
+const std::vector<GcnGeneratedImplicitRegRef>& GeneratedGcnImplicitRegRefs();
 const std::vector<GcnGeneratedFieldRef>& GeneratedGcnFieldRefs();
 const std::vector<GcnGeneratedFormatDef>& GeneratedGcnFormatDefs();
 const std::vector<GcnGeneratedInstDef>& GeneratedGcnInstDefs();
@@ -205,10 +239,25 @@ def emit_cpp(db_dir: pathlib.Path, out_path: pathlib.Path) -> None:
 
     generated_inst_entries = []
     encoding_entries = []
+    implicit_ref_entries = []
+    implicit_index = 0
     for inst in inst_rows:
         fmt_enum = FORMAT_ENUM[inst["format"]]
+        flags = inst.get("flags", {})
+        flag_terms = [FLAG_ENUM[name] for name, value in flags.items() if value]
+        flag_expr = " | ".join(flag_terms) if flag_terms else "kGcnInstFlagNone"
+        implicit_reads = inst.get("implicit_reads", [])
+        implicit_writes = inst.get("implicit_writes", [])
+        for ref in implicit_reads:
+            implicit_ref_entries.append(
+                "  {{ {name}, false }}".format(name=c_str(ref))
+            )
+        for ref in implicit_writes:
+            implicit_ref_entries.append(
+                "  {{ {name}, true }}".format(name=c_str(ref))
+            )
         generated_inst_entries.append(
-            "  {{ {id}, {profile}, GcnInstFormatClass::{fmt}, {opcode}, {size_bytes}, {mnemonic}, {semantic_family}, {issue_family} }}".format(
+            "  {{ {id}, {profile}, GcnInstFormatClass::{fmt}, {opcode}, {size_bytes}, {mnemonic}, {semantic_family}, {issue_family}, {flags}, {implicit_begin}, {implicit_count} }}".format(
                 id=inst["id"],
                 profile=c_str(inst.get("profile", "gfx6_gfx8")),
                 fmt=fmt_enum,
@@ -217,10 +266,14 @@ def emit_cpp(db_dir: pathlib.Path, out_path: pathlib.Path) -> None:
                 mnemonic=c_str(inst["mnemonic"]),
                 semantic_family=c_str(inst.get("semantic_family", "unknown")),
                 issue_family=c_str(inst.get("issue_family", "unknown")),
+                flags=flag_expr,
+                implicit_begin=implicit_index,
+                implicit_count=len(implicit_reads) + len(implicit_writes),
             )
         )
+        implicit_index += len(implicit_reads) + len(implicit_writes)
         encoding_entries.append(
-            "  {{ {id}, GcnInstFormatClass::{fmt}, {opcode}, {size_bytes}, {mnemonic} }}".format(
+            "  GcnInstEncodingDef{{ .id = {id}, .format_class = GcnInstFormatClass::{fmt}, .op = {opcode}, .size_bytes = {size_bytes}, .mnemonic = {mnemonic} }}".format(
                 id=inst["id"],
                 fmt=fmt_enum,
                 opcode=inst["opcode"],
@@ -261,6 +314,15 @@ def emit_cpp(db_dir: pathlib.Path, out_path: pathlib.Path) -> None:
         lines.append(semantic_family_entries[-1])
     lines.append("  };")
     lines.append("  return kSemanticFamilyDefs;")
+    lines.append("}")
+    lines.append("")
+    lines.append("const std::vector<GcnGeneratedImplicitRegRef>& GeneratedGcnImplicitRegRefs() {")
+    lines.append("  static const std::vector<GcnGeneratedImplicitRegRef> kImplicitRegRefs = {")
+    lines.extend([entry + "," for entry in implicit_ref_entries[:-1]])
+    if implicit_ref_entries:
+        lines.append(implicit_ref_entries[-1])
+    lines.append("  };")
+    lines.append("  return kImplicitRegRefs;")
     lines.append("}")
     lines.append("")
     lines.append("const std::vector<GcnGeneratedFieldRef>& GeneratedGcnFieldRefs() {")

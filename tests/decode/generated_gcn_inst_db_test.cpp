@@ -26,6 +26,22 @@ TEST(GeneratedGcnInstDbTest, ExposesProfileAndSemanticMetadata) {
   EXPECT_STREQ(semantic_families.front().id, "scalar_alu");
 }
 
+TEST(GeneratedGcnInstDbTest, ExposesFlagsAndImplicitRegisters) {
+  const auto insts = GeneratedGcnInstDefs();
+  const auto it = std::find_if(insts.begin(), insts.end(), [](const auto& def) {
+    return std::string_view(def.mnemonic) == "global_atomic_add";
+  });
+  ASSERT_NE(it, insts.end());
+  EXPECT_NE((it->flags & kGcnInstFlagIsMemory), 0u);
+  EXPECT_NE((it->flags & kGcnInstFlagIsAtomic), 0u);
+  ASSERT_GT(it->implicit_count, 0u);
+
+  const auto implicits = GeneratedGcnImplicitRegRefs();
+  ASSERT_LT(it->implicit_begin, implicits.size());
+  EXPECT_STREQ(implicits[it->implicit_begin].name, "exec");
+  EXPECT_FALSE(implicits[it->implicit_begin].is_write);
+}
+
 TEST(GeneratedGcnInstDbTest, ExposesImportedEncodingDefinitions) {
   const auto defs = GeneratedGcnEncodingDefs();
   ASSERT_GE(defs.size(), 84u);
