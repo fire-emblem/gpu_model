@@ -22,6 +22,7 @@ struct RawGcnWaveContext {
   WaveState& wave;
   uint64_t& vcc;
   const std::vector<std::byte>& kernarg;
+  uint64_t kernarg_base = 0;
   MemorySystem& memory;
   ExecutionStats& stats;
   RawGcnBlockContext& block;

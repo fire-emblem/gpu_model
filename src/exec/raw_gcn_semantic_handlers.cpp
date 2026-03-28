@@ -188,22 +188,28 @@ class ScalarMemoryHandler final : public IRawGcnSemanticHandler {
       const uint32_t offset =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(2), context));
       const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
-      context.wave.sgpr.Write(sdst, LoadU32(context.kernarg, offset));
+      context.wave.sgpr.Write(
+          sdst, context.memory.LoadValue<uint32_t>(MemoryPoolKind::Kernarg, context.kernarg_base + offset));
     } else if (instruction.mnemonic == "s_load_dwordx2") {
       const uint32_t offset =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(2), context));
       const auto [sdst, _] = RequireScalarRange(instruction.operands.at(0));
-      const uint64_t value = LoadKernarg64(context.kernarg, offset);
+      const uint64_t value =
+          context.memory.LoadValue<uint64_t>(MemoryPoolKind::Kernarg, context.kernarg_base + offset);
       context.wave.sgpr.Write(sdst, static_cast<uint32_t>(value & 0xffffffffu));
       context.wave.sgpr.Write(sdst + 1, static_cast<uint32_t>(value >> 32u));
     } else if (instruction.mnemonic == "s_load_dwordx4") {
       const uint32_t offset =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(2), context));
       const auto [sdst, _] = RequireScalarRange(instruction.operands.at(0));
-      context.wave.sgpr.Write(sdst + 0, LoadU32(context.kernarg, offset + 0));
-      context.wave.sgpr.Write(sdst + 1, LoadU32(context.kernarg, offset + 4));
-      context.wave.sgpr.Write(sdst + 2, LoadU32(context.kernarg, offset + 8));
-      context.wave.sgpr.Write(sdst + 3, LoadU32(context.kernarg, offset + 12));
+      context.wave.sgpr.Write(sdst + 0, context.memory.LoadValue<uint32_t>(
+                                            MemoryPoolKind::Kernarg, context.kernarg_base + offset + 0));
+      context.wave.sgpr.Write(sdst + 1, context.memory.LoadValue<uint32_t>(
+                                            MemoryPoolKind::Kernarg, context.kernarg_base + offset + 4));
+      context.wave.sgpr.Write(sdst + 2, context.memory.LoadValue<uint32_t>(
+                                            MemoryPoolKind::Kernarg, context.kernarg_base + offset + 8));
+      context.wave.sgpr.Write(sdst + 3, context.memory.LoadValue<uint32_t>(
+                                            MemoryPoolKind::Kernarg, context.kernarg_base + offset + 12));
     } else {
       throw std::invalid_argument("unsupported scalar memory opcode: " + instruction.mnemonic);
     }

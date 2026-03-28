@@ -144,6 +144,8 @@ LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
     pc_to_index[image.instructions[i].pc] = i;
   }
   const auto kernarg = BuildKernargBytes(image.metadata, args, config);
+  const uint64_t kernarg_base = memory.Allocate(MemoryPoolKind::Kernarg, kernarg.size());
+  memory.Write(MemoryPoolKind::Kernarg, kernarg_base, std::span<const std::byte>(kernarg));
   const uint32_t shared_bytes = std::max(config.shared_memory_bytes,
                                          ParseGroupSegmentFixedSize(image.metadata));
 
@@ -163,8 +165,8 @@ LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
       raw_wave.wave.thread_count = wave_placement.lane_count;
       raw_wave.wave.ResetInitialExec();
       raw_wave.wave.pc = image.instructions.front().pc;
-      raw_wave.wave.sgpr.Write(4, 0);
-      raw_wave.wave.sgpr.Write(5, 0);
+      raw_wave.wave.sgpr.Write(4, static_cast<uint32_t>(kernarg_base & 0xffffffffu));
+      raw_wave.wave.sgpr.Write(5, static_cast<uint32_t>(kernarg_base >> 32u));
       raw_wave.wave.sgpr.Write(6, block.block_idx_x);
       for (uint32_t lane = 0; lane < LaneCount(raw_wave); ++lane) {
         raw_wave.wave.vgpr.Write(0, lane, raw_wave.wave.wave_id * kWaveSize + lane);
@@ -227,6 +229,7 @@ LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
             .wave = raw_wave.wave,
             .vcc = raw_wave.vcc,
             .kernarg = kernarg,
+            .kernarg_base = kernarg_base,
             .memory = memory,
             .stats = result.stats,
             .block = block_context,

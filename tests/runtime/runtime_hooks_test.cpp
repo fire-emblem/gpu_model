@@ -577,6 +577,19 @@ TEST(RuntimeHooksTest, LaunchAmdgpuObjectPopulatesLastLoadResult) {
   ASSERT_EQ(hooks.last_load_result()->segments.size(), 2u);
   EXPECT_EQ(hooks.last_load_result()->segments[0].allocation.pool, MemoryPoolKind::Code);
   EXPECT_EQ(hooks.last_load_result()->segments[1].allocation.pool, MemoryPoolKind::Kernarg);
+  const uint64_t kernarg_pool_bytes =
+      hooks.runtime().memory().pool_memory_size(MemoryPoolKind::Kernarg);
+  EXPECT_GE(kernarg_pool_bytes, 128u);
+  const uint64_t runtime_kernarg_base = kernarg_pool_bytes - 128u;
+  EXPECT_EQ(hooks.runtime().memory().LoadValue<uint64_t>(MemoryPoolKind::Kernarg,
+                                                         runtime_kernarg_base + 0),
+            in_addr);
+  EXPECT_EQ(hooks.runtime().memory().LoadValue<uint64_t>(MemoryPoolKind::Kernarg,
+                                                         runtime_kernarg_base + 8),
+            out_addr);
+  EXPECT_EQ(hooks.runtime().memory().LoadValue<uint32_t>(MemoryPoolKind::Kernarg,
+                                                         runtime_kernarg_base + 16),
+            n);
 
   std::filesystem::remove_all(temp_dir);
 }
