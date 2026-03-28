@@ -172,12 +172,14 @@ TEST(RuntimeHooksTest, MaterializesProgramImageLoadPlanIntoDeviceMemory) {
   EXPECT_EQ(result.preferred_kernarg_bytes, 12u);
   EXPECT_EQ(result.segments[0].allocation.pool, MemoryPoolKind::Code);
   EXPECT_EQ(result.segments[1].allocation.pool, MemoryPoolKind::Constant);
-  EXPECT_EQ(hooks.runtime().memory().LoadGlobalValue<uint8_t>(
-                result.segments[1].allocation.range.base + 0),
+  EXPECT_EQ(hooks.runtime().memory().LoadValue<uint8_t>(
+                MemoryPoolKind::Constant, result.segments[1].allocation.range.base + 0),
             0x11u);
-  EXPECT_EQ(hooks.runtime().memory().LoadGlobalValue<uint8_t>(
-                result.segments[1].allocation.range.base + 3),
+  EXPECT_EQ(hooks.runtime().memory().LoadValue<uint8_t>(
+                MemoryPoolKind::Constant, result.segments[1].allocation.range.base + 3),
             0x44u);
+  EXPECT_GT(hooks.runtime().memory().pool_memory_size(MemoryPoolKind::Code), 0u);
+  EXPECT_GT(hooks.runtime().memory().pool_memory_size(MemoryPoolKind::Constant), 0u);
 }
 
 TEST(RuntimeHooksTest, LaunchProgramImagePopulatesLastLoadResult) {
@@ -513,7 +515,7 @@ TEST(RuntimeHooksTest, MaterializesHipSharedReverseCodeIntoDeviceMemory) {
   EXPECT_EQ(result.preferred_kernarg_bytes, 20u);
   EXPECT_EQ(result.segments[0].allocation.pool, MemoryPoolKind::Code);
   EXPECT_GT(result.segments[0].allocation.range.size, 0u);
-  EXPECT_GT(hooks.runtime().memory().global_memory_size(), 0u);
+  EXPECT_GT(hooks.runtime().memory().pool_memory_size(MemoryPoolKind::Code), 0u);
 
   std::filesystem::remove_all(temp_dir);
 }

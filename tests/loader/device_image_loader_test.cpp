@@ -35,11 +35,22 @@ TEST(DeviceImageLoaderTest, MaterializesSegmentsIntoMemorySystem) {
   EXPECT_EQ(result.preferred_kernarg_bytes, 24u);
   EXPECT_EQ(result.segments[0].allocation.pool, MemoryPoolKind::Code);
   EXPECT_EQ(result.segments[1].allocation.pool, MemoryPoolKind::Constant);
-  EXPECT_EQ(memory.LoadGlobalValue<uint8_t>(result.segments[0].allocation.range.base + 0), 0xaau);
-  EXPECT_EQ(memory.LoadGlobalValue<uint8_t>(result.segments[0].allocation.range.base + 1), 0xbbu);
-  EXPECT_EQ(memory.LoadGlobalValue<uint8_t>(result.segments[1].allocation.range.base + 0), 0x11u);
-  EXPECT_EQ(memory.LoadGlobalValue<uint8_t>(result.segments[1].allocation.range.base + 1), 0x22u);
+  EXPECT_EQ(memory.LoadValue<uint8_t>(MemoryPoolKind::Code,
+                                      result.segments[0].allocation.range.base + 0),
+            0xaau);
+  EXPECT_EQ(memory.LoadValue<uint8_t>(MemoryPoolKind::Code,
+                                      result.segments[0].allocation.range.base + 1),
+            0xbbu);
+  EXPECT_EQ(memory.LoadValue<uint8_t>(MemoryPoolKind::Constant,
+                                      result.segments[1].allocation.range.base + 0),
+            0x11u);
+  EXPECT_EQ(memory.LoadValue<uint8_t>(MemoryPoolKind::Constant,
+                                      result.segments[1].allocation.range.base + 1),
+            0x22u);
   EXPECT_EQ(result.segments[1].allocation.range.size, 8u);
+  EXPECT_EQ(memory.pool_memory_size(MemoryPoolKind::Global), 0u);
+  EXPECT_GT(memory.pool_memory_size(MemoryPoolKind::Code), 0u);
+  EXPECT_GT(memory.pool_memory_size(MemoryPoolKind::Constant), 0u);
 }
 
 }  // namespace
