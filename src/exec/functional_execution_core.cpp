@@ -35,7 +35,9 @@ struct ExecutableBlock {
   std::vector<WaveState> waves;
   std::vector<std::vector<size_t>> wave_indices_per_peu;
   std::vector<size_t> next_wave_rr_per_peu;
-  std::unique_ptr<std::mutex> execution_mutex;
+  std::vector<bool> wave_busy;
+  std::unique_ptr<std::mutex> control_mutex;
+  std::unique_ptr<std::mutex> shared_mutex;
 };
 
 uint64_t LoadLaneValue(const std::vector<std::byte>& memory, const LaneAccess& lane) {
@@ -112,7 +114,9 @@ std::vector<ExecutableBlock> MaterializeBlocks(const PlacementMap& placement,
         .waves = {},
         .wave_indices_per_peu = {},
         .next_wave_rr_per_peu = {},
-        .execution_mutex = std::make_unique<std::mutex>(),
+        .wave_busy = {},
+        .control_mutex = std::make_unique<std::mutex>(),
+        .shared_mutex = std::make_unique<std::mutex>(),
     };
     block.waves.reserve(block_placement.waves.size());
     for (const auto& wave_placement : block_placement.waves) {
@@ -131,6 +135,7 @@ std::vector<ExecutableBlock> MaterializeBlocks(const PlacementMap& placement,
         block.next_wave_rr_per_peu.resize(static_cast<size_t>(wave_placement.peu_id) + 1, 0);
       }
       block.wave_indices_per_peu[wave_placement.peu_id].push_back(block.waves.size());
+      block.wave_busy.push_back(false);
       block.waves.push_back(wave);
     }
     blocks.push_back(std::move(block));
@@ -224,22 +229,28 @@ class FunctionalExecutionCoreImpl {
               while (true) {
                 bool block_complete = false;
                 bool had_wave = false;
+                std::optional<size_t> wave_index;
                 {
-                  std::lock_guard<std::mutex> lock(*blocks_[i].execution_mutex);
+                  std::lock_guard<std::mutex> lock(*blocks_[i].control_mutex);
                   block_complete = !HasActiveWave(blocks_[i]);
                   if (!block_complete) {
                     ReleaseBlockBarrierIfReady(blocks_[i]);
-                    const auto wave_index = SelectNextWaveIndexForPeu(blocks_[i], peu_index);
+                    wave_index = SelectNextWaveIndexForPeu(blocks_[i], peu_index);
                     if (wave_index.has_value()) {
+                      blocks_[i].wave_busy[*wave_index] = true;
                       had_wave = true;
-                      ExecuteWave(blocks_[i], blocks_[i].waves[*wave_index], peu_stats);
                     }
                   }
                 }
                 if (block_complete) {
                   break;
                 }
-                if (!had_wave) {
+                if (had_wave) {
+                  ExecuteWave(blocks_[i], blocks_[i].waves[*wave_index], peu_stats);
+                  std::lock_guard<std::mutex> lock(*blocks_[i].control_mutex);
+                  blocks_[i].wave_busy[*wave_index] = false;
+                  ReleaseBlockBarrierIfReady(blocks_[i]);
+                } else {
                   std::this_thread::yield();
                 }
               }
@@ -336,14 +347,29 @@ class FunctionalExecutionCoreImpl {
   void ExecuteBlock(ExecutableBlock& block, ExecutionStats& stats) {
     while (HasActiveWave(block)) {
       bool made_progress = false;
-      ReleaseBlockBarrierIfReady(block);
+      {
+        std::lock_guard<std::mutex> lock(*block.control_mutex);
+        ReleaseBlockBarrierIfReady(block);
+      }
 
       for (size_t peu_index = 0; peu_index < block.wave_indices_per_peu.size(); ++peu_index) {
-        const auto wave_index = SelectNextWaveIndexForPeu(block, peu_index);
+        std::optional<size_t> wave_index;
+        {
+          std::lock_guard<std::mutex> lock(*block.control_mutex);
+          wave_index = SelectNextWaveIndexForPeu(block, peu_index);
+          if (wave_index.has_value()) {
+            block.wave_busy[*wave_index] = true;
+          }
+        }
         if (!wave_index.has_value()) {
           continue;
         }
         ExecuteWave(block, block.waves[*wave_index], stats);
+        {
+          std::lock_guard<std::mutex> lock(*block.control_mutex);
+          block.wave_busy[*wave_index] = false;
+          ReleaseBlockBarrierIfReady(block);
+        }
         made_progress = true;
       }
 
@@ -410,7 +436,8 @@ class FunctionalExecutionCoreImpl {
       const size_t local_index = (start + offset) % peu_waves.size();
       const size_t wave_index = peu_waves[local_index];
       const auto& wave = block.waves[wave_index];
-      if (wave.status == WaveStatus::Active && !wave.waiting_at_barrier) {
+      if (wave.status == WaveStatus::Active && !wave.waiting_at_barrier &&
+          !block.wave_busy[wave_index]) {
         block.next_wave_rr_per_peu[peu_index] = (local_index + 1) % peu_waves.size();
         return wave_index;
       }
@@ -529,6 +556,7 @@ class FunctionalExecutionCoreImpl {
             if (request.space == MemorySpace::Global) {
               loaded_values[lane] = LoadGlobalLaneValue(request.lanes[lane]);
             } else if (request.space == MemorySpace::Shared) {
+              std::lock_guard<std::mutex> lock(*block.shared_mutex);
               loaded_values[lane] = LoadLaneValue(block.shared_memory, request.lanes[lane]);
             } else if (request.space == MemorySpace::Private) {
               loaded_values[lane] =
@@ -553,6 +581,7 @@ class FunctionalExecutionCoreImpl {
           if (request.space == MemorySpace::Global) {
             StoreGlobalLaneValue(request.lanes[lane]);
           } else if (request.space == MemorySpace::Shared) {
+            std::lock_guard<std::mutex> lock(*block.shared_mutex);
             StoreLaneValue(block.shared_memory, request.lanes[lane]);
           } else if (request.space == MemorySpace::Private) {
             StoreLaneValue(wave.private_memory, lane, request.lanes[lane]);
@@ -566,7 +595,9 @@ class FunctionalExecutionCoreImpl {
             continue;
           }
           if (request.space == MemorySpace::Shared) {
-            int32_t prior = static_cast<int32_t>(LoadLaneValue(block.shared_memory, request.lanes[lane]));
+            std::lock_guard<std::mutex> lock(*block.shared_mutex);
+            int32_t prior =
+                static_cast<int32_t>(LoadLaneValue(block.shared_memory, request.lanes[lane]));
             const int32_t updated = prior + static_cast<int32_t>(request.lanes[lane].value);
             LaneAccess writeback = request.lanes[lane];
             writeback.value = static_cast<uint64_t>(static_cast<int64_t>(updated));
@@ -598,10 +629,13 @@ class FunctionalExecutionCoreImpl {
       ++wave.pc;
     } else if (plan.sync_barrier) {
       ++stats.barriers;
-      wave.status = WaveStatus::Stalled;
-      wave.waiting_at_barrier = true;
-      wave.barrier_generation = block.barrier_generation;
-      ++block.barrier_arrivals;
+      {
+        std::lock_guard<std::mutex> lock(*block.control_mutex);
+        wave.status = WaveStatus::Stalled;
+        wave.waiting_at_barrier = true;
+        wave.barrier_generation = block.barrier_generation;
+        ++block.barrier_arrivals;
+      }
       TraceEventLocked(TraceEvent{
           .kind = TraceEventKind::Barrier,
           .cycle = context_.cycle,
@@ -610,8 +644,10 @@ class FunctionalExecutionCoreImpl {
           .pc = wave.pc,
           .message = "arrive",
       });
-
-      ReleaseBlockBarrierIfReady(block);
+      {
+        std::lock_guard<std::mutex> lock(*block.control_mutex);
+        ReleaseBlockBarrierIfReady(block);
+      }
     } else if (plan.exit_wave) {
       ++stats.wave_exits;
       wave.status = WaveStatus::Exited;
