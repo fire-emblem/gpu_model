@@ -99,5 +99,38 @@ TEST(DeviceImageLoaderTest, MaterializesRawDataIntoRawDataPool) {
   EXPECT_EQ(memory.LoadValue<uint8_t>(MemoryPoolKind::RawData, 2), 0x93u);
 }
 
+TEST(DeviceImageLoaderTest, FindsLoadedSegmentsByKindPoolAndName) {
+  DeviceLoadPlan plan;
+  plan.segments.push_back(DeviceSegmentImage{
+      .kind = DeviceSegmentKind::Code,
+      .pool = MemoryPoolKind::Code,
+      .mapping = MemoryMappingKind::Copy,
+      .name = "code_segment",
+      .alignment = 16,
+      .bytes = {std::byte{0xaa}},
+      .required_bytes = 1,
+  });
+  plan.segments.push_back(DeviceSegmentImage{
+      .kind = DeviceSegmentKind::RawData,
+      .pool = MemoryPoolKind::RawData,
+      .mapping = MemoryMappingKind::Copy,
+      .name = "raw_segment",
+      .alignment = 4,
+      .bytes = {std::byte{0xbb}},
+      .required_bytes = 1,
+  });
+
+  MemorySystem memory;
+  const auto result = DeviceImageLoader{}.Materialize(plan, memory);
+  ASSERT_EQ(result.segments.size(), 2u);
+  ASSERT_NE(result.FindByKind(DeviceSegmentKind::Code), nullptr);
+  EXPECT_EQ(result.FindByKind(DeviceSegmentKind::Code)->segment.name, "code_segment");
+  ASSERT_NE(result.FindByPool(MemoryPoolKind::RawData), nullptr);
+  EXPECT_EQ(result.FindByPool(MemoryPoolKind::RawData)->segment.name, "raw_segment");
+  ASSERT_NE(result.FindByName("raw_segment"), nullptr);
+  EXPECT_EQ(result.FindByName("raw_segment")->allocation.pool, MemoryPoolKind::RawData);
+  EXPECT_EQ(result.FindByName("missing"), nullptr);
+}
+
 }  // namespace
 }  // namespace gpu_model

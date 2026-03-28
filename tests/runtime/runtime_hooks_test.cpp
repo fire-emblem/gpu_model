@@ -207,6 +207,11 @@ TEST(RuntimeHooksTest, LaunchProgramImagePopulatesLastLoadResult) {
   EXPECT_EQ(hooks.last_load_result()->segments[0].allocation.pool, MemoryPoolKind::Code);
   EXPECT_EQ(hooks.last_load_result()->segments[1].allocation.pool, MemoryPoolKind::Constant);
   EXPECT_EQ(hooks.last_load_result()->segments[2].allocation.pool, MemoryPoolKind::Kernarg);
+  ASSERT_NE(hooks.last_load_result()->FindByKind(DeviceSegmentKind::Code), nullptr);
+  ASSERT_NE(hooks.last_load_result()->FindByKind(DeviceSegmentKind::ConstantData), nullptr);
+  ASSERT_NE(hooks.last_load_result()->FindByKind(DeviceSegmentKind::KernargTemplate), nullptr);
+  EXPECT_EQ(hooks.last_load_result()->FindByPool(MemoryPoolKind::Kernarg)->segment.kind,
+            DeviceSegmentKind::KernargTemplate);
 }
 
 TEST(RuntimeHooksTest, LaunchProgramImageUsesLatestConstantPoolResidency) {
