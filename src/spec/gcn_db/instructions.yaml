@@ -933,6 +933,35 @@ instructions:
   mnemonic: v_add_co_u32_e64
   semantic_family: vector_alu
   issue_family: vector_alu
+  operands:
+  - name: vdst
+    kind: vector_reg
+    role: def
+    field: vdst
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: sdst
+    kind: vop3_sdst_pair
+    role: def
+    field: ''
+    reg_count: 2
+    scale: 1
+    special_reg: ''
+  - name: src0
+    kind: src9
+    role: use
+    field: src0
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src1
+    kind: src9
+    role: use
+    field: src1
+    reg_count: 1
+    scale: 1
+    special_reg: ''
 - id: 36
   profile: gfx6_gfx8
   format: vop3a
@@ -941,6 +970,42 @@ instructions:
   mnemonic: v_addc_co_u32_e64
   semantic_family: vector_alu
   issue_family: vector_alu
+  operands:
+  - name: vdst
+    kind: vector_reg
+    role: def
+    field: vdst
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: sdst
+    kind: vop3_sdst_pair
+    role: def
+    field: ''
+    reg_count: 2
+    scale: 1
+    special_reg: ''
+  - name: src0
+    kind: src9
+    role: use
+    field: src0
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src1
+    kind: src9
+    role: use
+    field: src1
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src2
+    kind: vop3_src2_pair
+    role: use
+    field: src2
+    reg_count: 2
+    scale: 1
+    special_reg: ''
 - id: 37
   profile: gfx6_gfx8
   format: vop1
@@ -972,6 +1037,28 @@ instructions:
   mnemonic: v_cmp_gt_i32_e64
   semantic_family: vector_alu
   issue_family: vector_alu
+  operands:
+  - name: sdst
+    kind: vop3_sdst_pair
+    role: def
+    field: ''
+    reg_count: 2
+    scale: 1
+    special_reg: ''
+  - name: src0
+    kind: src9
+    role: use
+    field: src0
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src1
+    kind: src9
+    role: use
+    field: src1
+    reg_count: 1
+    scale: 1
+    special_reg: ''
 - id: 39
   profile: gfx6_gfx8
   format: sopc
@@ -1444,6 +1531,35 @@ instructions:
   mnemonic: v_cndmask_b32_e64
   semantic_family: vector_alu
   issue_family: vector_alu
+  operands:
+  - name: vdst
+    kind: vector_reg
+    role: def
+    field: vdst
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src0
+    kind: src9
+    role: use
+    field: src0
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src1
+    kind: src9
+    role: use
+    field: src1
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src2
+    kind: vop3_src2_pair
+    role: use
+    field: src2
+    reg_count: 2
+    scale: 1
+    special_reg: ''
 - id: 60
   profile: gfx6_gfx8
   format: vop3a

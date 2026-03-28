@@ -194,5 +194,47 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeCarryConsumingVectorAddInstruction
   EXPECT_EQ(decoded.operands[4].text, "vcc");
 }
 
+TEST(GcnInstDecoderTest, DecodesRepresentativeVop3CarryE64Instruction) {
+  RawGcnInstruction raw{
+      .pc = 0x1a30,
+      .size_bytes = 8,
+      .words = {0xd1180402u, 0x00000a03u},
+      .format_class = GcnInstFormatClass::Vop3a,
+      .mnemonic = "v_add_co_u32_e64",
+      .operands = "",
+      .decoded_operands = {},
+  };
+
+  const auto decoded = GcnInstDecoder{}.Decode(raw);
+  EXPECT_EQ(decoded.encoding_id, 35u);
+  EXPECT_EQ(decoded.mnemonic, "v_add_co_u32_e64");
+  ASSERT_EQ(decoded.operands.size(), 4u);
+  EXPECT_EQ(decoded.operands[0].text, "v2");
+  EXPECT_EQ(decoded.operands[1].text, "s[4:5]");
+  EXPECT_EQ(decoded.operands[2].text, "s3");
+  EXPECT_EQ(decoded.operands[3].text, "s5");
+}
+
+TEST(GcnInstDecoderTest, DecodesRepresentativeVop3CndmaskE64Instruction) {
+  RawGcnInstruction raw{
+      .pc = 0x1a38,
+      .size_bytes = 8,
+      .words = {0xd1000001u, 0x00100002u},
+      .format_class = GcnInstFormatClass::Vop3a,
+      .mnemonic = "v_cndmask_b32_e64",
+      .operands = "",
+      .decoded_operands = {},
+  };
+
+  const auto decoded = GcnInstDecoder{}.Decode(raw);
+  EXPECT_EQ(decoded.encoding_id, 59u);
+  EXPECT_EQ(decoded.mnemonic, "v_cndmask_b32_e64");
+  ASSERT_EQ(decoded.operands.size(), 4u);
+  EXPECT_EQ(decoded.operands[0].text, "v1");
+  EXPECT_EQ(decoded.operands[1].text, "s2");
+  EXPECT_EQ(decoded.operands[2].text, "s0");
+  EXPECT_EQ(decoded.operands[3].text, "s[4:5]");
+}
+
 }  // namespace
 }  // namespace gpu_model

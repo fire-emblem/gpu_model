@@ -50,3 +50,9 @@ operand_kinds:
   - id: flat_offset13
     category: immediate
     description: signed 13-bit flat/global offset field
+  - id: vop3_sdst_pair
+    category: scalar
+    description: scalar destination pair encoded in VOP3 low-word control bits
+  - id: vop3_src2_pair
+    category: scalar
+    description: scalar register pair encoded from the VOP3 src2 field

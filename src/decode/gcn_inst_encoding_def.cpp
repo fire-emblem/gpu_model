@@ -326,6 +326,16 @@ RawGcnOperand DecodeScalarPairSrc8(uint32_t value) {
   return DecodeSrc8(value);
 }
 
+RawGcnOperand DecodeVop3SdstPair(const std::vector<uint32_t>& words) {
+  const uint32_t low = words.empty() ? 0u : words[0];
+  return MakeScalarRegRangeOperand((low >> 8u) & 0x7fu, 2);
+}
+
+RawGcnOperand DecodeVop3Src2Pair(const std::vector<uint32_t>& words) {
+  const uint32_t high = words.size() > 1 ? words[1] : 0u;
+  return MakeScalarRegRangeOperand((high >> 18u) & 0x1ffu, 2);
+}
+
 const GcnGeneratedFormatDef* FindGeneratedFormatDefByClass(GcnInstFormatClass format_class) {
   const auto& defs = GeneratedGcnFormatDefs();
   for (size_t i = 0; i < defs.size(); ++i) {
@@ -416,6 +426,10 @@ bool TryDecodeGeneratedOperands(RawGcnInstruction& instruction, const GcnGenerat
       instruction.decoded_operands.push_back(DecodeSrc8(raw_value));
     } else if (std::string_view(spec.kind) == "scalar_src8_pair") {
       instruction.decoded_operands.push_back(DecodeScalarPairSrc8(raw_value));
+    } else if (std::string_view(spec.kind) == "vop3_sdst_pair") {
+      instruction.decoded_operands.push_back(DecodeVop3SdstPair(instruction.words));
+    } else if (std::string_view(spec.kind) == "vop3_src2_pair") {
+      instruction.decoded_operands.push_back(DecodeVop3Src2Pair(instruction.words));
     } else if (std::string_view(spec.kind) == "src9") {
       instruction.decoded_operands.push_back(DecodeSrc9(raw_value));
     } else if (std::string_view(spec.kind) == "immediate_field") {
