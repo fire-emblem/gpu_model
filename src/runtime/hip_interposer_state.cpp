@@ -6,6 +6,7 @@
 #include <string_view>
 #include <unistd.h>
 
+#include "gpu_model/loader/amdgpu_code_object_decoder.h"
 #include "gpu_model/loader/amdgpu_obj_loader.h"
 
 namespace gpu_model {
@@ -134,7 +135,19 @@ std::vector<HipInterposerArgDesc> HipInterposerState::ParseArgLayout(const Metad
 
 KernelArgPack HipInterposerState::PackArgs(const ProgramImage& image, void** args) const {
   KernelArgPack packed;
-  const auto layout = ParseArgLayout(image.metadata());
+  MetadataBlob metadata = image.metadata();
+  auto layout = ParseArgLayout(metadata);
+  if (layout.empty()) {
+    const auto path_it = metadata.values.find("artifact_path");
+    if (path_it != metadata.values.end()) {
+      const auto entry_it = metadata.values.find("entry");
+      const std::optional<std::string> kernel_name =
+          entry_it != metadata.values.end() ? std::optional<std::string>(entry_it->second)
+                                            : std::nullopt;
+      metadata = AmdgpuCodeObjectDecoder{}.Decode(path_it->second, kernel_name).metadata;
+      layout = ParseArgLayout(metadata);
+    }
+  }
   for (size_t i = 0; i < layout.size(); ++i) {
     if (args == nullptr || args[i] == nullptr) {
       throw std::invalid_argument("missing kernel argument pointer");
