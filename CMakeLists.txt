@@ -18,6 +18,7 @@ FetchContent_MakeAvailable(googletest)
 add_library(gpu_model STATIC
   src/arch/arch_registry.cpp
   src/arch/c500_spec.cpp
+  src/decode/generated_gcn_full_opcode_table.cpp
   src/decode/generated_gcn_inst_db.cpp
   src/decode/generated_gcn_opcode_enums.cpp
   src/decode/gcn_inst_db_lookup.cpp

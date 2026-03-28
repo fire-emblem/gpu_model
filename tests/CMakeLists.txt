@@ -1,4 +1,5 @@
 add_executable(gpu_model_tests
+  decode/generated_gcn_full_opcode_table_test.cpp
   decode/generated_gcn_inst_db_test.cpp
   decode/generated_gcn_opcode_enums_test.cpp
   decode/gcn_inst_db_lookup_test.cpp

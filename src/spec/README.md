@@ -9,7 +9,7 @@ Current references:
 - [gcn-isa-db-format.md](/data/gpu_model/src/spec/gcn-isa-db-format.md)
   - recommended machine-readable source format for opcode/encoding/field definitions and generated C++ decode tables
 - [gcn-optype-opcode-table.md](/data/gpu_model/src/spec/gcn-optype-opcode-table.md)
-  - generated markdown table of `optype` encodings, per-format opcode enums, and opcode names currently present in the system
+  - generated markdown table of canonical GFX9/VI-line `optype` encodings, opcode values, and mnemonic mappings extracted from LLVM AMDGPU TableGen sources
 - [llvm-amdgpu-model-contract-reference.md](/data/gpu_model/src/spec/llvm-amdgpu-model-contract-reference.md)
   - LLVM AMDGPU backend / AMDHSA code object contract relevant to loader, metadata parsing, module load, kernarg packing, and wave launch ABI initialization
 - [llvm_amdgpu_refs/README.md](/data/gpu_model/src/spec/llvm_amdgpu_refs/README.md)
