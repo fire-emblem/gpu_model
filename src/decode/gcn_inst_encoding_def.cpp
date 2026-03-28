@@ -8,6 +8,12 @@ namespace gpu_model {
 
 namespace {
 
+struct WaitCntInfo {
+  uint8_t vmcnt = 0;
+  uint8_t expcnt = 0;
+  uint8_t lgkmcnt = 0;
+};
+
 const std::vector<GcnInstEncodingDef>& EncodingDefs() {
   static const std::vector<GcnInstEncodingDef> kDefs = {
       {.id = 1, .format_class = GcnInstFormatClass::Sopp, .op = 1, .size_bytes = 4, .mnemonic = "s_endpgm"},
@@ -173,6 +179,54 @@ RawGcnOperand MakeImmediateOperand(std::string text, int64_t value) {
   };
 }
 
+WaitCntInfo DecodeWaitCntInfo(uint16_t imm16) {
+  return WaitCntInfo{
+      .vmcnt = static_cast<uint8_t>(imm16 & 0x0fu),
+      .expcnt = static_cast<uint8_t>((imm16 >> 4u) & 0x07u),
+      .lgkmcnt = static_cast<uint8_t>((imm16 >> 8u) & 0x1fu),
+  };
+}
+
+std::string FormatWaitCnt(const WaitCntInfo& info) {
+  std::string text;
+  const auto append = [&](const std::string& item) {
+    if (!text.empty()) {
+      text += " & ";
+    }
+    text += item;
+  };
+  if (info.vmcnt != 0x0fu) {
+    append("vmcnt(" + std::to_string(info.vmcnt) + ")");
+  }
+  if (info.expcnt != 0x07u) {
+    append("expcnt(" + std::to_string(info.expcnt) + ")");
+  }
+  if (info.lgkmcnt != 0x1fu) {
+    append("lgkmcnt(" + std::to_string(info.lgkmcnt) + ")");
+  }
+  if (text.empty()) {
+    text = "vmcnt(15) & expcnt(7) & lgkmcnt(31)";
+  }
+  return text;
+}
+
+RawGcnOperand MakeWaitCntOperand(uint16_t imm16) {
+  const auto wait = DecodeWaitCntInfo(imm16);
+  return RawGcnOperand{
+      .kind = RawGcnOperandKind::Immediate,
+      .text = FormatWaitCnt(wait),
+      .info =
+          GcnOperandInfo{
+              .immediate = imm16,
+              .has_immediate = true,
+              .wait_vmcnt = wait.vmcnt,
+              .wait_expcnt = wait.expcnt,
+              .wait_lgkmcnt = wait.lgkmcnt,
+              .has_waitcnt = true,
+          },
+  };
+}
+
 RawGcnOperand MakeBranchTargetOperand(int64_t simm16) {
   return RawGcnOperand{
       .kind = RawGcnOperandKind::BranchTarget,
@@ -297,9 +351,7 @@ void DecodeGcnOperands(RawGcnInstruction& instruction) {
       instruction.decoded_operands.push_back(DecodeSrc8((low >> 8u) & 0xffu));
       break;
     case 12:
-      instruction.decoded_operands.push_back(
-          MakeImmediateOperand("lgkmcnt(" + std::to_string((low >> 8u) & 0x7fu) + ")",
-                               (low >> 8u) & 0x7fu));
+      instruction.decoded_operands.push_back(MakeWaitCntOperand(static_cast<uint16_t>(low & 0xffffu)));
       break;
     case 13:
       instruction.decoded_operands.push_back(MakeVectorRegOperand((low >> 17u) & 0xffu));

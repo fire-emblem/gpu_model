@@ -59,7 +59,11 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeWaitcntInstruction) {
   EXPECT_EQ(decoded.encoding_id, 12u);
   EXPECT_EQ(decoded.mnemonic, "s_waitcnt");
   ASSERT_EQ(decoded.operands.size(), 1u);
-  EXPECT_EQ(decoded.operands[0].text, "lgkmcnt(64)");
+  EXPECT_EQ(decoded.operands[0].text, "lgkmcnt(0)");
+  EXPECT_TRUE(decoded.operands[0].info.has_waitcnt);
+  EXPECT_EQ(decoded.operands[0].info.wait_lgkmcnt, 0u);
+  EXPECT_EQ(decoded.operands[0].info.wait_vmcnt, 15u);
+  EXPECT_EQ(decoded.operands[0].info.wait_expcnt, 7u);
 }
 
 TEST(GcnInstDecoderTest, DecodesRepresentativeVectorMoveInstruction) {
