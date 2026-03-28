@@ -2,24 +2,31 @@
 
 This directory is reserved for machine-readable GCN ISA source data.
 
-Planned source-of-truth format:
+Current source-of-truth format:
 
 - YAML files
 - split by:
-  - architecture profile
   - format class
-  - operand kinds
-  - semantic families
-  - opcode groups
+  - instruction definitions
 
-Planned flow:
+Current files:
+
+- `format_classes.yaml`
+- `instructions.yaml`
+
+Current flow:
 
 1. maintain YAML here
-2. generate C++ static tables
+2. generate C++ static tables with `scripts/gen_gcn_isa_db.py`
 3. use generated tables for:
    - binary decode
    - disassembly
-   - semantic-family lookup
+   - definition lookup
    - future code generation
 
-This directory is intentionally only scaffolded in this step.
+Planned follow-on split:
+
+- `profiles.yaml`
+- `operand_kinds.yaml`
+- `semantic_families.yaml`
+- `opcodes/*.yaml`
