@@ -12,6 +12,10 @@ Current references:
   - generated markdown table of `optype` encodings, per-format opcode enums, and opcode names currently present in the system
 - [llvm-amdgpu-model-contract-reference.md](/data/gpu_model/src/spec/llvm-amdgpu-model-contract-reference.md)
   - LLVM AMDGPU backend / AMDHSA code object contract relevant to loader, metadata parsing, module load, kernarg packing, and wave launch ABI initialization
+- [llvm_amdgpu_refs/README.md](/data/gpu_model/src/spec/llvm_amdgpu_refs/README.md)
+  - locally downloaded official LLVM AMDGPU HTML references
+- [llvm_amdgpu_backend_td/README.md](/data/gpu_model/src/spec/llvm_amdgpu_backend_td/README.md)
+  - locally downloaded LLVM AMDGPU backend `.td` sources used for cross-checking opcode and encoding definitions
 
 Usage rule:
 
