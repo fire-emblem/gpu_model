@@ -1,7 +1,9 @@
 #include "gpu_model/runtime/host_runtime.h"
 
+#include <cstdlib>
 #include <sstream>
 #include <stdexcept>
+#include <string_view>
 
 #include "gpu_model/arch/arch_registry.h"
 #include "gpu_model/exec/cycle_executor.h"
@@ -16,7 +18,42 @@
 
 namespace gpu_model {
 
-HostRuntime::HostRuntime(TraceSink* default_trace) : default_trace_(default_trace) {}
+namespace {
+
+std::optional<FunctionalExecutionConfig> FunctionalExecutionConfigFromEnv() {
+  const char* mode_env = std::getenv("GPU_MODEL_FUNCTIONAL_MODE");
+  if (mode_env == nullptr) {
+    return std::nullopt;
+  }
+
+  FunctionalExecutionConfig config;
+  const std::string_view mode(mode_env);
+  if (mode == "marl" || mode == "parallel" || mode == "marl_parallel") {
+    config.mode = FunctionalExecutionMode::MarlParallel;
+  } else if (mode == "single" || mode == "single_threaded") {
+    config.mode = FunctionalExecutionMode::SingleThreaded;
+  } else {
+    return std::nullopt;
+  }
+
+  if (const char* workers_env = std::getenv("GPU_MODEL_FUNCTIONAL_WORKERS");
+      workers_env != nullptr && workers_env[0] != '\0') {
+    try {
+      config.worker_threads = static_cast<uint32_t>(std::stoul(workers_env));
+    } catch (const std::exception&) {
+      return std::nullopt;
+    }
+  }
+  return config;
+}
+
+}  // namespace
+
+HostRuntime::HostRuntime(TraceSink* default_trace) : default_trace_(default_trace) {
+  if (const auto config = FunctionalExecutionConfigFromEnv(); config.has_value()) {
+    functional_execution_config_ = *config;
+  }
+}
 
 void HostRuntime::SetFixedGlobalMemoryLatency(uint64_t latency) {
   flat_global_latency_override_ = latency;
