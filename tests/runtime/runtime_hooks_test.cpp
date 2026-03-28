@@ -180,6 +180,29 @@ TEST(RuntimeHooksTest, MaterializesProgramImageLoadPlanIntoDeviceMemory) {
             0x44u);
 }
 
+TEST(RuntimeHooksTest, LaunchProgramImagePopulatesLastLoadResult) {
+  ConstSegment const_segment;
+  const_segment.bytes = {std::byte{0xaa}, std::byte{0xbb}};
+  ProgramImage image("plan_launch_kernel", "s_endpgm\n",
+                     MetadataBlob{.values = {{"required_shared_bytes", "64"},
+                                             {"arg_layout", "global_buffer:8,by_value:4"}}},
+                     std::move(const_segment));
+
+  RuntimeHooks hooks;
+  const auto result =
+      hooks.LaunchProgramImage(
+          image,
+          LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64, .shared_memory_bytes = 128},
+          {});
+  ASSERT_TRUE(result.ok) << result.error_message;
+  ASSERT_TRUE(hooks.last_load_result().has_value());
+  EXPECT_EQ(hooks.last_load_result()->required_shared_bytes, 64u);
+  EXPECT_EQ(hooks.last_load_result()->preferred_kernarg_bytes, 12u);
+  ASSERT_EQ(hooks.last_load_result()->segments.size(), 2u);
+  EXPECT_EQ(hooks.last_load_result()->segments[0].allocation.pool, MemoryPoolKind::Code);
+  EXPECT_EQ(hooks.last_load_result()->segments[1].allocation.pool, MemoryPoolKind::Constant);
+}
+
 TEST(RuntimeHooksTest, LoadsSectionedExecutableImageAndLaunchesRegisteredKernel) {
   const std::filesystem::path path =
       std::filesystem::temp_directory_path() / "gpu_model_runtime_sectioned.gpusec";
@@ -491,6 +514,59 @@ TEST(RuntimeHooksTest, MaterializesHipSharedReverseCodeIntoDeviceMemory) {
   EXPECT_EQ(result.segments[0].allocation.pool, MemoryPoolKind::Code);
   EXPECT_GT(result.segments[0].allocation.range.size, 0u);
   EXPECT_GT(hooks.runtime().memory().global_memory_size(), 0u);
+
+  std::filesystem::remove_all(temp_dir);
+}
+
+TEST(RuntimeHooksTest, LaunchAmdgpuObjectPopulatesLastLoadResult) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_runtime_last_load_shared_reverse");
+  const auto src_path = temp_dir / "hip_shared_reverse.cpp";
+  const auto exe_path = temp_dir / "hip_shared_reverse.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n"
+           "extern \"C\" __global__ void shared_reverse(const int* in, int* out, int n) {\n"
+           "  __shared__ int scratch[64];\n"
+           "  int tid = threadIdx.x;\n"
+           "  int idx = blockIdx.x * blockDim.x + tid;\n"
+           "  if (idx < n) scratch[tid] = in[idx];\n"
+           "  __syncthreads();\n"
+           "  if (idx < n) out[idx] = scratch[blockDim.x - 1 - tid];\n"
+           "}\n"
+           "int main() { return 0; }\n";
+  }
+
+  const std::string command =
+      "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  RuntimeHooks hooks;
+  constexpr uint32_t n = 128;
+  const uint64_t in_addr = hooks.Malloc(n * sizeof(int32_t));
+  const uint64_t out_addr = hooks.Malloc(n * sizeof(int32_t));
+  std::vector<int32_t> zeros(n, 0);
+  hooks.MemcpyHtoD<int32_t>(in_addr, std::span<const int32_t>(zeros));
+  hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(zeros));
+  KernelArgPack args;
+  args.PushU64(in_addr);
+  args.PushU64(out_addr);
+  args.PushU32(n);
+  const auto result = hooks.LaunchAmdgpuObject(
+      exe_path, LaunchConfig{.grid_dim_x = 2, .block_dim_x = 64}, std::move(args),
+      ExecutionMode::Functional,
+      "c500", nullptr, "shared_reverse");
+  ASSERT_TRUE(result.ok) << result.error_message;
+  ASSERT_TRUE(hooks.last_load_result().has_value());
+  EXPECT_EQ(hooks.last_load_result()->required_shared_bytes, 256u);
+  EXPECT_EQ(hooks.last_load_result()->preferred_kernarg_bytes, 20u);
+  ASSERT_EQ(hooks.last_load_result()->segments.size(), 1u);
+  EXPECT_EQ(hooks.last_load_result()->segments[0].allocation.pool, MemoryPoolKind::Code);
 
   std::filesystem::remove_all(temp_dir);
 }

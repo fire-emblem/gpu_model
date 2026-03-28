@@ -64,6 +64,7 @@ class RuntimeHooks {
   DeviceLoadResult LoadAmdgpuObjectToDevice(
       const std::filesystem::path& path,
       std::optional<std::string> kernel_name = std::nullopt);
+  const std::optional<DeviceLoadResult>& last_load_result() const { return last_load_result_; }
   void RegisterProgramImage(std::string module_name, ProgramImage image);
   void LoadAmdgpuObject(std::string module_name,
                         const std::filesystem::path& path,
@@ -100,6 +101,7 @@ class RuntimeHooks {
   HostRuntime* runtime_ = &owned_runtime_;
   std::unordered_map<uint64_t, size_t> allocations_;
   std::unordered_map<std::string, std::unordered_map<std::string, ProgramImage>> modules_;
+  std::optional<DeviceLoadResult> last_load_result_;
 };
 
 }  // namespace gpu_model

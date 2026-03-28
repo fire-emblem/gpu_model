@@ -8,7 +8,21 @@
 #include <utility>
 #include <vector>
 
+#include "gpu_model/isa/target_isa.h"
+
 namespace gpu_model {
+
+namespace {
+
+std::optional<std::string> MetadataValue(const MetadataBlob& metadata, const std::string& key) {
+  const auto it = metadata.values.find(key);
+  if (it == metadata.values.end()) {
+    return std::nullopt;
+  }
+  return it->second;
+}
+
+}  // namespace
 
 RuntimeHooks::RuntimeHooks(HostRuntime* runtime) {
   if (runtime != nullptr) {
@@ -69,6 +83,7 @@ LaunchResult RuntimeHooks::LaunchProgramImage(const ProgramImage& image,
                                               ExecutionMode mode,
                                               std::string arch_name,
                                               TraceSink* trace) {
+  last_load_result_ = LoadProgramImageToDevice(image);
   LaunchRequest request;
   request.arch_name = std::move(arch_name);
   request.program_image = &image;
@@ -80,6 +95,12 @@ LaunchResult RuntimeHooks::LaunchProgramImage(const ProgramImage& image,
 }
 
 DeviceLoadPlan RuntimeHooks::BuildLoadPlan(const ProgramImage& image) const {
+  if (ResolveTargetIsa(image.metadata()) == TargetIsa::GcnRawAsm) {
+    const auto artifact_path = MetadataValue(image.metadata(), "artifact_path");
+    if (artifact_path.has_value()) {
+      return BuildLoadPlanFromAmdgpuObject(*artifact_path, image.kernel_name());
+    }
+  }
   return BuildDeviceLoadPlan(image);
 }
 
@@ -138,6 +159,7 @@ void RuntimeHooks::Reset() {
   runtime_ = &owned_runtime_;
   allocations_.clear();
   modules_.clear();
+  last_load_result_.reset();
 }
 
 bool RuntimeHooks::HasModule(const std::string& module_name) const {
@@ -211,8 +233,15 @@ LaunchResult RuntimeHooks::LaunchAmdgpuObject(const std::filesystem::path& path,
                                               TraceSink* trace,
                                               std::optional<std::string> kernel_name) {
   const auto image = AmdgpuObjLoader{}.LoadFromObject(path, std::move(kernel_name));
-  return LaunchProgramImage(image, std::move(config), std::move(args), mode, std::move(arch_name),
-                            trace);
+  last_load_result_ = LoadAmdgpuObjectToDevice(path, image.kernel_name());
+  LaunchRequest request;
+  request.arch_name = std::move(arch_name);
+  request.program_image = &image;
+  request.config = config;
+  request.args = std::move(args);
+  request.mode = mode;
+  request.trace = trace;
+  return runtime_->Launch(request);
 }
 
 }  // namespace gpu_model
