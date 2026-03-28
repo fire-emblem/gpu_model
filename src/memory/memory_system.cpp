@@ -150,4 +150,15 @@ void MemorySystem::ReadGlobal(uint64_t addr, std::span<std::byte> data) const {
   Read(MemoryPoolKind::Global, addr, data);
 }
 
+bool MemorySystem::HasGlobalRange(uint64_t addr, size_t bytes) const {
+  for (const auto pool : {MemoryPoolKind::Constant, MemoryPoolKind::Shared, MemoryPoolKind::Private,
+                          MemoryPoolKind::Managed, MemoryPoolKind::Kernarg, MemoryPoolKind::Code,
+                          MemoryPoolKind::RawData}) {
+    if (HasRange(pool, addr, bytes)) {
+      return true;
+    }
+  }
+  return HasRange(MemoryPoolKind::Global, addr, bytes);
+}
+
 }  // namespace gpu_model

@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <memory>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -38,6 +39,10 @@ class HipInterposerState {
   void MemcpyHostToDevice(void* dst_device_ptr, const void* src_host_ptr, size_t bytes);
   void MemcpyDeviceToHost(void* dst_host_ptr, const void* src_device_ptr, size_t bytes) const;
   void MemcpyDeviceToDevice(void* dst_device_ptr, const void* src_device_ptr, size_t bytes);
+  void MemsetDevice(void* device_ptr, uint8_t value, size_t bytes);
+  void MemsetDeviceD32(void* device_ptr, uint32_t value, size_t count);
+  void SyncManagedHostToDevice();
+  void SyncManagedDeviceToHost();
 
   LaunchResult LaunchExecutableKernel(const std::filesystem::path& executable_path,
                                       const void* host_function,
@@ -61,10 +66,13 @@ class HipInterposerState {
     uint64_t model_addr = 0;
     size_t bytes = 0;
     MemoryPoolKind pool = MemoryPoolKind::Global;
+    std::unique_ptr<std::byte[]> host_backing;
   };
 
   std::vector<HipInterposerArgDesc> ParseArgLayout(const MetadataBlob& metadata) const;
   KernelArgPack PackArgs(const ProgramImage& image, void** args) const;
+  Allocation* FindAllocation(const void* ptr);
+  const Allocation* FindAllocation(const void* ptr) const;
 
   RuntimeHooks hooks_;
   std::unordered_map<const void*, std::string> kernel_symbols_;

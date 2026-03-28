@@ -1,9 +1,14 @@
 #include <gtest/gtest.h>
 
+#include <array>
 #include <chrono>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
+#include <stdexcept>
+#include <string>
+#include <unistd.h>
 #include <vector>
 
 #include "gpu_model/runtime/hip_interposer_state.h"
@@ -27,6 +32,20 @@ std::filesystem::path MakeUniqueTempDir(const std::string& stem) {
   std::filesystem::remove_all(path);
   std::filesystem::create_directories(path);
   return path;
+}
+
+std::filesystem::path CurrentTestBinaryPath() {
+  std::array<char, 4096> buffer{};
+  const ssize_t length = ::readlink("/proc/self/exe", buffer.data(), buffer.size() - 1);
+  if (length < 0) {
+    throw std::runtime_error("failed to resolve /proc/self/exe for test binary");
+  }
+  buffer[static_cast<size_t>(length)] = '\0';
+  return std::filesystem::path(buffer.data());
+}
+
+std::filesystem::path BuildDirPath() {
+  return CurrentTestBinaryPath().parent_path().parent_path();
 }
 
 TEST(HipInterposerStateTest, LaunchesHipVecAddExecutableThroughRegisteredHostFunction) {
@@ -371,6 +390,103 @@ TEST(HipInterposerStateTest, LaunchesHipVecAddExecutableThroughManagedAllocation
   for (uint32_t i = 0; i < n; ++i) {
     EXPECT_FLOAT_EQ(c[i], a[i] + b[i]);
   }
+
+  std::filesystem::remove_all(temp_dir);
+}
+
+TEST(HipInterposerStateTest, RunsHipHostExecutableThroughLdPreloadInterposer) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto build_dir = BuildDirPath();
+  const auto interposer_path = build_dir / "libgpu_model_hip_interposer.so";
+  if (!std::filesystem::exists(interposer_path)) {
+    GTEST_SKIP() << "missing interposer library: " << interposer_path;
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_ld_preload_host");
+  const auto src_path = temp_dir / "hip_ld_preload_host.cpp";
+  const auto exe_path = temp_dir / "hip_ld_preload_host.out";
+  const auto stdout_path = temp_dir / "stdout.txt";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << R"(
+#include <hip/hip_runtime.h>
+#include <cstdio>
+#include <vector>
+
+extern "C" __global__ void affine2x_bias(const float* in, float* out, float bias, int n) {
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n) out[i] = in[i] * 2.0f + bias;
+}
+
+int main() {
+  constexpr int n = 257;
+  constexpr float bias = 3.5f;
+  int device_count = 0;
+  int device = -1;
+  if (hipGetDeviceCount(&device_count) != hipSuccess || device_count != 1) return 10;
+  if (hipSetDevice(0) != hipSuccess) return 11;
+  if (hipGetDevice(&device) != hipSuccess || device != 0) return 12;
+
+  hipStream_t stream = nullptr;
+  if (hipStreamCreate(&stream) != hipSuccess || stream == nullptr) return 13;
+
+  float* in = nullptr;
+  float* out = nullptr;
+  if (hipMallocManaged(&in, n * sizeof(float)) != hipSuccess) return 14;
+  if (hipMalloc(&out, n * sizeof(float)) != hipSuccess) return 15;
+  if (hipMemset(out, 0, n * sizeof(float)) != hipSuccess) return 16;
+
+  for (int i = 0; i < n; ++i) {
+    in[i] = 0.5f * static_cast<float>(i);
+  }
+
+  hipLaunchKernelGGL(affine2x_bias, dim3(3), dim3(128), 0, stream, in, out, bias, n);
+  if (hipPeekAtLastError() != hipSuccess) return 17;
+  if (hipStreamSynchronize(stream) != hipSuccess) return 18;
+
+  std::vector<float> host(n, -1.0f);
+  if (hipMemcpyAsync(host.data(), out, n * sizeof(float), hipMemcpyDeviceToHost, stream) != hipSuccess) return 19;
+  if (hipStreamSynchronize(stream) != hipSuccess) return 20;
+  if (hipGetLastError() != hipSuccess) return 21;
+  if (hipGetLastError() != hipSuccess) return 22;
+
+  for (int i = 0; i < n; ++i) {
+    const float expected = in[i] * 2.0f + bias;
+    if (host[i] != expected) {
+      std::printf("mismatch %d got=%f expected=%f\n", i, host[i], expected);
+      return 30;
+    }
+  }
+
+  if (hipStreamDestroy(stream) != hipSuccess) return 31;
+  if (hipFree(out) != hipSuccess) return 32;
+  if (hipFree(in) != hipSuccess) return 33;
+  std::puts("ld_preload host path ok");
+  return 0;
+}
+)";
+  }
+
+  const std::string compile_command = "env -u LD_PRELOAD hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(compile_command.c_str()), 0);
+
+  const std::string run_command =
+      "env LD_PRELOAD=" + interposer_path.string() +
+      " GPU_MODEL_HIP_INTERPOSER_DEBUG=1 " + exe_path.string() + " > " + stdout_path.string() + " 2>&1";
+  ASSERT_EQ(std::system(run_command.c_str()), 0);
+
+  std::ifstream in(stdout_path);
+  ASSERT_TRUE(static_cast<bool>(in));
+  const std::string output((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+  EXPECT_NE(output.find("ld_preload host path ok"), std::string::npos);
+  EXPECT_NE(output.find("hipMallocManaged"), std::string::npos);
+  EXPECT_NE(output.find("hipMemset"), std::string::npos);
+  EXPECT_NE(output.find("hipLaunchKernel result ok=1"), std::string::npos);
 
   std::filesystem::remove_all(temp_dir);
 }

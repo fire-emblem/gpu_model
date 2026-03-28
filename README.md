@@ -79,6 +79,12 @@
 
 - host CPU 原生执行 `main()`
 - `hipMalloc/hipMallocManaged/hipMemcpy/hipLaunchKernel/...` 被 interposer 拦截
+- 常见同步 runtime API 已支持基础拦截
+  - `hipMemcpyAsync`
+  - `hipMemset` / `hipMemsetD8` / `hipMemsetD32`
+  - `hipGetDeviceCount` / `hipGetDevice` / `hipSetDevice`
+  - `hipStreamCreate` / `hipStreamDestroy` / `hipStreamSynchronize`
+  - `hipGetLastError` / `hipPeekAtLastError`
 - kernel launch 进入 model
 - host 继续执行并做结果校验
 

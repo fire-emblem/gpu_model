@@ -34,12 +34,6 @@ void StoreU32(std::vector<std::byte>& bytes, uint32_t offset, uint32_t value) {
   std::memcpy(bytes.data() + offset, &value, sizeof(value));
 }
 
-uint64_t LoadKernarg64(const std::vector<std::byte>& bytes, uint32_t offset) {
-  uint64_t value = 0;
-  std::memcpy(&value, bytes.data() + offset, sizeof(value));
-  return value;
-}
-
 uint64_t BranchTarget(uint64_t pc, int32_t simm16) {
   const int64_t target = static_cast<int64_t>(pc) + 4 + static_cast<int64_t>(simm16) * 4;
   return static_cast<uint64_t>(target);
@@ -656,11 +650,10 @@ class VectorCompareHandler final : public IRawGcnSemanticHandler {
     } else {
       throw std::invalid_argument("unsupported vector compare opcode: " + instruction.mnemonic);
     }
+    context.vcc = mask;
     if (instruction.operands.at(0).kind == DecodedGcnOperandKind::ScalarRegRange ||
         instruction.operands.at(0).kind == DecodedGcnOperandKind::SpecialReg) {
       StoreScalarPair(instruction.operands.at(0), context, mask);
-    } else {
-      context.vcc = mask;
     }
     DebugLog("pc=0x%llx %s mask=0x%llx",
              static_cast<unsigned long long>(instruction.pc),
@@ -749,6 +742,10 @@ class FlatMemoryHandler final : public IRawGcnSemanticHandler {
         const uint64_t lo = static_cast<uint32_t>(context.wave.vgpr.Read(addr, lane));
         const uint64_t hi = static_cast<uint32_t>(context.wave.vgpr.Read(addr + 1, lane));
         const uint64_t address = (hi << 32u) | lo;
+        if (!context.wave.exec.test(lane) &&
+            !context.memory.HasGlobalRange(address, sizeof(uint32_t))) {
+          continue;
+        }
         context.wave.vgpr.Write(vdst, lane, context.memory.LoadGlobalValue<uint32_t>(address));
         if (lane == 0) {
           DebugLog("pc=0x%llx global_load addr=0x%llx -> v%u=0x%llx",
@@ -766,6 +763,10 @@ class FlatMemoryHandler final : public IRawGcnSemanticHandler {
           const uint64_t lo = static_cast<uint32_t>(context.wave.vgpr.Read(addr, lane));
           const uint64_t hi = static_cast<uint32_t>(context.wave.vgpr.Read(addr + 1, lane));
           const uint64_t address = (hi << 32u) | lo;
+          if (!context.wave.exec.test(lane) &&
+              !context.memory.HasGlobalRange(address, sizeof(uint32_t))) {
+            continue;
+          }
           context.memory.StoreGlobalValue<uint32_t>(
               address, static_cast<uint32_t>(context.wave.vgpr.Read(data, lane)));
           if (lane == 0) {
@@ -784,6 +785,10 @@ class FlatMemoryHandler final : public IRawGcnSemanticHandler {
         for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
           const int32_t offset = static_cast<int32_t>(context.wave.vgpr.Read(vaddr, lane));
           const uint64_t address = base + static_cast<int64_t>(offset);
+          if (!context.wave.exec.test(lane) &&
+              !context.memory.HasGlobalRange(address, sizeof(uint32_t))) {
+            continue;
+          }
           context.memory.StoreGlobalValue<uint32_t>(
               address, static_cast<uint32_t>(context.wave.vgpr.Read(data, lane)));
           if (lane == 0) {

@@ -24,6 +24,7 @@ class MemorySystem {
   void EnsureGlobalSize(size_t bytes);
   void WriteGlobal(uint64_t addr, std::span<const std::byte> data);
   void ReadGlobal(uint64_t addr, std::span<std::byte> data) const;
+  bool HasGlobalRange(uint64_t addr, size_t bytes) const;
 
   size_t global_memory_size() const { return pool_memory_size(MemoryPoolKind::Global); }
 

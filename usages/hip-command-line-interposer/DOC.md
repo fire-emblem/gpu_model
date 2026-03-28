@@ -14,8 +14,21 @@ Current intercepted API subset:
 - `__hipPushCallConfiguration`
 - `__hipPopCallConfiguration`
 - `hipMalloc`
+- `hipMallocManaged`
 - `hipFree`
 - `hipMemcpy`
+- `hipMemcpyAsync`
+- `hipMemset`
+- `hipMemsetD8`
+- `hipMemsetD32`
+- `hipGetDeviceCount`
+- `hipGetDevice`
+- `hipSetDevice`
+- `hipGetLastError`
+- `hipPeekAtLastError`
+- `hipStreamCreate`
+- `hipStreamDestroy`
+- `hipStreamSynchronize`
 - `hipDeviceSynchronize`
 - `hipLaunchKernel`
 

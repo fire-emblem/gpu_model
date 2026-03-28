@@ -5,10 +5,22 @@ hip_4.2 {
     __hipUnregisterFatBinary;
     __hipPushCallConfiguration;
     __hipPopCallConfiguration;
+    hipGetDeviceCount;
+    hipGetDevice;
+    hipSetDevice;
+    hipGetLastError;
+    hipPeekAtLastError;
+    hipStreamCreate;
+    hipStreamDestroy;
+    hipStreamSynchronize;
     hipMalloc;
     hipMallocManaged;
     hipFree;
     hipMemcpy;
+    hipMemcpyAsync;
+    hipMemset;
+    hipMemsetD8;
+    hipMemsetD32;
     hipDeviceSynchronize;
     hipLaunchKernel;
   local:
