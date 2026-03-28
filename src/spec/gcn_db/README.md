@@ -11,6 +11,9 @@ Current source-of-truth format:
 
 Current files:
 
+- `profiles.yaml`
+- `operand_kinds.yaml`
+- `semantic_families.yaml`
 - `format_classes.yaml`
 - `instructions.yaml`
 
@@ -26,7 +29,4 @@ Current flow:
 
 Planned follow-on split:
 
-- `profiles.yaml`
-- `operand_kinds.yaml`
-- `semantic_families.yaml`
 - `opcodes/*.yaml`

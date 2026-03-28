@@ -4,6 +4,43 @@
 
 namespace gpu_model {
 
+const std::vector<GcnGeneratedProfileDef>& GeneratedGcnProfileDefs() {
+  static const std::vector<GcnGeneratedProfileDef> kProfileDefs = {
+  { "gfx6_gfx8", "GCN gfx6-gfx8", 64, false, "legacy" },
+  { "gfx9_cdna", "gfx9+/CDNA", 64, true, "gfx9" }
+  };
+  return kProfileDefs;
+}
+
+const std::vector<GcnGeneratedOperandKindDef>& GeneratedGcnOperandKindDefs() {
+  static const std::vector<GcnGeneratedOperandKindDef> kOperandKindDefs = {
+  { "scalar_reg", "scalar", "scalar register operand" },
+  { "scalar_reg_range", "scalar", "scalar register range operand" },
+  { "vector_reg", "vector", "vector register operand" },
+  { "vector_reg_range", "vector", "vector register range operand" },
+  { "special_reg", "special", "special architectural register operand" },
+  { "immediate", "immediate", "inline or decoded immediate operand" },
+  { "branch_target", "control", "branch target or branch immediate operand" },
+  { "waitcnt_fields", "control", "decoded waitcnt domain thresholds" }
+  };
+  return kOperandKindDefs;
+}
+
+const std::vector<GcnGeneratedSemanticFamilyDef>& GeneratedGcnSemanticFamilyDefs() {
+  static const std::vector<GcnGeneratedSemanticFamilyDef> kSemanticFamilyDefs = {
+  { "scalar_alu", "scalar arithmetic and logic" },
+  { "scalar_compare", "scalar compare and condition code update" },
+  { "scalar_memory", "scalar memory access" },
+  { "branch_or_sync", "scalar branch or synchronization control" },
+  { "vector_alu", "vector arithmetic and logic" },
+  { "vector_compare", "vector compare and mask-producing operations" },
+  { "vector_memory", "vector/global/flat memory operations" },
+  { "lds", "local data share operations" },
+  { "special", "export, interpolation, special or not-yet-grouped operations" }
+  };
+  return kSemanticFamilyDefs;
+}
+
 const std::vector<GcnGeneratedFieldRef>& GeneratedGcnFieldRefs() {
   static const std::vector<GcnGeneratedFieldRef> kFieldRefs = {
   { "ssrc0", 0, 0, 8, false, "scalar source 0 selector" },

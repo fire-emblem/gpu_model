@@ -1,0 +1,25 @@
+operand_kinds:
+  - id: scalar_reg
+    category: scalar
+    description: scalar register operand
+  - id: scalar_reg_range
+    category: scalar
+    description: scalar register range operand
+  - id: vector_reg
+    category: vector
+    description: vector register operand
+  - id: vector_reg_range
+    category: vector
+    description: vector register range operand
+  - id: special_reg
+    category: special
+    description: special architectural register operand
+  - id: immediate
+    category: immediate
+    description: inline or decoded immediate operand
+  - id: branch_target
+    category: control
+    description: branch target or branch immediate operand
+  - id: waitcnt_fields
+    category: control
+    description: decoded waitcnt domain thresholds

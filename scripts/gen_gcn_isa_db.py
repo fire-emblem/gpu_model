@@ -62,6 +62,25 @@ struct GcnGeneratedFieldRef {
   const char* meaning;
 };
 
+struct GcnGeneratedProfileDef {
+  const char* id;
+  const char* display_name;
+  uint32_t wave_size;
+  bool has_accvgpr;
+  const char* waitcnt_layout;
+};
+
+struct GcnGeneratedOperandKindDef {
+  const char* id;
+  const char* category;
+  const char* description;
+};
+
+struct GcnGeneratedSemanticFamilyDef {
+  const char* id;
+  const char* description;
+};
+
 struct GcnGeneratedFormatDef {
   const char* id;
   GcnInstFormatClass format_class;
@@ -82,6 +101,9 @@ struct GcnGeneratedInstDef {
   const char* issue_family;
 };
 
+const std::vector<GcnGeneratedProfileDef>& GeneratedGcnProfileDefs();
+const std::vector<GcnGeneratedOperandKindDef>& GeneratedGcnOperandKindDefs();
+const std::vector<GcnGeneratedSemanticFamilyDef>& GeneratedGcnSemanticFamilyDefs();
 const std::vector<GcnGeneratedFieldRef>& GeneratedGcnFieldRefs();
 const std::vector<GcnGeneratedFormatDef>& GeneratedGcnFormatDefs();
 const std::vector<GcnGeneratedInstDef>& GeneratedGcnInstDefs();
@@ -93,16 +115,20 @@ const std::vector<GcnInstEncodingDef>& GeneratedGcnEncodingDefs();
 
 
 def emit_cpp(db_dir: pathlib.Path, out_path: pathlib.Path) -> None:
+    profiles_doc = load_yaml(db_dir / "profiles.yaml")
+    operand_kinds_doc = load_yaml(db_dir / "operand_kinds.yaml")
+    semantic_families_doc = load_yaml(db_dir / "semantic_families.yaml")
     formats_doc = load_yaml(db_dir / "format_classes.yaml")
     insts_doc = load_yaml(db_dir / "instructions.yaml")
 
+    profile_rows = profiles_doc["profiles"]
+    operand_kind_rows = operand_kinds_doc["operand_kinds"]
+    semantic_family_rows = semantic_families_doc["semantic_families"]
     format_rows = formats_doc["format_classes"]
     inst_rows = insts_doc["instructions"]
 
     field_rows: list[dict[str, Any]] = []
     format_entries: list[str] = []
-    for fmt in format_rows:
-      pass
 
     field_index = 0
     for fmt in format_rows:
@@ -149,6 +175,34 @@ def emit_cpp(db_dir: pathlib.Path, out_path: pathlib.Path) -> None:
         for row in field_rows
     ]
 
+    profile_entries = [
+        "  {{ {id}, {display_name}, {wave_size}, {has_accvgpr}, {waitcnt_layout} }}".format(
+            id=c_str(row["id"]),
+            display_name=c_str(row["display_name"]),
+            wave_size=row["wave_size"],
+            has_accvgpr="true" if row.get("has_accvgpr", False) else "false",
+            waitcnt_layout=c_str(row.get("waitcnt_layout", "")),
+        )
+        for row in profile_rows
+    ]
+
+    operand_kind_entries = [
+        "  {{ {id}, {category}, {description} }}".format(
+            id=c_str(row["id"]),
+            category=c_str(row["category"]),
+            description=c_str(row["description"]),
+        )
+        for row in operand_kind_rows
+    ]
+
+    semantic_family_entries = [
+        "  {{ {id}, {description} }}".format(
+            id=c_str(row["id"]),
+            description=c_str(row["description"]),
+        )
+        for row in semantic_family_rows
+    ]
+
     generated_inst_entries = []
     encoding_entries = []
     for inst in inst_rows:
@@ -181,6 +235,33 @@ def emit_cpp(db_dir: pathlib.Path, out_path: pathlib.Path) -> None:
     lines.append("#include <vector>")
     lines.append("")
     lines.append("namespace gpu_model {")
+    lines.append("")
+    lines.append("const std::vector<GcnGeneratedProfileDef>& GeneratedGcnProfileDefs() {")
+    lines.append("  static const std::vector<GcnGeneratedProfileDef> kProfileDefs = {")
+    lines.extend([entry + "," for entry in profile_entries[:-1]])
+    if profile_entries:
+        lines.append(profile_entries[-1])
+    lines.append("  };")
+    lines.append("  return kProfileDefs;")
+    lines.append("}")
+    lines.append("")
+    lines.append("const std::vector<GcnGeneratedOperandKindDef>& GeneratedGcnOperandKindDefs() {")
+    lines.append("  static const std::vector<GcnGeneratedOperandKindDef> kOperandKindDefs = {")
+    lines.extend([entry + "," for entry in operand_kind_entries[:-1]])
+    if operand_kind_entries:
+        lines.append(operand_kind_entries[-1])
+    lines.append("  };")
+    lines.append("  return kOperandKindDefs;")
+    lines.append("}")
+    lines.append("")
+    lines.append("const std::vector<GcnGeneratedSemanticFamilyDef>& GeneratedGcnSemanticFamilyDefs() {")
+    lines.append("  static const std::vector<GcnGeneratedSemanticFamilyDef> kSemanticFamilyDefs = {")
+    lines.extend([entry + "," for entry in semantic_family_entries[:-1]])
+    if semantic_family_entries:
+        lines.append(semantic_family_entries[-1])
+    lines.append("  };")
+    lines.append("  return kSemanticFamilyDefs;")
+    lines.append("}")
     lines.append("")
     lines.append("const std::vector<GcnGeneratedFieldRef>& GeneratedGcnFieldRefs() {")
     lines.append("  static const std::vector<GcnGeneratedFieldRef> kFieldRefs = {")

@@ -1,0 +1,19 @@
+semantic_families:
+  - id: scalar_alu
+    description: scalar arithmetic and logic
+  - id: scalar_compare
+    description: scalar compare and condition code update
+  - id: scalar_memory
+    description: scalar memory access
+  - id: branch_or_sync
+    description: scalar branch or synchronization control
+  - id: vector_alu
+    description: vector arithmetic and logic
+  - id: vector_compare
+    description: vector compare and mask-producing operations
+  - id: vector_memory
+    description: vector/global/flat memory operations
+  - id: lds
+    description: local data share operations
+  - id: special
+    description: export, interpolation, special or not-yet-grouped operations

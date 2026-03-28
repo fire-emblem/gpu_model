@@ -15,6 +15,17 @@ TEST(GeneratedGcnInstDbTest, ExposesFormatDefinitions) {
   EXPECT_STREQ(formats.front().id, "sop2");
 }
 
+TEST(GeneratedGcnInstDbTest, ExposesProfileAndSemanticMetadata) {
+  const auto profiles = GeneratedGcnProfileDefs();
+  ASSERT_GE(profiles.size(), 2u);
+  EXPECT_STREQ(profiles.front().id, "gfx6_gfx8");
+  EXPECT_EQ(profiles.front().wave_size, 64u);
+
+  const auto semantic_families = GeneratedGcnSemanticFamilyDefs();
+  ASSERT_FALSE(semantic_families.empty());
+  EXPECT_STREQ(semantic_families.front().id, "scalar_alu");
+}
+
 TEST(GeneratedGcnInstDbTest, ExposesImportedEncodingDefinitions) {
   const auto defs = GeneratedGcnEncodingDefs();
   ASSERT_GE(defs.size(), 84u);
