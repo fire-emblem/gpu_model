@@ -37,6 +37,7 @@ class IRawGcnSemanticHandler {
 
 class RawGcnSemanticHandlerRegistry {
  public:
+  static const IRawGcnSemanticHandler& Get(const DecodedGcnInstruction& instruction);
   static const IRawGcnSemanticHandler& Get(std::string_view mnemonic);
 };
 

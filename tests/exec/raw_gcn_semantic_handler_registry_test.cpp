@@ -18,5 +18,12 @@ TEST(RawGcnSemanticHandlerRegistryTest, KeepsMaskSpecificOverride) {
   EXPECT_EQ(&first, &second);
 }
 
+TEST(RawGcnSemanticHandlerRegistryTest, ResolvesFromDecodedInstruction) {
+  DecodedGcnInstruction instruction;
+  instruction.encoding_id = 18;
+  instruction.mnemonic = "global_load_dword";
+  EXPECT_NO_THROW((void)RawGcnSemanticHandlerRegistry::Get(instruction));
+}
+
 }  // namespace
 }  // namespace gpu_model

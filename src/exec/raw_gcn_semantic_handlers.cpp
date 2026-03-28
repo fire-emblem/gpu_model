@@ -1218,4 +1218,17 @@ const IRawGcnSemanticHandler& RawGcnSemanticHandlerRegistry::Get(std::string_vie
   throw std::invalid_argument("unsupported raw GCN opcode: " + std::string(mnemonic));
 }
 
+const IRawGcnSemanticHandler& RawGcnSemanticHandlerRegistry::Get(
+    const DecodedGcnInstruction& instruction) {
+  if (instruction.encoding_id != 0) {
+    if (const auto* def = FindGeneratedGcnInstDefById(instruction.encoding_id); def != nullptr) {
+      if (const auto* handler =
+              HandlerForSemanticFamily(def->semantic_family, instruction.mnemonic)) {
+        return *handler;
+      }
+    }
+  }
+  return Get(std::string_view(instruction.mnemonic));
+}
+
 }  // namespace gpu_model

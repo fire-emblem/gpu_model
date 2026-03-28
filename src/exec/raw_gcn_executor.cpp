@@ -249,7 +249,7 @@ LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
             .block = block_context,
         };
         try {
-          const auto& handler = RawGcnSemanticHandlerRegistry::Get(inst.mnemonic);
+          const auto& handler = RawGcnSemanticHandlerRegistry::Get(decoded);
           handler.Execute(decoded, context);
           made_progress = true;
         } catch (const std::exception& ex) {
