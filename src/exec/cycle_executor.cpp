@@ -104,7 +104,16 @@ uint64_t LoadLaneValue(const MemorySystem& memory, MemoryPoolKind pool, const La
 }
 
 uint64_t LoadLaneValue(const MemorySystem& memory, const LaneAccess& lane) {
-  return LoadLaneValue(memory, MemoryPoolKind::Global, lane);
+  switch (lane.bytes) {
+    case 4: {
+      const int32_t value = memory.LoadGlobalValue<int32_t>(lane.addr);
+      return static_cast<uint64_t>(static_cast<int64_t>(value));
+    }
+    case 8:
+      return memory.LoadGlobalValue<uint64_t>(lane.addr);
+    default:
+      throw std::invalid_argument("unsupported load width");
+  }
 }
 
 uint64_t ConstantPoolBase(const ExecutionContext& context) {

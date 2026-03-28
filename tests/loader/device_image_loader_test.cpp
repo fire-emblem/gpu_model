@@ -73,8 +73,9 @@ TEST(DeviceImageLoaderTest, MaterializesZeroFillKernargIntoDedicatedPool) {
   EXPECT_EQ(result.segments[0].allocation.range.size, 24u);
   EXPECT_EQ(memory.pool_memory_size(MemoryPoolKind::Global), 0u);
   EXPECT_EQ(memory.pool_memory_size(MemoryPoolKind::Kernarg), 24u);
+  const uint64_t base = result.segments[0].allocation.range.base;
   for (uint64_t i = 0; i < 24u; ++i) {
-    EXPECT_EQ(memory.LoadValue<uint8_t>(MemoryPoolKind::Kernarg, i), 0u);
+    EXPECT_EQ(memory.LoadValue<uint8_t>(MemoryPoolKind::Kernarg, base + i), 0u);
   }
 }
 
@@ -95,8 +96,9 @@ TEST(DeviceImageLoaderTest, MaterializesRawDataIntoRawDataPool) {
   ASSERT_EQ(result.segments.size(), 1u);
   EXPECT_EQ(result.segments[0].allocation.pool, MemoryPoolKind::RawData);
   EXPECT_EQ(memory.pool_memory_size(MemoryPoolKind::RawData), 3u);
-  EXPECT_EQ(memory.LoadValue<uint8_t>(MemoryPoolKind::RawData, 0), 0x91u);
-  EXPECT_EQ(memory.LoadValue<uint8_t>(MemoryPoolKind::RawData, 2), 0x93u);
+  const uint64_t base = result.segments[0].allocation.range.base;
+  EXPECT_EQ(memory.LoadValue<uint8_t>(MemoryPoolKind::RawData, base + 0), 0x91u);
+  EXPECT_EQ(memory.LoadValue<uint8_t>(MemoryPoolKind::RawData, base + 2), 0x93u);
 }
 
 TEST(DeviceImageLoaderTest, FindsLoadedSegmentsByKindPoolAndName) {

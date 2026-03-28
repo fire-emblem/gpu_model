@@ -45,12 +45,18 @@ class MemorySystem {
 
   template <typename T>
   void StoreGlobalValue(uint64_t addr, const T& value) {
-    StoreValue(MemoryPoolKind::Global, addr, value);
+    std::array<std::byte, sizeof(T)> bytes{};
+    std::memcpy(bytes.data(), &value, sizeof(T));
+    WriteGlobal(addr, std::span<const std::byte>(bytes.data(), bytes.size()));
   }
 
   template <typename T>
   T LoadGlobalValue(uint64_t addr) const {
-    return LoadValue<T>(MemoryPoolKind::Global, addr);
+    std::array<std::byte, sizeof(T)> bytes{};
+    ReadGlobal(addr, std::span<std::byte>(bytes.data(), bytes.size()));
+    T value{};
+    std::memcpy(&value, bytes.data(), sizeof(T));
+    return value;
   }
 
  private:
