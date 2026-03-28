@@ -186,6 +186,12 @@ cmake --build build --target gpu_model_hip_interposer -j
 
 - [docs/module-development-status.md](/data/gpu_model/docs/module-development-status.md)
 
+## 工程参考资料
+
+面向 decode / disasm / ABI / loader 的长期工程参考资料见：
+
+- [src/spec/README.md](/data/gpu_model/src/spec/README.md)
+
 ## 近期路线
 
 接下来主线应继续收敛到：
