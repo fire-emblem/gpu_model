@@ -225,53 +225,74 @@ class ScalarMemoryHandler final : public IRawGcnSemanticHandler {
 class ScalarAluHandler final : public IRawGcnSemanticHandler {
  public:
   void Execute(const DecodedGcnInstruction& instruction, RawGcnWaveContext& context) const override {
-    if (instruction.mnemonic == "s_cselect_b64") {
+    switch (instruction.encoding_id) {
+      case 41: {  // s_cselect_b64
       const bool take_true = context.wave.ScalarMaskBit0();
       const uint64_t value = take_true ? ResolveScalarPair(instruction.operands.at(1), context)
                                        : ResolveScalarPair(instruction.operands.at(2), context);
       StoreScalarPair(instruction.operands.at(0), context, value);
-    } else if (instruction.mnemonic == "s_andn2_b64") {
+      break;
+      }
+      case 42: {  // s_andn2_b64
       const uint64_t lhs = ResolveScalarPair(instruction.operands.at(1), context);
       const uint64_t rhs = ResolveScalarPair(instruction.operands.at(2), context);
       StoreScalarPair(instruction.operands.at(0), context, lhs & ~rhs);
-    } else if (instruction.mnemonic == "s_mov_b32") {
+      break;
+      }
+      case 53:
+      case 54: {  // s_mov_b32
       const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
       const uint32_t value =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(1), context));
       context.wave.sgpr.Write(sdst, value);
-    } else if (instruction.mnemonic == "s_mov_b64") {
+      break;
+      }
+      case 71: {  // s_mov_b64
       const uint64_t value = ResolveScalarPair(instruction.operands.at(1), context);
       StoreScalarPair(instruction.operands.at(0), context, value);
-    } else if (instruction.mnemonic == "s_or_b64") {
+      break;
+      }
+      case 28: {  // s_or_b64
       const uint64_t lhs = ResolveScalarPair(instruction.operands.at(1), context);
       const uint64_t rhs = ResolveScalarPair(instruction.operands.at(2), context);
       StoreScalarPair(instruction.operands.at(0), context, lhs | rhs);
-    } else if (instruction.mnemonic == "s_and_b64") {
+      break;
+      }
+      case 77: {  // s_and_b64
       const uint64_t lhs = ResolveScalarPair(instruction.operands.at(1), context);
       const uint64_t rhs = ResolveScalarPair(instruction.operands.at(2), context);
       StoreScalarPair(instruction.operands.at(0), context, lhs & rhs);
-    } else if (instruction.mnemonic == "s_and_b32") {
+      break;
+      }
+      case 5:
+      case 20: {  // s_and_b32
       const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
       const uint32_t lhs =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(1), context));
       const uint32_t rhs =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(2), context));
       context.wave.sgpr.Write(sdst, lhs & rhs);
-    } else if (instruction.mnemonic == "s_mul_i32") {
+      break;
+      }
+      case 6: {  // s_mul_i32
       const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
       const uint32_t lhs =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(1), context));
       const uint32_t rhs =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(2), context));
       context.wave.sgpr.Write(sdst, lhs * rhs);
-    } else if (instruction.mnemonic == "s_add_i32") {
+      break;
+      }
+      case 23: {  // s_add_i32
       const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
       const uint32_t lhs =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(1), context));
       const uint32_t rhs =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(2), context));
       context.wave.sgpr.Write(sdst, lhs + rhs);
-    } else if (instruction.mnemonic == "s_add_u32") {
+      break;
+      }
+      case 69: {  // s_add_u32
       const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
       const uint64_t lhs =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(1), context));
@@ -280,7 +301,9 @@ class ScalarAluHandler final : public IRawGcnSemanticHandler {
       const uint64_t sum = lhs + rhs;
       context.wave.sgpr.Write(sdst, static_cast<uint32_t>(sum));
       context.wave.SetScalarMaskBit0((sum >> 32u) != 0);
-    } else if (instruction.mnemonic == "s_addc_u32") {
+      break;
+      }
+      case 70: {  // s_addc_u32
       const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
       const uint64_t lhs =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(1), context));
@@ -290,36 +313,48 @@ class ScalarAluHandler final : public IRawGcnSemanticHandler {
       const uint64_t sum = lhs + rhs + carry_in;
       context.wave.sgpr.Write(sdst, static_cast<uint32_t>(sum));
       context.wave.SetScalarMaskBit0((sum >> 32u) != 0);
-    } else if (instruction.mnemonic == "s_lshr_b32") {
+      break;
+      }
+      case 55: {  // s_lshr_b32
       const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
       const uint32_t lhs =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(1), context));
       const uint32_t rhs =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(2), context));
       context.wave.sgpr.Write(sdst, lhs >> (rhs & 31u));
-    } else if (instruction.mnemonic == "s_ashr_i32") {
+      break;
+      }
+      case 72: {  // s_ashr_i32
       const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
       const int32_t lhs =
           static_cast<int32_t>(ResolveScalarLike(instruction.operands.at(1), context));
       const uint32_t rhs =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(2), context));
       context.wave.sgpr.Write(sdst, static_cast<uint32_t>(lhs >> (rhs & 31u)));
-    } else if (instruction.mnemonic == "s_lshl_b64") {
+      break;
+      }
+      case 73: {  // s_lshl_b64
       const uint64_t lhs = ResolveScalarPair(instruction.operands.at(1), context);
       const uint32_t rhs =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(2), context));
       StoreScalarPair(instruction.operands.at(0), context, lhs << (rhs & 63u));
-    } else if (instruction.mnemonic == "s_movk_i32") {
+      break;
+      }
+      case 78: {  // s_movk_i32
       const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
       const int32_t value =
           static_cast<int32_t>(ResolveScalarLike(instruction.operands.at(1), context));
       context.wave.sgpr.Write(sdst, static_cast<uint32_t>(value));
-    } else if (instruction.mnemonic == "s_bcnt1_i32_b64") {
+      break;
+      }
+      case 83: {  // s_bcnt1_i32_b64
       const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
       const uint64_t value = ResolveScalarPair(instruction.operands.at(1), context);
       context.wave.sgpr.Write(sdst, static_cast<uint32_t>(std::popcount(value)));
-    } else {
-      throw std::invalid_argument("unsupported scalar alu opcode: " + instruction.mnemonic);
+      break;
+      }
+      default:
+        throw std::invalid_argument("unsupported scalar alu opcode: " + instruction.mnemonic);
     }
     context.wave.pc += instruction.size_bytes;
   }
@@ -328,32 +363,41 @@ class ScalarAluHandler final : public IRawGcnSemanticHandler {
 class ScalarCompareHandler final : public IRawGcnSemanticHandler {
  public:
   void Execute(const DecodedGcnInstruction& instruction, RawGcnWaveContext& context) const override {
-    if (instruction.mnemonic == "s_cmp_lt_i32") {
+    switch (instruction.encoding_id) {
+      case 21: {  // s_cmp_lt_i32
       const int32_t lhs =
           static_cast<int32_t>(ResolveScalarLike(instruction.operands.at(0), context));
       const int32_t rhs =
           static_cast<int32_t>(ResolveScalarLike(instruction.operands.at(1), context));
       context.wave.SetScalarMaskBit0(lhs < rhs);
-    } else if (instruction.mnemonic == "s_cmp_eq_u32") {
+      break;
+      }
+      case 24: {  // s_cmp_eq_u32
       const uint32_t lhs =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(0), context));
       const uint32_t rhs =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(1), context));
       context.wave.SetScalarMaskBit0(lhs == rhs);
-    } else if (instruction.mnemonic == "s_cmp_gt_u32") {
+      break;
+      }
+      case 39: {  // s_cmp_gt_u32
       const uint32_t lhs =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(0), context));
       const uint32_t rhs =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(1), context));
       context.wave.SetScalarMaskBit0(lhs > rhs);
-    } else if (instruction.mnemonic == "s_cmp_lt_u32") {
+      break;
+      }
+      case 40: {  // s_cmp_lt_u32
       const uint32_t lhs =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(0), context));
       const uint32_t rhs =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(1), context));
       context.wave.SetScalarMaskBit0(lhs < rhs);
-    } else {
-      throw std::invalid_argument("unsupported scalar compare opcode: " + instruction.mnemonic);
+      break;
+      }
+      default:
+        throw std::invalid_argument("unsupported scalar compare opcode: " + instruction.mnemonic);
     }
     context.wave.pc += instruction.size_bytes;
   }
@@ -796,7 +840,9 @@ class VectorCompareHandler final : public IRawGcnSemanticHandler {
  public:
   void Execute(const DecodedGcnInstruction& instruction, RawGcnWaveContext& context) const override {
     uint64_t mask = 0;
-    if (instruction.mnemonic == "v_cmp_gt_i32_e32" || instruction.mnemonic == "v_cmp_gt_i32_e64") {
+    switch (instruction.encoding_id) {
+      case 8:
+      case 38: {  // v_cmp_gt_i32
       for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
         if (!context.wave.exec.test(lane)) {
           continue;
@@ -809,7 +855,9 @@ class VectorCompareHandler final : public IRawGcnSemanticHandler {
           mask |= (1ull << lane);
         }
       }
-    } else if (instruction.mnemonic == "v_cmp_le_i32_e32") {
+      break;
+      }
+      case 75: {  // v_cmp_le_i32_e32
       for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
         if (!context.wave.exec.test(lane)) {
           continue;
@@ -822,7 +870,9 @@ class VectorCompareHandler final : public IRawGcnSemanticHandler {
           mask |= (1ull << lane);
         }
       }
-    } else if (instruction.mnemonic == "v_cmp_lt_i32_e32") {
+      break;
+      }
+      case 76: {  // v_cmp_lt_i32_e32
       for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
         if (!context.wave.exec.test(lane)) {
           continue;
@@ -835,7 +885,9 @@ class VectorCompareHandler final : public IRawGcnSemanticHandler {
           mask |= (1ull << lane);
         }
       }
-    } else if (instruction.mnemonic == "v_cmp_gt_u32_e32") {
+      break;
+      }
+      case 56: {  // v_cmp_gt_u32_e32
       for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
         if (!context.wave.exec.test(lane)) {
           continue;
@@ -848,7 +900,9 @@ class VectorCompareHandler final : public IRawGcnSemanticHandler {
           mask |= (1ull << lane);
         }
       }
-    } else if (instruction.mnemonic == "v_cmp_eq_u32_e32") {
+      break;
+      }
+      case 66: {  // v_cmp_eq_u32_e32
       for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
         if (!context.wave.exec.test(lane)) {
           continue;
@@ -861,7 +915,9 @@ class VectorCompareHandler final : public IRawGcnSemanticHandler {
           mask |= (1ull << lane);
         }
       }
-    } else if (instruction.mnemonic == "v_cmp_ngt_f32_e32") {
+      break;
+      }
+      case 57: {  // v_cmp_ngt_f32_e32
       for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
         if (!context.wave.exec.test(lane)) {
           continue;
@@ -874,7 +930,9 @@ class VectorCompareHandler final : public IRawGcnSemanticHandler {
           mask |= (1ull << lane);
         }
       }
-    } else if (instruction.mnemonic == "v_cmp_nlt_f32_e32") {
+      break;
+      }
+      case 58: {  // v_cmp_nlt_f32_e32
       for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
         if (!context.wave.exec.test(lane)) {
           continue;
@@ -887,8 +945,10 @@ class VectorCompareHandler final : public IRawGcnSemanticHandler {
           mask |= (1ull << lane);
         }
       }
-    } else {
-      throw std::invalid_argument("unsupported vector compare opcode: " + instruction.mnemonic);
+      break;
+      }
+      default:
+        throw std::invalid_argument("unsupported vector compare opcode: " + instruction.mnemonic);
     }
     context.vcc = mask;
     if (instruction.operands.at(0).kind == DecodedGcnOperandKind::ScalarRegRange ||
@@ -925,7 +985,8 @@ class MaskHandler final : public IRawGcnSemanticHandler {
 class BranchHandler final : public IRawGcnSemanticHandler {
  public:
   void Execute(const DecodedGcnInstruction& instruction, RawGcnWaveContext& context) const override {
-    if (instruction.mnemonic == "s_cbranch_execz") {
+    switch (instruction.encoding_id) {
+      case 10: {  // s_cbranch_execz
       if (context.wave.exec.none()) {
         context.wave.pc =
             BranchTarget(context.wave.pc, static_cast<int32_t>(instruction.operands.at(0).info.immediate));
@@ -933,8 +994,8 @@ class BranchHandler final : public IRawGcnSemanticHandler {
         context.wave.pc += instruction.size_bytes;
       }
       return;
-    }
-    if (instruction.mnemonic == "s_cbranch_scc1") {
+      }
+      case 22: {  // s_cbranch_scc1
       if (context.wave.ScalarMaskBit0()) {
         context.wave.pc =
             BranchTarget(context.wave.pc, static_cast<int32_t>(instruction.operands.at(0).info.immediate));
@@ -942,8 +1003,8 @@ class BranchHandler final : public IRawGcnSemanticHandler {
         context.wave.pc += instruction.size_bytes;
       }
       return;
-    }
-    if (instruction.mnemonic == "s_cbranch_scc0") {
+      }
+      case 26: {  // s_cbranch_scc0
       if (!context.wave.ScalarMaskBit0()) {
         context.wave.pc =
             BranchTarget(context.wave.pc, static_cast<int32_t>(instruction.operands.at(0).info.immediate));
@@ -951,8 +1012,8 @@ class BranchHandler final : public IRawGcnSemanticHandler {
         context.wave.pc += instruction.size_bytes;
       }
       return;
-    }
-    if (instruction.mnemonic == "s_cbranch_vccz") {
+      }
+      case 43: {  // s_cbranch_vccz
       if (context.vcc == 0) {
         context.wave.pc =
             BranchTarget(context.wave.pc, static_cast<int32_t>(instruction.operands.at(0).info.immediate));
@@ -960,8 +1021,8 @@ class BranchHandler final : public IRawGcnSemanticHandler {
         context.wave.pc += instruction.size_bytes;
       }
       return;
-    }
-    if (instruction.mnemonic == "s_cbranch_execnz") {
+      }
+      case 74: {  // s_cbranch_execnz
       if (context.wave.exec.any()) {
         context.wave.pc =
             BranchTarget(context.wave.pc, static_cast<int32_t>(instruction.operands.at(0).info.immediate));
@@ -969,14 +1030,14 @@ class BranchHandler final : public IRawGcnSemanticHandler {
         context.wave.pc += instruction.size_bytes;
       }
       return;
-    }
-    if (instruction.mnemonic == "s_branch") {
+      }
+      case 27: {  // s_branch
       context.wave.pc =
           BranchTarget(context.wave.pc, static_cast<int32_t>(instruction.operands.at(0).info.immediate));
       return;
-    }
-    {
-      throw std::invalid_argument("unsupported branch opcode: " + instruction.mnemonic);
+      }
+      default:
+        throw std::invalid_argument("unsupported branch opcode: " + instruction.mnemonic);
     }
   }
 };
@@ -1120,28 +1181,28 @@ class SharedMemoryHandler final : public IRawGcnSemanticHandler {
 class SpecialHandler final : public IRawGcnSemanticHandler {
  public:
   void Execute(const DecodedGcnInstruction& instruction, RawGcnWaveContext& context) const override {
-    if (instruction.mnemonic == "s_barrier") {
+    switch (instruction.encoding_id) {
+      case 29: {  // s_barrier
       ++context.stats.barriers;
       context.wave.status = WaveStatus::Stalled;
       context.wave.waiting_at_barrier = true;
       context.wave.barrier_generation = context.block.barrier_generation;
       ++context.block.barrier_arrivals;
       return;
-    }
-    if (instruction.mnemonic == "s_nop") {
+      }
+      case 68:  // s_nop
       context.wave.pc += instruction.size_bytes;
       return;
-    }
-    if (instruction.mnemonic == "s_waitcnt") {
+      case 12:  // s_waitcnt
       context.wave.pc += instruction.size_bytes;
       return;
-    }
-    if (instruction.mnemonic == "s_endpgm") {
+      case 1:  // s_endpgm
       context.wave.status = WaveStatus::Exited;
       ++context.stats.wave_exits;
       return;
+      default:
+        throw std::invalid_argument("unsupported special opcode: " + instruction.mnemonic);
     }
-    throw std::invalid_argument("unsupported special opcode: " + instruction.mnemonic);
   }
 };
 
