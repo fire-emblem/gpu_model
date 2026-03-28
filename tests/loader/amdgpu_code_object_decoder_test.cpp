@@ -110,5 +110,67 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesRawInstructionsFromHipExecutable) {
   EXPECT_GT(image.code_bytes.size(), 100u);
 }
 
+TEST(AmdgpuCodeObjectDecoderTest, DecodesRawInstructionsFromHipFmaLoopExecutable) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_code_object_hip_fma");
+  const auto src_path = temp_dir / "hip_fma_loop.cpp";
+  const auto exe_path = temp_dir / "hip_fma_loop.out";
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n"
+           "extern \"C\" __global__ void fma_loop(const float* a, const float* b, float* c, int n, int iters) {\n"
+           "  int i = blockIdx.x * blockDim.x + threadIdx.x;\n"
+           "  if (i >= n) return;\n"
+           "  float x = a[i];\n"
+           "  float y = b[i];\n"
+           "  float acc = 0.0f;\n"
+           "  for (int k = 0; k < iters; ++k) {\n"
+           "    acc = acc * x + y;\n"
+           "  }\n"
+           "  c[i] = acc;\n"
+           "}\n"
+           "int main() { return 0; }\n";
+  }
+  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  const auto image = AmdgpuCodeObjectDecoder{}.Decode(exe_path, "fma_loop");
+  EXPECT_EQ(image.kernel_name, "fma_loop");
+  EXPECT_EQ(image.metadata.values.at("arg_count"), "5");
+  EXPECT_EQ(image.metadata.values.at("arg_layout"),
+            "global_buffer:8,global_buffer:8,global_buffer:8,by_value:4,by_value:4");
+
+  const auto cmp_lt_it = std::find_if(
+      image.instructions.begin(), image.instructions.end(),
+      [](const RawGcnInstruction& inst) { return inst.mnemonic == "s_cmp_lt_i32"; });
+  ASSERT_NE(cmp_lt_it, image.instructions.end());
+  ASSERT_EQ(cmp_lt_it->decoded_operands.size(), 2u);
+  EXPECT_EQ(cmp_lt_it->decoded_operands[0].text, "s9");
+  EXPECT_EQ(cmp_lt_it->decoded_operands[1].text, "1");
+
+  const auto fma_it = std::find_if(
+      image.instructions.begin(), image.instructions.end(),
+      [](const RawGcnInstruction& inst) { return inst.mnemonic == "v_fma_f32"; });
+  ASSERT_NE(fma_it, image.instructions.end());
+  ASSERT_EQ(fma_it->decoded_operands.size(), 4u);
+  EXPECT_EQ(fma_it->decoded_operands[0].text, "v2");
+  EXPECT_EQ(fma_it->decoded_operands[1].text, "v3");
+  EXPECT_EQ(fma_it->decoded_operands[2].text, "v2");
+  EXPECT_EQ(fma_it->decoded_operands[3].text, "v4");
+
+  const auto branch_it = std::find_if(
+      image.instructions.begin(), image.instructions.end(),
+      [](const RawGcnInstruction& inst) { return inst.mnemonic == "s_cbranch_scc0"; });
+  ASSERT_NE(branch_it, image.instructions.end());
+  ASSERT_EQ(branch_it->decoded_operands.size(), 1u);
+  EXPECT_EQ(branch_it->decoded_operands[0].text, "-6");
+  EXPECT_TRUE(branch_it->decoded_operands[0].info.has_immediate);
+  EXPECT_EQ(branch_it->decoded_operands[0].info.immediate, -6);
+}
+
 }  // namespace
 }  // namespace gpu_model
