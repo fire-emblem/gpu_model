@@ -12,13 +12,13 @@ const std::vector<GcnInstEncodingDef>& EncodingDefs() {
   static const std::vector<GcnInstEncodingDef> kDefs = {
       {.id = 1, .format_class = GcnInstFormatClass::Sopp, .op = 1, .size_bytes = 4, .mnemonic = "s_endpgm"},
       {.id = 2, .format_class = GcnInstFormatClass::Smrd, .op = 0, .size_bytes = 8, .mnemonic = "s_load_dword"},
-      {.id = 3, .format_class = GcnInstFormatClass::Smrd, .op = 1, .size_bytes = 8, .mnemonic = "s_load_dwordx2"},
-      {.id = 4, .format_class = GcnInstFormatClass::Smrd, .op = 2, .size_bytes = 8, .mnemonic = "s_load_dwordx4"},
-      {.id = 5, .format_class = GcnInstFormatClass::Sop2, .op = 14, .size_bytes = 4, .mnemonic = "s_and_b32"},
-      {.id = 6, .format_class = GcnInstFormatClass::Sop2, .op = 18, .size_bytes = 4, .mnemonic = "s_mul_i32"},
-      {.id = 7, .format_class = GcnInstFormatClass::Vop2, .op = 0, .size_bytes = 4, .mnemonic = "v_add_u32_e32"},
-      {.id = 8, .format_class = GcnInstFormatClass::Vopc, .op = 68, .size_bytes = 4, .mnemonic = "v_cmp_gt_i32_e32"},
-      {.id = 9, .format_class = GcnInstFormatClass::Sop1, .op = 65, .size_bytes = 4, .mnemonic = "s_and_saveexec_b64"},
+      {.id = 3, .format_class = GcnInstFormatClass::Smrd, .op = 32, .size_bytes = 8, .mnemonic = "s_load_dwordx2"},
+      {.id = 4, .format_class = GcnInstFormatClass::Smrd, .op = 64, .size_bytes = 8, .mnemonic = "s_load_dwordx4"},
+      {.id = 5, .format_class = GcnInstFormatClass::Sop2, .op = 12, .size_bytes = 4, .mnemonic = "s_and_b32"},
+      {.id = 6, .format_class = GcnInstFormatClass::Sop2, .op = 36, .size_bytes = 4, .mnemonic = "s_mul_i32"},
+      {.id = 7, .format_class = GcnInstFormatClass::Vop2, .op = 52, .size_bytes = 4, .mnemonic = "v_add_u32_e32"},
+      {.id = 8, .format_class = GcnInstFormatClass::Vopc, .op = 196, .size_bytes = 4, .mnemonic = "v_cmp_gt_i32_e32"},
+      {.id = 9, .format_class = GcnInstFormatClass::Sop1, .op = 32, .size_bytes = 4, .mnemonic = "s_and_saveexec_b64"},
       {.id = 10, .format_class = GcnInstFormatClass::Sopp, .op = 8, .size_bytes = 4, .mnemonic = "s_cbranch_execz"},
       {.id = 11, .format_class = GcnInstFormatClass::Vop2, .op = 1, .size_bytes = 4, .mnemonic = "v_add_f32_e32"},
       {.id = 12, .format_class = GcnInstFormatClass::Sopp, .op = 12, .size_bytes = 4, .mnemonic = "s_waitcnt"},
@@ -26,9 +26,10 @@ const std::vector<GcnInstEncodingDef>& EncodingDefs() {
       {.id = 14, .format_class = GcnInstFormatClass::Vop2, .op = 17, .size_bytes = 4, .mnemonic = "v_ashrrev_i32_e32"},
       {.id = 15, .format_class = GcnInstFormatClass::Vop2, .op = 25, .size_bytes = 4, .mnemonic = "v_add_co_u32_e32"},
       {.id = 16, .format_class = GcnInstFormatClass::Vop2, .op = 28, .size_bytes = 4, .mnemonic = "v_addc_co_u32_e32"},
-      {.id = 17, .format_class = GcnInstFormatClass::Vop3a, .op = 71, .size_bytes = 8, .mnemonic = "v_lshlrev_b64"},
+      {.id = 17, .format_class = GcnInstFormatClass::Vop3a, .op = 327, .size_bytes = 8, .mnemonic = "v_lshlrev_b64"},
       {.id = 18, .format_class = GcnInstFormatClass::Flat, .op = 20, .size_bytes = 8, .mnemonic = "global_load_dword"},
       {.id = 19, .format_class = GcnInstFormatClass::Flat, .op = 28, .size_bytes = 8, .mnemonic = "global_store_dword"},
+      {.id = 20, .format_class = GcnInstFormatClass::Sop2, .op = 12, .size_bytes = 8, .mnemonic = "s_and_b32"},
   };
   return kDefs;
 }
@@ -39,7 +40,7 @@ uint32_t ExtractOp(const std::vector<uint32_t>& words, GcnInstFormatClass format
     case GcnInstFormatClass::Sopp:
       return (low >> 16u) & 0x7fu;
     case GcnInstFormatClass::Smrd:
-      return (low >> 22u) & 0x1fu;
+      return (((low >> 18u) & 0x3u) << 5u) | ((low >> 22u) & 0x1fu);
     case GcnInstFormatClass::Sop2:
       return (low >> 23u) & 0x7fu;
     case GcnInstFormatClass::Vop2:
@@ -140,30 +141,30 @@ void DecodeGcnOperands(RawGcnInstruction& instruction) {
       break;
     case 2:
       instruction.decoded_operands.push_back(MakeOperand(
-          RawGcnOperandKind::ScalarReg, FormatScalarReg((low >> 15u) & 0x7fu)));
+          RawGcnOperandKind::ScalarReg, FormatScalarReg((low >> 6u) & 0x7fu)));
       instruction.decoded_operands.push_back(
           MakeOperand(RawGcnOperandKind::ScalarRegRange,
-                      FormatScalarRegRange(((low >> 9u) & 0x3fu) * 2u, 2)));
+                      FormatScalarRegRange((low & 0x3fu) * 2u, 2)));
       instruction.decoded_operands.push_back(
           MakeOperand(RawGcnOperandKind::Immediate, FormatImmediate(high)));
       break;
     case 3:
       instruction.decoded_operands.push_back(
           MakeOperand(RawGcnOperandKind::ScalarRegRange,
-                      FormatScalarRegRange((low >> 15u) & 0x7fu, 2)));
+                      FormatScalarRegRange((low >> 6u) & 0x7fu, 2)));
       instruction.decoded_operands.push_back(
           MakeOperand(RawGcnOperandKind::ScalarRegRange,
-                      FormatScalarRegRange(((low >> 9u) & 0x3fu) * 2u, 2)));
+                      FormatScalarRegRange((low & 0x3fu) * 2u, 2)));
       instruction.decoded_operands.push_back(
           MakeOperand(RawGcnOperandKind::Immediate, FormatImmediate(high)));
       break;
     case 4:
       instruction.decoded_operands.push_back(
           MakeOperand(RawGcnOperandKind::ScalarRegRange,
-                      FormatScalarRegRange((low >> 15u) & 0x7fu, 4)));
+                      FormatScalarRegRange((low >> 6u) & 0x7fu, 4)));
       instruction.decoded_operands.push_back(
           MakeOperand(RawGcnOperandKind::ScalarRegRange,
-                      FormatScalarRegRange(((low >> 9u) & 0x3fu) * 2u, 2)));
+                      FormatScalarRegRange((low & 0x3fu) * 2u, 2)));
       instruction.decoded_operands.push_back(
           MakeOperand(RawGcnOperandKind::Immediate, FormatImmediate(high)));
       break;
@@ -173,6 +174,13 @@ void DecodeGcnOperands(RawGcnInstruction& instruction) {
           MakeOperand(RawGcnOperandKind::ScalarReg, FormatScalarReg((low >> 16u) & 0x7fu)));
       instruction.decoded_operands.push_back(DecodeSrc8(low & 0xffu));
       instruction.decoded_operands.push_back(DecodeSrc8((low >> 8u) & 0xffu));
+      break;
+    case 20:
+      instruction.decoded_operands.push_back(
+          MakeOperand(RawGcnOperandKind::ScalarReg, FormatScalarReg((low >> 16u) & 0x7fu)));
+      instruction.decoded_operands.push_back(DecodeSrc8(low & 0xffu));
+      instruction.decoded_operands.push_back(
+          MakeOperand(RawGcnOperandKind::Immediate, FormatImmediate(high)));
       break;
     case 7:
     case 11:

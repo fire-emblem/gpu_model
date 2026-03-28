@@ -10,6 +10,7 @@
 #include <stdexcept>
 #include <unordered_map>
 
+#include "gpu_model/loader/gcn_text_parser.h"
 #include "gpu_model/runtime/mapper.h"
 #include "gpu_model/state/wave_state.h"
 
@@ -147,14 +148,15 @@ std::pair<uint32_t, uint32_t> RequireScalarRange(const DecodedGcnOperand& operan
 }
 
 std::pair<uint32_t, uint32_t> RequireVectorRange(const DecodedGcnOperand& operand) {
-  if (operand.kind != DecodedGcnOperandKind::VectorReg) {
+  if (operand.text.size() < 4 || operand.text.front() != 'v' || operand.text[1] != '[') {
     throw std::invalid_argument("expected vector register range operand");
   }
   return ParseRange(operand.text, 'v');
 }
 
 uint64_t ResolveScalarLike(const DecodedGcnOperand& operand, const RawWave& raw_wave) {
-  if (operand.kind == DecodedGcnOperandKind::Immediate) {
+  if (operand.kind == DecodedGcnOperandKind::Immediate ||
+      operand.kind == DecodedGcnOperandKind::BranchTarget) {
     if (operand.text == "off") {
       return 0;
     }
@@ -184,6 +186,10 @@ uint64_t ResolveVectorLane(const DecodedGcnOperand& operand, const RawWave& raw_
     return raw_wave.wave.vgpr.Read(ParseIndex(operand.text, 'v'), lane);
   }
   throw std::invalid_argument("unsupported vector-lane raw operand");
+}
+
+GcnTextInstruction ParseTextOperands(const RawGcnInstruction& inst) {
+  return GcnTextParser::ParseInstruction(inst.mnemonic + (inst.operands.empty() ? "" : " " + inst.operands));
 }
 
 }  // namespace
@@ -252,19 +258,41 @@ LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
         ++result.stats.instructions_issued;
         try {
         if (inst.mnemonic == "s_load_dword") {
-          const uint32_t offset = static_cast<uint32_t>(ResolveScalarLike(decoded.operands.at(2), raw_wave));
-          const uint32_t sdst = RequireScalarIndex(decoded.operands.at(0));
+          const bool use_decoded = decoded.operands.size() >= 3;
+          const auto parsed = use_decoded ? std::optional<GcnTextInstruction>{}
+                                          : std::optional<GcnTextInstruction>(ParseTextOperands(inst));
+          const uint32_t offset = use_decoded
+                                      ? static_cast<uint32_t>(ResolveScalarLike(decoded.operands.at(2), raw_wave))
+                                      : static_cast<uint32_t>(parsed->operands.at(2).immediate.value_or(0));
+          const uint32_t sdst = use_decoded ? RequireScalarIndex(decoded.operands.at(0))
+                                            : parsed->operands.at(0).reg->index;
           raw_wave.wave.sgpr.Write(sdst, LoadKernarg32(kernarg, offset));
           raw_wave.wave.pc += inst.size_bytes;
         } else if (inst.mnemonic == "s_load_dwordx2") {
-          const uint32_t offset = static_cast<uint32_t>(ResolveScalarLike(decoded.operands.at(2), raw_wave));
-          const auto [sdst, _] = RequireScalarRange(decoded.operands.at(0));
+          const bool use_decoded = decoded.operands.size() >= 3;
+          const auto parsed = use_decoded ? std::optional<GcnTextInstruction>{}
+                                          : std::optional<GcnTextInstruction>(ParseTextOperands(inst));
+          const uint32_t offset = use_decoded
+                                      ? static_cast<uint32_t>(ResolveScalarLike(decoded.operands.at(2), raw_wave))
+                                      : static_cast<uint32_t>(parsed->operands.at(2).immediate.value_or(0));
+          const auto [sdst, _] = use_decoded
+                                     ? RequireScalarRange(decoded.operands.at(0))
+                                     : std::pair<uint32_t, uint32_t>{parsed->operands.at(0).reg_range->first,
+                                                                     parsed->operands.at(0).reg_range->last};
           raw_wave.wave.sgpr.Write(sdst, LoadKernarg64(kernarg, offset) & 0xffffffffu);
           raw_wave.wave.sgpr.Write(sdst + 1, LoadKernarg64(kernarg, offset) >> 32u);
           raw_wave.wave.pc += inst.size_bytes;
         } else if (inst.mnemonic == "s_load_dwordx4") {
-          const uint32_t offset = static_cast<uint32_t>(ResolveScalarLike(decoded.operands.at(2), raw_wave));
-          const auto [sdst, _] = RequireScalarRange(decoded.operands.at(0));
+          const bool use_decoded = decoded.operands.size() >= 3;
+          const auto parsed = use_decoded ? std::optional<GcnTextInstruction>{}
+                                          : std::optional<GcnTextInstruction>(ParseTextOperands(inst));
+          const uint32_t offset = use_decoded
+                                      ? static_cast<uint32_t>(ResolveScalarLike(decoded.operands.at(2), raw_wave))
+                                      : static_cast<uint32_t>(parsed->operands.at(2).immediate.value_or(0));
+          const auto [sdst, _] = use_decoded
+                                     ? RequireScalarRange(decoded.operands.at(0))
+                                     : std::pair<uint32_t, uint32_t>{parsed->operands.at(0).reg_range->first,
+                                                                     parsed->operands.at(0).reg_range->last};
           raw_wave.wave.sgpr.Write(sdst + 0, LoadKernarg32(kernarg, offset + 0));
           raw_wave.wave.sgpr.Write(sdst + 1, LoadKernarg32(kernarg, offset + 4));
           raw_wave.wave.sgpr.Write(sdst + 2, LoadKernarg32(kernarg, offset + 8));
@@ -273,6 +301,11 @@ LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
         } else if (inst.mnemonic == "s_waitcnt") {
           raw_wave.wave.pc += inst.size_bytes;
         } else if (inst.mnemonic == "s_and_b32") {
+          DebugLog("s_and_b32 decoded_ops=%zu %s %s %s",
+                   decoded.operands.size(),
+                   decoded.operands.size() > 0 ? decoded.operands[0].text.c_str() : "<none>",
+                   decoded.operands.size() > 1 ? decoded.operands[1].text.c_str() : "<none>",
+                   decoded.operands.size() > 2 ? decoded.operands[2].text.c_str() : "<none>");
           const uint32_t sdst = RequireScalarIndex(decoded.operands.at(0));
           const uint32_t lhs = static_cast<uint32_t>(ResolveScalarLike(decoded.operands.at(1), raw_wave));
           const uint32_t rhs = static_cast<uint32_t>(ResolveScalarLike(decoded.operands.at(2), raw_wave));
@@ -331,9 +364,21 @@ LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
           }
           raw_wave.wave.pc += inst.size_bytes;
         } else if (inst.mnemonic == "v_lshlrev_b64") {
+          DebugLog("v_lshlrev_b64 decoded_ops=%zu %s %s %s",
+                   decoded.operands.size(),
+                   decoded.operands.size() > 0 ? decoded.operands[0].text.c_str() : "<none>",
+                   decoded.operands.size() > 1 ? decoded.operands[1].text.c_str() : "<none>",
+                   decoded.operands.size() > 2 ? decoded.operands[2].text.c_str() : "<none>");
           const auto [vdst, _vdst_hi] = RequireVectorRange(decoded.operands.at(0));
           const uint32_t shift = static_cast<uint32_t>(ResolveVectorLane(decoded.operands.at(1), raw_wave, 0));
-          const auto [src_pair, _src_pair_hi] = RequireVectorRange(decoded.operands.at(2));
+          uint32_t src_pair = 0;
+          if (decoded.operands.at(2).kind == DecodedGcnOperandKind::VectorRegRange ||
+              (decoded.operands.at(2).text.size() >= 4 && decoded.operands.at(2).text[1] == '[')) {
+            const auto [src_lo, _src_hi] = RequireVectorRange(decoded.operands.at(2));
+            src_pair = src_lo;
+          } else {
+            src_pair = RequireVectorIndex(decoded.operands.at(2));
+          }
           for (uint32_t lane = 0; lane < LaneCount(raw_wave); ++lane) {
             const uint64_t lo = static_cast<uint32_t>(raw_wave.wave.vgpr.Read(src_pair, lane));
             const uint64_t hi = static_cast<uint32_t>(raw_wave.wave.vgpr.Read(src_pair + 1, lane));
