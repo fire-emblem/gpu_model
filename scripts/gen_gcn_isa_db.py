@@ -117,6 +117,9 @@ struct GcnGeneratedOperandSpec {
   const char* kind;
   const char* role;
   const char* field;
+  uint8_t reg_count;
+  int8_t scale;
+  const char* special_reg;
 };
 
 struct GcnGeneratedFormatDef {
@@ -278,11 +281,14 @@ def emit_cpp(db_dir: pathlib.Path, out_path: pathlib.Path) -> None:
             )
         for operand in operands:
             operand_spec_entries.append(
-                "  {{ {name}, {kind}, {role}, {field} }}".format(
+                "  {{ {name}, {kind}, {role}, {field}, {reg_count}, {scale}, {special_reg} }}".format(
                     name=c_str(operand["name"]),
                     kind=c_str(operand["kind"]),
                     role=c_str(operand["role"]),
                     field=c_str(operand.get("field", "")),
+                    reg_count=operand.get("reg_count", 1),
+                    scale=operand.get("scale", 1),
+                    special_reg=c_str(operand.get("special_reg", "")),
                 )
             )
         generated_inst_entries.append(

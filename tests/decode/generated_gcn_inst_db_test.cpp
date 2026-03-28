@@ -60,6 +60,21 @@ TEST(GeneratedGcnInstDbTest, ExposesOperandSchema) {
   EXPECT_STREQ(operands[it->operand_begin + 2].field, "offset");
 }
 
+TEST(GeneratedGcnInstDbTest, ExposesBatchOperandSchemasForSimpleFormats) {
+  const auto insts = GeneratedGcnInstDefs();
+  const auto sop2 = std::find_if(insts.begin(), insts.end(), [](const auto& def) {
+    return std::string_view(def.mnemonic) == "s_add_i32";
+  });
+  ASSERT_NE(sop2, insts.end());
+  EXPECT_EQ(sop2->operand_count, 3u);
+
+  const auto vopc = std::find_if(insts.begin(), insts.end(), [](const auto& def) {
+    return std::string_view(def.mnemonic) == "v_cmp_eq_u32_e32";
+  });
+  ASSERT_NE(vopc, insts.end());
+  EXPECT_EQ(vopc->operand_count, 3u);
+}
+
 TEST(GeneratedGcnInstDbTest, ExposesImportedEncodingDefinitions) {
   const auto defs = GeneratedGcnEncodingDefs();
   ASSERT_GE(defs.size(), 84u);
