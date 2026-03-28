@@ -166,6 +166,25 @@ int32_t DecodeSigned13Bit(uint32_t value) {
                                  : static_cast<int32_t>(masked);
 }
 
+RawGcnOperand DecodeFlatAddrOperand(const std::vector<uint32_t>& words) {
+  const uint32_t high = words.size() > 1 ? words[1] : 0u;
+  const uint32_t addr = high & 0xffu;
+  const uint32_t saddr = (high >> 16u) & 0x7fu;
+  if (saddr == 0x7fu) {
+    return MakeVectorRegRangeOperand(addr, 2);
+  }
+  return MakeVectorRegOperand(addr);
+}
+
+RawGcnOperand DecodeFlatOffset13Operand(const std::vector<uint32_t>& words) {
+  const uint32_t low = words.empty() ? 0u : words[0];
+  const int32_t offset = DecodeSigned13Bit(low);
+  if (offset != 0) {
+    return MakeImmediateOperand(std::to_string(offset), offset);
+  }
+  return MakeImmediateOperand("off", 0);
+}
+
 std::string FormatWaitCnt(const WaitCntInfo& info) {
   std::string text;
   const auto append = [&](const std::string& item) {
@@ -386,6 +405,10 @@ bool TryDecodeGeneratedOperands(RawGcnInstruction& instruction, const GcnGenerat
       instruction.decoded_operands.push_back(MakeBranchTargetOperand(static_cast<int16_t>(raw_value)));
     } else if (std::string_view(spec.kind) == "waitcnt_fields") {
       instruction.decoded_operands.push_back(MakeWaitCntOperand(static_cast<uint16_t>(raw_value)));
+    } else if (std::string_view(spec.kind) == "flat_addr") {
+      instruction.decoded_operands.push_back(DecodeFlatAddrOperand(instruction.words));
+    } else if (std::string_view(spec.kind) == "flat_offset13") {
+      instruction.decoded_operands.push_back(DecodeFlatOffset13Operand(instruction.words));
     } else if (std::string_view(spec.kind) == "scalar_src8") {
       instruction.decoded_operands.push_back(DecodeSrc8(raw_value));
     } else if (std::string_view(spec.kind) == "scalar_src8_pair") {

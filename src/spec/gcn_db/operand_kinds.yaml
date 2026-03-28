@@ -44,3 +44,9 @@ operand_kinds:
   - id: waitcnt_fields
     category: control
     description: decoded waitcnt domain thresholds
+  - id: flat_addr
+    category: memory
+    description: flat/global address operand decoded from addr plus optional scalar address pair
+  - id: flat_offset13
+    category: immediate
+    description: signed 13-bit flat/global offset field

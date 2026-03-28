@@ -474,6 +474,28 @@ instructions:
     is_memory: true
   implicit_reads:
   - exec
+  operands:
+  - name: vdst
+    kind: vector_reg
+    role: def
+    field: vdst
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: addr
+    kind: flat_addr
+    role: use
+    field: addr
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: offset
+    kind: flat_offset13
+    role: use
+    field: offset
+    reg_count: 1
+    scale: 1
+    special_reg: ''
 - id: 19
   profile: gfx6_gfx8
   format: flat
@@ -486,6 +508,28 @@ instructions:
     is_memory: true
   implicit_reads:
   - exec
+  operands:
+  - name: addr
+    kind: flat_addr
+    role: use
+    field: addr
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: data
+    kind: vector_reg
+    role: use
+    field: data
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: offset
+    kind: flat_offset13
+    role: use
+    field: offset
+    reg_count: 1
+    scale: 1
+    special_reg: ''
 - id: 20
   profile: gfx6_gfx8
   format: sop2
@@ -2064,3 +2108,25 @@ instructions:
     is_atomic: true
   implicit_reads:
   - exec
+  operands:
+  - name: vdst
+    kind: vector_reg
+    role: def
+    field: addr
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: data
+    kind: vector_reg
+    role: use
+    field: data
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: saddr
+    kind: scalar_reg_range
+    role: use
+    field: saddr
+    reg_count: 2
+    scale: 1
+    special_reg: ''
