@@ -44,6 +44,9 @@ class HipInterposerState {
                                       void** args,
                                       ExecutionMode mode = ExecutionMode::Functional,
                                       const std::string& arch_name = "c500");
+  DeviceLoadPlan BuildExecutableLoadPlan(
+      const std::filesystem::path& executable_path,
+      const void* host_function) const;
   void PushLaunchConfiguration(LaunchConfig config, uint64_t shared_memory_bytes);
   std::optional<LaunchConfig> PopLaunchConfiguration();
 

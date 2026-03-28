@@ -84,6 +84,48 @@ TEST(HipInterposerStateTest, LaunchesHipVecAddExecutableThroughRegisteredHostFun
   std::filesystem::remove_all(temp_dir);
 }
 
+TEST(HipInterposerStateTest, BuildsExecutableLoadPlanThroughRegisteredHostFunction) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_interposer_load_plan");
+  const auto src_path = temp_dir / "hip_shared_reverse.cpp";
+  const auto exe_path = temp_dir / "hip_shared_reverse.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n"
+           "extern \"C\" __global__ void shared_reverse(const int* in, int* out, int n) {\n"
+           "  __shared__ int scratch[64];\n"
+           "  int tid = threadIdx.x;\n"
+           "  int idx = blockIdx.x * blockDim.x + tid;\n"
+           "  if (idx < n) scratch[tid] = in[idx];\n"
+           "  __syncthreads();\n"
+           "  if (idx < n) out[idx] = scratch[blockDim.x - 1 - tid];\n"
+           "}\n"
+           "int main() { return 0; }\n";
+  }
+
+  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  auto& state = HipInterposerState::Instance();
+  state.ResetForTest();
+  static int host_symbol = 0;
+  state.RegisterFunction(&host_symbol, "shared_reverse");
+
+  const auto plan = state.BuildExecutableLoadPlan(exe_path, &host_symbol);
+  ASSERT_EQ(plan.segments.size(), 1u);
+  EXPECT_EQ(plan.segments[0].pool, MemoryPoolKind::Code);
+  EXPECT_GT(plan.segments[0].required_bytes, 0u);
+  EXPECT_EQ(plan.required_shared_bytes, 256u);
+  EXPECT_EQ(plan.preferred_kernarg_bytes, 20u);
+
+  std::filesystem::remove_all(temp_dir);
+}
+
 TEST(HipInterposerStateTest, LaunchesHipFmaLoopExecutableThroughRegisteredHostFunction) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";

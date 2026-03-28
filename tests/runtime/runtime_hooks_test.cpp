@@ -140,6 +140,23 @@ TEST(RuntimeHooksTest, RegistersProgramImagesAndLaunchesByModuleAndKernelName) {
   }
 }
 
+TEST(RuntimeHooksTest, BuildsLoadPlanForProgramImage) {
+  ConstSegment const_segment;
+  const_segment.bytes = {std::byte{0x11}, std::byte{0x22}, std::byte{0x33}, std::byte{0x44}};
+  ProgramImage image("plan_kernel", "s_endpgm\n",
+                     MetadataBlob{.values = {{"required_shared_bytes", "128"},
+                                             {"arg_layout", "global_buffer:8,by_value:4"}}},
+                     std::move(const_segment));
+
+  RuntimeHooks hooks;
+  const auto plan = hooks.BuildLoadPlan(image);
+  ASSERT_EQ(plan.segments.size(), 2u);
+  EXPECT_EQ(plan.segments[0].pool, MemoryPoolKind::Code);
+  EXPECT_EQ(plan.segments[1].pool, MemoryPoolKind::Constant);
+  EXPECT_EQ(plan.required_shared_bytes, 128u);
+  EXPECT_EQ(plan.preferred_kernarg_bytes, 12u);
+}
+
 TEST(RuntimeHooksTest, LoadsSectionedExecutableImageAndLaunchesRegisteredKernel) {
   const std::filesystem::path path =
       std::filesystem::temp_directory_path() / "gpu_model_runtime_sectioned.gpusec";
@@ -372,6 +389,45 @@ TEST(RuntimeHooksTest, LaunchesHipExecutableWithEmbeddedFatbin) {
       exe_path, LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64}, {}, ExecutionMode::Functional,
       "c500", nullptr, "empty_kernel");
   ASSERT_TRUE(result.ok) << result.error_message;
+
+  std::filesystem::remove_all(temp_dir);
+}
+
+TEST(RuntimeHooksTest, BuildsLoadPlanFromHipSharedReverseExecutable) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_runtime_load_plan_shared_reverse");
+  const auto src_path = temp_dir / "hip_shared_reverse.cpp";
+  const auto exe_path = temp_dir / "hip_shared_reverse.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n"
+           "extern \"C\" __global__ void shared_reverse(const int* in, int* out, int n) {\n"
+           "  __shared__ int scratch[64];\n"
+           "  int tid = threadIdx.x;\n"
+           "  int idx = blockIdx.x * blockDim.x + tid;\n"
+           "  if (idx < n) scratch[tid] = in[idx];\n"
+           "  __syncthreads();\n"
+           "  if (idx < n) out[idx] = scratch[blockDim.x - 1 - tid];\n"
+           "}\n"
+           "int main() { return 0; }\n";
+  }
+
+  const std::string command =
+      "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  RuntimeHooks hooks;
+  const auto plan = hooks.BuildLoadPlanFromAmdgpuObject(exe_path, "shared_reverse");
+  ASSERT_EQ(plan.segments.size(), 1u);
+  EXPECT_EQ(plan.segments[0].pool, MemoryPoolKind::Code);
+  EXPECT_GT(plan.segments[0].required_bytes, 0u);
+  EXPECT_EQ(plan.required_shared_bytes, 256u);
+  EXPECT_EQ(plan.preferred_kernarg_bytes, 20u);
 
   std::filesystem::remove_all(temp_dir);
 }

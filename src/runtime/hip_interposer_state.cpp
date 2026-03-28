@@ -190,6 +190,17 @@ LaunchResult HipInterposerState::LaunchExecutableKernel(const std::filesystem::p
   return hooks_.LaunchProgramImage(image, std::move(config), PackArgs(image, args), mode, arch_name);
 }
 
+DeviceLoadPlan HipInterposerState::BuildExecutableLoadPlan(
+    const std::filesystem::path& executable_path,
+    const void* host_function) const {
+  const auto kernel_name = ResolveKernelName(host_function);
+  if (!kernel_name.has_value()) {
+    throw std::invalid_argument("unregistered HIP host function");
+  }
+  const auto image = AmdgpuCodeObjectDecoder{}.Decode(executable_path, *kernel_name);
+  return BuildDeviceLoadPlan(image);
+}
+
 void HipInterposerState::PushLaunchConfiguration(LaunchConfig config, uint64_t shared_memory_bytes) {
   config.shared_memory_bytes = static_cast<uint32_t>(shared_memory_bytes);
   pending_launch_config_ = config;

@@ -11,6 +11,7 @@
 
 #include "gpu_model/loader/executable_image_io.h"
 #include "gpu_model/loader/amdgpu_obj_loader.h"
+#include "gpu_model/loader/device_segment_image.h"
 #include "gpu_model/loader/program_bundle_io.h"
 #include "gpu_model/loader/program_file_loader.h"
 #include "gpu_model/isa/kernel_program.h"
@@ -53,6 +54,10 @@ class RuntimeHooks {
                                   ExecutionMode mode = ExecutionMode::Functional,
                                   std::string arch_name = "",
                                   TraceSink* trace = nullptr);
+  DeviceLoadPlan BuildLoadPlan(const ProgramImage& image) const;
+  DeviceLoadPlan BuildLoadPlanFromAmdgpuObject(
+      const std::filesystem::path& path,
+      std::optional<std::string> kernel_name = std::nullopt) const;
   void RegisterProgramImage(std::string module_name, ProgramImage image);
   void LoadAmdgpuObject(std::string module_name,
                         const std::filesystem::path& path,

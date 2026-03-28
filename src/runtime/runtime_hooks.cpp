@@ -79,6 +79,17 @@ LaunchResult RuntimeHooks::LaunchProgramImage(const ProgramImage& image,
   return runtime_->Launch(request);
 }
 
+DeviceLoadPlan RuntimeHooks::BuildLoadPlan(const ProgramImage& image) const {
+  return BuildDeviceLoadPlan(image);
+}
+
+DeviceLoadPlan RuntimeHooks::BuildLoadPlanFromAmdgpuObject(
+    const std::filesystem::path& path,
+    std::optional<std::string> kernel_name) const {
+  const auto image = AmdgpuCodeObjectDecoder{}.Decode(path, std::move(kernel_name));
+  return BuildDeviceLoadPlan(image);
+}
+
 void RuntimeHooks::RegisterProgramImage(std::string module_name, ProgramImage image) {
   modules_[module_name][image.kernel_name()] = std::move(image);
 }
