@@ -83,6 +83,28 @@ instructions:
   issue_family: scalar_alu_or_memory
   flags:
     is_memory: true
+  operands:
+  - name: sdst
+    kind: scalar_reg_range
+    role: def
+    field: sdst
+    reg_count: 4
+    scale: 1
+    special_reg: ''
+  - name: sbase
+    kind: scalar_reg_range
+    role: use
+    field: sbase
+    reg_count: 2
+    scale: 2
+    special_reg: ''
+  - name: offset
+    kind: immediate_field
+    role: use
+    field: offset
+    reg_count: 1
+    scale: 1
+    special_reg: ''
 - id: 5
   profile: gfx6_gfx8
   format: sop2
@@ -215,6 +237,21 @@ instructions:
   issue_family: scalar_alu_or_memory
   flags:
     writes_exec: true
+  operands:
+  - name: dst
+    kind: scalar_reg_pair_dest
+    role: def
+    field: sdst
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src0
+    kind: scalar_src8_pair
+    role: use
+    field: ssrc0
+    reg_count: 1
+    scale: 1
+    special_reg: ''
 - id: 10
   profile: gfx6_gfx8
   format: sopp
@@ -1039,6 +1076,21 @@ instructions:
   mnemonic: s_mov_b32
   semantic_family: scalar_alu
   issue_family: scalar_alu_or_memory
+  operands:
+  - name: sdst
+    kind: scalar_reg
+    role: def
+    field: sdst
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src0
+    kind: scalar_src8
+    role: use
+    field: ssrc0
+    reg_count: 1
+    scale: 1
+    special_reg: ''
 - id: 54
   profile: gfx6_gfx8
   format: sop1
@@ -1047,6 +1099,21 @@ instructions:
   mnemonic: s_mov_b32
   semantic_family: scalar_alu
   issue_family: scalar_alu_or_memory
+  operands:
+  - name: sdst
+    kind: scalar_reg
+    role: def
+    field: sdst
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: literal
+    kind: immediate_literal32
+    role: use
+    field: ''
+    reg_count: 1
+    scale: 1
+    special_reg: ''
 - id: 55
   profile: gfx6_gfx8
   format: sop2
@@ -1414,6 +1481,21 @@ instructions:
   mnemonic: s_mov_b64
   semantic_family: scalar_alu
   issue_family: scalar_alu_or_memory
+  operands:
+  - name: dst
+    kind: scalar_reg_pair_dest
+    role: def
+    field: sdst
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src0
+    kind: scalar_src8_pair
+    role: use
+    field: ssrc0
+    reg_count: 1
+    scale: 1
+    special_reg: ''
 - id: 72
   profile: gfx6_gfx8
   format: sop2
@@ -1544,6 +1626,21 @@ instructions:
   mnemonic: s_movk_i32
   semantic_family: scalar_alu
   issue_family: scalar_alu_or_memory
+  operands:
+  - name: sdst
+    kind: scalar_reg
+    role: def
+    field: sdst
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: simm16
+    kind: simm16
+    role: use
+    field: simm16
+    reg_count: 1
+    scale: 1
+    special_reg: ''
 - id: 79
   profile: gfx6_gfx8
   format: vop3a
@@ -1599,6 +1696,21 @@ instructions:
   mnemonic: s_bcnt1_i32_b64
   semantic_family: scalar_alu
   issue_family: scalar_alu_or_memory
+  operands:
+  - name: sdst
+    kind: scalar_reg
+    role: def
+    field: sdst
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src0
+    kind: scalar_src8_pair
+    role: use
+    field: ssrc0
+    reg_count: 1
+    scale: 1
+    special_reg: ''
 - id: 84
   profile: gfx6_gfx8
   format: flat

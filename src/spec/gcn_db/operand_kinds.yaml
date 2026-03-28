@@ -5,6 +5,15 @@ operand_kinds:
   - id: scalar_reg_range
     category: scalar
     description: scalar register range operand
+  - id: scalar_reg_pair_dest
+    category: scalar
+    description: 7-bit scalar destination field decoded as register pair or special pair register
+  - id: scalar_src8
+    category: scalar
+    description: 8-bit scalar source selector decoded with inline constant rules
+  - id: scalar_src8_pair
+    category: scalar
+    description: 8-bit scalar source selector decoded as register pair or special pair register
   - id: vector_reg
     category: vector
     description: vector register operand
@@ -20,9 +29,12 @@ operand_kinds:
   - id: immediate_field
     category: immediate
     description: immediate directly decoded from a named bitfield
-  - id: scalar_src8
-    category: scalar
-    description: 8-bit scalar source selector decoded with inline constant rules
+  - id: immediate_literal32
+    category: immediate
+    description: 32-bit literal immediate carried in the second instruction word
+  - id: simm16
+    category: immediate
+    description: signed 16-bit immediate field
   - id: src9
     category: generic
     description: 9-bit source selector decoded with scalar/vector/immediate rules

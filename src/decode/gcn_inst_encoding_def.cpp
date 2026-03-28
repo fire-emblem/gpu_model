@@ -281,6 +281,29 @@ RawGcnOperand DecodeSrc8(uint32_t value) {
   return MakeOperand(RawGcnOperandKind::Unknown, "s" + std::to_string(value));
 }
 
+RawGcnOperand DecodeScalarPairDest(uint32_t value) {
+  if (value == 0x7eu || value == 0x7fu) {
+    return MakeSpecialRegOperand(GcnSpecialReg::Exec, "exec");
+  }
+  if (value == 0x6au || value == 0x6bu) {
+    return MakeSpecialRegOperand(GcnSpecialReg::Vcc, "vcc");
+  }
+  return MakeScalarRegRangeOperand(value, 2);
+}
+
+RawGcnOperand DecodeScalarPairSrc8(uint32_t value) {
+  if (value <= 103u) {
+    return MakeScalarRegRangeOperand(value, 2);
+  }
+  if (value == 0x7eu || value == 0x7fu) {
+    return MakeSpecialRegOperand(GcnSpecialReg::Exec, "exec");
+  }
+  if (value == 0x6au || value == 0x6bu) {
+    return MakeSpecialRegOperand(GcnSpecialReg::Vcc, "vcc");
+  }
+  return DecodeSrc8(value);
+}
+
 const GcnGeneratedFormatDef* FindGeneratedFormatDefByClass(GcnInstFormatClass format_class) {
   const auto& defs = GeneratedGcnFormatDefs();
   for (size_t i = 0; i < defs.size(); ++i) {
@@ -351,6 +374,8 @@ bool TryDecodeGeneratedOperands(RawGcnInstruction& instruction, const GcnGenerat
     } else if (std::string_view(spec.kind) == "scalar_reg_range") {
       instruction.decoded_operands.push_back(
           MakeScalarRegRangeOperand(raw_value * spec.scale, spec.reg_count));
+    } else if (std::string_view(spec.kind) == "scalar_reg_pair_dest") {
+      instruction.decoded_operands.push_back(DecodeScalarPairDest(raw_value));
     } else if (std::string_view(spec.kind) == "vector_reg") {
       instruction.decoded_operands.push_back(MakeVectorRegOperand(raw_value));
     } else if (std::string_view(spec.kind) == "vector_reg_range") {
@@ -363,11 +388,23 @@ bool TryDecodeGeneratedOperands(RawGcnInstruction& instruction, const GcnGenerat
       instruction.decoded_operands.push_back(MakeWaitCntOperand(static_cast<uint16_t>(raw_value)));
     } else if (std::string_view(spec.kind) == "scalar_src8") {
       instruction.decoded_operands.push_back(DecodeSrc8(raw_value));
+    } else if (std::string_view(spec.kind) == "scalar_src8_pair") {
+      instruction.decoded_operands.push_back(DecodeScalarPairSrc8(raw_value));
     } else if (std::string_view(spec.kind) == "src9") {
       instruction.decoded_operands.push_back(DecodeSrc9(raw_value));
     } else if (std::string_view(spec.kind) == "immediate_field") {
       instruction.decoded_operands.push_back(
           MakeImmediateOperand(FormatImmediate(raw_value), raw_value));
+    } else if (std::string_view(spec.kind) == "immediate_literal32") {
+      if (instruction.words.size() <= 1) {
+        return false;
+      }
+      instruction.decoded_operands.push_back(
+          MakeImmediateOperand(FormatImmediate(instruction.words[1]), instruction.words[1]));
+    } else if (std::string_view(spec.kind) == "simm16") {
+      instruction.decoded_operands.push_back(
+          MakeImmediateOperand(std::to_string(static_cast<int16_t>(raw_value)),
+                               static_cast<int16_t>(raw_value)));
     } else {
       return false;
     }

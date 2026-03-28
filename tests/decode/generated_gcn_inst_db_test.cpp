@@ -73,6 +73,12 @@ TEST(GeneratedGcnInstDbTest, ExposesBatchOperandSchemasForSimpleFormats) {
   });
   ASSERT_NE(vopc, insts.end());
   EXPECT_EQ(vopc->operand_count, 3u);
+
+  const auto sop1 = std::find_if(insts.begin(), insts.end(), [](const auto& def) {
+    return std::string_view(def.mnemonic) == "s_mov_b64";
+  });
+  ASSERT_NE(sop1, insts.end());
+  EXPECT_EQ(sop1->operand_count, 2u);
 }
 
 TEST(GeneratedGcnInstDbTest, ExposesImportedEncodingDefinitions) {
