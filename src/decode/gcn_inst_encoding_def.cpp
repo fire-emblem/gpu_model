@@ -326,6 +326,17 @@ RawGcnOperand DecodeScalarPairSrc8(uint32_t value) {
   return DecodeSrc8(value);
 }
 
+RawGcnOperand DecodeVectorRegRangeField(uint32_t value, uint32_t reg_count) {
+  return MakeVectorRegRangeOperand(value, reg_count);
+}
+
+RawGcnOperand DecodeSrc9OrVectorRegRange2(uint32_t value) {
+  if (value >= 256u) {
+    return MakeVectorRegRangeOperand(value - 256u, 2);
+  }
+  return DecodeSrc9(value);
+}
+
 RawGcnOperand DecodeVop3SdstPair(const std::vector<uint32_t>& words) {
   const uint32_t low = words.empty() ? 0u : words[0];
   return MakeScalarRegRangeOperand((low >> 8u) & 0x7fu, 2);
@@ -412,6 +423,8 @@ bool TryDecodeGeneratedOperands(RawGcnInstruction& instruction, const GcnGenerat
       instruction.decoded_operands.push_back(MakeVectorRegOperand(raw_value));
     } else if (std::string_view(spec.kind) == "vector_reg_range") {
       instruction.decoded_operands.push_back(MakeVectorRegRangeOperand(raw_value, spec.reg_count));
+    } else if (std::string_view(spec.kind) == "vector_reg_range_field") {
+      instruction.decoded_operands.push_back(DecodeVectorRegRangeField(raw_value, spec.reg_count));
     } else if (std::string_view(spec.kind) == "special_reg") {
       instruction.decoded_operands.push_back(MakeSpecialOperandFromName(spec.special_reg));
     } else if (std::string_view(spec.kind) == "branch_target") {
@@ -431,7 +444,14 @@ bool TryDecodeGeneratedOperands(RawGcnInstruction& instruction, const GcnGenerat
     } else if (std::string_view(spec.kind) == "vop3_src2_pair") {
       instruction.decoded_operands.push_back(DecodeVop3Src2Pair(instruction.words));
     } else if (std::string_view(spec.kind) == "src9") {
-      instruction.decoded_operands.push_back(DecodeSrc9(raw_value));
+      if (raw_value == 255u && instruction.words.size() > 1) {
+        instruction.decoded_operands.push_back(
+            MakeImmediateOperand(FormatImmediate(instruction.words[1]), instruction.words[1]));
+      } else {
+        instruction.decoded_operands.push_back(DecodeSrc9(raw_value));
+      }
+    } else if (std::string_view(spec.kind) == "src9_or_vector_reg_range2") {
+      instruction.decoded_operands.push_back(DecodeSrc9OrVectorRegRange2(raw_value));
     } else if (std::string_view(spec.kind) == "immediate_field") {
       instruction.decoded_operands.push_back(
           MakeImmediateOperand(FormatImmediate(raw_value), raw_value));

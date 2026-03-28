@@ -462,6 +462,28 @@ instructions:
   mnemonic: v_lshlrev_b64
   semantic_family: vector_alu
   issue_family: vector_alu
+  operands:
+  - name: vdst
+    kind: vector_reg_range_field
+    role: def
+    field: vdst
+    reg_count: 2
+    scale: 1
+    special_reg: ''
+  - name: src0
+    kind: src9
+    role: use
+    field: src0
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src1
+    kind: src9_or_vector_reg_range2
+    role: use
+    field: src1
+    reg_count: 2
+    scale: 1
+    special_reg: ''
 - id: 18
   profile: gfx6_gfx8
   format: flat
@@ -1143,6 +1165,28 @@ instructions:
   mnemonic: s_andn2_b64
   semantic_family: scalar_alu
   issue_family: scalar_alu_or_memory
+  operands:
+  - name: dst
+    kind: scalar_reg_pair_dest
+    role: def
+    field: sdst
+    reg_count: 2
+    scale: 1
+    special_reg: ''
+  - name: src0
+    kind: scalar_src8
+    role: use
+    field: ssrc0
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src1
+    kind: scalar_src8_pair
+    role: use
+    field: ssrc1
+    reg_count: 2
+    scale: 1
+    special_reg: ''
 - id: 43
   profile: gfx6_gfx8
   format: sopp
@@ -1197,6 +1241,28 @@ instructions:
   mnemonic: v_mul_f32_e32
   semantic_family: vector_alu
   issue_family: vector_alu
+  operands:
+  - name: vdst
+    kind: vector_reg
+    role: def
+    field: vdst
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src0
+    kind: src9
+    role: use
+    field: src0
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: vsrc1
+    kind: vector_reg
+    role: use
+    field: vsrc1
+    reg_count: 1
+    scale: 1
+    special_reg: ''
 - id: 46
   profile: gfx6_gfx8
   format: vop2
@@ -1235,6 +1301,28 @@ instructions:
   mnemonic: v_fmac_f32_e32
   semantic_family: vector_alu
   issue_family: vector_alu
+  operands:
+  - name: vdst
+    kind: vector_reg
+    role: def
+    field: vdst
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src0
+    kind: src9
+    role: use
+    field: src0
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: vsrc1
+    kind: vector_reg
+    role: use
+    field: vsrc1
+    reg_count: 1
+    scale: 1
+    special_reg: ''
 - id: 48
   profile: gfx6_gfx8
   format: vop2
@@ -2105,6 +2193,42 @@ instructions:
   mnemonic: v_mad_u64_u32
   semantic_family: vector_alu
   issue_family: vector_alu
+  operands:
+  - name: vdst
+    kind: vector_reg_range_field
+    role: def
+    field: vdst
+    reg_count: 2
+    scale: 1
+    special_reg: ''
+  - name: sdst
+    kind: vop3_sdst_pair
+    role: def
+    field: ''
+    reg_count: 2
+    scale: 1
+    special_reg: ''
+  - name: src0
+    kind: src9
+    role: use
+    field: src0
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src1
+    kind: src9
+    role: use
+    field: src1
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src2
+    kind: src9_or_vector_reg_range2
+    role: use
+    field: src2
+    reg_count: 2
+    scale: 1
+    special_reg: ''
 - id: 80
   profile: gfx6_gfx8
   format: vop1
