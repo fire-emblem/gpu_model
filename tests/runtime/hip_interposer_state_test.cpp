@@ -338,5 +338,73 @@ TEST(HipInterposerStateTest, LaunchesHipSharedReverseExecutableThroughRegistered
   std::filesystem::remove_all(temp_dir);
 }
 
+TEST(HipInterposerStateTest, LaunchesHipSoftmaxExecutableThroughRegisteredHostFunction) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_interposer_softmax");
+  const auto src_path = temp_dir / "hip_softmax.cpp";
+  const auto exe_path = temp_dir / "hip_softmax.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n"
+           "#include <math.h>\n"
+           "extern \"C\" __global__ void softmax_row(const float* in, float* out, int n) {\n"
+           "  __shared__ float scratch[64];\n"
+           "  int tid = threadIdx.x;\n"
+           "  int idx = blockIdx.x * blockDim.x + tid;\n"
+           "  float x = idx < n ? in[idx] : -1.0e20f;\n"
+           "  scratch[tid] = x;\n"
+           "  __syncthreads();\n"
+           "  for (int stride = blockDim.x / 2; stride > 0; stride >>= 1) {\n"
+           "    if (tid < stride) scratch[tid] = fmaxf(scratch[tid], scratch[tid + stride]);\n"
+           "    __syncthreads();\n"
+           "  }\n"
+           "  float m = scratch[0];\n"
+           "  float e = idx < n ? expf(x - m) : 0.0f;\n"
+           "  scratch[tid] = e;\n"
+           "  __syncthreads();\n"
+           "  for (int stride = blockDim.x / 2; stride > 0; stride >>= 1) {\n"
+           "    if (tid < stride) scratch[tid] += scratch[tid + stride];\n"
+           "    __syncthreads();\n"
+           "  }\n"
+           "  if (idx < n) out[idx] = e / scratch[0];\n"
+           "}\n"
+           "int main() { return 0; }\n";
+  }
+
+  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  auto& state = HipInterposerState::Instance();
+  state.ResetForTest();
+  static int host_symbol = 0;
+  state.RegisterFunction(&host_symbol, "softmax_row");
+
+  constexpr uint32_t n = 64;
+  std::vector<float> input(n, 1.0f), output(n, 0.0f);
+  void* in_dev = state.AllocateDevice(n * sizeof(float));
+  void* out_dev = state.AllocateDevice(n * sizeof(float));
+  state.MemcpyHostToDevice(in_dev, input.data(), n * sizeof(float));
+  state.MemcpyHostToDevice(out_dev, output.data(), n * sizeof(float));
+
+  uint32_t n_arg = n;
+  void* args[] = {&in_dev, &out_dev, &n_arg};
+  const auto result = state.LaunchExecutableKernel(
+      exe_path, &host_symbol, LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64}, args);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  state.MemcpyDeviceToHost(output.data(), out_dev, n * sizeof(float));
+  constexpr float expected = 1.0f / 64.0f;
+  for (uint32_t i = 0; i < n; ++i) {
+    EXPECT_NEAR(output[i], expected, 1.0e-4f);
+  }
+
+  std::filesystem::remove_all(temp_dir);
+}
+
 }  // namespace
 }  // namespace gpu_model

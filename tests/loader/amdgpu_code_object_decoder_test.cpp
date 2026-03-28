@@ -215,7 +215,7 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesRawInstructionsFromHipBiasChainExecutab
   EXPECT_GE(load_scalar_count, 4);
 }
 
-TEST(AmdgpuCodeObjectDecoderTest, DecodesHipSoftmaxExecutableWithUnknownInstructions) {
+TEST(AmdgpuCodeObjectDecoderTest, DecodesHipSoftmaxExecutableWithoutUnknownInstructions) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }

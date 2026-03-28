@@ -293,6 +293,26 @@ RawGcnOperand DecodeSrc9(uint32_t value) {
     const int64_t immediate = -1 - static_cast<int32_t>(value - 193u);
     return MakeImmediateOperand(std::to_string(immediate), immediate);
   }
+  switch (value) {
+    case 240u:
+      return MakeImmediateOperand("0.5", 0x3f000000u);
+    case 241u:
+      return MakeImmediateOperand("-0.5", 0xbf000000u);
+    case 242u:
+      return MakeImmediateOperand("1.0", 0x3f800000u);
+    case 243u:
+      return MakeImmediateOperand("-1.0", 0xbf800000u);
+    case 244u:
+      return MakeImmediateOperand("2.0", 0x40000000u);
+    case 245u:
+      return MakeImmediateOperand("-2.0", 0xc0000000u);
+    case 246u:
+      return MakeImmediateOperand("4.0", 0x40800000u);
+    case 247u:
+      return MakeImmediateOperand("-4.0", 0xc0800000u);
+    default:
+      break;
+  }
   if (value == 106u || value == 107u) {
     return MakeSpecialRegOperand(GcnSpecialReg::Vcc, "vcc");
   }
@@ -355,6 +375,7 @@ void DecodeGcnOperands(RawGcnInstruction& instruction) {
     case 5:
     case 6:
     case 23:
+    case 55:
       instruction.decoded_operands.push_back(MakeScalarRegOperand((low >> 16u) & 0x7fu));
       instruction.decoded_operands.push_back(DecodeSrc8(low & 0xffu));
       instruction.decoded_operands.push_back(DecodeSrc8((low >> 8u) & 0xffu));
@@ -391,8 +412,14 @@ void DecodeGcnOperands(RawGcnInstruction& instruction) {
       break;
     case 7:
     case 11:
+    case 64:
+    case 65:
       instruction.decoded_operands.push_back(MakeVectorRegOperand((low >> 17u) & 0xffu));
-      instruction.decoded_operands.push_back(DecodeSrc9(low & 0x1ffu));
+      if ((low & 0x1ffu) == 255u && instruction.words.size() > 1) {
+        instruction.decoded_operands.push_back(MakeImmediateOperand(FormatImmediate(high), high));
+      } else {
+        instruction.decoded_operands.push_back(DecodeSrc9(low & 0x1ffu));
+      }
       instruction.decoded_operands.push_back(MakeVectorRegOperand((low >> 9u) & 0xffu));
       break;
     case 8:
@@ -462,10 +489,12 @@ void DecodeGcnOperands(RawGcnInstruction& instruction) {
     case 46:
     case 47:
     case 48:
-    case 64:
-    case 65:
       instruction.decoded_operands.push_back(MakeVectorRegOperand((low >> 17u) & 0xffu));
-      instruction.decoded_operands.push_back(DecodeSrc9(low & 0x1ffu));
+      if ((low & 0x1ffu) == 255u && instruction.words.size() > 1) {
+        instruction.decoded_operands.push_back(MakeImmediateOperand(FormatImmediate(high), high));
+      } else {
+        instruction.decoded_operands.push_back(DecodeSrc9(low & 0x1ffu));
+      }
       instruction.decoded_operands.push_back(MakeVectorRegOperand((low >> 9u) & 0xffu));
       break;
     case 15:

@@ -770,7 +770,7 @@ TEST(RuntimeHooksTest, RejectsHipTwoDimensionalExecutableInRawGcnPath) {
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(RuntimeHooksTest, ReportsUnsupportedHipSoftmaxExecutableInRawGcnPath) {
+TEST(RuntimeHooksTest, LaunchesHipSoftmaxExecutableInRawGcnPath) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
@@ -829,8 +829,13 @@ TEST(RuntimeHooksTest, ReportsUnsupportedHipSoftmaxExecutableInRawGcnPath) {
   const auto result = hooks.LaunchAmdgpuObject(
       exe_path, LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64}, std::move(args),
       ExecutionMode::Functional, "c500", nullptr, "softmax_row");
-  ASSERT_FALSE(result.ok);
-  EXPECT_NE(result.error_message.find("unsupported raw GCN opcode"), std::string::npos);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  hooks.MemcpyDtoH<float>(out_addr, std::span<float>(output));
+  constexpr float expected = 1.0f / 64.0f;
+  for (uint32_t i = 0; i < n; ++i) {
+    EXPECT_NEAR(output[i], expected, 1.0e-4f);
+  }
 
   std::filesystem::remove_all(temp_dir);
 }
