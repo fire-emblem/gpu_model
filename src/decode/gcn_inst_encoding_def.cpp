@@ -522,13 +522,6 @@ void DecodeGcnOperands(RawGcnInstruction& instruction) {
       instruction.decoded_operands.push_back(DecodeSrc8(low & 0xffu));
       instruction.decoded_operands.push_back(DecodeSrc8((low >> 8u) & 0xffu));
       break;
-    case 73:
-      instruction.decoded_operands.push_back(
-          MakeScalarRegRangeOperand((low >> 16u) & 0x7fu, 2));
-      instruction.decoded_operands.push_back(
-          MakeScalarRegRangeOperand(low & 0xffu, 2));
-      instruction.decoded_operands.push_back(DecodeSrc8((low >> 8u) & 0xffu));
-      break;
     case 77:
       instruction.decoded_operands.push_back(
           MakeScalarRegRangeOperand((low >> 16u) & 0x7fu, 2));

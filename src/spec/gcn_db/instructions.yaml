@@ -2056,6 +2056,28 @@ instructions:
   mnemonic: s_lshl_b64
   semantic_family: scalar_alu
   issue_family: scalar_alu_or_memory
+  operands:
+  - name: sdst
+    kind: scalar_reg_range
+    role: def
+    field: sdst
+    reg_count: 2
+    scale: 1
+    special_reg: ''
+  - name: src0
+    kind: scalar_src8_pair
+    role: use
+    field: ssrc0
+    reg_count: 2
+    scale: 1
+    special_reg: ''
+  - name: src1
+    kind: scalar_src8
+    role: use
+    field: ssrc1
+    reg_count: 1
+    scale: 1
+    special_reg: ''
 - id: 74
   profile: gfx6_gfx8
   format: sopp

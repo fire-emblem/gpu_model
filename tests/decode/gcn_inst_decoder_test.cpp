@@ -122,6 +122,26 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeScalarMovkInstruction) {
   EXPECT_EQ(decoded.operands[1].text, "42");
 }
 
+TEST(GcnInstDecoderTest, DecodesRepresentativeScalarShiftLeftB64Instruction) {
+  RawGcnInstruction raw{
+      .pc = 0x195c,
+      .size_bytes = 4,
+      .words = {0x8e848101u},
+      .format_class = GcnInstFormatClass::Sop2,
+      .mnemonic = "s_lshl_b64",
+      .operands = "",
+      .decoded_operands = {},
+  };
+
+  const auto decoded = GcnInstDecoder{}.Decode(raw);
+  EXPECT_EQ(decoded.encoding_id, 73u);
+  EXPECT_EQ(decoded.mnemonic, "s_lshl_b64");
+  ASSERT_EQ(decoded.operands.size(), 3u);
+  EXPECT_EQ(decoded.operands[0].text, "s[4:5]");
+  EXPECT_EQ(decoded.operands[1].text, "s[1:2]");
+  EXPECT_EQ(decoded.operands[2].text, "1");
+}
+
 TEST(GcnInstDecoderTest, DecodesRepresentativeGlobalLoadInstruction) {
   RawGcnInstruction raw{
       .pc = 0x1968,
