@@ -226,6 +226,78 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeVop3aFmaInstruction) {
   EXPECT_EQ(decoded.operands[3].text, "v5");
 }
 
+TEST(GcnInstDecoderTest, FallsBackToGeneratedNameForReservedPlaceholderFamilies) {
+  {
+    RawGcnInstruction raw{
+        .pc = 0x1b00,
+        .size_bytes = 8,
+        .words = {0xe0500000u, 0x00000000u},
+        .format_class = GcnInstFormatClass::Mubuf,
+        .mnemonic = "unknown",
+        .operands = "",
+        .decoded_operands = {},
+    };
+    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    EXPECT_EQ(decoded.mnemonic, "buffer_load_dword");
+  }
+
+  {
+    RawGcnInstruction raw{
+        .pc = 0x1b08,
+        .size_bytes = 8,
+        .words = {0xe8000000u, 0x00000000u},
+        .format_class = GcnInstFormatClass::Mtbuf,
+        .mnemonic = "unknown",
+        .operands = "",
+        .decoded_operands = {},
+    };
+    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    EXPECT_EQ(decoded.mnemonic, "tbuffer_load_format_x");
+  }
+
+  {
+    RawGcnInstruction raw{
+        .pc = 0x1b10,
+        .size_bytes = 8,
+        .words = {0xf0000000u, 0x00000000u},
+        .format_class = GcnInstFormatClass::Mimg,
+        .mnemonic = "unknown",
+        .operands = "",
+        .decoded_operands = {},
+    };
+    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    EXPECT_EQ(decoded.mnemonic, "image_load");
+  }
+
+  {
+    RawGcnInstruction raw{
+        .pc = 0x1b18,
+        .size_bytes = 8,
+        .words = {0xf8000000u, 0x00000000u},
+        .format_class = GcnInstFormatClass::Exp,
+        .mnemonic = "unknown",
+        .operands = "",
+        .decoded_operands = {},
+    };
+    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    EXPECT_EQ(decoded.mnemonic, "exp");
+  }
+
+  {
+    RawGcnInstruction raw{
+        .pc = 0x1b20,
+        .size_bytes = 4,
+        .words = {0xc8000000u},
+        .format_class = GcnInstFormatClass::Vintrp,
+        .mnemonic = "unknown",
+        .operands = "",
+        .decoded_operands = {},
+    };
+    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    EXPECT_EQ(decoded.mnemonic, "v_interp_p1_f32");
+  }
+}
+
 TEST(GcnInstDecoderTest, DecodesRepresentativeVop3B64ShiftInstruction) {
   RawGcnInstruction raw{
       .pc = 0x1a04,

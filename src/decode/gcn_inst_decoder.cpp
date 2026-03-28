@@ -16,7 +16,10 @@ DecodedGcnInstruction GcnInstDecoder::Decode(const RawGcnInstruction& instructio
     decoded.encoding_id = def->id;
     decoded.mnemonic = std::string(def->mnemonic);
   } else {
-    decoded.mnemonic = instruction.mnemonic;
+    decoded.mnemonic = std::string(LookupGcnOpcodeName(instruction.words));
+    if (decoded.mnemonic == "unknown") {
+      decoded.mnemonic = instruction.mnemonic;
+    }
   }
 
   RawGcnInstruction expanded = instruction;

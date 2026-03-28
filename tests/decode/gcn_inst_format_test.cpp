@@ -37,6 +37,14 @@ TEST(GcnInstFormatTest, ClassifiesRepresentativeEncodings) {
   EXPECT_EQ(ClassifyGcnInstFormat({0xdc508000u, 0x067f0004u}), GcnInstFormatClass::Flat);
 }
 
+TEST(GcnInstFormatTest, ClassifiesReservedPlaceholderFamilies) {
+  EXPECT_EQ(ClassifyGcnInstFormat({0xf0000000u, 0x00000000u}), GcnInstFormatClass::Mimg);
+  EXPECT_EQ(ClassifyGcnInstFormat({0xe8000000u, 0x00000000u}), GcnInstFormatClass::Mtbuf);
+  EXPECT_EQ(ClassifyGcnInstFormat({0xe0500000u, 0x00000000u}), GcnInstFormatClass::Mubuf);
+  EXPECT_EQ(ClassifyGcnInstFormat({0xf8000000u, 0x00000000u}), GcnInstFormatClass::Exp);
+  EXPECT_EQ(ClassifyGcnInstFormat({0xc8000000u}), GcnInstFormatClass::Vintrp);
+}
+
 TEST(GcnInstFormatTest, ExposesBitfieldsThroughUnion) {
   const auto sopp = MakeGcnInstLayout({0xbf810000u});
   EXPECT_EQ(sopp.sopp.enc, 0x17fu);

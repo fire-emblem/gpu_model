@@ -4,6 +4,7 @@
 #include <string_view>
 #include <vector>
 
+#include "gpu_model/decode/generated_gcn_full_opcode_table.h"
 #include "gpu_model/decode/gcn_inst_format.h"
 #include "gpu_model/decode/raw_gcn_instruction.h"
 
@@ -19,5 +20,7 @@ struct GcnInstEncodingDef {
 
 void DecodeGcnOperands(RawGcnInstruction& instruction);
 const GcnInstEncodingDef* FindGcnInstEncodingDef(const std::vector<uint32_t>& words);
+const GcnIsaOpcodeDescriptor* FindGcnFallbackOpcodeDescriptor(const std::vector<uint32_t>& words);
+std::string_view LookupGcnOpcodeName(const std::vector<uint32_t>& words);
 
 }  // namespace gpu_model

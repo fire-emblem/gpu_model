@@ -451,7 +451,7 @@ AmdgpuCodeObjectImage AmdgpuCodeObjectDecoder::Decode(const std::filesystem::pat
       instruction.encoding_id = def->id;
       instruction.mnemonic = std::string(def->mnemonic);
     } else {
-      instruction.mnemonic = "unknown";
+      instruction.mnemonic = std::string(LookupGcnOpcodeName(instruction.words));
     }
     DecodeGcnOperands(instruction);
     if (instruction.operands.empty() && !instruction.decoded_operands.empty()) {

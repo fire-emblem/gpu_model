@@ -8,7 +8,10 @@ namespace gpu_model {
 
 std::string GcnInstFormatter::Format(const DecodedGcnInstruction& instruction) const {
   std::ostringstream out;
-  out << instruction.mnemonic;
+  const std::string_view mnemonic = instruction.mnemonic == "unknown"
+                                        ? LookupGcnOpcodeName(instruction.words)
+                                        : std::string_view(instruction.mnemonic);
+  out << mnemonic;
   if (!instruction.operands.empty()) {
     out << ' ';
     for (size_t i = 0; i < instruction.operands.size(); ++i) {
@@ -28,7 +31,10 @@ std::string GcnInstFormatter::Format(const DecodedGcnInstruction& instruction) c
 
 std::string GcnInstFormatter::Format(const RawGcnInstruction& instruction) const {
   std::ostringstream out;
-  out << instruction.mnemonic;
+  const std::string_view mnemonic = instruction.mnemonic == "unknown"
+                                        ? LookupGcnOpcodeName(instruction.words)
+                                        : std::string_view(instruction.mnemonic);
+  out << mnemonic;
   if (!instruction.decoded_operands.empty()) {
     out << ' ';
     for (size_t i = 0; i < instruction.decoded_operands.size(); ++i) {
