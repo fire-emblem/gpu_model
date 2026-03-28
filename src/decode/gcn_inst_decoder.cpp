@@ -72,6 +72,41 @@ DecodedGcnInstruction GcnInstDecoder::Decode(const RawGcnInstruction& instructio
     decoded.mnemonic = instruction.mnemonic;
   }
 
+  if (!instruction.decoded_operands.empty()) {
+    for (const auto& operand : instruction.decoded_operands) {
+      DecodedGcnOperandKind kind = DecodedGcnOperandKind::Unknown;
+      switch (operand.kind) {
+        case RawGcnOperandKind::ScalarReg:
+          kind = DecodedGcnOperandKind::ScalarReg;
+          break;
+        case RawGcnOperandKind::ScalarRegRange:
+          kind = DecodedGcnOperandKind::ScalarRegRange;
+          break;
+        case RawGcnOperandKind::VectorReg:
+          if (operand.text.find('[') != std::string::npos) {
+            kind = DecodedGcnOperandKind::VectorRegRange;
+          } else {
+            kind = DecodedGcnOperandKind::VectorReg;
+          }
+          break;
+        case RawGcnOperandKind::SpecialReg:
+          kind = DecodedGcnOperandKind::SpecialReg;
+          break;
+        case RawGcnOperandKind::Immediate:
+          kind = DecodedGcnOperandKind::Immediate;
+          break;
+        case RawGcnOperandKind::BranchTarget:
+          kind = DecodedGcnOperandKind::BranchTarget;
+          break;
+        case RawGcnOperandKind::Unknown:
+          kind = DecodedGcnOperandKind::Unknown;
+          break;
+      }
+      decoded.operands.push_back(DecodedGcnOperand{.kind = kind, .text = operand.text});
+    }
+    return decoded;
+  }
+
   switch (decoded.encoding_id) {
     case 1:
       break;
