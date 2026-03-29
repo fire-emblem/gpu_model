@@ -94,10 +94,32 @@ TEST(GeneratedGcnInstDbTest, ExposesBatchOperandSchemasForSimpleFormats) {
 
 TEST(GeneratedGcnInstDbTest, ExposesImportedEncodingDefinitions) {
   const auto defs = GeneratedGcnEncodingDefs();
-  ASSERT_GE(defs.size(), 84u);
+  ASSERT_GE(defs.size(), 86u);
   EXPECT_EQ(defs[0].id, 1u);
   EXPECT_EQ(defs[0].format_class, GcnInstFormatClass::Sopp);
   EXPECT_EQ(defs[0].mnemonic, "s_endpgm");
+}
+
+TEST(GeneratedGcnInstDbTest, ExposesTrackedTensorCoreVariants) {
+  const auto insts = GeneratedGcnInstDefs();
+  const auto fp32 = std::find_if(insts.begin(), insts.end(), [](const auto& def) {
+    return std::string_view(def.mnemonic) == "v_mfma_f32_16x16x4f32";
+  });
+  const auto fp16 = std::find_if(insts.begin(), insts.end(), [](const auto& def) {
+    return std::string_view(def.mnemonic) == "v_mfma_f32_16x16x4f16";
+  });
+  const auto i8 = std::find_if(insts.begin(), insts.end(), [](const auto& def) {
+    return std::string_view(def.mnemonic) == "v_mfma_i32_16x16x4i8";
+  });
+  ASSERT_NE(fp32, insts.end());
+  ASSERT_NE(fp16, insts.end());
+  ASSERT_NE(i8, insts.end());
+  EXPECT_EQ(fp32->format_class, GcnInstFormatClass::Vop3p);
+  EXPECT_EQ(fp16->format_class, GcnInstFormatClass::Vop3p);
+  EXPECT_EQ(i8->format_class, GcnInstFormatClass::Vop3p);
+  EXPECT_NE((fp32->flags & kGcnInstFlagIsMatrix), 0u);
+  EXPECT_NE((fp16->flags & kGcnInstFlagIsMatrix), 0u);
+  EXPECT_NE((i8->flags & kGcnInstFlagIsMatrix), 0u);
 }
 
 TEST(GeneratedGcnInstDbTest, PreservesRepresentativeFlatInstruction) {

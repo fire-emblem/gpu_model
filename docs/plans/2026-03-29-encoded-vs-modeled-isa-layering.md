@@ -412,6 +412,20 @@
 - table-driven function pointers
 - hybrid
 
+## Step 6
+
+当指令解析覆盖已经接近饱和后，推进重点从“继续补 decode”切换到“补行为覆盖与测试”：
+
+- 为已能稳定解析的指令批量补 direct execute tests
+- 为 `llvm-mc` 可组装的专题汇编批量补 module-level behavior tests
+- 优先补齐控制流、标量 ALU、vector ALU、flat/global、lds/ds 的行为断言
+- tensor / MFMA 提高优先级，至少先覆盖：
+  - fp32
+  - fp16
+  - int8
+- 对暂时不支持的 tensor fixtures，允许先进入自动发现并显式 `skip`
+- 一旦 tensor decode 稳定，再把 skip fixture 逐个转成真实 decode + behavior case
+
 ---
 
 ## 最终判断

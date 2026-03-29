@@ -80,11 +80,12 @@ def build_report(repo_root: pathlib.Path) -> tuple[str, dict]:
     full_opcode_unique = {mnemonic for _, mnemonic in full_opcode_rows}
 
     source_files = {
-        "raw_object_support": repo_root / "src/exec/encoded/object/raw_gcn_instruction_object.cpp",
+        "raw_object_support": repo_root / "src/exec/encoded/binding/raw_gcn_instruction_binding.cpp",
         "decode_unit_tests": repo_root / "tests/decode/gcn_inst_decoder_test.cpp",
-        "exec_unit_tests": repo_root / "tests/exec/raw_gcn_instruction_object_execute_test.cpp",
-        "semantic_unit_tests": repo_root / "tests/exec/raw_gcn_semantic_execute_test.cpp",
-        "registry_unit_tests": repo_root / "tests/exec/raw_gcn_semantic_handler_registry_test.cpp",
+        "binding_unit_tests": repo_root / "tests/exec/encoded/binding/raw_gcn_instruction_binding_test.cpp",
+        "object_unit_tests": repo_root / "tests/exec/encoded/object/raw_gcn_instruction_object_execute_test.cpp",
+        "semantic_unit_tests": repo_root / "tests/exec/encoded/semantics/raw_gcn_semantic_execute_test.cpp",
+        "registry_unit_tests": repo_root / "tests/exec/encoded/semantics/raw_gcn_semantic_handler_registry_test.cpp",
         "loader_integration_tests": repo_root / "tests/loader/amdgpu_code_object_decoder_test.cpp",
     }
 
@@ -94,7 +95,8 @@ def build_report(repo_root: pathlib.Path) -> tuple[str, dict]:
         coverage_sets[key] = extract_quoted_mnemonics(text, known)
 
     coverage_sets["exec_test_union"] = (
-        coverage_sets["exec_unit_tests"]
+        coverage_sets["binding_unit_tests"]
+        | coverage_sets["object_unit_tests"]
         | coverage_sets["semantic_unit_tests"]
         | coverage_sets["registry_unit_tests"]
     )
