@@ -12,6 +12,7 @@
 
 #include "gpu_model/runtime/hip_interposer_state.h"
 #include "gpu_model/runtime/runtime_hooks.h"
+#include "test_matrix_profile.h"
 
 namespace gpu_model {
 namespace {
@@ -264,7 +265,7 @@ std::vector<float> ExpectedSoftmax(uint32_t n) {
   return std::vector<float>(n, 1.0f / 64.0f);
 }
 
-std::vector<HipCtsCase> MakeRuntimeHooksCases() {
+std::vector<HipCtsCase> MakeRuntimeHooksCasesFull() {
   std::vector<HipCtsCase> cases;
   uint32_t id = 0;
   const auto add = [&](HipCtsCase c) {
@@ -367,7 +368,16 @@ std::vector<HipCtsCase> MakeRuntimeHooksCases() {
   return cases;
 }
 
-std::vector<HipCtsCase> MakeInterposerCases() {
+std::vector<HipCtsCase> MakeRuntimeHooksCasesQuick() {
+  return test::SelectIndexedCases(MakeRuntimeHooksCasesFull(),
+                                  {0, 4, 10, 19, 20, 24, 34, 35, 44, 45, 54, 55, 64, 65});
+}
+
+std::vector<HipCtsCase> MakeRuntimeHooksCases() {
+  return test::FullTestMatrixEnabled() ? MakeRuntimeHooksCasesFull() : MakeRuntimeHooksCasesQuick();
+}
+
+std::vector<HipCtsCase> MakeInterposerCasesFull() {
   std::vector<HipCtsCase> cases;
   uint32_t id = 0;
   const auto add = [&](HipCtsCase c) {
@@ -455,6 +465,14 @@ std::vector<HipCtsCase> MakeInterposerCases() {
 
   EXPECT_EQ(cases.size(), 20u);
   return cases;
+}
+
+std::vector<HipCtsCase> MakeInterposerCasesQuick() {
+  return test::SelectIndexedCases(MakeInterposerCasesFull(), {0, 3, 6, 9, 13, 15, 18});
+}
+
+std::vector<HipCtsCase> MakeInterposerCases() {
+  return test::FullTestMatrixEnabled() ? MakeInterposerCasesFull() : MakeInterposerCasesQuick();
 }
 
 class HipCtsRuntimeHooksTest : public ::testing::TestWithParam<HipCtsCase> {};
@@ -623,6 +641,10 @@ TEST_P(HipCtsRuntimeHooksTest, ExecutesHipOutAndValidatesResults) {
   }
 }
 
+TEST(RuntimeHooksTest, HipCtsFullCaseCountIsOneHundred) {
+  EXPECT_EQ(MakeRuntimeHooksCasesFull().size() + MakeInterposerCasesFull().size(), 100u);
+}
+
 TEST_P(HipCtsInterposerStateTest, ExecutesHipOutThroughRegisteredHostFunctionAndValidatesResults) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
@@ -787,7 +809,7 @@ INSTANTIATE_TEST_SUITE_P(InterposerCTS, HipCtsInterposerStateTest,
                          ::testing::ValuesIn(MakeInterposerCases()), CaseName);
 
 TEST(RuntimeHooksTest, CtsCaseCountIsOneHundred) {
-  EXPECT_EQ(MakeRuntimeHooksCases().size() + MakeInterposerCases().size(), 100u);
+  EXPECT_EQ(MakeRuntimeHooksCasesFull().size() + MakeInterposerCasesFull().size(), 100u);
 }
 
 }  // namespace

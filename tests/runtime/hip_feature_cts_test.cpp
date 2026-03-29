@@ -13,6 +13,7 @@
 
 #include "gpu_model/runtime/hip_interposer_state.h"
 #include "gpu_model/runtime/runtime_hooks.h"
+#include "test_matrix_profile.h"
 
 namespace gpu_model {
 namespace {
@@ -219,7 +220,7 @@ std::vector<float> ExpectedBlockReduceSum(uint32_t n,
   return out;
 }
 
-std::vector<HipFeatureCase> MakeRuntimeHooksFeatureCases() {
+std::vector<HipFeatureCase> MakeRuntimeHooksFeatureCasesFull() {
   std::vector<HipFeatureCase> cases;
   uint32_t id = 0;
   const auto add = [&](HipFeatureCase c) {
@@ -319,7 +320,17 @@ std::vector<HipFeatureCase> MakeRuntimeHooksFeatureCases() {
   return cases;
 }
 
-std::vector<HipFeatureCase> MakeInterposerFeatureCases() {
+std::vector<HipFeatureCase> MakeRuntimeHooksFeatureCasesQuick() {
+  return test::SelectIndexedCases(MakeRuntimeHooksFeatureCasesFull(),
+                                  {0, 8, 15, 16, 24, 31, 32, 40, 47, 48, 56, 63, 64, 72, 79});
+}
+
+std::vector<HipFeatureCase> MakeRuntimeHooksFeatureCases() {
+  return test::FullTestMatrixEnabled() ? MakeRuntimeHooksFeatureCasesFull()
+                                       : MakeRuntimeHooksFeatureCasesQuick();
+}
+
+std::vector<HipFeatureCase> MakeInterposerFeatureCasesFull() {
   std::vector<HipFeatureCase> cases;
   uint32_t id = 0;
   const auto add = [&](HipFeatureCase c) {
@@ -476,6 +487,16 @@ std::vector<HipFeatureCase> MakeInterposerFeatureCases() {
   return cases;
 }
 
+std::vector<HipFeatureCase> MakeInterposerFeatureCasesQuick() {
+  return test::SelectIndexedCases(MakeInterposerFeatureCasesFull(),
+                                  {0, 1, 4, 7, 8, 11, 12, 15, 16, 19});
+}
+
+std::vector<HipFeatureCase> MakeInterposerFeatureCases() {
+  return test::FullTestMatrixEnabled() ? MakeInterposerFeatureCasesFull()
+                                       : MakeInterposerFeatureCasesQuick();
+}
+
 void ExpectNearVector(const std::vector<float>& actual,
                       const std::vector<float>& expected,
                       float tol = 1.0e-4f) {
@@ -500,7 +521,8 @@ std::string FeatureCaseName(const ::testing::TestParamInfo<HipFeatureCase>& info
 }
 
 TEST(RuntimeHooksTest, FeatureCtsCaseCountIsOneHundred) {
-  EXPECT_EQ(MakeRuntimeHooksFeatureCases().size() + MakeInterposerFeatureCases().size(), 100u);
+  EXPECT_EQ(MakeRuntimeHooksFeatureCasesFull().size() + MakeInterposerFeatureCasesFull().size(),
+            100u);
 }
 
 TEST_P(HipFeatureRuntimeHooksTest, ExecutesFeatureKernelAndValidatesResults) {

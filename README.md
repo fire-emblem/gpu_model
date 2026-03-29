@@ -16,6 +16,7 @@
 当前主线已经具备：
 
 - `c500` 架构参数注册与运行时选择
+  - 默认拓扑为 `8 DPC x 13 AP/DPC x 4 PEU/AP`
 - functional execution
 - naive cycle execution
 - functional execution mode switch
@@ -146,6 +147,14 @@ cmake --build build -j
 
 ```bash
 ./build/tests/gpu_model_tests
+```
+
+默认 `CTS/Feature CTS` 只跑 `quick` 代表性子集。
+
+运行完整矩阵：
+
+```bash
+GPU_MODEL_TEST_PROFILE=full ./build/tests/gpu_model_tests
 ```
 
 运行单组测试：
