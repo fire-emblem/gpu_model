@@ -10,7 +10,7 @@
 #include <string_view>
 #include <vector>
 
-#include "gpu_model/isa/instruction_builder.h"
+#include "gpu_model/isa/kernel_program_builder.h"
 
 namespace gpu_model {
 
@@ -150,8 +150,14 @@ void RequireOperandCount(std::string_view opcode,
 }  // namespace
 
 KernelProgram AsmParser::Parse(const ProgramImage& image) const {
-  InstructionBuilder builder;
+  KernelProgramBuilder builder;
   MetadataBlob metadata = image.metadata();
+  const auto reg = [&](std::string_view text) { return builder.ParseRegOperand(text); };
+  const auto imm_value = [&](std::string_view text) { return ParseImmediate(text); };
+  const auto imm = [&](std::string_view text) { return builder.ImmediateOperand(ParseImmediate(text)); };
+  const auto reg_or_imm = [&](std::string_view text) {
+    return IsRegister(text) ? reg(text) : imm(text);
+  };
 
   std::istringstream input(image.assembly_text());
   std::string line;
@@ -195,316 +201,250 @@ KernelProgram AsmParser::Parse(const ProgramImage& image) const {
 
     if (opcode == "s_load_kernarg") {
       RequireOperandCount(opcode, operands, 2);
-      builder.SLoadArg(operands[0], static_cast<uint32_t>(ParseImmediate(operands[1])));
+      builder.AddInstruction(
+          Opcode::SysLoadArg, {reg(operands[0]), Operand::Argument(static_cast<uint32_t>(imm_value(operands[1])))});
     } else if (opcode == "v_get_global_id_x") {
       RequireOperandCount(opcode, operands, 1);
-      builder.SysGlobalIdX(operands[0]);
+      builder.AddInstruction(Opcode::SysGlobalIdX, {reg(operands[0])});
     } else if (opcode == "v_get_global_id_y") {
       RequireOperandCount(opcode, operands, 1);
-      builder.SysGlobalIdY(operands[0]);
+      builder.AddInstruction(Opcode::SysGlobalIdY, {reg(operands[0])});
     } else if (opcode == "v_get_local_id_x") {
       RequireOperandCount(opcode, operands, 1);
-      builder.SysLocalIdX(operands[0]);
+      builder.AddInstruction(Opcode::SysLocalIdX, {reg(operands[0])});
     } else if (opcode == "v_get_local_id_y") {
       RequireOperandCount(opcode, operands, 1);
-      builder.SysLocalIdY(operands[0]);
+      builder.AddInstruction(Opcode::SysLocalIdY, {reg(operands[0])});
     } else if (opcode == "s_get_block_offset_x") {
       RequireOperandCount(opcode, operands, 1);
-      builder.SysBlockOffsetX(operands[0]);
+      builder.AddInstruction(Opcode::SysBlockOffsetX, {reg(operands[0])});
     } else if (opcode == "s_get_block_id_x") {
       RequireOperandCount(opcode, operands, 1);
-      builder.SysBlockIdxX(operands[0]);
+      builder.AddInstruction(Opcode::SysBlockIdxX, {reg(operands[0])});
     } else if (opcode == "s_get_block_id_y") {
       RequireOperandCount(opcode, operands, 1);
-      builder.SysBlockIdxY(operands[0]);
+      builder.AddInstruction(Opcode::SysBlockIdxY, {reg(operands[0])});
     } else if (opcode == "s_get_block_dim_x") {
       RequireOperandCount(opcode, operands, 1);
-      builder.SysBlockDimX(operands[0]);
+      builder.AddInstruction(Opcode::SysBlockDimX, {reg(operands[0])});
     } else if (opcode == "s_get_block_dim_y") {
       RequireOperandCount(opcode, operands, 1);
-      builder.SysBlockDimY(operands[0]);
+      builder.AddInstruction(Opcode::SysBlockDimY, {reg(operands[0])});
     } else if (opcode == "s_get_grid_dim_x") {
       RequireOperandCount(opcode, operands, 1);
-      builder.SysGridDimX(operands[0]);
+      builder.AddInstruction(Opcode::SysGridDimX, {reg(operands[0])});
     } else if (opcode == "s_get_grid_dim_y") {
       RequireOperandCount(opcode, operands, 1);
-      builder.SysGridDimY(operands[0]);
+      builder.AddInstruction(Opcode::SysGridDimY, {reg(operands[0])});
     } else if (opcode == "v_lane_id_u32") {
       RequireOperandCount(opcode, operands, 1);
-      builder.SysLaneId(operands[0]);
+      builder.AddInstruction(Opcode::SysLaneId, {reg(operands[0])});
     } else if (opcode == "s_mov_b32") {
       RequireOperandCount(opcode, operands, 2);
-      if (IsRegister(operands[1])) {
-        builder.SMov(operands[0], operands[1]);
-      } else {
-        builder.SMov(operands[0], ParseImmediate(operands[1]));
-      }
+      builder.AddInstruction(Opcode::SMov, {reg(operands[0]), reg_or_imm(operands[1])});
     } else if (opcode == "s_add_u32") {
       RequireOperandCount(opcode, operands, 3);
-      if (IsRegister(operands[2])) {
-        builder.SAdd(operands[0], operands[1], operands[2]);
-      } else {
-        builder.SAdd(operands[0], operands[1], ParseImmediate(operands[2]));
-      }
+      builder.AddInstruction(Opcode::SAdd, {reg(operands[0]), reg(operands[1]), reg_or_imm(operands[2])});
     } else if (opcode == "s_sub_u32") {
       RequireOperandCount(opcode, operands, 3);
-      if (IsRegister(operands[2])) {
-        builder.SSub(operands[0], operands[1], operands[2]);
-      } else {
-        builder.SSub(operands[0], operands[1], ParseImmediate(operands[2]));
-      }
+      builder.AddInstruction(Opcode::SSub, {reg(operands[0]), reg(operands[1]), reg_or_imm(operands[2])});
     } else if (opcode == "s_mul_i32") {
       RequireOperandCount(opcode, operands, 3);
-      if (IsRegister(operands[2])) {
-        builder.SMul(operands[0], operands[1], operands[2]);
-      } else {
-        builder.SMul(operands[0], operands[1], ParseImmediate(operands[2]));
-      }
+      builder.AddInstruction(Opcode::SMul, {reg(operands[0]), reg(operands[1]), reg_or_imm(operands[2])});
     } else if (opcode == "s_div_i32") {
       RequireOperandCount(opcode, operands, 3);
-      if (IsRegister(operands[2])) {
-        builder.SDiv(operands[0], operands[1], operands[2]);
-      } else {
-        builder.SDiv(operands[0], operands[1], ParseImmediate(operands[2]));
-      }
+      builder.AddInstruction(Opcode::SDiv, {reg(operands[0]), reg(operands[1]), reg_or_imm(operands[2])});
     } else if (opcode == "s_rem_i32") {
       RequireOperandCount(opcode, operands, 3);
-      if (IsRegister(operands[2])) {
-        builder.SRem(operands[0], operands[1], operands[2]);
-      } else {
-        builder.SRem(operands[0], operands[1], ParseImmediate(operands[2]));
-      }
+      builder.AddInstruction(Opcode::SRem, {reg(operands[0]), reg(operands[1]), reg_or_imm(operands[2])});
     } else if (opcode == "s_and_b32") {
       RequireOperandCount(opcode, operands, 3);
-      if (IsRegister(operands[2])) {
-        builder.SAnd(operands[0], operands[1], operands[2]);
-      } else {
-        builder.SAnd(operands[0], operands[1], ParseImmediate(operands[2]));
-      }
+      builder.AddInstruction(Opcode::SAnd, {reg(operands[0]), reg(operands[1]), reg_or_imm(operands[2])});
     } else if (opcode == "s_or_b32") {
       RequireOperandCount(opcode, operands, 3);
-      if (IsRegister(operands[2])) {
-        builder.SOr(operands[0], operands[1], operands[2]);
-      } else {
-        builder.SOr(operands[0], operands[1], ParseImmediate(operands[2]));
-      }
+      builder.AddInstruction(Opcode::SOr, {reg(operands[0]), reg(operands[1]), reg_or_imm(operands[2])});
     } else if (opcode == "s_xor_b32") {
       RequireOperandCount(opcode, operands, 3);
-      if (IsRegister(operands[2])) {
-        builder.SXor(operands[0], operands[1], operands[2]);
-      } else {
-        builder.SXor(operands[0], operands[1], ParseImmediate(operands[2]));
-      }
+      builder.AddInstruction(Opcode::SXor, {reg(operands[0]), reg(operands[1]), reg_or_imm(operands[2])});
     } else if (opcode == "s_lshl_b32") {
       RequireOperandCount(opcode, operands, 3);
-      if (IsRegister(operands[2])) {
-        builder.SShl(operands[0], operands[1], operands[2]);
-      } else {
-        builder.SShl(operands[0], operands[1], ParseImmediate(operands[2]));
-      }
+      builder.AddInstruction(Opcode::SShl, {reg(operands[0]), reg(operands[1]), reg_or_imm(operands[2])});
     } else if (opcode == "s_lshr_b32") {
       RequireOperandCount(opcode, operands, 3);
-      if (IsRegister(operands[2])) {
-        builder.SShr(operands[0], operands[1], operands[2]);
-      } else {
-        builder.SShr(operands[0], operands[1], ParseImmediate(operands[2]));
-      }
+      builder.AddInstruction(Opcode::SShr, {reg(operands[0]), reg(operands[1]), reg_or_imm(operands[2])});
     } else if (opcode == "s_waitcnt") {
       const auto thresholds =
           ParseWaitCnt(space == std::string::npos ? std::string_view{} :
                                                      std::string_view(trimmed).substr(space + 1));
-      builder.SWaitCnt(thresholds.global, thresholds.shared, thresholds.private_mem,
-                       thresholds.scalar_buffer);
+      builder.AddInstruction(Opcode::SWaitCnt,
+                             {builder.ImmediateOperand(thresholds.global),
+                              builder.ImmediateOperand(thresholds.shared),
+                              builder.ImmediateOperand(thresholds.private_mem),
+                              builder.ImmediateOperand(thresholds.scalar_buffer)});
     } else if (opcode == "s_buffer_load_dword") {
       if (operands.size() != 3 && operands.size() != 4) {
         throw std::invalid_argument("opcode " + opcode + " expects 3 or 4 operands");
       }
-      builder.SBufferLoadDword(operands[0], operands[1],
-                               static_cast<uint32_t>(ParseImmediate(operands[2])),
-                               operands.size() == 4 ? static_cast<uint32_t>(ParseImmediate(operands[3])) : 0);
+      builder.AddInstruction(Opcode::SBufferLoadDword,
+                             {reg(operands[0]), reg(operands[1]), imm(operands[2]),
+                              operands.size() == 4 ? imm(operands[3]) : builder.ImmediateOperand(0)});
     } else if (opcode == "s_cmp_lt_i32") {
       RequireOperandCount(opcode, operands, 2);
-      if (IsRegister(operands[1])) {
-        builder.SCmpLt(operands[0], operands[1]);
-      } else {
-        builder.SCmpLt(operands[0], ParseImmediate(operands[1]));
-      }
+      builder.AddInstruction(Opcode::SCmpLt, {reg(operands[0]), reg_or_imm(operands[1])});
     } else if (opcode == "s_cmp_eq_u32") {
       RequireOperandCount(opcode, operands, 2);
-      if (IsRegister(operands[1])) {
-        builder.SCmpEq(operands[0], operands[1]);
-      } else {
-        builder.SCmpEq(operands[0], ParseImmediate(operands[1]));
-      }
+      builder.AddInstruction(Opcode::SCmpEq, {reg(operands[0]), reg_or_imm(operands[1])});
     } else if (opcode == "s_cmp_gt_i32") {
       RequireOperandCount(opcode, operands, 2);
-      if (IsRegister(operands[1])) {
-        builder.SCmpGt(operands[0], operands[1]);
-      } else {
-        builder.SCmpGt(operands[0], ParseImmediate(operands[1]));
-      }
+      builder.AddInstruction(Opcode::SCmpGt, {reg(operands[0]), reg_or_imm(operands[1])});
     } else if (opcode == "s_cmp_ge_i32") {
       RequireOperandCount(opcode, operands, 2);
-      if (IsRegister(operands[1])) {
-        builder.SCmpGe(operands[0], operands[1]);
-      } else {
-        builder.SCmpGe(operands[0], ParseImmediate(operands[1]));
-      }
+      builder.AddInstruction(Opcode::SCmpGe, {reg(operands[0]), reg_or_imm(operands[1])});
     } else if (opcode == "v_mov_b32") {
       RequireOperandCount(opcode, operands, 2);
-      if (IsRegister(operands[1])) {
-        builder.VMov(operands[0], operands[1]);
-      } else {
-        builder.VMov(operands[0], ParseImmediate(operands[1]));
-      }
+      builder.AddInstruction(Opcode::VMov, {reg(operands[0]), reg_or_imm(operands[1])});
     } else if (opcode == "v_add_i32") {
       RequireOperandCount(opcode, operands, 3);
-      builder.VAdd(operands[0], operands[1], operands[2]);
+      builder.AddInstruction(Opcode::VAdd, {reg(operands[0]), reg(operands[1]), reg(operands[2])});
     } else if (opcode == "v_and_b32") {
       RequireOperandCount(opcode, operands, 3);
-      builder.VAnd(operands[0], operands[1], operands[2]);
+      builder.AddInstruction(Opcode::VAnd, {reg(operands[0]), reg(operands[1]), reg(operands[2])});
     } else if (opcode == "v_or_b32") {
       RequireOperandCount(opcode, operands, 3);
-      builder.VOr(operands[0], operands[1], operands[2]);
+      builder.AddInstruction(Opcode::VOr, {reg(operands[0]), reg(operands[1]), reg(operands[2])});
     } else if (opcode == "v_xor_b32") {
       RequireOperandCount(opcode, operands, 3);
-      builder.VXor(operands[0], operands[1], operands[2]);
+      builder.AddInstruction(Opcode::VXor, {reg(operands[0]), reg(operands[1]), reg(operands[2])});
     } else if (opcode == "v_lshl_b32") {
       RequireOperandCount(opcode, operands, 3);
-      builder.VShl(operands[0], operands[1], operands[2]);
+      builder.AddInstruction(Opcode::VShl, {reg(operands[0]), reg(operands[1]), reg(operands[2])});
     } else if (opcode == "v_lshr_b32") {
       RequireOperandCount(opcode, operands, 3);
-      builder.VShr(operands[0], operands[1], operands[2]);
+      builder.AddInstruction(Opcode::VShr, {reg(operands[0]), reg(operands[1]), reg(operands[2])});
     } else if (opcode == "v_sub_i32") {
       RequireOperandCount(opcode, operands, 3);
-      builder.VSub(operands[0], operands[1], operands[2]);
+      builder.AddInstruction(Opcode::VSub, {reg(operands[0]), reg(operands[1]), reg(operands[2])});
     } else if (opcode == "v_div_i32") {
       RequireOperandCount(opcode, operands, 3);
-      builder.VDiv(operands[0], operands[1], operands[2]);
+      builder.AddInstruction(Opcode::VDiv, {reg(operands[0]), reg(operands[1]), reg(operands[2])});
     } else if (opcode == "v_rem_i32") {
       RequireOperandCount(opcode, operands, 3);
-      builder.VRem(operands[0], operands[1], operands[2]);
+      builder.AddInstruction(Opcode::VRem, {reg(operands[0]), reg(operands[1]), reg(operands[2])});
     } else if (opcode == "v_mul_lo_i32") {
       RequireOperandCount(opcode, operands, 3);
-      builder.VMul(operands[0], operands[1], operands[2]);
+      builder.AddInstruction(Opcode::VMul, {reg(operands[0]), reg(operands[1]), reg(operands[2])});
     } else if (opcode == "v_add_f32" || opcode == "v_add_f32_e32") {
       RequireOperandCount(opcode, operands, 3);
-      builder.VAddF32(operands[0], operands[1], operands[2]);
+      builder.AddInstruction(Opcode::VAddF32, {reg(operands[0]), reg(operands[1]), reg(operands[2])});
     } else if (opcode == "v_min_i32") {
       RequireOperandCount(opcode, operands, 3);
-      builder.VMin(operands[0], operands[1], operands[2]);
+      builder.AddInstruction(Opcode::VMin, {reg(operands[0]), reg(operands[1]), reg(operands[2])});
     } else if (opcode == "v_max_i32") {
       RequireOperandCount(opcode, operands, 3);
-      builder.VMax(operands[0], operands[1], operands[2]);
+      builder.AddInstruction(Opcode::VMax, {reg(operands[0]), reg(operands[1]), reg(operands[2])});
     } else if (opcode == "v_mad_i32") {
       RequireOperandCount(opcode, operands, 4);
-      builder.VFma(operands[0], operands[1], operands[2], operands[3]);
+      builder.AddInstruction(Opcode::VFma,
+                             {reg(operands[0]), reg(operands[1]), reg(operands[2]), reg(operands[3])});
     } else if (opcode == "v_cmp_lt_i32_cmask") {
       RequireOperandCount(opcode, operands, 2);
-      builder.VCmpLtCmask(operands[0], operands[1]);
+      builder.AddInstruction(Opcode::VCmpLtCmask, {reg(operands[0]), reg(operands[1])});
     } else if (opcode == "v_cmp_eq_i32_cmask") {
       RequireOperandCount(opcode, operands, 2);
-      builder.VCmpEqCmask(operands[0], operands[1]);
+      builder.AddInstruction(Opcode::VCmpEqCmask, {reg(operands[0]), reg(operands[1])});
     } else if (opcode == "v_cmp_ge_i32_cmask") {
       RequireOperandCount(opcode, operands, 2);
-      builder.VCmpGeCmask(operands[0], operands[1]);
+      builder.AddInstruction(Opcode::VCmpGeCmask, {reg(operands[0]), reg(operands[1])});
     } else if (opcode == "v_cmp_gt_i32_cmask") {
       RequireOperandCount(opcode, operands, 2);
-      builder.VCmpGtCmask(operands[0], operands[1]);
+      builder.AddInstruction(Opcode::VCmpGtCmask, {reg(operands[0]), reg(operands[1])});
     } else if (opcode == "v_cndmask_b32") {
       RequireOperandCount(opcode, operands, 3);
-      builder.VSelectCmask(operands[0], operands[1], operands[2]);
+      builder.AddInstruction(Opcode::VSelectCmask, {reg(operands[0]), reg(operands[1]), reg(operands[2])});
     } else if (opcode == "buffer_load_dword") {
       if (operands.size() != 4 && operands.size() != 5) {
         throw std::invalid_argument("opcode " + opcode + " expects 4 or 5 operands");
       }
-      builder.MLoadGlobal(operands[0], operands[1], operands[2],
-                          static_cast<uint32_t>(ParseImmediate(operands[3])),
-                          operands.size() == 5 ? static_cast<uint32_t>(ParseImmediate(operands[4])) : 0);
+      builder.AddInstruction(Opcode::MLoadGlobal,
+                             {reg(operands[0]), reg(operands[1]), reg(operands[2]), imm(operands[3]),
+                              operands.size() == 5 ? imm(operands[4]) : builder.ImmediateOperand(0)});
     } else if (opcode == "buffer_store_dword") {
       if (operands.size() != 4 && operands.size() != 5) {
         throw std::invalid_argument("opcode " + opcode + " expects 4 or 5 operands");
       }
-      builder.MStoreGlobal(operands[0], operands[1], operands[2],
-                           static_cast<uint32_t>(ParseImmediate(operands[3])),
-                           operands.size() == 5 ? static_cast<uint32_t>(ParseImmediate(operands[4])) : 0);
+      builder.AddInstruction(Opcode::MStoreGlobal,
+                             {reg(operands[0]), reg(operands[1]), reg(operands[2]), imm(operands[3]),
+                              operands.size() == 5 ? imm(operands[4]) : builder.ImmediateOperand(0)});
     } else if (opcode == "buffer_atomic_add_u32") {
       if (operands.size() != 4 && operands.size() != 5) {
         throw std::invalid_argument("opcode " + opcode + " expects 4 or 5 operands");
       }
-      builder.MAtomicAddGlobal(operands[0], operands[1], operands[2],
-                               static_cast<uint32_t>(ParseImmediate(operands[3])),
-                               operands.size() == 5 ? static_cast<uint32_t>(ParseImmediate(operands[4])) : 0);
+      builder.AddInstruction(Opcode::MAtomicAddGlobal,
+                             {reg(operands[0]), reg(operands[1]), reg(operands[2]), imm(operands[3]),
+                              operands.size() == 5 ? imm(operands[4]) : builder.ImmediateOperand(0)});
     } else if (opcode == "global_load_dword_addr") {
       if (operands.size() != 3 && operands.size() != 4) {
         throw std::invalid_argument("opcode " + opcode + " expects 3 or 4 operands");
       }
-      builder.MLoadGlobalAddr(operands[0], operands[1], operands[2],
-                              operands.size() == 4
-                                  ? static_cast<uint32_t>(ParseImmediate(operands[3]))
-                                  : 0);
+      builder.AddInstruction(Opcode::MLoadGlobalAddr,
+                             {reg(operands[0]), reg(operands[1]), reg(operands[2]),
+                              operands.size() == 4 ? imm(operands[3]) : builder.ImmediateOperand(0)});
     } else if (opcode == "global_store_dword_addr") {
       if (operands.size() != 3 && operands.size() != 4) {
         throw std::invalid_argument("opcode " + opcode + " expects 3 or 4 operands");
       }
-      builder.MStoreGlobalAddr(operands[0], operands[1], operands[2],
-                               operands.size() == 4
-                                   ? static_cast<uint32_t>(ParseImmediate(operands[3]))
-                                   : 0);
+      builder.AddInstruction(Opcode::MStoreGlobalAddr,
+                             {reg(operands[0]), reg(operands[1]), reg(operands[2]),
+                              operands.size() == 4 ? imm(operands[3]) : builder.ImmediateOperand(0)});
     } else if (opcode == "ds_read_b32") {
       RequireOperandCount(opcode, operands, 3);
-      builder.MLoadShared(operands[0], operands[1],
-                          static_cast<uint32_t>(ParseImmediate(operands[2])));
+      builder.AddInstruction(Opcode::MLoadShared, {reg(operands[0]), reg(operands[1]), imm(operands[2])});
     } else if (opcode == "ds_write_b32") {
       RequireOperandCount(opcode, operands, 3);
-      builder.MStoreShared(operands[0], operands[1],
-                           static_cast<uint32_t>(ParseImmediate(operands[2])));
+      builder.AddInstruction(Opcode::MStoreShared, {reg(operands[0]), reg(operands[1]), imm(operands[2])});
     } else if (opcode == "ds_add_u32") {
       RequireOperandCount(opcode, operands, 3);
-      builder.MAtomicAddShared(operands[0], operands[1],
-                               static_cast<uint32_t>(ParseImmediate(operands[2])));
+      builder.AddInstruction(Opcode::MAtomicAddShared, {reg(operands[0]), reg(operands[1]), imm(operands[2])});
     } else if (opcode == "scratch_load_dword") {
       RequireOperandCount(opcode, operands, 3);
-      builder.MLoadPrivate(operands[0], operands[1],
-                           static_cast<uint32_t>(ParseImmediate(operands[2])));
+      builder.AddInstruction(Opcode::MLoadPrivate, {reg(operands[0]), reg(operands[1]), imm(operands[2])});
     } else if (opcode == "scalar_buffer_load_dword") {
       if (operands.size() != 3 && operands.size() != 4) {
         throw std::invalid_argument("opcode " + opcode + " expects 3 or 4 operands");
       }
-      builder.MLoadConst(operands[0], operands[1],
-                         static_cast<uint32_t>(ParseImmediate(operands[2])),
-                         operands.size() == 4 ? static_cast<uint32_t>(ParseImmediate(operands[3])) : 0);
+      builder.AddInstruction(Opcode::MLoadConst,
+                             {reg(operands[0]), reg(operands[1]), imm(operands[2]),
+                              operands.size() == 4 ? imm(operands[3]) : builder.ImmediateOperand(0)});
     } else if (opcode == "scratch_store_dword") {
       RequireOperandCount(opcode, operands, 3);
-      builder.MStorePrivate(operands[0], operands[1],
-                            static_cast<uint32_t>(ParseImmediate(operands[2])));
+      builder.AddInstruction(Opcode::MStorePrivate, {reg(operands[0]), reg(operands[1]), imm(operands[2])});
     } else if (opcode == "s_saveexec_b64") {
       RequireOperandCount(opcode, operands, 1);
-      builder.MaskSaveExec(operands[0]);
+      builder.AddInstruction(Opcode::MaskSaveExec, {reg(operands[0])});
     } else if (opcode == "s_restoreexec_b64") {
       RequireOperandCount(opcode, operands, 1);
-      builder.MaskRestoreExec(operands[0]);
+      builder.AddInstruction(Opcode::MaskRestoreExec, {reg(operands[0])});
     } else if (opcode == "s_and_exec_cmask_b64") {
       RequireOperandCount(opcode, operands, 0);
-      builder.MaskAndExecCmask();
+      builder.AddInstruction(Opcode::MaskAndExecCmask, {});
     } else if (opcode == "s_branch") {
       RequireOperandCount(opcode, operands, 1);
-      builder.BBranch(operands[0]);
+      builder.AddBranch(Opcode::BBranch, operands[0]);
     } else if (opcode == "s_cbranch_scc1") {
       RequireOperandCount(opcode, operands, 1);
-      builder.BIfSmask(operands[0]);
+      builder.AddBranch(Opcode::BIfSmask, operands[0]);
     } else if (opcode == "s_cbranch_execz") {
       RequireOperandCount(opcode, operands, 1);
-      builder.BIfNoexec(operands[0]);
+      builder.AddBranch(Opcode::BIfNoexec, operands[0]);
     } else if (opcode == "s_wave_barrier") {
       RequireOperandCount(opcode, operands, 0);
-      builder.SyncWaveBarrier();
+      builder.AddInstruction(Opcode::SyncWaveBarrier, {});
     } else if (opcode == "s_barrier") {
       RequireOperandCount(opcode, operands, 0);
-      builder.SyncBarrier();
+      builder.AddInstruction(Opcode::SyncBarrier, {});
     } else if (opcode == "s_endpgm") {
       RequireOperandCount(opcode, operands, 0);
-      builder.BExit();
+      builder.AddInstruction(Opcode::BExit, {});
     } else {
       throw std::invalid_argument("unsupported opcode in asm parser: " + opcode);
     }
