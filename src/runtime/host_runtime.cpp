@@ -18,6 +18,9 @@
 #include "gpu_model/loader/amdgpu_code_object_decoder.h"
 #include "gpu_model/loader/device_image_loader.h"
 #include "gpu_model/loader/program_lowering.h"
+#include "gpu_model/execution/encoded_exec_engine.h"
+#include "gpu_model/program/encoded_program_object.h"
+#include "gpu_model/program/executable_kernel.h"
 #include "gpu_model/runtime/program_execution.h"
 
 namespace gpu_model {
@@ -143,10 +146,11 @@ LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
     return result;
   }
 
-  KernelProgram parsed_kernel;
-  const KernelProgram* kernel = request.kernel;
+  ExecutableKernel parsed_kernel;
+  const ExecutableKernel* kernel = request.kernel;
   std::optional<PreparedProgramExecution> prepared_program_execution;
   const AmdgpuCodeObjectImage* raw_code_object = request.raw_code_object;
+  const EncodedProgramObject* encoded_program_object = raw_code_object;
   bool use_raw_gcn_executor = raw_code_object != nullptr;
   if (raw_code_object == nullptr && kernel == nullptr && request.program_image != nullptr) {
     try {
@@ -157,6 +161,7 @@ LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
       return result;
     }
     raw_code_object = prepared_program_execution->raw_code_object;
+    encoded_program_object = raw_code_object;
     use_raw_gcn_executor = raw_code_object != nullptr;
     if (!use_raw_gcn_executor) {
       parsed_kernel = ProgramLoweringRegistry::Lower(*prepared_program_execution->execution_image);
@@ -175,7 +180,7 @@ LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
   }
 
   const MetadataBlob& launch_metadata_source =
-      use_raw_gcn_executor ? raw_code_object->metadata
+      use_raw_gcn_executor ? encoded_program_object->metadata
                            : (request.program_image != nullptr && kernel == nullptr
                                   ? request.program_image->metadata()
                                   : kernel->metadata());
@@ -187,7 +192,8 @@ LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
           "kernel metadata arch does not match selected architecture";
       return result;
     }
-    const std::string kernel_name = use_raw_gcn_executor ? raw_code_object->kernel_name : kernel->name();
+    const std::string kernel_name =
+        use_raw_gcn_executor ? encoded_program_object->kernel_name : kernel->name();
     if (launch_metadata.entry.has_value() && *launch_metadata.entry != kernel_name) {
       result.error_message = "kernel metadata entry does not match kernel name";
       return result;
@@ -243,7 +249,8 @@ LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
     trace.OnEvent(TraceEvent{
         .kind = TraceEventKind::Launch,
         .cycle = result.submit_cycle,
-        .message = "kernel=" + (use_raw_gcn_executor ? raw_code_object->kernel_name : kernel->name()) +
+        .message = "kernel=" +
+                   (use_raw_gcn_executor ? encoded_program_object->kernel_name : kernel->name()) +
                    " arch=" + spec->name,
     });
 
@@ -280,8 +287,8 @@ LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
     if (request.mode == ExecutionMode::Functional) {
         if (use_raw_gcn_executor) {
           const auto raw_result =
-            RawGcnExecutor{}.Run(*raw_code_object, *spec, request.config, request.args,
-                                 request.device_load, memory_, trace);
+            EncodedExecEngine{}.Run(*raw_code_object, *spec, request.config, request.args,
+                                    request.device_load, memory_, trace);
         result.ok = raw_result.ok;
         result.error_message = raw_result.error_message;
         result.total_cycles = raw_result.total_cycles;

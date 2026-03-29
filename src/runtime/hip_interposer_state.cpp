@@ -9,6 +9,7 @@
 #include "gpu_model/isa/kernel_metadata.h"
 #include "gpu_model/loader/amdgpu_code_object_decoder.h"
 #include "gpu_model/loader/amdgpu_obj_loader.h"
+#include "gpu_model/program/program_object.h"
 
 namespace gpu_model {
 
@@ -203,7 +204,7 @@ std::vector<HipInterposerArgDesc> HipInterposerState::ParseArgLayout(const Metad
   return args;
 }
 
-KernelArgPack HipInterposerState::PackArgs(const ProgramImage& image, void** args) const {
+KernelArgPack HipInterposerState::PackArgs(const ProgramObject& image, void** args) const {
   KernelArgPack packed;
   MetadataBlob metadata = image.metadata();
   auto layout = ParseArgLayout(metadata);
@@ -256,7 +257,7 @@ LaunchResult HipInterposerState::LaunchExecutableKernel(const std::filesystem::p
     result.error_message = "unregistered HIP host function";
     return result;
   }
-  const ProgramImage image = AmdgpuObjLoader{}.LoadFromObject(executable_path, *kernel_name);
+  const ProgramObject image = AmdgpuObjLoader{}.LoadFromObject(executable_path, *kernel_name);
   SyncManagedHostToDevice();
   auto result = model_runtime_.LaunchProgramImage(image, std::move(config), PackArgs(image, args),
                                                   mode, arch_name);

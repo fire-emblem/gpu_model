@@ -4,12 +4,13 @@
 #include <stdexcept>
 
 #include "gpu_model/isa/target_isa.h"
+#include "gpu_model/program/program_object.h"
 
 namespace gpu_model {
 
 namespace {
 
-std::optional<std::filesystem::path> ArtifactPathForProgramImage(const ProgramImage& image) {
+std::optional<std::filesystem::path> ArtifactPathForProgramImage(const ProgramObject& image) {
   const auto artifact_path = image.metadata().values.find("artifact_path");
   if (artifact_path == image.metadata().values.end()) {
     return std::nullopt;
@@ -17,19 +18,19 @@ std::optional<std::filesystem::path> ArtifactPathForProgramImage(const ProgramIm
   return std::filesystem::path(artifact_path->second);
 }
 
-ProgramImage CreateLoweredModeledProgramImage(const ProgramImage& image) {
+ProgramObject CreateLoweredModeledProgramImage(const ProgramObject& image) {
   MetadataBlob metadata = image.metadata();
   SetTargetIsa(metadata, TargetIsa::GcnAsm);
-  return ProgramImage(image.kernel_name(),
-                      image.assembly_text(),
-                      std::move(metadata),
-                      image.const_segment(),
-                      image.raw_data_segment());
+  return ProgramObject(image.kernel_name(),
+                       image.assembly_text(),
+                       std::move(metadata),
+                       image.const_segment(),
+                       image.raw_data_segment());
 }
 
 }  // namespace
 
-PreparedProgramExecution PrepareProgramExecution(const ProgramImage& image,
+PreparedProgramExecution PrepareProgramExecution(const ProgramObject& image,
                                                  ProgramExecutionRoute requested_route) {
   PreparedProgramExecution prepared;
   const bool is_raw_program = ResolveTargetIsa(image.metadata()) == TargetIsa::GcnRawAsm;

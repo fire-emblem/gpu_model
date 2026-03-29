@@ -12,7 +12,10 @@
 
 #include "gpu_model/arch/arch_registry.h"
 #include "gpu_model/isa/target_isa.h"
+#include "gpu_model/program/executable_kernel.h"
+#include "gpu_model/program/program_object.h"
 #include "gpu_model/runtime/program_execution.h"
+#include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
 
@@ -94,7 +97,7 @@ ModuleLoadFormat DetectModuleLoadFormat(const std::filesystem::path& path) {
 
 }  // namespace
 
-RuntimeHooks::RuntimeHooks(HostRuntime* runtime) {
+RuntimeHooks::RuntimeHooks(RuntimeEngine* runtime) {
   if (runtime != nullptr) {
     runtime_ = runtime;
   }
@@ -228,7 +231,7 @@ std::optional<int> RuntimeHooks::GetDeviceAttribute(RuntimeDeviceAttribute attri
   return std::nullopt;
 }
 
-LaunchResult RuntimeHooks::LaunchKernel(const KernelProgram& kernel,
+LaunchResult RuntimeHooks::LaunchKernel(const ExecutableKernel& kernel,
                                         LaunchConfig config,
                                         KernelArgPack args,
                                         ExecutionMode mode,
@@ -245,7 +248,7 @@ LaunchResult RuntimeHooks::LaunchKernel(const KernelProgram& kernel,
   return runtime_->Launch(request);
 }
 
-LaunchResult RuntimeHooks::LaunchProgramImage(const ProgramImage& image,
+LaunchResult RuntimeHooks::LaunchProgramImage(const ProgramObject& image,
                                               LaunchConfig config,
                                               KernelArgPack args,
                                               ExecutionMode mode,
@@ -275,7 +278,7 @@ LaunchResult RuntimeHooks::LaunchProgramImage(const ProgramImage& image,
   return runtime_->Launch(request);
 }
 
-DeviceLoadPlan RuntimeHooks::BuildLoadPlan(const ProgramImage& image) const {
+DeviceLoadPlan RuntimeHooks::BuildLoadPlan(const ProgramObject& image) const {
   if (ResolveTargetIsa(image.metadata()) == TargetIsa::GcnRawAsm) {
     const auto artifact_path = MetadataValue(image.metadata(), "artifact_path");
     if (artifact_path.has_value()) {
@@ -341,7 +344,7 @@ void RuntimeHooks::LoadModule(const ModuleLoadRequest& request) {
   }
 }
 
-void RuntimeHooks::RegisterProgramImage(std::string module_name, ProgramImage image) {
+void RuntimeHooks::RegisterProgramImage(std::string module_name, ProgramObject image) {
   modules_[module_name][image.kernel_name()] = std::move(image);
 }
 
@@ -387,7 +390,7 @@ void RuntimeHooks::UnloadModule(const std::string& module_name) {
 }
 
 void RuntimeHooks::Reset() {
-  owned_runtime_ = HostRuntime{};
+  owned_runtime_ = RuntimeEngine{};
   runtime_ = &owned_runtime_;
   current_device_ = 0;
   allocations_.clear();
