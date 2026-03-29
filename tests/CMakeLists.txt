@@ -75,6 +75,7 @@ add_executable(gpu_model_tests
   loader/program_bundle_io_test.cpp
   loader/program_image_launch_test.cpp
   loader/program_file_loader_test.cpp
+  program/program_object_types_test.cpp
   runtime/kernel_metadata_test.cpp
   runtime/kernarg_packer_test.cpp
   runtime/hipcc_parallel_execution_test.cpp

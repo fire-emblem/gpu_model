@@ -4,6 +4,7 @@
 #include <string>
 
 #include "gpu_model/isa/program_image.h"
+#include "gpu_model/program/program_execution_route.h"
 #include "gpu_model/runtime/kernel_arg_pack.h"
 #include "gpu_model/runtime/launch_config.h"
 #include "gpu_model/runtime/mapper.h"
@@ -18,12 +19,6 @@ struct AmdgpuCodeObjectImage;
 enum class ExecutionMode {
   Functional,
   Cycle,
-};
-
-enum class ProgramExecutionRoute {
-  AutoSelect,
-  EncodedRaw,
-  LoweredModeled,
 };
 
 struct ExecutionStats {
