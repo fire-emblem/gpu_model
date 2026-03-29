@@ -162,6 +162,7 @@ struct NoteKernelArgLayoutEntry {
   KernelArgValueKind arg_kind = KernelArgValueKind::Unknown;
   KernelHiddenArgKind hidden_kind = KernelHiddenArgKind::Unknown;
   std::string kind_name;
+  uint32_t offset = 0;
   uint32_t size = 0;
 };
 
@@ -219,6 +220,11 @@ std::vector<NoteKernelMetadata> ParseKernelMetadataNotes(const std::string& note
         current_arg->size = static_cast<uint32_t>(
             std::stoul(Trim(std::string_view(trimmed).substr(size_pos + 6))));
       }
+      const auto offset_pos = trimmed.find(".offset:");
+      if (offset_pos != std::string::npos) {
+        current_arg->offset = static_cast<uint32_t>(
+            std::stoul(Trim(std::string_view(trimmed).substr(offset_pos + 8))));
+      }
       const auto kind_pos = trimmed.find(".value_kind:");
       if (kind_pos != std::string::npos) {
         current_arg->kind_name = Trim(std::string_view(trimmed).substr(kind_pos + 12));
@@ -230,6 +236,11 @@ std::vector<NoteKernelMetadata> ParseKernelMetadataNotes(const std::string& note
     if (trimmed.rfind(".size:", 0) == 0 && current_arg.has_value()) {
       current_arg->size =
           static_cast<uint32_t>(std::stoul(Trim(std::string_view(trimmed).substr(6))));
+      continue;
+    }
+    if (trimmed.rfind(".offset:", 0) == 0 && current_arg.has_value()) {
+      current_arg->offset =
+          static_cast<uint32_t>(std::stoul(Trim(std::string_view(trimmed).substr(8))));
       continue;
     }
     if (trimmed.rfind(".value_kind:", 0) == 0 && current_arg.has_value()) {
@@ -257,11 +268,17 @@ void PopulateMetadataFromNotes(const std::filesystem::path& path,
       continue;
     }
     std::ostringstream layout;
+    uint32_t expected_offset = 0;
     for (size_t i = 0; i < kernel.args.size(); ++i) {
       if (i != 0) {
         layout << ',';
       }
-      layout << kernel.args[i].kind_name << ':' << kernel.args[i].size;
+      layout << kernel.args[i].kind_name << ':';
+      if (kernel.args[i].offset != expected_offset) {
+        layout << kernel.args[i].offset << ':';
+      }
+      layout << kernel.args[i].size;
+      expected_offset = kernel.args[i].offset + kernel.args[i].size;
     }
     metadata.values["arg_layout"] = layout.str();
     metadata.values["arg_count"] = std::to_string(kernel.args.size());

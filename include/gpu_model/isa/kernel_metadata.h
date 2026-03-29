@@ -41,6 +41,7 @@ enum class KernelHiddenArgKind {
 struct KernelArgLayoutEntry {
   KernelArgValueKind kind = KernelArgValueKind::Unknown;
   std::string kind_name;
+  std::optional<uint32_t> offset;
   uint32_t size = 0;
 };
 

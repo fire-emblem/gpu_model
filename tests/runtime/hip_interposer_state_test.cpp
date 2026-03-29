@@ -281,6 +281,66 @@ TEST(HipInterposerStateTest, LaunchesHipBiasChainExecutableThroughRegisteredHost
   std::filesystem::remove_all(temp_dir);
 }
 
+TEST(HipInterposerStateTest, LaunchesHipByValueAggregateExecutableThroughRegisteredHostFunction) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_interposer_by_value_aggregate");
+  const auto src_path = temp_dir / "hip_by_value_aggregate.cpp";
+  const auto exe_path = temp_dir / "hip_by_value_aggregate.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n\n"
+           "struct Payload {\n"
+           "  int x;\n"
+           "  int y;\n"
+           "  int z;\n"
+           "};\n\n"
+           "extern \"C\" __global__ void by_value_aggregate(int* out, Payload payload) {\n"
+           "  if (threadIdx.x == 0) {\n"
+           "    out[0] = payload.x + payload.y + payload.z;\n"
+           "  }\n"
+           "}\n\n"
+           "int main() { return 0; }\n";
+  }
+
+  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  auto& state = HipInterposerState::Instance();
+  state.ResetForTest();
+  static int host_symbol = 0;
+  state.RegisterFunction(&host_symbol, "by_value_aggregate");
+
+  const auto image = state.model_runtime().DescribeAmdgpuObject(exe_path, "by_value_aggregate");
+  ASSERT_TRUE(image.metadata.values.contains("arg_layout"));
+  EXPECT_NE(image.metadata.values.at("arg_layout").find("by_value:"), std::string::npos);
+
+  void* out_dev = state.AllocateDevice(sizeof(int32_t));
+  int32_t zero = 0;
+  state.MemcpyHostToDevice(out_dev, &zero, sizeof(zero));
+
+  struct Payload {
+    int32_t x;
+    int32_t y;
+    int32_t z;
+  } payload{5, 9, 17};
+
+  void* args[] = {&out_dev, &payload};
+  const auto result = state.LaunchExecutableKernel(
+      exe_path, &host_symbol, LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64}, args);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  int32_t output = 0;
+  state.MemcpyDeviceToHost(&output, out_dev, sizeof(output));
+  EXPECT_EQ(output, payload.x + payload.y + payload.z);
+
+  std::filesystem::remove_all(temp_dir);
+}
+
 TEST(HipInterposerStateTest, LaunchesHipVecAddExecutableThroughRegisteredHostFunctionAtLargeScale) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";

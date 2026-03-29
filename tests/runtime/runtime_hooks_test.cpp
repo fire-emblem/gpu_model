@@ -6,6 +6,8 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <sstream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -23,6 +25,14 @@ bool HasHipHostToolchain() {
          std::system("command -v readelf >/dev/null 2>&1") == 0;
 }
 
+bool HasLlvmMcAmdgpuToolchain() {
+  return std::system("command -v llvm-mc >/dev/null 2>&1") == 0 &&
+         std::system("command -v llvm-objcopy >/dev/null 2>&1") == 0 &&
+         std::system("command -v llvm-objdump >/dev/null 2>&1") == 0 &&
+         std::system("command -v llvm-readelf >/dev/null 2>&1") == 0 &&
+         std::system("command -v readelf >/dev/null 2>&1") == 0;
+}
+
 std::filesystem::path MakeUniqueTempDir(const std::string& stem) {
   const auto suffix = std::to_string(
       std::chrono::steady_clock::now().time_since_epoch().count());
@@ -31,6 +41,41 @@ std::filesystem::path MakeUniqueTempDir(const std::string& stem) {
   std::filesystem::remove_all(path);
   std::filesystem::create_directories(path);
   return path;
+}
+
+std::string ShellQuote(const std::filesystem::path& path) {
+  return "'" + path.string() + "'";
+}
+
+std::string ReadTextFile(const std::filesystem::path& path) {
+  std::ifstream input(path);
+  if (!input) {
+    throw std::runtime_error("failed to read text file: " + path.string());
+  }
+  std::ostringstream buffer;
+  buffer << input.rdbuf();
+  return buffer.str();
+}
+
+std::filesystem::path AssembleLlvmMcFixture(const std::string& stem,
+                                            const std::filesystem::path& fixture_path) {
+  const auto temp_dir = MakeUniqueTempDir(stem);
+  const auto asm_path = temp_dir / fixture_path.filename();
+  const auto obj_path = temp_dir / (fixture_path.stem().string() + ".o");
+  {
+    std::ofstream out(asm_path);
+    if (!out) {
+      throw std::runtime_error("failed to create asm file: " + asm_path.string());
+    }
+    out << ReadTextFile(fixture_path);
+  }
+  const std::string command =
+      "llvm-mc -triple=amdgcn-amd-amdhsa -mcpu=gfx900 -filetype=obj " +
+      ShellQuote(asm_path) + " -o " + ShellQuote(obj_path);
+  if (std::system(command.c_str()) != 0) {
+    throw std::runtime_error("llvm-mc failed for fixture: " + fixture_path.string());
+  }
+  return obj_path;
 }
 
 TEST(RuntimeHooksTest, SimulatesMallocMemcpyLaunchAndSynchronizeFlow) {
@@ -1222,6 +1267,51 @@ TEST(RuntimeHooksTest, LaunchesHipAtomicCountExecutableInRawGcnPath) {
   }
 
   std::filesystem::remove_all(temp_dir);
+}
+
+TEST(RuntimeHooksTest, LaunchesLlvmMcAggregateByValueObjectInRawGcnPath) {
+  if (!HasLlvmMcAmdgpuToolchain()) {
+    GTEST_SKIP() << "required llvm-mc/LLVM/binutils tools not available";
+  }
+
+  const auto obj_path = AssembleLlvmMcFixture(
+      "gpu_model_kernarg_aggregate_by_value",
+      std::filesystem::path("tests/asm_cases/loader/kernarg_aggregate_by_value.s"));
+
+  RuntimeHooks hooks;
+  const auto image = hooks.DescribeAmdgpuObject(obj_path, "asm_kernarg_aggregate_by_value");
+  EXPECT_EQ(image.metadata.values.at("arg_layout"), "global_buffer:8,by_value:16:12");
+  EXPECT_EQ(image.metadata.values.at("kernarg_segment_size"), "28");
+
+  const uint64_t out_addr = hooks.Malloc(sizeof(int32_t));
+  int32_t zero = 0;
+  hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(&zero, 1));
+
+  struct AggregateArg {
+    int32_t x;
+    int32_t y;
+    int32_t z;
+  } aggregate{7, 11, 13};
+
+  KernelArgPack args;
+  args.PushU64(out_addr);
+  args.PushBytes(&aggregate, sizeof(aggregate));
+
+  const auto result = hooks.LaunchAmdgpuObject(
+      obj_path,
+      LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
+      std::move(args),
+      ExecutionMode::Functional,
+      "c500",
+      nullptr,
+      "asm_kernarg_aggregate_by_value");
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  int32_t output = 0;
+  hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(&output, 1));
+  EXPECT_EQ(output, aggregate.x + aggregate.y + aggregate.z);
+
+  std::filesystem::remove_all(obj_path.parent_path());
 }
 
 TEST(RuntimeHooksTest, LaunchesHipSoftmaxExecutableInRawGcnPath) {

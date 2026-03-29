@@ -47,7 +47,7 @@ TEST(KernelMetadataTest, ParsesStructuredLaunchMetadata) {
 
 TEST(KernelMetadataTest, ParsesTypedArgAndHiddenArgLayouts) {
   MetadataBlob metadata{.values = {
-                            {"arg_layout", "global_buffer:8,by_value:4,global_buffer:8"},
+                            {"arg_layout", "global_buffer:8,by_value:16:4,global_buffer:20:8"},
                             {"hidden_arg_layout",
                              "hidden_block_count_x:16:4,hidden_group_size_x:24:2"},
                             {"kernarg_segment_size", "64"},
@@ -59,12 +59,17 @@ TEST(KernelMetadataTest, ParsesTypedArgAndHiddenArgLayouts) {
   EXPECT_EQ(parsed.arg_layout[0].kind, KernelArgValueKind::GlobalBuffer);
   EXPECT_EQ(parsed.arg_layout[0].kind_name, "global_buffer");
   EXPECT_EQ(parsed.arg_layout[0].size, 8u);
+  EXPECT_FALSE(parsed.arg_layout[0].offset.has_value());
   EXPECT_EQ(parsed.arg_layout[1].kind, KernelArgValueKind::ByValue);
   EXPECT_EQ(parsed.arg_layout[1].kind_name, "by_value");
   EXPECT_EQ(parsed.arg_layout[1].size, 4u);
+  ASSERT_TRUE(parsed.arg_layout[1].offset.has_value());
+  EXPECT_EQ(*parsed.arg_layout[1].offset, 16u);
   EXPECT_EQ(parsed.arg_layout[2].kind, KernelArgValueKind::GlobalBuffer);
   EXPECT_EQ(parsed.arg_layout[2].kind_name, "global_buffer");
   EXPECT_EQ(parsed.arg_layout[2].size, 8u);
+  ASSERT_TRUE(parsed.arg_layout[2].offset.has_value());
+  EXPECT_EQ(*parsed.arg_layout[2].offset, 20u);
 
   ASSERT_EQ(parsed.hidden_arg_layout.size(), 2u);
   EXPECT_EQ(parsed.hidden_arg_layout[0].kind, KernelHiddenArgKind::BlockCountX);
@@ -81,7 +86,7 @@ TEST(KernelMetadataTest, ParsesTypedArgAndHiddenArgLayouts) {
   EXPECT_EQ(*parsed.kernarg_segment_size, 64u);
   EXPECT_EQ(*parsed.group_segment_fixed_size, 512u);
   EXPECT_EQ(*parsed.required_shared_bytes, 512u);
-  EXPECT_EQ(EstimateVisibleKernargBytes(parsed), 20u);
+  EXPECT_EQ(EstimateVisibleKernargBytes(parsed), 28u);
   EXPECT_EQ(RequiredKernargTemplateBytes(parsed), 64u);
   EXPECT_EQ(ToString(parsed.arg_layout[0].kind), "global_buffer");
   EXPECT_EQ(ToString(parsed.hidden_arg_layout[0].kind), "hidden_block_count_x");

@@ -787,15 +787,18 @@ RawGcnInstructionObjectPtr CreateVectorInstruction(const GcnIsaOpcodeDescriptor&
 RawGcnInstructionObjectPtr CreateMemoryInstruction(const GcnIsaOpcodeDescriptor& descriptor,
                                                    DecodedGcnInstruction instruction) {
   if (descriptor.op_type == GcnIsaOpType::Flat) {
-    if (descriptor.opname == std::string_view("global_load_dword")) {
+    if (descriptor.opname == std::string_view("global_load_dword") ||
+        descriptor.opname == std::string_view("flat_load_dword")) {
       return std::make_unique<GlobalLoadDwordInstruction>(
           std::move(instruction), RawGcnSemanticHandlerRegistry::Get(instruction));
     }
-    if (descriptor.opname == std::string_view("global_store_dword")) {
+    if (descriptor.opname == std::string_view("global_store_dword") ||
+        descriptor.opname == std::string_view("flat_store_dword")) {
       return std::make_unique<GlobalStoreDwordInstruction>(
           std::move(instruction), RawGcnSemanticHandlerRegistry::Get(instruction));
     }
-    if (descriptor.opname == std::string_view("global_atomic_add")) {
+    if (descriptor.opname == std::string_view("global_atomic_add") ||
+        descriptor.opname == std::string_view("flat_atomic_add")) {
       return std::make_unique<GlobalAtomicAddInstruction>(
           std::move(instruction), RawGcnSemanticHandlerRegistry::Get(instruction));
     }

@@ -184,6 +184,16 @@ struct NoteKernelMetadata {
   std::string symbol;
 };
 
+std::string EncodeArgLayoutToken(const NoteKernelArgLayoutEntry& arg, uint32_t expected_offset) {
+  std::ostringstream out;
+  out << arg.kind_name << ':';
+  if (arg.offset != expected_offset) {
+    out << arg.offset << ':';
+  }
+  out << arg.size;
+  return out.str();
+}
+
 SectionInfo ParseSectionInfo(const std::string& sections, std::string_view section_name) {
   std::istringstream input(sections);
   std::string line;
@@ -425,11 +435,13 @@ MetadataBlob BuildMetadataFromNotes(const std::filesystem::path& note_source_pat
       continue;
     }
     std::ostringstream layout;
+    uint32_t expected_offset = 0;
     for (size_t i = 0; i < kernel.args.size(); ++i) {
       if (i != 0) {
         layout << ',';
       }
-      layout << kernel.args[i].kind_name << ':' << kernel.args[i].size;
+      layout << EncodeArgLayoutToken(kernel.args[i], expected_offset);
+      expected_offset = kernel.args[i].offset + kernel.args[i].size;
     }
     metadata.values["arg_layout"] = layout.str();
     metadata.values["arg_count"] = std::to_string(kernel.args.size());

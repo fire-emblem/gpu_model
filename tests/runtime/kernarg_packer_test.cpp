@@ -24,9 +24,12 @@ uint64_t LoadU64(const std::vector<std::byte>& bytes, size_t offset) {
 TEST(KernargPackerTest, PacksVisibleArgsByTypedLayout) {
   KernelLaunchMetadata metadata;
   metadata.arg_layout = {
-      KernelArgLayoutEntry{.kind = KernelArgValueKind::GlobalBuffer, .kind_name = "global_buffer", .size = 8},
-      KernelArgLayoutEntry{.kind = KernelArgValueKind::ByValue, .kind_name = "by_value", .size = 4},
-      KernelArgLayoutEntry{.kind = KernelArgValueKind::ByValue, .kind_name = "by_value", .size = 2},
+      KernelArgLayoutEntry{
+          .kind = KernelArgValueKind::GlobalBuffer, .kind_name = "global_buffer", .offset = std::nullopt, .size = 8},
+      KernelArgLayoutEntry{
+          .kind = KernelArgValueKind::ByValue, .kind_name = "by_value", .offset = std::nullopt, .size = 4},
+      KernelArgLayoutEntry{
+          .kind = KernelArgValueKind::ByValue, .kind_name = "by_value", .offset = std::nullopt, .size = 2},
   };
 
   KernelArgPack args;
@@ -46,7 +49,8 @@ TEST(KernargPackerTest, PacksTypedHiddenArgsIncludingDynamicLds) {
   KernelLaunchMetadata metadata;
   metadata.kernarg_segment_size = 64;
   metadata.arg_layout = {
-      KernelArgLayoutEntry{.kind = KernelArgValueKind::GlobalBuffer, .kind_name = "global_buffer", .size = 8},
+      KernelArgLayoutEntry{
+          .kind = KernelArgValueKind::GlobalBuffer, .kind_name = "global_buffer", .offset = std::nullopt, .size = 8},
   };
   metadata.hidden_arg_layout = {
       KernelHiddenArgLayoutEntry{.kind = KernelHiddenArgKind::BlockCountX,
@@ -83,8 +87,10 @@ TEST(KernargPackerTest, PacksTypedHiddenArgsIncludingDynamicLds) {
 TEST(KernargPackerTest, FallsBackToDefaultImplicitHiddenArgsWhenLayoutIsAbsent) {
   KernelLaunchMetadata metadata;
   metadata.arg_layout = {
-      KernelArgLayoutEntry{.kind = KernelArgValueKind::GlobalBuffer, .kind_name = "global_buffer", .size = 8},
-      KernelArgLayoutEntry{.kind = KernelArgValueKind::ByValue, .kind_name = "by_value", .size = 4},
+      KernelArgLayoutEntry{
+          .kind = KernelArgValueKind::GlobalBuffer, .kind_name = "global_buffer", .offset = std::nullopt, .size = 8},
+      KernelArgLayoutEntry{
+          .kind = KernelArgValueKind::ByValue, .kind_name = "by_value", .offset = std::nullopt, .size = 4},
   };
 
   KernelArgPack args;
@@ -113,9 +119,12 @@ TEST(KernargPackerTest, PacksByValueAggregateWithoutScalarOnlyRestriction) {
   KernelLaunchMetadata metadata;
   metadata.kernarg_segment_size = 48;
   metadata.arg_layout = {
-      KernelArgLayoutEntry{.kind = KernelArgValueKind::GlobalBuffer, .kind_name = "global_buffer", .size = 8},
-      KernelArgLayoutEntry{.kind = KernelArgValueKind::ByValue, .kind_name = "by_value", .size = 12},
-      KernelArgLayoutEntry{.kind = KernelArgValueKind::ByValue, .kind_name = "by_value", .size = 16},
+      KernelArgLayoutEntry{
+          .kind = KernelArgValueKind::GlobalBuffer, .kind_name = "global_buffer", .offset = std::nullopt, .size = 8},
+      KernelArgLayoutEntry{
+          .kind = KernelArgValueKind::ByValue, .kind_name = "by_value", .offset = std::nullopt, .size = 12},
+      KernelArgLayoutEntry{
+          .kind = KernelArgValueKind::ByValue, .kind_name = "by_value", .offset = std::nullopt, .size = 16},
   };
 
   const std::array<std::byte, 12> small_aggregate = {
@@ -141,6 +150,36 @@ TEST(KernargPackerTest, PacksByValueAggregateWithoutScalarOnlyRestriction) {
   EXPECT_EQ(LoadU64(bytes, 0), 0x1122334455667788ull);
   EXPECT_TRUE(std::equal(small_aggregate.begin(), small_aggregate.end(), bytes.begin() + 8));
   EXPECT_TRUE(std::equal(large_aggregate.begin(), large_aggregate.end(), bytes.begin() + 20));
+}
+
+TEST(KernargPackerTest, HonorsVisibleArgOffsetsForPaddedAggregateLayout) {
+  KernelLaunchMetadata metadata;
+  metadata.kernarg_segment_size = 32;
+  metadata.arg_layout = {
+      KernelArgLayoutEntry{
+          .kind = KernelArgValueKind::GlobalBuffer, .kind_name = "global_buffer", .offset = std::nullopt, .size = 8},
+      KernelArgLayoutEntry{
+          .kind = KernelArgValueKind::ByValue, .kind_name = "by_value", .offset = 16, .size = 12},
+  };
+
+  const std::array<std::byte, 12> aggregate = {
+      std::byte{0x21}, std::byte{0x22}, std::byte{0x23}, std::byte{0x24},
+      std::byte{0x25}, std::byte{0x26}, std::byte{0x27}, std::byte{0x28},
+      std::byte{0x29}, std::byte{0x2a}, std::byte{0x2b}, std::byte{0x2c},
+  };
+
+  KernelArgPack args;
+  args.PushU64(0x0102030405060708ull);
+  args.PushBytes(aggregate);
+
+  const auto bytes = BuildKernargImage(
+      metadata, args,
+      LaunchConfig{.grid_dim_x = 1, .grid_dim_y = 1, .grid_dim_z = 1, .block_dim_x = 64});
+  EXPECT_EQ(LoadU64(bytes, 0), 0x0102030405060708ull);
+  for (size_t i = 8; i < 16; ++i) {
+    EXPECT_EQ(bytes[i], std::byte{0});
+  }
+  EXPECT_TRUE(std::equal(aggregate.begin(), aggregate.end(), bytes.begin() + 16));
 }
 
 }  // namespace

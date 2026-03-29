@@ -1,5 +1,6 @@
 #include "gpu_model/isa/kernel_metadata.h"
 
+#include <algorithm>
 #include <cctype>
 #include <sstream>
 #include <stdexcept>
@@ -145,15 +146,24 @@ std::vector<std::string> FindCsv(const MetadataBlob& metadata, const std::string
 std::vector<KernelArgLayoutEntry> FindArgLayout(const MetadataBlob& metadata) {
   std::vector<KernelArgLayoutEntry> layout;
   for (const auto& token : FindCsv(metadata, "arg_layout")) {
-    const auto colon = token.rfind(':');
-    if (colon == std::string::npos) {
+    const auto first = token.find(':');
+    const auto second = token.find(':', first == std::string::npos ? first : first + 1);
+    if (first == std::string::npos) {
       throw std::runtime_error("invalid arg_layout token: " + token);
     }
-    layout.push_back(KernelArgLayoutEntry{
-        .kind = ParseKernelArgValueKind(Trim(std::string_view(token).substr(0, colon))),
-        .kind_name = Trim(std::string_view(token).substr(0, colon)),
-        .size = static_cast<uint32_t>(std::stoul(token.substr(colon + 1))),
-    });
+    KernelArgLayoutEntry entry{
+        .kind = ParseKernelArgValueKind(Trim(std::string_view(token).substr(0, first))),
+        .kind_name = Trim(std::string_view(token).substr(0, first)),
+        .offset = std::nullopt,
+    };
+    if (second == std::string::npos) {
+      entry.size = static_cast<uint32_t>(std::stoul(token.substr(first + 1)));
+    } else {
+      entry.offset = static_cast<uint32_t>(
+          std::stoul(token.substr(first + 1, second - first - 1)));
+      entry.size = static_cast<uint32_t>(std::stoul(token.substr(second + 1)));
+    }
+    layout.push_back(std::move(entry));
   }
   return layout;
 }
@@ -202,8 +212,11 @@ KernelLaunchMetadata ParseKernelLaunchMetadata(const MetadataBlob& metadata) {
 
 uint32_t EstimateVisibleKernargBytes(const KernelLaunchMetadata& metadata) {
   uint32_t total = 0;
+  uint32_t sequential_offset = 0;
   for (const auto& entry : metadata.arg_layout) {
-    total += entry.size;
+    const uint32_t offset = entry.offset.value_or(sequential_offset);
+    total = std::max(total, offset + entry.size);
+    sequential_offset = offset + entry.size;
   }
   return total;
 }
