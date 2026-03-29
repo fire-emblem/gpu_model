@@ -29,11 +29,20 @@
   - kernel launch 转到 model 执行
   - 返回 host 继续执行
 - global / constant / kernarg / raw-data / managed pool 支持
-- raw code object decode scaffolding
-  - `.text` 原始指令 words 提取
-  - GCN format classify
-  - 最小 encoding def
-  - 最小 formatter
+- descriptor + metadata 驱动的 raw code object launch
+- raw code object decode / disassemble / execute 主路径
+  - `.text` 原始指令 bytes 提取
+  - `text bytes -> raw instruction array -> decoded instruction array`
+  - decode 阶段实例化 instruction object
+  - raw GCN 指令直接执行
+- 真实 HIP `.out` 功能主线已验证通过的代表性 kernel
+  - `vecadd`
+  - `fma_loop`
+  - `bias_chain`
+  - `shared_reverse`
+  - `softmax_row`
+  - `mfma_probe`
+- 大规模 gtest / CTS / usage regression 已打通
 
 ## 当前分层
 
@@ -93,24 +102,20 @@
 
 ## 当前重要限制
 
-项目还没有完成最终目标里的这一步：
+当前仍然存在的主要限制：
 
-- 不再依赖 `llvm-objdump` 文本
-- 改为完全基于 `.text` 二进制 bytes
-- instruction decode
-- raw instruction execute
+- 还没有完成“全部 GCN ISA” 的 decode / disasm / exec 覆盖
+- graphics / image / export / interp 等 family 仍主要是占位
+- 部分 loader 路径仍保留了 `llvm-objdump` / tool-assisted 提取作为兼容入口
+- runtime API 还没有补齐到“任意 HIP 程序”所需的完整子集
+- cycle model 已经可用，但仍然是用于相对比较的 naive 近似模型，不是硬件精确模型
 
-当前 device 路径仍然是：
+所以现阶段更准确的理解是：
 
-- raw code object extraction
-- 部分 project-side format / encoding scaffolding
-- 现有执行主路径仍依赖当前 device ingestion 兼容层
-
-所以现阶段应理解为：
-
-- host-side `.out` command-line path 已打通
-- raw binary decode 框架已启动
-- full raw execute 仍在继续建设
+- host-side `.out` command-line path 已稳定可用
+- descriptor + metadata 驱动的 raw binary launch 已打通
+- compute-focused HIP kernel 覆盖已经较广
+- 剩余工作重点在完整 ISA 覆盖、graphics family、runtime completeness 和更系统的 cycle 建模
 
 ## 构建
 
@@ -215,11 +220,11 @@ cmake --build build --target gpu_model_hip_interposer -j
 
 接下来主线应继续收敛到：
 
-1. 基于 GCN ISA encoding 定义的完整 decode
-2. project-side disassembler
-3. raw instruction IR
-4. raw semantic handler / raw execute
-5. 逐步替换当前 device 文本兼容路径
+1. 基于 GCN ISA encoding 定义补齐剩余 decode/disasm 覆盖
+2. 继续扩展 raw semantic handler / instruction object 执行覆盖
+3. 收敛 descriptor / metadata / module-load 的正式接口
+4. 完善 runtime property 查询与 module API
+5. 在现有 naive cycle 基础上继续增强 wait / issue / timeline 分析能力
 
 ## Marl
 

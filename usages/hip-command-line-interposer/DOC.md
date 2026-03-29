@@ -34,11 +34,11 @@ Current intercepted API subset:
 
 Current limitation:
 
-- device execution still depends on the current GCN text ingestion path
-- final production direction is still:
-  - ELF code section bytes
-  - binary decode
-  - raw instruction execution
+- command-line `.out` 主线已经可以走 descriptor + metadata + raw decode/exec 执行多个真实 HIP kernel
+- 剩余限制主要在：
+  - 全 GCN ISA 覆盖仍未完成
+  - graphics/image/export/interp family 仍不是主覆盖方向
+  - runtime API 仍未扩展到“任意 HIP 程序”所需的完整子集
 
 Expected artifacts:
 

@@ -15,9 +15,9 @@ This usage bundle demonstrates the current binary-side scaffold:
 
 Current limitation:
 
-- decoded operands only cover a small bootstrap subset
-- many instantiated instruction objects still delegate execution to legacy semantic handlers
-- descriptor/image/export/interp families are still placeholder objects in the compute-first model
+- compute-focused真实 HIP kernel 的 decoded operands 已覆盖较广，但仍未达到“全部 GCN ISA”
+- 很多 instantiated instruction object 仍会委托到旧 semantic handler
+- descriptor/image/export/interp families 仍主要是占位，当前主覆盖方向仍是 compute path
 
 Expected artifacts:
 
