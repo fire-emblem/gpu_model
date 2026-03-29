@@ -13,6 +13,7 @@ add_executable(gpu_model_tests
   exec/raw_gcn_instruction_object_execute_test.cpp
   exec/raw_gcn_semantic_handler_registry_test.cpp
   exec/semantic_handler_test.cpp
+  isa/kernel_program_builder_test.cpp
   isa/kernel_program_test.cpp
   isa/opcode_descriptor_test.cpp
   isa/target_isa_test.cpp

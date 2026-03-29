@@ -3,17 +3,21 @@
 #include <cstdint>
 #include <string>
 #include <string_view>
-#include <unordered_map>
-#include <vector>
 
-#include "gpu_model/isa/kernel_program.h"
+#include "gpu_model/isa/kernel_program_builder.h"
 
 namespace gpu_model {
 
-class InstructionBuilder {
+class InstructionBuilder : public KernelProgramBuilder {
  public:
-  InstructionBuilder& SetNextDebugLoc(std::string file, uint32_t line);
-  InstructionBuilder& Label(std::string name);
+  InstructionBuilder& SetNextDebugLoc(std::string file, uint32_t line) {
+    KernelProgramBuilder::SetNextDebugLoc(std::move(file), line);
+    return *this;
+  }
+  InstructionBuilder& Label(std::string name) {
+    KernelProgramBuilder::Label(std::move(name));
+    return *this;
+  }
 
   InstructionBuilder& SLoadArg(std::string_view dest, uint32_t arg_index);
   InstructionBuilder& SysGlobalIdX(std::string_view dest);
@@ -149,28 +153,15 @@ class InstructionBuilder {
   InstructionBuilder& SyncBarrier();
   InstructionBuilder& BExit();
 
-  KernelProgram Build(std::string name,
-                      MetadataBlob metadata = {},
-                      ConstSegment const_segment = {});
-
  private:
-  struct PendingLabelRef {
-    size_t instruction_index = 0;
-    size_t operand_index = 0;
-    std::string label;
-  };
-
-  InstructionBuilder& AddInstruction(Opcode opcode, std::vector<Operand> operands);
-  InstructionBuilder& AddBranch(Opcode opcode, std::string_view label);
-  Operand ParseRegOperand(std::string_view text) const;
-  Operand ImmediateOperand(uint64_t value) const;
-  DebugLoc ConsumeNextDebugLoc();
-
-  std::vector<Instruction> instructions_;
-  std::unordered_map<std::string, uint64_t> labels_;
-  std::vector<PendingLabelRef> pending_labels_;
-  DebugLoc next_debug_loc_;
-  bool has_next_debug_loc_ = false;
+  InstructionBuilder& AddInstruction(Opcode opcode, std::vector<Operand> operands) {
+    KernelProgramBuilder::AddInstruction(opcode, std::move(operands));
+    return *this;
+  }
+  InstructionBuilder& AddBranch(Opcode opcode, std::string_view label) {
+    KernelProgramBuilder::AddBranch(opcode, label);
+    return *this;
+  }
 };
 
 }  // namespace gpu_model

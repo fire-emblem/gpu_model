@@ -27,6 +27,7 @@ add_library(gpu_model STATIC
   src/decode/gcn_inst_formatter.cpp
   src/isa/instruction_builder.cpp
   src/isa/kernel_metadata.cpp
+  src/isa/kernel_program_builder.cpp
   src/isa/kernel_program.cpp
   src/isa/opcode_descriptor.cpp
   src/isa/target_isa.cpp
