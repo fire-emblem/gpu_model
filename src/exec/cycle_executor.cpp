@@ -15,6 +15,7 @@
 
 #include "gpu_model/debug/instruction_trace.h"
 #include "gpu_model/debug/trace_event.h"
+#include "gpu_model/debug/wave_launch_trace.h"
 #include "gpu_model/exec/event_queue.h"
 #include "gpu_model/exec/issue_eligibility.h"
 #include "gpu_model/exec/scoreboard.h"
@@ -514,7 +515,7 @@ void ScheduleWaveLaunch(ScheduledWave& scheduled_wave,
                 .block_id = block_id,
                 .wave_id = wave_ptr->wave.wave_id,
                 .pc = wave_ptr->wave.pc,
-                .message = "peu=" + std::to_string(peu_id),
+                .message = FormatWaveLaunchTraceMessage(wave_ptr->wave),
             });
           },
   });

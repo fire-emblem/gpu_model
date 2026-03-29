@@ -19,6 +19,7 @@
 
 #include "gpu_model/debug/instruction_trace.h"
 #include "gpu_model/debug/trace_event.h"
+#include "gpu_model/debug/wave_launch_trace.h"
 #include "gpu_model/isa/opcode.h"
 #include "gpu_model/loader/device_image_loader.h"
 
@@ -197,6 +198,7 @@ class FunctionalExecutionCoreImpl {
       : context_(context), semantics_(), blocks_(MaterializeBlocks(context.placement, context.launch_config)) {}
 
   uint64_t RunSequential() {
+    EmitWaveLaunchEvents();
     for (auto& block : blocks_) {
       ExecutionStats block_stats;
       ExecuteBlock(block, block_stats);
@@ -206,6 +208,7 @@ class FunctionalExecutionCoreImpl {
   }
 
   uint64_t RunParallelBlocks(uint32_t worker_threads) {
+    EmitWaveLaunchEvents();
 #ifdef GPU_MODEL_HAS_MARL
     marl::Scheduler::Config scheduler_config;
     if (worker_threads == 0) {
@@ -303,6 +306,24 @@ class FunctionalExecutionCoreImpl {
     }
     std::lock_guard<std::mutex> lock(stats_mutex_);
     MergeStats(*context_.stats, block_stats);
+  }
+
+  void EmitWaveLaunchEvents() {
+    for (const auto& block : blocks_) {
+      for (const auto& wave : block.waves) {
+        TraceEventLocked(TraceEvent{
+            .kind = TraceEventKind::WaveLaunch,
+            .cycle = context_.cycle,
+            .dpc_id = wave.dpc_id,
+            .ap_id = wave.ap_id,
+            .peu_id = wave.peu_id,
+            .block_id = wave.block_id,
+            .wave_id = wave.wave_id,
+            .pc = wave.pc,
+            .message = FormatWaveLaunchTraceMessage(wave),
+        });
+      }
+    }
   }
 
   uint64_t LoadGlobalLaneValue(const LaneAccess& lane) {

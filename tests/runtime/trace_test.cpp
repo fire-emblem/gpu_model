@@ -32,6 +32,36 @@ TEST(TraceTest, EmitsLaunchAndBlockPlacementEvents) {
   EXPECT_EQ(trace.events()[1].kind, TraceEventKind::BlockPlaced);
 }
 
+TEST(TraceTest, EmitsWaveLaunchEventWithInitialWaveStateSummary) {
+  CollectingTraceSink trace;
+  HostRuntime runtime(&trace);
+
+  InstructionBuilder builder;
+  builder.BExit();
+  const auto kernel = builder.Build("wave_launch_trace_kernel");
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok);
+
+  bool saw_wave_launch = false;
+  for (const auto& event : trace.events()) {
+    if (event.kind != TraceEventKind::WaveLaunch) {
+      continue;
+    }
+    saw_wave_launch = true;
+    EXPECT_NE(event.message.find("lanes=0x40"), std::string::npos);
+    EXPECT_NE(event.message.find("exec=0xffffffffffffffff"), std::string::npos);
+    EXPECT_NE(event.message.find("sgpr={"), std::string::npos);
+    EXPECT_NE(event.message.find("vgpr={"), std::string::npos);
+  }
+  EXPECT_TRUE(saw_wave_launch);
+}
+
 TEST(TraceTest, WritesHumanReadableTraceFile) {
   const std::filesystem::path path =
       std::filesystem::temp_directory_path() / "gpu_model_trace.txt";

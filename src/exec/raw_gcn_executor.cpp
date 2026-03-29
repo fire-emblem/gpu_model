@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "gpu_model/exec/raw_gcn_semantic_handler.h"
+#include "gpu_model/debug/wave_launch_trace.h"
 #include "gpu_model/isa/kernel_metadata.h"
 #include "gpu_model/loader/device_image_loader.h"
 #include "gpu_model/runtime/mapper.h"
@@ -323,6 +324,17 @@ LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
       raw_wave.wave.pc = image.instructions.front().pc;
       InitializeWaveAbiState(raw_wave.wave, image, config, kernarg_base,
                              static_cast<uint32_t>(block.waves.size()));
+      trace.OnEvent(TraceEvent{
+          .kind = TraceEventKind::WaveLaunch,
+          .cycle = 0,
+          .dpc_id = raw_wave.wave.dpc_id,
+          .ap_id = raw_wave.wave.ap_id,
+          .peu_id = raw_wave.wave.peu_id,
+          .block_id = raw_wave.wave.block_id,
+          .wave_id = raw_wave.wave.wave_id,
+          .pc = raw_wave.wave.pc,
+          .message = FormatWaveLaunchTraceMessage(raw_wave.wave),
+      });
       raw_block.waves.push_back(std::move(raw_wave));
     }
 
