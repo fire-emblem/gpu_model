@@ -1269,6 +1269,68 @@ TEST(RuntimeHooksTest, LaunchesHipThreeDimensionalHiddenArgsExecutableInRawGcnPa
   std::filesystem::remove_all(temp_dir);
 }
 
+TEST(RuntimeHooksTest, LaunchesHipThreeDimensionalBuiltinIdsExecutableInRawGcnPath) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_three_dimensional_builtin_ids");
+  const auto src_path = temp_dir / "hip_three_dimensional_builtin_ids.cpp";
+  const auto exe_path = temp_dir / "hip_three_dimensional_builtin_ids.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n\n"
+           "extern \"C\" __global__ void three_dimensional_builtin_ids(int* out) {\n"
+           "  int z = threadIdx.z;\n"
+           "  out[z] = static_cast<int>(blockIdx.z) + z;\n"
+           "}\n\n"
+           "int main() { return 0; }\n";
+  }
+
+  const std::string command =
+      "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  RuntimeHooks hooks;
+  const auto image = hooks.DescribeAmdgpuObject(exe_path, "three_dimensional_builtin_ids");
+  EXPECT_TRUE(image.kernel_descriptor.enable_sgpr_workgroup_id_z);
+  EXPECT_GE(image.kernel_descriptor.enable_vgpr_workitem_id, 2u);
+
+  constexpr uint32_t depth = 64;
+  const uint64_t out_addr = hooks.Malloc(depth * sizeof(int32_t));
+  std::vector<int32_t> out(depth, -1);
+  hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(out));
+
+  KernelArgPack args;
+  args.PushU64(out_addr);
+
+  const auto result = hooks.LaunchAmdgpuObject(
+      exe_path,
+      LaunchConfig{
+          .grid_dim_x = 1,
+          .grid_dim_y = 1,
+          .grid_dim_z = 1,
+          .block_dim_x = 1,
+          .block_dim_y = 1,
+          .block_dim_z = depth,
+      },
+      std::move(args),
+      ExecutionMode::Functional,
+      "c500",
+      nullptr,
+      "three_dimensional_builtin_ids");
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(out));
+  for (uint32_t i = 0; i < depth; ++i) {
+    EXPECT_EQ(out[i], static_cast<int32_t>(i));
+  }
+
+  std::filesystem::remove_all(temp_dir);
+}
+
 TEST(RuntimeHooksTest, LaunchesHipAtomicCountExecutableInRawGcnPath) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
