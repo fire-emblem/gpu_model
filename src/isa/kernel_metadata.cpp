@@ -1,5 +1,6 @@
 #include "gpu_model/isa/kernel_metadata.h"
 
+#include <cctype>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -7,6 +8,18 @@
 namespace gpu_model {
 
 namespace {
+
+std::string Trim(std::string_view text) {
+  size_t begin = 0;
+  size_t end = text.size();
+  while (begin < end && std::isspace(static_cast<unsigned char>(text[begin])) != 0) {
+    ++begin;
+  }
+  while (end > begin && std::isspace(static_cast<unsigned char>(text[end - 1])) != 0) {
+    --end;
+  }
+  return std::string(text.substr(begin, end - begin));
+}
 
 std::optional<std::string> FindString(const MetadataBlob& metadata, const std::string& key) {
   const auto it = metadata.values.find(key);
@@ -33,11 +46,44 @@ std::vector<std::string> FindCsv(const MetadataBlob& metadata, const std::string
   std::stringstream stream(*value);
   std::string item;
   while (std::getline(stream, item, ',')) {
-    if (!item.empty()) {
-      items.push_back(item);
+    const std::string trimmed = Trim(item);
+    if (!trimmed.empty()) {
+      items.push_back(trimmed);
     }
   }
   return items;
+}
+
+std::vector<KernelArgLayoutEntry> FindArgLayout(const MetadataBlob& metadata) {
+  std::vector<KernelArgLayoutEntry> layout;
+  for (const auto& token : FindCsv(metadata, "arg_layout")) {
+    const auto colon = token.rfind(':');
+    if (colon == std::string::npos) {
+      throw std::runtime_error("invalid arg_layout token: " + token);
+    }
+    layout.push_back(KernelArgLayoutEntry{
+        .kind = Trim(std::string_view(token).substr(0, colon)),
+        .size = static_cast<uint32_t>(std::stoul(token.substr(colon + 1))),
+    });
+  }
+  return layout;
+}
+
+std::vector<KernelHiddenArgLayoutEntry> FindHiddenArgLayout(const MetadataBlob& metadata) {
+  std::vector<KernelHiddenArgLayoutEntry> layout;
+  for (const auto& token : FindCsv(metadata, "hidden_arg_layout")) {
+    const auto first = token.find(':');
+    const auto second = token.find(':', first == std::string::npos ? first : first + 1);
+    if (first == std::string::npos || second == std::string::npos) {
+      throw std::runtime_error("invalid hidden_arg_layout token: " + token);
+    }
+    layout.push_back(KernelHiddenArgLayoutEntry{
+        .kind = Trim(std::string_view(token).substr(0, first)),
+        .offset = static_cast<uint32_t>(std::stoul(token.substr(first + 1, second - first - 1))),
+        .size = static_cast<uint32_t>(std::stoul(token.substr(second + 1))),
+    });
+  }
+  return layout;
 }
 
 }  // namespace
@@ -46,13 +92,41 @@ KernelLaunchMetadata ParseKernelLaunchMetadata(const MetadataBlob& metadata) {
   KernelLaunchMetadata parsed;
   parsed.arch = FindString(metadata, "arch");
   parsed.entry = FindString(metadata, "entry");
+  parsed.format = FindString(metadata, "format");
+  parsed.artifact_path = FindString(metadata, "artifact_path");
   parsed.module_name = FindString(metadata, "module_name");
   parsed.module_kernels = FindCsv(metadata, "module_kernels");
   parsed.arg_count = FindU32(metadata, "arg_count");
   parsed.required_shared_bytes = FindU32(metadata, "required_shared_bytes");
+  parsed.group_segment_fixed_size = FindU32(metadata, "group_segment_fixed_size");
   parsed.block_dim_multiple = FindU32(metadata, "block_dim_multiple");
   parsed.max_block_dim = FindU32(metadata, "max_block_dim");
+  parsed.kernarg_segment_size = FindU32(metadata, "kernarg_segment_size");
+  parsed.arg_layout = FindArgLayout(metadata);
+  parsed.hidden_arg_layout = FindHiddenArgLayout(metadata);
+  if (!parsed.required_shared_bytes.has_value()) {
+    parsed.required_shared_bytes = parsed.group_segment_fixed_size;
+  }
   return parsed;
+}
+
+uint32_t EstimateVisibleKernargBytes(const KernelLaunchMetadata& metadata) {
+  uint32_t total = 0;
+  for (const auto& entry : metadata.arg_layout) {
+    total += entry.size;
+  }
+  return total;
+}
+
+uint32_t RequiredKernargTemplateBytes(const KernelLaunchMetadata& metadata) {
+  if (metadata.kernarg_segment_size.has_value() && *metadata.kernarg_segment_size != 0) {
+    return *metadata.kernarg_segment_size;
+  }
+  const uint32_t visible_args = EstimateVisibleKernargBytes(metadata);
+  if (visible_args == 0) {
+    return 0;
+  }
+  return std::max<uint32_t>(visible_args, 128u);
 }
 
 }  // namespace gpu_model

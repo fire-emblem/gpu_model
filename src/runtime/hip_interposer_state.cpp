@@ -6,33 +6,11 @@
 #include <string_view>
 #include <unistd.h>
 
+#include "gpu_model/isa/kernel_metadata.h"
 #include "gpu_model/loader/amdgpu_code_object_decoder.h"
 #include "gpu_model/loader/amdgpu_obj_loader.h"
 
 namespace gpu_model {
-
-namespace {
-
-std::vector<std::string> SplitCsv(std::string_view text) {
-  std::vector<std::string> items;
-  std::string current;
-  for (const char ch : text) {
-    if (ch == ',') {
-      if (!current.empty()) {
-        items.push_back(current);
-      }
-      current.clear();
-      continue;
-    }
-    current.push_back(ch);
-  }
-  if (!current.empty()) {
-    items.push_back(current);
-  }
-  return items;
-}
-
-}  // namespace
 
 HipInterposerState& HipInterposerState::Instance() {
   static HipInterposerState instance;
@@ -214,21 +192,12 @@ void HipInterposerState::SyncManagedDeviceToHost() {
 
 std::vector<HipInterposerArgDesc> HipInterposerState::ParseArgLayout(const MetadataBlob& metadata) const {
   std::vector<HipInterposerArgDesc> args;
-  const auto it = metadata.values.find("arg_layout");
-  if (it == metadata.values.end()) {
-    return args;
-  }
-  for (const auto& item : SplitCsv(it->second)) {
-    const auto colon = item.find(':');
-    if (colon == std::string::npos) {
-      continue;
-    }
-    const std::string kind = item.substr(0, colon);
-    const uint32_t size = static_cast<uint32_t>(std::stoul(item.substr(colon + 1)));
+  const auto parsed = ParseKernelLaunchMetadata(metadata);
+  for (const auto& item : parsed.arg_layout) {
     args.push_back(HipInterposerArgDesc{
-        .kind = kind == "global_buffer" ? HipInterposerArgKind::GlobalBuffer
-                                         : HipInterposerArgKind::ByValue,
-        .size = size,
+        .kind = item.kind == "global_buffer" ? HipInterposerArgKind::GlobalBuffer
+                                             : HipInterposerArgKind::ByValue,
+        .size = item.size,
     });
   }
   return args;

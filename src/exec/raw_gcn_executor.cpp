@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "gpu_model/exec/raw_gcn_semantic_handler.h"
+#include "gpu_model/isa/kernel_metadata.h"
 #include "gpu_model/loader/device_image_loader.h"
 #include "gpu_model/runtime/mapper.h"
 #include "gpu_model/state/wave_state.h"
@@ -43,69 +44,6 @@ uint32_t AlignUp(uint32_t value, uint32_t alignment) {
 bool DebugEnabled();
 void DebugLog(const char* fmt, ...);
 
-std::vector<uint32_t> ParseArgLayoutSizes(const MetadataBlob& metadata) {
-  std::vector<uint32_t> sizes;
-  const auto it = metadata.values.find("arg_layout");
-  if (it == metadata.values.end() || it->second.empty()) {
-    return sizes;
-  }
-  std::istringstream input(it->second);
-  std::string token;
-  while (std::getline(input, token, ',')) {
-    const auto colon = token.rfind(':');
-    if (colon == std::string::npos) {
-      continue;
-    }
-    sizes.push_back(static_cast<uint32_t>(std::stoul(token.substr(colon + 1))));
-  }
-  return sizes;
-}
-
-struct HiddenArgLayoutEntry {
-  std::string kind;
-  uint32_t offset = 0;
-  uint32_t size = 0;
-};
-
-std::vector<HiddenArgLayoutEntry> ParseHiddenArgLayout(const MetadataBlob& metadata) {
-  std::vector<HiddenArgLayoutEntry> entries;
-  const auto it = metadata.values.find("hidden_arg_layout");
-  if (it == metadata.values.end() || it->second.empty()) {
-    return entries;
-  }
-  std::istringstream input(it->second);
-  std::string token;
-  while (std::getline(input, token, ',')) {
-    const auto first = token.find(':');
-    const auto second = token.find(':', first == std::string::npos ? first : first + 1);
-    if (first == std::string::npos || second == std::string::npos) {
-      continue;
-    }
-    HiddenArgLayoutEntry entry;
-    entry.kind = token.substr(0, first);
-    entry.offset = static_cast<uint32_t>(std::stoul(token.substr(first + 1, second - first - 1)));
-    entry.size = static_cast<uint32_t>(std::stoul(token.substr(second + 1)));
-    entries.push_back(std::move(entry));
-  }
-  return entries;
-}
-
-uint32_t ParseGroupSegmentFixedSize(const MetadataBlob& metadata) {
-  const auto it = metadata.values.find("group_segment_fixed_size");
-  if (it == metadata.values.end() || it->second.empty()) {
-    return 0;
-  }
-  return static_cast<uint32_t>(std::stoul(it->second));
-}
-
-uint32_t ParseKernargSegmentSize(const MetadataBlob& metadata) {
-  const auto it = metadata.values.find("kernarg_segment_size");
-  if (it == metadata.values.end() || it->second.empty()) {
-    return 0;
-  }
-  return static_cast<uint32_t>(std::stoul(it->second));
-}
-
 template <typename T>
 void WriteScalar(std::vector<std::byte>& bytes, uint32_t offset, T value) {
   const uint32_t end = offset + static_cast<uint32_t>(sizeof(T));
@@ -115,7 +53,7 @@ void WriteScalar(std::vector<std::byte>& bytes, uint32_t offset, T value) {
   std::memcpy(bytes.data() + offset, &value, sizeof(T));
 }
 
-uint64_t HiddenArgValue(const HiddenArgLayoutEntry& entry, const LaunchConfig& config) {
+uint64_t HiddenArgValue(const KernelHiddenArgLayoutEntry& entry, const LaunchConfig& config) {
   if (entry.kind == "hidden_block_count_x") {
     return config.grid_dim_x;
   }
@@ -156,15 +94,15 @@ uint64_t HiddenArgValue(const HiddenArgLayoutEntry& entry, const LaunchConfig& c
 std::vector<std::byte> BuildKernargBytes(const MetadataBlob& metadata,
                                          const KernelArgPack& args,
                                          const LaunchConfig& config) {
-  const uint32_t descriptor_kernarg_size = ParseKernargSegmentSize(metadata);
+  const auto parsed = ParseKernelLaunchMetadata(metadata);
+  const uint32_t descriptor_kernarg_size = parsed.kernarg_segment_size.value_or(0);
   std::vector<std::byte> bytes(
       descriptor_kernarg_size != 0 ? descriptor_kernarg_size : 128u, std::byte{0});
-  const auto arg_sizes = ParseArgLayoutSizes(metadata);
   uint32_t arg_offset = 0;
   for (size_t i = 0; i < args.values().size(); ++i) {
     const uint64_t value = args.values()[i];
-    const uint32_t size = i < arg_sizes.size()
-                              ? arg_sizes[i]
+    const uint32_t size = i < parsed.arg_layout.size()
+                              ? parsed.arg_layout[i].size
                               : (i < 3 ? 8u : 4u);
     if (size == 8u) {
       std::memcpy(bytes.data() + arg_offset, &value, sizeof(uint64_t));
@@ -176,9 +114,8 @@ std::vector<std::byte> BuildKernargBytes(const MetadataBlob& metadata,
     }
     arg_offset += size;
   }
-  const auto hidden_args = ParseHiddenArgLayout(metadata);
-  if (!hidden_args.empty()) {
-    for (const auto& entry : hidden_args) {
+  if (!parsed.hidden_arg_layout.empty()) {
+    for (const auto& entry : parsed.hidden_arg_layout) {
       const uint64_t value = HiddenArgValue(entry, config);
       switch (entry.size) {
         case 2:
@@ -364,8 +301,9 @@ LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
     }
   }
   memory.Write(MemoryPoolKind::Kernarg, kernarg_base, std::span<const std::byte>(kernarg));
-  const uint32_t shared_bytes = std::max(config.shared_memory_bytes,
-                                         ParseGroupSegmentFixedSize(image.metadata));
+  const auto launch_metadata = ParseKernelLaunchMetadata(image.metadata);
+  const uint32_t shared_bytes =
+      std::max(config.shared_memory_bytes, launch_metadata.required_shared_bytes.value_or(0u));
 
   for (const auto& block : result.placement.blocks) {
     RawBlock raw_block;

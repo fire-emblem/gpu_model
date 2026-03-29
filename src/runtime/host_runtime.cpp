@@ -16,6 +16,7 @@
 #include "gpu_model/isa/kernel_program.h"
 #include "gpu_model/isa/target_isa.h"
 #include "gpu_model/loader/amdgpu_code_object_decoder.h"
+#include "gpu_model/loader/device_image_loader.h"
 #include "gpu_model/loader/program_lowering.h"
 
 namespace gpu_model {
@@ -202,8 +203,14 @@ LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
       result.error_message = "kernel argument count does not match metadata";
       return result;
     }
+    const uint32_t statically_loaded_shared_bytes =
+        request.device_load != nullptr ? request.device_load->required_shared_bytes : 0u;
+    const uint32_t available_shared_bytes =
+        std::max({request.config.shared_memory_bytes,
+                  launch_metadata.group_segment_fixed_size.value_or(0u),
+                  statically_loaded_shared_bytes});
     if (launch_metadata.required_shared_bytes.has_value() &&
-        request.config.shared_memory_bytes < *launch_metadata.required_shared_bytes) {
+        available_shared_bytes < *launch_metadata.required_shared_bytes) {
       result.error_message = "shared memory launch size is smaller than metadata requirement";
       return result;
     }
