@@ -15,25 +15,7 @@ size_t PoolIndex(MemoryPoolKind pool) {
 }
 
 uint64_t PoolBase(MemoryPoolKind pool) {
-  switch (pool) {
-    case MemoryPoolKind::Global:
-      return 0x0000000000000000ull;
-    case MemoryPoolKind::Constant:
-      return 0x1000000000000000ull;
-    case MemoryPoolKind::Shared:
-      return 0x2000000000000000ull;
-    case MemoryPoolKind::Private:
-      return 0x3000000000000000ull;
-    case MemoryPoolKind::Managed:
-      return 0x4000000000000000ull;
-    case MemoryPoolKind::Kernarg:
-      return 0x5000000000000000ull;
-    case MemoryPoolKind::Code:
-      return 0x6000000000000000ull;
-    case MemoryPoolKind::RawData:
-      return 0x7000000000000000ull;
-  }
-  return 0;
+  return MemoryPoolBase(pool);
 }
 
 const char* PoolName(MemoryPoolKind pool) {

@@ -4,6 +4,7 @@
 #include <array>
 #include <cstring>
 
+#include "gpu_model/memory/memory_pool.h"
 #include "gpu_model/runtime/kernarg_packer.h"
 
 namespace gpu_model {
@@ -113,6 +114,25 @@ TEST(KernargPackerTest, PacksThreeDimensionalTypedHiddenArgs) {
   EXPECT_EQ(LoadU32(bytes, 8), 4u);
   EXPECT_EQ(static_cast<uint16_t>(LoadU32(bytes, 12) & 0xffffu), 32u);
   EXPECT_EQ(static_cast<uint16_t>(LoadU32(bytes, 16) & 0xffffu), 3u);
+}
+
+TEST(KernargPackerTest, PacksApertureBaseHiddenArgs) {
+  KernelLaunchMetadata metadata;
+  metadata.kernarg_segment_size = 32;
+  metadata.hidden_arg_layout = {
+      KernelHiddenArgLayoutEntry{.kind = KernelHiddenArgKind::PrivateBase,
+                                 .kind_name = "hidden_private_base",
+                                 .offset = 8,
+                                 .size = 4},
+      KernelHiddenArgLayoutEntry{.kind = KernelHiddenArgKind::SharedBase,
+                                 .kind_name = "hidden_shared_base",
+                                 .offset = 12,
+                                 .size = 4},
+  };
+
+  const auto bytes = BuildKernargImage(metadata, {}, {});
+  EXPECT_EQ(LoadU32(bytes, 8), MemoryPoolBaseUpper32(MemoryPoolKind::Private));
+  EXPECT_EQ(LoadU32(bytes, 12), MemoryPoolBaseUpper32(MemoryPoolKind::Shared));
 }
 
 TEST(KernargPackerTest, FallsBackToDefaultImplicitHiddenArgsWhenLayoutIsAbsent) {

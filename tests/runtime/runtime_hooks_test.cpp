@@ -1207,6 +1207,40 @@ TEST(RuntimeHooksTest, LaunchesHipTwoDimensionalExecutableInRawGcnPath) {
   std::filesystem::remove_all(temp_dir);
 }
 
+TEST(RuntimeHooksTest, DescribesHipThreeDimensionalHiddenArgsExecutableInRawGcnPath) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_three_dimensional_hidden_args");
+  const auto src_path = temp_dir / "hip_three_dimensional_hidden_args.cpp";
+  const auto exe_path = temp_dir / "hip_three_dimensional_hidden_args.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n\n"
+           "extern \"C\" __global__ void three_dimensional_hidden_args(int* out) {\n"
+           "  out[0] = static_cast<int>(gridDim.z) + static_cast<int>(blockDim.z);\n"
+           "}\n\n"
+           "int main() { return 0; }\n";
+  }
+
+  const std::string command =
+      "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  RuntimeHooks hooks;
+  const auto image = hooks.DescribeAmdgpuObject(exe_path, "three_dimensional_hidden_args");
+  ASSERT_TRUE(image.metadata.values.contains("hidden_arg_layout"));
+  EXPECT_NE(image.metadata.values.at("hidden_arg_layout").find("hidden_block_count_z"),
+            std::string::npos);
+  EXPECT_NE(image.metadata.values.at("hidden_arg_layout").find("hidden_group_size_z"),
+            std::string::npos);
+
+  std::filesystem::remove_all(temp_dir);
+}
+
 TEST(RuntimeHooksTest, LaunchesHipAtomicCountExecutableInRawGcnPath) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
@@ -1357,6 +1391,55 @@ TEST(RuntimeHooksTest, LaunchesLlvmMcThreeDimensionalHiddenArgsObjectInRawGcnPat
   int32_t output = 0;
   hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(&output, 1));
   EXPECT_EQ(output, 4 + 32 + 3);
+
+  std::filesystem::remove_all(obj_path.parent_path());
+}
+
+TEST(RuntimeHooksTest, LaunchesLlvmMcFallbackAbiObjectInRawGcnPath) {
+  if (!HasLlvmMcAmdgpuToolchain()) {
+    GTEST_SKIP() << "required llvm-mc/LLVM/binutils tools not available";
+  }
+
+  const auto obj_path = AssembleLlvmMcFixture(
+      "gpu_model_fallback_abi_kernarg",
+      std::filesystem::path("tests/asm_cases/loader/fallback_abi_kernarg.s"));
+
+  RuntimeHooks hooks;
+  CollectingTraceSink trace;
+  const uint64_t out_addr = hooks.Malloc(sizeof(int32_t));
+  int32_t zero = 0;
+  hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(&zero, 1));
+
+  KernelArgPack args;
+  args.PushU64(out_addr);
+
+  const auto result = hooks.LaunchAmdgpuObject(
+      obj_path,
+      LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
+      std::move(args),
+      ExecutionMode::Functional,
+      "c500",
+      &trace,
+      "asm_fallback_abi_kernarg");
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  int32_t output = 0;
+  hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(&output, 1));
+  EXPECT_EQ(output, 99);
+
+  bool saw_wave_launch = false;
+  for (const auto& event : trace.events()) {
+    if (event.kind != TraceEventKind::WaveLaunch) {
+      continue;
+    }
+    saw_wave_launch = true;
+    EXPECT_NE(event.message.find("s4=0x0"), std::string::npos);
+    EXPECT_NE(event.message.find("s5=0x50000000"), std::string::npos);
+    EXPECT_NE(event.message.find("s6=0x0"), std::string::npos);
+    EXPECT_NE(event.message.find("s7=0x0"), std::string::npos);
+    break;
+  }
+  EXPECT_TRUE(saw_wave_launch);
 
   std::filesystem::remove_all(obj_path.parent_path());
 }

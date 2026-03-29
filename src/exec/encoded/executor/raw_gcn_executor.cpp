@@ -51,17 +51,75 @@ uint32_t PackWorkgroupInfo(bool first_wavefront, uint32_t wave_count) {
   return (first_wavefront ? (1u << 31u) : 0u) | (wave_count & 0x3fu);
 }
 
+bool HasExplicitDescriptorAbiRecipe(const AmdgpuKernelDescriptor& descriptor) {
+  return descriptor.enable_sgpr_private_segment_buffer ||
+         descriptor.enable_sgpr_dispatch_ptr ||
+         descriptor.enable_sgpr_queue_ptr ||
+         descriptor.enable_sgpr_kernarg_segment_ptr ||
+         descriptor.enable_sgpr_dispatch_id ||
+         descriptor.enable_sgpr_flat_scratch_init ||
+         descriptor.enable_sgpr_private_segment_size ||
+         descriptor.enable_sgpr_workgroup_id_x ||
+         descriptor.enable_sgpr_workgroup_id_y ||
+         descriptor.enable_sgpr_workgroup_id_z ||
+         descriptor.enable_sgpr_workgroup_info ||
+         descriptor.enable_private_segment ||
+         descriptor.kernarg_preload_spec_length != 0;
+}
+
+uint32_t WaveLaunchTraceScalarRegs(const AmdgpuKernelDescriptor& descriptor) {
+  if (!HasExplicitDescriptorAbiRecipe(descriptor)) {
+    return 8;
+  }
+
+  uint32_t sgpr_count = 0;
+  if (descriptor.enable_sgpr_private_segment_buffer) {
+    sgpr_count += 4;
+  }
+  if (descriptor.enable_sgpr_dispatch_ptr) {
+    sgpr_count += 2;
+  }
+  if (descriptor.enable_sgpr_queue_ptr) {
+    sgpr_count += 2;
+  }
+  if (descriptor.enable_sgpr_kernarg_segment_ptr) {
+    sgpr_count += 2;
+  }
+  if (descriptor.enable_sgpr_dispatch_id) {
+    sgpr_count += 2;
+  }
+  if (descriptor.enable_sgpr_flat_scratch_init) {
+    sgpr_count += 2;
+  }
+  if (descriptor.enable_sgpr_private_segment_size) {
+    sgpr_count += 1;
+  }
+  sgpr_count += descriptor.kernarg_preload_spec_length;
+  if (descriptor.enable_sgpr_workgroup_id_x) {
+    sgpr_count += 1;
+  }
+  if (descriptor.enable_sgpr_workgroup_id_y) {
+    sgpr_count += 1;
+  }
+  if (descriptor.enable_sgpr_workgroup_id_z) {
+    sgpr_count += 1;
+  }
+  if (descriptor.enable_sgpr_workgroup_info) {
+    sgpr_count += 1;
+  }
+  if (descriptor.enable_private_segment) {
+    sgpr_count += 1;
+  }
+  return std::max(4u, sgpr_count);
+}
+
 void InitializeWaveAbiState(WaveState& wave,
                             const AmdgpuCodeObjectImage& image,
                             const LaunchConfig& config,
                             uint64_t kernarg_base,
                             uint32_t wave_count_in_block) {
   const auto& descriptor = image.kernel_descriptor;
-  const bool has_descriptor_recipe =
-      descriptor.user_sgpr_count != 0 || descriptor.enable_sgpr_kernarg_segment_ptr ||
-      descriptor.enable_sgpr_workgroup_id_x || descriptor.enable_sgpr_workgroup_id_y ||
-      descriptor.enable_sgpr_workgroup_id_z || descriptor.enable_sgpr_workgroup_info;
-  if (!has_descriptor_recipe) {
+  if (!HasExplicitDescriptorAbiRecipe(descriptor)) {
     wave.sgpr.Write(4, static_cast<uint32_t>(kernarg_base & 0xffffffffu));
     wave.sgpr.Write(5, static_cast<uint32_t>(kernarg_base >> 32u));
     wave.sgpr.Write(6, wave.block_idx_x);
@@ -276,7 +334,9 @@ LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
           .block_id = raw_wave.wave.block_id,
           .wave_id = raw_wave.wave.wave_id,
           .pc = raw_wave.wave.pc,
-          .message = FormatWaveLaunchTraceMessage(raw_wave.wave),
+          .message = FormatWaveLaunchTraceMessage(
+              raw_wave.wave,
+              WaveLaunchTraceScalarRegs(image.kernel_descriptor)),
       });
     }
 

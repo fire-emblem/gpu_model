@@ -4,6 +4,8 @@
 #include <stdexcept>
 #include <string>
 
+#include "gpu_model/memory/memory_pool.h"
+
 namespace gpu_model {
 
 namespace {
@@ -70,7 +72,9 @@ uint64_t HiddenArgValue(const KernelHiddenArgLayoutEntry& entry, const LaunchCon
     case KernelHiddenArgKind::DynamicLdsSize:
       return config.shared_memory_bytes;
     case KernelHiddenArgKind::PrivateBase:
+      return MemoryPoolBaseUpper32(MemoryPoolKind::Private);
     case KernelHiddenArgKind::SharedBase:
+      return MemoryPoolBaseUpper32(MemoryPoolKind::Shared);
     case KernelHiddenArgKind::QueuePtr:
     case KernelHiddenArgKind::None:
     case KernelHiddenArgKind::Unknown:
