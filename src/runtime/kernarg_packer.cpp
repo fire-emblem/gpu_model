@@ -21,6 +21,20 @@ void WriteScalar(std::vector<std::byte>& bytes, uint32_t offset, T value) {
   std::memcpy(bytes.data() + offset, &value, sizeof(T));
 }
 
+void WriteArgBytes(std::vector<std::byte>& bytes,
+                   uint32_t offset,
+                   uint32_t expected_size,
+                   const std::vector<std::byte>& arg_bytes) {
+  const uint32_t end = offset + expected_size;
+  if (bytes.size() < end) {
+    bytes.resize(end, std::byte{0});
+  }
+  const size_t copy_bytes = std::min<size_t>(arg_bytes.size(), expected_size);
+  if (copy_bytes != 0) {
+    std::memcpy(bytes.data() + offset, arg_bytes.data(), copy_bytes);
+  }
+}
+
 uint64_t HiddenArgValue(const KernelHiddenArgLayoutEntry& entry, const LaunchConfig& config) {
   switch (entry.kind) {
     case KernelHiddenArgKind::BlockCountX:
@@ -69,21 +83,10 @@ std::vector<std::byte> BuildKernargImage(const KernelLaunchMetadata& metadata,
       descriptor_kernarg_size != 0 ? descriptor_kernarg_size : 128u, std::byte{0});
 
   uint32_t arg_offset = 0;
-  for (size_t i = 0; i < args.values().size(); ++i) {
-    const uint64_t value = args.values()[i];
+  for (size_t i = 0; i < args.size(); ++i) {
     const uint32_t size =
         i < metadata.arg_layout.size() ? metadata.arg_layout[i].size : (i < 3 ? 8u : 4u);
-    if (size == 8u) {
-      std::memcpy(bytes.data() + arg_offset, &value, sizeof(uint64_t));
-    } else if (size == 4u) {
-      const uint32_t narrowed = static_cast<uint32_t>(value);
-      std::memcpy(bytes.data() + arg_offset, &narrowed, sizeof(uint32_t));
-    } else if (size == 2u) {
-      const uint16_t narrowed = static_cast<uint16_t>(value);
-      std::memcpy(bytes.data() + arg_offset, &narrowed, sizeof(uint16_t));
-    } else {
-      throw std::invalid_argument("unsupported kernarg scalar size: " + std::to_string(size));
-    }
+    WriteArgBytes(bytes, arg_offset, size, args.bytes(i));
     arg_offset += size;
   }
 

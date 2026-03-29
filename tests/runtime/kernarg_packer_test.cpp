@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <array>
 #include <cstring>
 
 #include "gpu_model/runtime/kernarg_packer.h"
@@ -105,6 +107,40 @@ TEST(KernargPackerTest, FallsBackToDefaultImplicitHiddenArgsWhenLayoutIsAbsent) 
   EXPECT_EQ(static_cast<uint16_t>(LoadU32(bytes, 28) & 0xffffu), 64u);
   EXPECT_EQ(static_cast<uint16_t>(LoadU32(bytes, 30) & 0xffffu), 4u);
   EXPECT_EQ(static_cast<uint16_t>(LoadU32(bytes, 32) & 0xffffu), 1u);
+}
+
+TEST(KernargPackerTest, PacksByValueAggregateWithoutScalarOnlyRestriction) {
+  KernelLaunchMetadata metadata;
+  metadata.kernarg_segment_size = 48;
+  metadata.arg_layout = {
+      KernelArgLayoutEntry{.kind = KernelArgValueKind::GlobalBuffer, .kind_name = "global_buffer", .size = 8},
+      KernelArgLayoutEntry{.kind = KernelArgValueKind::ByValue, .kind_name = "by_value", .size = 12},
+      KernelArgLayoutEntry{.kind = KernelArgValueKind::ByValue, .kind_name = "by_value", .size = 16},
+  };
+
+  const std::array<std::byte, 12> small_aggregate = {
+      std::byte{0x01}, std::byte{0x02}, std::byte{0x03}, std::byte{0x04},
+      std::byte{0x05}, std::byte{0x06}, std::byte{0x07}, std::byte{0x08},
+      std::byte{0x09}, std::byte{0x0a}, std::byte{0x0b}, std::byte{0x0c},
+  };
+  const std::array<std::byte, 16> large_aggregate = {
+      std::byte{0x10}, std::byte{0x11}, std::byte{0x12}, std::byte{0x13},
+      std::byte{0x14}, std::byte{0x15}, std::byte{0x16}, std::byte{0x17},
+      std::byte{0x18}, std::byte{0x19}, std::byte{0x1a}, std::byte{0x1b},
+      std::byte{0x1c}, std::byte{0x1d}, std::byte{0x1e}, std::byte{0x1f},
+  };
+
+  KernelArgPack args;
+  args.PushU64(0x1122334455667788ull);
+  args.PushBytes(small_aggregate);
+  args.PushBytes(large_aggregate);
+
+  const auto bytes = BuildKernargImage(
+      metadata, args,
+      LaunchConfig{.grid_dim_x = 1, .grid_dim_y = 1, .grid_dim_z = 1, .block_dim_x = 64});
+  EXPECT_EQ(LoadU64(bytes, 0), 0x1122334455667788ull);
+  EXPECT_TRUE(std::equal(small_aggregate.begin(), small_aggregate.end(), bytes.begin() + 8));
+  EXPECT_TRUE(std::equal(large_aggregate.begin(), large_aggregate.end(), bytes.begin() + 20));
 }
 
 }  // namespace

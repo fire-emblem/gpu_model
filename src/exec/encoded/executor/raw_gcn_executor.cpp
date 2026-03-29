@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
@@ -12,6 +13,7 @@
 #include <vector>
 
 #include "gpu_model/exec/encoded/semantics/raw_gcn_semantic_handler.h"
+#include "gpu_model/exec/execution_state_builder.h"
 #include "gpu_model/exec/execution_sync_ops.h"
 #include "gpu_model/exec/tensor_op_utils.h"
 #include "gpu_model/debug/wave_launch_trace.h"
@@ -36,10 +38,6 @@ struct RawBlock {
   uint64_t barrier_generation = 0;
   uint32_t barrier_arrivals = 0;
 };
-
-uint32_t LaneCount(const RawWave& raw_wave) {
-  return raw_wave.wave.thread_count < kWaveSize ? raw_wave.wave.thread_count : kWaveSize;
-}
 
 bool DebugEnabled();
 void DebugLog(const char* fmt, ...);
@@ -192,6 +190,27 @@ std::string FormatRawWaveStepMessage(const DecodedGcnInstruction& instruction,
   return out.str();
 }
 
+std::vector<RawBlock> MaterializeRawBlocks(const PlacementMap& placement,
+                                           LaunchConfig config,
+                                           uint32_t shared_bytes) {
+  config.shared_memory_bytes = shared_bytes;
+  const auto shared_blocks = BuildExecutionBlockStates(placement, config);
+  std::vector<RawBlock> blocks;
+  blocks.reserve(shared_blocks.size());
+  for (const auto& shared_block : shared_blocks) {
+    RawBlock block;
+    block.shared_memory = shared_block.shared_memory;
+    block.barrier_generation = shared_block.barrier_generation;
+    block.barrier_arrivals = shared_block.barrier_arrivals;
+    block.waves.reserve(shared_block.waves.size());
+    for (const auto& wave : shared_block.waves) {
+      block.waves.push_back(RawWave{.wave = wave});
+    }
+    blocks.push_back(std::move(block));
+  }
+  return blocks;
+}
+
 }  // namespace
 
 LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
@@ -239,28 +258,15 @@ LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
   const auto launch_metadata = ParseKernelLaunchMetadata(image.metadata);
   const uint32_t shared_bytes =
       std::max(config.shared_memory_bytes, launch_metadata.required_shared_bytes.value_or(0u));
+  auto raw_blocks = MaterializeRawBlocks(result.placement, config, shared_bytes);
 
-  for (const auto& block : result.placement.blocks) {
-    RawBlock raw_block;
-    raw_block.shared_memory.resize(shared_bytes);
-    raw_block.waves.reserve(block.waves.size());
-    for (const auto& wave_placement : block.waves) {
-      RawWave raw_wave;
-      raw_wave.wave.block_id = block.block_id;
-      raw_wave.wave.block_idx_x = block.block_idx_x;
-      raw_wave.wave.block_idx_y = block.block_idx_y;
-      raw_wave.wave.block_idx_z = block.block_idx_z;
-      raw_wave.wave.dpc_id = block.dpc_id;
-      raw_wave.wave.wave_id = wave_placement.wave_id;
-      raw_wave.wave.peu_id = wave_placement.peu_id;
-      raw_wave.wave.ap_id = block.ap_id;
-      raw_wave.wave.thread_count = wave_placement.lane_count;
-      raw_wave.wave.ResetInitialExec();
+  for (auto& raw_block : raw_blocks) {
+    for (auto& raw_wave : raw_block.waves) {
       raw_wave.wave.pc = image.instructions.front().pc;
       raw_wave.wave.tensor_agpr_count = image.kernel_descriptor.agpr_count;
       raw_wave.wave.tensor_accum_offset = image.kernel_descriptor.accum_offset;
       InitializeWaveAbiState(raw_wave.wave, image, config, kernarg_base,
-                             static_cast<uint32_t>(block.waves.size()));
+                             static_cast<uint32_t>(raw_block.waves.size()));
       trace.OnEvent(TraceEvent{
           .kind = TraceEventKind::WaveLaunch,
           .cycle = 0,
@@ -272,7 +278,6 @@ LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
           .pc = raw_wave.wave.pc,
           .message = FormatWaveLaunchTraceMessage(raw_wave.wave),
       });
-      raw_block.waves.push_back(std::move(raw_wave));
     }
 
     while (true) {
@@ -292,22 +297,11 @@ LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
       for (auto& raw_wave : raw_block.waves) {
         wave_ptrs.push_back(&raw_wave.wave);
       }
-      std::vector<WaveState> wave_copy;
-      wave_copy.reserve(wave_ptrs.size());
-      for (auto* wave : wave_ptrs) {
-        wave_copy.push_back(*wave);
-      }
-      if (execution_sync_ops::ReleaseBarrierIfReady(wave_copy,
-                                                    raw_block.barrier_generation,
-                                                    raw_block.barrier_arrivals,
-                                                    4,
-                                                    false)) {
-        for (size_t i = 0; i < wave_ptrs.size(); ++i) {
-          wave_ptrs[i]->waiting_at_barrier = wave_copy[i].waiting_at_barrier;
-          wave_ptrs[i]->status = wave_copy[i].status;
-          wave_ptrs[i]->pc = wave_copy[i].pc;
-        }
-      }
+      execution_sync_ops::ReleaseBarrierIfReady(wave_ptrs,
+                                                raw_block.barrier_generation,
+                                                raw_block.barrier_arrivals,
+                                                4,
+                                                false);
 
       bool made_progress = false;
       for (auto& raw_wave : raw_block.waves) {

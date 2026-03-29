@@ -1043,22 +1043,11 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                   for (auto& waiting_wave : candidate->block->waves) {
                     waiting_waves.push_back(&waiting_wave.wave);
                   }
-                  std::vector<WaveState> wave_copy;
-                  wave_copy.reserve(waiting_waves.size());
-                  for (auto* waiting_wave : waiting_waves) {
-                    wave_copy.push_back(*waiting_wave);
-                  }
-                  if (execution_sync_ops::ReleaseBarrierIfReady(wave_copy,
+                  if (execution_sync_ops::ReleaseBarrierIfReady(waiting_waves,
                                                                 candidate->block->barrier_generation,
                                                                 candidate->block->barrier_arrivals,
                                                                 1,
                                                                 true)) {
-                    for (size_t i = 0; i < waiting_waves.size(); ++i) {
-                      waiting_waves[i]->waiting_at_barrier = wave_copy[i].waiting_at_barrier;
-                      waiting_waves[i]->valid_entry = wave_copy[i].valid_entry;
-                      waiting_waves[i]->status = wave_copy[i].status;
-                      waiting_waves[i]->pc = wave_copy[i].pc;
-                    }
                     context.trace.OnEvent(TraceEvent{
                         .kind = TraceEventKind::Barrier,
                         .cycle = commit_cycle,

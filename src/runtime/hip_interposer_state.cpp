@@ -237,7 +237,7 @@ KernelArgPack HipInterposerState::PackArgs(const ProgramImage& image, void** arg
       std::memcpy(&value, args[i], sizeof(value));
       packed.PushU64(value);
     } else {
-      throw std::invalid_argument("unsupported by-value kernel argument size");
+      packed.PushBytes(args[i], desc.size);
     }
   }
   return packed;

@@ -18,4 +18,10 @@ bool ReleaseBarrierIfReady(std::vector<WaveState>& waves,
                            uint64_t pc_increment,
                            bool set_valid_entry_on_release);
 
+bool ReleaseBarrierIfReady(const std::vector<WaveState*>& waves,
+                           uint64_t& barrier_generation,
+                           uint32_t& barrier_arrivals,
+                           uint64_t pc_increment,
+                           bool set_valid_entry_on_release);
+
 }  // namespace gpu_model::execution_sync_ops
