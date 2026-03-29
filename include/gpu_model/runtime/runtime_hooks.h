@@ -66,7 +66,7 @@ class RuntimeHooks {
                                   ExecutionMode mode = ExecutionMode::Functional,
                                   std::string arch_name = "",
                                   TraceSink* trace = nullptr,
-                                  ProgramExecutionPath path_kind = ProgramExecutionPath::Auto);
+                                  ProgramExecutionRoute route = ProgramExecutionRoute::AutoSelect);
   DeviceLoadPlan BuildLoadPlan(const ProgramImage& image) const;
   DeviceLoadPlan BuildLoadPlanFromAmdgpuObject(
       const std::filesystem::path& path,
@@ -101,7 +101,7 @@ class RuntimeHooks {
                                       ExecutionMode mode = ExecutionMode::Functional,
                                       std::string arch_name = "",
                                       TraceSink* trace = nullptr,
-                                      ProgramExecutionPath path_kind = ProgramExecutionPath::Auto);
+                                      ProgramExecutionRoute route = ProgramExecutionRoute::AutoSelect);
   LaunchResult LaunchAmdgpuObject(const std::filesystem::path& path,
                                   LaunchConfig config,
                                   KernelArgPack args,
@@ -109,7 +109,7 @@ class RuntimeHooks {
                                   std::string arch_name = "",
                                   TraceSink* trace = nullptr,
                                   std::optional<std::string> kernel_name = std::nullopt,
-                                  ProgramExecutionPath path_kind = ProgramExecutionPath::RawCodeObject);
+                                  ProgramExecutionRoute route = ProgramExecutionRoute::EncodedRaw);
 
   HostRuntime& runtime() { return *runtime_; }
   const HostRuntime& runtime() const { return *runtime_; }

@@ -227,7 +227,7 @@ TEST(ModelRuntimeApiTest, DescribesHipMfmaExecutableWithTypedTensorAbi) {
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(ModelRuntimeApiTest, LaunchesAmdgpuObjectThroughLoweredProgramImagePath) {
+TEST(ModelRuntimeApiTest, LaunchesAmdgpuObjectThroughLoweredModeledRoute) {
   const auto temp_dir = MakeUniqueTempDir("gpu_model_model_runtime_lowered_object");
   const auto src_path = temp_dir / "hip_vecadd_3d_adds.cpp";
   const auto exe_path = temp_dir / "hip_vecadd_3d_adds.out";
@@ -297,7 +297,7 @@ TEST(ModelRuntimeApiTest, LaunchesAmdgpuObjectThroughLoweredProgramImagePath) {
       "c500",
       nullptr,
       "vecadd_3d_adds",
-      ProgramExecutionPath::LoweredProgramImage);
+      ProgramExecutionRoute::LoweredModeled);
   ASSERT_TRUE(result.ok) << result.error_message;
 
   api.MemcpyDtoH<float>(c_addr, std::span<float>(c));
@@ -308,7 +308,7 @@ TEST(ModelRuntimeApiTest, LaunchesAmdgpuObjectThroughLoweredProgramImagePath) {
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(ModelRuntimeApiTest, LaunchesRegisteredRawModuleThroughLoweredProgramImagePath) {
+TEST(ModelRuntimeApiTest, LaunchesRegisteredRawModuleThroughLoweredModeledRoute) {
   const auto temp_dir = MakeUniqueTempDir("gpu_model_model_runtime_registered_lowered");
   const auto src_path = temp_dir / "hip_vecadd_3d_adds_registered.cpp";
   const auto exe_path = temp_dir / "hip_vecadd_3d_adds_registered.out";
@@ -379,7 +379,7 @@ TEST(ModelRuntimeApiTest, LaunchesRegisteredRawModuleThroughLoweredProgramImageP
       ExecutionMode::Functional,
       "c500",
       nullptr,
-      ProgramExecutionPath::LoweredProgramImage);
+      ProgramExecutionRoute::LoweredModeled);
   ASSERT_TRUE(result.ok) << result.error_message;
 
   api.MemcpyDtoH<float>(c_addr, std::span<float>(c));

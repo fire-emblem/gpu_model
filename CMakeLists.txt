@@ -80,6 +80,7 @@ add_library(gpu_model STATIC
   src/exec/handlers/compute_functor_registry.cpp
   src/exec/cycle_executor.cpp
   src/runtime/mapper.cpp
+  src/runtime/program_execution.cpp
   src/runtime/kernarg_packer.cpp
   src/runtime/host_runtime.cpp
   src/runtime/hip_interposer_state.cpp

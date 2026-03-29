@@ -57,9 +57,9 @@ class ModelRuntimeApi {
                                   ExecutionMode mode = ExecutionMode::Functional,
                                   std::string arch_name = "",
                                   TraceSink* trace = nullptr,
-                                  ProgramExecutionPath path_kind = ProgramExecutionPath::Auto) {
+                                  ProgramExecutionRoute route = ProgramExecutionRoute::AutoSelect) {
     return hooks_.LaunchProgramImage(image, std::move(config), std::move(args), mode,
-                                     std::move(arch_name), trace, path_kind);
+                                     std::move(arch_name), trace, route);
   }
 
   DeviceLoadPlan BuildLoadPlan(const ProgramImage& image) const { return hooks_.BuildLoadPlan(image); }
@@ -120,10 +120,10 @@ class ModelRuntimeApi {
                                       ExecutionMode mode = ExecutionMode::Functional,
                                       std::string arch_name = "",
                                       TraceSink* trace = nullptr,
-                                      ProgramExecutionPath path_kind = ProgramExecutionPath::Auto) {
+                                      ProgramExecutionRoute route = ProgramExecutionRoute::AutoSelect) {
     return hooks_.LaunchRegisteredKernel(module_name, kernel_name, std::move(config),
                                          std::move(args), mode, std::move(arch_name), trace,
-                                         path_kind);
+                                         route);
   }
   LaunchResult LaunchAmdgpuObject(const std::filesystem::path& path,
                                   LaunchConfig config,
@@ -132,10 +132,10 @@ class ModelRuntimeApi {
                                   std::string arch_name = "",
                                   TraceSink* trace = nullptr,
                                   std::optional<std::string> kernel_name = std::nullopt,
-                                  ProgramExecutionPath path_kind = ProgramExecutionPath::RawCodeObject) {
+                                  ProgramExecutionRoute route = ProgramExecutionRoute::EncodedRaw) {
     return hooks_.LaunchAmdgpuObject(path, std::move(config), std::move(args), mode,
                                      std::move(arch_name), trace, std::move(kernel_name),
-                                     path_kind);
+                                     route);
   }
 
   RuntimeHooks& hooks() { return hooks_; }

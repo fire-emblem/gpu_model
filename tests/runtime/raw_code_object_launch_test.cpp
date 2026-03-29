@@ -68,7 +68,7 @@ std::filesystem::path AssembleLlvmMcFixture(const std::string& stem,
   return obj_path;
 }
 
-TEST(RawCodeObjectLaunchTest, HostRuntimeLaunchesExplicitRawCodeObjectInput) {
+TEST(RawCodeObjectLaunchTest, HostRuntimeLaunchesExplicitEncodedRawInput) {
   if (!HasLlvmMcAmdgpuToolchain()) {
     GTEST_SKIP() << "required llvm-mc/LLVM/binutils tools not available";
   }
@@ -98,47 +98,6 @@ TEST(RawCodeObjectLaunchTest, HostRuntimeLaunchesExplicitRawCodeObjectInput) {
   const auto result = runtime.Launch(request);
   ASSERT_TRUE(result.ok) << result.error_message;
   EXPECT_EQ(runtime.memory().LoadGlobalValue<int32_t>(out_addr), 15);
-
-  std::filesystem::remove_all(obj_path.parent_path());
-}
-
-TEST(RawCodeObjectLaunchTest, HostRuntimeLaunchesExplicitLoweredProgramImageInput) {
-  if (!HasLlvmMcAmdgpuToolchain()) {
-    GTEST_SKIP() << "required llvm-mc/LLVM/binutils tools not available";
-  }
-
-  const auto obj_path = AssembleLlvmMcFixture(
-      "gpu_model_runtime_explicit_lowered_input",
-      std::filesystem::path("tests/asm_cases/loader/kernarg_aggregate_by_value.s"));
-  MetadataBlob metadata;
-  metadata.values["artifact_path"] = obj_path.string();
-  SetTargetIsa(metadata, TargetIsa::GcnAsm);
-  const ProgramImage lowered_image(
-      "asm_kernarg_aggregate_by_value",
-      ReadTextFile(std::filesystem::path("tests/asm_cases/loader/kernarg_aggregate_by_value.s")),
-      metadata);
-
-  HostRuntime runtime;
-  const uint64_t out_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
-  runtime.memory().StoreGlobalValue<int32_t>(out_addr, 0);
-
-  struct AggregateArg {
-    int32_t x;
-    int32_t y;
-    int32_t z;
-  } aggregate{2, 4, 6};
-
-  LaunchRequest request;
-  request.arch_name = "c500";
-  request.program_image = &lowered_image;
-  request.program_execution_path = ProgramExecutionPath::LoweredProgramImage;
-  request.config = LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64};
-  request.args.PushU64(out_addr);
-  request.args.PushBytes(&aggregate, sizeof(aggregate));
-
-  const auto result = runtime.Launch(request);
-  ASSERT_TRUE(result.ok) << result.error_message;
-  EXPECT_EQ(runtime.memory().LoadGlobalValue<int32_t>(out_addr), 12);
 
   std::filesystem::remove_all(obj_path.parent_path());
 }

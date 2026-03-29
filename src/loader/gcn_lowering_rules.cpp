@@ -173,6 +173,59 @@ class Hipcc3DVecaddAddsRule final : public IGcnLoweringRule {
   }
 };
 
+class HipccSharedReverseRule final : public IGcnLoweringRule {
+ public:
+  bool Match(const std::vector<GcnTextInstruction>& instructions, size_t index) const override {
+    return HasMnemonicSequence(
+        instructions, index,
+        {"s_load_dword",        "s_load_dword",       "s_load_dwordx4",      "s_waitcnt",
+         "s_and_b32",           "s_mul_i32",          "v_add_u32_e32",       "v_cmp_gt_i32_e32",
+         "v_ashrrev_i32_e32",   "s_and_saveexec_b64", "s_cbranch_execz",     "v_lshlrev_b64",
+         "v_mov_b32_e32",       "v_add_co_u32_e64",   "v_addc_co_u32_e64",   "global_load_dword",
+         "v_lshlrev_b32_e32",   "s_waitcnt",          "ds_write_b32",        "s_or_b64",
+         "s_waitcnt",           "s_barrier",          "s_and_saveexec_b64",  "s_cbranch_execz",
+         "v_not_b32_e32",       "v_lshlrev_b32_e32",  "v_lshl_add_u32",      "ds_read_b32",
+         "v_lshlrev_b64",       "v_mov_b32_e32",      "v_add_co_u32_e32",    "v_addc_co_u32_e32",
+         "s_waitcnt",           "global_store_dword", "s_endpgm"});
+  }
+
+  GcnLoweringResult Lower(const std::vector<GcnTextInstruction>&,
+                          size_t) const override {
+    return GcnLoweringResult{
+        .consumed = 35,
+        .lowered_lines =
+            {
+                "s_load_kernarg s0, 0",
+                "s_load_kernarg s1, 1",
+                "s_load_kernarg s2, 2",
+                "v_get_global_id_x v0",
+                "s_get_block_id_x s3",
+                "s_get_block_dim_x s4",
+                "s_mul_i32 s5, s3, s4",
+                "s_mov_b32 s6, -1",
+                "s_mul_i32 s7, s5, s6",
+                "v_add_i32 v1, v0, s7",
+                "v_cmp_lt_i32_cmask v0, s2",
+                "s_saveexec_b64 s10",
+                "s_and_exec_cmask_b64",
+                "s_cbranch_execz exit",
+                "buffer_load_dword v2, s0, v0, 4",
+                "ds_write_b32 v1, v2, 4",
+                "s_barrier",
+                "v_mov_b32 v3, 127",
+                "v_mov_b32 v4, -1",
+                "v_mul_lo_i32 v5, v1, v4",
+                "v_add_i32 v6, v3, v5",
+                "ds_read_b32 v7, v6, 4",
+                "buffer_store_dword s1, v0, v7, 4",
+                "exit:",
+                "s_restoreexec_b64 s10",
+                "s_endpgm",
+            },
+    };
+  }
+};
+
 class VectorMoveRule final : public IGcnLoweringRule {
  public:
   bool Match(const std::vector<GcnTextInstruction>& instructions, size_t index) const override {
@@ -369,6 +422,7 @@ class PassthroughRule final : public IGcnLoweringRule {
 const std::vector<const IGcnLoweringRule*>& Rules() {
   static const HipccVecaddKernelRule kHipccVecaddKernelRule;
   static const Hipcc3DVecaddAddsRule kHipcc3DVecaddAddsRule;
+  static const HipccSharedReverseRule kHipccSharedReverseRule;
   static const VectorMoveRule kVectorMoveRule;
   static const FloatAddRule kFloatAddRule;
   static const IntAddRule kIntAddRule;
@@ -379,6 +433,7 @@ const std::vector<const IGcnLoweringRule*>& Rules() {
   static const PassthroughRule kPassthroughRule;
   static const std::vector<const IGcnLoweringRule*> kRules = {
       &kHipccVecaddKernelRule, &kHipcc3DVecaddAddsRule,
+      &kHipccSharedReverseRule,
       &kVectorMoveRule, &kFloatAddRule, &kIntAddRule, &kCompareRule,
       &kSaveExecRule, &kGlobalLoadRule, &kGlobalStoreRule, &kPassthroughRule};
   return kRules;

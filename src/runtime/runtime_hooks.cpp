@@ -12,6 +12,7 @@
 
 #include "gpu_model/arch/arch_registry.h"
 #include "gpu_model/isa/target_isa.h"
+#include "gpu_model/runtime/program_execution.h"
 
 namespace gpu_model {
 
@@ -89,37 +90,6 @@ ModuleLoadFormat DetectModuleLoadFormat(const std::filesystem::path& path) {
   }
 
   throw std::runtime_error("unable to detect module format: " + path.string());
-}
-
-ProgramImage LoadLoweredProgramImageFromAmdgpuObject(const std::filesystem::path& path,
-                                                     std::optional<std::string> kernel_name) {
-  auto image = AmdgpuObjLoader{}.LoadFromObject(path, std::move(kernel_name));
-  MetadataBlob metadata = image.metadata();
-  SetTargetIsa(metadata, TargetIsa::GcnAsm);
-  return ProgramImage(
-      image.kernel_name(),
-      image.assembly_text(),
-      std::move(metadata),
-      image.const_segment(),
-      image.raw_data_segment());
-}
-
-std::optional<std::filesystem::path> ArtifactPathForProgramImage(const ProgramImage& image) {
-  const auto artifact_path = MetadataValue(image.metadata(), "artifact_path");
-  if (!artifact_path.has_value()) {
-    return std::nullopt;
-  }
-  return std::filesystem::path(*artifact_path);
-}
-
-ProgramImage ForceLoweredProgramImage(const ProgramImage& image) {
-  MetadataBlob metadata = image.metadata();
-  SetTargetIsa(metadata, TargetIsa::GcnAsm);
-  return ProgramImage(image.kernel_name(),
-                      image.assembly_text(),
-                      std::move(metadata),
-                      image.const_segment(),
-                      image.raw_data_segment());
 }
 
 }  // namespace
@@ -267,7 +237,7 @@ LaunchResult RuntimeHooks::LaunchKernel(const KernelProgram& kernel,
   LaunchRequest request;
   request.arch_name = arch_name;
   request.kernel = &kernel;
-  request.program_execution_path = ProgramExecutionPath::Auto;
+  request.program_execution_route = ProgramExecutionRoute::AutoSelect;
   request.config = config;
   request.args = std::move(args);
   request.mode = mode;
@@ -281,33 +251,22 @@ LaunchResult RuntimeHooks::LaunchProgramImage(const ProgramImage& image,
                                               ExecutionMode mode,
                                               std::string arch_name,
                                               TraceSink* trace,
-                                              ProgramExecutionPath path_kind) {
-  std::optional<ProgramImage> lowered_image;
-  std::optional<AmdgpuCodeObjectImage> raw_code_object;
-  const ProgramImage* execution_image = &image;
+                                              ProgramExecutionRoute route) {
+  const auto prepared = PrepareProgramExecution(image, route);
 
-  if (path_kind == ProgramExecutionPath::LoweredProgramImage &&
-      ResolveTargetIsa(image.metadata()) == TargetIsa::GcnRawAsm) {
-    lowered_image = ForceLoweredProgramImage(image);
-    execution_image = &*lowered_image;
-  }
-
-  if (path_kind == ProgramExecutionPath::RawCodeObject) {
-    const auto artifact_path = ArtifactPathForProgramImage(image);
-    if (!artifact_path.has_value()) {
-      throw std::invalid_argument("raw code object execution requires artifact_path metadata");
-    }
-    raw_code_object = AmdgpuCodeObjectDecoder{}.Decode(*artifact_path, image.kernel_name());
-    last_load_result_ = LoadAmdgpuObjectToDevice(*artifact_path, image.kernel_name());
+  if (prepared.resolved_route == ProgramExecutionRoute::EncodedRaw) {
+    const auto artifact_path =
+        std::filesystem::path(prepared.raw_code_object->metadata.values.at("artifact_path"));
+    last_load_result_ = LoadAmdgpuObjectToDevice(artifact_path, image.kernel_name());
   } else {
-    last_load_result_ = LoadProgramImageToDevice(image);
+    last_load_result_ = LoadProgramImageToDevice(*prepared.execution_image);
   }
 
   LaunchRequest request;
   request.arch_name = std::move(arch_name);
-  request.program_image = execution_image;
-  request.raw_code_object = raw_code_object.has_value() ? &*raw_code_object : nullptr;
-  request.program_execution_path = path_kind;
+  request.program_image = prepared.execution_image;
+  request.raw_code_object = prepared.raw_code_object;
+  request.program_execution_route = prepared.resolved_route;
   request.device_load = last_load_result_.has_value() ? &*last_load_result_ : nullptr;
   request.config = config;
   request.args = std::move(args);
@@ -481,7 +440,7 @@ LaunchResult RuntimeHooks::LaunchRegisteredKernel(const std::string& module_name
                                                   ExecutionMode mode,
                                                   std::string arch_name,
                                                   TraceSink* trace,
-                                                  ProgramExecutionPath path_kind) {
+                                                  ProgramExecutionRoute route) {
   const auto module_it = modules_.find(module_name);
   if (module_it == modules_.end()) {
     LaunchResult result;
@@ -497,7 +456,7 @@ LaunchResult RuntimeHooks::LaunchRegisteredKernel(const std::string& module_name
     return result;
   }
   return LaunchProgramImage(kernel_it->second, std::move(config), std::move(args), mode,
-                            std::move(arch_name), trace, path_kind);
+                            std::move(arch_name), trace, route);
 }
 
 LaunchResult RuntimeHooks::LaunchAmdgpuObject(const std::filesystem::path& path,
@@ -507,11 +466,11 @@ LaunchResult RuntimeHooks::LaunchAmdgpuObject(const std::filesystem::path& path,
                                               std::string arch_name,
                                               TraceSink* trace,
                                               std::optional<std::string> kernel_name,
-                                              ProgramExecutionPath path_kind) {
-  if (path_kind == ProgramExecutionPath::LoweredProgramImage) {
-    const auto image = LoadLoweredProgramImageFromAmdgpuObject(path, std::move(kernel_name));
+                                              ProgramExecutionRoute route) {
+  if (route == ProgramExecutionRoute::LoweredModeled) {
+    const auto image = AmdgpuObjLoader{}.LoadFromObject(path, std::move(kernel_name));
     return LaunchProgramImage(image, std::move(config), std::move(args), mode,
-                              std::move(arch_name), trace, ProgramExecutionPath::LoweredProgramImage);
+                              std::move(arch_name), trace, ProgramExecutionRoute::LoweredModeled);
   }
 
   const auto raw_code_object = AmdgpuCodeObjectDecoder{}.Decode(path, kernel_name);
@@ -519,6 +478,7 @@ LaunchResult RuntimeHooks::LaunchAmdgpuObject(const std::filesystem::path& path,
   LaunchRequest request;
   request.arch_name = std::move(arch_name);
   request.raw_code_object = &raw_code_object;
+  request.program_execution_route = ProgramExecutionRoute::EncodedRaw;
   request.device_load = last_load_result_.has_value() ? &*last_load_result_ : nullptr;
   request.config = config;
   request.args = std::move(args);

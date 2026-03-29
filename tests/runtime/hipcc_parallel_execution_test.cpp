@@ -117,7 +117,7 @@ TEST(HipccParallelExecutionTest, ThreeDimensionalVecaddAddsMatchesBetweenStAndMt
         "c500",
         nullptr,
         "vecadd_3d_adds",
-        ProgramExecutionPath::LoweredProgramImage);
+        ProgramExecutionRoute::LoweredModeled);
     const auto end = std::chrono::steady_clock::now();
     EXPECT_TRUE(launch.ok) << launch.error_message;
 

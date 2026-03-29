@@ -18,6 +18,7 @@
 #include "gpu_model/loader/amdgpu_code_object_decoder.h"
 #include "gpu_model/loader/device_image_loader.h"
 #include "gpu_model/loader/program_lowering.h"
+#include "gpu_model/runtime/program_execution.h"
 
 namespace gpu_model {
 
@@ -144,40 +145,22 @@ LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
 
   KernelProgram parsed_kernel;
   const KernelProgram* kernel = request.kernel;
-  std::optional<AmdgpuCodeObjectImage> raw_code_object_storage;
+  std::optional<PreparedProgramExecution> prepared_program_execution;
   const AmdgpuCodeObjectImage* raw_code_object = request.raw_code_object;
   bool use_raw_gcn_executor = raw_code_object != nullptr;
   if (raw_code_object == nullptr && kernel == nullptr && request.program_image != nullptr) {
-    const auto explicit_path = request.program_execution_path;
-    if (explicit_path == ProgramExecutionPath::RawCodeObject) {
-      const auto path_it = request.program_image->metadata().values.find("artifact_path");
-      if (path_it == request.program_image->metadata().values.end()) {
-        result.error_message = "raw GCN program image missing artifact_path metadata";
-        return result;
-      }
-      raw_code_object_storage.emplace(
-          AmdgpuCodeObjectDecoder{}.Decode(path_it->second, request.program_image->kernel_name()));
-      raw_code_object = &*raw_code_object_storage;
-      use_raw_gcn_executor = true;
-    } else if (explicit_path == ProgramExecutionPath::LoweredProgramImage) {
-      parsed_kernel = ProgramLoweringRegistry::Lower(*request.program_image);
+    try {
+      prepared_program_execution.emplace(
+          PrepareProgramExecution(*request.program_image, request.program_execution_route));
+    } catch (const std::exception& ex) {
+      result.error_message = ex.what();
+      return result;
+    }
+    raw_code_object = prepared_program_execution->raw_code_object;
+    use_raw_gcn_executor = raw_code_object != nullptr;
+    if (!use_raw_gcn_executor) {
+      parsed_kernel = ProgramLoweringRegistry::Lower(*prepared_program_execution->execution_image);
       kernel = &parsed_kernel;
-    } else {
-      const auto target_isa = ResolveTargetIsa(request.program_image->metadata());
-      if (target_isa == TargetIsa::GcnRawAsm) {
-        const auto path_it = request.program_image->metadata().values.find("artifact_path");
-        if (path_it == request.program_image->metadata().values.end()) {
-          result.error_message = "raw GCN program image missing artifact_path metadata";
-          return result;
-        }
-        raw_code_object_storage.emplace(
-            AmdgpuCodeObjectDecoder{}.Decode(path_it->second, request.program_image->kernel_name()));
-        raw_code_object = &*raw_code_object_storage;
-        use_raw_gcn_executor = true;
-      } else {
-        parsed_kernel = ProgramLoweringRegistry::Lower(*request.program_image);
-        kernel = &parsed_kernel;
-      }
     }
   }
   if (kernel == nullptr && !use_raw_gcn_executor) {
