@@ -21,6 +21,8 @@ struct AmdgpuKernelDescriptor {
   uint32_t compute_pgm_rsrc1 = 0;
   uint32_t compute_pgm_rsrc2 = 0;
   uint32_t setup_word = 0;
+  uint16_t accum_offset = 0;
+  uint16_t agpr_count = 0;
 
   bool enable_private_segment = false;
   uint8_t user_sgpr_count = 0;

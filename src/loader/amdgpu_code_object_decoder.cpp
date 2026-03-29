@@ -178,6 +178,7 @@ struct NoteKernelMetadata {
   uint32_t private_segment_fixed_size = 0;
   uint32_t sgpr_count = 0;
   uint32_t vgpr_count = 0;
+  uint32_t agpr_count = 0;
   uint32_t wavefront_size = 0;
   bool uniform_work_group_size = false;
   std::string symbol;
@@ -388,6 +389,11 @@ std::vector<NoteKernelMetadata> ParseKernelMetadataNotes(const std::string& note
           static_cast<uint32_t>(std::stoul(Trim(std::string_view(trimmed).substr(12))));
       continue;
     }
+    if (trimmed.rfind(".agpr_count:", 0) == 0) {
+      current->agpr_count =
+          static_cast<uint32_t>(std::stoul(Trim(std::string_view(trimmed).substr(12))));
+      continue;
+    }
     if (trimmed.rfind(".wavefront_size:", 0) == 0) {
       current->wavefront_size =
           static_cast<uint32_t>(std::stoul(Trim(std::string_view(trimmed).substr(16))));
@@ -435,6 +441,7 @@ MetadataBlob BuildMetadataFromNotes(const std::filesystem::path& note_source_pat
         std::to_string(kernel.private_segment_fixed_size);
     metadata.values["sgpr_count"] = std::to_string(kernel.sgpr_count);
     metadata.values["vgpr_count"] = std::to_string(kernel.vgpr_count);
+    metadata.values["agpr_count"] = std::to_string(kernel.agpr_count);
     metadata.values["wavefront_size"] = std::to_string(kernel.wavefront_size);
     metadata.values["uniform_work_group_size"] =
         kernel.uniform_work_group_size ? "1" : "0";
@@ -479,6 +486,8 @@ AmdgpuKernelDescriptor ParseKernelDescriptor(std::span<const std::byte> bytes) {
   descriptor.compute_pgm_rsrc1 = LoadU32(bytes, 48);
   descriptor.compute_pgm_rsrc2 = LoadU32(bytes, 52);
   descriptor.setup_word = LoadU32(bytes, 56);
+  descriptor.accum_offset =
+      static_cast<uint16_t>(4u * (1u + (descriptor.compute_pgm_rsrc3 & 0x3fu)));
 
   descriptor.enable_private_segment = (descriptor.compute_pgm_rsrc2 & 0x1u) != 0;
   descriptor.user_sgpr_count = static_cast<uint8_t>((descriptor.compute_pgm_rsrc2 >> 1u) & 0x1fu);
@@ -552,6 +561,11 @@ AmdgpuCodeObjectImage AmdgpuCodeObjectDecoder::Decode(const std::filesystem::pat
         static_cast<size_t>(descriptor_symbol.size),
     };
     code_object.kernel_descriptor = ParseKernelDescriptor(descriptor_bytes);
+    const auto agpr_count_it = code_object.metadata.values.find("agpr_count");
+    if (agpr_count_it != code_object.metadata.values.end()) {
+      code_object.kernel_descriptor.agpr_count =
+          static_cast<uint16_t>(std::stoul(agpr_count_it->second));
+    }
   }
 
   const auto text_dump_path = temp_dir.path() / "text.bin";

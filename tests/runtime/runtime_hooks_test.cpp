@@ -1327,6 +1327,7 @@ TEST(RuntimeHooksTest, LaunchesHipMfmaExecutableInRawGcnPath) {
   }
 
   RuntimeHooks hooks;
+  CollectingTraceSink trace;
   const uint64_t out_addr = hooks.Malloc(sizeof(float));
   float init = 0.0f;
   float output = 0.0f;
@@ -1337,10 +1338,24 @@ TEST(RuntimeHooksTest, LaunchesHipMfmaExecutableInRawGcnPath) {
 
   const auto result = hooks.LaunchAmdgpuObject(
       exe_path, LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64}, std::move(args),
-      ExecutionMode::Functional, "c500", nullptr, "mfma_probe");
+      ExecutionMode::Functional, "c500", &trace, "mfma_probe");
   ASSERT_TRUE(result.ok) << result.error_message;
   hooks.MemcpyDtoH<float>(out_addr, std::span<float>(&output, 1));
   EXPECT_NEAR(output, 4.0f, 1.0e-5f);
+
+  bool saw_tensor_launch = false;
+  for (const auto& event : trace.events()) {
+    if (event.kind != TraceEventKind::Launch) {
+      continue;
+    }
+    if (event.message.find("raw_kernel=mfma_probe") == std::string::npos) {
+      continue;
+    }
+    saw_tensor_launch = true;
+    EXPECT_NE(event.message.find("agpr_count=4"), std::string::npos);
+    EXPECT_NE(event.message.find("accum_offset=16"), std::string::npos);
+  }
+  EXPECT_TRUE(saw_tensor_launch);
 
   std::filesystem::remove_all(temp_dir);
 }

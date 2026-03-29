@@ -173,10 +173,16 @@ LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
   LaunchResult result;
   result.ok = false;
   result.placement = Mapper::Place(spec, config);
+  std::ostringstream launch_message;
+  launch_message << "raw_kernel=" << image.kernel_name << " arch=" << spec.name;
+  if (image.kernel_descriptor.agpr_count != 0 || image.kernel_descriptor.accum_offset != 0) {
+    launch_message << " agpr_count=" << image.kernel_descriptor.agpr_count
+                   << " accum_offset=" << image.kernel_descriptor.accum_offset;
+  }
   trace.OnEvent(TraceEvent{
       .kind = TraceEventKind::Launch,
       .cycle = 0,
-      .message = "raw_kernel=" + image.kernel_name + " arch=" + spec.name,
+      .message = launch_message.str(),
   });
 
   std::unordered_map<uint64_t, size_t> pc_to_index;

@@ -366,6 +366,9 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipMfmaExecutableWithoutUnknownInstruct
       image.instructions.begin(), image.instructions.end(),
       [](const RawGcnInstruction& inst) { return inst.mnemonic == "unknown"; });
   EXPECT_EQ(unknown_count, 0);
+  EXPECT_EQ(image.metadata.values.at("agpr_count"), "4");
+  EXPECT_EQ(image.kernel_descriptor.agpr_count, 4u);
+  EXPECT_EQ(image.kernel_descriptor.accum_offset, 16u);
   const auto mfma_it = std::find_if(
       image.instructions.begin(), image.instructions.end(),
       [](const RawGcnInstruction& inst) {
@@ -414,6 +417,9 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipMfmaFp16ExecutableWithoutUnknownInst
       image.instructions.begin(), image.instructions.end(),
       [](const RawGcnInstruction& inst) { return inst.mnemonic == "unknown"; });
   EXPECT_EQ(unknown_count, 0);
+  EXPECT_EQ(image.metadata.values.at("agpr_count"), "16");
+  EXPECT_EQ(image.kernel_descriptor.agpr_count, 16u);
+  EXPECT_EQ(image.kernel_descriptor.accum_offset, 16u);
   const auto mfma_it = std::find_if(
       image.instructions.begin(), image.instructions.end(),
       [](const RawGcnInstruction& inst) {
@@ -458,6 +464,9 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipMfmaI8ExecutableWithoutUnknownInstru
       image.instructions.begin(), image.instructions.end(),
       [](const RawGcnInstruction& inst) { return inst.mnemonic == "unknown"; });
   EXPECT_EQ(unknown_count, 0);
+  EXPECT_EQ(image.metadata.values.at("agpr_count"), "16");
+  EXPECT_EQ(image.kernel_descriptor.agpr_count, 16u);
+  EXPECT_EQ(image.kernel_descriptor.accum_offset, 16u);
   const auto mfma_it = std::find_if(
       image.instructions.begin(), image.instructions.end(),
       [](const RawGcnInstruction& inst) {
@@ -505,6 +514,9 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipMfmaBf16ExecutableWithoutUnknownInst
       image.instructions.begin(), image.instructions.end(),
       [](const RawGcnInstruction& inst) { return inst.mnemonic == "unknown"; });
   EXPECT_EQ(unknown_count, 0);
+  EXPECT_EQ(image.metadata.values.at("agpr_count"), "16");
+  EXPECT_EQ(image.kernel_descriptor.agpr_count, 16u);
+  EXPECT_EQ(image.kernel_descriptor.accum_offset, 16u);
   const auto mfma_it = std::find_if(
       image.instructions.begin(), image.instructions.end(),
       [](const RawGcnInstruction& inst) {
