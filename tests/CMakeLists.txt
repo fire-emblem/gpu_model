@@ -6,11 +6,16 @@ add_executable(gpu_model_tests
   decode/gcn_inst_decoder_test.cpp
   decode/gcn_inst_formatter_test.cpp
   decode/gcn_inst_format_test.cpp
-  exec/execution_memory_ops_test.cpp
-  exec/execution_state_builder_test.cpp
-  exec/execution_sync_ops_test.cpp
+
+  # execution/*
+  execution/execution_naming_test.cpp
+  execution/memory_ops_test.cpp
+  execution/wave_context_builder_test.cpp
+  execution/sync_ops_test.cpp
+  execution/plan_apply_test.cpp
+
+  # exec/* (legacy-compatible internals)
   exec/tensor_op_utils_test.cpp
-  exec/op_plan_apply_test.cpp
   exec/issue_model_test.cpp
   exec/issue_eligibility_test.cpp
   exec/issue_scheduler_test.cpp
@@ -63,19 +68,24 @@ add_executable(gpu_model_tests
   cycle/three_dimensional_cycle_test.cpp
   cycle/two_dimensional_cycle_test.cpp
   cycle/transpose_shared_cycle_test.cpp
+  # loader/*
   loader/asm_parser_test.cpp
-  loader/amdgpu_code_object_decoder_test.cpp
   loader/asm_module_integration_test.cpp
   loader/amdgpu_obj_loader_test.cpp
   loader/device_image_loader_test.cpp
   loader/device_segment_image_test.cpp
   loader/gcn_text_parser_test.cpp
   loader/program_lowering_test.cpp
+  loader/amdgpu_code_object_decoder_test.cpp
   loader/executable_image_io_test.cpp
   loader/program_bundle_io_test.cpp
   loader/program_image_launch_test.cpp
-  loader/program_file_loader_test.cpp
+
+  # program/*
+  program/program_source_reader_test.cpp
   program/program_object_types_test.cpp
+
+  # runtime/*
   runtime/kernel_metadata_test.cpp
   runtime/kernarg_packer_test.cpp
   runtime/hipcc_parallel_execution_test.cpp
@@ -92,7 +102,6 @@ add_executable(gpu_model_tests
   runtime/runtime_hooks_test.cpp
   runtime/execution_stats_test.cpp
   instruction/instruction_naming_test.cpp
-  execution/execution_naming_test.cpp
 )
 
 target_link_libraries(gpu_model_tests
