@@ -14,6 +14,7 @@
 
 #include "gpu_model/decode/gcn_inst_encoding_def.h"
 #include "gpu_model/decode/gcn_inst_db_lookup.h"
+#include "gpu_model/exec/execution_sync_ops.h"
 
 namespace gpu_model {
 
@@ -1195,10 +1196,10 @@ class SpecialHandler final : public IRawGcnSemanticHandler {
     switch (instruction.encoding_id) {
       case 29: {  // s_barrier
       ++context.stats.barriers;
-      context.wave.status = WaveStatus::Stalled;
-      context.wave.waiting_at_barrier = true;
-      context.wave.barrier_generation = context.block.barrier_generation;
-      ++context.block.barrier_arrivals;
+      execution_sync_ops::MarkWaveAtBarrier(context.wave,
+                                            context.block.barrier_generation,
+                                            context.block.barrier_arrivals,
+                                            false);
       return;
       }
       case 68:  // s_nop

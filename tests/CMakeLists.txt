@@ -6,6 +6,10 @@ add_executable(gpu_model_tests
   decode/gcn_inst_decoder_test.cpp
   decode/gcn_inst_formatter_test.cpp
   decode/gcn_inst_format_test.cpp
+  exec/execution_memory_ops_test.cpp
+  exec/execution_state_builder_test.cpp
+  exec/execution_sync_ops_test.cpp
+  exec/op_plan_apply_test.cpp
   exec/issue_model_test.cpp
   exec/issue_eligibility_test.cpp
   exec/issue_scheduler_test.cpp

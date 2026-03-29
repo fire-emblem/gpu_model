@@ -20,6 +20,10 @@
 #include "gpu_model/debug/instruction_trace.h"
 #include "gpu_model/debug/trace_event.h"
 #include "gpu_model/debug/wave_launch_trace.h"
+#include "gpu_model/exec/execution_memory_ops.h"
+#include "gpu_model/exec/execution_state_builder.h"
+#include "gpu_model/exec/execution_sync_ops.h"
+#include "gpu_model/exec/op_plan_apply.h"
 #include "gpu_model/isa/opcode.h"
 #include "gpu_model/loader/device_image_loader.h"
 
@@ -44,77 +48,40 @@ struct ExecutableBlock {
 };
 
 uint64_t LoadLaneValue(const std::vector<std::byte>& memory, const LaneAccess& lane) {
-  const size_t end = static_cast<size_t>(lane.addr) + lane.bytes;
-  if (end > memory.size()) {
-    throw std::out_of_range("byte-addressable memory load out of range");
-  }
-  switch (lane.bytes) {
-    case 4: {
-      int32_t value = 0;
-      std::memcpy(&value, memory.data() + lane.addr, sizeof(value));
-      return static_cast<uint64_t>(static_cast<int64_t>(value));
-    }
-    case 8: {
-      uint64_t value = 0;
-      std::memcpy(&value, memory.data() + lane.addr, sizeof(value));
-      return value;
-    }
-    default:
-      throw std::invalid_argument("unsupported load width");
-  }
+  return execution_memory_ops::LoadByteLaneValue(memory, lane);
 }
 
 void StoreLaneValue(std::vector<std::byte>& memory, const LaneAccess& lane) {
-  switch (lane.bytes) {
-    case 4: {
-      const int32_t value = static_cast<int32_t>(lane.value);
-      std::memcpy(memory.data() + lane.addr, &value, sizeof(value));
-      return;
-    }
-    case 8:
-      std::memcpy(memory.data() + lane.addr, &lane.value, sizeof(lane.value));
-      return;
-    default:
-      throw std::invalid_argument("unsupported store width");
-  }
+  execution_memory_ops::StoreByteLaneValue(memory, lane);
 }
 
 uint64_t LoadLaneValue(std::array<std::vector<std::byte>, kWaveSize>& memory,
                        uint32_t lane_id,
                        const LaneAccess& lane) {
-  auto& lane_memory = memory.at(lane_id);
-  const size_t end = static_cast<size_t>(lane.addr) + lane.bytes;
-  if (lane_memory.size() < end) {
-    lane_memory.resize(end, std::byte{0});
-  }
-  return LoadLaneValue(lane_memory, lane);
+  return execution_memory_ops::LoadPrivateLaneValue(memory, lane_id, lane, true);
 }
 
 void StoreLaneValue(std::array<std::vector<std::byte>, kWaveSize>& memory,
                     uint32_t lane_id,
                     const LaneAccess& lane) {
-  auto& lane_memory = memory.at(lane_id);
-  const size_t end = static_cast<size_t>(lane.addr) + lane.bytes;
-  if (lane_memory.size() < end) {
-    lane_memory.resize(end, std::byte{0});
-  }
-  StoreLaneValue(lane_memory, lane);
+  execution_memory_ops::StorePrivateLaneValue(memory, lane_id, lane);
 }
 
 std::vector<ExecutableBlock> MaterializeBlocks(const PlacementMap& placement,
                                                const LaunchConfig& launch_config) {
+  const auto shared_blocks = BuildExecutionBlockStates(placement, launch_config);
   std::vector<ExecutableBlock> blocks;
-  blocks.reserve(placement.blocks.size());
+  blocks.reserve(shared_blocks.size());
 
-  for (const auto& block_placement : placement.blocks) {
+  for (const auto& shared_block : shared_blocks) {
     ExecutableBlock block{
-        .block_id = block_placement.block_id,
-        .dpc_id = block_placement.dpc_id,
-        .ap_id = block_placement.ap_id,
-        .barrier_generation = 0,
-        .barrier_arrivals = 0,
-        .shared_memory = std::vector<std::byte>(launch_config.shared_memory_bytes),
-        .waves = {},
+        .block_id = shared_block.block_id,
+        .dpc_id = shared_block.dpc_id,
+        .ap_id = shared_block.ap_id,
+        .barrier_generation = shared_block.barrier_generation,
+        .barrier_arrivals = shared_block.barrier_arrivals,
+        .shared_memory = shared_block.shared_memory,
+        .waves = shared_block.waves,
         .wave_indices_per_peu = {},
         .next_wave_rr_per_peu = {},
         .wave_busy = {},
@@ -122,26 +89,14 @@ std::vector<ExecutableBlock> MaterializeBlocks(const PlacementMap& placement,
         .control_cv = std::make_unique<std::condition_variable>(),
         .shared_mutex = std::make_unique<std::mutex>(),
     };
-    block.waves.reserve(block_placement.waves.size());
-    for (const auto& wave_placement : block_placement.waves) {
-      WaveState wave;
-      wave.block_id = block_placement.block_id;
-      wave.block_idx_x = block_placement.block_idx_x;
-      wave.block_idx_y = block_placement.block_idx_y;
-      wave.block_idx_z = block_placement.block_idx_z;
-      wave.dpc_id = block_placement.dpc_id;
-      wave.wave_id = wave_placement.wave_id;
-      wave.peu_id = wave_placement.peu_id;
-      wave.ap_id = block_placement.ap_id;
-      wave.thread_count = wave_placement.lane_count;
-      wave.ResetInitialExec();
-      if (block.wave_indices_per_peu.size() <= wave_placement.peu_id) {
-        block.wave_indices_per_peu.resize(static_cast<size_t>(wave_placement.peu_id) + 1);
-        block.next_wave_rr_per_peu.resize(static_cast<size_t>(wave_placement.peu_id) + 1, 0);
+    for (size_t wave_index = 0; wave_index < block.waves.size(); ++wave_index) {
+      const auto peu_id = block.waves[wave_index].peu_id;
+      if (block.wave_indices_per_peu.size() <= peu_id) {
+        block.wave_indices_per_peu.resize(static_cast<size_t>(peu_id) + 1);
+        block.next_wave_rr_per_peu.resize(static_cast<size_t>(peu_id) + 1, 0);
       }
-      block.wave_indices_per_peu[wave_placement.peu_id].push_back(block.waves.size());
+      block.wave_indices_per_peu[peu_id].push_back(wave_index);
       block.wave_busy.push_back(false);
-      block.waves.push_back(wave);
     }
     blocks.push_back(std::move(block));
   }
@@ -150,16 +105,7 @@ std::vector<ExecutableBlock> MaterializeBlocks(const PlacementMap& placement,
 }
 
 uint64_t LoadLaneValue(const MemorySystem& memory, MemoryPoolKind pool, const LaneAccess& lane) {
-  switch (lane.bytes) {
-    case 4: {
-      const int32_t value = memory.LoadValue<int32_t>(pool, lane.addr);
-      return static_cast<uint64_t>(static_cast<int64_t>(value));
-    }
-    case 8:
-      return memory.LoadValue<uint64_t>(pool, lane.addr);
-    default:
-      throw std::invalid_argument("unsupported load width");
-  }
+  return execution_memory_ops::LoadPoolLaneValue(memory, pool, lane);
 }
 
 uint64_t ConstantPoolBase(const ExecutionContext& context) {
@@ -451,31 +397,10 @@ class FunctionalExecutionCoreImpl {
   }
 
   bool ReleaseBlockBarrierIfReady(ExecutableBlock& block) {
-      if (block.waves.empty()) {
+      if (!execution_sync_ops::ReleaseBarrierIfReady(
+              block.waves, block.barrier_generation, block.barrier_arrivals, 1, false)) {
         return false;
       }
-      uint32_t active_wave_count = 0;
-      uint32_t waiting_wave_count = 0;
-      for (const auto& wave : block.waves) {
-        if (wave.status == WaveStatus::Active || wave.status == WaveStatus::Stalled) {
-          ++active_wave_count;
-          if (wave.waiting_at_barrier) {
-            ++waiting_wave_count;
-          }
-        }
-      }
-      if (active_wave_count == 0 || waiting_wave_count != active_wave_count) {
-        return false;
-      }
-      for (auto& wave : block.waves) {
-        if (wave.waiting_at_barrier && wave.barrier_generation == block.barrier_generation) {
-          wave.waiting_at_barrier = false;
-          wave.status = WaveStatus::Active;
-          ++wave.pc;
-        }
-      }
-      block.barrier_arrivals = 0;
-      ++block.barrier_generation;
       TraceEventLocked(TraceEvent{
           .kind = TraceEventKind::Barrier,
           .cycle = context_.cycle,
@@ -528,33 +453,15 @@ class FunctionalExecutionCoreImpl {
     block_context.stats = nullptr;
     const OpPlan plan = semantics_.BuildPlan(instruction, wave, block_context);
 
-    for (const auto& write : plan.scalar_writes) {
-      wave.sgpr.Write(write.reg_index, write.value);
-    }
-    for (const auto& write : plan.vector_writes) {
-      for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
-        if (write.mask.test(lane)) {
-          wave.vgpr.Write(write.reg_index, lane, write.values[lane]);
-        }
-      }
-    }
-    if (plan.cmask_write.has_value()) {
-      wave.cmask = *plan.cmask_write;
-    }
-    if (plan.smask_write.has_value()) {
-      wave.smask = *plan.smask_write;
-    }
-    if (plan.exec_write.has_value()) {
-      wave.exec = *plan.exec_write;
-      std::ostringstream mask_text;
-      mask_text << wave.exec;
+    ApplyPlanRegisterWrites(plan, wave);
+    if (const auto mask_text = MaybeFormatExecMaskUpdate(plan, wave); mask_text.has_value()) {
       TraceEventLocked(TraceEvent{
           .kind = TraceEventKind::ExecMaskUpdate,
           .cycle = context_.cycle,
           .block_id = wave.block_id,
           .wave_id = wave.wave_id,
           .pc = wave.pc,
-          .message = mask_text.str(),
+          .message = *mask_text,
       });
     }
     if (plan.memory.has_value()) {
@@ -693,10 +600,8 @@ class FunctionalExecutionCoreImpl {
       ++stats.barriers;
       {
         std::lock_guard<std::mutex> lock(*block.control_mutex);
-        wave.status = WaveStatus::Stalled;
-        wave.waiting_at_barrier = true;
-        wave.barrier_generation = block.barrier_generation;
-        ++block.barrier_arrivals;
+        execution_sync_ops::MarkWaveAtBarrier(
+            wave, block.barrier_generation, block.barrier_arrivals, false);
       }
       TraceEventLocked(TraceEvent{
           .kind = TraceEventKind::Barrier,
@@ -714,7 +619,7 @@ class FunctionalExecutionCoreImpl {
       ++stats.wave_exits;
       {
         std::lock_guard<std::mutex> lock(*block.control_mutex);
-        wave.status = WaveStatus::Exited;
+        ApplyPlanControlFlow(plan, wave, false, false);
       }
       TraceEventLocked(TraceEvent{
           .kind = TraceEventKind::WaveExit,
@@ -724,10 +629,8 @@ class FunctionalExecutionCoreImpl {
           .pc = wave.pc,
           .message = "exit",
       });
-    } else if (plan.branch_target.has_value()) {
-      wave.pc = *plan.branch_target;
-    } else if (plan.advance_pc) {
-      ++wave.pc;
+    } else {
+      ApplyPlanControlFlow(plan, wave, false, false);
     }
   }
 

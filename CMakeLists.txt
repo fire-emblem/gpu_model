@@ -61,8 +61,12 @@ add_library(gpu_model STATIC
   src/exec/raw_gcn_instruction_object.cpp
   src/exec/raw_gcn_executor.cpp
   src/exec/raw_gcn_semantic_handlers.cpp
+  src/exec/execution_memory_ops.cpp
+  src/exec/execution_sync_ops.cpp
+  src/exec/op_plan_apply.cpp
   src/exec/semantic_handlers.cpp
   src/exec/semantics.cpp
+  src/exec/execution_state_builder.cpp
   src/exec/issue_model.cpp
   src/exec/issue_scheduler.cpp
   src/exec/issue_eligibility.cpp

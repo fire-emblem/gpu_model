@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "gpu_model/exec/raw_gcn_semantic_handler.h"
+#include "gpu_model/exec/execution_sync_ops.h"
 #include "gpu_model/debug/wave_launch_trace.h"
 #include "gpu_model/isa/kernel_metadata.h"
 #include "gpu_model/loader/device_image_loader.h"
@@ -237,31 +238,36 @@ LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
 
     while (true) {
       uint32_t active_wave_count = 0;
-      uint32_t waiting_wave_count = 0;
       for (const auto& raw_wave : raw_block.waves) {
         if (raw_wave.wave.status == WaveStatus::Active ||
             raw_wave.wave.status == WaveStatus::Stalled) {
           ++active_wave_count;
-          if (raw_wave.wave.waiting_at_barrier) {
-            ++waiting_wave_count;
-          }
         }
       }
       if (active_wave_count == 0) {
         break;
       }
 
-      if (waiting_wave_count == active_wave_count) {
-        for (auto& raw_wave : raw_block.waves) {
-          if (raw_wave.wave.waiting_at_barrier &&
-              raw_wave.wave.barrier_generation == raw_block.barrier_generation) {
-            raw_wave.wave.waiting_at_barrier = false;
-            raw_wave.wave.status = WaveStatus::Active;
-            raw_wave.wave.pc += 4;
-          }
+      std::vector<WaveState*> wave_ptrs;
+      wave_ptrs.reserve(raw_block.waves.size());
+      for (auto& raw_wave : raw_block.waves) {
+        wave_ptrs.push_back(&raw_wave.wave);
+      }
+      std::vector<WaveState> wave_copy;
+      wave_copy.reserve(wave_ptrs.size());
+      for (auto* wave : wave_ptrs) {
+        wave_copy.push_back(*wave);
+      }
+      if (execution_sync_ops::ReleaseBarrierIfReady(wave_copy,
+                                                    raw_block.barrier_generation,
+                                                    raw_block.barrier_arrivals,
+                                                    4,
+                                                    false)) {
+        for (size_t i = 0; i < wave_ptrs.size(); ++i) {
+          wave_ptrs[i]->waiting_at_barrier = wave_copy[i].waiting_at_barrier;
+          wave_ptrs[i]->status = wave_copy[i].status;
+          wave_ptrs[i]->pc = wave_copy[i].pc;
         }
-        raw_block.barrier_arrivals = 0;
-        ++raw_block.barrier_generation;
       }
 
       bool made_progress = false;
