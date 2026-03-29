@@ -33,6 +33,7 @@ add_executable(gpu_model_tests
   functional/local_bitwise_functional_test.cpp
   functional/builtin_scalarbit_functional_test.cpp
   functional/divrem_functional_test.cpp
+  functional/three_dimensional_functional_test.cpp
   functional/two_dimensional_functional_test.cpp
   functional/transpose_shared_functional_test.cpp
   cycle/cycle_smoke_test.cpp
@@ -51,6 +52,7 @@ add_executable(gpu_model_tests
   cycle/local_bitwise_cycle_test.cpp
   cycle/builtin_scalarbit_cycle_test.cpp
   cycle/divrem_cycle_test.cpp
+  cycle/three_dimensional_cycle_test.cpp
   cycle/two_dimensional_cycle_test.cpp
   cycle/transpose_shared_cycle_test.cpp
   loader/asm_parser_test.cpp
@@ -65,6 +67,7 @@ add_executable(gpu_model_tests
   loader/program_image_launch_test.cpp
   loader/program_file_loader_test.cpp
   runtime/kernel_metadata_test.cpp
+  runtime/kernarg_packer_test.cpp
   runtime/model_runtime_api_test.cpp
   runtime/debug_info_io_test.cpp
   runtime/cycle_timeline_test.cpp

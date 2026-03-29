@@ -202,12 +202,18 @@ KernelProgram AsmParser::Parse(const ProgramImage& image) const {
     } else if (opcode == "v_get_global_id_y") {
       RequireOperandCount(opcode, operands, 1);
       builder.SysGlobalIdY(operands[0]);
+    } else if (opcode == "v_get_global_id_z") {
+      RequireOperandCount(opcode, operands, 1);
+      builder.SysGlobalIdZ(operands[0]);
     } else if (opcode == "v_get_local_id_x") {
       RequireOperandCount(opcode, operands, 1);
       builder.SysLocalIdX(operands[0]);
     } else if (opcode == "v_get_local_id_y") {
       RequireOperandCount(opcode, operands, 1);
       builder.SysLocalIdY(operands[0]);
+    } else if (opcode == "v_get_local_id_z") {
+      RequireOperandCount(opcode, operands, 1);
+      builder.SysLocalIdZ(operands[0]);
     } else if (opcode == "s_get_block_offset_x") {
       RequireOperandCount(opcode, operands, 1);
       builder.SysBlockOffsetX(operands[0]);
@@ -217,18 +223,27 @@ KernelProgram AsmParser::Parse(const ProgramImage& image) const {
     } else if (opcode == "s_get_block_id_y") {
       RequireOperandCount(opcode, operands, 1);
       builder.SysBlockIdxY(operands[0]);
+    } else if (opcode == "s_get_block_id_z") {
+      RequireOperandCount(opcode, operands, 1);
+      builder.SysBlockIdxZ(operands[0]);
     } else if (opcode == "s_get_block_dim_x") {
       RequireOperandCount(opcode, operands, 1);
       builder.SysBlockDimX(operands[0]);
     } else if (opcode == "s_get_block_dim_y") {
       RequireOperandCount(opcode, operands, 1);
       builder.SysBlockDimY(operands[0]);
+    } else if (opcode == "s_get_block_dim_z") {
+      RequireOperandCount(opcode, operands, 1);
+      builder.SysBlockDimZ(operands[0]);
     } else if (opcode == "s_get_grid_dim_x") {
       RequireOperandCount(opcode, operands, 1);
       builder.SysGridDimX(operands[0]);
     } else if (opcode == "s_get_grid_dim_y") {
       RequireOperandCount(opcode, operands, 1);
       builder.SysGridDimY(operands[0]);
+    } else if (opcode == "s_get_grid_dim_z") {
+      RequireOperandCount(opcode, operands, 1);
+      builder.SysGridDimZ(operands[0]);
     } else if (opcode == "v_lane_id_u32") {
       RequireOperandCount(opcode, operands, 1);
       builder.SysLaneId(operands[0]);

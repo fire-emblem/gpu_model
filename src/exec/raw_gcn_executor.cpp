@@ -15,6 +15,7 @@
 #include "gpu_model/debug/wave_launch_trace.h"
 #include "gpu_model/isa/kernel_metadata.h"
 #include "gpu_model/loader/device_image_loader.h"
+#include "gpu_model/runtime/kernarg_packer.h"
 #include "gpu_model/runtime/mapper.h"
 #include "gpu_model/state/wave_state.h"
 
@@ -38,116 +39,8 @@ uint32_t LaneCount(const RawWave& raw_wave) {
   return raw_wave.wave.thread_count < kWaveSize ? raw_wave.wave.thread_count : kWaveSize;
 }
 
-uint32_t AlignUp(uint32_t value, uint32_t alignment) {
-  return ((value + alignment - 1) / alignment) * alignment;
-}
-
 bool DebugEnabled();
 void DebugLog(const char* fmt, ...);
-
-template <typename T>
-void WriteScalar(std::vector<std::byte>& bytes, uint32_t offset, T value) {
-  const uint32_t end = offset + static_cast<uint32_t>(sizeof(T));
-  if (bytes.size() < end) {
-    bytes.resize(end, std::byte{0});
-  }
-  std::memcpy(bytes.data() + offset, &value, sizeof(T));
-}
-
-uint64_t HiddenArgValue(const KernelHiddenArgLayoutEntry& entry, const LaunchConfig& config) {
-  switch (entry.kind) {
-    case KernelHiddenArgKind::BlockCountX:
-      return config.grid_dim_x;
-    case KernelHiddenArgKind::BlockCountY:
-      return config.grid_dim_y;
-    case KernelHiddenArgKind::BlockCountZ:
-      return 1;
-    case KernelHiddenArgKind::GroupSizeX:
-      return config.block_dim_x;
-    case KernelHiddenArgKind::GroupSizeY:
-      return config.block_dim_y;
-    case KernelHiddenArgKind::GroupSizeZ:
-      return 1;
-    case KernelHiddenArgKind::RemainderX:
-      return config.block_dim_x;
-    case KernelHiddenArgKind::RemainderY:
-      return config.block_dim_y;
-    case KernelHiddenArgKind::RemainderZ:
-      return 1;
-    case KernelHiddenArgKind::GlobalOffsetX:
-    case KernelHiddenArgKind::GlobalOffsetY:
-    case KernelHiddenArgKind::GlobalOffsetZ:
-      return 0;
-    case KernelHiddenArgKind::GridDims:
-      return config.grid_dim_y > 1 || config.block_dim_y > 1 ? 2 : 1;
-    case KernelHiddenArgKind::DynamicLdsSize:
-      return config.shared_memory_bytes;
-    case KernelHiddenArgKind::PrivateBase:
-    case KernelHiddenArgKind::SharedBase:
-    case KernelHiddenArgKind::QueuePtr:
-    case KernelHiddenArgKind::None:
-    case KernelHiddenArgKind::Unknown:
-      return 0;
-  }
-  return 0;
-}
-
-std::vector<std::byte> BuildKernargBytes(const MetadataBlob& metadata,
-                                         const KernelArgPack& args,
-                                         const LaunchConfig& config) {
-  const auto parsed = ParseKernelLaunchMetadata(metadata);
-  const uint32_t descriptor_kernarg_size = parsed.kernarg_segment_size.value_or(0);
-  std::vector<std::byte> bytes(
-      descriptor_kernarg_size != 0 ? descriptor_kernarg_size : 128u, std::byte{0});
-  uint32_t arg_offset = 0;
-  for (size_t i = 0; i < args.values().size(); ++i) {
-    const uint64_t value = args.values()[i];
-    const uint32_t size = i < parsed.arg_layout.size()
-                              ? parsed.arg_layout[i].size
-                              : (i < 3 ? 8u : 4u);
-    if (size == 8u) {
-      std::memcpy(bytes.data() + arg_offset, &value, sizeof(uint64_t));
-    } else if (size == 4u) {
-      const uint32_t narrowed = static_cast<uint32_t>(value);
-      std::memcpy(bytes.data() + arg_offset, &narrowed, sizeof(uint32_t));
-    } else {
-      throw std::invalid_argument("unsupported kernarg scalar size: " + std::to_string(size));
-    }
-    arg_offset += size;
-  }
-  if (!parsed.hidden_arg_layout.empty()) {
-    for (const auto& entry : parsed.hidden_arg_layout) {
-      const uint64_t value = HiddenArgValue(entry, config);
-      switch (entry.size) {
-        case 2:
-          WriteScalar(bytes, entry.offset, static_cast<uint16_t>(value));
-          break;
-        case 4:
-          WriteScalar(bytes, entry.offset, static_cast<uint32_t>(value));
-          break;
-        case 8:
-          WriteScalar(bytes, entry.offset, value);
-          break;
-        default:
-          throw std::invalid_argument("unsupported hidden kernarg scalar size: " +
-                                      std::to_string(entry.size));
-      }
-    }
-    return bytes;
-  }
-  if (descriptor_kernarg_size != 0) {
-    return bytes;
-  }
-
-  const uint32_t hidden_offset = AlignUp(arg_offset, 8u);
-  WriteScalar(bytes, hidden_offset + 0, static_cast<uint32_t>(config.grid_dim_x));
-  WriteScalar(bytes, hidden_offset + 4, static_cast<uint32_t>(config.grid_dim_y));
-  WriteScalar(bytes, hidden_offset + 8, static_cast<uint32_t>(1));
-  WriteScalar(bytes, hidden_offset + 12, static_cast<uint16_t>(config.block_dim_x));
-  WriteScalar(bytes, hidden_offset + 14, static_cast<uint16_t>(config.block_dim_y));
-  WriteScalar(bytes, hidden_offset + 16, static_cast<uint16_t>(1));
-  return bytes;
-}
 
 void WriteWaveSgprPair(WaveState& wave, uint32_t first, uint64_t value) {
   wave.sgpr.Write(first, static_cast<uint32_t>(value & 0xffffffffu));
@@ -176,9 +69,11 @@ void InitializeWaveAbiState(WaveState& wave,
     for (uint32_t lane = 0; lane < wave.thread_count && lane < kWaveSize; ++lane) {
       const uint32_t linear_local_id = wave.wave_id * kWaveSize + lane;
       const uint32_t local_x = linear_local_id % config.block_dim_x;
-      const uint32_t local_y = linear_local_id / config.block_dim_x;
+      const uint32_t local_y = (linear_local_id / config.block_dim_x) % config.block_dim_y;
+      const uint32_t local_z = linear_local_id / (config.block_dim_x * config.block_dim_y);
       wave.vgpr.Write(0, lane, local_x);
       wave.vgpr.Write(1, lane, local_y);
+      wave.vgpr.Write(2, lane, local_z);
     }
     return;
   }
@@ -225,7 +120,7 @@ void InitializeWaveAbiState(WaveState& wave,
     wave.sgpr.Write(sgpr_cursor++, wave.block_idx_y);
   }
   if (descriptor.enable_sgpr_workgroup_id_z) {
-    wave.sgpr.Write(sgpr_cursor++, 0);
+    wave.sgpr.Write(sgpr_cursor++, wave.block_idx_z);
   }
   if (descriptor.enable_sgpr_workgroup_info) {
     wave.sgpr.Write(sgpr_cursor++, PackWorkgroupInfo(wave.wave_id == 0, wave_count_in_block));
@@ -237,13 +132,14 @@ void InitializeWaveAbiState(WaveState& wave,
   for (uint32_t lane = 0; lane < wave.thread_count && lane < kWaveSize; ++lane) {
     const uint32_t linear_local_id = wave.wave_id * kWaveSize + lane;
     const uint32_t local_x = linear_local_id % config.block_dim_x;
-    const uint32_t local_y = linear_local_id / config.block_dim_x;
+    const uint32_t local_y = (linear_local_id / config.block_dim_x) % config.block_dim_y;
+    const uint32_t local_z = linear_local_id / (config.block_dim_x * config.block_dim_y);
     wave.vgpr.Write(0, lane, local_x);
     if (descriptor.enable_vgpr_workitem_id >= 1) {
       wave.vgpr.Write(1, lane, local_y);
     }
     if (descriptor.enable_vgpr_workitem_id >= 2) {
-      wave.vgpr.Write(2, lane, 0);
+      wave.vgpr.Write(2, lane, local_z);
     }
   }
 }
@@ -286,7 +182,7 @@ LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
   for (size_t i = 0; i < image.instructions.size(); ++i) {
     pc_to_index[image.instructions[i].pc] = i;
   }
-  const auto kernarg = BuildKernargBytes(image.metadata, args, config);
+  const auto kernarg = BuildKernargImage(ParseKernelLaunchMetadata(image.metadata), args, config);
   uint64_t kernarg_base = memory.Allocate(MemoryPoolKind::Kernarg, kernarg.size());
   if (device_load != nullptr) {
     for (const auto& loaded : device_load->segments) {
@@ -315,6 +211,7 @@ LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
       raw_wave.wave.block_id = block.block_id;
       raw_wave.wave.block_idx_x = block.block_idx_x;
       raw_wave.wave.block_idx_y = block.block_idx_y;
+      raw_wave.wave.block_idx_z = block.block_idx_z;
       raw_wave.wave.dpc_id = block.dpc_id;
       raw_wave.wave.wave_id = wave_placement.wave_id;
       raw_wave.wave.peu_id = wave_placement.peu_id;

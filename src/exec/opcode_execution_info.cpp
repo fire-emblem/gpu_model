@@ -60,15 +60,20 @@ const OpcodeExecutionInfo& GetOpcodeExecutionInfo(Opcode opcode) {
     case Opcode::SysBlockOffsetX:
     case Opcode::SysBlockIdxX:
     case Opcode::SysBlockIdxY:
+    case Opcode::SysBlockIdxZ:
     case Opcode::SysBlockDimX:
     case Opcode::SysBlockDimY:
+    case Opcode::SysBlockDimZ:
     case Opcode::SysGridDimX:
     case Opcode::SysGridDimY:
+    case Opcode::SysGridDimZ:
       return kBuiltin;
     case Opcode::SysGlobalIdX:
     case Opcode::SysGlobalIdY:
+    case Opcode::SysGlobalIdZ:
     case Opcode::SysLocalIdX:
     case Opcode::SysLocalIdY:
+    case Opcode::SysLocalIdZ:
     case Opcode::SysLaneId:
       return kBuiltin;
     case Opcode::SMov:

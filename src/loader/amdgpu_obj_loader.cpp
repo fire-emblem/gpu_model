@@ -13,6 +13,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "gpu_model/isa/kernel_metadata.h"
 #include "gpu_model/isa/target_isa.h"
 #include "gpu_model/loader/amdgpu_binary_decoder.h"
 
@@ -157,24 +158,26 @@ std::string ExtractInstruction(const std::string& line) {
   return text;
 }
 
-struct KernelArgLayoutEntry {
-  std::string value_kind;
+struct NoteKernelArgLayoutEntry {
+  KernelArgValueKind arg_kind = KernelArgValueKind::Unknown;
+  KernelHiddenArgKind hidden_kind = KernelHiddenArgKind::Unknown;
+  std::string kind_name;
   uint32_t size = 0;
 };
 
 struct NoteKernelMetadata {
   std::string name;
-  std::vector<KernelArgLayoutEntry> args;
+  std::vector<NoteKernelArgLayoutEntry> args;
 };
 
 std::vector<NoteKernelMetadata> ParseKernelMetadataNotes(const std::string& notes) {
   std::vector<NoteKernelMetadata> kernels;
   std::optional<NoteKernelMetadata> current;
-  std::optional<KernelArgLayoutEntry> current_arg;
+  std::optional<NoteKernelArgLayoutEntry> current_arg;
 
   const auto finalize_arg = [&]() {
-    if (current.has_value() && current_arg.has_value() && !current_arg->value_kind.empty() &&
-        current_arg->size != 0 && current_arg->value_kind.rfind("hidden_", 0) != 0) {
+    if (current.has_value() && current_arg.has_value() && !current_arg->kind_name.empty() &&
+        current_arg->size != 0 && current_arg->hidden_kind == KernelHiddenArgKind::Unknown) {
       current->args.push_back(*current_arg);
     }
     current_arg.reset();
@@ -210,7 +213,7 @@ std::vector<NoteKernelMetadata> ParseKernelMetadataNotes(const std::string& note
     }
     if (trimmed.rfind("- .", 0) == 0) {
       finalize_arg();
-      current_arg = KernelArgLayoutEntry{};
+      current_arg = NoteKernelArgLayoutEntry{};
       const auto size_pos = trimmed.find(".size:");
       if (size_pos != std::string::npos) {
         current_arg->size = static_cast<uint32_t>(
@@ -218,8 +221,9 @@ std::vector<NoteKernelMetadata> ParseKernelMetadataNotes(const std::string& note
       }
       const auto kind_pos = trimmed.find(".value_kind:");
       if (kind_pos != std::string::npos) {
-        current_arg->value_kind =
-            Trim(std::string_view(trimmed).substr(kind_pos + 12));
+        current_arg->kind_name = Trim(std::string_view(trimmed).substr(kind_pos + 12));
+        current_arg->arg_kind = ParseKernelArgValueKind(current_arg->kind_name);
+        current_arg->hidden_kind = ParseKernelHiddenArgKind(current_arg->kind_name);
       }
       continue;
     }
@@ -229,7 +233,9 @@ std::vector<NoteKernelMetadata> ParseKernelMetadataNotes(const std::string& note
       continue;
     }
     if (trimmed.rfind(".value_kind:", 0) == 0 && current_arg.has_value()) {
-      current_arg->value_kind = Trim(std::string_view(trimmed).substr(12));
+      current_arg->kind_name = Trim(std::string_view(trimmed).substr(12));
+      current_arg->arg_kind = ParseKernelArgValueKind(current_arg->kind_name);
+      current_arg->hidden_kind = ParseKernelHiddenArgKind(current_arg->kind_name);
       continue;
     }
     if (trimmed.rfind(".name:", 0) == 0) {
@@ -255,7 +261,7 @@ void PopulateMetadataFromNotes(const std::filesystem::path& path,
       if (i != 0) {
         layout << ',';
       }
-      layout << kernel.args[i].value_kind << ':' << kernel.args[i].size;
+      layout << kernel.args[i].kind_name << ':' << kernel.args[i].size;
     }
     metadata.values["arg_layout"] = layout.str();
     metadata.values["arg_count"] = std::to_string(kernel.args.size());

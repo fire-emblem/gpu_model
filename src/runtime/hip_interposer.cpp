@@ -75,8 +75,10 @@ hipError_t __hipPushCallConfiguration(dim3 gridDim, dim3 blockDim, size_t shared
       LaunchConfig{
           .grid_dim_x = gridDim.x,
           .grid_dim_y = gridDim.y,
+          .grid_dim_z = gridDim.z,
           .block_dim_x = blockDim.x,
           .block_dim_y = blockDim.y,
+          .block_dim_z = blockDim.z,
       },
       sharedMemBytes);
   DebugLog("__hipPushCallConfiguration grid=(%u,%u,%u) block=(%u,%u,%u) shared=%zu", gridDim.x,
@@ -91,10 +93,10 @@ hipError_t __hipPopCallConfiguration(dim3* gridDim, dim3* blockDim, size_t* shar
     return hipErrorInvalidValue;
   }
   if (gridDim != nullptr) {
-    *gridDim = dim3(config->grid_dim_x, config->grid_dim_y, 1);
+    *gridDim = dim3(config->grid_dim_x, config->grid_dim_y, config->grid_dim_z);
   }
   if (blockDim != nullptr) {
-    *blockDim = dim3(config->block_dim_x, config->block_dim_y, 1);
+    *blockDim = dim3(config->block_dim_x, config->block_dim_y, config->block_dim_z);
   }
   if (sharedMemBytes != nullptr) {
     *sharedMemBytes = config->shared_memory_bytes;
@@ -478,8 +480,10 @@ hipError_t hipLaunchKernel(const void* function_address, dim3 numBlocks, dim3 di
   LaunchConfig config{
       .grid_dim_x = numBlocks.x,
       .grid_dim_y = numBlocks.y,
+      .grid_dim_z = numBlocks.z,
       .block_dim_x = dimBlocks.x,
       .block_dim_y = dimBlocks.y,
+      .block_dim_z = dimBlocks.z,
       .shared_memory_bytes = static_cast<uint32_t>(sharedMemBytes),
   };
   const auto result = HipInterposerState::Instance().LaunchExecutableKernel(

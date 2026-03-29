@@ -32,10 +32,13 @@ std::optional<uint64_t> IssueClassOverrideForOpcode(
     case Opcode::SysBlockOffsetX:
     case Opcode::SysBlockIdxX:
     case Opcode::SysBlockIdxY:
+    case Opcode::SysBlockIdxZ:
     case Opcode::SysBlockDimX:
     case Opcode::SysBlockDimY:
+    case Opcode::SysBlockDimZ:
     case Opcode::SysGridDimX:
     case Opcode::SysGridDimY:
+    case Opcode::SysGridDimZ:
       return overrides.scalar_alu;
     case Opcode::VMov:
     case Opcode::VAdd:
@@ -59,8 +62,10 @@ std::optional<uint64_t> IssueClassOverrideForOpcode(
     case Opcode::VSelectCmask:
     case Opcode::SysGlobalIdX:
     case Opcode::SysGlobalIdY:
+    case Opcode::SysGlobalIdZ:
     case Opcode::SysLocalIdX:
     case Opcode::SysLocalIdY:
+    case Opcode::SysLocalIdZ:
     case Opcode::SysLaneId:
       return overrides.vector_alu;
     case Opcode::SBufferLoadDword:

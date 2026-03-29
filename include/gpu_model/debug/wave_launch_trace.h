@@ -19,8 +19,9 @@ inline std::string FormatWaveLaunchTraceMessage(const WaveState& wave,
                                                 uint32_t vector_regs = 2,
                                                 uint32_t lanes_per_vector = 2) {
   std::ostringstream out;
-  out << "block_xy=(" << HexWaveTraceU64(wave.block_idx_x) << ","
-      << HexWaveTraceU64(wave.block_idx_y) << ")"
+  out << "block_xyz=(" << HexWaveTraceU64(wave.block_idx_x) << ","
+      << HexWaveTraceU64(wave.block_idx_y) << ","
+      << HexWaveTraceU64(wave.block_idx_z) << ")"
       << " dpc=" << HexWaveTraceU64(wave.dpc_id)
       << " ap=" << HexWaveTraceU64(wave.ap_id)
       << " peu=" << HexWaveTraceU64(wave.peu_id)

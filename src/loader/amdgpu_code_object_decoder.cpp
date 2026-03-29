@@ -18,6 +18,7 @@
 
 #include "gpu_model/decode/gcn_inst_encoding_def.h"
 #include "gpu_model/decode/gcn_inst_decoder.h"
+#include "gpu_model/isa/kernel_metadata.h"
 #include "gpu_model/isa/target_isa.h"
 
 namespace gpu_model {
@@ -160,16 +161,18 @@ struct SymbolInfo {
   uint64_t size = 0;
 };
 
-struct KernelArgLayoutEntry {
-  std::string value_kind;
+struct NoteKernelArgLayoutEntry {
+  KernelArgValueKind arg_kind = KernelArgValueKind::Unknown;
+  KernelHiddenArgKind hidden_kind = KernelHiddenArgKind::Unknown;
+  std::string kind_name;
   uint32_t offset = 0;
   uint32_t size = 0;
 };
 
 struct NoteKernelMetadata {
   std::string name;
-  std::vector<KernelArgLayoutEntry> args;
-  std::vector<KernelArgLayoutEntry> hidden_args;
+  std::vector<NoteKernelArgLayoutEntry> args;
+  std::vector<NoteKernelArgLayoutEntry> hidden_args;
   uint32_t group_segment_fixed_size = 0;
   uint32_t kernarg_segment_size = 0;
   uint32_t private_segment_fixed_size = 0;
@@ -277,12 +280,12 @@ SymbolInfo SelectDescriptorSymbol(const std::vector<SymbolInfo>& symbols,
 std::vector<NoteKernelMetadata> ParseKernelMetadataNotes(const std::string& notes) {
   std::vector<NoteKernelMetadata> kernels;
   std::optional<NoteKernelMetadata> current;
-  std::optional<KernelArgLayoutEntry> current_arg;
+  std::optional<NoteKernelArgLayoutEntry> current_arg;
 
   const auto finalize_arg = [&]() {
-    if (current.has_value() && current_arg.has_value() && !current_arg->value_kind.empty() &&
+    if (current.has_value() && current_arg.has_value() && !current_arg->kind_name.empty() &&
         current_arg->size != 0) {
-      if (current_arg->value_kind.rfind("hidden_", 0) == 0) {
+      if (current_arg->hidden_kind != KernelHiddenArgKind::Unknown) {
         current->hidden_args.push_back(*current_arg);
       } else {
         current->args.push_back(*current_arg);
@@ -321,7 +324,7 @@ std::vector<NoteKernelMetadata> ParseKernelMetadataNotes(const std::string& note
     }
     if (trimmed.rfind("- .", 0) == 0) {
       finalize_arg();
-      current_arg = KernelArgLayoutEntry{};
+      current_arg = NoteKernelArgLayoutEntry{};
       const auto inline_field = Trim(std::string_view(trimmed).substr(2));
       if (inline_field.rfind(".offset:", 0) == 0) {
         current_arg->offset =
@@ -330,7 +333,9 @@ std::vector<NoteKernelMetadata> ParseKernelMetadataNotes(const std::string& note
         current_arg->size =
             static_cast<uint32_t>(std::stoul(Trim(std::string_view(inline_field).substr(6))));
       } else if (inline_field.rfind(".value_kind:", 0) == 0) {
-        current_arg->value_kind = Trim(std::string_view(inline_field).substr(12));
+        current_arg->kind_name = Trim(std::string_view(inline_field).substr(12));
+        current_arg->arg_kind = ParseKernelArgValueKind(current_arg->kind_name);
+        current_arg->hidden_kind = ParseKernelHiddenArgKind(current_arg->kind_name);
       }
       continue;
     }
@@ -345,7 +350,9 @@ std::vector<NoteKernelMetadata> ParseKernelMetadataNotes(const std::string& note
       continue;
     }
     if (trimmed.rfind(".value_kind:", 0) == 0 && current_arg.has_value()) {
-      current_arg->value_kind = Trim(std::string_view(trimmed).substr(12));
+      current_arg->kind_name = Trim(std::string_view(trimmed).substr(12));
+      current_arg->arg_kind = ParseKernelArgValueKind(current_arg->kind_name);
+      current_arg->hidden_kind = ParseKernelHiddenArgKind(current_arg->kind_name);
       continue;
     }
     if (trimmed.rfind(".name:", 0) == 0) {
@@ -416,7 +423,7 @@ MetadataBlob BuildMetadataFromNotes(const std::filesystem::path& note_source_pat
       if (i != 0) {
         layout << ',';
       }
-      layout << kernel.args[i].value_kind << ':' << kernel.args[i].size;
+      layout << kernel.args[i].kind_name << ':' << kernel.args[i].size;
     }
     metadata.values["arg_layout"] = layout.str();
     metadata.values["arg_count"] = std::to_string(kernel.args.size());
@@ -437,7 +444,7 @@ MetadataBlob BuildMetadataFromNotes(const std::filesystem::path& note_source_pat
       if (i != 0) {
         hidden_layout << ',';
       }
-      hidden_layout << kernel.hidden_args[i].value_kind << ':'
+      hidden_layout << kernel.hidden_args[i].kind_name << ':'
                     << kernel.hidden_args[i].offset << ':'
                     << kernel.hidden_args[i].size;
     }

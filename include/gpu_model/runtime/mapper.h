@@ -18,6 +18,7 @@ struct BlockPlacement {
   uint32_t block_id = 0;
   uint32_t block_idx_x = 0;
   uint32_t block_idx_y = 0;
+  uint32_t block_idx_z = 0;
   uint32_t dpc_id = 0;
   uint32_t ap_id = 0;
   uint32_t global_ap_id = 0;

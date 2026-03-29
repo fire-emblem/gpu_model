@@ -33,6 +33,14 @@ uint32_t LocalLinearId(const WaveState& wave, uint32_t lane) {
   return wave.wave_id * kWaveSize + lane;
 }
 
+uint32_t LocalIdY(const WaveState& wave, const LaunchConfig& config, uint32_t lane) {
+  return (LocalLinearId(wave, lane) / config.block_dim_x) % config.block_dim_y;
+}
+
+uint32_t LocalIdZ(const WaveState& wave, const LaunchConfig& config, uint32_t lane) {
+  return LocalLinearId(wave, lane) / (config.block_dim_x * config.block_dim_y);
+}
+
 uint64_t ReadScalarOperand(const Operand& operand, const WaveState& wave) {
   switch (operand.kind) {
     case OperandKind::Immediate:
@@ -112,9 +120,23 @@ class BuiltinHandler final : public ISemanticHandler {
         write.mask = ThreadMask(wave);
         for (uint32_t lane = 0; lane < wave.thread_count && lane < kWaveSize; ++lane) {
           const uint32_t local_linear = LocalLinearId(wave, lane);
-          const uint32_t local_y = local_linear / context.launch_config.block_dim_x;
+          const uint32_t local_y = (local_linear / context.launch_config.block_dim_x) %
+                                   context.launch_config.block_dim_y;
           write.values[lane] = static_cast<uint64_t>(
               wave.block_idx_y * context.launch_config.block_dim_y + local_y);
+        }
+        plan.vector_writes.push_back(write);
+        return plan;
+      }
+      case Opcode::SysGlobalIdZ: {
+        const uint32_t dest = RequireVectorReg(instruction.operands.at(0));
+        VectorWrite write;
+        write.reg_index = dest;
+        write.mask = ThreadMask(wave);
+        for (uint32_t lane = 0; lane < wave.thread_count && lane < kWaveSize; ++lane) {
+          const uint32_t local_z = LocalIdZ(wave, context.launch_config, lane);
+          write.values[lane] = static_cast<uint64_t>(
+              wave.block_idx_z * context.launch_config.block_dim_z + local_z);
         }
         plan.vector_writes.push_back(write);
         return plan;
@@ -137,8 +159,18 @@ class BuiltinHandler final : public ISemanticHandler {
         write.reg_index = dest;
         write.mask = ThreadMask(wave);
         for (uint32_t lane = 0; lane < wave.thread_count && lane < kWaveSize; ++lane) {
-          write.values[lane] = static_cast<uint64_t>(
-              LocalLinearId(wave, lane) / context.launch_config.block_dim_x);
+          write.values[lane] = static_cast<uint64_t>(LocalIdY(wave, context.launch_config, lane));
+        }
+        plan.vector_writes.push_back(write);
+        return plan;
+      }
+      case Opcode::SysLocalIdZ: {
+        const uint32_t dest = RequireVectorReg(instruction.operands.at(0));
+        VectorWrite write;
+        write.reg_index = dest;
+        write.mask = ThreadMask(wave);
+        for (uint32_t lane = 0; lane < wave.thread_count && lane < kWaveSize; ++lane) {
+          write.values[lane] = static_cast<uint64_t>(LocalIdZ(wave, context.launch_config, lane));
         }
         plan.vector_writes.push_back(write);
         return plan;
@@ -146,10 +178,13 @@ class BuiltinHandler final : public ISemanticHandler {
       case Opcode::SysBlockOffsetX:
       case Opcode::SysBlockIdxX:
       case Opcode::SysBlockIdxY:
+      case Opcode::SysBlockIdxZ:
       case Opcode::SysBlockDimX:
       case Opcode::SysBlockDimY:
+      case Opcode::SysBlockDimZ:
       case Opcode::SysGridDimX:
       case Opcode::SysGridDimY:
+      case Opcode::SysGridDimZ:
       case Opcode::SysLaneId:
         break;
       default:
@@ -186,17 +221,26 @@ class BuiltinHandler final : public ISemanticHandler {
       case Opcode::SysBlockIdxY:
         emit_scalar_or_vector(wave.block_idx_y);
         return plan;
+      case Opcode::SysBlockIdxZ:
+        emit_scalar_or_vector(wave.block_idx_z);
+        return plan;
       case Opcode::SysBlockDimX:
         emit_scalar_or_vector(context.launch_config.block_dim_x);
         return plan;
       case Opcode::SysBlockDimY:
         emit_scalar_or_vector(context.launch_config.block_dim_y);
         return plan;
+      case Opcode::SysBlockDimZ:
+        emit_scalar_or_vector(context.launch_config.block_dim_z);
+        return plan;
       case Opcode::SysGridDimX:
         emit_scalar_or_vector(context.launch_config.grid_dim_x);
         return plan;
       case Opcode::SysGridDimY:
         emit_scalar_or_vector(context.launch_config.grid_dim_y);
+        return plan;
+      case Opcode::SysGridDimZ:
+        emit_scalar_or_vector(context.launch_config.grid_dim_z);
         return plan;
       case Opcode::SysLaneId: {
         if (dest.reg.file == RegisterFile::Scalar) {

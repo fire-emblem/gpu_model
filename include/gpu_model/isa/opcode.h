@@ -8,15 +8,20 @@ enum class Opcode {
   SysLoadArg,
   SysGlobalIdX,
   SysGlobalIdY,
+  SysGlobalIdZ,
   SysLocalIdX,
   SysLocalIdY,
+  SysLocalIdZ,
   SysBlockOffsetX,
   SysBlockIdxX,
   SysBlockIdxY,
+  SysBlockIdxZ,
   SysBlockDimX,
   SysBlockDimY,
+  SysBlockDimZ,
   SysGridDimX,
   SysGridDimY,
+  SysGridDimZ,
   SysLaneId,
   SMov,
   SAdd,
@@ -85,24 +90,34 @@ inline std::string_view ToString(Opcode opcode) {
       return "v_get_global_id_x";
     case Opcode::SysGlobalIdY:
       return "v_get_global_id_y";
+    case Opcode::SysGlobalIdZ:
+      return "v_get_global_id_z";
     case Opcode::SysLocalIdX:
       return "v_get_local_id_x";
     case Opcode::SysLocalIdY:
       return "v_get_local_id_y";
+    case Opcode::SysLocalIdZ:
+      return "v_get_local_id_z";
     case Opcode::SysBlockOffsetX:
       return "s_get_block_offset_x";
     case Opcode::SysBlockIdxX:
       return "s_get_block_id_x";
     case Opcode::SysBlockIdxY:
       return "s_get_block_id_y";
+    case Opcode::SysBlockIdxZ:
+      return "s_get_block_id_z";
     case Opcode::SysBlockDimX:
       return "s_get_block_dim_x";
     case Opcode::SysBlockDimY:
       return "s_get_block_dim_y";
+    case Opcode::SysBlockDimZ:
+      return "s_get_block_dim_z";
     case Opcode::SysGridDimX:
       return "s_get_grid_dim_x";
     case Opcode::SysGridDimY:
       return "s_get_grid_dim_y";
+    case Opcode::SysGridDimZ:
+      return "s_get_grid_dim_z";
     case Opcode::SysLaneId:
       return "v_lane_id_u32";
     case Opcode::SMov:

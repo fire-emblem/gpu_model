@@ -37,12 +37,20 @@ InstructionBuilder& InstructionBuilder::SysGlobalIdY(std::string_view dest) {
   return AddInstruction(Opcode::SysGlobalIdY, {ParseRegOperand(dest)});
 }
 
+InstructionBuilder& InstructionBuilder::SysGlobalIdZ(std::string_view dest) {
+  return AddInstruction(Opcode::SysGlobalIdZ, {ParseRegOperand(dest)});
+}
+
 InstructionBuilder& InstructionBuilder::SysLocalIdX(std::string_view dest) {
   return AddInstruction(Opcode::SysLocalIdX, {ParseRegOperand(dest)});
 }
 
 InstructionBuilder& InstructionBuilder::SysLocalIdY(std::string_view dest) {
   return AddInstruction(Opcode::SysLocalIdY, {ParseRegOperand(dest)});
+}
+
+InstructionBuilder& InstructionBuilder::SysLocalIdZ(std::string_view dest) {
+  return AddInstruction(Opcode::SysLocalIdZ, {ParseRegOperand(dest)});
 }
 
 InstructionBuilder& InstructionBuilder::SysBlockOffsetX(std::string_view dest) {
@@ -57,6 +65,10 @@ InstructionBuilder& InstructionBuilder::SysBlockIdxY(std::string_view dest) {
   return AddInstruction(Opcode::SysBlockIdxY, {ParseRegOperand(dest)});
 }
 
+InstructionBuilder& InstructionBuilder::SysBlockIdxZ(std::string_view dest) {
+  return AddInstruction(Opcode::SysBlockIdxZ, {ParseRegOperand(dest)});
+}
+
 InstructionBuilder& InstructionBuilder::SysBlockDimX(std::string_view dest) {
   return AddInstruction(Opcode::SysBlockDimX, {ParseRegOperand(dest)});
 }
@@ -65,12 +77,20 @@ InstructionBuilder& InstructionBuilder::SysBlockDimY(std::string_view dest) {
   return AddInstruction(Opcode::SysBlockDimY, {ParseRegOperand(dest)});
 }
 
+InstructionBuilder& InstructionBuilder::SysBlockDimZ(std::string_view dest) {
+  return AddInstruction(Opcode::SysBlockDimZ, {ParseRegOperand(dest)});
+}
+
 InstructionBuilder& InstructionBuilder::SysGridDimX(std::string_view dest) {
   return AddInstruction(Opcode::SysGridDimX, {ParseRegOperand(dest)});
 }
 
 InstructionBuilder& InstructionBuilder::SysGridDimY(std::string_view dest) {
   return AddInstruction(Opcode::SysGridDimY, {ParseRegOperand(dest)});
+}
+
+InstructionBuilder& InstructionBuilder::SysGridDimZ(std::string_view dest) {
+  return AddInstruction(Opcode::SysGridDimZ, {ParseRegOperand(dest)});
 }
 
 InstructionBuilder& InstructionBuilder::SysLaneId(std::string_view dest) {

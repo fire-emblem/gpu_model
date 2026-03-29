@@ -48,12 +48,41 @@ TEST(MapperTest, Supports2DGridAndBlockCoordinates) {
   ASSERT_EQ(placement.blocks.size(), 6u);
   EXPECT_EQ(placement.blocks[0].block_idx_x, 0u);
   EXPECT_EQ(placement.blocks[0].block_idx_y, 0u);
+  EXPECT_EQ(placement.blocks[0].block_idx_z, 0u);
   EXPECT_EQ(placement.blocks[1].block_idx_x, 1u);
   EXPECT_EQ(placement.blocks[1].block_idx_y, 0u);
   EXPECT_EQ(placement.blocks[3].block_idx_x, 0u);
   EXPECT_EQ(placement.blocks[3].block_idx_y, 1u);
   ASSERT_EQ(placement.blocks[0].waves.size(), 1u);
   EXPECT_EQ(placement.blocks[0].waves[0].lane_count, 32u);
+}
+
+TEST(MapperTest, Supports3DGridAndBlockCoordinates) {
+  const auto spec = ArchRegistry::Get("c500");
+  ASSERT_NE(spec, nullptr);
+
+  LaunchConfig config{
+      .grid_dim_x = 2,
+      .grid_dim_y = 2,
+      .grid_dim_z = 2,
+      .block_dim_x = 4,
+      .block_dim_y = 2,
+      .block_dim_z = 2,
+  };
+  const auto placement = Mapper::Place(*spec, config);
+
+  ASSERT_EQ(placement.blocks.size(), 8u);
+  EXPECT_EQ(placement.blocks[0].block_idx_x, 0u);
+  EXPECT_EQ(placement.blocks[0].block_idx_y, 0u);
+  EXPECT_EQ(placement.blocks[0].block_idx_z, 0u);
+  EXPECT_EQ(placement.blocks[3].block_idx_x, 1u);
+  EXPECT_EQ(placement.blocks[3].block_idx_y, 1u);
+  EXPECT_EQ(placement.blocks[3].block_idx_z, 0u);
+  EXPECT_EQ(placement.blocks[4].block_idx_x, 0u);
+  EXPECT_EQ(placement.blocks[4].block_idx_y, 0u);
+  EXPECT_EQ(placement.blocks[4].block_idx_z, 1u);
+  ASSERT_EQ(placement.blocks[0].waves.size(), 1u);
+  EXPECT_EQ(placement.blocks[0].waves[0].lane_count, 16u);
 }
 
 }  // namespace
