@@ -46,6 +46,7 @@ runtime 侧现在按两层来理解：
 
 - `include/gpu_model/runtime/model_runtime_api.h`
 - `include/gpu_model/runtime/runtime_hooks.h`
+- `include/gpu_model/runtime/module_load.h`
 - `src/runtime/runtime_hooks.cpp`
 - `src/runtime/host_runtime.cpp`
 
@@ -54,6 +55,7 @@ runtime 侧现在按两层来理解：
 - device 选择和 property 查询
 - memory allocation / memcpy / memset
 - module / image / code object load
+- 统一 `LoadModule` 请求分发
 - kernel launch
 - trace / launch result / last load result
 - 统一进入 loader / decode / exec / memory 主链
@@ -110,6 +112,7 @@ runtime 侧现在按两层来理解：
 - `ModelRuntimeApi` facade
 - HIP interposer 到 model runtime 的主路径复用
 - 基础 device property 查询
+- model-native 统一 `LoadModule` 入口
 
 当前还缺：
 

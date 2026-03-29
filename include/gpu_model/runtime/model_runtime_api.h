@@ -78,6 +78,7 @@ class ModelRuntimeApi {
       std::optional<std::string> kernel_name = std::nullopt) {
     return hooks_.LoadAmdgpuObjectToDevice(path, std::move(kernel_name));
   }
+  void LoadModule(const ModuleLoadRequest& request) { hooks_.LoadModule(request); }
   const std::optional<DeviceLoadResult>& last_load_result() const { return hooks_.last_load_result(); }
   void RegisterProgramImage(std::string module_name, ProgramImage image) {
     hooks_.RegisterProgramImage(std::move(module_name), std::move(image));

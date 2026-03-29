@@ -1,8 +1,10 @@
 #include "gpu_model/runtime/runtime_hooks.h"
 
 #include <algorithm>
+#include <array>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -42,6 +44,51 @@ RuntimeDeviceProperties BuildRuntimeDeviceProperties(const GpuArchSpec& spec) {
       std::max<int>(8 * 1024 * 1024,
                     static_cast<int>(spec.cache_model.l2_line_capacity * spec.cache_model.line_bytes));
   return props;
+}
+
+bool HasMagicPrefix(const std::filesystem::path& path, std::string_view magic) {
+  std::ifstream input(path, std::ios::binary);
+  if (!input) {
+    return false;
+  }
+  std::string bytes(magic.size(), '\0');
+  input.read(bytes.data(), static_cast<std::streamsize>(bytes.size()));
+  if (!input && input.gcount() < static_cast<std::streamsize>(bytes.size())) {
+    return false;
+  }
+  return bytes == magic;
+}
+
+bool IsElfBinary(const std::filesystem::path& path) {
+  std::ifstream input(path, std::ios::binary);
+  if (!input) {
+    return false;
+  }
+  std::array<unsigned char, 4> bytes{};
+  input.read(reinterpret_cast<char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+  return input.good() && bytes == std::array<unsigned char, 4>{0x7f, 'E', 'L', 'F'};
+}
+
+ModuleLoadFormat DetectModuleLoadFormat(const std::filesystem::path& path) {
+  if (!std::filesystem::exists(path)) {
+    throw std::runtime_error("module path does not exist: " + path.string());
+  }
+
+  const auto ext = path.extension().string();
+  if (ext == ".gasm" || ext == ".asm" || ext == ".s") {
+    return ModuleLoadFormat::ProgramFileStem;
+  }
+  if (HasMagicPrefix(path, "GPUBIN1")) {
+    return ModuleLoadFormat::ProgramBundle;
+  }
+  if (HasMagicPrefix(path, "GPUSEC1")) {
+    return ModuleLoadFormat::ExecutableImage;
+  }
+  if (IsElfBinary(path)) {
+    return ModuleLoadFormat::AmdgpuObject;
+  }
+
+  throw std::runtime_error("unable to detect module format: " + path.string());
 }
 
 }  // namespace
@@ -245,6 +292,35 @@ DeviceLoadResult RuntimeHooks::LoadAmdgpuObjectToDevice(
   return MaterializeLoadPlan(BuildLoadPlanFromAmdgpuObject(path, std::move(kernel_name)));
 }
 
+void RuntimeHooks::LoadModule(const ModuleLoadRequest& request) {
+  if (request.module_name.empty()) {
+    throw std::invalid_argument("module_name must not be empty");
+  }
+  if (request.path.empty()) {
+    throw std::invalid_argument("module path must not be empty");
+  }
+
+  const ModuleLoadFormat format =
+      request.format == ModuleLoadFormat::Auto ? DetectModuleLoadFormat(request.path) : request.format;
+  switch (format) {
+    case ModuleLoadFormat::Auto:
+      throw std::logic_error("auto format must be resolved before load");
+    case ModuleLoadFormat::AmdgpuObject:
+      RegisterProgramImage(request.module_name,
+                           AmdgpuObjLoader{}.LoadFromObject(request.path, request.kernel_name));
+      return;
+    case ModuleLoadFormat::ProgramBundle:
+      RegisterProgramImage(request.module_name, ProgramBundleIO::Read(request.path));
+      return;
+    case ModuleLoadFormat::ExecutableImage:
+      RegisterProgramImage(request.module_name, ExecutableImageIO::Read(request.path));
+      return;
+    case ModuleLoadFormat::ProgramFileStem:
+      RegisterProgramImage(request.module_name, ProgramFileLoader{}.LoadFromStem(request.path));
+      return;
+  }
+}
+
 void RuntimeHooks::RegisterProgramImage(std::string module_name, ProgramImage image) {
   modules_[module_name][image.kernel_name()] = std::move(image);
 }
@@ -252,22 +328,38 @@ void RuntimeHooks::RegisterProgramImage(std::string module_name, ProgramImage im
 void RuntimeHooks::LoadAmdgpuObject(std::string module_name,
                                     const std::filesystem::path& path,
                                     std::optional<std::string> kernel_name) {
-  RegisterProgramImage(std::move(module_name),
-                       AmdgpuObjLoader{}.LoadFromObject(path, std::move(kernel_name)));
+  LoadModule(ModuleLoadRequest{
+      .module_name = std::move(module_name),
+      .path = path,
+      .format = ModuleLoadFormat::AmdgpuObject,
+      .kernel_name = std::move(kernel_name),
+  });
 }
 
 void RuntimeHooks::LoadProgramBundle(std::string module_name, const std::filesystem::path& path) {
-  RegisterProgramImage(std::move(module_name), ProgramBundleIO::Read(path));
+  LoadModule(ModuleLoadRequest{
+      .module_name = std::move(module_name),
+      .path = path,
+      .format = ModuleLoadFormat::ProgramBundle,
+  });
 }
 
 void RuntimeHooks::LoadExecutableImage(std::string module_name,
                                        const std::filesystem::path& path) {
-  RegisterProgramImage(std::move(module_name), ExecutableImageIO::Read(path));
+  LoadModule(ModuleLoadRequest{
+      .module_name = std::move(module_name),
+      .path = path,
+      .format = ModuleLoadFormat::ExecutableImage,
+  });
 }
 
 void RuntimeHooks::LoadProgramFileStem(std::string module_name,
                                        const std::filesystem::path& path) {
-  RegisterProgramImage(std::move(module_name), ProgramFileLoader{}.LoadFromStem(path));
+  LoadModule(ModuleLoadRequest{
+      .module_name = std::move(module_name),
+      .path = path,
+      .format = ModuleLoadFormat::ProgramFileStem,
+  });
 }
 
 void RuntimeHooks::UnloadModule(const std::string& module_name) {

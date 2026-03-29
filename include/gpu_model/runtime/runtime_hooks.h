@@ -20,6 +20,7 @@
 #include "gpu_model/isa/program_image.h"
 #include "gpu_model/runtime/device_properties.h"
 #include "gpu_model/runtime/host_runtime.h"
+#include "gpu_model/runtime/module_load.h"
 
 namespace gpu_model {
 
@@ -73,6 +74,7 @@ class RuntimeHooks {
   DeviceLoadResult LoadAmdgpuObjectToDevice(
       const std::filesystem::path& path,
       std::optional<std::string> kernel_name = std::nullopt);
+  void LoadModule(const ModuleLoadRequest& request);
   const std::optional<DeviceLoadResult>& last_load_result() const { return last_load_result_; }
   void RegisterProgramImage(std::string module_name, ProgramImage image);
   void LoadAmdgpuObject(std::string module_name,
