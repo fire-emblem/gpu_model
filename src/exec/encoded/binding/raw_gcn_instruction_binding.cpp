@@ -363,6 +363,7 @@ DEFINE_RAW_GCN_OPCODE_CLASS(SMovkI32Instruction, SopkInstructionBase, "s_movk_i3
 DEFINE_RAW_GCN_OPCODE_CLASS(SCselectB64Instruction, Sop2InstructionBase, "s_cselect_b64");
 DEFINE_RAW_GCN_OPCODE_CLASS(SAndn2B64Instruction, Sop2InstructionBase, "s_andn2_b64");
 DEFINE_RAW_GCN_OPCODE_CLASS(SOrB64Instruction, Sop2InstructionBase, "s_or_b64");
+DEFINE_RAW_GCN_OPCODE_CLASS(SOrB32Instruction, Sop2InstructionBase, "s_or_b32");
 DEFINE_RAW_GCN_OPCODE_CLASS(SAndB64Instruction, Sop2InstructionBase, "s_and_b64");
 DEFINE_RAW_GCN_OPCODE_CLASS(SAndB32Instruction, Sop2InstructionBase, "s_and_b32");
 DEFINE_RAW_GCN_OPCODE_CLASS(SMulI32Instruction, Sop2InstructionBase, "s_mul_i32");
@@ -389,6 +390,7 @@ DEFINE_RAW_GCN_OPCODE_CLASS(VRcpF32Instruction, Vop1InstructionBase, "v_rcp_f32_
 DEFINE_RAW_GCN_OPCODE_CLASS(VAddU32Instruction, Vop2InstructionBase, "v_add_u32_e32");
 DEFINE_RAW_GCN_OPCODE_CLASS(VAshrrevI32Instruction, Vop2InstructionBase, "v_ashrrev_i32_e32");
 DEFINE_RAW_GCN_OPCODE_CLASS(VLshlrevB32Instruction, Vop2InstructionBase, "v_lshlrev_b32_e32");
+DEFINE_RAW_GCN_OPCODE_CLASS(VOrB32Instruction, Vop2InstructionBase, "v_or_b32_e32");
 DEFINE_RAW_GCN_OPCODE_CLASS(VAddCoU32E32Instruction, Vop2InstructionBase, "v_add_co_u32_e32");
 DEFINE_RAW_GCN_OPCODE_CLASS(VAddcCoU32E32Instruction, Vop2InstructionBase, "v_addc_co_u32_e32");
 DEFINE_RAW_GCN_OPCODE_CLASS(VAddF32Instruction, Vop2InstructionBase, "v_add_f32_e32");
@@ -399,6 +401,7 @@ DEFINE_RAW_GCN_OPCODE_CLASS(VFmacF32Instruction, Vop2InstructionBase, "v_fmac_f3
 DEFINE_RAW_GCN_OPCODE_CLASS(VCndmaskB32E32Instruction, Vop2InstructionBase, "v_cndmask_b32_e32");
 
 DEFINE_RAW_GCN_OPCODE_CLASS(VLshlrevB64Instruction, Vop3aInstructionBase, "v_lshlrev_b64");
+DEFINE_RAW_GCN_OPCODE_CLASS(VOr3B32Instruction, Vop3aInstructionBase, "v_or3_b32");
 DEFINE_RAW_GCN_OPCODE_CLASS(VLshlAddU32Instruction, Vop3aInstructionBase, "v_lshl_add_u32");
 DEFINE_RAW_GCN_OPCODE_CLASS(VFmaF32Instruction, Vop3aInstructionBase, "v_fma_f32");
 DEFINE_RAW_GCN_OPCODE_CLASS(VMbcntLoInstruction, Vop3aInstructionBase, "v_mbcnt_lo_u32_b32");
@@ -512,6 +515,9 @@ RawGcnInstructionObjectPtr CreateScalarInstruction(const GcnIsaOpcodeDescriptor&
               std::move(instruction), RawGcnSemanticHandlerRegistry::Get(instruction));
         case static_cast<uint16_t>(GcnIsaSop2Opcode::S_OR_B64):
           return std::make_unique<SOrB64Instruction>(
+              std::move(instruction), RawGcnSemanticHandlerRegistry::Get(instruction));
+        case static_cast<uint16_t>(GcnIsaSop2Opcode::S_OR_B32):
+          return std::make_unique<SOrB32Instruction>(
               std::move(instruction), RawGcnSemanticHandlerRegistry::Get(instruction));
         case static_cast<uint16_t>(GcnIsaSop2Opcode::S_ANDN2_B64):
           return std::make_unique<SAndn2B64Instruction>(
@@ -651,6 +657,9 @@ RawGcnInstructionObjectPtr CreateVectorInstruction(const GcnIsaOpcodeDescriptor&
         case static_cast<uint16_t>(GcnIsaVop2Opcode::V_LSHLREV_B32_E32):
           return std::make_unique<VLshlrevB32Instruction>(
               std::move(instruction), RawGcnSemanticHandlerRegistry::Get(instruction));
+        case static_cast<uint16_t>(GcnIsaVop2Opcode::V_OR_B32_E32):
+          return std::make_unique<VOrB32Instruction>(
+              std::move(instruction), RawGcnSemanticHandlerRegistry::Get(instruction));
         case static_cast<uint16_t>(GcnIsaVop2Opcode::V_ADD_CO_U32_E32):
           return std::make_unique<VAddCoU32E32Instruction>(
               std::move(instruction), RawGcnSemanticHandlerRegistry::Get(instruction));
@@ -698,6 +707,9 @@ RawGcnInstructionObjectPtr CreateVectorInstruction(const GcnIsaOpcodeDescriptor&
               std::move(instruction), RawGcnSemanticHandlerRegistry::Get(instruction));
         case static_cast<uint16_t>(GcnIsaVop3aOpcode::V_LSHLREV_B64):
           return std::make_unique<VLshlrevB64Instruction>(
+              std::move(instruction), RawGcnSemanticHandlerRegistry::Get(instruction));
+        case static_cast<uint16_t>(GcnIsaVop3aOpcode::V_OR3_B32):
+          return std::make_unique<VOr3B32Instruction>(
               std::move(instruction), RawGcnSemanticHandlerRegistry::Get(instruction));
         default:
           break;

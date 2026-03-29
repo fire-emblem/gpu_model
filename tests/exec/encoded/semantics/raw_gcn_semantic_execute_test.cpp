@@ -561,6 +561,16 @@ TEST_F(RawGcnSemanticExecuteTest, ExecutesAdditionalVectorCompareInstructions) {
 TEST_F(RawGcnSemanticExecuteTest, ExecutesAdditionalVectorAluInstructionsAcrossFormats) {
   {
     Harness harness;
+    harness.wave.sgpr.Write(1, 0x0f0f0000u);
+    harness.wave.vgpr.Write(2, 0, 0x0000ff00u);
+    auto inst = Inst("v_or_b32_e32", 0, {VReg(3), SReg(1), VReg(2)}, 0x178e, 4);
+    harness.wave.pc = inst.pc;
+    RawGcnSemanticHandlerRegistry::Get(inst).Execute(inst, harness.context);
+    EXPECT_EQ(harness.wave.vgpr.Read(3, 0), 0x0f0fff00u);
+  }
+
+  {
+    Harness harness;
     harness.wave.vgpr.Write(1, 0, 0x0f0f00ffu);
     auto inst = Inst("v_not_b32_e32", 32, {VReg(3), VReg(1)}, 0x1790, 4);
     harness.wave.pc = inst.pc;
@@ -602,6 +612,17 @@ TEST_F(RawGcnSemanticExecuteTest, ExecutesAdditionalVectorAluInstructionsAcrossF
     harness.wave.pc = inst.pc;
     RawGcnSemanticHandlerRegistry::Get(inst).Execute(inst, harness.context);
     EXPECT_EQ(harness.wave.vgpr.Read(7, 0), static_cast<uint32_t>(-8));
+  }
+
+  {
+    Harness harness;
+    harness.wave.vgpr.Write(1, 0, 0x0000000fu);
+    harness.wave.vgpr.Write(2, 0, 0x000000f0u);
+    harness.wave.vgpr.Write(3, 0, 0x00000f00u);
+    auto inst = Inst("v_or3_b32", 0, {VReg(4), VReg(1), VReg(2), VReg(3)}, 0x17a2, 8);
+    harness.wave.pc = inst.pc;
+    RawGcnSemanticHandlerRegistry::Get(inst).Execute(inst, harness.context);
+    EXPECT_EQ(harness.wave.vgpr.Read(4, 0), 0x00000fffu);
   }
 
   {
@@ -690,6 +711,16 @@ TEST_F(RawGcnSemanticExecuteTest, ExecutesAdditionalVectorAluInstructionsAcrossF
 }
 
 TEST_F(RawGcnSemanticExecuteTest, ExecutesRemainingSupportedScalarAndVectorInstructions) {
+  {
+    Harness harness;
+    harness.wave.sgpr.Write(1, 0x0000f0f0u);
+    harness.wave.sgpr.Write(2, 0x0000000fu);
+    auto inst = Inst("s_or_b32", 0, {SReg(6), SReg(1), SReg(2)}, 0x17da, 4);
+    harness.wave.pc = inst.pc;
+    RawGcnSemanticHandlerRegistry::Get(inst).Execute(inst, harness.context);
+    EXPECT_EQ(harness.wave.sgpr.Read(6), 0x0000f0ffu);
+  }
+
   {
     Harness harness;
     harness.wave.sgpr.Write(1, static_cast<uint32_t>(-7));

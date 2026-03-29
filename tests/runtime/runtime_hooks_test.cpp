@@ -1207,7 +1207,7 @@ TEST(RuntimeHooksTest, LaunchesHipTwoDimensionalExecutableInRawGcnPath) {
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(RuntimeHooksTest, DescribesHipThreeDimensionalHiddenArgsExecutableInRawGcnPath) {
+TEST(RuntimeHooksTest, LaunchesHipThreeDimensionalHiddenArgsExecutableInRawGcnPath) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
@@ -1237,6 +1237,34 @@ TEST(RuntimeHooksTest, DescribesHipThreeDimensionalHiddenArgsExecutableInRawGcnP
             std::string::npos);
   EXPECT_NE(image.metadata.values.at("hidden_arg_layout").find("hidden_group_size_z"),
             std::string::npos);
+
+  const uint64_t out_addr = hooks.Malloc(sizeof(int32_t));
+  int32_t zero = 0;
+  hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(&zero, 1));
+
+  KernelArgPack args;
+  args.PushU64(out_addr);
+
+  const auto result = hooks.LaunchAmdgpuObject(
+      exe_path,
+      LaunchConfig{
+          .grid_dim_x = 1,
+          .grid_dim_y = 1,
+          .grid_dim_z = 4,
+          .block_dim_x = 8,
+          .block_dim_y = 1,
+          .block_dim_z = 32,
+      },
+      std::move(args),
+      ExecutionMode::Functional,
+      "c500",
+      nullptr,
+      "three_dimensional_hidden_args");
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  int32_t output = 0;
+  hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(&output, 1));
+  EXPECT_EQ(output, 4 + 32);
 
   std::filesystem::remove_all(temp_dir);
 }

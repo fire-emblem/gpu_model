@@ -304,6 +304,14 @@ class ScalarAluHandler final : public IRawGcnSemanticHandler {
                  static_cast<unsigned long long>(value));
       }
     } else if (descriptor.op_type == GcnIsaOpType::Sop2 &&
+               descriptor.opcode == static_cast<uint16_t>(GcnIsaSop2Opcode::S_OR_B32)) {
+      const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
+      const uint32_t lhs =
+          static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(1), context));
+      const uint32_t rhs =
+          static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(2), context));
+      context.wave.sgpr.Write(sdst, lhs | rhs);
+    } else if (descriptor.op_type == GcnIsaOpType::Sop2 &&
                descriptor.opcode == static_cast<uint16_t>(GcnIsaSop2Opcode::S_AND_B64)) {
       const uint64_t lhs = ResolveScalarPair(instruction.operands.at(1), context);
       const uint64_t rhs = ResolveScalarPair(instruction.operands.at(2), context);
@@ -669,6 +677,32 @@ class VectorAluHandler final : public IRawGcnSemanticHandler {
         const float src2 = U32AsFloat(static_cast<uint32_t>(
             ResolveVectorLane(instruction.operands.at(3), context, lane)));
         context.wave.vgpr.Write(vdst, lane, FloatAsU32(src0 * src1 + src2));
+      }
+    } else if (instruction.mnemonic == "v_or_b32_e32") {
+      const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
+      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        if (!context.wave.exec.test(lane)) {
+          continue;
+        }
+        const uint32_t lhs = static_cast<uint32_t>(
+            ResolveVectorLane(instruction.operands.at(1), context, lane));
+        const uint32_t rhs = static_cast<uint32_t>(
+            ResolveVectorLane(instruction.operands.at(2), context, lane));
+        context.wave.vgpr.Write(vdst, lane, lhs | rhs);
+      }
+    } else if (instruction.mnemonic == "v_or3_b32") {
+      const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
+      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        if (!context.wave.exec.test(lane)) {
+          continue;
+        }
+        const uint32_t src0 = static_cast<uint32_t>(
+            ResolveVectorLane(instruction.operands.at(1), context, lane));
+        const uint32_t src1 = static_cast<uint32_t>(
+            ResolveVectorLane(instruction.operands.at(2), context, lane));
+        const uint32_t src2 = static_cast<uint32_t>(
+            ResolveVectorLane(instruction.operands.at(3), context, lane));
+        context.wave.vgpr.Write(vdst, lane, src0 | src1 | src2);
       }
     } else if (instruction.mnemonic == "v_mfma_f32_16x16x4f32") {
       const uint32_t vdst = instruction.operands.at(0).kind == DecodedGcnOperandKind::VectorRegRange
