@@ -80,7 +80,7 @@ def build_report(repo_root: pathlib.Path) -> tuple[str, dict]:
     full_opcode_unique = {mnemonic for _, mnemonic in full_opcode_rows}
 
     source_files = {
-        "raw_object_support": repo_root / "src/exec/raw_gcn_instruction_object.cpp",
+        "raw_object_support": repo_root / "src/exec/encoded/object/raw_gcn_instruction_object.cpp",
         "decode_unit_tests": repo_root / "tests/decode/gcn_inst_decoder_test.cpp",
         "exec_unit_tests": repo_root / "tests/exec/raw_gcn_instruction_object_execute_test.cpp",
         "semantic_unit_tests": repo_root / "tests/exec/raw_gcn_semantic_execute_test.cpp",

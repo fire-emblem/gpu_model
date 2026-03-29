@@ -1,6 +1,6 @@
 # ISA Coverage Report
 
-Generated: `2026-03-29T13:38:49`
+Generated: `2026-03-29T14:01:29`
 
 Coverage scope:
 - tracked instruction entries from `src/spec/gcn_db/instructions.yaml`: `84`

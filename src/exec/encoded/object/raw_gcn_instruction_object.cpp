@@ -1,4 +1,4 @@
-#include "gpu_model/exec/raw_gcn_instruction_object.h"
+#include "gpu_model/exec/encoded/object/raw_gcn_instruction_object.h"
 
 #include <bitset>
 #include <cstdarg>
@@ -849,40 +849,26 @@ RawGcnInstructionObjectPtr CreateMemoryInstruction(const GcnIsaOpcodeDescriptor&
 }
 
 RawGcnInstructionObjectPtr CreateInstructionObjectImpl(DecodedGcnInstruction instruction) {
-  const auto* descriptor = FindGcnFallbackOpcodeDescriptor(instruction.words);
-  if (descriptor == nullptr) {
-    return MakePlaceholderInstruction(std::move(instruction), "unknown", "unknown_placeholder");
+  const RawGcnInstructionDescriptor descriptor = DescribeRawGcnInstruction(instruction);
+  if (!descriptor.known()) {
+    return MakePlaceholderInstruction(std::move(instruction), descriptor.placeholder_op_type_name,
+                                      descriptor.placeholder_class_name);
   }
 
-  switch (descriptor->op_type) {
-    case GcnIsaOpType::Smrd:
-    case GcnIsaOpType::Smem:
-      return CreateScalarMemoryInstruction(*descriptor, std::move(instruction));
-    case GcnIsaOpType::Sop1:
-    case GcnIsaOpType::Sop2:
-    case GcnIsaOpType::Sopk:
-    case GcnIsaOpType::Sopc:
-    case GcnIsaOpType::Sopp:
-      return CreateScalarInstruction(*descriptor, std::move(instruction));
-    case GcnIsaOpType::Vop1:
-    case GcnIsaOpType::Vop2:
-    case GcnIsaOpType::Vopc:
-    case GcnIsaOpType::Vop3a:
-    case GcnIsaOpType::Vop3b:
-    case GcnIsaOpType::Vop3p:
-      return CreateVectorInstruction(*descriptor, std::move(instruction));
-    case GcnIsaOpType::Ds:
-    case GcnIsaOpType::Flat:
-    case GcnIsaOpType::Mubuf:
-    case GcnIsaOpType::Mtbuf:
-    case GcnIsaOpType::Mimg:
-    case GcnIsaOpType::Vintrp:
-    case GcnIsaOpType::Exp:
-      return CreateMemoryInstruction(*descriptor, std::move(instruction));
-    case GcnIsaOpType::Unknown:
+  switch (descriptor.category) {
+    case RawGcnInstructionCategory::ScalarMemory:
+      return CreateScalarMemoryInstruction(*descriptor.opcode_descriptor, std::move(instruction));
+    case RawGcnInstructionCategory::Scalar:
+      return CreateScalarInstruction(*descriptor.opcode_descriptor, std::move(instruction));
+    case RawGcnInstructionCategory::Vector:
+      return CreateVectorInstruction(*descriptor.opcode_descriptor, std::move(instruction));
+    case RawGcnInstructionCategory::Memory:
+      return CreateMemoryInstruction(*descriptor.opcode_descriptor, std::move(instruction));
+    case RawGcnInstructionCategory::Unknown:
       break;
   }
-  return MakePlaceholderInstruction(std::move(instruction), "unknown", "unknown_placeholder");
+  return MakePlaceholderInstruction(std::move(instruction), descriptor.placeholder_op_type_name,
+                                    descriptor.placeholder_class_name);
 }
 
 }  // namespace

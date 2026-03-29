@@ -7,7 +7,8 @@
 
 #include "gpu_model/decode/decoded_gcn_instruction.h"
 #include "gpu_model/decode/raw_gcn_instruction.h"
-#include "gpu_model/exec/raw_gcn_semantic_handler.h"
+#include "gpu_model/exec/encoded/descriptor/raw_gcn_instruction_descriptor.h"
+#include "gpu_model/exec/encoded/semantics/raw_gcn_semantic_handler.h"
 
 namespace gpu_model {
 

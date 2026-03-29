@@ -7,7 +7,7 @@
 
 #include "gpu_model/decode/decoded_gcn_instruction.h"
 #include "gpu_model/decode/raw_gcn_instruction.h"
-#include "gpu_model/exec/raw_gcn_instruction_object.h"
+#include "gpu_model/exec/encoded/object/raw_gcn_instruction_object.h"
 #include "gpu_model/isa/metadata.h"
 
 namespace gpu_model {
