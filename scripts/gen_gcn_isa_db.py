@@ -23,6 +23,7 @@ FORMAT_ENUM = {
     "vopc": "Vopc",
     "vop3a": "Vop3a",
     "vop3b": "Vop3b",
+    "vop3p": "Vop3p",
     "vintrp": "Vintrp",
     "ds": "Ds",
     "flat": "Flat",
@@ -42,6 +43,7 @@ FORMAT_ENCODING_VALUES = {
     "flat": 0x37,
     "vopc": 0x3E,
     "vop1": 0x3F,
+    "vop3p": 0x1A7,
     "sop1": 0x17D,
     "sopc": 0x17E,
     "sopp": 0x17F,
@@ -58,6 +60,7 @@ FORMAT_OPCODE_ENUM = {
     "vop1": "GcnVop1Opcode",
     "vopc": "GcnVopcOpcode",
     "vop3a": "GcnVop3aOpcode",
+    "vop3p": "GcnVop3pOpcode",
     "ds": "GcnDsOpcode",
     "flat": "GcnFlatOpcode",
 }

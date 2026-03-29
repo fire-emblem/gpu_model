@@ -89,6 +89,18 @@ format_classes:
       - { name: src2, word: 1, lsb: 18, width: 9, meaning: "source 2 selector" }
       - { name: omod, word: 1, lsb: 27, width: 2, meaning: "output modifier" }
       - { name: neg, word: 1, lsb: 29, width: 3, meaning: "per-source neg modifiers" }
+  - id: vop3p
+    size_bytes: 8
+    opcode_field: { name: op, word: 0, lsb: 16, width: 7, meaning: "vector VOP3P opcode" }
+    fields:
+      - { name: vdst, word: 0, lsb: 0, width: 8, meaning: "vector destination register" }
+      - { name: op, word: 0, lsb: 16, width: 7, meaning: "opcode selector" }
+      - { name: enc, word: 0, lsb: 23, width: 9, meaning: "format encoding tag" }
+      - { name: src0, word: 1, lsb: 0, width: 9, meaning: "source 0 selector" }
+      - { name: src1, word: 1, lsb: 9, width: 9, meaning: "source 1 selector" }
+      - { name: src2, word: 1, lsb: 18, width: 9, meaning: "source 2 selector" }
+      - { name: op_sel_hi, word: 1, lsb: 27, width: 2, meaning: "high op_sel bits / variant modifiers" }
+      - { name: neg_lo, word: 1, lsb: 29, width: 3, meaning: "negation / variant modifier bits" }
   - id: ds
     size_bytes: 8
     opcode_field: { name: op, word: 0, lsb: 17, width: 8, meaning: "DS/LDS opcode" }

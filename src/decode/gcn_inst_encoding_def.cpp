@@ -522,7 +522,9 @@ uint32_t ScalarMemoryDestCount(std::string_view mnemonic) {
 }
 
 uint32_t MatrixDestCount(std::string_view mnemonic) {
-  if (mnemonic == "v_mfma_f32_16x16x4f32") {
+  if (mnemonic == "v_mfma_f32_16x16x4f32" ||
+      mnemonic == "v_mfma_f32_16x16x4f16" ||
+      mnemonic == "v_mfma_i32_16x16x4i8") {
     return 4;
   }
   return 1;

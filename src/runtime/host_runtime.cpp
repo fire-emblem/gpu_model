@@ -11,7 +11,7 @@
 #include "gpu_model/exec/cycle_executor.h"
 #include "gpu_model/exec/functional_executor.h"
 #include "gpu_model/exec/parallel_wave_executor.h"
-#include "gpu_model/exec/raw_gcn_executor.h"
+#include "gpu_model/exec/encoded/executor/raw_gcn_executor.h"
 #include "gpu_model/isa/kernel_metadata.h"
 #include "gpu_model/isa/kernel_program.h"
 #include "gpu_model/isa/target_isa.h"

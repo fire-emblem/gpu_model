@@ -1,0 +1,1030 @@
+{
+  "generated_at": "2026-03-29T15:52:16",
+  "tracked_instruction_entries": 86,
+  "tracked_instruction_unique_total": 81,
+  "full_opcode_rows": 1575,
+  "full_opcode_unique_total": 1559,
+  "coverage": {
+    "raw_object_support": {
+      "covered": 81,
+      "percent": "100.0%",
+      "mnemonics": [
+        "ds_read_b32",
+        "ds_write_b32",
+        "global_atomic_add",
+        "global_load_dword",
+        "global_store_dword",
+        "s_add_i32",
+        "s_add_u32",
+        "s_addc_u32",
+        "s_and_b32",
+        "s_and_b64",
+        "s_and_saveexec_b64",
+        "s_andn2_b64",
+        "s_ashr_i32",
+        "s_barrier",
+        "s_bcnt1_i32_b64",
+        "s_branch",
+        "s_cbranch_execnz",
+        "s_cbranch_execz",
+        "s_cbranch_scc0",
+        "s_cbranch_scc1",
+        "s_cbranch_vccz",
+        "s_cmp_eq_u32",
+        "s_cmp_gt_u32",
+        "s_cmp_lt_i32",
+        "s_cmp_lt_u32",
+        "s_cselect_b64",
+        "s_endpgm",
+        "s_load_dword",
+        "s_load_dwordx2",
+        "s_load_dwordx4",
+        "s_lshl_b64",
+        "s_lshr_b32",
+        "s_mov_b32",
+        "s_mov_b64",
+        "s_movk_i32",
+        "s_mul_i32",
+        "s_nop",
+        "s_or_b64",
+        "s_waitcnt",
+        "v_add_co_u32_e32",
+        "v_add_co_u32_e64",
+        "v_add_f32_e32",
+        "v_add_u32_e32",
+        "v_addc_co_u32_e32",
+        "v_addc_co_u32_e64",
+        "v_ashrrev_i32_e32",
+        "v_cmp_eq_u32_e32",
+        "v_cmp_gt_i32_e32",
+        "v_cmp_gt_i32_e64",
+        "v_cmp_gt_u32_e32",
+        "v_cmp_le_i32_e32",
+        "v_cmp_lt_i32_e32",
+        "v_cmp_ngt_f32_e32",
+        "v_cmp_nlt_f32_e32",
+        "v_cndmask_b32_e32",
+        "v_cndmask_b32_e64",
+        "v_cvt_f32_i32_e32",
+        "v_cvt_i32_f32_e32",
+        "v_div_fixup_f32",
+        "v_div_fmas_f32",
+        "v_div_scale_f32",
+        "v_exp_f32_e32",
+        "v_fma_f32",
+        "v_fmac_f32_e32",
+        "v_ldexp_f32",
+        "v_lshl_add_u32",
+        "v_lshlrev_b32_e32",
+        "v_lshlrev_b64",
+        "v_mad_u64_u32",
+        "v_max_f32_e32",
+        "v_mbcnt_hi_u32_b32",
+        "v_mbcnt_lo_u32_b32",
+        "v_mfma_f32_16x16x4f16",
+        "v_mfma_f32_16x16x4f32",
+        "v_mfma_i32_16x16x4i8",
+        "v_mov_b32_e32",
+        "v_mul_f32_e32",
+        "v_not_b32_e32",
+        "v_rcp_f32_e32",
+        "v_rndne_f32_e32",
+        "v_sub_f32_e32"
+      ]
+    },
+    "decode_unit_tests": {
+      "covered": 81,
+      "percent": "100.0%",
+      "mnemonics": [
+        "ds_read_b32",
+        "ds_write_b32",
+        "global_atomic_add",
+        "global_load_dword",
+        "global_store_dword",
+        "s_add_i32",
+        "s_add_u32",
+        "s_addc_u32",
+        "s_and_b32",
+        "s_and_b64",
+        "s_and_saveexec_b64",
+        "s_andn2_b64",
+        "s_ashr_i32",
+        "s_barrier",
+        "s_bcnt1_i32_b64",
+        "s_branch",
+        "s_cbranch_execnz",
+        "s_cbranch_execz",
+        "s_cbranch_scc0",
+        "s_cbranch_scc1",
+        "s_cbranch_vccz",
+        "s_cmp_eq_u32",
+        "s_cmp_gt_u32",
+        "s_cmp_lt_i32",
+        "s_cmp_lt_u32",
+        "s_cselect_b64",
+        "s_endpgm",
+        "s_load_dword",
+        "s_load_dwordx2",
+        "s_load_dwordx4",
+        "s_lshl_b64",
+        "s_lshr_b32",
+        "s_mov_b32",
+        "s_mov_b64",
+        "s_movk_i32",
+        "s_mul_i32",
+        "s_nop",
+        "s_or_b64",
+        "s_waitcnt",
+        "v_add_co_u32_e32",
+        "v_add_co_u32_e64",
+        "v_add_f32_e32",
+        "v_add_u32_e32",
+        "v_addc_co_u32_e32",
+        "v_addc_co_u32_e64",
+        "v_ashrrev_i32_e32",
+        "v_cmp_eq_u32_e32",
+        "v_cmp_gt_i32_e32",
+        "v_cmp_gt_i32_e64",
+        "v_cmp_gt_u32_e32",
+        "v_cmp_le_i32_e32",
+        "v_cmp_lt_i32_e32",
+        "v_cmp_ngt_f32_e32",
+        "v_cmp_nlt_f32_e32",
+        "v_cndmask_b32_e32",
+        "v_cndmask_b32_e64",
+        "v_cvt_f32_i32_e32",
+        "v_cvt_i32_f32_e32",
+        "v_div_fixup_f32",
+        "v_div_fmas_f32",
+        "v_div_scale_f32",
+        "v_exp_f32_e32",
+        "v_fma_f32",
+        "v_fmac_f32_e32",
+        "v_ldexp_f32",
+        "v_lshl_add_u32",
+        "v_lshlrev_b32_e32",
+        "v_lshlrev_b64",
+        "v_mad_u64_u32",
+        "v_max_f32_e32",
+        "v_mbcnt_hi_u32_b32",
+        "v_mbcnt_lo_u32_b32",
+        "v_mfma_f32_16x16x4f16",
+        "v_mfma_f32_16x16x4f32",
+        "v_mfma_i32_16x16x4i8",
+        "v_mov_b32_e32",
+        "v_mul_f32_e32",
+        "v_not_b32_e32",
+        "v_rcp_f32_e32",
+        "v_rndne_f32_e32",
+        "v_sub_f32_e32"
+      ]
+    },
+    "binding_unit_tests": {
+      "covered": 3,
+      "percent": "3.7%",
+      "mnemonics": [
+        "global_load_dword",
+        "s_load_dword",
+        "v_add_u32_e32"
+      ]
+    },
+    "object_unit_tests": {
+      "covered": 3,
+      "percent": "3.7%",
+      "mnemonics": [
+        "s_cbranch_execz",
+        "s_endpgm",
+        "s_waitcnt"
+      ]
+    },
+    "semantic_unit_tests": {
+      "covered": 74,
+      "percent": "91.4%",
+      "mnemonics": [
+        "ds_read_b32",
+        "ds_write_b32",
+        "global_atomic_add",
+        "global_store_dword",
+        "s_add_i32",
+        "s_add_u32",
+        "s_addc_u32",
+        "s_and_b32",
+        "s_and_b64",
+        "s_andn2_b64",
+        "s_ashr_i32",
+        "s_barrier",
+        "s_bcnt1_i32_b64",
+        "s_branch",
+        "s_cbranch_execnz",
+        "s_cbranch_scc0",
+        "s_cbranch_scc1",
+        "s_cbranch_vccz",
+        "s_cmp_eq_u32",
+        "s_cmp_gt_u32",
+        "s_cmp_lt_i32",
+        "s_cmp_lt_u32",
+        "s_cselect_b64",
+        "s_load_dwordx2",
+        "s_load_dwordx4",
+        "s_lshl_b64",
+        "s_lshr_b32",
+        "s_mov_b32",
+        "s_mov_b64",
+        "s_movk_i32",
+        "s_mul_i32",
+        "s_nop",
+        "s_or_b64",
+        "v_add_co_u32_e32",
+        "v_add_co_u32_e64",
+        "v_add_f32_e32",
+        "v_addc_co_u32_e32",
+        "v_addc_co_u32_e64",
+        "v_ashrrev_i32_e32",
+        "v_cmp_eq_u32_e32",
+        "v_cmp_gt_i32_e32",
+        "v_cmp_gt_i32_e64",
+        "v_cmp_gt_u32_e32",
+        "v_cmp_le_i32_e32",
+        "v_cmp_lt_i32_e32",
+        "v_cmp_ngt_f32_e32",
+        "v_cmp_nlt_f32_e32",
+        "v_cndmask_b32_e32",
+        "v_cndmask_b32_e64",
+        "v_cvt_f32_i32_e32",
+        "v_cvt_i32_f32_e32",
+        "v_div_fixup_f32",
+        "v_div_fmas_f32",
+        "v_div_scale_f32",
+        "v_exp_f32_e32",
+        "v_fma_f32",
+        "v_fmac_f32_e32",
+        "v_ldexp_f32",
+        "v_lshl_add_u32",
+        "v_lshlrev_b32_e32",
+        "v_lshlrev_b64",
+        "v_mad_u64_u32",
+        "v_max_f32_e32",
+        "v_mbcnt_hi_u32_b32",
+        "v_mbcnt_lo_u32_b32",
+        "v_mfma_f32_16x16x4f16",
+        "v_mfma_f32_16x16x4f32",
+        "v_mfma_i32_16x16x4i8",
+        "v_mov_b32_e32",
+        "v_mul_f32_e32",
+        "v_not_b32_e32",
+        "v_rcp_f32_e32",
+        "v_rndne_f32_e32",
+        "v_sub_f32_e32"
+      ]
+    },
+    "registry_unit_tests": {
+      "covered": 15,
+      "percent": "18.5%",
+      "mnemonics": [
+        "ds_read_b32",
+        "ds_write_b32",
+        "global_atomic_add",
+        "global_load_dword",
+        "s_and_saveexec_b64",
+        "s_branch",
+        "s_cbranch_scc1",
+        "s_load_dword",
+        "s_load_dwordx2",
+        "v_add_f32_e32",
+        "v_add_u32_e32",
+        "v_cmp_eq_u32_e32",
+        "v_mfma_f32_16x16x4f16",
+        "v_mfma_f32_16x16x4f32",
+        "v_mfma_i32_16x16x4i8"
+      ]
+    },
+    "loader_integration_tests": {
+      "covered": 17,
+      "percent": "21.0%",
+      "mnemonics": [
+        "ds_read_b32",
+        "ds_write_b32",
+        "global_atomic_add",
+        "s_barrier",
+        "s_cbranch_scc0",
+        "s_cmp_lt_i32",
+        "s_endpgm",
+        "s_load_dword",
+        "s_load_dwordx2",
+        "s_load_dwordx4",
+        "v_add_f32_e32",
+        "v_fma_f32",
+        "v_lshlrev_b64",
+        "v_max_f32_e32",
+        "v_mfma_f32_16x16x4f16",
+        "v_mfma_f32_16x16x4f32",
+        "v_mfma_i32_16x16x4i8"
+      ]
+    },
+    "exec_test_union": {
+      "covered": 81,
+      "percent": "100.0%",
+      "mnemonics": [
+        "ds_read_b32",
+        "ds_write_b32",
+        "global_atomic_add",
+        "global_load_dword",
+        "global_store_dword",
+        "s_add_i32",
+        "s_add_u32",
+        "s_addc_u32",
+        "s_and_b32",
+        "s_and_b64",
+        "s_and_saveexec_b64",
+        "s_andn2_b64",
+        "s_ashr_i32",
+        "s_barrier",
+        "s_bcnt1_i32_b64",
+        "s_branch",
+        "s_cbranch_execnz",
+        "s_cbranch_execz",
+        "s_cbranch_scc0",
+        "s_cbranch_scc1",
+        "s_cbranch_vccz",
+        "s_cmp_eq_u32",
+        "s_cmp_gt_u32",
+        "s_cmp_lt_i32",
+        "s_cmp_lt_u32",
+        "s_cselect_b64",
+        "s_endpgm",
+        "s_load_dword",
+        "s_load_dwordx2",
+        "s_load_dwordx4",
+        "s_lshl_b64",
+        "s_lshr_b32",
+        "s_mov_b32",
+        "s_mov_b64",
+        "s_movk_i32",
+        "s_mul_i32",
+        "s_nop",
+        "s_or_b64",
+        "s_waitcnt",
+        "v_add_co_u32_e32",
+        "v_add_co_u32_e64",
+        "v_add_f32_e32",
+        "v_add_u32_e32",
+        "v_addc_co_u32_e32",
+        "v_addc_co_u32_e64",
+        "v_ashrrev_i32_e32",
+        "v_cmp_eq_u32_e32",
+        "v_cmp_gt_i32_e32",
+        "v_cmp_gt_i32_e64",
+        "v_cmp_gt_u32_e32",
+        "v_cmp_le_i32_e32",
+        "v_cmp_lt_i32_e32",
+        "v_cmp_ngt_f32_e32",
+        "v_cmp_nlt_f32_e32",
+        "v_cndmask_b32_e32",
+        "v_cndmask_b32_e64",
+        "v_cvt_f32_i32_e32",
+        "v_cvt_i32_f32_e32",
+        "v_div_fixup_f32",
+        "v_div_fmas_f32",
+        "v_div_scale_f32",
+        "v_exp_f32_e32",
+        "v_fma_f32",
+        "v_fmac_f32_e32",
+        "v_ldexp_f32",
+        "v_lshl_add_u32",
+        "v_lshlrev_b32_e32",
+        "v_lshlrev_b64",
+        "v_mad_u64_u32",
+        "v_max_f32_e32",
+        "v_mbcnt_hi_u32_b32",
+        "v_mbcnt_lo_u32_b32",
+        "v_mfma_f32_16x16x4f16",
+        "v_mfma_f32_16x16x4f32",
+        "v_mfma_i32_16x16x4i8",
+        "v_mov_b32_e32",
+        "v_mul_f32_e32",
+        "v_not_b32_e32",
+        "v_rcp_f32_e32",
+        "v_rndne_f32_e32",
+        "v_sub_f32_e32"
+      ]
+    },
+    "all_test_union": {
+      "covered": 81,
+      "percent": "100.0%",
+      "mnemonics": [
+        "ds_read_b32",
+        "ds_write_b32",
+        "global_atomic_add",
+        "global_load_dword",
+        "global_store_dword",
+        "s_add_i32",
+        "s_add_u32",
+        "s_addc_u32",
+        "s_and_b32",
+        "s_and_b64",
+        "s_and_saveexec_b64",
+        "s_andn2_b64",
+        "s_ashr_i32",
+        "s_barrier",
+        "s_bcnt1_i32_b64",
+        "s_branch",
+        "s_cbranch_execnz",
+        "s_cbranch_execz",
+        "s_cbranch_scc0",
+        "s_cbranch_scc1",
+        "s_cbranch_vccz",
+        "s_cmp_eq_u32",
+        "s_cmp_gt_u32",
+        "s_cmp_lt_i32",
+        "s_cmp_lt_u32",
+        "s_cselect_b64",
+        "s_endpgm",
+        "s_load_dword",
+        "s_load_dwordx2",
+        "s_load_dwordx4",
+        "s_lshl_b64",
+        "s_lshr_b32",
+        "s_mov_b32",
+        "s_mov_b64",
+        "s_movk_i32",
+        "s_mul_i32",
+        "s_nop",
+        "s_or_b64",
+        "s_waitcnt",
+        "v_add_co_u32_e32",
+        "v_add_co_u32_e64",
+        "v_add_f32_e32",
+        "v_add_u32_e32",
+        "v_addc_co_u32_e32",
+        "v_addc_co_u32_e64",
+        "v_ashrrev_i32_e32",
+        "v_cmp_eq_u32_e32",
+        "v_cmp_gt_i32_e32",
+        "v_cmp_gt_i32_e64",
+        "v_cmp_gt_u32_e32",
+        "v_cmp_le_i32_e32",
+        "v_cmp_lt_i32_e32",
+        "v_cmp_ngt_f32_e32",
+        "v_cmp_nlt_f32_e32",
+        "v_cndmask_b32_e32",
+        "v_cndmask_b32_e64",
+        "v_cvt_f32_i32_e32",
+        "v_cvt_i32_f32_e32",
+        "v_div_fixup_f32",
+        "v_div_fmas_f32",
+        "v_div_scale_f32",
+        "v_exp_f32_e32",
+        "v_fma_f32",
+        "v_fmac_f32_e32",
+        "v_ldexp_f32",
+        "v_lshl_add_u32",
+        "v_lshlrev_b32_e32",
+        "v_lshlrev_b64",
+        "v_mad_u64_u32",
+        "v_max_f32_e32",
+        "v_mbcnt_hi_u32_b32",
+        "v_mbcnt_lo_u32_b32",
+        "v_mfma_f32_16x16x4f16",
+        "v_mfma_f32_16x16x4f32",
+        "v_mfma_i32_16x16x4i8",
+        "v_mov_b32_e32",
+        "v_mul_f32_e32",
+        "v_not_b32_e32",
+        "v_rcp_f32_e32",
+        "v_rndne_f32_e32",
+        "v_sub_f32_e32"
+      ]
+    }
+  },
+  "by_semantic_family": [
+    {
+      "family": "branch_or_sync",
+      "total": 10,
+      "unique_total": 10,
+      "raw_object_support": {
+        "covered": 10,
+        "percent": "100.0%"
+      },
+      "decode_unit_tests": {
+        "covered": 10,
+        "percent": "100.0%"
+      },
+      "exec_test_union": {
+        "covered": 10,
+        "percent": "100.0%"
+      },
+      "loader_integration_tests": {
+        "covered": 3,
+        "percent": "30.0%"
+      },
+      "all_test_union": {
+        "covered": 10,
+        "percent": "100.0%"
+      }
+    },
+    {
+      "family": "lds",
+      "total": 2,
+      "unique_total": 2,
+      "raw_object_support": {
+        "covered": 2,
+        "percent": "100.0%"
+      },
+      "decode_unit_tests": {
+        "covered": 2,
+        "percent": "100.0%"
+      },
+      "exec_test_union": {
+        "covered": 2,
+        "percent": "100.0%"
+      },
+      "loader_integration_tests": {
+        "covered": 2,
+        "percent": "100.0%"
+      },
+      "all_test_union": {
+        "covered": 2,
+        "percent": "100.0%"
+      }
+    },
+    {
+      "family": "scalar_alu",
+      "total": 19,
+      "unique_total": 17,
+      "raw_object_support": {
+        "covered": 17,
+        "percent": "100.0%"
+      },
+      "decode_unit_tests": {
+        "covered": 17,
+        "percent": "100.0%"
+      },
+      "exec_test_union": {
+        "covered": 17,
+        "percent": "100.0%"
+      },
+      "loader_integration_tests": {
+        "covered": 0,
+        "percent": "0.0%"
+      },
+      "all_test_union": {
+        "covered": 17,
+        "percent": "100.0%"
+      }
+    },
+    {
+      "family": "scalar_compare",
+      "total": 4,
+      "unique_total": 4,
+      "raw_object_support": {
+        "covered": 4,
+        "percent": "100.0%"
+      },
+      "decode_unit_tests": {
+        "covered": 4,
+        "percent": "100.0%"
+      },
+      "exec_test_union": {
+        "covered": 4,
+        "percent": "100.0%"
+      },
+      "loader_integration_tests": {
+        "covered": 1,
+        "percent": "25.0%"
+      },
+      "all_test_union": {
+        "covered": 4,
+        "percent": "100.0%"
+      }
+    },
+    {
+      "family": "scalar_memory",
+      "total": 3,
+      "unique_total": 3,
+      "raw_object_support": {
+        "covered": 3,
+        "percent": "100.0%"
+      },
+      "decode_unit_tests": {
+        "covered": 3,
+        "percent": "100.0%"
+      },
+      "exec_test_union": {
+        "covered": 3,
+        "percent": "100.0%"
+      },
+      "loader_integration_tests": {
+        "covered": 3,
+        "percent": "100.0%"
+      },
+      "all_test_union": {
+        "covered": 3,
+        "percent": "100.0%"
+      }
+    },
+    {
+      "family": "vector_alu",
+      "total": 38,
+      "unique_total": 35,
+      "raw_object_support": {
+        "covered": 35,
+        "percent": "100.0%"
+      },
+      "decode_unit_tests": {
+        "covered": 35,
+        "percent": "100.0%"
+      },
+      "exec_test_union": {
+        "covered": 35,
+        "percent": "100.0%"
+      },
+      "loader_integration_tests": {
+        "covered": 7,
+        "percent": "20.0%"
+      },
+      "all_test_union": {
+        "covered": 35,
+        "percent": "100.0%"
+      }
+    },
+    {
+      "family": "vector_compare",
+      "total": 7,
+      "unique_total": 7,
+      "raw_object_support": {
+        "covered": 7,
+        "percent": "100.0%"
+      },
+      "decode_unit_tests": {
+        "covered": 7,
+        "percent": "100.0%"
+      },
+      "exec_test_union": {
+        "covered": 7,
+        "percent": "100.0%"
+      },
+      "loader_integration_tests": {
+        "covered": 0,
+        "percent": "0.0%"
+      },
+      "all_test_union": {
+        "covered": 7,
+        "percent": "100.0%"
+      }
+    },
+    {
+      "family": "vector_memory",
+      "total": 3,
+      "unique_total": 3,
+      "raw_object_support": {
+        "covered": 3,
+        "percent": "100.0%"
+      },
+      "decode_unit_tests": {
+        "covered": 3,
+        "percent": "100.0%"
+      },
+      "exec_test_union": {
+        "covered": 3,
+        "percent": "100.0%"
+      },
+      "loader_integration_tests": {
+        "covered": 1,
+        "percent": "33.3%"
+      },
+      "all_test_union": {
+        "covered": 3,
+        "percent": "100.0%"
+      }
+    }
+  ],
+  "by_format_class": [
+    {
+      "format": "ds",
+      "total": 2,
+      "unique_total": 2,
+      "raw_object_support": {
+        "covered": 2,
+        "percent": "100.0%"
+      },
+      "decode_unit_tests": {
+        "covered": 2,
+        "percent": "100.0%"
+      },
+      "exec_test_union": {
+        "covered": 2,
+        "percent": "100.0%"
+      },
+      "loader_integration_tests": {
+        "covered": 2,
+        "percent": "100.0%"
+      },
+      "all_test_union": {
+        "covered": 2,
+        "percent": "100.0%"
+      }
+    },
+    {
+      "format": "flat",
+      "total": 3,
+      "unique_total": 3,
+      "raw_object_support": {
+        "covered": 3,
+        "percent": "100.0%"
+      },
+      "decode_unit_tests": {
+        "covered": 3,
+        "percent": "100.0%"
+      },
+      "exec_test_union": {
+        "covered": 3,
+        "percent": "100.0%"
+      },
+      "loader_integration_tests": {
+        "covered": 1,
+        "percent": "33.3%"
+      },
+      "all_test_union": {
+        "covered": 3,
+        "percent": "100.0%"
+      }
+    },
+    {
+      "format": "smrd",
+      "total": 3,
+      "unique_total": 3,
+      "raw_object_support": {
+        "covered": 3,
+        "percent": "100.0%"
+      },
+      "decode_unit_tests": {
+        "covered": 3,
+        "percent": "100.0%"
+      },
+      "exec_test_union": {
+        "covered": 3,
+        "percent": "100.0%"
+      },
+      "loader_integration_tests": {
+        "covered": 3,
+        "percent": "100.0%"
+      },
+      "all_test_union": {
+        "covered": 3,
+        "percent": "100.0%"
+      }
+    },
+    {
+      "format": "sop1",
+      "total": 5,
+      "unique_total": 4,
+      "raw_object_support": {
+        "covered": 4,
+        "percent": "100.0%"
+      },
+      "decode_unit_tests": {
+        "covered": 4,
+        "percent": "100.0%"
+      },
+      "exec_test_union": {
+        "covered": 4,
+        "percent": "100.0%"
+      },
+      "loader_integration_tests": {
+        "covered": 0,
+        "percent": "0.0%"
+      },
+      "all_test_union": {
+        "covered": 4,
+        "percent": "100.0%"
+      }
+    },
+    {
+      "format": "sop2",
+      "total": 13,
+      "unique_total": 12,
+      "raw_object_support": {
+        "covered": 12,
+        "percent": "100.0%"
+      },
+      "decode_unit_tests": {
+        "covered": 12,
+        "percent": "100.0%"
+      },
+      "exec_test_union": {
+        "covered": 12,
+        "percent": "100.0%"
+      },
+      "loader_integration_tests": {
+        "covered": 0,
+        "percent": "0.0%"
+      },
+      "all_test_union": {
+        "covered": 12,
+        "percent": "100.0%"
+      }
+    },
+    {
+      "format": "sopc",
+      "total": 4,
+      "unique_total": 4,
+      "raw_object_support": {
+        "covered": 4,
+        "percent": "100.0%"
+      },
+      "decode_unit_tests": {
+        "covered": 4,
+        "percent": "100.0%"
+      },
+      "exec_test_union": {
+        "covered": 4,
+        "percent": "100.0%"
+      },
+      "loader_integration_tests": {
+        "covered": 1,
+        "percent": "25.0%"
+      },
+      "all_test_union": {
+        "covered": 4,
+        "percent": "100.0%"
+      }
+    },
+    {
+      "format": "sopk",
+      "total": 1,
+      "unique_total": 1,
+      "raw_object_support": {
+        "covered": 1,
+        "percent": "100.0%"
+      },
+      "decode_unit_tests": {
+        "covered": 1,
+        "percent": "100.0%"
+      },
+      "exec_test_union": {
+        "covered": 1,
+        "percent": "100.0%"
+      },
+      "loader_integration_tests": {
+        "covered": 0,
+        "percent": "0.0%"
+      },
+      "all_test_union": {
+        "covered": 1,
+        "percent": "100.0%"
+      }
+    },
+    {
+      "format": "sopp",
+      "total": 10,
+      "unique_total": 10,
+      "raw_object_support": {
+        "covered": 10,
+        "percent": "100.0%"
+      },
+      "decode_unit_tests": {
+        "covered": 10,
+        "percent": "100.0%"
+      },
+      "exec_test_union": {
+        "covered": 10,
+        "percent": "100.0%"
+      },
+      "loader_integration_tests": {
+        "covered": 3,
+        "percent": "30.0%"
+      },
+      "all_test_union": {
+        "covered": 10,
+        "percent": "100.0%"
+      }
+    },
+    {
+      "format": "vop1",
+      "total": 8,
+      "unique_total": 7,
+      "raw_object_support": {
+        "covered": 7,
+        "percent": "100.0%"
+      },
+      "decode_unit_tests": {
+        "covered": 7,
+        "percent": "100.0%"
+      },
+      "exec_test_union": {
+        "covered": 7,
+        "percent": "100.0%"
+      },
+      "loader_integration_tests": {
+        "covered": 0,
+        "percent": "0.0%"
+      },
+      "all_test_union": {
+        "covered": 7,
+        "percent": "100.0%"
+      }
+    },
+    {
+      "format": "vop2",
+      "total": 13,
+      "unique_total": 11,
+      "raw_object_support": {
+        "covered": 11,
+        "percent": "100.0%"
+      },
+      "decode_unit_tests": {
+        "covered": 11,
+        "percent": "100.0%"
+      },
+      "exec_test_union": {
+        "covered": 11,
+        "percent": "100.0%"
+      },
+      "loader_integration_tests": {
+        "covered": 2,
+        "percent": "18.2%"
+      },
+      "all_test_union": {
+        "covered": 11,
+        "percent": "100.0%"
+      }
+    },
+    {
+      "format": "vop3a",
+      "total": 14,
+      "unique_total": 14,
+      "raw_object_support": {
+        "covered": 14,
+        "percent": "100.0%"
+      },
+      "decode_unit_tests": {
+        "covered": 14,
+        "percent": "100.0%"
+      },
+      "exec_test_union": {
+        "covered": 14,
+        "percent": "100.0%"
+      },
+      "loader_integration_tests": {
+        "covered": 2,
+        "percent": "14.3%"
+      },
+      "all_test_union": {
+        "covered": 14,
+        "percent": "100.0%"
+      }
+    },
+    {
+      "format": "vop3p",
+      "total": 3,
+      "unique_total": 3,
+      "raw_object_support": {
+        "covered": 3,
+        "percent": "100.0%"
+      },
+      "decode_unit_tests": {
+        "covered": 3,
+        "percent": "100.0%"
+      },
+      "exec_test_union": {
+        "covered": 3,
+        "percent": "100.0%"
+      },
+      "loader_integration_tests": {
+        "covered": 3,
+        "percent": "100.0%"
+      },
+      "all_test_union": {
+        "covered": 3,
+        "percent": "100.0%"
+      }
+    },
+    {
+      "format": "vopc",
+      "total": 7,
+      "unique_total": 7,
+      "raw_object_support": {
+        "covered": 7,
+        "percent": "100.0%"
+      },
+      "decode_unit_tests": {
+        "covered": 7,
+        "percent": "100.0%"
+      },
+      "exec_test_union": {
+        "covered": 7,
+        "percent": "100.0%"
+      },
+      "loader_integration_tests": {
+        "covered": 0,
+        "percent": "0.0%"
+      },
+      "all_test_union": {
+        "covered": 7,
+        "percent": "100.0%"
+      }
+    }
+  ],
+  "unsupported_raw_object_mnemonics": [],
+  "supported_without_any_tests": []
+}

@@ -1888,10 +1888,92 @@ instructions:
     special_reg: ''
 - id: 67
   profile: gfx6_gfx8
-  format: vop3a
-  opcode: 482
+  format: vop3p
+  opcode: 69
   size_bytes: 8
   mnemonic: v_mfma_f32_16x16x4f32
+  semantic_family: vector_alu
+  issue_family: vector_alu
+  flags:
+    is_matrix: true
+  implicit_reads:
+  - exec
+  operands:
+  - name: vdst
+    kind: vector_reg
+    role: def
+    field: vdst
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src0
+    kind: src9
+    role: use
+    field: src0
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src1
+    kind: src9
+    role: use
+    field: src1
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src2
+    kind: src9
+    role: use
+    field: src2
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+- id: 85
+  profile: gfx6_gfx8
+  format: vop3p
+  opcode: 73
+  size_bytes: 8
+  mnemonic: v_mfma_f32_16x16x4f16
+  semantic_family: vector_alu
+  issue_family: vector_alu
+  flags:
+    is_matrix: true
+  implicit_reads:
+  - exec
+  operands:
+  - name: vdst
+    kind: vector_reg
+    role: def
+    field: vdst
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src0
+    kind: src9
+    role: use
+    field: src0
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src1
+    kind: src9
+    role: use
+    field: src1
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src2
+    kind: src9
+    role: use
+    field: src2
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+- id: 86
+  profile: gfx6_gfx8
+  format: vop3p
+  opcode: 81
+  size_bytes: 8
+  mnemonic: v_mfma_i32_16x16x4i8
   semantic_family: vector_alu
   issue_family: vector_alu
   flags:

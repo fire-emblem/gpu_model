@@ -58,9 +58,11 @@ add_library(gpu_model STATIC
   src/memory/cache_model.cpp
   src/memory/shared_bank_model.cpp
   src/exec/opcode_execution_info.cpp
-  src/exec/raw_gcn_instruction_object.cpp
-  src/exec/raw_gcn_executor.cpp
-  src/exec/raw_gcn_semantic_handlers.cpp
+  src/exec/encoded/descriptor/raw_gcn_instruction_descriptor.cpp
+  src/exec/encoded/binding/raw_gcn_instruction_binding.cpp
+  src/exec/encoded/object/raw_gcn_instruction_object.cpp
+  src/exec/encoded/executor/raw_gcn_executor.cpp
+  src/exec/encoded/semantics/raw_gcn_semantic_handlers.cpp
   src/exec/execution_memory_ops.cpp
   src/exec/execution_sync_ops.cpp
   src/exec/op_plan_apply.cpp

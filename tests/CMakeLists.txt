@@ -13,9 +13,12 @@ add_executable(gpu_model_tests
   exec/issue_model_test.cpp
   exec/issue_eligibility_test.cpp
   exec/issue_scheduler_test.cpp
-  exec/raw_gcn_instruction_array_parser_test.cpp
-  exec/raw_gcn_instruction_object_execute_test.cpp
-  exec/raw_gcn_semantic_handler_registry_test.cpp
+  exec/encoded/object/raw_gcn_instruction_array_parser_test.cpp
+  exec/encoded/binding/raw_gcn_instruction_binding_test.cpp
+  exec/encoded/descriptor/raw_gcn_instruction_descriptor_test.cpp
+  exec/encoded/object/raw_gcn_instruction_object_execute_test.cpp
+  exec/encoded/semantics/raw_gcn_semantic_execute_test.cpp
+  exec/encoded/semantics/raw_gcn_semantic_handler_registry_test.cpp
   exec/semantic_handler_test.cpp
   isa/kernel_program_builder_test.cpp
   isa/kernel_program_test.cpp
@@ -61,6 +64,7 @@ add_executable(gpu_model_tests
   cycle/transpose_shared_cycle_test.cpp
   loader/asm_parser_test.cpp
   loader/amdgpu_code_object_decoder_test.cpp
+  loader/asm_module_integration_test.cpp
   loader/amdgpu_obj_loader_test.cpp
   loader/device_image_loader_test.cpp
   loader/device_segment_image_test.cpp

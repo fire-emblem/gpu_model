@@ -1,4 +1,4 @@
-#include "gpu_model/exec/raw_gcn_executor.h"
+#include "gpu_model/exec/encoded/executor/raw_gcn_executor.h"
 
 #include <algorithm>
 #include <array>
@@ -11,7 +11,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "gpu_model/exec/raw_gcn_semantic_handler.h"
+#include "gpu_model/exec/encoded/semantics/raw_gcn_semantic_handler.h"
 #include "gpu_model/exec/execution_sync_ops.h"
 #include "gpu_model/debug/wave_launch_trace.h"
 #include "gpu_model/isa/kernel_metadata.h"

@@ -1,4 +1,4 @@
-#include "gpu_model/exec/raw_gcn_semantic_handler.h"
+#include "gpu_model/exec/encoded/semantics/raw_gcn_semantic_handler.h"
 
 #include <bit>
 #include <bitset>
@@ -49,6 +49,27 @@ float U32AsFloat(uint32_t bits) {
 
 uint32_t FloatAsU32(float value) {
   return std::bit_cast<uint32_t>(value);
+}
+
+float HalfToFloat(uint16_t bits) {
+  const uint32_t sign = static_cast<uint32_t>(bits & 0x8000u) << 16u;
+  const uint32_t exp = (bits >> 10u) & 0x1fu;
+  const uint32_t frac = bits & 0x03ffu;
+
+  if (exp == 0u) {
+    if (frac == 0u) {
+      return std::bit_cast<float>(sign);
+    }
+    float mantissa = static_cast<float>(frac) / 1024.0f;
+    float value = std::ldexp(mantissa, -14);
+    return (bits & 0x8000u) != 0 ? -value : value;
+  }
+  if (exp == 0x1fu) {
+    const uint32_t out = sign | 0x7f800000u | (frac << 13u);
+    return std::bit_cast<float>(out);
+  }
+  const uint32_t out = sign | ((exp + 112u) << 23u) | (frac << 13u);
+  return std::bit_cast<float>(out);
 }
 
 bool DebugEnabled() {
@@ -654,6 +675,52 @@ class VectorAluHandler final : public IRawGcnSemanticHandler {
         const float value = src2 + src0 * src1 * 4.0f;
         for (uint32_t reg = 0; reg < 4; ++reg) {
           context.wave.vgpr.Write(vdst + reg, lane, FloatAsU32(value));
+        }
+      }
+    } else if (instruction.mnemonic == "v_mfma_f32_16x16x4f16") {
+      const uint32_t vdst = instruction.operands.at(0).kind == DecodedGcnOperandKind::VectorRegRange
+                                ? RequireVectorRange(instruction.operands.at(0)).first
+                                : RequireVectorIndex(instruction.operands.at(0));
+      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        if (!context.wave.exec.test(lane)) {
+          continue;
+        }
+        const uint32_t src0_bits =
+            static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(1), context, lane));
+        const uint32_t src1_bits =
+            static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(2), context, lane));
+        const float acc = U32AsFloat(static_cast<uint32_t>(
+            ResolveVectorLane(instruction.operands.at(3), context, lane)));
+        const float a0 = HalfToFloat(static_cast<uint16_t>(src0_bits & 0xffffu));
+        const float a1 = HalfToFloat(static_cast<uint16_t>(src0_bits >> 16u));
+        const float b0 = HalfToFloat(static_cast<uint16_t>(src1_bits & 0xffffu));
+        const float b1 = HalfToFloat(static_cast<uint16_t>(src1_bits >> 16u));
+        const float value = acc + a0 * b0 + a1 * b1;
+        for (uint32_t reg = 0; reg < 4; ++reg) {
+          context.wave.vgpr.Write(vdst + reg, lane, FloatAsU32(value));
+        }
+      }
+    } else if (instruction.mnemonic == "v_mfma_i32_16x16x4i8") {
+      const uint32_t vdst = instruction.operands.at(0).kind == DecodedGcnOperandKind::VectorRegRange
+                                ? RequireVectorRange(instruction.operands.at(0)).first
+                                : RequireVectorIndex(instruction.operands.at(0));
+      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        if (!context.wave.exec.test(lane)) {
+          continue;
+        }
+        const uint32_t src0_bits =
+            static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(1), context, lane));
+        const uint32_t src1_bits =
+            static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(2), context, lane));
+        int32_t acc = static_cast<int32_t>(
+            ResolveVectorLane(instruction.operands.at(3), context, lane));
+        for (uint32_t i = 0; i < 4; ++i) {
+          const int8_t a = static_cast<int8_t>((src0_bits >> (i * 8u)) & 0xffu);
+          const int8_t b = static_cast<int8_t>((src1_bits >> (i * 8u)) & 0xffu);
+          acc += static_cast<int32_t>(a) * static_cast<int32_t>(b);
+        }
+        for (uint32_t reg = 0; reg < 4; ++reg) {
+          context.wave.vgpr.Write(vdst + reg, lane, static_cast<uint32_t>(acc));
         }
       }
     } else if (instruction.mnemonic == "v_rndne_f32_e32") {
