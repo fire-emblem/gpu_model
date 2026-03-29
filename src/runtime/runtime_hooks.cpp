@@ -91,6 +91,37 @@ ModuleLoadFormat DetectModuleLoadFormat(const std::filesystem::path& path) {
   throw std::runtime_error("unable to detect module format: " + path.string());
 }
 
+ProgramImage LoadLoweredProgramImageFromAmdgpuObject(const std::filesystem::path& path,
+                                                     std::optional<std::string> kernel_name) {
+  auto image = AmdgpuObjLoader{}.LoadFromObject(path, std::move(kernel_name));
+  MetadataBlob metadata = image.metadata();
+  SetTargetIsa(metadata, TargetIsa::GcnAsm);
+  return ProgramImage(
+      image.kernel_name(),
+      image.assembly_text(),
+      std::move(metadata),
+      image.const_segment(),
+      image.raw_data_segment());
+}
+
+std::optional<std::filesystem::path> ArtifactPathForProgramImage(const ProgramImage& image) {
+  const auto artifact_path = MetadataValue(image.metadata(), "artifact_path");
+  if (!artifact_path.has_value()) {
+    return std::nullopt;
+  }
+  return std::filesystem::path(*artifact_path);
+}
+
+ProgramImage ForceLoweredProgramImage(const ProgramImage& image) {
+  MetadataBlob metadata = image.metadata();
+  SetTargetIsa(metadata, TargetIsa::GcnAsm);
+  return ProgramImage(image.kernel_name(),
+                      image.assembly_text(),
+                      std::move(metadata),
+                      image.const_segment(),
+                      image.raw_data_segment());
+}
+
 }  // namespace
 
 RuntimeHooks::RuntimeHooks(HostRuntime* runtime) {
@@ -248,11 +279,33 @@ LaunchResult RuntimeHooks::LaunchProgramImage(const ProgramImage& image,
                                               KernelArgPack args,
                                               ExecutionMode mode,
                                               std::string arch_name,
-                                              TraceSink* trace) {
-  last_load_result_ = LoadProgramImageToDevice(image);
+                                              TraceSink* trace,
+                                              ProgramExecutionPath path_kind) {
+  std::optional<ProgramImage> lowered_image;
+  std::optional<AmdgpuCodeObjectImage> raw_code_object;
+  const ProgramImage* execution_image = &image;
+
+  if (path_kind == ProgramExecutionPath::LoweredProgramImage &&
+      ResolveTargetIsa(image.metadata()) == TargetIsa::GcnRawAsm) {
+    lowered_image = ForceLoweredProgramImage(image);
+    execution_image = &*lowered_image;
+  }
+
+  if (path_kind == ProgramExecutionPath::RawCodeObject) {
+    const auto artifact_path = ArtifactPathForProgramImage(image);
+    if (!artifact_path.has_value()) {
+      throw std::invalid_argument("raw code object execution requires artifact_path metadata");
+    }
+    raw_code_object = AmdgpuCodeObjectDecoder{}.Decode(*artifact_path, image.kernel_name());
+    last_load_result_ = LoadAmdgpuObjectToDevice(*artifact_path, image.kernel_name());
+  } else {
+    last_load_result_ = LoadProgramImageToDevice(image);
+  }
+
   LaunchRequest request;
   request.arch_name = std::move(arch_name);
-  request.program_image = &image;
+  request.program_image = execution_image;
+  request.raw_code_object = raw_code_object.has_value() ? &*raw_code_object : nullptr;
   request.device_load = last_load_result_.has_value() ? &*last_load_result_ : nullptr;
   request.config = config;
   request.args = std::move(args);
@@ -425,7 +478,8 @@ LaunchResult RuntimeHooks::LaunchRegisteredKernel(const std::string& module_name
                                                   KernelArgPack args,
                                                   ExecutionMode mode,
                                                   std::string arch_name,
-                                                  TraceSink* trace) {
+                                                  TraceSink* trace,
+                                                  ProgramExecutionPath path_kind) {
   const auto module_it = modules_.find(module_name);
   if (module_it == modules_.end()) {
     LaunchResult result;
@@ -441,7 +495,7 @@ LaunchResult RuntimeHooks::LaunchRegisteredKernel(const std::string& module_name
     return result;
   }
   return LaunchProgramImage(kernel_it->second, std::move(config), std::move(args), mode,
-                            std::move(arch_name), trace);
+                            std::move(arch_name), trace, path_kind);
 }
 
 LaunchResult RuntimeHooks::LaunchAmdgpuObject(const std::filesystem::path& path,
@@ -450,7 +504,14 @@ LaunchResult RuntimeHooks::LaunchAmdgpuObject(const std::filesystem::path& path,
                                               ExecutionMode mode,
                                               std::string arch_name,
                                               TraceSink* trace,
-                                              std::optional<std::string> kernel_name) {
+                                              std::optional<std::string> kernel_name,
+                                              ProgramExecutionPath path_kind) {
+  if (path_kind == ProgramExecutionPath::LoweredProgramImage) {
+    const auto image = LoadLoweredProgramImageFromAmdgpuObject(path, std::move(kernel_name));
+    return LaunchProgramImage(image, std::move(config), std::move(args), mode,
+                              std::move(arch_name), trace, ProgramExecutionPath::LoweredProgramImage);
+  }
+
   const auto raw_code_object = AmdgpuCodeObjectDecoder{}.Decode(path, kernel_name);
   last_load_result_ = LoadAmdgpuObjectToDevice(path, raw_code_object.kernel_name);
   LaunchRequest request;

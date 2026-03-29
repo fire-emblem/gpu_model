@@ -6,9 +6,11 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include "gpu_model/loader/amdgpu_code_object_decoder.h"
 #include "gpu_model/runtime/host_runtime.h"
+#include "gpu_model/runtime/runtime_hooks.h"
 
 namespace gpu_model {
 namespace {

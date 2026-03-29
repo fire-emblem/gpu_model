@@ -56,9 +56,10 @@ class ModelRuntimeApi {
                                   KernelArgPack args,
                                   ExecutionMode mode = ExecutionMode::Functional,
                                   std::string arch_name = "",
-                                  TraceSink* trace = nullptr) {
+                                  TraceSink* trace = nullptr,
+                                  ProgramExecutionPath path_kind = ProgramExecutionPath::Auto) {
     return hooks_.LaunchProgramImage(image, std::move(config), std::move(args), mode,
-                                     std::move(arch_name), trace);
+                                     std::move(arch_name), trace, path_kind);
   }
 
   DeviceLoadPlan BuildLoadPlan(const ProgramImage& image) const { return hooks_.BuildLoadPlan(image); }
@@ -118,9 +119,11 @@ class ModelRuntimeApi {
                                       KernelArgPack args,
                                       ExecutionMode mode = ExecutionMode::Functional,
                                       std::string arch_name = "",
-                                      TraceSink* trace = nullptr) {
+                                      TraceSink* trace = nullptr,
+                                      ProgramExecutionPath path_kind = ProgramExecutionPath::Auto) {
     return hooks_.LaunchRegisteredKernel(module_name, kernel_name, std::move(config),
-                                         std::move(args), mode, std::move(arch_name), trace);
+                                         std::move(args), mode, std::move(arch_name), trace,
+                                         path_kind);
   }
   LaunchResult LaunchAmdgpuObject(const std::filesystem::path& path,
                                   LaunchConfig config,
@@ -128,9 +131,11 @@ class ModelRuntimeApi {
                                   ExecutionMode mode = ExecutionMode::Functional,
                                   std::string arch_name = "",
                                   TraceSink* trace = nullptr,
-                                  std::optional<std::string> kernel_name = std::nullopt) {
+                                  std::optional<std::string> kernel_name = std::nullopt,
+                                  ProgramExecutionPath path_kind = ProgramExecutionPath::RawCodeObject) {
     return hooks_.LaunchAmdgpuObject(path, std::move(config), std::move(args), mode,
-                                     std::move(arch_name), trace, std::move(kernel_name));
+                                     std::move(arch_name), trace, std::move(kernel_name),
+                                     path_kind);
   }
 
   RuntimeHooks& hooks() { return hooks_; }

@@ -227,5 +227,168 @@ TEST(ModelRuntimeApiTest, DescribesHipMfmaExecutableWithTypedTensorAbi) {
   std::filesystem::remove_all(temp_dir);
 }
 
+TEST(ModelRuntimeApiTest, LaunchesAmdgpuObjectThroughLoweredProgramImagePath) {
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_model_runtime_lowered_object");
+  const auto src_path = temp_dir / "hip_vecadd_3d_adds.cpp";
+  const auto exe_path = temp_dir / "hip_vecadd_3d_adds.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n"
+           "extern \"C\" __global__ void vecadd_3d_adds(const float* a, const float* b, float* c,\n"
+           "                                            int width, int height, int depth) {\n"
+           "  int x = blockIdx.x * blockDim.x + threadIdx.x;\n"
+           "  int y = blockIdx.y * blockDim.y + threadIdx.y;\n"
+           "  int z = blockIdx.z * blockDim.z + threadIdx.z;\n"
+           "  if (x < width && y < height && z < depth) {\n"
+           "    int idx = (z * height + y) * width + x;\n"
+           "    float acc = a[idx] + b[idx];\n"
+           "    acc = acc + 0.125f;\n"
+           "    acc = acc + 0.25f;\n"
+           "    acc = acc + 0.5f;\n"
+           "    c[idx] = acc;\n"
+           "  }\n"
+           "}\n"
+           "int main() { return 0; }\n";
+  }
+
+  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  constexpr uint32_t width = 9;
+  constexpr uint32_t height = 5;
+  constexpr uint32_t depth = 5;
+  constexpr uint32_t total = width * height * depth;
+  std::vector<float> a(total), b(total), c(total, -1.0f);
+  for (uint32_t i = 0; i < total; ++i) {
+    a[i] = 0.5f * static_cast<float>(i % 17);
+    b[i] = 1.0f + 0.25f * static_cast<float>(i % 7);
+  }
+
+  ModelRuntimeApi api;
+  const uint64_t a_addr = api.Malloc(total * sizeof(float));
+  const uint64_t b_addr = api.Malloc(total * sizeof(float));
+  const uint64_t c_addr = api.Malloc(total * sizeof(float));
+  api.MemcpyHtoD<float>(a_addr, std::span<const float>(a));
+  api.MemcpyHtoD<float>(b_addr, std::span<const float>(b));
+  api.MemcpyHtoD<float>(c_addr, std::span<const float>(c));
+
+  KernelArgPack args;
+  args.PushU64(a_addr);
+  args.PushU64(b_addr);
+  args.PushU64(c_addr);
+  args.PushU32(width);
+  args.PushU32(height);
+  args.PushU32(depth);
+
+  const auto result = api.LaunchAmdgpuObject(
+      exe_path,
+      LaunchConfig{
+          .grid_dim_x = (width + 3) / 4,
+          .grid_dim_y = (height + 3) / 4,
+          .grid_dim_z = (depth + 3) / 4,
+          .block_dim_x = 4,
+          .block_dim_y = 4,
+          .block_dim_z = 4,
+      },
+      std::move(args),
+      ExecutionMode::Functional,
+      "c500",
+      nullptr,
+      "vecadd_3d_adds",
+      ProgramExecutionPath::LoweredProgramImage);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  api.MemcpyDtoH<float>(c_addr, std::span<float>(c));
+  for (uint32_t i = 0; i < total; ++i) {
+    EXPECT_FLOAT_EQ(c[i], a[i] + b[i] + 0.125f + 0.25f + 0.5f);
+  }
+
+  std::filesystem::remove_all(temp_dir);
+}
+
+TEST(ModelRuntimeApiTest, LaunchesRegisteredRawModuleThroughLoweredProgramImagePath) {
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_model_runtime_registered_lowered");
+  const auto src_path = temp_dir / "hip_vecadd_3d_adds_registered.cpp";
+  const auto exe_path = temp_dir / "hip_vecadd_3d_adds_registered.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n"
+           "extern \"C\" __global__ void vecadd_3d_adds_registered(const float* a, const float* b, float* c,\n"
+           "                                                       int width, int height, int depth) {\n"
+           "  int x = blockIdx.x * blockDim.x + threadIdx.x;\n"
+           "  int y = blockIdx.y * blockDim.y + threadIdx.y;\n"
+           "  int z = blockIdx.z * blockDim.z + threadIdx.z;\n"
+           "  if (x < width && y < height && z < depth) {\n"
+           "    int idx = (z * height + y) * width + x;\n"
+           "    float acc = a[idx] + b[idx];\n"
+           "    acc = acc + 0.125f;\n"
+           "    acc = acc + 0.25f;\n"
+           "    acc = acc + 0.5f;\n"
+           "    c[idx] = acc;\n"
+           "  }\n"
+           "}\n"
+           "int main() { return 0; }\n";
+  }
+
+  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  constexpr uint32_t width = 9;
+  constexpr uint32_t height = 5;
+  constexpr uint32_t depth = 5;
+  constexpr uint32_t total = width * height * depth;
+  std::vector<float> a(total), b(total), c(total, -1.0f);
+  for (uint32_t i = 0; i < total; ++i) {
+    a[i] = 0.5f * static_cast<float>(i % 17);
+    b[i] = 1.0f + 0.25f * static_cast<float>(i % 7);
+  }
+
+  ModelRuntimeApi api;
+  api.LoadAmdgpuObject("raw_mod", exe_path, "vecadd_3d_adds_registered");
+  const uint64_t a_addr = api.Malloc(total * sizeof(float));
+  const uint64_t b_addr = api.Malloc(total * sizeof(float));
+  const uint64_t c_addr = api.Malloc(total * sizeof(float));
+  api.MemcpyHtoD<float>(a_addr, std::span<const float>(a));
+  api.MemcpyHtoD<float>(b_addr, std::span<const float>(b));
+  api.MemcpyHtoD<float>(c_addr, std::span<const float>(c));
+
+  KernelArgPack args;
+  args.PushU64(a_addr);
+  args.PushU64(b_addr);
+  args.PushU64(c_addr);
+  args.PushU32(width);
+  args.PushU32(height);
+  args.PushU32(depth);
+
+  const auto result = api.LaunchRegisteredKernel(
+      "raw_mod",
+      "vecadd_3d_adds_registered",
+      LaunchConfig{
+          .grid_dim_x = (width + 3) / 4,
+          .grid_dim_y = (height + 3) / 4,
+          .grid_dim_z = (depth + 3) / 4,
+          .block_dim_x = 4,
+          .block_dim_y = 4,
+          .block_dim_z = 4,
+      },
+      std::move(args),
+      ExecutionMode::Functional,
+      "c500",
+      nullptr,
+      ProgramExecutionPath::LoweredProgramImage);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  api.MemcpyDtoH<float>(c_addr, std::span<float>(c));
+  for (uint32_t i = 0; i < total; ++i) {
+    EXPECT_FLOAT_EQ(c[i], a[i] + b[i] + 0.125f + 0.25f + 0.5f);
+  }
+
+  std::filesystem::remove_all(temp_dir);
+}
+
 }  // namespace
 }  // namespace gpu_model

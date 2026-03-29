@@ -7,9 +7,7 @@
 #include <string>
 #include <vector>
 
-#include "gpu_model/isa/target_isa.h"
-#include "gpu_model/loader/amdgpu_obj_loader.h"
-#include "gpu_model/runtime/host_runtime.h"
+#include "gpu_model/runtime/runtime_hooks.h"
 
 namespace gpu_model {
 namespace {
@@ -69,15 +67,6 @@ TEST(HipccParallelExecutionTest, ThreeDimensionalVecaddAddsMatchesBetweenStAndMt
   const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  const auto raw_image = AmdgpuObjLoader{}.LoadFromObject(exe_path, "vecadd_3d_adds");
-  MetadataBlob modeled_metadata = raw_image.metadata();
-  SetTargetIsa(modeled_metadata, TargetIsa::GcnAsm);
-  const ProgramImage modeled_image(raw_image.kernel_name(),
-                                   raw_image.assembly_text(),
-                                   modeled_metadata,
-                                   raw_image.const_segment(),
-                                   raw_image.raw_data_segment());
-
   constexpr uint32_t width = 17;
   constexpr uint32_t height = 9;
   constexpr uint32_t depth = 9;
@@ -94,36 +83,41 @@ TEST(HipccParallelExecutionTest, ThreeDimensionalVecaddAddsMatchesBetweenStAndMt
     HostRuntime runtime;
     runtime.SetFunctionalExecutionConfig(
         FunctionalExecutionConfig{.mode = mode, .worker_threads = worker_threads});
+    RuntimeHooks hooks(&runtime);
 
-    const uint64_t a_addr = runtime.memory().AllocateGlobal(total * sizeof(float));
-    const uint64_t b_addr = runtime.memory().AllocateGlobal(total * sizeof(float));
-    const uint64_t c_addr = runtime.memory().AllocateGlobal(total * sizeof(float));
+    const uint64_t a_addr = hooks.Malloc(total * sizeof(float));
+    const uint64_t b_addr = hooks.Malloc(total * sizeof(float));
+    const uint64_t c_addr = hooks.Malloc(total * sizeof(float));
     for (uint32_t i = 0; i < total; ++i) {
       runtime.memory().StoreGlobalValue<float>(a_addr + i * sizeof(float), a[i]);
       runtime.memory().StoreGlobalValue<float>(b_addr + i * sizeof(float), b[i]);
       runtime.memory().StoreGlobalValue<float>(c_addr + i * sizeof(float), -1.0f);
     }
-
-    LaunchRequest request;
-    request.arch_name = "c500";
-    request.program_image = &modeled_image;
-    request.config = LaunchConfig{
-        .grid_dim_x = (width + 3) / 4,
-        .grid_dim_y = (height + 3) / 4,
-        .grid_dim_z = (depth + 3) / 4,
-        .block_dim_x = 4,
-        .block_dim_y = 4,
-        .block_dim_z = 4,
-    };
-    request.args.PushU64(a_addr);
-    request.args.PushU64(b_addr);
-    request.args.PushU64(c_addr);
-    request.args.PushU32(width);
-    request.args.PushU32(height);
-    request.args.PushU32(depth);
+    KernelArgPack args;
+    args.PushU64(a_addr);
+    args.PushU64(b_addr);
+    args.PushU64(c_addr);
+    args.PushU32(width);
+    args.PushU32(height);
+    args.PushU32(depth);
 
     const auto begin = std::chrono::steady_clock::now();
-    const auto launch = runtime.Launch(request);
+    const auto launch = hooks.LaunchAmdgpuObject(
+        exe_path,
+        LaunchConfig{
+            .grid_dim_x = (width + 3) / 4,
+            .grid_dim_y = (height + 3) / 4,
+            .grid_dim_z = (depth + 3) / 4,
+            .block_dim_x = 4,
+            .block_dim_y = 4,
+            .block_dim_z = 4,
+        },
+        std::move(args),
+        ExecutionMode::Functional,
+        "c500",
+        nullptr,
+        "vecadd_3d_adds",
+        ProgramExecutionPath::LoweredProgramImage);
     const auto end = std::chrono::steady_clock::now();
     EXPECT_TRUE(launch.ok) << launch.error_message;
 

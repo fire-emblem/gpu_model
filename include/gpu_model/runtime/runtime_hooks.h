@@ -25,6 +25,12 @@
 
 namespace gpu_model {
 
+enum class ProgramExecutionPath {
+  Auto,
+  RawCodeObject,
+  LoweredProgramImage,
+};
+
 class RuntimeHooks {
  public:
   explicit RuntimeHooks(HostRuntime* runtime = nullptr);
@@ -65,7 +71,8 @@ class RuntimeHooks {
                                   KernelArgPack args,
                                   ExecutionMode mode = ExecutionMode::Functional,
                                   std::string arch_name = "",
-                                  TraceSink* trace = nullptr);
+                                  TraceSink* trace = nullptr,
+                                  ProgramExecutionPath path_kind = ProgramExecutionPath::Auto);
   DeviceLoadPlan BuildLoadPlan(const ProgramImage& image) const;
   DeviceLoadPlan BuildLoadPlanFromAmdgpuObject(
       const std::filesystem::path& path,
@@ -99,14 +106,16 @@ class RuntimeHooks {
                                       KernelArgPack args,
                                       ExecutionMode mode = ExecutionMode::Functional,
                                       std::string arch_name = "",
-                                      TraceSink* trace = nullptr);
+                                      TraceSink* trace = nullptr,
+                                      ProgramExecutionPath path_kind = ProgramExecutionPath::Auto);
   LaunchResult LaunchAmdgpuObject(const std::filesystem::path& path,
                                   LaunchConfig config,
                                   KernelArgPack args,
                                   ExecutionMode mode = ExecutionMode::Functional,
                                   std::string arch_name = "",
                                   TraceSink* trace = nullptr,
-                                  std::optional<std::string> kernel_name = std::nullopt);
+                                  std::optional<std::string> kernel_name = std::nullopt,
+                                  ProgramExecutionPath path_kind = ProgramExecutionPath::RawCodeObject);
 
   HostRuntime& runtime() { return *runtime_; }
   const HostRuntime& runtime() const { return *runtime_; }
