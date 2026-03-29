@@ -144,9 +144,10 @@ LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
 
   KernelProgram parsed_kernel;
   const KernelProgram* kernel = request.kernel;
-  AmdgpuCodeObjectImage raw_code_object;
-  bool use_raw_gcn_executor = false;
-  if (kernel == nullptr && request.program_image != nullptr) {
+  std::optional<AmdgpuCodeObjectImage> raw_code_object_storage;
+  const AmdgpuCodeObjectImage* raw_code_object = request.raw_code_object;
+  bool use_raw_gcn_executor = raw_code_object != nullptr;
+  if (raw_code_object == nullptr && kernel == nullptr && request.program_image != nullptr) {
     const auto target_isa = ResolveTargetIsa(request.program_image->metadata());
     if (target_isa == TargetIsa::GcnRawAsm) {
       const auto path_it = request.program_image->metadata().values.find("artifact_path");
@@ -154,7 +155,9 @@ LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
         result.error_message = "raw GCN program image missing artifact_path metadata";
         return result;
       }
-      raw_code_object = AmdgpuCodeObjectDecoder{}.Decode(path_it->second, request.program_image->kernel_name());
+      raw_code_object_storage.emplace(
+          AmdgpuCodeObjectDecoder{}.Decode(path_it->second, request.program_image->kernel_name()));
+      raw_code_object = &*raw_code_object_storage;
       use_raw_gcn_executor = true;
     } else {
       parsed_kernel = ProgramLoweringRegistry::Lower(*request.program_image);
@@ -173,7 +176,7 @@ LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
   }
 
   const MetadataBlob& launch_metadata_source =
-      use_raw_gcn_executor ? raw_code_object.metadata
+      use_raw_gcn_executor ? raw_code_object->metadata
                            : (request.program_image != nullptr && kernel == nullptr
                                   ? request.program_image->metadata()
                                   : kernel->metadata());
@@ -185,7 +188,7 @@ LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
           "kernel metadata arch does not match selected architecture";
       return result;
     }
-    const std::string kernel_name = use_raw_gcn_executor ? raw_code_object.kernel_name : kernel->name();
+    const std::string kernel_name = use_raw_gcn_executor ? raw_code_object->kernel_name : kernel->name();
     if (launch_metadata.entry.has_value() && *launch_metadata.entry != kernel_name) {
       result.error_message = "kernel metadata entry does not match kernel name";
       return result;
@@ -241,7 +244,7 @@ LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
     trace.OnEvent(TraceEvent{
         .kind = TraceEventKind::Launch,
         .cycle = result.submit_cycle,
-        .message = "kernel=" + (use_raw_gcn_executor ? raw_code_object.kernel_name : kernel->name()) +
+        .message = "kernel=" + (use_raw_gcn_executor ? raw_code_object->kernel_name : kernel->name()) +
                    " arch=" + spec->name,
     });
 
@@ -276,9 +279,9 @@ LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
     };
 
     if (request.mode == ExecutionMode::Functional) {
-      if (use_raw_gcn_executor) {
-        const auto raw_result =
-            RawGcnExecutor{}.Run(raw_code_object, *spec, request.config, request.args,
+        if (use_raw_gcn_executor) {
+          const auto raw_result =
+            RawGcnExecutor{}.Run(*raw_code_object, *spec, request.config, request.args,
                                  request.device_load, memory_, trace);
         result.ok = raw_result.ok;
         result.error_message = raw_result.error_message;

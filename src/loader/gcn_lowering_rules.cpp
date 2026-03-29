@@ -98,6 +98,81 @@ class HipccVecaddKernelRule final : public IGcnLoweringRule {
   }
 };
 
+class Hipcc3DVecaddAddsRule final : public IGcnLoweringRule {
+ public:
+  bool Match(const std::vector<GcnTextInstruction>& instructions, size_t index) const override {
+    return HasMnemonicSequence(
+        instructions, index,
+        {"s_load_dwordx2",      "s_load_dwordx4",      "s_waitcnt",
+         "s_lshr_b32",          "s_and_b32",           "s_and_b32",
+         "s_mul_i32",           "s_mul_i32",           "v_add_u32_e32",
+         "v_add_u32_e32",       "s_mul_i32",           "v_add_u32_e32",
+         "v_cmp_gt_i32_e32",    "v_cmp_gt_i32_e64",    "s_and_b64",
+         "v_cmp_gt_i32_e32",    "s_and_b64",           "s_and_saveexec_b64",
+         "s_cbranch_execz",     "v_mad_u64_u32",       "s_load_dwordx4",
+         "v_mad_u64_u32",       "s_load_dwordx2",      "s_waitcnt",
+         "v_mov_b32_e32",       "v_ashrrev_i32_e32",   "v_lshlrev_b64",
+         "v_add_co_u32_e32",    "v_addc_co_u32_e32",   "global_load_dword",
+         "v_mov_b32_e32",       "v_add_co_u32_e32",    "v_addc_co_u32_e32",
+         "global_load_dword",   "v_mov_b32_e32",       "v_add_co_u32_e32",
+         "v_addc_co_u32_e32",   "s_waitcnt",           "v_add_f32_e32",
+         "v_add_f32_e32",       "v_add_f32_e32",       "v_add_f32_e32",
+         "global_store_dword",  "s_endpgm"});
+  }
+
+  GcnLoweringResult Lower(const std::vector<GcnTextInstruction>&,
+                          size_t) const override {
+    return GcnLoweringResult{
+        .consumed = 44,
+        .lowered_lines =
+            {
+                "s_load_kernarg s0, 0",
+                "s_load_kernarg s1, 1",
+                "s_load_kernarg s2, 2",
+                "s_load_kernarg s3, 3",
+                "s_load_kernarg s4, 4",
+                "s_load_kernarg s5, 5",
+                "v_get_global_id_x v0",
+                "v_get_global_id_y v1",
+                "v_get_global_id_z v2",
+                "v_cmp_lt_i32_cmask v0, s3",
+                "s_saveexec_b64 s10",
+                "s_and_exec_cmask_b64",
+                "s_cbranch_execz exit",
+                "v_cmp_lt_i32_cmask v1, s4",
+                "s_saveexec_b64 s12",
+                "s_and_exec_cmask_b64",
+                "s_cbranch_execz restore_x",
+                "v_cmp_lt_i32_cmask v2, s5",
+                "s_saveexec_b64 s14",
+                "s_and_exec_cmask_b64",
+                "s_cbranch_execz restore_y",
+                "v_mul_lo_i32 v6, v2, s4",
+                "v_add_i32 v6, v6, v1",
+                "v_mul_lo_i32 v6, v6, s3",
+                "v_add_i32 v6, v6, v0",
+                "buffer_load_dword v7, s0, v6, 4",
+                "buffer_load_dword v8, s1, v6, 4",
+                "v_add_f32 v9, v7, v8",
+                "v_mov_b32 v10, 0x3e000000",
+                "v_add_f32 v9, v9, v10",
+                "v_mov_b32 v10, 0x3e800000",
+                "v_add_f32 v9, v9, v10",
+                "v_mov_b32 v10, 0x3f000000",
+                "v_add_f32 v9, v9, v10",
+                "buffer_store_dword s2, v6, v9, 4",
+                "restore_y:",
+                "s_restoreexec_b64 s14",
+                "restore_x:",
+                "s_restoreexec_b64 s12",
+                "exit:",
+                "s_restoreexec_b64 s10",
+                "s_endpgm",
+            },
+    };
+  }
+};
+
 class VectorMoveRule final : public IGcnLoweringRule {
  public:
   bool Match(const std::vector<GcnTextInstruction>& instructions, size_t index) const override {
@@ -293,6 +368,7 @@ class PassthroughRule final : public IGcnLoweringRule {
 
 const std::vector<const IGcnLoweringRule*>& Rules() {
   static const HipccVecaddKernelRule kHipccVecaddKernelRule;
+  static const Hipcc3DVecaddAddsRule kHipcc3DVecaddAddsRule;
   static const VectorMoveRule kVectorMoveRule;
   static const FloatAddRule kFloatAddRule;
   static const IntAddRule kIntAddRule;
@@ -302,7 +378,8 @@ const std::vector<const IGcnLoweringRule*>& Rules() {
   static const GlobalStoreRule kGlobalStoreRule;
   static const PassthroughRule kPassthroughRule;
   static const std::vector<const IGcnLoweringRule*> kRules = {
-      &kHipccVecaddKernelRule, &kVectorMoveRule, &kFloatAddRule, &kIntAddRule, &kCompareRule,
+      &kHipccVecaddKernelRule, &kHipcc3DVecaddAddsRule,
+      &kVectorMoveRule, &kFloatAddRule, &kIntAddRule, &kCompareRule,
       &kSaveExecRule, &kGlobalLoadRule, &kGlobalStoreRule, &kPassthroughRule};
   return kRules;
 }

@@ -451,11 +451,11 @@ LaunchResult RuntimeHooks::LaunchAmdgpuObject(const std::filesystem::path& path,
                                               std::string arch_name,
                                               TraceSink* trace,
                                               std::optional<std::string> kernel_name) {
-  const auto image = AmdgpuObjLoader{}.LoadFromObject(path, std::move(kernel_name));
-  last_load_result_ = LoadAmdgpuObjectToDevice(path, image.kernel_name());
+  const auto raw_code_object = AmdgpuCodeObjectDecoder{}.Decode(path, kernel_name);
+  last_load_result_ = LoadAmdgpuObjectToDevice(path, raw_code_object.kernel_name);
   LaunchRequest request;
   request.arch_name = std::move(arch_name);
-  request.program_image = &image;
+  request.raw_code_object = &raw_code_object;
   request.device_load = last_load_result_.has_value() ? &*last_load_result_ : nullptr;
   request.config = config;
   request.args = std::move(args);
