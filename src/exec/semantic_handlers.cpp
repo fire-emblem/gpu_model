@@ -775,6 +775,9 @@ class SyncSpecialHandler final : public ISemanticHandler {
                const ExecutionContext&) const override {
     OpPlan plan;
     switch (instruction.opcode) {
+      case Opcode::SWaitCnt:
+        plan.wait_cnt = true;
+        return plan;
       case Opcode::SyncWaveBarrier:
         plan.sync_wave_barrier = true;
         return plan;
