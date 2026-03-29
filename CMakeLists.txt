@@ -6,6 +6,18 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+find_program(CCACHE_PROGRAM ccache)
+if(CCACHE_PROGRAM)
+  set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE_PROGRAM}" CACHE STRING "" FORCE)
+  message(STATUS "Using ccache: ${CCACHE_PROGRAM}")
+endif()
+
+find_program(MOLD_PROGRAM mold)
+if(MOLD_PROGRAM AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+  add_link_options("-fuse-ld=mold")
+  message(STATUS "Using mold linker: ${MOLD_PROGRAM}")
+endif()
+
 include(cmake/warnings.cmake)
 
 include(FetchContent)

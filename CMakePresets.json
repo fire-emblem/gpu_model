@@ -1,0 +1,25 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 22,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "dev-fast",
+      "displayName": "Dev Fast",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-ninja",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "dev-fast",
+      "configurePreset": "dev-fast"
+    }
+  ]
+}
