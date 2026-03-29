@@ -20,7 +20,7 @@ PlacementMap Mapper::Place(const GpuArchSpec& spec, const LaunchConfig& config) 
   const uint32_t total_blocks = config.grid_dim_x * config.grid_dim_y;
   placement.blocks.reserve(total_blocks);
 
-  const uint32_t total_aps = spec.dpc_count * spec.ap_per_dpc;
+  const uint32_t total_aps = spec.total_ap_count();
   const uint32_t threads_per_block = config.block_dim_x * config.block_dim_y;
   const uint32_t waves_per_block = (threads_per_block + spec.wave_size - 1) / spec.wave_size;
 

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstring>
 
+#include "gpu_model/arch/arch_registry.h"
 #include "gpu_model/debug/trace_sink.h"
 #include "gpu_model/isa/instruction_builder.h"
 #include "gpu_model/runtime/host_runtime.h"
@@ -58,6 +59,9 @@ TEST(CycleSmokeTest, ConsecutiveKernelLaunchesIncludeDeviceGap) {
 }
 
 TEST(CycleSmokeTest, QueuesBlocksWhenGridExceedsPhysicalApCount) {
+  const auto spec = ArchRegistry::Get("c500");
+  ASSERT_NE(spec, nullptr);
+
   CollectingTraceSink trace;
   HostRuntime runtime(&trace);
 
@@ -68,7 +72,7 @@ TEST(CycleSmokeTest, QueuesBlocksWhenGridExceedsPhysicalApCount) {
   LaunchRequest request;
   request.kernel = &kernel;
   request.mode = ExecutionMode::Cycle;
-  request.config.grid_dim_x = 57;
+  request.config.grid_dim_x = spec->total_ap_count() + 1;
   request.config.block_dim_x = 64;
 
   const auto result = runtime.Launch(request);
@@ -82,7 +86,7 @@ TEST(CycleSmokeTest, QueuesBlocksWhenGridExceedsPhysicalApCount) {
   for (const auto& event : trace.events()) {
     if (event.kind == TraceEventKind::BlockLaunch) {
       ++block_launches;
-      if (event.block_id == 56u) {
+      if (event.block_id == spec->total_ap_count()) {
         wrapped_block_launch_cycle = event.cycle;
       }
     } else if (event.kind == TraceEventKind::WaveLaunch) {
@@ -92,8 +96,8 @@ TEST(CycleSmokeTest, QueuesBlocksWhenGridExceedsPhysicalApCount) {
     }
   }
 
-  EXPECT_EQ(block_launches, 57u);
-  EXPECT_EQ(wave_launches, 57u);
+  EXPECT_EQ(block_launches, spec->total_ap_count() + 1);
+  EXPECT_EQ(wave_launches, spec->total_ap_count() + 1);
   EXPECT_EQ(wrapped_block_launch_cycle, 4u);
   EXPECT_TRUE(saw_warp_switch);
 }

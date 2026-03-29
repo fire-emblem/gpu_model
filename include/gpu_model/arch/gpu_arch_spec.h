@@ -75,6 +75,9 @@ struct GpuArchSpec {
   LaunchTimingSpec launch_timing;
   IssueCycleClassOverridesSpec issue_cycle_class_overrides;
   IssueCycleOpOverridesSpec issue_cycle_op_overrides;
+
+  [[nodiscard]] uint32_t total_ap_count() const { return dpc_count * ap_per_dpc; }
+  [[nodiscard]] uint32_t total_peu_count() const { return total_ap_count() * peu_per_ap; }
 };
 
 }  // namespace gpu_model

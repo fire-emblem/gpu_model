@@ -55,7 +55,7 @@ struct RuntimeDeviceProperties {
   size_t total_const_mem = 64ull * 1024ull;
   int compute_capability_major = 9;
   int compute_capability_minor = 0;
-  int multi_processor_count = 56;
+  int multi_processor_count = 104;
   int max_threads_per_multiprocessor = 1024;
   int memory_clock_rate_khz = 1200000;
   int memory_bus_width_bits = 4096;

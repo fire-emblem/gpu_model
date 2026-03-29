@@ -629,7 +629,7 @@ int main() {
   if (std::strcmp(props.name, "c500") != 0) return 14;
   if (props.warpSize != 64) return 15;
   if (props.maxThreadsPerBlock != 1024) return 16;
-  if (props.multiProcessorCount != 56) return 17;
+  if (props.multiProcessorCount != 104) return 17;
   if (hipDeviceGetAttribute(&warp_size, hipDeviceAttributeWarpSize, 0) != hipSuccess || warp_size != 64) return 18;
   if (hipDeviceGetAttribute(&max_threads, hipDeviceAttributeMaxThreadsPerBlock, 0) != hipSuccess || max_threads != 1024) return 19;
 

@@ -107,13 +107,13 @@ TEST(RuntimeHooksTest, ExposesModelDevicePropertiesAndAttributes) {
   EXPECT_EQ(props.name, "c500");
   EXPECT_EQ(props.warp_size, 64);
   EXPECT_EQ(props.max_threads_per_block, 1024);
-  EXPECT_EQ(props.multi_processor_count, 56);
+  EXPECT_EQ(props.multi_processor_count, 104);
   EXPECT_EQ(props.shared_mem_per_block, 64u * 1024u);
   EXPECT_EQ(props.shared_mem_per_multiprocessor, 64u * 1024u);
 
   EXPECT_EQ(*hooks.GetDeviceAttribute(RuntimeDeviceAttribute::WarpSize), 64);
   EXPECT_EQ(*hooks.GetDeviceAttribute(RuntimeDeviceAttribute::MaxThreadsPerBlock), 1024);
-  EXPECT_EQ(*hooks.GetDeviceAttribute(RuntimeDeviceAttribute::MultiprocessorCount), 56);
+  EXPECT_EQ(*hooks.GetDeviceAttribute(RuntimeDeviceAttribute::MultiprocessorCount), 104);
   EXPECT_EQ(*hooks.GetDeviceAttribute(RuntimeDeviceAttribute::UnifiedAddressing), 1);
 }
 

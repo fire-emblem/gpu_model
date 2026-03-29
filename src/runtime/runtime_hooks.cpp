@@ -27,7 +27,7 @@ RuntimeDeviceProperties BuildRuntimeDeviceProperties(const GpuArchSpec& spec) {
   RuntimeDeviceProperties props;
   props.name = spec.name;
   props.warp_size = static_cast<int>(spec.wave_size);
-  props.multi_processor_count = static_cast<int>(spec.dpc_count * spec.ap_per_dpc);
+  props.multi_processor_count = static_cast<int>(spec.total_ap_count());
   props.max_threads_per_block = 1024;
   props.max_threads_per_multiprocessor = 1024;
   props.async_engine_count = 1;
