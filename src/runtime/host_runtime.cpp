@@ -148,8 +148,8 @@ LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
   const AmdgpuCodeObjectImage* raw_code_object = request.raw_code_object;
   bool use_raw_gcn_executor = raw_code_object != nullptr;
   if (raw_code_object == nullptr && kernel == nullptr && request.program_image != nullptr) {
-    const auto target_isa = ResolveTargetIsa(request.program_image->metadata());
-    if (target_isa == TargetIsa::GcnRawAsm) {
+    const auto explicit_path = request.program_execution_path;
+    if (explicit_path == ProgramExecutionPath::RawCodeObject) {
       const auto path_it = request.program_image->metadata().values.find("artifact_path");
       if (path_it == request.program_image->metadata().values.end()) {
         result.error_message = "raw GCN program image missing artifact_path metadata";
@@ -159,9 +159,25 @@ LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
           AmdgpuCodeObjectDecoder{}.Decode(path_it->second, request.program_image->kernel_name()));
       raw_code_object = &*raw_code_object_storage;
       use_raw_gcn_executor = true;
-    } else {
+    } else if (explicit_path == ProgramExecutionPath::LoweredProgramImage) {
       parsed_kernel = ProgramLoweringRegistry::Lower(*request.program_image);
       kernel = &parsed_kernel;
+    } else {
+      const auto target_isa = ResolveTargetIsa(request.program_image->metadata());
+      if (target_isa == TargetIsa::GcnRawAsm) {
+        const auto path_it = request.program_image->metadata().values.find("artifact_path");
+        if (path_it == request.program_image->metadata().values.end()) {
+          result.error_message = "raw GCN program image missing artifact_path metadata";
+          return result;
+        }
+        raw_code_object_storage.emplace(
+            AmdgpuCodeObjectDecoder{}.Decode(path_it->second, request.program_image->kernel_name()));
+        raw_code_object = &*raw_code_object_storage;
+        use_raw_gcn_executor = true;
+      } else {
+        parsed_kernel = ProgramLoweringRegistry::Lower(*request.program_image);
+        kernel = &parsed_kernel;
+      }
     }
   }
   if (kernel == nullptr && !use_raw_gcn_executor) {

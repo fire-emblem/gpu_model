@@ -25,12 +25,6 @@
 
 namespace gpu_model {
 
-enum class ProgramExecutionPath {
-  Auto,
-  RawCodeObject,
-  LoweredProgramImage,
-};
-
 class RuntimeHooks {
  public:
   explicit RuntimeHooks(HostRuntime* runtime = nullptr);

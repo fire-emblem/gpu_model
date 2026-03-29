@@ -20,6 +20,12 @@ enum class ExecutionMode {
   Cycle,
 };
 
+enum class ProgramExecutionPath {
+  Auto,
+  RawCodeObject,
+  LoweredProgramImage,
+};
+
 struct ExecutionStats {
   uint64_t wave_steps = 0;
   uint64_t instructions_issued = 0;
@@ -44,6 +50,7 @@ struct LaunchRequest {
   const KernelProgram* kernel = nullptr;
   const ProgramImage* program_image = nullptr;
   const AmdgpuCodeObjectImage* raw_code_object = nullptr;
+  ProgramExecutionPath program_execution_path = ProgramExecutionPath::Auto;
   const DeviceLoadResult* device_load = nullptr;
   LaunchConfig config;
   KernelArgPack args;

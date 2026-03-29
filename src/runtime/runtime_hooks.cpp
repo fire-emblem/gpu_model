@@ -267,6 +267,7 @@ LaunchResult RuntimeHooks::LaunchKernel(const KernelProgram& kernel,
   LaunchRequest request;
   request.arch_name = arch_name;
   request.kernel = &kernel;
+  request.program_execution_path = ProgramExecutionPath::Auto;
   request.config = config;
   request.args = std::move(args);
   request.mode = mode;
@@ -306,6 +307,7 @@ LaunchResult RuntimeHooks::LaunchProgramImage(const ProgramImage& image,
   request.arch_name = std::move(arch_name);
   request.program_image = execution_image;
   request.raw_code_object = raw_code_object.has_value() ? &*raw_code_object : nullptr;
+  request.program_execution_path = path_kind;
   request.device_load = last_load_result_.has_value() ? &*last_load_result_ : nullptr;
   request.config = config;
   request.args = std::move(args);
