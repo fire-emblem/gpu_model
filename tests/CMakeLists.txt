@@ -91,6 +91,7 @@ add_executable(gpu_model_tests
   runtime/trace_test.cpp
   runtime/runtime_hooks_test.cpp
   runtime/execution_stats_test.cpp
+  instruction/instruction_naming_test.cpp
 )
 
 target_link_libraries(gpu_model_tests
