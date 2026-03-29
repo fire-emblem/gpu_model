@@ -10,13 +10,43 @@
 
 namespace gpu_model {
 
+enum class KernelArgValueKind {
+  Unknown,
+  GlobalBuffer,
+  ByValue,
+};
+
+enum class KernelHiddenArgKind {
+  Unknown,
+  BlockCountX,
+  BlockCountY,
+  BlockCountZ,
+  GroupSizeX,
+  GroupSizeY,
+  GroupSizeZ,
+  RemainderX,
+  RemainderY,
+  RemainderZ,
+  GlobalOffsetX,
+  GlobalOffsetY,
+  GlobalOffsetZ,
+  GridDims,
+  DynamicLdsSize,
+  PrivateBase,
+  SharedBase,
+  QueuePtr,
+  None,
+};
+
 struct KernelArgLayoutEntry {
-  std::string kind;
+  KernelArgValueKind kind = KernelArgValueKind::Unknown;
+  std::string kind_name;
   uint32_t size = 0;
 };
 
 struct KernelHiddenArgLayoutEntry {
-  std::string kind;
+  KernelHiddenArgKind kind = KernelHiddenArgKind::Unknown;
+  std::string kind_name;
   uint32_t offset = 0;
   uint32_t size = 0;
 };
@@ -41,5 +71,9 @@ struct KernelLaunchMetadata {
 KernelLaunchMetadata ParseKernelLaunchMetadata(const MetadataBlob& metadata);
 uint32_t EstimateVisibleKernargBytes(const KernelLaunchMetadata& metadata);
 uint32_t RequiredKernargTemplateBytes(const KernelLaunchMetadata& metadata);
+KernelArgValueKind ParseKernelArgValueKind(std::string_view text);
+KernelHiddenArgKind ParseKernelHiddenArgKind(std::string_view text);
+std::string_view ToString(KernelArgValueKind kind);
+std::string_view ToString(KernelHiddenArgKind kind);
 
 }  // namespace gpu_model

@@ -55,39 +55,39 @@ void WriteScalar(std::vector<std::byte>& bytes, uint32_t offset, T value) {
 }
 
 uint64_t HiddenArgValue(const KernelHiddenArgLayoutEntry& entry, const LaunchConfig& config) {
-  if (entry.kind == "hidden_block_count_x") {
-    return config.grid_dim_x;
-  }
-  if (entry.kind == "hidden_block_count_y") {
-    return config.grid_dim_y;
-  }
-  if (entry.kind == "hidden_block_count_z") {
-    return 1;
-  }
-  if (entry.kind == "hidden_group_size_x") {
-    return config.block_dim_x;
-  }
-  if (entry.kind == "hidden_group_size_y") {
-    return config.block_dim_y;
-  }
-  if (entry.kind == "hidden_group_size_z") {
-    return 1;
-  }
-  if (entry.kind == "hidden_remainder_x") {
-    return config.block_dim_x;
-  }
-  if (entry.kind == "hidden_remainder_y") {
-    return config.block_dim_y;
-  }
-  if (entry.kind == "hidden_remainder_z") {
-    return 1;
-  }
-  if (entry.kind == "hidden_global_offset_x" || entry.kind == "hidden_global_offset_y" ||
-      entry.kind == "hidden_global_offset_z") {
-    return 0;
-  }
-  if (entry.kind == "hidden_grid_dims") {
-    return config.grid_dim_y > 1 || config.block_dim_y > 1 ? 2 : 1;
+  switch (entry.kind) {
+    case KernelHiddenArgKind::BlockCountX:
+      return config.grid_dim_x;
+    case KernelHiddenArgKind::BlockCountY:
+      return config.grid_dim_y;
+    case KernelHiddenArgKind::BlockCountZ:
+      return 1;
+    case KernelHiddenArgKind::GroupSizeX:
+      return config.block_dim_x;
+    case KernelHiddenArgKind::GroupSizeY:
+      return config.block_dim_y;
+    case KernelHiddenArgKind::GroupSizeZ:
+      return 1;
+    case KernelHiddenArgKind::RemainderX:
+      return config.block_dim_x;
+    case KernelHiddenArgKind::RemainderY:
+      return config.block_dim_y;
+    case KernelHiddenArgKind::RemainderZ:
+      return 1;
+    case KernelHiddenArgKind::GlobalOffsetX:
+    case KernelHiddenArgKind::GlobalOffsetY:
+    case KernelHiddenArgKind::GlobalOffsetZ:
+      return 0;
+    case KernelHiddenArgKind::GridDims:
+      return config.grid_dim_y > 1 || config.block_dim_y > 1 ? 2 : 1;
+    case KernelHiddenArgKind::DynamicLdsSize:
+      return config.shared_memory_bytes;
+    case KernelHiddenArgKind::PrivateBase:
+    case KernelHiddenArgKind::SharedBase:
+    case KernelHiddenArgKind::QueuePtr:
+    case KernelHiddenArgKind::None:
+    case KernelHiddenArgKind::Unknown:
+      return 0;
   }
   return 0;
 }

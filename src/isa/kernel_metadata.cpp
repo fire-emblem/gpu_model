@@ -7,6 +7,94 @@
 
 namespace gpu_model {
 
+KernelArgValueKind ParseKernelArgValueKind(std::string_view text) {
+  if (text == "global_buffer") {
+    return KernelArgValueKind::GlobalBuffer;
+  }
+  if (text == "by_value") {
+    return KernelArgValueKind::ByValue;
+  }
+  return KernelArgValueKind::Unknown;
+}
+
+KernelHiddenArgKind ParseKernelHiddenArgKind(std::string_view text) {
+  if (text == "hidden_block_count_x") return KernelHiddenArgKind::BlockCountX;
+  if (text == "hidden_block_count_y") return KernelHiddenArgKind::BlockCountY;
+  if (text == "hidden_block_count_z") return KernelHiddenArgKind::BlockCountZ;
+  if (text == "hidden_group_size_x") return KernelHiddenArgKind::GroupSizeX;
+  if (text == "hidden_group_size_y") return KernelHiddenArgKind::GroupSizeY;
+  if (text == "hidden_group_size_z") return KernelHiddenArgKind::GroupSizeZ;
+  if (text == "hidden_remainder_x") return KernelHiddenArgKind::RemainderX;
+  if (text == "hidden_remainder_y") return KernelHiddenArgKind::RemainderY;
+  if (text == "hidden_remainder_z") return KernelHiddenArgKind::RemainderZ;
+  if (text == "hidden_global_offset_x") return KernelHiddenArgKind::GlobalOffsetX;
+  if (text == "hidden_global_offset_y") return KernelHiddenArgKind::GlobalOffsetY;
+  if (text == "hidden_global_offset_z") return KernelHiddenArgKind::GlobalOffsetZ;
+  if (text == "hidden_grid_dims") return KernelHiddenArgKind::GridDims;
+  if (text == "hidden_dynamic_lds_size") return KernelHiddenArgKind::DynamicLdsSize;
+  if (text == "hidden_private_base") return KernelHiddenArgKind::PrivateBase;
+  if (text == "hidden_shared_base") return KernelHiddenArgKind::SharedBase;
+  if (text == "hidden_queue_ptr") return KernelHiddenArgKind::QueuePtr;
+  if (text == "hidden_none") return KernelHiddenArgKind::None;
+  return KernelHiddenArgKind::Unknown;
+}
+
+std::string_view ToString(KernelArgValueKind kind) {
+  switch (kind) {
+    case KernelArgValueKind::GlobalBuffer:
+      return "global_buffer";
+    case KernelArgValueKind::ByValue:
+      return "by_value";
+    case KernelArgValueKind::Unknown:
+      return "unknown";
+  }
+  return "unknown";
+}
+
+std::string_view ToString(KernelHiddenArgKind kind) {
+  switch (kind) {
+    case KernelHiddenArgKind::BlockCountX:
+      return "hidden_block_count_x";
+    case KernelHiddenArgKind::BlockCountY:
+      return "hidden_block_count_y";
+    case KernelHiddenArgKind::BlockCountZ:
+      return "hidden_block_count_z";
+    case KernelHiddenArgKind::GroupSizeX:
+      return "hidden_group_size_x";
+    case KernelHiddenArgKind::GroupSizeY:
+      return "hidden_group_size_y";
+    case KernelHiddenArgKind::GroupSizeZ:
+      return "hidden_group_size_z";
+    case KernelHiddenArgKind::RemainderX:
+      return "hidden_remainder_x";
+    case KernelHiddenArgKind::RemainderY:
+      return "hidden_remainder_y";
+    case KernelHiddenArgKind::RemainderZ:
+      return "hidden_remainder_z";
+    case KernelHiddenArgKind::GlobalOffsetX:
+      return "hidden_global_offset_x";
+    case KernelHiddenArgKind::GlobalOffsetY:
+      return "hidden_global_offset_y";
+    case KernelHiddenArgKind::GlobalOffsetZ:
+      return "hidden_global_offset_z";
+    case KernelHiddenArgKind::GridDims:
+      return "hidden_grid_dims";
+    case KernelHiddenArgKind::DynamicLdsSize:
+      return "hidden_dynamic_lds_size";
+    case KernelHiddenArgKind::PrivateBase:
+      return "hidden_private_base";
+    case KernelHiddenArgKind::SharedBase:
+      return "hidden_shared_base";
+    case KernelHiddenArgKind::QueuePtr:
+      return "hidden_queue_ptr";
+    case KernelHiddenArgKind::None:
+      return "hidden_none";
+    case KernelHiddenArgKind::Unknown:
+      return "unknown";
+  }
+  return "unknown";
+}
+
 namespace {
 
 std::string Trim(std::string_view text) {
@@ -62,7 +150,8 @@ std::vector<KernelArgLayoutEntry> FindArgLayout(const MetadataBlob& metadata) {
       throw std::runtime_error("invalid arg_layout token: " + token);
     }
     layout.push_back(KernelArgLayoutEntry{
-        .kind = Trim(std::string_view(token).substr(0, colon)),
+        .kind = ParseKernelArgValueKind(Trim(std::string_view(token).substr(0, colon))),
+        .kind_name = Trim(std::string_view(token).substr(0, colon)),
         .size = static_cast<uint32_t>(std::stoul(token.substr(colon + 1))),
     });
   }
@@ -78,7 +167,8 @@ std::vector<KernelHiddenArgLayoutEntry> FindHiddenArgLayout(const MetadataBlob& 
       throw std::runtime_error("invalid hidden_arg_layout token: " + token);
     }
     layout.push_back(KernelHiddenArgLayoutEntry{
-        .kind = Trim(std::string_view(token).substr(0, first)),
+        .kind = ParseKernelHiddenArgKind(Trim(std::string_view(token).substr(0, first))),
+        .kind_name = Trim(std::string_view(token).substr(0, first)),
         .offset = static_cast<uint32_t>(std::stoul(token.substr(first + 1, second - first - 1))),
         .size = static_cast<uint32_t>(std::stoul(token.substr(second + 1))),
     });

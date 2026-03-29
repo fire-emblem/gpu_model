@@ -195,8 +195,8 @@ std::vector<HipInterposerArgDesc> HipInterposerState::ParseArgLayout(const Metad
   const auto parsed = ParseKernelLaunchMetadata(metadata);
   for (const auto& item : parsed.arg_layout) {
     args.push_back(HipInterposerArgDesc{
-        .kind = item.kind == "global_buffer" ? HipInterposerArgKind::GlobalBuffer
-                                             : HipInterposerArgKind::ByValue,
+        .kind = item.kind == KernelArgValueKind::GlobalBuffer ? HipInterposerArgKind::GlobalBuffer
+                                                              : HipInterposerArgKind::ByValue,
         .size = item.size,
     });
   }
