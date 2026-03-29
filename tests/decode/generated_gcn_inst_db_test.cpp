@@ -111,15 +111,33 @@ TEST(GeneratedGcnInstDbTest, ExposesTrackedTensorCoreVariants) {
   const auto i8 = std::find_if(insts.begin(), insts.end(), [](const auto& def) {
     return std::string_view(def.mnemonic) == "v_mfma_i32_16x16x4i8";
   });
+  const auto bf16 = std::find_if(insts.begin(), insts.end(), [](const auto& def) {
+    return std::string_view(def.mnemonic) == "v_mfma_f32_16x16x2bf16";
+  });
+  const auto fp32_wide = std::find_if(insts.begin(), insts.end(), [](const auto& def) {
+    return std::string_view(def.mnemonic) == "v_mfma_f32_32x32x2f32";
+  });
+  const auto i8_wide = std::find_if(insts.begin(), insts.end(), [](const auto& def) {
+    return std::string_view(def.mnemonic) == "v_mfma_i32_16x16x16i8";
+  });
   ASSERT_NE(fp32, insts.end());
   ASSERT_NE(fp16, insts.end());
   ASSERT_NE(i8, insts.end());
+  ASSERT_NE(bf16, insts.end());
+  ASSERT_NE(fp32_wide, insts.end());
+  ASSERT_NE(i8_wide, insts.end());
   EXPECT_EQ(fp32->format_class, GcnInstFormatClass::Vop3p);
   EXPECT_EQ(fp16->format_class, GcnInstFormatClass::Vop3p);
   EXPECT_EQ(i8->format_class, GcnInstFormatClass::Vop3p);
+  EXPECT_EQ(bf16->format_class, GcnInstFormatClass::Vop3p);
+  EXPECT_EQ(fp32_wide->format_class, GcnInstFormatClass::Vop3p);
+  EXPECT_EQ(i8_wide->format_class, GcnInstFormatClass::Vop3p);
   EXPECT_NE((fp32->flags & kGcnInstFlagIsMatrix), 0u);
   EXPECT_NE((fp16->flags & kGcnInstFlagIsMatrix), 0u);
   EXPECT_NE((i8->flags & kGcnInstFlagIsMatrix), 0u);
+  EXPECT_NE((bf16->flags & kGcnInstFlagIsMatrix), 0u);
+  EXPECT_NE((fp32_wide->flags & kGcnInstFlagIsMatrix), 0u);
+  EXPECT_NE((i8_wide->flags & kGcnInstFlagIsMatrix), 0u);
 }
 
 TEST(GeneratedGcnInstDbTest, PreservesRepresentativeFlatInstruction) {

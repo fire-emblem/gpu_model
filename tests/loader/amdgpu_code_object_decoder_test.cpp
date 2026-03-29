@@ -466,6 +466,53 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipMfmaI8ExecutableWithoutUnknownInstru
   ASSERT_NE(mfma_it, image.instructions.end());
 }
 
+TEST(AmdgpuCodeObjectDecoderTest, DecodesHipMfmaBf16ExecutableWithoutUnknownInstructions) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_code_object_hip_mfma_bf16");
+  const auto src_path = temp_dir / "hip_mfma_bf16.cpp";
+  const auto exe_path = temp_dir / "hip_mfma_bf16.out";
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n"
+           "typedef unsigned short v2u16 __attribute__((ext_vector_type(2)));\n"
+           "typedef float v16f __attribute__((ext_vector_type(16)));\n"
+           "extern \"C\" __global__ void mfma_bf16_probe(float* out) {\n"
+           "#if defined(__AMDGCN__)\n"
+           "  v2u16 a = {0x3f80, 0x3f80};\n"
+           "  v2u16 b = {0x4000, 0x4000};\n"
+           "  v16f acc = {};\n"
+           "  acc = __builtin_amdgcn_mfma_f32_16x16x2bf16(a, b, acc, 0, 0, 0);\n"
+           "  if (threadIdx.x == 0) out[0] = acc[0];\n"
+           "#else\n"
+           "  if (threadIdx.x == 0) out[0] = 0.0f;\n"
+           "#endif\n"
+           "}\n"
+           "int main() { return 0; }\n";
+  }
+  const std::string command =
+      "hipcc --offload-arch=gfx90a " + src_path.string() + " -o " + exe_path.string();
+  if (std::system(command.c_str()) != 0) {
+    GTEST_SKIP() << "gfx90a mfma bf16 compilation not available";
+  }
+
+  const auto image = AmdgpuCodeObjectDecoder{}.Decode(exe_path, "mfma_bf16_probe");
+  EXPECT_EQ(image.kernel_name, "mfma_bf16_probe");
+  const auto unknown_count = std::count_if(
+      image.instructions.begin(), image.instructions.end(),
+      [](const RawGcnInstruction& inst) { return inst.mnemonic == "unknown"; });
+  EXPECT_EQ(unknown_count, 0);
+  const auto mfma_it = std::find_if(
+      image.instructions.begin(), image.instructions.end(),
+      [](const RawGcnInstruction& inst) {
+        return inst.mnemonic == "v_mfma_f32_16x16x2bf16";
+      });
+  ASSERT_NE(mfma_it, image.instructions.end());
+}
+
 TEST(AmdgpuCodeObjectDecoderTest, DecodesHipSharedReverseExecutable) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";

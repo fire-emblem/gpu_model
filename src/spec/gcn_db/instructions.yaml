@@ -2009,6 +2009,129 @@ instructions:
     reg_count: 1
     scale: 1
     special_reg: ''
+- id: 87
+  profile: gfx6_gfx8
+  format: vop3p
+  opcode: 105
+  size_bytes: 8
+  mnemonic: v_mfma_f32_16x16x2bf16
+  semantic_family: vector_alu
+  issue_family: vector_alu
+  flags:
+    is_matrix: true
+  implicit_reads:
+  - exec
+  operands:
+  - name: vdst
+    kind: vector_reg
+    role: def
+    field: vdst
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src0
+    kind: src9
+    role: use
+    field: src0
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src1
+    kind: src9
+    role: use
+    field: src1
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src2
+    kind: src9
+    role: use
+    field: src2
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+- id: 88
+  profile: gfx6_gfx8
+  format: vop3p
+  opcode: 68
+  size_bytes: 8
+  mnemonic: v_mfma_f32_32x32x2f32
+  semantic_family: vector_alu
+  issue_family: vector_alu
+  flags:
+    is_matrix: true
+  implicit_reads:
+  - exec
+  operands:
+  - name: vdst
+    kind: vector_reg
+    role: def
+    field: vdst
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src0
+    kind: src9
+    role: use
+    field: src0
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src1
+    kind: src9
+    role: use
+    field: src1
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src2
+    kind: src9
+    role: use
+    field: src2
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+- id: 89
+  profile: gfx6_gfx8
+  format: vop3p
+  opcode: 85
+  size_bytes: 8
+  mnemonic: v_mfma_i32_16x16x16i8
+  semantic_family: vector_alu
+  issue_family: vector_alu
+  flags:
+    is_matrix: true
+  implicit_reads:
+  - exec
+  operands:
+  - name: vdst
+    kind: vector_reg
+    role: def
+    field: vdst
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src0
+    kind: src9
+    role: use
+    field: src0
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src1
+    kind: src9
+    role: use
+    field: src1
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src2
+    kind: src9
+    role: use
+    field: src2
+    reg_count: 1
+    scale: 1
+    special_reg: ''
 - id: 68
   profile: gfx6_gfx8
   format: sopp

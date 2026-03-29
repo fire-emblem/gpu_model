@@ -1671,6 +1671,55 @@ TEST(GcnInstDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats) {
     RawGcnInstruction raw{
         .pc = 0x1b10,
         .size_bytes = 8,
+        .words = EncodeVop3pWords(/*opcode=*/105, /*vdst=*/28, /*src0=*/257, /*src1=*/258, /*src2=*/259),
+        .format_class = GcnInstFormatClass::Vop3p,
+        .mnemonic = "v_mfma_f32_16x16x2bf16",
+        .operands = "",
+        .decoded_operands = {},
+    };
+    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    EXPECT_EQ(decoded.encoding_id, 87u);
+    EXPECT_EQ(decoded.mnemonic, "v_mfma_f32_16x16x2bf16");
+    ASSERT_EQ(decoded.operands.size(), 4u);
+    EXPECT_EQ(decoded.operands[0].text, "v[28:31]");
+  }
+
+  {
+    RawGcnInstruction raw{
+        .pc = 0x1b18,
+        .size_bytes = 8,
+        .words = EncodeVop3pWords(/*opcode=*/68, /*vdst=*/32, /*src0=*/257, /*src1=*/258, /*src2=*/259),
+        .format_class = GcnInstFormatClass::Vop3p,
+        .mnemonic = "v_mfma_f32_32x32x2f32",
+        .operands = "",
+        .decoded_operands = {},
+    };
+    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    EXPECT_EQ(decoded.mnemonic, "v_mfma_f32_32x32x2f32");
+    ASSERT_EQ(decoded.operands.size(), 4u);
+    EXPECT_EQ(decoded.operands[0].text, "v[32:47]");
+  }
+
+  {
+    RawGcnInstruction raw{
+        .pc = 0x1b20,
+        .size_bytes = 8,
+        .words = EncodeVop3pWords(/*opcode=*/85, /*vdst=*/48, /*src0=*/257, /*src1=*/258, /*src2=*/259),
+        .format_class = GcnInstFormatClass::Vop3p,
+        .mnemonic = "v_mfma_i32_16x16x16i8",
+        .operands = "",
+        .decoded_operands = {},
+    };
+    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    EXPECT_EQ(decoded.mnemonic, "v_mfma_i32_16x16x16i8");
+    ASSERT_EQ(decoded.operands.size(), 4u);
+    EXPECT_EQ(decoded.operands[0].text, "v[48:51]");
+  }
+
+  {
+    RawGcnInstruction raw{
+        .pc = 0x1b28,
+        .size_bytes = 8,
         .words = EncodeGlobalFlatWords(/*opcode=*/66, /*addr=*/1, /*data=*/2, /*saddr=*/2, /*vdst=*/0),
         .format_class = GcnInstFormatClass::Flat,
         .mnemonic = "global_atomic_add",

@@ -20,6 +20,9 @@ TEST(RawGcnSemanticHandlerRegistryTest, ResolvesGeneratedFamilyHandlers) {
   EXPECT_NO_THROW((void)RawGcnSemanticHandlerRegistry::Get("v_mfma_f32_16x16x4f32"));
   EXPECT_NO_THROW((void)RawGcnSemanticHandlerRegistry::Get("v_mfma_f32_16x16x4f16"));
   EXPECT_NO_THROW((void)RawGcnSemanticHandlerRegistry::Get("v_mfma_i32_16x16x4i8"));
+  EXPECT_NO_THROW((void)RawGcnSemanticHandlerRegistry::Get("v_mfma_f32_16x16x2bf16"));
+  EXPECT_NO_THROW((void)RawGcnSemanticHandlerRegistry::Get("v_mfma_f32_32x32x2f32"));
+  EXPECT_NO_THROW((void)RawGcnSemanticHandlerRegistry::Get("v_mfma_i32_16x16x16i8"));
 }
 
 TEST(RawGcnSemanticHandlerRegistryTest, KeepsMaskSpecificOverride) {

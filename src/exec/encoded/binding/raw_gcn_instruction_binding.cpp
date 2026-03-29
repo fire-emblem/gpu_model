@@ -417,6 +417,9 @@ DEFINE_RAW_GCN_OPCODE_CLASS(VMadU64U32Instruction, Vop3bInstructionBase, "v_mad_
 DEFINE_RAW_GCN_OPCODE_CLASS(VMfmaF32Instruction, Vop3pInstructionBase, "v_mfma_f32_16x16x4f32");
 DEFINE_RAW_GCN_OPCODE_CLASS(VMfmaF16Instruction, Vop3pInstructionBase, "v_mfma_f32_16x16x4f16");
 DEFINE_RAW_GCN_OPCODE_CLASS(VMfmaI8Instruction, Vop3pInstructionBase, "v_mfma_i32_16x16x4i8");
+DEFINE_RAW_GCN_OPCODE_CLASS(VMfmaBf16Instruction, Vop3pInstructionBase, "v_mfma_f32_16x16x2bf16");
+DEFINE_RAW_GCN_OPCODE_CLASS(VMfmaF32WideInstruction, Vop3pInstructionBase, "v_mfma_f32_32x32x2f32");
+DEFINE_RAW_GCN_OPCODE_CLASS(VMfmaI8WideInstruction, Vop3pInstructionBase, "v_mfma_i32_16x16x16i8");
 
 DEFINE_RAW_GCN_OPCODE_CLASS(VCmpGtI32Instruction, VopcInstructionBase, "v_cmp_gt_i32");
 DEFINE_RAW_GCN_OPCODE_CLASS(VCmpLeI32Instruction, VopcInstructionBase, "v_cmp_le_i32_e32");
@@ -726,6 +729,15 @@ RawGcnInstructionObjectPtr CreateVectorInstruction(const GcnIsaOpcodeDescriptor&
               std::move(instruction), RawGcnSemanticHandlerRegistry::Get(instruction));
         case static_cast<uint16_t>(GcnIsaVop3pOpcode::V_MFMA_I32_16X16X4I8):
           return std::make_unique<VMfmaI8Instruction>(
+              std::move(instruction), RawGcnSemanticHandlerRegistry::Get(instruction));
+        case static_cast<uint16_t>(GcnIsaVop3pOpcode::V_MFMA_F32_16X16X2BF16):
+          return std::make_unique<VMfmaBf16Instruction>(
+              std::move(instruction), RawGcnSemanticHandlerRegistry::Get(instruction));
+        case static_cast<uint16_t>(GcnIsaVop3pOpcode::V_MFMA_F32_32X32X2F32):
+          return std::make_unique<VMfmaF32WideInstruction>(
+              std::move(instruction), RawGcnSemanticHandlerRegistry::Get(instruction));
+        case static_cast<uint16_t>(GcnIsaVop3pOpcode::V_MFMA_I32_16X16X16I8):
+          return std::make_unique<VMfmaI8WideInstruction>(
               std::move(instruction), RawGcnSemanticHandlerRegistry::Get(instruction));
         default:
           break;

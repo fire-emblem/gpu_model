@@ -1,12 +1,12 @@
 {
-  "generated_at": "2026-03-29T15:52:16",
-  "tracked_instruction_entries": 86,
-  "tracked_instruction_unique_total": 81,
+  "generated_at": "2026-03-29T16:14:46",
+  "tracked_instruction_entries": 87,
+  "tracked_instruction_unique_total": 82,
   "full_opcode_rows": 1575,
   "full_opcode_unique_total": 1559,
   "coverage": {
     "raw_object_support": {
-      "covered": 81,
+      "covered": 82,
       "percent": "100.0%",
       "mnemonics": [
         "ds_read_b32",
@@ -81,6 +81,7 @@
         "v_max_f32_e32",
         "v_mbcnt_hi_u32_b32",
         "v_mbcnt_lo_u32_b32",
+        "v_mfma_f32_16x16x2bf16",
         "v_mfma_f32_16x16x4f16",
         "v_mfma_f32_16x16x4f32",
         "v_mfma_i32_16x16x4i8",
@@ -93,7 +94,7 @@
       ]
     },
     "decode_unit_tests": {
-      "covered": 81,
+      "covered": 82,
       "percent": "100.0%",
       "mnemonics": [
         "ds_read_b32",
@@ -168,6 +169,7 @@
         "v_max_f32_e32",
         "v_mbcnt_hi_u32_b32",
         "v_mbcnt_lo_u32_b32",
+        "v_mfma_f32_16x16x2bf16",
         "v_mfma_f32_16x16x4f16",
         "v_mfma_f32_16x16x4f32",
         "v_mfma_i32_16x16x4i8",
@@ -198,8 +200,8 @@
       ]
     },
     "semantic_unit_tests": {
-      "covered": 74,
-      "percent": "91.4%",
+      "covered": 75,
+      "percent": "91.5%",
       "mnemonics": [
         "ds_read_b32",
         "ds_write_b32",
@@ -266,6 +268,7 @@
         "v_max_f32_e32",
         "v_mbcnt_hi_u32_b32",
         "v_mbcnt_lo_u32_b32",
+        "v_mfma_f32_16x16x2bf16",
         "v_mfma_f32_16x16x4f16",
         "v_mfma_f32_16x16x4f32",
         "v_mfma_i32_16x16x4i8",
@@ -278,8 +281,8 @@
       ]
     },
     "registry_unit_tests": {
-      "covered": 15,
-      "percent": "18.5%",
+      "covered": 16,
+      "percent": "19.5%",
       "mnemonics": [
         "ds_read_b32",
         "ds_write_b32",
@@ -293,14 +296,15 @@
         "v_add_f32_e32",
         "v_add_u32_e32",
         "v_cmp_eq_u32_e32",
+        "v_mfma_f32_16x16x2bf16",
         "v_mfma_f32_16x16x4f16",
         "v_mfma_f32_16x16x4f32",
         "v_mfma_i32_16x16x4i8"
       ]
     },
     "loader_integration_tests": {
-      "covered": 17,
-      "percent": "21.0%",
+      "covered": 18,
+      "percent": "22.0%",
       "mnemonics": [
         "ds_read_b32",
         "ds_write_b32",
@@ -316,13 +320,14 @@
         "v_fma_f32",
         "v_lshlrev_b64",
         "v_max_f32_e32",
+        "v_mfma_f32_16x16x2bf16",
         "v_mfma_f32_16x16x4f16",
         "v_mfma_f32_16x16x4f32",
         "v_mfma_i32_16x16x4i8"
       ]
     },
     "exec_test_union": {
-      "covered": 81,
+      "covered": 82,
       "percent": "100.0%",
       "mnemonics": [
         "ds_read_b32",
@@ -397,6 +402,7 @@
         "v_max_f32_e32",
         "v_mbcnt_hi_u32_b32",
         "v_mbcnt_lo_u32_b32",
+        "v_mfma_f32_16x16x2bf16",
         "v_mfma_f32_16x16x4f16",
         "v_mfma_f32_16x16x4f32",
         "v_mfma_i32_16x16x4i8",
@@ -409,7 +415,7 @@
       ]
     },
     "all_test_union": {
-      "covered": 81,
+      "covered": 82,
       "percent": "100.0%",
       "mnemonics": [
         "ds_read_b32",
@@ -484,6 +490,7 @@
         "v_max_f32_e32",
         "v_mbcnt_hi_u32_b32",
         "v_mbcnt_lo_u32_b32",
+        "v_mfma_f32_16x16x2bf16",
         "v_mfma_f32_16x16x4f16",
         "v_mfma_f32_16x16x4f32",
         "v_mfma_i32_16x16x4i8",
@@ -624,26 +631,26 @@
     },
     {
       "family": "vector_alu",
-      "total": 38,
-      "unique_total": 35,
+      "total": 39,
+      "unique_total": 36,
       "raw_object_support": {
-        "covered": 35,
+        "covered": 36,
         "percent": "100.0%"
       },
       "decode_unit_tests": {
-        "covered": 35,
+        "covered": 36,
         "percent": "100.0%"
       },
       "exec_test_union": {
-        "covered": 35,
+        "covered": 36,
         "percent": "100.0%"
       },
       "loader_integration_tests": {
-        "covered": 7,
-        "percent": "20.0%"
+        "covered": 8,
+        "percent": "22.2%"
       },
       "all_test_union": {
-        "covered": 35,
+        "covered": 36,
         "percent": "100.0%"
       }
     },
@@ -976,26 +983,26 @@
     },
     {
       "format": "vop3p",
-      "total": 3,
-      "unique_total": 3,
+      "total": 4,
+      "unique_total": 4,
       "raw_object_support": {
-        "covered": 3,
+        "covered": 4,
         "percent": "100.0%"
       },
       "decode_unit_tests": {
-        "covered": 3,
+        "covered": 4,
         "percent": "100.0%"
       },
       "exec_test_union": {
-        "covered": 3,
+        "covered": 4,
         "percent": "100.0%"
       },
       "loader_integration_tests": {
-        "covered": 3,
+        "covered": 4,
         "percent": "100.0%"
       },
       "all_test_union": {
-        "covered": 3,
+        "covered": 4,
         "percent": "100.0%"
       }
     },

@@ -66,7 +66,7 @@ add_library(gpu_model STATIC
   src/exec/execution_memory_ops.cpp
   src/exec/execution_sync_ops.cpp
   src/exec/op_plan_apply.cpp
-  src/exec/semantic_handlers.cpp
+  src/exec/handlers/semantic_handler.cpp
   src/exec/semantics.cpp
   src/exec/execution_state_builder.cpp
   src/exec/issue_model.cpp

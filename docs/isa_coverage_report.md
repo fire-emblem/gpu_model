@@ -1,19 +1,19 @@
 # ISA Coverage Report
 
-Generated: `2026-03-29T15:52:16`
+Generated: `2026-03-29T16:14:46`
 
 Coverage scope:
-- tracked instruction entries from `src/spec/gcn_db/instructions.yaml`: `86`
-- tracked unique mnemonics from `src/spec/gcn_db/instructions.yaml`: `81`
+- tracked instruction entries from `src/spec/gcn_db/instructions.yaml`: `87`
+- tracked unique mnemonics from `src/spec/gcn_db/instructions.yaml`: `82`
 - full opcode rows extracted from `generated_gcn_full_opcode_table.cpp`: `1575`
 - full unique mnemonics extracted from `generated_gcn_full_opcode_table.cpp`: `1559`
 
 Tracked-subset coverage:
-- raw object support: `81` / `81` (100.0%)
-- decode unit tests: `81` / `81` (100.0%)
-- exec unit tests: `81` / `81` (100.0%)
-- loader integration tests: `17` / `81` (21.0%)
-- any tests: `81` / `81` (100.0%)
+- raw object support: `82` / `82` (100.0%)
+- decode unit tests: `82` / `82` (100.0%)
+- exec unit tests: `82` / `82` (100.0%)
+- loader integration tests: `18` / `82` (22.0%)
+- any tests: `82` / `82` (100.0%)
 
 ## Per Semantic Family
 
@@ -24,7 +24,7 @@ Tracked-subset coverage:
 | `scalar_alu` | `17` | `17` (100.0%) | `17` (100.0%) | `17` (100.0%) | `0` (0.0%) | `17` (100.0%) |
 | `scalar_compare` | `4` | `4` (100.0%) | `4` (100.0%) | `4` (100.0%) | `1` (25.0%) | `4` (100.0%) |
 | `scalar_memory` | `3` | `3` (100.0%) | `3` (100.0%) | `3` (100.0%) | `3` (100.0%) | `3` (100.0%) |
-| `vector_alu` | `35` | `35` (100.0%) | `35` (100.0%) | `35` (100.0%) | `7` (20.0%) | `35` (100.0%) |
+| `vector_alu` | `36` | `36` (100.0%) | `36` (100.0%) | `36` (100.0%) | `8` (22.2%) | `36` (100.0%) |
 | `vector_compare` | `7` | `7` (100.0%) | `7` (100.0%) | `7` (100.0%) | `0` (0.0%) | `7` (100.0%) |
 | `vector_memory` | `3` | `3` (100.0%) | `3` (100.0%) | `3` (100.0%) | `1` (33.3%) | `3` (100.0%) |
 
@@ -43,7 +43,7 @@ Tracked-subset coverage:
 | `vop1` | `7` | `7` (100.0%) | `7` (100.0%) | `7` (100.0%) | `0` (0.0%) | `7` (100.0%) |
 | `vop2` | `11` | `11` (100.0%) | `11` (100.0%) | `11` (100.0%) | `2` (18.2%) | `11` (100.0%) |
 | `vop3a` | `14` | `14` (100.0%) | `14` (100.0%) | `14` (100.0%) | `2` (14.3%) | `14` (100.0%) |
-| `vop3p` | `3` | `3` (100.0%) | `3` (100.0%) | `3` (100.0%) | `3` (100.0%) | `3` (100.0%) |
+| `vop3p` | `4` | `4` (100.0%) | `4` (100.0%) | `4` (100.0%) | `4` (100.0%) | `4` (100.0%) |
 | `vopc` | `7` | `7` (100.0%) | `7` (100.0%) | `7` (100.0%) | `0` (0.0%) | `7` (100.0%) |
 
 ## Supported But Untested

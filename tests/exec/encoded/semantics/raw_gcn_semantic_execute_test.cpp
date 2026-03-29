@@ -1005,6 +1005,42 @@ TEST_F(RawGcnSemanticExecuteTest, ExecutesTensorCoreMfmaVariants) {
     EXPECT_EQ(harness.wave.vgpr.Read(16, 0), 20u);
     EXPECT_EQ(harness.wave.vgpr.Read(19, 0), 20u);
   }
+
+  {
+    Harness harness;
+    harness.wave.vgpr.Write(1, 0, 0x40003f80u);
+    harness.wave.vgpr.Write(2, 0, 0x40404000u);
+    harness.wave.vgpr.Write(3, 0, FloatBits(1.0f));
+    auto inst = Inst("v_mfma_f32_16x16x2bf16", 87, {VRange(20, 4), VReg(1), VReg(2), VReg(3)}, 0x187c, 8);
+    harness.wave.pc = inst.pc;
+    RawGcnSemanticHandlerRegistry::Get(inst).Execute(inst, harness.context);
+    EXPECT_EQ(harness.wave.vgpr.Read(20, 0), FloatBits(9.0f));
+    EXPECT_EQ(harness.wave.vgpr.Read(23, 0), FloatBits(9.0f));
+  }
+
+  {
+    Harness harness;
+    harness.wave.vgpr.Write(1, 0, FloatBits(2.0f));
+    harness.wave.vgpr.Write(2, 0, FloatBits(3.0f));
+    harness.wave.vgpr.Write(3, 0, FloatBits(4.0f));
+    auto inst = Inst("v_mfma_f32_32x32x2f32", 88, {VRange(24, 16), VReg(1), VReg(2), VReg(3)}, 0x1884, 8);
+    harness.wave.pc = inst.pc;
+    RawGcnSemanticHandlerRegistry::Get(inst).Execute(inst, harness.context);
+    EXPECT_EQ(harness.wave.vgpr.Read(24, 0), FloatBits(16.0f));
+    EXPECT_EQ(harness.wave.vgpr.Read(39, 0), FloatBits(16.0f));
+  }
+
+  {
+    Harness harness;
+    harness.wave.vgpr.Write(1, 0, 0x04030201u);
+    harness.wave.vgpr.Write(2, 0, 0x01010101u);
+    harness.wave.vgpr.Write(3, 0, 10u);
+    auto inst = Inst("v_mfma_i32_16x16x16i8", 89, {VRange(40, 4), VReg(1), VReg(2), VReg(3)}, 0x188c, 8);
+    harness.wave.pc = inst.pc;
+    RawGcnSemanticHandlerRegistry::Get(inst).Execute(inst, harness.context);
+    EXPECT_EQ(harness.wave.vgpr.Read(40, 0), 50u);
+    EXPECT_EQ(harness.wave.vgpr.Read(43, 0), 50u);
+  }
 }
 
 TEST_F(RawGcnSemanticExecuteTest, ExecutesGlobalAtomicAddAndReturnsOldValue) {

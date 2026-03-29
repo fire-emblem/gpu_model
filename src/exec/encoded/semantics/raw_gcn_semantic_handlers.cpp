@@ -72,6 +72,10 @@ float HalfToFloat(uint16_t bits) {
   return std::bit_cast<float>(out);
 }
 
+float BFloat16ToFloat(uint16_t bits) {
+  return std::bit_cast<float>(static_cast<uint32_t>(bits) << 16u);
+}
+
 bool DebugEnabled() {
   return std::getenv("GPU_MODEL_RAW_GCN_DEBUG") != nullptr;
 }
@@ -677,6 +681,25 @@ class VectorAluHandler final : public IRawGcnSemanticHandler {
           context.wave.vgpr.Write(vdst + reg, lane, FloatAsU32(value));
         }
       }
+    } else if (instruction.mnemonic == "v_mfma_f32_32x32x2f32") {
+      const uint32_t vdst = instruction.operands.at(0).kind == DecodedGcnOperandKind::VectorRegRange
+                                ? RequireVectorRange(instruction.operands.at(0)).first
+                                : RequireVectorIndex(instruction.operands.at(0));
+      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        if (!context.wave.exec.test(lane)) {
+          continue;
+        }
+        const float src0 = U32AsFloat(static_cast<uint32_t>(
+            ResolveVectorLane(instruction.operands.at(1), context, lane)));
+        const float src1 = U32AsFloat(static_cast<uint32_t>(
+            ResolveVectorLane(instruction.operands.at(2), context, lane)));
+        const float src2 = U32AsFloat(static_cast<uint32_t>(
+            ResolveVectorLane(instruction.operands.at(3), context, lane)));
+        const float value = src2 + src0 * src1 * 2.0f;
+        for (uint32_t reg = 0; reg < 16; ++reg) {
+          context.wave.vgpr.Write(vdst + reg, lane, FloatAsU32(value));
+        }
+      }
     } else if (instruction.mnemonic == "v_mfma_f32_16x16x4f16") {
       const uint32_t vdst = instruction.operands.at(0).kind == DecodedGcnOperandKind::VectorRegRange
                                 ? RequireVectorRange(instruction.operands.at(0)).first
@@ -721,6 +744,52 @@ class VectorAluHandler final : public IRawGcnSemanticHandler {
         }
         for (uint32_t reg = 0; reg < 4; ++reg) {
           context.wave.vgpr.Write(vdst + reg, lane, static_cast<uint32_t>(acc));
+        }
+      }
+    } else if (instruction.mnemonic == "v_mfma_i32_16x16x16i8") {
+      const uint32_t vdst = instruction.operands.at(0).kind == DecodedGcnOperandKind::VectorRegRange
+                                ? RequireVectorRange(instruction.operands.at(0)).first
+                                : RequireVectorIndex(instruction.operands.at(0));
+      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        if (!context.wave.exec.test(lane)) {
+          continue;
+        }
+        const uint32_t src0_bits =
+            static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(1), context, lane));
+        const uint32_t src1_bits =
+            static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(2), context, lane));
+        int32_t acc = static_cast<int32_t>(
+            ResolveVectorLane(instruction.operands.at(3), context, lane));
+        for (uint32_t i = 0; i < 4; ++i) {
+          const int8_t a = static_cast<int8_t>((src0_bits >> (i * 8u)) & 0xffu);
+          const int8_t b = static_cast<int8_t>((src1_bits >> (i * 8u)) & 0xffu);
+          acc += 4 * static_cast<int32_t>(a) * static_cast<int32_t>(b);
+        }
+        for (uint32_t reg = 0; reg < 4; ++reg) {
+          context.wave.vgpr.Write(vdst + reg, lane, static_cast<uint32_t>(acc));
+        }
+      }
+    } else if (instruction.mnemonic == "v_mfma_f32_16x16x2bf16") {
+      const uint32_t vdst = instruction.operands.at(0).kind == DecodedGcnOperandKind::VectorRegRange
+                                ? RequireVectorRange(instruction.operands.at(0)).first
+                                : RequireVectorIndex(instruction.operands.at(0));
+      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        if (!context.wave.exec.test(lane)) {
+          continue;
+        }
+        const uint32_t src0_bits =
+            static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(1), context, lane));
+        const uint32_t src1_bits =
+            static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(2), context, lane));
+        const float acc = U32AsFloat(static_cast<uint32_t>(
+            ResolveVectorLane(instruction.operands.at(3), context, lane)));
+        const float a0 = BFloat16ToFloat(static_cast<uint16_t>(src0_bits & 0xffffu));
+        const float a1 = BFloat16ToFloat(static_cast<uint16_t>(src0_bits >> 16u));
+        const float b0 = BFloat16ToFloat(static_cast<uint16_t>(src1_bits & 0xffffu));
+        const float b1 = BFloat16ToFloat(static_cast<uint16_t>(src1_bits >> 16u));
+        const float value = acc + a0 * b0 + a1 * b1;
+        for (uint32_t reg = 0; reg < 4; ++reg) {
+          context.wave.vgpr.Write(vdst + reg, lane, FloatAsU32(value));
         }
       }
     } else if (instruction.mnemonic == "v_rndne_f32_e32") {
