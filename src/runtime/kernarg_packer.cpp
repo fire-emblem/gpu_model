@@ -42,13 +42,13 @@ uint64_t HiddenArgValue(const KernelHiddenArgLayoutEntry& entry, const LaunchCon
     case KernelHiddenArgKind::BlockCountY:
       return config.grid_dim_y;
     case KernelHiddenArgKind::BlockCountZ:
-      return 1;
+      return config.grid_dim_z;
     case KernelHiddenArgKind::GroupSizeX:
       return config.block_dim_x;
     case KernelHiddenArgKind::GroupSizeY:
       return config.block_dim_y;
     case KernelHiddenArgKind::GroupSizeZ:
-      return 1;
+      return config.block_dim_z;
     case KernelHiddenArgKind::RemainderX:
       return config.block_dim_x;
     case KernelHiddenArgKind::RemainderY:
@@ -60,7 +60,13 @@ uint64_t HiddenArgValue(const KernelHiddenArgLayoutEntry& entry, const LaunchCon
     case KernelHiddenArgKind::GlobalOffsetZ:
       return 0;
     case KernelHiddenArgKind::GridDims:
-      return config.grid_dim_y > 1 || config.block_dim_y > 1 ? 2 : 1;
+      if (config.grid_dim_z > 1 || config.block_dim_z > 1) {
+        return 3;
+      }
+      if (config.grid_dim_y > 1 || config.block_dim_y > 1) {
+        return 2;
+      }
+      return 1;
     case KernelHiddenArgKind::DynamicLdsSize:
       return config.shared_memory_bytes;
     case KernelHiddenArgKind::PrivateBase:
@@ -122,10 +128,10 @@ std::vector<std::byte> BuildKernargImage(const KernelLaunchMetadata& metadata,
   const uint32_t hidden_offset = AlignUp(arg_offset, 8u);
   WriteScalar(bytes, hidden_offset + 0, static_cast<uint32_t>(config.grid_dim_x));
   WriteScalar(bytes, hidden_offset + 4, static_cast<uint32_t>(config.grid_dim_y));
-  WriteScalar(bytes, hidden_offset + 8, static_cast<uint32_t>(1));
+  WriteScalar(bytes, hidden_offset + 8, static_cast<uint32_t>(config.grid_dim_z));
   WriteScalar(bytes, hidden_offset + 12, static_cast<uint16_t>(config.block_dim_x));
   WriteScalar(bytes, hidden_offset + 14, static_cast<uint16_t>(config.block_dim_y));
-  WriteScalar(bytes, hidden_offset + 16, static_cast<uint16_t>(1));
+  WriteScalar(bytes, hidden_offset + 16, static_cast<uint16_t>(config.block_dim_z));
   return bytes;
 }
 

@@ -1314,6 +1314,53 @@ TEST(RuntimeHooksTest, LaunchesLlvmMcAggregateByValueObjectInRawGcnPath) {
   std::filesystem::remove_all(obj_path.parent_path());
 }
 
+TEST(RuntimeHooksTest, LaunchesLlvmMcThreeDimensionalHiddenArgsObjectInRawGcnPath) {
+  if (!HasLlvmMcAmdgpuToolchain()) {
+    GTEST_SKIP() << "required llvm-mc/LLVM/binutils tools not available";
+  }
+
+  const auto obj_path = AssembleLlvmMcFixture(
+      "gpu_model_hidden_args_3d",
+      std::filesystem::path("tests/asm_cases/loader/hidden_args_3d.s"));
+
+  RuntimeHooks hooks;
+  const auto image = hooks.DescribeAmdgpuObject(obj_path, "asm_hidden_args_3d");
+  EXPECT_EQ(image.metadata.values.at("arg_layout"), "global_buffer:8");
+  EXPECT_EQ(image.metadata.values.at("hidden_arg_layout"),
+            "hidden_block_count_z:8:4,hidden_group_size_z:12:4,hidden_grid_dims:16:4");
+
+  const uint64_t out_addr = hooks.Malloc(sizeof(int32_t));
+  int32_t zero = 0;
+  hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(&zero, 1));
+
+  KernelArgPack args;
+  args.PushU64(out_addr);
+
+  const LaunchConfig config{
+      .grid_dim_x = 1,
+      .grid_dim_y = 1,
+      .grid_dim_z = 4,
+      .block_dim_x = 64,
+      .block_dim_y = 1,
+      .block_dim_z = 32,
+  };
+  const auto result = hooks.LaunchAmdgpuObject(
+      obj_path,
+      config,
+      std::move(args),
+      ExecutionMode::Functional,
+      "c500",
+      nullptr,
+      "asm_hidden_args_3d");
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  int32_t output = 0;
+  hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(&output, 1));
+  EXPECT_EQ(output, 4 + 32 + 3);
+
+  std::filesystem::remove_all(obj_path.parent_path());
+}
+
 TEST(RuntimeHooksTest, LaunchesHipSoftmaxExecutableInRawGcnPath) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";

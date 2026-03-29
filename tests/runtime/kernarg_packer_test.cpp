@@ -84,6 +84,37 @@ TEST(KernargPackerTest, PacksTypedHiddenArgsIncludingDynamicLds) {
   EXPECT_EQ(LoadU32(bytes, 24), 512u);
 }
 
+TEST(KernargPackerTest, PacksThreeDimensionalTypedHiddenArgs) {
+  KernelLaunchMetadata metadata;
+  metadata.kernarg_segment_size = 64;
+  metadata.hidden_arg_layout = {
+      KernelHiddenArgLayoutEntry{.kind = KernelHiddenArgKind::BlockCountZ,
+                                 .kind_name = "hidden_block_count_z",
+                                 .offset = 8,
+                                 .size = 4},
+      KernelHiddenArgLayoutEntry{.kind = KernelHiddenArgKind::GroupSizeZ,
+                                 .kind_name = "hidden_group_size_z",
+                                 .offset = 12,
+                                 .size = 2},
+      KernelHiddenArgLayoutEntry{.kind = KernelHiddenArgKind::GridDims,
+                                 .kind_name = "hidden_grid_dims",
+                                 .offset = 16,
+                                 .size = 2},
+  };
+
+  const auto bytes = BuildKernargImage(
+      metadata, {},
+      LaunchConfig{.grid_dim_x = 2,
+                   .grid_dim_y = 3,
+                   .grid_dim_z = 4,
+                   .block_dim_x = 8,
+                   .block_dim_y = 16,
+                   .block_dim_z = 32});
+  EXPECT_EQ(LoadU32(bytes, 8), 4u);
+  EXPECT_EQ(static_cast<uint16_t>(LoadU32(bytes, 12) & 0xffffu), 32u);
+  EXPECT_EQ(static_cast<uint16_t>(LoadU32(bytes, 16) & 0xffffu), 3u);
+}
+
 TEST(KernargPackerTest, FallsBackToDefaultImplicitHiddenArgsWhenLayoutIsAbsent) {
   KernelLaunchMetadata metadata;
   metadata.arg_layout = {
@@ -113,6 +144,33 @@ TEST(KernargPackerTest, FallsBackToDefaultImplicitHiddenArgsWhenLayoutIsAbsent) 
   EXPECT_EQ(static_cast<uint16_t>(LoadU32(bytes, 28) & 0xffffu), 64u);
   EXPECT_EQ(static_cast<uint16_t>(LoadU32(bytes, 30) & 0xffffu), 4u);
   EXPECT_EQ(static_cast<uint16_t>(LoadU32(bytes, 32) & 0xffffu), 1u);
+}
+
+TEST(KernargPackerTest, FallsBackToThreeDimensionalImplicitHiddenArgs) {
+  KernelLaunchMetadata metadata;
+  metadata.arg_layout = {
+      KernelArgLayoutEntry{
+          .kind = KernelArgValueKind::GlobalBuffer, .kind_name = "global_buffer", .offset = std::nullopt, .size = 8},
+  };
+
+  KernelArgPack args;
+  args.PushU64(0x88);
+
+  const auto bytes = BuildKernargImage(
+      metadata, args,
+      LaunchConfig{.grid_dim_x = 2,
+                   .grid_dim_y = 3,
+                   .grid_dim_z = 4,
+                   .block_dim_x = 8,
+                   .block_dim_y = 16,
+                   .block_dim_z = 32});
+  EXPECT_EQ(LoadU64(bytes, 0), 0x88u);
+  EXPECT_EQ(LoadU32(bytes, 8), 2u);
+  EXPECT_EQ(LoadU32(bytes, 12), 3u);
+  EXPECT_EQ(LoadU32(bytes, 16), 4u);
+  EXPECT_EQ(static_cast<uint16_t>(LoadU32(bytes, 20) & 0xffffu), 8u);
+  EXPECT_EQ(static_cast<uint16_t>(LoadU32(bytes, 22) & 0xffffu), 16u);
+  EXPECT_EQ(static_cast<uint16_t>(LoadU32(bytes, 24) & 0xffffu), 32u);
 }
 
 TEST(KernargPackerTest, PacksByValueAggregateWithoutScalarOnlyRestriction) {
