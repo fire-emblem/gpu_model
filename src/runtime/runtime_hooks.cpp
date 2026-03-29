@@ -274,8 +274,14 @@ DeviceLoadPlan RuntimeHooks::BuildLoadPlan(const ProgramImage& image) const {
 DeviceLoadPlan RuntimeHooks::BuildLoadPlanFromAmdgpuObject(
     const std::filesystem::path& path,
     std::optional<std::string> kernel_name) const {
-  const auto image = AmdgpuCodeObjectDecoder{}.Decode(path, std::move(kernel_name));
+  const auto image = DescribeAmdgpuObject(path, std::move(kernel_name));
   return BuildDeviceLoadPlan(image);
+}
+
+AmdgpuCodeObjectImage RuntimeHooks::DescribeAmdgpuObject(
+    const std::filesystem::path& path,
+    std::optional<std::string> kernel_name) const {
+  return AmdgpuCodeObjectDecoder{}.Decode(path, std::move(kernel_name));
 }
 
 DeviceLoadResult RuntimeHooks::MaterializeLoadPlan(const DeviceLoadPlan& plan) {

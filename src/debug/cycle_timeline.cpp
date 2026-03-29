@@ -14,6 +14,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "gpu_model/exec/tensor_op_utils.h"
+
 namespace gpu_model {
 
 namespace {
@@ -126,6 +128,11 @@ char AssignSymbol(const std::string& op, std::unordered_map<std::string, char>& 
   const auto it = symbols.find(op);
   if (it != symbols.end()) {
     return it->second;
+  }
+
+  if (IsTensorMnemonic(op)) {
+    symbols.emplace(op, 'T');
+    return 'T';
   }
 
   static const std::string palette =
@@ -355,6 +362,10 @@ std::string CycleTimelineRenderer::RenderAscii(const std::vector<TraceEvent>& ev
   out << "cycle_timeline scale=" << cycles_per_column << " cycle(s)/col range=["
       << HexU64(begin) << ", " << HexU64(end) << "]\n";
   out << "legend:";
+  if (std::any_of(data.symbols.begin(), data.symbols.end(),
+                  [](const auto& entry) { return entry.second == 'T'; })) {
+    out << " T=tensor-op";
+  }
   for (const auto& [op, symbol] : data.symbols) {
     out << ' ' << symbol << '=' << op;
   }
@@ -484,8 +495,9 @@ std::string CycleTimelineRenderer::RenderGoogleTrace(const std::vector<TraceEven
       const uint64_t clipped_begin = std::max(begin, segment.issue_cycle);
       const uint64_t clipped_end = std::min(end, segment.commit_cycle);
       const uint64_t duration = clipped_end > clipped_begin ? clipped_end - clipped_begin : 1;
+      const std::string category = IsTensorMnemonic(segment.op) ? "tensor" : "instruction";
       append("{\"name\":\"" + EscapeJson(segment.op) +
-             "\",\"cat\":\"instruction\",\"ph\":\"X\",\"pid\":" + std::to_string(pid) +
+             "\",\"cat\":\"" + category + "\",\"ph\":\"X\",\"pid\":" + std::to_string(pid) +
              ",\"tid\":" + std::to_string(tid) + ",\"ts\":" + std::to_string(clipped_begin) +
              ",\"dur\":" + std::to_string(duration) + ",\"args\":{\"block_id\":\"" +
              HexU64(key.block_id) + "\",\"wave_id\":\"" + HexU64(key.wave_id) +

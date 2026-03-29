@@ -41,6 +41,9 @@ DecodedGcnInstruction GcnInstDecoder::Decode(const RawGcnInstruction& instructio
       case RawGcnOperandKind::VectorRegRange:
         kind = DecodedGcnOperandKind::VectorRegRange;
         break;
+      case RawGcnOperandKind::AccumulatorReg:
+        kind = DecodedGcnOperandKind::AccumulatorReg;
+        break;
       case RawGcnOperandKind::SpecialReg:
         kind = DecodedGcnOperandKind::SpecialReg;
         break;

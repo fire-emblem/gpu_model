@@ -1720,6 +1720,40 @@ TEST(GcnInstDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats) {
     RawGcnInstruction raw{
         .pc = 0x1b28,
         .size_bytes = 8,
+        .words = EncodeVop3pWords(/*opcode=*/88, /*vdst=*/6, /*src0=*/3, /*src1=*/0, /*src2=*/0),
+        .format_class = GcnInstFormatClass::Vop3p,
+        .mnemonic = "v_accvgpr_read_b32",
+        .operands = "",
+        .decoded_operands = {},
+    };
+    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    EXPECT_EQ(decoded.mnemonic, "v_accvgpr_read_b32");
+    ASSERT_EQ(decoded.operands.size(), 2u);
+    EXPECT_EQ(decoded.operands[0].text, "v6");
+    EXPECT_EQ(decoded.operands[1].text, "a3");
+  }
+
+  {
+    RawGcnInstruction raw{
+        .pc = 0x1b30,
+        .size_bytes = 8,
+        .words = EncodeVop3pWords(/*opcode=*/89, /*vdst=*/4, /*src0=*/257, /*src1=*/0, /*src2=*/0),
+        .format_class = GcnInstFormatClass::Vop3p,
+        .mnemonic = "v_accvgpr_write_b32",
+        .operands = "",
+        .decoded_operands = {},
+    };
+    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    EXPECT_EQ(decoded.mnemonic, "v_accvgpr_write_b32");
+    ASSERT_EQ(decoded.operands.size(), 2u);
+    EXPECT_EQ(decoded.operands[0].text, "a4");
+    EXPECT_EQ(decoded.operands[1].text, "v1");
+  }
+
+  {
+    RawGcnInstruction raw{
+        .pc = 0x1b38,
+        .size_bytes = 8,
         .words = EncodeGlobalFlatWords(/*opcode=*/66, /*addr=*/1, /*data=*/2, /*saddr=*/2, /*vdst=*/0),
         .format_class = GcnInstFormatClass::Flat,
         .mnemonic = "global_atomic_add",

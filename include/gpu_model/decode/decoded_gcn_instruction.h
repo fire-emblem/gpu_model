@@ -15,6 +15,7 @@ enum class DecodedGcnOperandKind {
   ScalarRegRange,
   VectorReg,
   VectorRegRange,
+  AccumulatorReg,
   SpecialReg,
   Immediate,
   BranchTarget,

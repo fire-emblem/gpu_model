@@ -1344,18 +1344,74 @@ TEST(RuntimeHooksTest, LaunchesHipMfmaExecutableInRawGcnPath) {
   EXPECT_NEAR(output, 4.0f, 1.0e-5f);
 
   bool saw_tensor_launch = false;
+  bool saw_tensor_wave_launch = false;
+  bool saw_tensor_step = false;
   for (const auto& event : trace.events()) {
-    if (event.kind != TraceEventKind::Launch) {
-      continue;
+    if (event.kind == TraceEventKind::Launch &&
+        event.message.find("raw_kernel=mfma_probe") != std::string::npos) {
+      saw_tensor_launch = true;
+      EXPECT_NE(event.message.find("agpr_count="), std::string::npos);
+      EXPECT_NE(event.message.find("accum_offset="), std::string::npos);
     }
-    if (event.message.find("raw_kernel=mfma_probe") == std::string::npos) {
-      continue;
+    if (event.kind == TraceEventKind::WaveLaunch &&
+        event.message.find("tensor={") != std::string::npos) {
+      saw_tensor_wave_launch = true;
+      EXPECT_NE(event.message.find("agpr_count="), std::string::npos);
+      EXPECT_NE(event.message.find("accum_offset="), std::string::npos);
     }
-    saw_tensor_launch = true;
-    EXPECT_NE(event.message.find("agpr_count=4"), std::string::npos);
-    EXPECT_NE(event.message.find("accum_offset=16"), std::string::npos);
+    if (event.kind == TraceEventKind::WaveStep &&
+        event.message.find("v_mfma_f32_16x16x4f32") != std::string::npos) {
+      saw_tensor_step = true;
+      EXPECT_NE(event.message.find("tensor_op"), std::string::npos);
+      EXPECT_NE(event.message.find("tensor_agpr_count="), std::string::npos);
+      EXPECT_NE(event.message.find("tensor_accum_offset="), std::string::npos);
+    }
   }
   EXPECT_TRUE(saw_tensor_launch);
+  EXPECT_TRUE(saw_tensor_wave_launch);
+  EXPECT_TRUE(saw_tensor_step);
+
+  std::filesystem::remove_all(temp_dir);
+}
+
+TEST(RuntimeHooksTest, DescribesHipMfmaExecutableWithTypedTensorAbi) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_mfma_describe");
+  const auto src_path = temp_dir / "hip_mfma_describe.cpp";
+  const auto exe_path = temp_dir / "hip_mfma_describe.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n"
+           "typedef float v4f __attribute__((ext_vector_type(4)));\n"
+           "extern \"C\" __global__ void mfma_describe_probe(float* out) {\n"
+           "#if defined(__AMDGCN__)\n"
+           "  v4f acc = {0.0f, 0.0f, 0.0f, 0.0f};\n"
+           "  acc = __builtin_amdgcn_mfma_f32_16x16x4f32(1.0f, 1.0f, acc, 0, 0, 0);\n"
+           "  if (threadIdx.x == 0) out[0] = acc[0];\n"
+           "#else\n"
+           "  if (threadIdx.x == 0) out[0] = 0.0f;\n"
+           "#endif\n"
+           "}\n"
+           "int main() { return 0; }\n";
+  }
+
+  const std::string command =
+      "hipcc --offload-arch=gfx90a " + src_path.string() + " -o " + exe_path.string();
+  if (std::system(command.c_str()) != 0) {
+    GTEST_SKIP() << "gfx90a mfma compilation not available";
+  }
+
+  RuntimeHooks hooks;
+  const auto image = hooks.DescribeAmdgpuObject(exe_path, "mfma_describe_probe");
+  EXPECT_EQ(image.kernel_name, "mfma_describe_probe");
+  EXPECT_GE(image.kernel_descriptor.accum_offset, 4u);
+  EXPECT_TRUE(image.metadata.values.contains("agpr_count"));
+  EXPECT_EQ(std::to_string(image.kernel_descriptor.agpr_count), image.metadata.values.at("agpr_count"));
 
   std::filesystem::remove_all(temp_dir);
 }

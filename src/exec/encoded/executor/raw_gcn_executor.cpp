@@ -13,6 +13,7 @@
 
 #include "gpu_model/exec/encoded/semantics/raw_gcn_semantic_handler.h"
 #include "gpu_model/exec/execution_sync_ops.h"
+#include "gpu_model/exec/tensor_op_utils.h"
 #include "gpu_model/debug/wave_launch_trace.h"
 #include "gpu_model/isa/kernel_metadata.h"
 #include "gpu_model/loader/device_image_loader.h"
@@ -161,6 +162,36 @@ void DebugLog(const char* fmt, ...) {
   va_end(args);
 }
 
+std::string HexU64(uint64_t value) {
+  std::ostringstream out;
+  out << "0x" << std::hex << std::nouppercase << value;
+  return out.str();
+}
+
+std::string FormatRawWaveStepMessage(const DecodedGcnInstruction& instruction,
+                                     const RawGcnInstructionObject* object,
+                                     const WaveState& wave) {
+  std::ostringstream out;
+  out << "pc=" << HexU64(wave.pc)
+      << " op=" << instruction.mnemonic
+      << " exec_lanes=" << HexU64(wave.exec.count());
+  if (object != nullptr) {
+    out << " class=" << object->class_name();
+  }
+  if (IsTensorMnemonic(instruction.mnemonic)) {
+    out << " tensor_op"
+        << " tensor_agpr_count=" << HexU64(wave.tensor_agpr_count)
+        << " tensor_accum_offset=" << HexU64(wave.tensor_accum_offset);
+  }
+  if (!instruction.operands.empty()) {
+    out << "\n  operands:";
+    for (size_t i = 0; i < instruction.operands.size(); ++i) {
+      out << "\n  [" << HexU64(i) << "] " << instruction.operands[i].text;
+    }
+  }
+  return out.str();
+}
+
 }  // namespace
 
 LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
@@ -226,6 +257,8 @@ LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
       raw_wave.wave.thread_count = wave_placement.lane_count;
       raw_wave.wave.ResetInitialExec();
       raw_wave.wave.pc = image.instructions.front().pc;
+      raw_wave.wave.tensor_agpr_count = image.kernel_descriptor.agpr_count;
+      raw_wave.wave.tensor_accum_offset = image.kernel_descriptor.accum_offset;
       InitializeWaveAbiState(raw_wave.wave, image, config, kernarg_base,
                              static_cast<uint32_t>(block.waves.size()));
       trace.OnEvent(TraceEvent{
@@ -287,11 +320,26 @@ LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
         }
         const auto& inst = image.instructions[it->second];
         const auto& decoded = image.decoded_instructions[it->second];
+        const RawGcnInstructionObject* object =
+            (it->second < image.instruction_objects.size() && image.instruction_objects[it->second] != nullptr)
+                ? image.instruction_objects[it->second].get()
+                : nullptr;
         DebugLog("exec pc=0x%llx %s %s",
                  static_cast<unsigned long long>(inst.pc), inst.mnemonic.c_str(),
                  inst.operands.c_str());
         ++result.stats.wave_steps;
         ++result.stats.instructions_issued;
+        trace.OnEvent(TraceEvent{
+            .kind = TraceEventKind::WaveStep,
+            .cycle = 0,
+            .dpc_id = raw_wave.wave.dpc_id,
+            .ap_id = raw_wave.wave.ap_id,
+            .peu_id = raw_wave.wave.peu_id,
+            .block_id = raw_wave.wave.block_id,
+            .wave_id = raw_wave.wave.wave_id,
+            .pc = raw_wave.wave.pc,
+            .message = FormatRawWaveStepMessage(decoded, object, raw_wave.wave),
+        });
         RawGcnBlockContext block_context{
             .shared_memory = raw_block.shared_memory,
             .barrier_generation = raw_block.barrier_generation,
@@ -308,9 +356,8 @@ LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
             .block = block_context,
         };
         try {
-          if (it->second < image.instruction_objects.size() &&
-              image.instruction_objects[it->second] != nullptr) {
-            image.instruction_objects[it->second]->Execute(context);
+          if (object != nullptr) {
+            object->Execute(context);
           } else {
             const auto& handler = RawGcnSemanticHandlerRegistry::Get(decoded);
             handler.Execute(decoded, context);

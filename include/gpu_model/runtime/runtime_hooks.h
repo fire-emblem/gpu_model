@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "gpu_model/loader/executable_image_io.h"
+#include "gpu_model/loader/amdgpu_code_object_decoder.h"
 #include "gpu_model/loader/device_image_loader.h"
 #include "gpu_model/loader/amdgpu_obj_loader.h"
 #include "gpu_model/loader/device_segment_image.h"
@@ -67,6 +68,9 @@ class RuntimeHooks {
                                   TraceSink* trace = nullptr);
   DeviceLoadPlan BuildLoadPlan(const ProgramImage& image) const;
   DeviceLoadPlan BuildLoadPlanFromAmdgpuObject(
+      const std::filesystem::path& path,
+      std::optional<std::string> kernel_name = std::nullopt) const;
+  AmdgpuCodeObjectImage DescribeAmdgpuObject(
       const std::filesystem::path& path,
       std::optional<std::string> kernel_name = std::nullopt) const;
   DeviceLoadResult MaterializeLoadPlan(const DeviceLoadPlan& plan);

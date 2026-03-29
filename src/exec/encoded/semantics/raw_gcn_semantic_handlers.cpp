@@ -106,6 +106,13 @@ uint32_t RequireVectorIndex(const DecodedGcnOperand& operand) {
   return operand.info.reg_first;
 }
 
+uint32_t RequireAccumulatorIndex(const DecodedGcnOperand& operand) {
+  if (operand.kind != DecodedGcnOperandKind::AccumulatorReg || operand.info.reg_count != 1) {
+    throw std::invalid_argument("expected accumulator register operand");
+  }
+  return operand.info.reg_first;
+}
+
 std::pair<uint32_t, uint32_t> RequireScalarRange(const DecodedGcnOperand& operand) {
   if (operand.kind != DecodedGcnOperandKind::ScalarRegRange || operand.info.reg_count == 0) {
     throw std::invalid_argument("expected scalar register range operand");
@@ -679,6 +686,7 @@ class VectorAluHandler final : public IRawGcnSemanticHandler {
         const float value = src2 + src0 * src1 * 4.0f;
         for (uint32_t reg = 0; reg < 4; ++reg) {
           context.wave.vgpr.Write(vdst + reg, lane, FloatAsU32(value));
+          context.wave.agpr.Write(vdst + reg, lane, FloatAsU32(value));
         }
       }
     } else if (instruction.mnemonic == "v_mfma_f32_32x32x2f32") {
@@ -698,6 +706,7 @@ class VectorAluHandler final : public IRawGcnSemanticHandler {
         const float value = src2 + src0 * src1 * 2.0f;
         for (uint32_t reg = 0; reg < 16; ++reg) {
           context.wave.vgpr.Write(vdst + reg, lane, FloatAsU32(value));
+          context.wave.agpr.Write(vdst + reg, lane, FloatAsU32(value));
         }
       }
     } else if (instruction.mnemonic == "v_mfma_f32_16x16x4f16") {
@@ -721,6 +730,7 @@ class VectorAluHandler final : public IRawGcnSemanticHandler {
         const float value = acc + a0 * b0 + a1 * b1;
         for (uint32_t reg = 0; reg < 4; ++reg) {
           context.wave.vgpr.Write(vdst + reg, lane, FloatAsU32(value));
+          context.wave.agpr.Write(vdst + reg, lane, FloatAsU32(value));
         }
       }
     } else if (instruction.mnemonic == "v_mfma_i32_16x16x4i8") {
@@ -744,6 +754,7 @@ class VectorAluHandler final : public IRawGcnSemanticHandler {
         }
         for (uint32_t reg = 0; reg < 4; ++reg) {
           context.wave.vgpr.Write(vdst + reg, lane, static_cast<uint32_t>(acc));
+          context.wave.agpr.Write(vdst + reg, lane, static_cast<uint32_t>(acc));
         }
       }
     } else if (instruction.mnemonic == "v_mfma_i32_16x16x16i8") {
@@ -767,6 +778,7 @@ class VectorAluHandler final : public IRawGcnSemanticHandler {
         }
         for (uint32_t reg = 0; reg < 4; ++reg) {
           context.wave.vgpr.Write(vdst + reg, lane, static_cast<uint32_t>(acc));
+          context.wave.agpr.Write(vdst + reg, lane, static_cast<uint32_t>(acc));
         }
       }
     } else if (instruction.mnemonic == "v_mfma_f32_16x16x2bf16") {
@@ -790,7 +802,27 @@ class VectorAluHandler final : public IRawGcnSemanticHandler {
         const float value = acc + a0 * b0 + a1 * b1;
         for (uint32_t reg = 0; reg < 4; ++reg) {
           context.wave.vgpr.Write(vdst + reg, lane, FloatAsU32(value));
+          context.wave.agpr.Write(vdst + reg, lane, FloatAsU32(value));
         }
+      }
+    } else if (instruction.mnemonic == "v_accvgpr_read_b32") {
+      const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
+      const uint32_t asrc = RequireAccumulatorIndex(instruction.operands.at(1));
+      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        if (!context.wave.exec.test(lane)) {
+          continue;
+        }
+        context.wave.vgpr.Write(vdst, lane, context.wave.agpr.Read(asrc, lane));
+      }
+    } else if (instruction.mnemonic == "v_accvgpr_write_b32") {
+      const uint32_t adst = RequireAccumulatorIndex(instruction.operands.at(0));
+      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        if (!context.wave.exec.test(lane)) {
+          continue;
+        }
+        const uint32_t value = static_cast<uint32_t>(
+            ResolveVectorLane(instruction.operands.at(1), context, lane));
+        context.wave.agpr.Write(adst, lane, value);
       }
     } else if (instruction.mnemonic == "v_rndne_f32_e32") {
       const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));

@@ -136,5 +136,40 @@ TEST(CycleTimelineTest, GoogleTraceCanGroupByPeu) {
   EXPECT_NE(timeline.find("\"process_sort_index\""), std::string::npos);
 }
 
+TEST(CycleTimelineTest, HighlightsTensorOpsInAsciiAndGoogleTrace) {
+  std::vector<TraceEvent> events{
+      TraceEvent{
+          .kind = TraceEventKind::WaveStep,
+          .cycle = 10,
+          .dpc_id = 0,
+          .ap_id = 0,
+          .peu_id = 0,
+          .block_id = 0,
+          .wave_id = 0,
+          .pc = 0x100,
+          .message = "pc=0x100 op=v_mfma_f32_16x16x4f32 exec_lanes=0x40",
+      },
+      TraceEvent{
+          .kind = TraceEventKind::Commit,
+          .cycle = 14,
+          .dpc_id = 0,
+          .ap_id = 0,
+          .peu_id = 0,
+          .block_id = 0,
+          .wave_id = 0,
+          .pc = 0x100,
+          .message = "commit",
+      },
+  };
+
+  const std::string ascii = CycleTimelineRenderer::RenderAscii(events);
+  EXPECT_NE(ascii.find("T=tensor-op"), std::string::npos);
+  EXPECT_NE(ascii.find("T=v_mfma_f32_16x16x4f32"), std::string::npos);
+
+  const std::string trace = CycleTimelineRenderer::RenderGoogleTrace(events);
+  EXPECT_NE(trace.find("\"cat\":\"tensor\""), std::string::npos);
+  EXPECT_NE(trace.find("\"name\":\"v_mfma_f32_16x16x4f32\""), std::string::npos);
+}
+
 }  // namespace
 }  // namespace gpu_model

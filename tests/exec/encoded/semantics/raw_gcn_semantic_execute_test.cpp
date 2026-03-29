@@ -980,6 +980,8 @@ TEST_F(RawGcnSemanticExecuteTest, ExecutesTensorCoreMfmaVariants) {
     RawGcnSemanticHandlerRegistry::Get(inst).Execute(inst, harness.context);
     EXPECT_EQ(harness.wave.vgpr.Read(8, 0), FloatBits(28.0f));
     EXPECT_EQ(harness.wave.vgpr.Read(11, 0), FloatBits(28.0f));
+    EXPECT_EQ(harness.wave.agpr.Read(8, 0), FloatBits(28.0f));
+    EXPECT_EQ(harness.wave.agpr.Read(11, 0), FloatBits(28.0f));
   }
 
   {
@@ -1040,6 +1042,56 @@ TEST_F(RawGcnSemanticExecuteTest, ExecutesTensorCoreMfmaVariants) {
     RawGcnSemanticHandlerRegistry::Get(inst).Execute(inst, harness.context);
     EXPECT_EQ(harness.wave.vgpr.Read(40, 0), 50u);
     EXPECT_EQ(harness.wave.vgpr.Read(43, 0), 50u);
+  }
+
+  {
+    Harness harness;
+    harness.wave.agpr.Write(3, 0, 0x12345678u);
+    auto inst = Inst("v_accvgpr_read_b32", 90, {VReg(50), DecodedGcnOperand{
+                                                       .kind = DecodedGcnOperandKind::AccumulatorReg,
+                                                       .text = "a3",
+                                                       .info = GcnOperandInfo{.reg_first = 3, .reg_count = 1},
+                                                   }},
+                     0x1894, 8);
+    harness.wave.pc = inst.pc;
+    RawGcnSemanticHandlerRegistry::Get(inst).Execute(inst, harness.context);
+    EXPECT_EQ(harness.wave.vgpr.Read(50, 0), 0x12345678u);
+  }
+
+  {
+    Harness harness;
+    harness.wave.vgpr.Write(1, 0, FloatBits(2.0f));
+    harness.wave.vgpr.Write(2, 0, FloatBits(3.0f));
+    harness.wave.vgpr.Write(3, 0, FloatBits(4.0f));
+    auto mfma = Inst("v_mfma_f32_16x16x4f32", 67, {VRange(8, 4), VReg(1), VReg(2), VReg(3)}, 0x18a0, 8);
+    harness.wave.pc = mfma.pc;
+    RawGcnSemanticHandlerRegistry::Get(mfma).Execute(mfma, harness.context);
+
+    auto read = Inst("v_accvgpr_read_b32", 90, {VReg(60), DecodedGcnOperand{
+                                                         .kind = DecodedGcnOperandKind::AccumulatorReg,
+                                                         .text = "a8",
+                                                         .info = GcnOperandInfo{.reg_first = 8, .reg_count = 1},
+                                                     }},
+                     0x18a8, 8);
+    harness.wave.pc = read.pc;
+    RawGcnSemanticHandlerRegistry::Get(read).Execute(read, harness.context);
+    EXPECT_EQ(harness.wave.vgpr.Read(60, 0), FloatBits(28.0f));
+  }
+
+  {
+    Harness harness;
+    harness.wave.vgpr.Write(1, 0, 0x87654321u);
+    auto inst = Inst("v_accvgpr_write_b32", 91,
+                     {DecodedGcnOperand{
+                          .kind = DecodedGcnOperandKind::AccumulatorReg,
+                          .text = "a4",
+                          .info = GcnOperandInfo{.reg_first = 4, .reg_count = 1},
+                      },
+                      VReg(1)},
+                     0x189c, 8);
+    harness.wave.pc = inst.pc;
+    RawGcnSemanticHandlerRegistry::Get(inst).Execute(inst, harness.context);
+    EXPECT_EQ(harness.wave.agpr.Read(4, 0), 0x87654321u);
   }
 }
 

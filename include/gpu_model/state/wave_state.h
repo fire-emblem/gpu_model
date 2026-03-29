@@ -41,9 +41,12 @@ struct WaveState {
   bool branch_pending = false;
   bool waiting_at_barrier = false;
   uint64_t barrier_generation = 0;
+  uint16_t tensor_agpr_count = 0;
+  uint16_t tensor_accum_offset = 0;
   std::array<std::vector<std::byte>, kWaveSize> private_memory;
   SGPRFile sgpr;
   VGPRFile vgpr;
+  AGPRFile agpr;
 
   void ResetInitialExec() {
     exec.reset();
@@ -60,6 +63,8 @@ struct WaveState {
     branch_pending = false;
     waiting_at_barrier = false;
     barrier_generation = 0;
+    tensor_agpr_count = 0;
+    tensor_accum_offset = 0;
   }
 
   bool ScalarMaskBit0() const { return (smask & 1ULL) != 0; }

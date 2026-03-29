@@ -67,6 +67,11 @@ class ModelRuntimeApi {
       std::optional<std::string> kernel_name = std::nullopt) const {
     return hooks_.BuildLoadPlanFromAmdgpuObject(path, std::move(kernel_name));
   }
+  AmdgpuCodeObjectImage DescribeAmdgpuObject(
+      const std::filesystem::path& path,
+      std::optional<std::string> kernel_name = std::nullopt) const {
+    return hooks_.DescribeAmdgpuObject(path, std::move(kernel_name));
+  }
   DeviceLoadResult MaterializeLoadPlan(const DeviceLoadPlan& plan) {
     return hooks_.MaterializeLoadPlan(plan);
   }

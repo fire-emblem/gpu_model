@@ -901,5 +901,53 @@ TEST(HipInterposerStateTest, LaunchesHipMfmaExecutableThroughRegisteredHostFunct
   std::filesystem::remove_all(temp_dir);
 }
 
+TEST(HipInterposerStateTest, BuildsExecutableLoadPlanForHipMfmaWithTypedTensorAbi) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_interposer_mfma_plan");
+  const auto src_path = temp_dir / "hip_mfma_plan.cpp";
+  const auto exe_path = temp_dir / "hip_mfma_plan.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n"
+           "typedef float v4f __attribute__((ext_vector_type(4)));\n"
+           "extern \"C\" __global__ void mfma_plan_probe(float* out) {\n"
+           "#if defined(__AMDGCN__)\n"
+           "  v4f acc = {0.0f, 0.0f, 0.0f, 0.0f};\n"
+           "  acc = __builtin_amdgcn_mfma_f32_16x16x4f32(1.0f, 1.0f, acc, 0, 0, 0);\n"
+           "  if (threadIdx.x == 0) out[0] = acc[0];\n"
+           "#else\n"
+           "  if (threadIdx.x == 0) out[0] = 0.0f;\n"
+           "#endif\n"
+           "}\n"
+           "int main() { return 0; }\n";
+  }
+
+  const std::string command =
+      "hipcc --offload-arch=gfx90a " + src_path.string() + " -o " + exe_path.string();
+  if (std::system(command.c_str()) != 0) {
+    GTEST_SKIP() << "gfx90a mfma compilation not available";
+  }
+
+  auto& state = HipInterposerState::Instance();
+  state.ResetForTest();
+  static int host_symbol = 0;
+  state.RegisterFunction(&host_symbol, "mfma_plan_probe");
+
+  const auto plan = state.BuildExecutableLoadPlan(exe_path, &host_symbol);
+  EXPECT_FALSE(plan.segments.empty());
+  const auto image = AmdgpuCodeObjectDecoder{}.Decode(exe_path, "mfma_plan_probe");
+  EXPECT_GE(image.kernel_descriptor.accum_offset, 4u);
+  if (const auto it = image.metadata.values.find("agpr_count"); it != image.metadata.values.end()) {
+    EXPECT_EQ(std::to_string(image.kernel_descriptor.agpr_count), it->second);
+  }
+
+  std::filesystem::remove_all(temp_dir);
+}
+
 }  // namespace
 }  // namespace gpu_model

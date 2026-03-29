@@ -15,6 +15,7 @@ enum class RawGcnOperandKind {
   ScalarRegRange,
   VectorReg,
   VectorRegRange,
+  AccumulatorReg,
   SpecialReg,
   Immediate,
   BranchTarget,

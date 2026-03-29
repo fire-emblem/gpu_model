@@ -170,6 +170,18 @@ RawGcnOperand MakeVectorRegRangeOperand(uint32_t first, uint32_t count) {
   };
 }
 
+RawGcnOperand MakeAccumulatorRegOperand(uint32_t reg) {
+  return RawGcnOperand{
+      .kind = RawGcnOperandKind::AccumulatorReg,
+      .text = "a" + std::to_string(reg),
+      .info =
+          GcnOperandInfo{
+              .reg_first = reg,
+              .reg_count = 1,
+          },
+  };
+}
+
 RawGcnOperand MakeSpecialRegOperand(GcnSpecialReg reg, std::string text) {
   return RawGcnOperand{
       .kind = RawGcnOperandKind::SpecialReg,
@@ -581,10 +593,23 @@ bool DecodeVop3pOperands(RawGcnInstruction& instruction) {
   }
   const uint32_t low = instruction.words[0];
   const uint32_t high = instruction.words[1];
+  const uint32_t opcode = (low >> 16u) & 0x7fu;
   const uint32_t vdst = low & 0xffu;
   const uint32_t src0 = high & 0x1ffu;
   const uint32_t src1 = (high >> 9u) & 0x1ffu;
   const uint32_t src2 = (high >> 18u) & 0x1ffu;
+
+  if (instruction.mnemonic == "v_accvgpr_read_b32" || opcode == 88u) {
+    instruction.decoded_operands.push_back(MakeVectorRegOperand(vdst));
+    instruction.decoded_operands.push_back(MakeAccumulatorRegOperand(src0));
+    return true;
+  }
+  if (instruction.mnemonic == "v_accvgpr_write_b32" || opcode == 89u) {
+    instruction.decoded_operands.push_back(MakeAccumulatorRegOperand(vdst));
+    instruction.decoded_operands.push_back(DecodeSrc9(src0));
+    return true;
+  }
+
   const uint32_t dest_count = MatrixDestCount(instruction.mnemonic);
 
   if (dest_count == 1u) {
@@ -644,6 +669,8 @@ bool TryDecodeGeneratedOperands(RawGcnInstruction& instruction, const GcnGenerat
       instruction.decoded_operands.push_back(MakeVectorRegOperand(raw_value));
     } else if (std::string_view(spec.kind) == "vector_reg_range") {
       instruction.decoded_operands.push_back(MakeVectorRegRangeOperand(raw_value, spec.reg_count));
+    } else if (std::string_view(spec.kind) == "accumulator_reg") {
+      instruction.decoded_operands.push_back(MakeAccumulatorRegOperand(raw_value));
     } else if (std::string_view(spec.kind) == "vector_reg_range_field") {
       instruction.decoded_operands.push_back(DecodeVectorRegRangeField(raw_value, spec.reg_count));
     } else if (std::string_view(spec.kind) == "special_reg") {

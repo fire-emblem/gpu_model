@@ -2132,6 +2132,52 @@ instructions:
     reg_count: 1
     scale: 1
     special_reg: ''
+- id: 90
+  profile: gfx6_gfx8
+  format: vop3p
+  opcode: 88
+  size_bytes: 8
+  mnemonic: v_accvgpr_read_b32
+  semantic_family: vector_alu
+  issue_family: vector_alu
+  operands:
+  - name: vdst
+    kind: vector_reg
+    role: def
+    field: vdst
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src0
+    kind: accumulator_reg
+    role: use
+    field: src0
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+- id: 91
+  profile: gfx6_gfx8
+  format: vop3p
+  opcode: 89
+  size_bytes: 8
+  mnemonic: v_accvgpr_write_b32
+  semantic_family: vector_alu
+  issue_family: vector_alu
+  operands:
+  - name: vdst
+    kind: accumulator_reg
+    role: def
+    field: vdst
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: src0
+    kind: src9
+    role: use
+    field: src0
+    reg_count: 1
+    scale: 1
+    special_reg: ''
 - id: 68
   profile: gfx6_gfx8
   format: sopp

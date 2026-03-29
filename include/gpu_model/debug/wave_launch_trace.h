@@ -59,6 +59,10 @@ inline std::string FormatWaveLaunchTraceMessage(const WaveState& wave,
     out << "}";
   }
   out << "}";
+  if (wave.tensor_agpr_count != 0 || wave.tensor_accum_offset != 0) {
+    out << " tensor={agpr_count=" << HexWaveTraceU64(wave.tensor_agpr_count)
+        << ",accum_offset=" << HexWaveTraceU64(wave.tensor_accum_offset) << "}";
+  }
   return out.str();
 }
 
