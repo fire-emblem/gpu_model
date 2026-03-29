@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <string>
 #include <filesystem>
+#include <optional>
 #include <span>
 #include <unordered_map>
 #include <vector>
@@ -17,6 +18,7 @@
 #include "gpu_model/loader/program_file_loader.h"
 #include "gpu_model/isa/kernel_program.h"
 #include "gpu_model/isa/program_image.h"
+#include "gpu_model/runtime/device_properties.h"
 #include "gpu_model/runtime/host_runtime.h"
 
 namespace gpu_model {
@@ -32,6 +34,12 @@ class RuntimeHooks {
   void MemcpyDeviceToDevice(uint64_t dst_addr, uint64_t src_addr, size_t bytes);
   void MemsetD8(uint64_t addr, uint8_t value, size_t bytes);
   void MemsetD32(uint64_t addr, uint32_t value, size_t count);
+  int GetDeviceCount() const;
+  int GetDevice() const { return current_device_; }
+  bool SetDevice(int device_id);
+  RuntimeDeviceProperties GetDeviceProperties(int device_id = 0) const;
+  std::optional<int> GetDeviceAttribute(RuntimeDeviceAttribute attribute,
+                                        int device_id = 0) const;
 
   template <typename T>
   void MemcpyHtoD(uint64_t dst_addr, std::span<const T> values) {
@@ -100,6 +108,7 @@ class RuntimeHooks {
  private:
   HostRuntime owned_runtime_;
   HostRuntime* runtime_ = &owned_runtime_;
+  int current_device_ = 0;
   std::unordered_map<uint64_t, size_t> allocations_;
   std::unordered_map<std::string, std::unordered_map<std::string, ProgramImage>> modules_;
   std::optional<DeviceLoadResult> last_load_result_;

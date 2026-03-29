@@ -4,6 +4,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstdint>
+#include <cstring>
+#include <optional>
 #include <unordered_map>
 
 #include "gpu_model/runtime/hip_interposer_state.h"
@@ -195,7 +197,7 @@ hipError_t hipGetDeviceCount(int* count) {
   if (count == nullptr) {
     return Remember(hipErrorInvalidValue);
   }
-  *count = 1;
+  *count = HipInterposerState::Instance().model_runtime().GetDeviceCount();
   return Remember(hipSuccess);
 }
 
@@ -203,15 +205,176 @@ hipError_t hipGetDevice(int* deviceId) {
   if (deviceId == nullptr) {
     return Remember(hipErrorInvalidValue);
   }
-  *deviceId = g_current_device;
+  *deviceId = HipInterposerState::Instance().model_runtime().GetDevice();
   return Remember(hipSuccess);
 }
 
 hipError_t hipSetDevice(int deviceId) {
-  if (deviceId != 0) {
+  if (!HipInterposerState::Instance().model_runtime().SetDevice(deviceId)) {
     return Remember(hipErrorInvalidDevice);
   }
   g_current_device = deviceId;
+  return Remember(hipSuccess);
+}
+
+hipError_t hipGetDevicePropertiesR0600(hipDeviceProp_tR0600* prop, int deviceId) {
+  if (prop == nullptr) {
+    return Remember(hipErrorInvalidValue);
+  }
+  auto& hooks = HipInterposerState::Instance().hooks();
+  if (deviceId < 0 || deviceId >= hooks.GetDeviceCount()) {
+    return Remember(hipErrorInvalidDevice);
+  }
+  const auto props = hooks.GetDeviceProperties(deviceId);
+  std::memset(prop, 0, sizeof(*prop));
+  std::snprintf(prop->name, sizeof(prop->name), "%s", props.name.c_str());
+  prop->totalGlobalMem = props.total_global_mem;
+  prop->sharedMemPerBlock = props.shared_mem_per_block;
+  prop->regsPerBlock = props.regs_per_block;
+  prop->warpSize = props.warp_size;
+  prop->maxThreadsPerBlock = props.max_threads_per_block;
+  prop->maxThreadsDim[0] = props.max_threads_dim[0];
+  prop->maxThreadsDim[1] = props.max_threads_dim[1];
+  prop->maxThreadsDim[2] = props.max_threads_dim[2];
+  prop->maxGridSize[0] = props.max_grid_size[0];
+  prop->maxGridSize[1] = props.max_grid_size[1];
+  prop->maxGridSize[2] = props.max_grid_size[2];
+  prop->clockRate = props.clock_rate_khz;
+  prop->totalConstMem = props.total_const_mem;
+  prop->major = props.compute_capability_major;
+  prop->minor = props.compute_capability_minor;
+  prop->multiProcessorCount = props.multi_processor_count;
+  prop->integrated = props.integrated;
+  prop->canMapHostMemory = props.can_map_host_memory;
+  prop->concurrentKernels = props.concurrent_kernels;
+  prop->asyncEngineCount = props.async_engine_count;
+  prop->unifiedAddressing = props.unified_addressing;
+  prop->memoryClockRate = props.memory_clock_rate_khz;
+  prop->memoryBusWidth = props.memory_bus_width_bits;
+  prop->l2CacheSize = props.l2_cache_size;
+  prop->maxThreadsPerMultiProcessor = props.max_threads_per_multiprocessor;
+  prop->sharedMemPerMultiprocessor = props.shared_mem_per_multiprocessor;
+  prop->regsPerMultiprocessor = props.regs_per_multiprocessor;
+  prop->managedMemory = props.managed_memory;
+  prop->concurrentManagedAccess = props.concurrent_managed_access;
+  prop->cooperativeLaunch = props.cooperative_launch;
+  prop->hostRegisterSupported = props.host_register_supported;
+  std::snprintf(prop->gcnArchName, sizeof(prop->gcnArchName), "%s", "c500");
+  prop->maxSharedMemoryPerMultiProcessor = props.max_shared_mem_per_multiprocessor;
+  prop->pciBusID = props.pci_bus_id;
+  prop->pciDeviceID = props.pci_device_id;
+  prop->pciDomainID = props.pci_domain_id;
+  return Remember(hipSuccess);
+}
+
+hipError_t hipDeviceGetAttribute(int* value, hipDeviceAttribute_t attr, int deviceId) {
+  if (value == nullptr) {
+    return Remember(hipErrorInvalidValue);
+  }
+  auto& hooks = HipInterposerState::Instance().hooks();
+  if (deviceId < 0 || deviceId >= hooks.GetDeviceCount()) {
+    return Remember(hipErrorInvalidDevice);
+  }
+  using A = gpu_model::RuntimeDeviceAttribute;
+  std::optional<int> resolved;
+  switch (attr) {
+    case hipDeviceAttributeWarpSize:
+      resolved = hooks.GetDeviceAttribute(A::WarpSize, deviceId);
+      break;
+    case hipDeviceAttributeMaxThreadsPerBlock:
+      resolved = hooks.GetDeviceAttribute(A::MaxThreadsPerBlock, deviceId);
+      break;
+    case hipDeviceAttributeMaxBlockDimX:
+      resolved = hooks.GetDeviceAttribute(A::MaxBlockDimX, deviceId);
+      break;
+    case hipDeviceAttributeMaxBlockDimY:
+      resolved = hooks.GetDeviceAttribute(A::MaxBlockDimY, deviceId);
+      break;
+    case hipDeviceAttributeMaxBlockDimZ:
+      resolved = hooks.GetDeviceAttribute(A::MaxBlockDimZ, deviceId);
+      break;
+    case hipDeviceAttributeMaxGridDimX:
+      resolved = hooks.GetDeviceAttribute(A::MaxGridDimX, deviceId);
+      break;
+    case hipDeviceAttributeMaxGridDimY:
+      resolved = hooks.GetDeviceAttribute(A::MaxGridDimY, deviceId);
+      break;
+    case hipDeviceAttributeMaxGridDimZ:
+      resolved = hooks.GetDeviceAttribute(A::MaxGridDimZ, deviceId);
+      break;
+    case hipDeviceAttributeMultiprocessorCount:
+      resolved = hooks.GetDeviceAttribute(A::MultiprocessorCount, deviceId);
+      break;
+    case hipDeviceAttributeMaxThreadsPerMultiProcessor:
+      resolved = hooks.GetDeviceAttribute(A::MaxThreadsPerMultiprocessor, deviceId);
+      break;
+    case hipDeviceAttributeMaxSharedMemoryPerBlock:
+      resolved = hooks.GetDeviceAttribute(A::SharedMemPerBlock, deviceId);
+      break;
+    case hipDeviceAttributeSharedMemPerMultiprocessor:
+      resolved = hooks.GetDeviceAttribute(A::SharedMemPerMultiprocessor, deviceId);
+      break;
+    case hipDeviceAttributeMaxSharedMemoryPerMultiprocessor:
+      resolved = hooks.GetDeviceAttribute(A::MaxSharedMemPerMultiprocessor, deviceId);
+      break;
+    case hipDeviceAttributeMaxRegistersPerBlock:
+      resolved = hooks.GetDeviceAttribute(A::RegistersPerBlock, deviceId);
+      break;
+    case hipDeviceAttributeMaxRegistersPerMultiprocessor:
+      resolved = hooks.GetDeviceAttribute(A::RegistersPerMultiprocessor, deviceId);
+      break;
+    case hipDeviceAttributeTotalConstantMemory:
+      resolved = hooks.GetDeviceAttribute(A::TotalConstantMemory, deviceId);
+      break;
+    case hipDeviceAttributeL2CacheSize:
+      resolved = hooks.GetDeviceAttribute(A::L2CacheSize, deviceId);
+      break;
+    case hipDeviceAttributeClockRate:
+      resolved = hooks.GetDeviceAttribute(A::ClockRateKHz, deviceId);
+      break;
+    case hipDeviceAttributeMemoryClockRate:
+      resolved = hooks.GetDeviceAttribute(A::MemoryClockRateKHz, deviceId);
+      break;
+    case hipDeviceAttributeMemoryBusWidth:
+      resolved = hooks.GetDeviceAttribute(A::MemoryBusWidthBits, deviceId);
+      break;
+    case hipDeviceAttributeIntegrated:
+      resolved = hooks.GetDeviceAttribute(A::Integrated, deviceId);
+      break;
+    case hipDeviceAttributeConcurrentKernels:
+      resolved = hooks.GetDeviceAttribute(A::ConcurrentKernels, deviceId);
+      break;
+    case hipDeviceAttributeCooperativeLaunch:
+      resolved = hooks.GetDeviceAttribute(A::CooperativeLaunch, deviceId);
+      break;
+    case hipDeviceAttributeCanMapHostMemory:
+      resolved = hooks.GetDeviceAttribute(A::CanMapHostMemory, deviceId);
+      break;
+    case hipDeviceAttributeManagedMemory:
+      resolved = hooks.GetDeviceAttribute(A::ManagedMemory, deviceId);
+      break;
+    case hipDeviceAttributeConcurrentManagedAccess:
+      resolved = hooks.GetDeviceAttribute(A::ConcurrentManagedAccess, deviceId);
+      break;
+    case hipDeviceAttributeHostRegisterSupported:
+      resolved = hooks.GetDeviceAttribute(A::HostRegisterSupported, deviceId);
+      break;
+    case hipDeviceAttributeUnifiedAddressing:
+      resolved = hooks.GetDeviceAttribute(A::UnifiedAddressing, deviceId);
+      break;
+    case hipDeviceAttributeComputeCapabilityMajor:
+      resolved = hooks.GetDeviceAttribute(A::ComputeCapabilityMajor, deviceId);
+      break;
+    case hipDeviceAttributeComputeCapabilityMinor:
+      resolved = hooks.GetDeviceAttribute(A::ComputeCapabilityMinor, deviceId);
+      break;
+    default:
+      return Remember(hipErrorInvalidValue);
+  }
+  if (!resolved.has_value()) {
+    return Remember(hipErrorInvalidValue);
+  }
+  *value = *resolved;
   return Remember(hipSuccess);
 }
 

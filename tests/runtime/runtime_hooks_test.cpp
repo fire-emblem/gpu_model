@@ -96,6 +96,27 @@ TEST(RuntimeHooksTest, MallocManagedUsesManagedPool) {
   EXPECT_NE(addr & 0xF000000000000000ull, 0ull);
 }
 
+TEST(RuntimeHooksTest, ExposesModelDevicePropertiesAndAttributes) {
+  RuntimeHooks hooks;
+  EXPECT_EQ(hooks.GetDeviceCount(), 1);
+  EXPECT_EQ(hooks.GetDevice(), 0);
+  EXPECT_TRUE(hooks.SetDevice(0));
+  EXPECT_FALSE(hooks.SetDevice(1));
+
+  const auto props = hooks.GetDeviceProperties(0);
+  EXPECT_EQ(props.name, "c500");
+  EXPECT_EQ(props.warp_size, 64);
+  EXPECT_EQ(props.max_threads_per_block, 1024);
+  EXPECT_EQ(props.multi_processor_count, 56);
+  EXPECT_EQ(props.shared_mem_per_block, 64u * 1024u);
+  EXPECT_EQ(props.shared_mem_per_multiprocessor, 64u * 1024u);
+
+  EXPECT_EQ(*hooks.GetDeviceAttribute(RuntimeDeviceAttribute::WarpSize), 64);
+  EXPECT_EQ(*hooks.GetDeviceAttribute(RuntimeDeviceAttribute::MaxThreadsPerBlock), 1024);
+  EXPECT_EQ(*hooks.GetDeviceAttribute(RuntimeDeviceAttribute::MultiprocessorCount), 56);
+  EXPECT_EQ(*hooks.GetDeviceAttribute(RuntimeDeviceAttribute::UnifiedAddressing), 1);
+}
+
 TEST(RuntimeHooksTest, RegistersProgramImagesAndLaunchesByModuleAndKernelName) {
   constexpr uint32_t n = 32;
   ProgramImage image(

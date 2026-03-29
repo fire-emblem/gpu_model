@@ -591,6 +591,72 @@ int main() {
   std::filesystem::remove_all(temp_dir);
 }
 
+TEST(HipInterposerStateTest, RunsHipHostExecutableQueryingDevicePropertiesThroughLdPreloadInterposer) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto build_dir = BuildDirPath();
+  const auto interposer_path = build_dir / "libgpu_model_hip_interposer.so";
+  if (!std::filesystem::exists(interposer_path)) {
+    GTEST_SKIP() << "missing interposer library: " << interposer_path;
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_ld_preload_props");
+  const auto src_path = temp_dir / "hip_ld_preload_props.cpp";
+  const auto exe_path = temp_dir / "hip_ld_preload_props.out";
+  const auto stdout_path = temp_dir / "stdout.txt";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << R"(
+#include <hip/hip_runtime.h>
+#include <cstdio>
+#include <cstring>
+
+int main() {
+  int count = 0;
+  int device = -1;
+  int warp_size = -1;
+  int max_threads = -1;
+  hipDeviceProp_t props{};
+
+  if (hipGetDeviceCount(&count) != hipSuccess || count != 1) return 10;
+  if (hipSetDevice(0) != hipSuccess) return 11;
+  if (hipGetDevice(&device) != hipSuccess || device != 0) return 12;
+  if (hipGetDeviceProperties(&props, 0) != hipSuccess) return 13;
+  if (std::strcmp(props.name, "c500") != 0) return 14;
+  if (props.warpSize != 64) return 15;
+  if (props.maxThreadsPerBlock != 1024) return 16;
+  if (props.multiProcessorCount != 56) return 17;
+  if (hipDeviceGetAttribute(&warp_size, hipDeviceAttributeWarpSize, 0) != hipSuccess || warp_size != 64) return 18;
+  if (hipDeviceGetAttribute(&max_threads, hipDeviceAttributeMaxThreadsPerBlock, 0) != hipSuccess || max_threads != 1024) return 19;
+
+  std::puts("ld_preload property path ok");
+  return 0;
+}
+)";
+  }
+
+  const std::string compile_command =
+      "env -u LD_PRELOAD hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(compile_command.c_str()), 0);
+
+  const std::string run_command =
+      "env LD_PRELOAD=" + interposer_path.string() +
+      " GPU_MODEL_HIP_INTERPOSER_DEBUG=1 " + exe_path.string() + " > " + stdout_path.string() +
+      " 2>&1";
+  ASSERT_EQ(std::system(run_command.c_str()), 0);
+
+  std::ifstream in(stdout_path);
+  ASSERT_TRUE(static_cast<bool>(in));
+  const std::string output((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+  EXPECT_NE(output.find("ld_preload property path ok"), std::string::npos);
+
+  std::filesystem::remove_all(temp_dir);
+}
+
 TEST(HipInterposerStateTest, LaunchesHipSharedReverseExecutableThroughRegisteredHostFunction) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";

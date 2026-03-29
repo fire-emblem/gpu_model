@@ -40,7 +40,7 @@ HipInterposerState& HipInterposerState::Instance() {
 }
 
 void HipInterposerState::ResetForTest() {
-  hooks_.Reset();
+  model_runtime_.Reset();
   kernel_symbols_.clear();
   allocations_.clear();
   next_fake_device_ptr_ = 0x100000000ULL;
@@ -60,7 +60,7 @@ std::optional<std::string> HipInterposerState::ResolveKernelName(const void* hos
 }
 
 void* HipInterposerState::AllocateDevice(size_t bytes) {
-  const uint64_t model_addr = hooks_.Malloc(bytes);
+  const uint64_t model_addr = model_runtime_.Malloc(bytes);
   const uintptr_t fake_addr = static_cast<uintptr_t>(next_fake_device_ptr_);
   Allocation allocation;
   allocation.model_addr = model_addr;
@@ -72,7 +72,7 @@ void* HipInterposerState::AllocateDevice(size_t bytes) {
 }
 
 void* HipInterposerState::AllocateManaged(size_t bytes) {
-  const uint64_t model_addr = hooks_.MallocManaged(bytes);
+  const uint64_t model_addr = model_runtime_.MallocManaged(bytes);
   auto host_backing = std::make_unique<std::byte[]>(bytes);
   std::memset(host_backing.get(), 0, bytes);
   const uintptr_t host_addr = reinterpret_cast<uintptr_t>(host_backing.get());
@@ -89,7 +89,7 @@ bool HipInterposerState::FreeDevice(void* device_ptr) {
   if (it == allocations_.end()) {
     return false;
   }
-  hooks_.Free(it->second.model_addr);
+  model_runtime_.Free(it->second.model_addr);
   allocations_.erase(it);
   return true;
 }
@@ -130,7 +130,7 @@ void HipInterposerState::MemcpyHostToDevice(void* dst_device_ptr,
     throw std::invalid_argument("unknown interposed device pointer");
   }
   const uint64_t model_addr = ResolveDeviceAddress(dst_device_ptr);
-  hooks_.runtime().memory().WriteGlobal(
+  model_runtime_.runtime().memory().WriteGlobal(
       model_addr, std::span<const std::byte>(reinterpret_cast<const std::byte*>(src_host_ptr), bytes));
   if (allocation->pool == MemoryPoolKind::Managed && allocation->host_backing != nullptr) {
     std::memcpy(allocation->host_backing.get(), src_host_ptr, bytes);
@@ -141,7 +141,7 @@ void HipInterposerState::MemcpyDeviceToHost(void* dst_host_ptr,
                                             const void* src_device_ptr,
                                             size_t bytes) const {
   const uint64_t model_addr = ResolveDeviceAddress(src_device_ptr);
-  hooks_.runtime().memory().ReadGlobal(
+  model_runtime_.runtime().memory().ReadGlobal(
       model_addr, std::span<std::byte>(reinterpret_cast<std::byte*>(dst_host_ptr), bytes));
 }
 
@@ -151,16 +151,16 @@ void HipInterposerState::MemcpyDeviceToDevice(void* dst_device_ptr,
   if (const auto* src_allocation = FindAllocation(src_device_ptr);
       src_allocation != nullptr && src_allocation->pool == MemoryPoolKind::Managed &&
       src_allocation->host_backing != nullptr) {
-    hooks_.runtime().memory().WriteGlobal(
+    model_runtime_.runtime().memory().WriteGlobal(
         src_allocation->model_addr,
         std::span<const std::byte>(src_allocation->host_backing.get(), bytes));
   }
-  hooks_.MemcpyDeviceToDevice(ResolveDeviceAddress(dst_device_ptr), ResolveDeviceAddress(src_device_ptr),
-                              bytes);
+  model_runtime_.MemcpyDeviceToDevice(ResolveDeviceAddress(dst_device_ptr),
+                                      ResolveDeviceAddress(src_device_ptr), bytes);
   if (auto* dst_allocation = FindAllocation(dst_device_ptr);
       dst_allocation != nullptr && dst_allocation->pool == MemoryPoolKind::Managed &&
       dst_allocation->host_backing != nullptr) {
-    hooks_.runtime().memory().ReadGlobal(
+    model_runtime_.runtime().memory().ReadGlobal(
         dst_allocation->model_addr, std::span<std::byte>(dst_allocation->host_backing.get(), bytes));
   }
 }
@@ -170,7 +170,7 @@ void HipInterposerState::MemsetDevice(void* device_ptr, uint8_t value, size_t by
   if (allocation == nullptr) {
     throw std::invalid_argument("unknown interposed device pointer");
   }
-  hooks_.MemsetD8(allocation->model_addr, value, bytes);
+  model_runtime_.MemsetD8(allocation->model_addr, value, bytes);
   if (allocation->pool == MemoryPoolKind::Managed && allocation->host_backing != nullptr) {
     std::memset(allocation->host_backing.get(), value, bytes);
   }
@@ -181,7 +181,7 @@ void HipInterposerState::MemsetDeviceD32(void* device_ptr, uint32_t value, size_
   if (allocation == nullptr) {
     throw std::invalid_argument("unknown interposed device pointer");
   }
-  hooks_.MemsetD32(allocation->model_addr, value, count);
+  model_runtime_.MemsetD32(allocation->model_addr, value, count);
   if (allocation->pool == MemoryPoolKind::Managed && allocation->host_backing != nullptr) {
     for (size_t i = 0; i < count; ++i) {
       std::memcpy(allocation->host_backing.get() + i * sizeof(uint32_t), &value, sizeof(uint32_t));
@@ -195,9 +195,9 @@ void HipInterposerState::SyncManagedHostToDevice() {
     if (allocation.pool != MemoryPoolKind::Managed || allocation.host_backing == nullptr) {
       continue;
     }
-    hooks_.runtime().memory().WriteGlobal(allocation.model_addr,
-                                          std::span<const std::byte>(allocation.host_backing.get(),
-                                                                     allocation.bytes));
+    model_runtime_.runtime().memory().WriteGlobal(
+        allocation.model_addr,
+        std::span<const std::byte>(allocation.host_backing.get(), allocation.bytes));
   }
 }
 
@@ -207,9 +207,8 @@ void HipInterposerState::SyncManagedDeviceToHost() {
     if (allocation.pool != MemoryPoolKind::Managed || allocation.host_backing == nullptr) {
       continue;
     }
-    hooks_.runtime().memory().ReadGlobal(allocation.model_addr,
-                                         std::span<std::byte>(allocation.host_backing.get(),
-                                                              allocation.bytes));
+    model_runtime_.runtime().memory().ReadGlobal(
+        allocation.model_addr, std::span<std::byte>(allocation.host_backing.get(), allocation.bytes));
   }
 }
 
@@ -290,8 +289,8 @@ LaunchResult HipInterposerState::LaunchExecutableKernel(const std::filesystem::p
   }
   const ProgramImage image = AmdgpuObjLoader{}.LoadFromObject(executable_path, *kernel_name);
   SyncManagedHostToDevice();
-  auto result =
-      hooks_.LaunchProgramImage(image, std::move(config), PackArgs(image, args), mode, arch_name);
+  auto result = model_runtime_.LaunchProgramImage(image, std::move(config), PackArgs(image, args),
+                                                  mode, arch_name);
   SyncManagedDeviceToHost();
   return result;
 }

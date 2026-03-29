@@ -8,6 +8,7 @@ hip_4.2 {
     hipGetDeviceCount;
     hipGetDevice;
     hipSetDevice;
+    hipDeviceGetAttribute;
     hipGetLastError;
     hipPeekAtLastError;
     hipEventCreate;
@@ -35,7 +36,12 @@ hip_4.2 {
     *;
 };
 
+hip_6.0 {
+  global:
+    hipGetDevicePropertiesR0600;
+} hip_4.2;
+
 hip_6.4 {
   global:
     hipEventRecordWithFlags;
-} hip_4.2;
+} hip_6.0;

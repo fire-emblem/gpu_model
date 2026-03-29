@@ -67,6 +67,22 @@
 - `debug/`
   trace、timeline、debug info
 
+## Runtime 分层
+
+runtime 侧现在建议按两层理解：
+
+- HIP compatibility layer
+  - `hip*` ABI
+  - `LD_PRELOAD` interposer
+- model-native runtime layer
+  - `ModelRuntimeApi`
+  - `RuntimeHooks`
+  - `HostRuntime`
+
+详细说明见：
+
+- [docs/runtime-layering.md](/data/gpu_model/docs/runtime-layering.md)
+
 ## 当前执行形态
 
 ### 1. 直接 model 运行
