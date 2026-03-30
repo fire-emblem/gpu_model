@@ -10,7 +10,7 @@
 #include "gpu_model/debug/cycle_timeline.h"
 #include "gpu_model/debug/trace_sink.h"
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/host_runtime.h"
+#include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
 
@@ -246,7 +246,7 @@ int main(int argc, char** argv) {
   }
   gpu_model::CollectingTraceSink collecting_sink;
   gpu_model::FanoutTraceSink fanout(text_sink ? &*text_sink : nullptr, &collecting_sink);
-  gpu_model::HostRuntime runtime(&fanout);
+  gpu_model::RuntimeEngine runtime(&fanout);
   runtime.SetFixedGlobalMemoryLatency(config.global_latency);
 
   const auto kernel = gpu_model::BuildFmaLoopKernel();

@@ -53,7 +53,7 @@ add_library(gpu_model STATIC
   src/loader/gcn_text_parser.cpp
   src/loader/program_lowering.cpp
   src/loader/program_bundle_io.cpp
-  src/loader/program_file_loader.cpp
+  src/program/object_reader.cpp
   src/memory/memory_system.cpp
   src/memory/cache_model.cpp
   src/memory/shared_bank_model.cpp
@@ -80,11 +80,11 @@ add_library(gpu_model STATIC
   src/exec/handlers/compute_functor_registry.cpp
   src/exec/cycle_executor.cpp
   src/runtime/mapper.cpp
-  src/runtime/program_execution.cpp
+  src/program/execution_route.cpp
   src/runtime/kernarg_packer.cpp
-  src/runtime/host_runtime.cpp
+  src/runtime/runtime_engine.cpp
   src/runtime/hip_interposer_state.cpp
-  src/runtime/runtime_hooks.cpp
+  src/runtime/hip_runtime.cpp
   src/debug/instruction_trace.cpp
   src/debug/cycle_timeline.cpp
   src/debug/debug_info_io.cpp

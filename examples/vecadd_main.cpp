@@ -2,7 +2,7 @@
 #include <iostream>
 
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/host_runtime.h"
+#include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
 
@@ -31,7 +31,7 @@ KernelProgram BuildVecAddKernel() {
 
 int main() {
   constexpr uint32_t n = 16;
-  gpu_model::HostRuntime runtime;
+  gpu_model::RuntimeEngine runtime;
 
   const uint64_t a_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
   const uint64_t b_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
