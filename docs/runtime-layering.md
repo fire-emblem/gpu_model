@@ -2,21 +2,22 @@
 
 ## 目标
 
-runtime 侧现在按两层来理解：
+runtime 侧主线按三层来理解：
 
-1. HIP compatibility layer
-2. model-native runtime layer
+1. `HipRuntime`（HIP compatibility layer）
+2. `ModelRuntime`（model-facing runtime facade）
+3. `RuntimeEngine`（runtime core engine）
 
 这样可以把：
 
 - HIP ABI 兼容
 - 真实 `.out` 命令行执行
 - 仓库内测试/工具直接调用
-- loader / exec / memory / trace 核心逻辑
+- program / instruction / execution / memory / trace 核心逻辑
 
 分开。
 
-## Layer 1: HIP Compatibility Layer
+## Layer 1: HipRuntime
 
 这一层的目标是尽量保持和 HIP runtime 一致。
 
@@ -31,52 +32,63 @@ runtime 侧现在按两层来理解：
 - 处理 `LD_PRELOAD` 下的真实 HIP 程序 ABI 拦截
 - 处理 host function 到 kernel name 的映射
 - 处理 fake device pointer 到 model address 的映射
-- 把 HIP 参数格式转换成 model-native runtime 可以消费的格式
+- 把 HIP 参数格式转换成 `ModelRuntime` 可以消费的格式
 
 约束：
 
 - 这层不应该拥有独立的 kernel 执行逻辑
-- 这层不应该重复实现 module/load/launch/memory 语义
+- 这层不应该重复实现 program load / launch / memory 语义
 
-## Layer 2: Model-Native Runtime Layer
+## Layer 2: ModelRuntime
 
-这一层的目标是提供项目自己的 runtime API。
+这一层的目标是提供项目自己的 runtime facade，统一仓库内 API 入口。
 
 当前包括：
 
 - `include/gpu_model/runtime/model_runtime_api.h`
-- `include/gpu_model/runtime/runtime_hooks.h`
 - `include/gpu_model/runtime/module_load.h`
-- `src/runtime/runtime_hooks.cpp`
-- `src/runtime/host_runtime.cpp`
 
 职责：
 
 - device 选择和 property 查询
 - memory allocation / memcpy / memset
-- module / image / code object load
+- program object / encoded program load
 - 统一 `LoadModule` 请求分发
-- kernel launch
+- `ExecutableKernel` launch
 - trace / launch result / last load result
-- 统一进入 loader / decode / exec / memory 主链
+- 统一进入 `RuntimeEngine`
 
-当前关系：
+## Layer 3: RuntimeEngine
 
-- `ModelRuntimeApi` 是更明确的 model-native facade
-- `RuntimeHooks` 仍保留，作为现有测试和工具的稳定 C++ 接口
-- `ModelRuntimeApi` 当前内部委托到 `RuntimeHooks`
+这一层承接执行主链，负责：
 
-## 推荐调用路径
+- `ProgramObject / EncodedProgramObject` 装载与 materialize
+- 构建 `ExecutableKernel` 与 launch plan
+- 驱动 `FunctionalExecEngine / CycleExecEngine / EncodedExecEngine`
+- 组织 `WaveContext` 生命周期与运行时状态输出
+
+当前实现文件仍包含历史命名：
+
+- `src/runtime/runtime_hooks.cpp`
+- `src/runtime/host_runtime.cpp`
+
+这些文件名和类名属于 legacy compatibility，不是主线术语。
+
+## 术语迁移与兼容名
+
+- `ModelRuntimeApi` => `ModelRuntime`（legacy facade 名称）
+- `RuntimeHooks` => `HipRuntime` 路径中的 legacy C++ 接口
+- `HostRuntime` => `RuntimeEngine` 的 legacy 实现名
 
 ### 仓库内测试 / 工具
 
 优先使用：
 
-- `ModelRuntimeApi`
+- `ModelRuntime`
 
 兼容保留：
 
-- `RuntimeHooks`
+- `RuntimeHooks`（legacy compatibility）
 
 ### 真实 HIP `.out`
 
@@ -86,10 +98,9 @@ runtime 侧现在按两层来理解：
 - HIP runtime symbol
 - interposer
 - `HipInterposerState`
-- `ModelRuntimeApi`
-- `RuntimeHooks`
-- `HostRuntime`
-- loader / decode / exec / memory
+- `ModelRuntime`
+- `RuntimeEngine`
+- loader / decode / execution / memory
 
 ## 为什么不合并成一个入口
 
@@ -109,14 +120,14 @@ runtime 侧现在按两层来理解：
 
 当前已经完成：
 
-- `ModelRuntimeApi` facade
-- HIP interposer 到 model runtime 的主路径复用
+- `ModelRuntime` facade（由 `ModelRuntimeApi` 提供 legacy 兼容实现）
+- HIP interposer 到 `ModelRuntime` 的主路径复用
 - 基础 device property 查询
-- model-native 统一 `LoadModule` 入口
+- model-native 统一 `LoadModule` 入口和 `ExecutableKernel` launch 主路径
 
 当前还缺：
 
 - 更完整的 property / attribute 覆盖
-- 更明确的 module API 分层
-- `RuntimeHooks` 到 `ModelRuntimeApi` 的进一步职责收缩
-- 文档和测试中逐步统一采用 `ModelRuntimeApi` 作为 model-native 层名称
+- 更明确的 `ProgramObject / EncodedProgramObject` API 分层
+- `RuntimeHooks` 到 `HipRuntime` 兼容接口的进一步职责收缩，以及 `HostRuntime` 到 `RuntimeEngine` 命名的进一步收口
+- 文档和测试中逐步统一采用 `ModelRuntime` 作为 model-native 层名称

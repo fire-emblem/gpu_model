@@ -14,6 +14,15 @@
 
 当前主目标以 **functional model** 为主线，同时保持 **naive cycle model** 可持续演进和可验证。
 
+主线术语约定：
+
+- `runtime`: `HipRuntime / ModelRuntime / RuntimeEngine`
+- `program`: `ProgramObject / ExecutableKernel / EncodedProgramObject`
+- `instruction`: decode / disasm / instruction object / lowering
+- `execution`: `FunctionalExecEngine / CycleExecEngine / EncodedExecEngine / WaveContext`
+- `arch`: architecture spec / topology / device properties
+- 历史名 `ModelRuntimeApi / RuntimeHooks / HostRuntime` 仅作 compatibility alias
+
 目标定义：
 
 - 支持 `1` 个 model device
@@ -87,34 +96,34 @@
 | ID | 模块 | 第一阶段目标 | 当前状态 | 已完成 | 仍缺失 |
 |---|---|---|---|---|---|
 | `M0` | 架构规格与设备建模 | `c500` 设备规格、单卡、wave64、DPC/AP/PEU 层级、device property 对外可查询 | `Done` | 已有 `c500` 架构注册、`8 DPC x 13 AP/DPC x 4 PEU/AP` 拓扑、wave64、层级放置，以及统一的 device property / attribute 查询接口与 model-native runtime facade | 仍需后续新架构参数化扩展，但不阻塞第一阶段 |
-| `M1` | Host runtime 与 HIP runtime 基础 | 单卡、单 context、单 stream、同步 runtime 入口、基本错误码与设备选择 | `Partial` | 已有 `HostRuntime`、`RuntimeHooks`、`ModelRuntimeApi` facade、`hipMalloc/hipFree/hipMemcpy/hipLaunchKernel/hipGetDeviceCount/hipGetDevice/hipSetDevice/hipGetDeviceProperties/hipDeviceGetAttribute`、基础 stream/event 空实现，以及 model-native 统一 `LoadModule` 入口；`.out/.o` 已可显式选择 `raw code object` 或 `lowered modeled program image` 路径 | 还缺 property / attribute 更完整覆盖；还缺 context/stream 边界文档化与统一限制；还缺更完整同步 runtime 子集梳理 |
-| `M2` | Module / ELF / Code Object 加载 | 支持 module load、ELF 解析、fatbin / `.out` / code object 装载、const/data 段装载、metadata 二进制解析 | `Partial` | 已有 program image、bundle、ELF/code object loader、device load plan/materialize、artifact path 路径；已能从 code object/`.out` 解析 kernel descriptor、metadata、kernarg size、hidden arg layout、descriptor symbol；统一 `LoadModule` 已支持 `Auto/AmdgpuObject/ProgramBundle/ExecutableImage/ProgramFileStem`；kernel metadata 已开始收敛到 typed 结构并被 loader/raw launch/runtime 复用 | 还缺完整 ELF section/program header/relocation 覆盖；还缺 metadata 字段的进一步系统化 typed 覆盖；还缺常驻 module 生命周期管理完善 |
-| `M3` | GCN 二进制 decode / disasm | 基于连续 `.text` 二进制高效解析全部 GCN ISA，输出结构化 decode 与反汇编 | `Partial` | 已有 raw instruction 提取、format classify、encoding def、decoder、formatter；已支持 `text bytes -> raw instruction array -> decoded instruction array -> instruction object array` 主路径；compute-focused真实 HIP kernel 的 decode/disasm 已覆盖到 `vecadd/fma_loop/bias_chain/shared_reverse/softmax/mfma` | 还缺“全部 GCN ISA” encoding 覆盖；还缺更系统的 bitfield/union 定义；还缺 graphics/image/export/interp family 的深入覆盖；还缺高性能批量 decode 路径校验 |
-| `M4` | GCN ISA 语义执行 | 支持全部 GCN ISA 的 functional 执行，包括标量、向量、访存、控制流、同步、LDS、MFMA | `Partial` | internal ISA functional/cycle 已覆盖较多基础指令；raw GCN 路径已支持真实 `.out` compute kernel 主线；已支持 `vecadd/fma_loop/bias_chain/shared_reverse/softmax/mfma`；decode 阶段已完成 `op_type -> opcode -> concrete instruction object` 工厂实例化 | 距离“全部 GCN ISA 执行”仍有差距；graphics family/descriptor family 仍主要占位；部分对象仍委托到旧 handler；需要继续做系统化 opcode 覆盖与归类 |
-| `M5` | LLVM AMDGPU ABI / wave 启动 | 正确读取 kernarg、hidden args、special SGPR/VGPR、block/thread/grid 维度、wave 启动初值 | `Partial` | 已有 descriptor + metadata 驱动的 wave 初始 SGPR/VGPR preload；已支持 kernarg segment ptr、workgroup id、workitem id、hidden block/group args、`x/y/z` grid-block launch 维度、raw `.out` launch ABI 主线；kernarg 打包已抽成公共模块；visible arg offset/aggregate、`3D hidden args`、fallback raw ABI kernarg 约定已有回归覆盖；真实 `hipcc` 生成的 `3D hidden-arg` 与 `3D builtin-id` raw 路径已可执行验证 | 还缺更完整的 system SGPR/VGPR 集合；还缺更多 target-specific ABI 差异；还缺 wave 启动寄存器 trace dump 进一步细化 |
-| `M6` | Functional 执行核心 | 单线程和多线程共用一套 functional core；支持 wave/block/device 层级执行；支持 `st/mt` 切换 | `Partial` | 已有共享 `FunctionalExecutionCore`；`st/mt` 已共核；已有 PEU-local wave pool、round-robin、block 内 shared/barrier kernel 的 `mt` 路径；marl 已接入；`1D/2D/3D` launch 配置、placement 和 canonical `xyz` builtin 主线已打通；真实 `hipcc` 生成的 `3D vecadd + 条件边界 + 小计算量` 程序已能经 `.out -> lowered modeled program image` 路径在 `st/mt` 下对比执行 | 还缺更完整 wait/resume 抽象；还缺对任意 HIP 程序的大规模稳定性验证；还缺与 raw GCN path 的共享执行部件收拢 |
+| `M1` | Runtime 基础（`HipRuntime / ModelRuntime / RuntimeEngine`） | 单卡、单 context、单 stream、同步 runtime 入口、基本错误码与设备选择 | `Partial` | 已有 `ModelRuntime` facade（legacy: `ModelRuntimeApi`）、`RuntimeEngine` 主路径（legacy: `HostRuntime`）、`HipRuntime` 路径中的 legacy C++ 接口（legacy: `RuntimeHooks`）、`hipMalloc/hipFree/hipMemcpy/hipLaunchKernel/hipGetDeviceCount/hipGetDevice/hipSetDevice/hipGetDeviceProperties/hipDeviceGetAttribute`、基础 stream/event 空实现，以及 model-native 统一 `LoadModule` 入口；`.out/.o` 已可显式选择 encoded program object 或 lowered modeled program object 路径 | 还缺 property / attribute 更完整覆盖；还缺 context/stream 边界文档化与统一限制；还缺更完整同步 runtime 子集梳理 |
+| `M2` | ProgramObject / ELF / Code Object 加载 | 支持 module load、ELF 解析、fatbin / `.out` / code object 装载、const/data 段装载、metadata 二进制解析 | `Partial` | 已有 `ProgramObject`/bundle、ELF/code object loader、device load plan/materialize、artifact path 路径；已能从 code object/`.out` 解析 kernel descriptor、metadata、kernarg size、hidden arg layout、descriptor symbol；统一 `LoadModule` 已支持 `Auto/AmdgpuObject/ProgramBundle/ExecutableImage/ProgramFileStem`；kernel metadata 已开始收敛到 typed 结构并被 loader / encoded launch / runtime 复用 | 还缺完整 ELF section/program header/relocation 覆盖；还缺 metadata 字段的进一步系统化 typed 覆盖；还缺常驻 module 生命周期管理完善 |
+| `M3` | GCN 二进制 decode / disasm | 基于连续 `.text` 二进制高效解析全部 GCN ISA，输出结构化 decode 与反汇编 | `Partial` | 已有 encoded instruction 提取、format classify、encoding def、decoder、formatter；已支持 `text bytes -> encoded instruction array -> decoded instruction array -> instruction object array` 主路径；compute-focused真实 HIP kernel 的 decode/disasm 已覆盖到 `vecadd/fma_loop/bias_chain/shared_reverse/softmax_row/mfma` | 还缺“全部 GCN ISA” encoding 覆盖；还缺更系统的 bitfield/union 定义；还缺 graphics/image/export/interp family 的深入覆盖；还缺高性能批量 decode 路径校验 |
+| `M4` | GCN ISA 语义执行 | 支持全部 GCN ISA 的 functional 执行，包括标量、向量、访存、控制流、同步、LDS、MFMA | `Partial` | instruction ISA functional/cycle 已覆盖较多基础指令；encoded instruction 路径已支持真实 `.out` compute kernel 主线；已支持 `vecadd/fma_loop/bias_chain/shared_reverse/softmax_row/mfma`；decode 阶段已完成 `op_type -> opcode -> concrete instruction object` 工厂实例化 | 距离“全部 GCN ISA 执行”仍有差距；graphics family/descriptor family 仍主要占位；部分对象仍委托到旧 handler；需要继续做系统化 opcode 覆盖与归类 |
+| `M5` | LLVM AMDGPU ABI / wave 启动 | 正确读取 kernarg、hidden args、special SGPR/VGPR、block/thread/grid 维度、wave 启动初值 | `Partial` | 已有 descriptor + metadata 驱动的 wave 初始 SGPR/VGPR preload；已支持 kernarg segment ptr、workgroup id、workitem id、hidden block/group args、`x/y/z` grid-block launch 维度、encoded `.out` launch ABI 主线；kernarg 打包已抽成公共模块；visible arg offset/aggregate、`3D hidden args`、fallback encoded ABI kernarg 约定已有回归覆盖；真实 `hipcc` 生成的 `3D hidden-arg` 与 `3D builtin-id` encoded 路径已可执行验证 | 还缺更完整的 system SGPR/VGPR 集合；还缺更多 target-specific ABI 差异；还缺 wave 启动寄存器 trace dump 进一步细化 |
+| `M6` | Functional 执行核心 | 单线程和多线程共用一套 functional core；支持 wave/block/device 层级执行；支持 `st/mt` 切换 | `Partial` | 已有共享 `FunctionalExecEngine` 核心；`st/mt` 已共核；已有 PEU-local wave pool、round-robin、block 内 shared/barrier kernel 的 `mt` 路径；marl 已接入；`1D/2D/3D` launch 配置、placement 和 `xyz` builtin 主线已打通；真实 `hipcc` 生成的 `3D vecadd + 条件边界 + 小计算量` 程序已能经 `.out -> lowered modeled program object` 路径在 `st/mt` 下对比执行 | 还缺更完整 wait/resume 抽象；还缺对任意 HIP 程序的大规模稳定性验证；还缺与 encoded execution path 的共享执行部件收拢 |
 | `M7` | 内存系统与地址空间 | global/shared/private/constant/kernarg/data/managed 独立地址空间，host/device 拷贝与 map 映射 | `Partial` | 已有多 memory pool、managed、kernarg、constant、device load materialize、host/device 基本 memcpy、fake device ptr 到 model addr 映射 | 还缺 data/const/bss/relocation 更完整装载；还缺 host/device 独立地址空间模型文档化；还缺 map/unmap 语义完善；还缺 `3D` launch 对应地址与 builtins 闭环 |
-| `M8` | 同步、barrier、atomic | block barrier、wave barrier、global/shared/private 基本同步与常用 atomic | `Partial` | 已有 `s_barrier`、wave barrier、shared/global atomic add、shared memory barrier kernel 测试、functional `mt` 条件变量等待 | 还缺更多 atomic 指令覆盖；还缺更完整 waitcnt 领域与同步语义；还缺 raw GCN 路径的系统同步覆盖；还缺更完整同步 CTS |
+| `M8` | 同步、barrier、atomic | block barrier、wave barrier、global/shared/private 基本同步与常用 atomic | `Partial` | 已有 `s_barrier`、wave barrier、shared/global atomic add、shared memory barrier kernel 测试、functional `mt` 条件变量等待 | 还缺更多 atomic 指令覆盖；还缺更完整 waitcnt 领域与同步语义；还缺 encoded GCN 路径的系统同步覆盖（legacy raw GCN 路径仍需兼容）；还缺更完整同步 CTS |
 | `M9` | Tensor / MFMA | 支持 tensor core / MFMA 指令解析、反汇编、执行与结果验证 | `Partial` | 已有 `v_mfma_f32_16x16x4f32` 最小路径和 probe/test | 还缺 MFMA 指令族系统覆盖；还缺寄存器布局、累加器语义、更多 datatype 支持；还缺真实 kernel 验证 |
-| `M10` | Trace / Log / Debug | 支持详细 log、instruction trace、wave launch trace、寄存器值打印、层级信息打印 | `Partial` | 已有 trace sink、file/json trace、ASCII timeline、Google trace、instruction trace、cycle timeline；functional/raw/cycle 三条当前执行 backend 已统一发出 `WaveLaunch` 事件并带初始 wave 状态摘要；usage 脚本已能稳定导出 raw decode 与 host-interposer 主线结果 | 还缺更完整的 wave 启动初始寄存器 dump；还缺标准化 debug 日志等级；还缺 raw GCN / functional / runtime 三条路径的统一 trace 格式进一步收敛 |
-| `M11` | 命令行 `.out` 执行闭环 | `LD_PRELOAD` 后，任意第一阶段边界内 HIP 可执行程序可直接命令行执行 | `Partial` | 已有 host `main()` 原生执行 + HIP interposer + kernel 进入 model 的闭环；真实 `.out` 已验证 `vecadd/fma_loop/bias_chain/shared_reverse/softmax/mfma`；registered-host 与 `LD_PRELOAD` 两条主线均有 CTS 覆盖；基础 property 查询与 model-native module API 已打通 | 还缺更完整 runtime API；还缺“任意 HIP 程序”所需的完整 decode/exec/runtime 覆盖 |
-| `M12` | 测试与状态门禁 | 用例矩阵、真实 HIP 程序、raw GCN、runtime、CTS、回归门禁 | `Partial` | 已有 gtest 统一测试；`RuntimeHooksTest.*`、`HipInterposerStateTest.*`、raw decode usage、主 CTS 和 feature CTS 均已打通；当前全量 `gpu_model_tests` 可通过 | 还缺以“任意 HIP 可执行程序”为目标的分层门禁矩阵文档；还缺 decode/disasm/ABI/property/module-load 专项测试归档；还缺状态与模块看板绑定的验收标准 |
+| `M10` | Trace / Log / Debug | 支持详细 log、instruction trace、wave launch trace、寄存器值打印、层级信息打印 | `Partial` | 已有 trace sink、file/json trace、ASCII timeline、Google trace、instruction trace、cycle timeline；`FunctionalExecEngine / EncodedExecEngine / CycleExecEngine` 三条当前执行 backend 已统一发出 `WaveLaunch` 事件并带初始 `WaveContext` 状态摘要；usage 脚本已能稳定导出 encoded decode 与 HIP interposer 主线结果 | 还缺更完整的 wave 启动初始寄存器 dump；还缺标准化 debug 日志等级；还缺 encoded / functional / runtime 三条路径的统一 trace 格式进一步收敛 |
+| `M11` | 命令行 `.out` 执行闭环 | `LD_PRELOAD` 后，任意第一阶段边界内 HIP 可执行程序可直接命令行执行 | `Partial` | 已有 host `main()` 原生执行 + HIP interposer + kernel 进入 model 的闭环；真实 `.out` 已验证 `vecadd/fma_loop/bias_chain/shared_reverse/softmax_row/mfma`；`HipInterposerState` 注册路径与 `LD_PRELOAD` 路径两条主线均有 CTS 覆盖；基础 property 查询与 model-native module API 已打通 | 还缺更完整 runtime API；还缺“任意 HIP 程序”所需的完整 decode/exec/runtime 覆盖 |
+| `M12` | 测试与状态门禁 | 用例矩阵、真实 HIP 程序、encoded decode、runtime、CTS、回归门禁 | `Partial` | 已有 gtest 统一测试；`RuntimeHooksTest.*`（legacy compatibility test name）、`HipInterposerStateTest.*`、encoded decode usage、主 CTS 和 feature CTS 均已打通；当前全量 `gpu_model_tests` 可通过 | 还缺以“任意 HIP 可执行程序”为目标的分层门禁矩阵文档；还缺 decode/disasm/ABI/property/module-load 专项测试归档；还缺状态与模块看板绑定的验收标准 |
 | `M13` | Cycle model | 完整 cycle 建模、issue/latency/waitcnt/event/timeline | `Partial` | 已有 naive cycle 主干、issue model、waitcnt 领域阻塞、event queue、timeline、Google trace、cache/bank conflict/waitcnt cycle 测试 | 仍缺更完整的架构资源冲突、更多 memory domain/pipe 细节、与真实硬件差异说明和参数化建模文档 |
 
 ## 当前阶段总评
 
 当前项目距离“任意第一阶段边界内 HIP 可执行程序可命令行执行”仍有差距，但已经不再是“主线未打通”的阶段。
 
-当前最关键的缺口不是单点 bug，而是四个大面：
+当前最关键的缺口不是单点 bug，而是五个大面：
 
 1. `M2 + M3`
-   - 完整 module / ELF / code object / metadata / raw binary decode 覆盖
+   - 完整 `ProgramObject` / ELF / code object / metadata / encoded binary decode 覆盖
 2. `M4`
    - 全 GCN ISA decode / disasm / exec 覆盖，特别是非 compute families
 3. `M1 + M11`
-   - HIP runtime 第一阶段闭环补全
+   - `HipRuntime / ModelRuntime / RuntimeEngine` 第一阶段闭环补全
 4. `M5 + M6 + M7 + M8`
-   - ABI、memory、sync、wave 启动状态收敛成稳定 functional 主干
+   - ABI、memory、sync、wave 启动状态收敛成稳定 `FunctionalExecEngine` 主干
 5. `M13`
    - cycle model 从“可用的 naive 分析工具”继续走向“更稳定的优化评估平台”
 
@@ -163,7 +172,7 @@
 
 补 `M4`：
 
-- 按 GCN ISA 大类把 raw exec 全部补齐
+- 按 GCN ISA 大类把 encoded exec 全部补齐
 - 不允许 case-by-case 继续散长
 - parse / disasm / exec 用统一可扩展表驱动
 
@@ -219,7 +228,7 @@
 - 更完整的 global/shared/private/scalar-buffer atomic 指令族
 - 更完整的错误码和 runtime 返回行为
 - kernel / module / device 属性查询接口
-- raw GCN decode / disasm / exec 的一致性测试
+- encoded decode / disasm / exec 的一致性测试（legacy raw GCN 路径需保持兼容）
 - wave launch 时的系统寄存器初始化 trace
 
 ## 下一次状态更新规则

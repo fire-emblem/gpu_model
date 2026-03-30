@@ -11,6 +11,22 @@
 
 提供一个可执行、可追踪、可扩展的分析平台。
 
+## Architecture Spine
+
+当前主线术语按下面 5 层统一：
+
+- `runtime`: `HipRuntime -> ModelRuntime -> RuntimeEngine`
+- `program`: `ProgramObject / ExecutableKernel / EncodedProgramObject`
+- `instruction`: decode 后的 instruction object 与语义分发
+- `execution`: `FunctionalExecEngine / CycleExecEngine / EncodedExecEngine / WaveContext`
+- `arch`: 架构参数、设备拓扑与属性建模
+
+迁移状态（2026-03）：
+
+- 文档主线已切到上述术语
+- 代码里仍有历史兼容名：`ModelRuntimeApi / RuntimeHooks / HostRuntime`
+- 旧名仅作为 compatibility alias 使用，不再作为主名
+
 ## 当前能力
 
 当前主线已经具备：
@@ -30,12 +46,12 @@
   - kernel launch 转到 model 执行
   - 返回 host 继续执行
 - global / constant / kernarg / raw-data / managed pool 支持
-- descriptor + metadata 驱动的 raw code object launch
-- raw code object decode / disassemble / execute 主路径
-  - `.text` 原始指令 bytes 提取
-  - `text bytes -> raw instruction array -> decoded instruction array`
+- descriptor + metadata 驱动的 encoded program object launch
+- encoded code object decode / disassemble / execute 主路径
+  - `.text` 指令 bytes 提取
+  - `text bytes -> encoded instruction array -> decoded instruction array`
   - decode 阶段实例化 instruction object
-  - raw GCN 指令直接执行
+  - encoded GCN 指令直接执行
 - 真实 HIP `.out` 功能主线已验证通过的代表性 kernel
   - `vecadd`
   - `fma_loop`
@@ -52,33 +68,39 @@
 - `arch/`
   架构规格与注册
 - `isa/`
-  canonical internal ISA
+  instruction 定义与 decode/语义映射（legacy 名称：canonical internal ISA）
 - `state/`
   wave / register / execution state
 - `memory/`
   global / shared / private / constant memory
 - `loader/`
-  asm、AMDGPU object、HIP artifact、raw code object decode
+  asm、AMDGPU object、HIP artifact、encoded code object decode（legacy 文档中常写 raw code object）
 - `decode/`
   GCN format bitfield / encoding def / formatter
 - `exec/`
   issue model、semantic handlers、functional/cycle executor、parallel-wave executor scaffold
 - `runtime/`
-  host runtime、runtime hooks、HIP interposer
+  HipRuntime、ModelRuntime、RuntimeEngine（legacy 兼容名见上）
 - `debug/`
   trace、timeline、debug info
 
 ## Runtime 分层
 
-runtime 侧现在建议按两层理解：
+runtime 侧主线按三层理解：
 
 - HIP compatibility layer
-  - `hip*` ABI
+  - `HipRuntime`（`hip*` ABI + interposer）
   - `LD_PRELOAD` interposer
 - model-native runtime layer
-  - `ModelRuntimeApi`
-  - `RuntimeHooks`
-  - `HostRuntime`
+  - `ModelRuntime`
+- runtime core layer
+  - `RuntimeEngine`
+
+历史兼容名：
+
+- `ModelRuntimeApi` => `ModelRuntime`（legacy facade 名称）
+- `RuntimeHooks` => `HipRuntime` 路径中的 legacy C++ 接口
+- `HostRuntime` => `RuntimeEngine` 的 legacy 实现名
 
 详细说明见：
 
@@ -90,7 +112,7 @@ runtime 侧现在建议按两层理解：
 
 适用于：
 
-- 手写 canonical asm
+- 手写 instruction asm（legacy: canonical asm）
 - 内部测试 kernel
 - cycle trace 研究
 
@@ -109,11 +131,11 @@ runtime 侧现在建议按两层理解：
 - host CPU 原生执行 `main()`
 - `hipMalloc/hipMallocManaged/hipMemcpy/hipLaunchKernel/...` 被 interposer 拦截
 - 常见同步 runtime API 已支持基础拦截
-  - `hipMemcpyAsync`
   - `hipMemset` / `hipMemsetD8` / `hipMemsetD32`
   - `hipGetDeviceCount` / `hipGetDevice` / `hipSetDevice`
   - `hipStreamCreate` / `hipStreamDestroy` / `hipStreamSynchronize`
   - `hipGetLastError` / `hipPeekAtLastError`
+- `hipMemcpyAsync` 当前仅有 compatibility 拦截/同步退化路径，不属于第一阶段 async 能力支持
 - kernel launch 进入 model
 - host 继续执行并做结果校验
 
@@ -130,7 +152,7 @@ runtime 侧现在建议按两层理解：
 所以现阶段更准确的理解是：
 
 - host-side `.out` command-line path 已稳定可用
-- descriptor + metadata 驱动的 raw binary launch 已打通
+- descriptor + metadata 驱动的 encoded binary launch 已打通
 - compute-focused HIP kernel 覆盖已经较广
 - 剩余工作重点在完整 ISA 覆盖、graphics family、runtime completeness 和更系统的 cycle 建模
 
@@ -160,6 +182,7 @@ GPU_MODEL_TEST_PROFILE=full ./build/tests/gpu_model_tests
 运行单组测试：
 
 ```bash
+# legacy compatibility test name
 ./build/tests/gpu_model_tests --gtest_filter=RuntimeHooksTest.LaunchesHipVecAddExecutableAndValidatesOutput
 ```
 
@@ -191,9 +214,9 @@ cmake --build build --target gpu_model_hip_interposer -j
 ./usages/hip-command-line-interposer/run.sh
 ```
 
-### raw code object decode / formatter
+### encoded code object decode / formatter
 
-新增示例会把 AMDGPU/HIP 产物里的 raw instructions 打出来：
+新增示例会把 AMDGPU/HIP 产物里的 encoded instructions 打出来（legacy 文档中常写 raw instructions）：
 
 ```bash
 ./build/code_object_dump_main <path-to-amdgpu-object-or-hip-out> [kernel_name]
@@ -246,7 +269,7 @@ cmake --build build --target gpu_model_hip_interposer -j
 接下来主线应继续收敛到：
 
 1. 基于 GCN ISA encoding 定义补齐剩余 decode/disasm 覆盖
-2. 继续扩展 raw semantic handler / instruction object 执行覆盖
+2. 继续扩展 encoded semantic handler / instruction object 执行覆盖（legacy raw 路径需保持兼容）
 3. 收敛 descriptor / metadata / module-load 的正式接口
 4. 完善 runtime property 查询与 module API
 5. 在现有 naive cycle 基础上继续增强 wait / issue / timeline 分析能力
@@ -257,7 +280,7 @@ cmake --build build --target gpu_model_hip_interposer -j
 
 - `third_party/marl`
 
-当前 `HostRuntime` 已支持 functional 执行模式切换：
+当前 `RuntimeEngine` 已支持 functional 执行模式切换（legacy 实现名：`HostRuntime`）：
 
 - `SingleThreaded`
 - `MarlParallel`
