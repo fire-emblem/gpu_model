@@ -3,12 +3,12 @@
 #include <cstdint>
 
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/host_runtime.h"
+#include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
 namespace {
 
-KernelProgram BuildGlobal2DWriteKernel() {
+ExecutableKernel BuildGlobal2DWriteKernel() {
   InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
   builder.SysGlobalIdX("v0");
@@ -26,7 +26,7 @@ KernelProgram BuildGlobal2DWriteKernel() {
   return builder.Build("global_2d_write");
 }
 
-KernelProgram BuildLocal2DWriteKernel() {
+ExecutableKernel BuildLocal2DWriteKernel() {
   InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
   builder.SysGlobalIdX("v0");
@@ -47,7 +47,7 @@ KernelProgram BuildLocal2DWriteKernel() {
 }
 
 TEST(TwoDimensionalFunctionalTest, Global2DWriteUsesGlobalXAndYBuiltins) {
-  HostRuntime runtime;
+  RuntimeEngine runtime;
   const auto kernel = BuildGlobal2DWriteKernel();
   constexpr uint32_t grid_x = 3;
   constexpr uint32_t grid_y = 2;
@@ -78,7 +78,7 @@ TEST(TwoDimensionalFunctionalTest, Global2DWriteUsesGlobalXAndYBuiltins) {
 }
 
 TEST(TwoDimensionalFunctionalTest, Local2DWriteUsesLocalXAndYBuiltins) {
-  HostRuntime runtime;
+  RuntimeEngine runtime;
   const auto kernel = BuildLocal2DWriteKernel();
   constexpr uint32_t grid_x = 2;
   constexpr uint32_t grid_y = 2;

@@ -2,14 +2,14 @@
 
 #include <filesystem>
 
-#include "gpu_model/isa/program_image.h"
+#include "gpu_model/program/program_object.h"
 
 namespace gpu_model {
 
 class ProgramBundleIO {
  public:
-  static void Write(const std::filesystem::path& path, const ProgramImage& image);
-  static ProgramImage Read(const std::filesystem::path& path);
+  static void Write(const std::filesystem::path& path, const ProgramObject& image);
+  static ProgramObject Read(const std::filesystem::path& path);
 };
 
 }  // namespace gpu_model

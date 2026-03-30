@@ -5,7 +5,7 @@
 #include <cstring>
 #include <vector>
 
-#include "gpu_model/runtime/host_runtime.h"
+#include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -17,14 +17,14 @@ ConstSegment MakeConstSegment(const std::vector<int32_t>& values) {
   return segment;
 }
 
-TEST(ProgramImageLaunchTest, LaunchesProgramImageDirectlyWithConstSegment) {
+TEST(ProgramObjectLaunchTest, LaunchesProgramObjectDirectlyWithConstSegment) {
   constexpr uint32_t n = 80;
   std::vector<int32_t> table(n);
   for (uint32_t i = 0; i < n; ++i) {
     table[i] = static_cast<int32_t>(7 * i);
   }
 
-  ProgramImage image(
+  ProgramObject image(
       "const_image_kernel",
       R"(
         .meta arch=c500
@@ -44,7 +44,7 @@ TEST(ProgramImageLaunchTest, LaunchesProgramImageDirectlyWithConstSegment) {
       {},
       MakeConstSegment(table));
 
-  HostRuntime runtime;
+  RuntimeEngine runtime;
   const uint64_t out_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
   for (uint32_t i = 0; i < n; ++i) {
     runtime.memory().StoreGlobalValue<int32_t>(out_addr + i * sizeof(int32_t), -1);

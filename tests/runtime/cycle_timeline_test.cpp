@@ -5,12 +5,12 @@
 #include "gpu_model/debug/cycle_timeline.h"
 #include "gpu_model/debug/trace_sink.h"
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/host_runtime.h"
+#include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
 namespace {
 
-KernelProgram BuildTimelineKernel() {
+ExecutableKernel BuildTimelineKernel() {
   InstructionBuilder builder;
   builder.SysGlobalIdX("v0");
   builder.VMov("v1", "v0");
@@ -21,7 +21,7 @@ KernelProgram BuildTimelineKernel() {
 
 TEST(CycleTimelineTest, RendersAsciiTimelineForMultipleWaves) {
   CollectingTraceSink trace;
-  HostRuntime runtime(&trace);
+  RuntimeEngine runtime(&trace);
 
   const auto kernel = BuildTimelineKernel();
   LaunchRequest request;
@@ -42,7 +42,7 @@ TEST(CycleTimelineTest, RendersAsciiTimelineForMultipleWaves) {
 
 TEST(CycleTimelineTest, CanGroupTimelineByBlock) {
   CollectingTraceSink trace;
-  HostRuntime runtime(&trace);
+  RuntimeEngine runtime(&trace);
 
   const auto kernel = BuildTimelineKernel();
   LaunchRequest request;
@@ -66,7 +66,7 @@ TEST(CycleTimelineTest, CanGroupTimelineByBlock) {
 
 TEST(CycleTimelineTest, RendersGoogleTraceForWaveTimeline) {
   CollectingTraceSink trace;
-  HostRuntime runtime(&trace);
+  RuntimeEngine runtime(&trace);
 
   const auto kernel = BuildTimelineKernel();
   LaunchRequest request;
@@ -89,7 +89,7 @@ TEST(CycleTimelineTest, RendersGoogleTraceForWaveTimeline) {
 
 TEST(CycleTimelineTest, GoogleTraceCanGroupByBlock) {
   CollectingTraceSink trace;
-  HostRuntime runtime(&trace);
+  RuntimeEngine runtime(&trace);
 
   const auto kernel = BuildTimelineKernel();
   LaunchRequest request;
@@ -113,7 +113,7 @@ TEST(CycleTimelineTest, GoogleTraceCanGroupByBlock) {
 
 TEST(CycleTimelineTest, GoogleTraceCanGroupByPeu) {
   CollectingTraceSink trace;
-  HostRuntime runtime(&trace);
+  RuntimeEngine runtime(&trace);
 
   const auto kernel = BuildTimelineKernel();
   LaunchRequest request;

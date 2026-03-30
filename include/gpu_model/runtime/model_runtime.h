@@ -1,9 +1,15 @@
 #pragma once
 
-#include "gpu_model/runtime/model_runtime_api.h"
+#include "gpu_model/runtime/hip_runtime.h"
 
 namespace gpu_model {
 
-using ModelRuntime = ModelRuntimeApi;
+class ModelRuntime : public HipRuntime {
+ public:
+  using HipRuntime::HipRuntime;
+
+  HipRuntime& hooks() { return *this; }
+  const HipRuntime& hooks() const { return *this; }
+};
 
 }  // namespace gpu_model

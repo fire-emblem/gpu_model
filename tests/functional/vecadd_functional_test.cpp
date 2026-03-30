@@ -5,12 +5,12 @@
 
 #include "gpu_model/debug/trace_sink.h"
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/host_runtime.h"
+#include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
 namespace {
 
-KernelProgram BuildVecAddKernel() {
+ExecutableKernel BuildVecAddKernel() {
   InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
   builder.SLoadArg("s1", 1);
@@ -42,7 +42,7 @@ bool ContainsEvent(const std::vector<TraceEvent>& events, TraceEventKind kind) {
 
 TEST(FunctionalVecAddTest, RunsMultiBlockMultiThreadKernel) {
   constexpr uint32_t n = 300;
-  HostRuntime runtime;
+  RuntimeEngine runtime;
 
   const uint64_t a_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
   const uint64_t b_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
@@ -80,7 +80,7 @@ TEST(FunctionalVecAddTest, RunsMultiBlockMultiThreadKernel) {
 TEST(FunctionalVecAddTest, EmitsMemoryAndWaveExitTrace) {
   constexpr uint32_t n = 128;
   CollectingTraceSink trace;
-  HostRuntime runtime(&trace);
+  RuntimeEngine runtime(&trace);
 
   const uint64_t a_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
   const uint64_t b_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));

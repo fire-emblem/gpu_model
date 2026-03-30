@@ -5,9 +5,9 @@
 #include <string>
 #include <vector>
 
-#include "gpu_model/isa/program_image.h"
-#include "gpu_model/loader/amdgpu_code_object_decoder.h"
 #include "gpu_model/memory/memory_pool.h"
+#include "gpu_model/program/encoded_program_object.h"
+#include "gpu_model/program/program_object.h"
 
 namespace gpu_model {
 
@@ -34,7 +34,7 @@ struct DeviceLoadPlan {
   uint32_t preferred_kernarg_bytes = 0;
 };
 
-DeviceLoadPlan BuildDeviceLoadPlan(const ProgramImage& image);
-DeviceLoadPlan BuildDeviceLoadPlan(const AmdgpuCodeObjectImage& image);
+DeviceLoadPlan BuildDeviceLoadPlan(const ProgramObject& image);
+DeviceLoadPlan BuildDeviceLoadPlan(const EncodedProgramObject& image);
 
 }  // namespace gpu_model

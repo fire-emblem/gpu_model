@@ -7,12 +7,12 @@
 
 #include "gpu_model/debug/trace_sink.h"
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/host_runtime.h"
+#include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
 namespace {
 
-KernelProgram BuildSharedBarrierCycleKernel() {
+ExecutableKernel BuildSharedBarrierCycleKernel() {
   InstructionBuilder builder;
   builder.SysGlobalIdX("v0");
   builder.SysBlockIdxX("s0");
@@ -51,7 +51,7 @@ uint64_t FirstCycle(const std::vector<TraceEvent>& events,
 
 TEST(SharedBarrierCycleTest, BarrierWaitsForSlowerWaveAndSharedLoadStartsAfterRelease) {
   CollectingTraceSink trace;
-  HostRuntime runtime(&trace);
+  RuntimeEngine runtime(&trace);
 
   const auto kernel = BuildSharedBarrierCycleKernel();
   LaunchRequest request;

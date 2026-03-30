@@ -8,7 +8,7 @@
 
 #include "gpu_model/debug/trace_sink.h"
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/host_runtime.h"
+#include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -35,7 +35,7 @@ uint64_t FirstWaveStepCycle(const std::vector<TraceEvent>& events, std::string_v
 
 TEST(AsyncMemoryCycleTest, LoadUsesIssuePlusArriveLatency) {
   CollectingTraceSink trace;
-  HostRuntime runtime(&trace);
+  RuntimeEngine runtime(&trace);
   runtime.SetFixedGlobalMemoryLatency(20);
 
   const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
@@ -63,7 +63,7 @@ TEST(AsyncMemoryCycleTest, LoadUsesIssuePlusArriveLatency) {
 
 TEST(AsyncMemoryCycleTest, LoadAllowsIndependentScalarIssueBeforeArrive) {
   CollectingTraceSink trace;
-  HostRuntime runtime(&trace);
+  RuntimeEngine runtime(&trace);
   runtime.SetFixedGlobalMemoryLatency(20);
 
   const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
@@ -94,7 +94,7 @@ TEST(AsyncMemoryCycleTest, LoadAllowsIndependentScalarIssueBeforeArrive) {
 
 TEST(AsyncMemoryCycleTest, WaitCntCanWaitForGlobalMemoryOnly) {
   CollectingTraceSink trace;
-  HostRuntime runtime(&trace);
+  RuntimeEngine runtime(&trace);
   runtime.SetFixedGlobalMemoryLatency(20);
 
   const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
@@ -135,7 +135,7 @@ TEST(AsyncMemoryCycleTest, WaitCntCanWaitForGlobalMemoryOnly) {
 
 TEST(AsyncMemoryCycleTest, WaitCntIgnoresGlobalWhenWaitingSharedOnly) {
   CollectingTraceSink trace;
-  HostRuntime runtime(&trace);
+  RuntimeEngine runtime(&trace);
   runtime.SetFixedGlobalMemoryLatency(20);
 
   const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
@@ -168,7 +168,7 @@ TEST(AsyncMemoryCycleTest, WaitCntIgnoresGlobalWhenWaitingSharedOnly) {
 
 TEST(AsyncMemoryCycleTest, WaitCntCanWaitForScalarBufferOnly) {
   CollectingTraceSink trace;
-  HostRuntime runtime(&trace);
+  RuntimeEngine runtime(&trace);
 
   ConstSegment const_segment;
   const_segment.bytes.resize(sizeof(int32_t));
@@ -200,7 +200,7 @@ TEST(AsyncMemoryCycleTest, WaitCntCanWaitForScalarBufferOnly) {
 
 TEST(AsyncMemoryCycleTest, WaitCntCanWaitForScalarBufferScalarLoadOnly) {
   CollectingTraceSink trace;
-  HostRuntime runtime(&trace);
+  RuntimeEngine runtime(&trace);
 
   ConstSegment const_segment;
   const_segment.bytes.resize(sizeof(int32_t));
@@ -232,7 +232,7 @@ TEST(AsyncMemoryCycleTest, WaitCntCanWaitForScalarBufferScalarLoadOnly) {
 
 TEST(AsyncMemoryCycleTest, BufferLoadUsesImmediateOffset) {
   CollectingTraceSink trace;
-  HostRuntime runtime(&trace);
+  RuntimeEngine runtime(&trace);
   runtime.SetFixedGlobalMemoryLatency(20);
 
   const uint64_t base_addr = runtime.memory().AllocateGlobal(2 * sizeof(int32_t));

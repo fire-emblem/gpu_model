@@ -286,9 +286,9 @@ void PopulateMetadataFromNotes(const std::filesystem::path& path,
   }
 }
 
-ProgramImage DecodeAmdgpuElfToProgramImage(const std::filesystem::path& path,
-                                           std::optional<std::string> kernel_name,
-                                           MetadataBlob metadata = {}) {
+ProgramObject DecodeAmdgpuElfToProgramImage(const std::filesystem::path& path,
+                                            std::optional<std::string> kernel_name,
+                                            MetadataBlob metadata = {}) {
   if (!std::filesystem::exists(path)) {
     throw std::runtime_error("missing AMDGPU object file: " + path.string());
   }
@@ -347,12 +347,12 @@ ProgramImage DecodeAmdgpuElfToProgramImage(const std::filesystem::path& path,
   if (metadata.values.find("target_isa") == metadata.values.end()) {
     SetTargetIsa(metadata, TargetIsa::GcnRawAsm);
   }
-  return ProgramImage(selected, asm_text.str(), std::move(metadata));
+  return ProgramObject(selected, asm_text.str(), std::move(metadata));
 }
 
 class ObjdumpAmdgpuBinaryDecoder final : public IAmdgpuBinaryDecoder {
  public:
-  ProgramImage Decode(const std::filesystem::path& path,
+  ProgramObject Decode(const std::filesystem::path& path,
                       std::optional<std::string> kernel_name) const override {
     return DecodeAmdgpuElfToProgramImage(path, std::move(kernel_name));
   }
@@ -370,8 +370,8 @@ const IAmdgpuBinaryDecoder& DefaultAmdgpuBinaryDecoder() {
   return *kBindings.front().decoder;
 }
 
-ProgramImage LoadFromHipFatbinHostElf(const std::filesystem::path& path,
-                                      std::optional<std::string> kernel_name) {
+ProgramObject LoadFromHipFatbinHostElf(const std::filesystem::path& path,
+                                       std::optional<std::string> kernel_name) {
   ScopedTempDir temp_dir;
   const auto fatbin_path = temp_dir.path() / "kernel.hip_fatbin";
   const auto device_path = temp_dir.path() / "kernel_device.co";
@@ -397,8 +397,8 @@ ProgramImage LoadFromHipFatbinHostElf(const std::filesystem::path& path,
 
 }  // namespace
 
-ProgramImage AmdgpuObjLoader::LoadFromObject(const std::filesystem::path& path,
-                                             std::optional<std::string> kernel_name) const {
+ProgramObject AmdgpuObjLoader::LoadFromObject(const std::filesystem::path& path,
+                                              std::optional<std::string> kernel_name) const {
   if (!std::filesystem::exists(path)) {
     throw std::runtime_error("missing AMDGPU object file: " + path.string());
   }

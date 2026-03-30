@@ -6,12 +6,12 @@
 
 #include "gpu_model/debug/trace_sink.h"
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/host_runtime.h"
+#include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
 namespace {
 
-KernelProgram BuildCacheProbeKernel() {
+ExecutableKernel BuildCacheProbeKernel() {
   InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
   builder.SMov("s1", 0);
@@ -34,7 +34,7 @@ std::vector<uint64_t> ArriveCycles(const std::vector<TraceEvent>& events) {
 
 TEST(CacheCycleTest, SecondLoadHitsCacheAfterFirstLoadArrives) {
   CollectingTraceSink trace;
-  HostRuntime runtime(&trace);
+  RuntimeEngine runtime(&trace);
   runtime.SetGlobalMemoryLatencyProfile(/*dram=*/40, /*l2=*/20, /*l1=*/8);
 
   const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));

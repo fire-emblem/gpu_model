@@ -12,7 +12,7 @@
 #include <vector>
 
 #include "gpu_model/runtime/hip_interposer_state.h"
-#include "gpu_model/runtime/runtime_hooks.h"
+#include "gpu_model/runtime/hip_runtime.h"
 #include "test_matrix_profile.h"
 
 namespace gpu_model {
@@ -220,7 +220,7 @@ std::vector<float> ExpectedBlockReduceSum(uint32_t n,
   return out;
 }
 
-std::vector<HipFeatureCase> MakeRuntimeHooksFeatureCasesFull() {
+std::vector<HipFeatureCase> MakeHipRuntimeFeatureCasesFull() {
   std::vector<HipFeatureCase> cases;
   uint32_t id = 0;
   const auto add = [&](HipFeatureCase c) {
@@ -320,17 +320,17 @@ std::vector<HipFeatureCase> MakeRuntimeHooksFeatureCasesFull() {
   return cases;
 }
 
-std::vector<HipFeatureCase> MakeRuntimeHooksFeatureCasesQuick() {
-  return test::SelectIndexedCases(MakeRuntimeHooksFeatureCasesFull(),
+std::vector<HipFeatureCase> MakeHipRuntimeFeatureCasesQuick() {
+  return test::SelectIndexedCases(MakeHipRuntimeFeatureCasesFull(),
                                   {0, 8, 15, 16, 24, 31, 32, 40, 47, 48, 56, 63, 64, 72, 79});
 }
 
-std::vector<HipFeatureCase> MakeRuntimeHooksFeatureCases() {
+std::vector<HipFeatureCase> MakeHipRuntimeFeatureCases() {
   if (test::Phase1CompatibilityAliasGateEnabled()) {
     return {};
   }
-  return test::FullTestMatrixEnabled() ? MakeRuntimeHooksFeatureCasesFull()
-                                       : MakeRuntimeHooksFeatureCasesQuick();
+  return test::FullTestMatrixEnabled() ? MakeHipRuntimeFeatureCasesFull()
+                                       : MakeHipRuntimeFeatureCasesQuick();
 }
 
 std::vector<HipFeatureCase> MakeInterposerFeatureCasesFull() {
@@ -519,28 +519,28 @@ void ExpectNearVector(const std::vector<float>& actual,
   }
 }
 
-class HipFeatureRuntimeHooksTest : public ::testing::TestWithParam<HipFeatureCase> {};
+class HipFeatureHipRuntimeTest : public ::testing::TestWithParam<HipFeatureCase> {};
 class HipFeatureInterposerStateTest : public ::testing::TestWithParam<HipFeatureCase> {};
 
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(HipFeatureRuntimeHooksTest);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(HipFeatureHipRuntimeTest);
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(HipFeatureInterposerStateTest);
 
 std::string FeatureCaseName(const ::testing::TestParamInfo<HipFeatureCase>& info) {
   return info.param.name;
 }
 
-TEST(RuntimeHooksTest, FeatureCtsCaseCountIsOneHundred) {
-  EXPECT_EQ(MakeRuntimeHooksFeatureCasesFull().size() + MakeInterposerFeatureCasesFull().size(),
+TEST(HipRuntimeTest, FeatureCtsCaseCountIsOneHundred) {
+  EXPECT_EQ(MakeHipRuntimeFeatureCasesFull().size() + MakeInterposerFeatureCasesFull().size(),
             100u);
 }
 
-TEST_P(HipFeatureRuntimeHooksTest, ExecutesFeatureKernelAndValidatesResults) {
+TEST_P(HipFeatureHipRuntimeTest, ExecutesFeatureKernelAndValidatesResults) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
 
   const HipFeatureCase& c = GetParam();
-  RuntimeHooks hooks;
+  HipRuntime hooks;
 
   switch (c.kernel) {
     case FeatureKernelKind::SaxpyAffine:
@@ -718,9 +718,9 @@ TEST_P(HipFeatureInterposerStateTest, ExecutesFeatureKernelThroughRegisteredHost
   }
 }
 
-INSTANTIATE_TEST_SUITE_P(RuntimeHooksFeatureCTS,
-                         HipFeatureRuntimeHooksTest,
-                         ::testing::ValuesIn(MakeRuntimeHooksFeatureCases()),
+INSTANTIATE_TEST_SUITE_P(HipRuntimeFeatureCTS,
+                         HipFeatureHipRuntimeTest,
+                         ::testing::ValuesIn(MakeHipRuntimeFeatureCases()),
                          FeatureCaseName);
 
 INSTANTIATE_TEST_SUITE_P(InterposerFeatureCTS,

@@ -543,11 +543,11 @@ std::vector<std::byte> ReadBinaryFile(const std::filesystem::path& path) {
 
 }  // namespace
 
-AmdgpuCodeObjectImage AmdgpuCodeObjectDecoder::Decode(const std::filesystem::path& path,
-                                                      std::optional<std::string> kernel_name) const {
+EncodedProgramObject AmdgpuCodeObjectDecoder::Decode(const std::filesystem::path& path,
+                                                     std::optional<std::string> kernel_name) const {
   ScopedTempDir temp_dir;
   const auto device_path = MaterializeDeviceCodeObject(path, temp_dir);
-  AmdgpuCodeObjectImage code_object;
+  EncodedProgramObject code_object;
   const auto symbols =
       ParseSymbols(RunCommand("readelf -Ws " + ShellQuote(device_path.string())));
   const auto selected_symbol = SelectKernelSymbol(symbols, kernel_name);

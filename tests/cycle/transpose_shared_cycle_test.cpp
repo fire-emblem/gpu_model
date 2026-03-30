@@ -5,12 +5,12 @@
 
 #include "gpu_model/debug/trace_sink.h"
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/host_runtime.h"
+#include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
 namespace {
 
-KernelProgram BuildSharedTransposeKernel() {
+ExecutableKernel BuildSharedTransposeKernel() {
   InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
   builder.SLoadArg("s1", 1);
@@ -42,7 +42,7 @@ KernelProgram BuildSharedTransposeKernel() {
 
 TEST(TransposeSharedCycleTest, TransposeWorksInCycleModeAndUsesBarrier) {
   CollectingTraceSink trace;
-  HostRuntime runtime(&trace);
+  RuntimeEngine runtime(&trace);
   runtime.SetFixedGlobalMemoryLatency(8);
   const auto kernel = BuildSharedTransposeKernel();
 

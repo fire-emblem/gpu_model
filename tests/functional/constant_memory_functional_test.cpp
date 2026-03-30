@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/host_runtime.h"
+#include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -18,7 +18,7 @@ ConstSegment MakeConstSegment(const std::vector<int32_t>& values) {
   return segment;
 }
 
-KernelProgram BuildConstCopyKernel(ConstSegment const_segment) {
+ExecutableKernel BuildConstCopyKernel(ConstSegment const_segment) {
   InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
   builder.SLoadArg("s1", 1);
@@ -35,7 +35,7 @@ KernelProgram BuildConstCopyKernel(ConstSegment const_segment) {
   return builder.Build("const_copy", {}, std::move(const_segment));
 }
 
-KernelProgram BuildScalarBufferConstCopyKernel(ConstSegment const_segment) {
+ExecutableKernel BuildScalarBufferConstCopyKernel(ConstSegment const_segment) {
   InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
   builder.SLoadArg("s1", 1);
@@ -54,7 +54,7 @@ KernelProgram BuildScalarBufferConstCopyKernel(ConstSegment const_segment) {
   return builder.Build("scalar_buffer_const_copy", {}, std::move(const_segment));
 }
 
-KernelProgram BuildScalarBufferOffsetConstCopyKernel(ConstSegment const_segment) {
+ExecutableKernel BuildScalarBufferOffsetConstCopyKernel(ConstSegment const_segment) {
   InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
   builder.SLoadArg("s1", 1);
@@ -80,7 +80,7 @@ TEST(ConstantMemoryFunctionalTest, LoadsValuesFromKernelConstSegment) {
     const_values[i] = static_cast<int32_t>(100 + 3 * i);
   }
 
-  HostRuntime runtime;
+  RuntimeEngine runtime;
   const uint64_t out_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
   for (uint32_t i = 0; i < n; ++i) {
     runtime.memory().StoreGlobalValue<int32_t>(out_addr + i * sizeof(int32_t), -1);
@@ -107,7 +107,7 @@ TEST(ConstantMemoryFunctionalTest, LoadsValuesFromKernelConstSegment) {
 
 TEST(ConstantMemoryFunctionalTest, ScalarBufferLoadBroadcastsScalarValue) {
   constexpr uint32_t n = 16;
-  HostRuntime runtime;
+  RuntimeEngine runtime;
   const uint64_t out_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
   for (uint32_t i = 0; i < n; ++i) {
     runtime.memory().StoreGlobalValue<int32_t>(out_addr + i * sizeof(int32_t), -1);
@@ -130,7 +130,7 @@ TEST(ConstantMemoryFunctionalTest, ScalarBufferLoadBroadcastsScalarValue) {
 
 TEST(ConstantMemoryFunctionalTest, ScalarBufferLoadUsesImmediateOffset) {
   constexpr uint32_t n = 8;
-  HostRuntime runtime;
+  RuntimeEngine runtime;
   const uint64_t out_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
   for (uint32_t i = 0; i < n; ++i) {
     runtime.memory().StoreGlobalValue<int32_t>(out_addr + i * sizeof(int32_t), -1);

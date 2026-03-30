@@ -5,12 +5,12 @@
 
 #include "gpu_model/debug/trace_sink.h"
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/host_runtime.h"
+#include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
 namespace {
 
-KernelProgram BuildSoftmaxStyleBlockStatsKernel() {
+ExecutableKernel BuildSoftmaxStyleBlockStatsKernel() {
   InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
   builder.SLoadArg("s1", 1);
@@ -115,7 +115,7 @@ TEST(SoftmaxSharedCycleTest, EmitsSharedAndBarrierActivityForSoftmaxStyleReducti
   constexpr uint32_t n = block_dim * grid_dim;
 
   CollectingTraceSink trace;
-  HostRuntime runtime(&trace);
+  RuntimeEngine runtime(&trace);
   runtime.SetFixedGlobalMemoryLatency(8);
 
   const auto kernel = BuildSoftmaxStyleBlockStatsKernel();

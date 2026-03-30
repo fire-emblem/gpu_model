@@ -40,7 +40,7 @@ struct AssembledModule {
   std::filesystem::path temp_dir;
   std::filesystem::path asm_path;
   std::filesystem::path obj_path;
-  AmdgpuCodeObjectImage image;
+  EncodedProgramObject image;
 };
 
 std::optional<std::string> ExtractFixtureDirective(const std::string& text, std::string_view key);

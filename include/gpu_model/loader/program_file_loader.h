@@ -1,14 +1,10 @@
 #pragma once
 
-#include <filesystem>
-
-#include "gpu_model/isa/program_image.h"
+// PHASE2-DELETE(runtime-program): legacy public header kept only for deletion order.
+#include "gpu_model/program/object_reader.h"
 
 namespace gpu_model {
 
-class ProgramFileLoader {
- public:
-  ProgramImage LoadFromStem(const std::filesystem::path& stem) const;
-};
+using ProgramFileLoader = ObjectReader;
 
 }  // namespace gpu_model

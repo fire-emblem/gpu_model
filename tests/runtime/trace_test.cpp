@@ -7,14 +7,14 @@
 
 #include "gpu_model/debug/trace_sink.h"
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/host_runtime.h"
+#include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
 namespace {
 
 TEST(TraceTest, EmitsLaunchAndBlockPlacementEvents) {
   CollectingTraceSink trace;
-  HostRuntime runtime(&trace);
+  RuntimeEngine runtime(&trace);
 
   InstructionBuilder builder;
   builder.BExit();
@@ -34,7 +34,7 @@ TEST(TraceTest, EmitsLaunchAndBlockPlacementEvents) {
 
 TEST(TraceTest, EmitsWaveLaunchEventWithInitialWaveStateSummary) {
   CollectingTraceSink trace;
-  HostRuntime runtime(&trace);
+  RuntimeEngine runtime(&trace);
 
   InstructionBuilder builder;
   builder.BExit();
@@ -67,7 +67,7 @@ TEST(TraceTest, WritesHumanReadableTraceFile) {
       std::filesystem::temp_directory_path() / "gpu_model_trace.txt";
   {
     FileTraceSink trace(path);
-    HostRuntime runtime(&trace);
+    RuntimeEngine runtime(&trace);
 
     InstructionBuilder builder;
     builder.BExit();
@@ -98,7 +98,7 @@ TEST(TraceTest, WritesJsonTraceFile) {
       std::filesystem::temp_directory_path() / "gpu_model_trace.jsonl";
   {
     JsonTraceSink trace(path);
-    HostRuntime runtime(&trace);
+    RuntimeEngine runtime(&trace);
 
     InstructionBuilder builder;
     builder.BExit();

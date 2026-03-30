@@ -9,7 +9,7 @@
 #include "gpu_model/debug/debug_info.h"
 #include "gpu_model/isa/instruction_builder.h"
 #include "gpu_model/loader/executable_image_io.h"
-#include "gpu_model/runtime/host_runtime.h"
+#include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -29,7 +29,7 @@ TEST(ExecutableImageIOTest, RoundTripsSectionedImageAndLaunchesIt) {
     table[i] = static_cast<int32_t>(3 * i + 1);
   }
 
-  const ProgramImage original(
+  const ProgramObject original(
       "sectioned_const_kernel",
       R"(
         .meta arch=c500
@@ -50,7 +50,7 @@ TEST(ExecutableImageIOTest, RoundTripsSectionedImageAndLaunchesIt) {
       MakeConstSegment(table));
 
   ExecutableImageIO::Write(path, original);
-  const ProgramImage loaded = ExecutableImageIO::Read(path);
+  const ProgramObject loaded = ExecutableImageIO::Read(path);
 
   EXPECT_EQ(loaded.kernel_name(), original.kernel_name());
   EXPECT_EQ(loaded.assembly_text(), original.assembly_text());
@@ -58,7 +58,7 @@ TEST(ExecutableImageIOTest, RoundTripsSectionedImageAndLaunchesIt) {
   ASSERT_NE(format_it, loaded.metadata().values.end());
   EXPECT_EQ(format_it->second, "sectioned");
 
-  HostRuntime runtime;
+  RuntimeEngine runtime;
   const uint64_t out_addr = runtime.memory().AllocateGlobal(table.size() * sizeof(int32_t));
   LaunchRequest request;
   request.arch_name.clear();
@@ -90,7 +90,7 @@ TEST(ExecutableImageIOTest, RoundTripsEmbeddedDebugInfoSection) {
   const auto kernel = builder.Build("debug_image_kernel");
   const auto info = KernelDebugInfo::FromKernel(kernel);
 
-  ProgramImage image("debug_image_kernel", "s_mov_b32 s0, 1\ns_endpgm\n");
+  ProgramObject image("debug_image_kernel", "s_mov_b32 s0, 1\ns_endpgm\n");
   ExecutableImageIO::Write(path, image, info);
 
   const auto loaded = ExecutableImageIO::ReadDebugInfo(path);
@@ -107,12 +107,12 @@ TEST(ExecutableImageIOTest, RoundTripsRawDataSection) {
   const std::filesystem::path path =
       std::filesystem::temp_directory_path() / "gpu_model_rawdata_image.gpusec";
 
-  ProgramImage image("rawdata_kernel", "s_endpgm\n",
-                     MetadataBlob{.values = {{"arch", "c500"}}}, {},
-                     RawDataSegment{.bytes = {std::byte{0x41}, std::byte{0x42}, std::byte{0x43}}});
+  ProgramObject image(
+      "rawdata_kernel", "s_endpgm\n", MetadataBlob{.values = {{"arch", "c500"}}}, {},
+      RawDataSegment{.bytes = {std::byte{0x41}, std::byte{0x42}, std::byte{0x43}}});
   ExecutableImageIO::Write(path, image);
 
-  const ProgramImage loaded = ExecutableImageIO::Read(path);
+  const ProgramObject loaded = ExecutableImageIO::Read(path);
   ASSERT_EQ(loaded.raw_data_segment().bytes.size(), 3u);
   EXPECT_EQ(loaded.raw_data_segment().bytes[0], std::byte{0x41});
   EXPECT_EQ(loaded.raw_data_segment().bytes[2], std::byte{0x43});

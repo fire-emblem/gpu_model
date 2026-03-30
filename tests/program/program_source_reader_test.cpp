@@ -6,8 +6,9 @@
 #include <fstream>
 #include <vector>
 
+#include "gpu_model/program/program_object.h"
 #include "gpu_model/program/object_reader.h"
-#include "gpu_model/runtime/host_runtime.h"
+#include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -19,7 +20,7 @@ void WriteBinaryFile(const std::filesystem::path& path, const std::vector<int32_
                static_cast<std::streamsize>(values.size() * sizeof(int32_t)));
 }
 
-TEST(ProgramSourceReaderTest, LoadsProgramImageFromFilesAndLaunchesIt) {
+TEST(ProgramSourceReaderTest, LoadsProgramObjectFromFilesAndLaunchesIt) {
   const std::filesystem::path dir =
       std::filesystem::temp_directory_path() / "gpu_model_program_source_reader_test";
   std::filesystem::remove_all(dir);
@@ -58,12 +59,12 @@ TEST(ProgramSourceReaderTest, LoadsProgramImageFromFilesAndLaunchesIt) {
   }
   WriteBinaryFile(const_path, table);
 
-  const ProgramImage image = ObjectReader{}.LoadFromStem(asm_path);
+  const ProgramObject image = ObjectReader{}.LoadFromStem(asm_path);
   EXPECT_EQ(image.metadata().values.at("arch"), "c500");
   EXPECT_EQ(image.metadata().values.at("entry"), "const_image");
   EXPECT_EQ(image.const_segment().bytes.size(), table.size() * sizeof(int32_t));
 
-  HostRuntime runtime;
+  RuntimeEngine runtime;
   const uint64_t out_addr = runtime.memory().AllocateGlobal(table.size() * sizeof(int32_t));
   for (uint32_t i = 0; i < table.size(); ++i) {
     runtime.memory().StoreGlobalValue<int32_t>(out_addr + i * sizeof(int32_t), -1);

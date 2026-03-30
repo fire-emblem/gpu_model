@@ -3,27 +3,28 @@
 #include <span>
 #include <vector>
 
-#include "gpu_model/runtime/host_runtime.h"
 #include "gpu_model/isa/target_isa.h"
 #include "gpu_model/loader/program_lowering.h"
+#include "gpu_model/program/program_object.h"
+#include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
 namespace {
 
-TEST(ProgramLoweringTest, LowersCanonicalAsmProgramImage) {
+TEST(ProgramLoweringTest, LowersCanonicalAsmProgramObject) {
   MetadataBlob metadata;
   SetTargetIsa(metadata, TargetIsa::CanonicalAsm);
-  ProgramImage image("canonical_exit", "s_endpgm\n", metadata);
+  ProgramObject image("canonical_exit", "s_endpgm\n", metadata);
 
   const auto kernel = ProgramLoweringRegistry::Lower(image);
   ASSERT_EQ(kernel.instructions().size(), 1u);
   EXPECT_EQ(kernel.instructions()[0].opcode, Opcode::BExit);
 }
 
-TEST(ProgramLoweringTest, LowersGcnAsmSubsetProgramImage) {
+TEST(ProgramLoweringTest, LowersGcnAsmSubsetProgramObject) {
   MetadataBlob metadata;
   SetTargetIsa(metadata, TargetIsa::GcnAsm);
-  ProgramImage image("gcn_subset_exit", "s_endpgm\n", metadata);
+  ProgramObject image("gcn_subset_exit", "s_endpgm\n", metadata);
 
   const auto kernel = ProgramLoweringRegistry::Lower(image);
   ASSERT_EQ(kernel.instructions().size(), 1u);
@@ -34,7 +35,7 @@ TEST(ProgramLoweringTest, LowersRepresentativeGcnControlFlowSubsetAndExecutesIt)
   MetadataBlob metadata;
   SetTargetIsa(metadata, TargetIsa::GcnAsm);
   metadata.values["arch"] = "c500";
-  ProgramImage image(
+  ProgramObject image(
       "gcn_subset_store",
       R"(
         .meta arch=c500
@@ -51,7 +52,7 @@ TEST(ProgramLoweringTest, LowersRepresentativeGcnControlFlowSubsetAndExecutesIt)
       )",
       metadata);
 
-  HostRuntime runtime;
+  RuntimeEngine runtime;
   constexpr uint32_t n = 70;
   std::vector<uint32_t> out(128, 0xffffffffu);
 
@@ -84,7 +85,7 @@ TEST(ProgramLoweringTest, LowersGcnGlobalAddressLoadAndStoreSubset) {
   MetadataBlob metadata;
   SetTargetIsa(metadata, TargetIsa::GcnAsm);
   metadata.values["arch"] = "c500";
-  ProgramImage image(
+  ProgramObject image(
       "gcn_global_addr_subset",
       R"(
         .meta arch=c500
@@ -107,7 +108,7 @@ TEST(ProgramLoweringTest, LowersGcnGlobalAddressLoadAndStoreSubset) {
       )",
       metadata);
 
-  HostRuntime runtime;
+  RuntimeEngine runtime;
   const uint64_t out_addr = runtime.memory().AllocateGlobal(sizeof(uint32_t));
   const uint64_t target_addr = runtime.memory().AllocateGlobal(sizeof(uint32_t));
   runtime.memory().StoreGlobalValue<uint32_t>(out_addr, 0u);

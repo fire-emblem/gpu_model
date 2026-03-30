@@ -7,12 +7,12 @@
 
 #include "gpu_model/debug/trace_sink.h"
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/host_runtime.h"
+#include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
 namespace {
 
-KernelProgram BuildPrivateCycleKernel() {
+ExecutableKernel BuildPrivateCycleKernel() {
   InstructionBuilder builder;
   builder.VMov("v0", 0);
   builder.VMov("v1", 7);
@@ -36,7 +36,7 @@ uint64_t FirstCycle(const std::vector<TraceEvent>& events,
 
 TEST(PrivateMemoryCycleTest, PrivateLoadCompletesAtIssueCommitWithoutAsyncArrive) {
   CollectingTraceSink trace;
-  HostRuntime runtime(&trace);
+  RuntimeEngine runtime(&trace);
 
   const auto kernel = BuildPrivateCycleKernel();
   LaunchRequest request;

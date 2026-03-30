@@ -4,12 +4,12 @@
 #include <vector>
 
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/host_runtime.h"
+#include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
 namespace {
 
-KernelProgram BuildStatsFunctionalKernel() {
+ExecutableKernel BuildStatsFunctionalKernel() {
   InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
   builder.SLoadArg("s1", 1);
@@ -29,7 +29,7 @@ KernelProgram BuildStatsFunctionalKernel() {
   return builder.Build("stats_functional");
 }
 
-KernelProgram BuildStatsCycleKernel() {
+ExecutableKernel BuildStatsCycleKernel() {
   InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
   builder.SMov("s1", 0);
@@ -43,7 +43,7 @@ KernelProgram BuildStatsCycleKernel() {
 }
 
 TEST(ExecutionStatsTest, FunctionalLaunchReportsMemoryAndBarrierCounts) {
-  HostRuntime runtime;
+  RuntimeEngine runtime;
   const auto kernel = BuildStatsFunctionalKernel();
 
   constexpr uint32_t n = 128;
@@ -70,7 +70,7 @@ TEST(ExecutionStatsTest, FunctionalLaunchReportsMemoryAndBarrierCounts) {
 }
 
 TEST(ExecutionStatsTest, CycleLaunchReportsCacheAndBankPenaltyCounts) {
-  HostRuntime runtime;
+  RuntimeEngine runtime;
   runtime.SetGlobalMemoryLatencyProfile(/*dram=*/40, /*l2=*/20, /*l1=*/8);
   runtime.SetSharedBankConflictModel(/*bank_count=*/32, /*bank_width_bytes=*/4);
 

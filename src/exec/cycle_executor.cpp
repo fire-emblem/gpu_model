@@ -520,7 +520,7 @@ void FillDispatchWindow(PeuSlot& slot,
 }
 
 ScheduledWave* PickNextReadyWave(PeuSlot& slot,
-                                 const KernelProgram& kernel,
+                                 const ExecutableKernel& kernel,
                                  uint64_t cycle) {
   if (slot.waves.empty()) {
     return nullptr;
@@ -548,7 +548,7 @@ ScheduledWave* PickNextReadyWave(PeuSlot& slot,
 }
 
 std::optional<std::pair<ScheduledWave*, std::string>> PickFirstBlockedWave(PeuSlot& slot,
-                                                                           const KernelProgram& kernel,
+                                                                           const ExecutableKernel& kernel,
                                                                            uint64_t cycle) {
   if (slot.waves.empty()) {
     return std::nullopt;

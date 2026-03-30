@@ -6,13 +6,13 @@
 
 #include "gpu_model/isa/opcode.h"
 #include "gpu_model/loader/asm_parser.h"
-#include "gpu_model/runtime/host_runtime.h"
+#include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
 namespace {
 
 TEST(AsmParserTest, PreservesMetadataConstSegmentAndLabels) {
-  ProgramImage image(
+  ProgramObject image(
       "tiny_kernel",
       R"(
         .meta arch=c500
@@ -33,7 +33,7 @@ TEST(AsmParserTest, PreservesMetadataConstSegmentAndLabels) {
 }
 
 TEST(AsmParserTest, LaunchesParsedVecAddKernelFunctionally) {
-  ProgramImage image(
+  ProgramObject image(
       "vecadd_asm",
       R"(
         .meta arch=c500
@@ -57,7 +57,7 @@ TEST(AsmParserTest, LaunchesParsedVecAddKernelFunctionally) {
 
   const auto kernel = AsmParser{}.Parse(image);
   constexpr uint32_t n = 130;
-  HostRuntime runtime;
+  RuntimeEngine runtime;
 
   const uint64_t a_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
   const uint64_t b_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
@@ -90,7 +90,7 @@ TEST(AsmParserTest, LaunchesParsedVecAddKernelFunctionally) {
 }
 
 TEST(AsmParserTest, ParsesWaitCntAssemblySyntax) {
-  ProgramImage image(
+  ProgramObject image(
       "waitcnt_asm",
       R"(
         .meta arch=c500
@@ -109,7 +109,7 @@ TEST(AsmParserTest, ParsesWaitCntAssemblySyntax) {
 }
 
 TEST(AsmParserTest, LaunchesParsedVectorFloatAddKernelFunctionally) {
-  ProgramImage image(
+  ProgramObject image(
       "vecadd_f32_asm",
       R"(
         .meta arch=c500
@@ -133,7 +133,7 @@ TEST(AsmParserTest, LaunchesParsedVectorFloatAddKernelFunctionally) {
 
   const auto kernel = AsmParser{}.Parse(image);
   constexpr uint32_t n = 65;
-  HostRuntime runtime;
+  RuntimeEngine runtime;
 
   const uint64_t a_addr = runtime.memory().AllocateGlobal(n * sizeof(float));
   const uint64_t b_addr = runtime.memory().AllocateGlobal(n * sizeof(float));
@@ -163,7 +163,7 @@ TEST(AsmParserTest, LaunchesParsedVectorFloatAddKernelFunctionally) {
 }
 
 TEST(AsmParserTest, LaunchesParsedGlobalAddressLoadAndStoreFunctionally) {
-  ProgramImage image(
+  ProgramObject image(
       "global_addr_asm",
       R"(
         .meta arch=c500
@@ -194,7 +194,7 @@ TEST(AsmParserTest, LaunchesParsedGlobalAddressLoadAndStoreFunctionally) {
       )");
 
   const auto kernel = AsmParser{}.Parse(image);
-  HostRuntime runtime;
+  RuntimeEngine runtime;
   const uint64_t out_addr = runtime.memory().AllocateGlobal(sizeof(uint32_t));
   const uint64_t target_addr = runtime.memory().AllocateGlobal(sizeof(uint32_t));
   runtime.memory().StoreGlobalValue<uint32_t>(out_addr, 0u);

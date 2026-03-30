@@ -6,12 +6,12 @@
 
 #include "gpu_model/debug/trace_sink.h"
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/host_runtime.h"
+#include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
 namespace {
 
-KernelProgram BuildBlockReverseKernel() {
+ExecutableKernel BuildBlockReverseKernel() {
   InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
   builder.SLoadArg("s1", 1);
@@ -56,7 +56,7 @@ TEST(SharedBarrierFunctionalTest, ReversesValuesWithinEachBlock) {
   constexpr uint32_t grid_dim = 2;
   constexpr uint32_t n = block_dim * grid_dim;
 
-  HostRuntime runtime;
+  RuntimeEngine runtime;
   const uint64_t in_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
   const uint64_t out_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
   for (uint32_t i = 0; i < n; ++i) {
@@ -91,7 +91,7 @@ TEST(SharedBarrierFunctionalTest, ReversesValuesWithinEachBlock) {
 TEST(SharedBarrierFunctionalTest, EmitsBarrierTraceEvents) {
   constexpr uint32_t block_dim = 128;
   CollectingTraceSink trace;
-  HostRuntime runtime(&trace);
+  RuntimeEngine runtime(&trace);
 
   const uint64_t in_addr = runtime.memory().AllocateGlobal(block_dim * sizeof(int32_t));
   const uint64_t out_addr = runtime.memory().AllocateGlobal(block_dim * sizeof(int32_t));

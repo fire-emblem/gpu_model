@@ -1,4 +1,4 @@
-#include "gpu_model/loader/program_file_loader.h"
+#include "gpu_model/program/object_reader.h"
 
 #include <cctype>
 #include <cstddef>
@@ -77,7 +77,7 @@ MetadataBlob ReadMetadataFile(const std::filesystem::path& path) {
 
 }  // namespace
 
-ProgramImage ProgramFileLoader::LoadFromStem(const std::filesystem::path& stem) const {
+ProgramObject ObjectReader::LoadFromStem(const std::filesystem::path& stem) const {
   const auto asm_path = stem;
   const auto meta_path = stem.parent_path() / (stem.filename().string() + ".meta");
   const auto const_path = stem.parent_path() / (stem.filename().string() + ".const.bin");
@@ -97,8 +97,8 @@ ProgramImage ProgramFileLoader::LoadFromStem(const std::filesystem::path& stem) 
     kernel_name = it->second;
   }
 
-  return ProgramImage(std::move(kernel_name), ReadTextFile(asm_path), std::move(metadata),
-                      std::move(const_segment), {});
+  return ProgramObject(std::move(kernel_name), ReadTextFile(asm_path), std::move(metadata),
+                       std::move(const_segment), {});
 }
 
 }  // namespace gpu_model

@@ -9,7 +9,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "gpu_model/runtime/model_runtime_api.h"
+#include "gpu_model/runtime/model_runtime.h"
 
 namespace gpu_model {
 
@@ -56,10 +56,10 @@ class HipInterposerState {
   void PushLaunchConfiguration(LaunchConfig config, uint64_t shared_memory_bytes);
   std::optional<LaunchConfig> PopLaunchConfiguration();
 
-  RuntimeHooks& hooks() { return model_runtime_.hooks(); }
-  const RuntimeHooks& hooks() const { return model_runtime_.hooks(); }
-  ModelRuntimeApi& model_runtime() { return model_runtime_; }
-  const ModelRuntimeApi& model_runtime() const { return model_runtime_; }
+  HipRuntime& hooks() { return model_runtime_.hooks(); }
+  const HipRuntime& hooks() const { return model_runtime_.hooks(); }
+  ModelRuntime& model_runtime() { return model_runtime_; }
+  const ModelRuntime& model_runtime() const { return model_runtime_; }
 
   static std::filesystem::path CurrentExecutablePath();
 
@@ -72,11 +72,11 @@ class HipInterposerState {
   };
 
   std::vector<HipInterposerArgDesc> ParseArgLayout(const MetadataBlob& metadata) const;
-  KernelArgPack PackArgs(const ProgramImage& image, void** args) const;
+  KernelArgPack PackArgs(const ProgramObject& image, void** args) const;
   Allocation* FindAllocation(const void* ptr);
   const Allocation* FindAllocation(const void* ptr) const;
 
-  ModelRuntimeApi model_runtime_;
+  ModelRuntime model_runtime_;
   std::unordered_map<const void*, std::string> kernel_symbols_;
   std::unordered_map<uintptr_t, Allocation> allocations_;
   uint64_t next_fake_device_ptr_ = 0x100000000ULL;

@@ -16,7 +16,7 @@ struct ParsedLine {
   std::string raw_text;
 };
 
-ProgramImage LowerGcnTextProgramImage(const ProgramImage& image) {
+ProgramObject LowerGcnTextProgramImage(const ProgramObject& image) {
   MetadataBlob metadata = image.metadata();
   SetTargetIsa(metadata, TargetIsa::CanonicalAsm);
 
@@ -59,7 +59,7 @@ ProgramImage LowerGcnTextProgramImage(const ProgramImage& image) {
       ++line_index;
     }
   }
-  return ProgramImage(image.kernel_name(), lowered.str(), std::move(metadata), image.const_segment(),
+  return ProgramObject(image.kernel_name(), lowered.str(), std::move(metadata), image.const_segment(),
                       image.raw_data_segment());
 }
 
@@ -67,14 +67,14 @@ class CanonicalAsmLowerer final : public IProgramLowerer {
  public:
   TargetIsa target_isa() const override { return TargetIsa::CanonicalAsm; }
 
-  KernelProgram Lower(const ProgramImage& image) const override { return AsmParser{}.Parse(image); }
+  ExecutableKernel Lower(const ProgramObject& image) const override { return AsmParser{}.Parse(image); }
 };
 
 class GcnAsmLowerer final : public IProgramLowerer {
  public:
   TargetIsa target_isa() const override { return TargetIsa::GcnAsm; }
 
-  KernelProgram Lower(const ProgramImage& image) const override {
+  ExecutableKernel Lower(const ProgramObject& image) const override {
     return AsmParser{}.Parse(LowerGcnTextProgramImage(image));
   }
 };
@@ -83,7 +83,7 @@ class GcnRawAsmLowerer final : public IProgramLowerer {
  public:
   TargetIsa target_isa() const override { return TargetIsa::GcnRawAsm; }
 
-  KernelProgram Lower(const ProgramImage& image) const override {
+  ExecutableKernel Lower(const ProgramObject& image) const override {
     return AsmParser{}.Parse(image);
   }
 };
@@ -116,7 +116,7 @@ const IProgramLowerer& ProgramLoweringRegistry::Get(TargetIsa isa) {
   throw std::invalid_argument("unsupported target ISA lowerer");
 }
 
-KernelProgram ProgramLoweringRegistry::Lower(const ProgramImage& image) {
+ExecutableKernel ProgramLoweringRegistry::Lower(const ProgramObject& image) {
   return Get(ResolveTargetIsa(image.metadata())).Lower(image);
 }
 

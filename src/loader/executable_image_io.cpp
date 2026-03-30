@@ -222,12 +222,12 @@ std::unordered_map<ExecutableSectionKind, std::vector<std::byte>> ReadSections(
 
 }  // namespace
 
-void ExecutableImageIO::Write(const std::filesystem::path& path, const ProgramImage& image) {
+void ExecutableImageIO::Write(const std::filesystem::path& path, const ProgramObject& image) {
   Write(path, image, std::nullopt);
 }
 
 void ExecutableImageIO::Write(const std::filesystem::path& path,
-                              const ProgramImage& image,
+                              const ProgramObject& image,
                               const std::optional<KernelDebugInfo>& debug_info) {
   std::vector<std::pair<ExecutableSectionKind, std::vector<std::byte>>> sections = {
       {ExecutableSectionKind::KernelName, StringToBytes(image.kernel_name())},
@@ -277,7 +277,7 @@ void ExecutableImageIO::Write(const std::filesystem::path& path,
   }
 }
 
-ProgramImage ExecutableImageIO::Read(const std::filesystem::path& path) {
+ProgramObject ExecutableImageIO::Read(const std::filesystem::path& path) {
   const auto section_map = ReadSections(path);
 
   const auto kernel_it = section_map.find(ExecutableSectionKind::KernelName);
@@ -304,8 +304,8 @@ ProgramImage ExecutableImageIO::Read(const std::filesystem::path& path) {
     raw_data_segment.bytes = raw_it->second;
   }
 
-  return ProgramImage(BytesToString(kernel_it->second), BytesToString(asm_it->second),
-                      std::move(metadata), std::move(const_segment), std::move(raw_data_segment));
+  return ProgramObject(BytesToString(kernel_it->second), BytesToString(asm_it->second),
+                       std::move(metadata), std::move(const_segment), std::move(raw_data_segment));
 }
 
 std::optional<KernelDebugInfo> ExecutableImageIO::ReadDebugInfo(const std::filesystem::path& path) {

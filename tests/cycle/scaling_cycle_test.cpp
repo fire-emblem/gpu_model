@@ -5,7 +5,7 @@
 #include <ostream>
 
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/host_runtime.h"
+#include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -19,7 +19,7 @@ void PrintTo(const LaunchShape& shape, std::ostream* os) {
   *os << "G" << shape.grid_dim_x << "_T" << shape.block_dim_x;
 }
 
-KernelProgram BuildVecAddCycleScalingKernel() {
+ExecutableKernel BuildVecAddCycleScalingKernel() {
   InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
   builder.SLoadArg("s1", 1);
@@ -40,7 +40,7 @@ KernelProgram BuildVecAddCycleScalingKernel() {
   return builder.Build("vecadd_cycle_scaling");
 }
 
-KernelProgram BuildFmaLoopCycleScalingKernel() {
+ExecutableKernel BuildFmaLoopCycleScalingKernel() {
   InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
   builder.SLoadArg("s1", 1);
@@ -99,7 +99,7 @@ TEST_P(VecAddCycleScalingTest, ProducesCorrectOutputAcrossRequestedScales) {
   const uint32_t n = ActiveElementCount(shape);
   ASSERT_GT(n, 0u);
 
-  HostRuntime runtime;
+  RuntimeEngine runtime;
   runtime.SetFixedGlobalMemoryLatency(8);
   const auto kernel = BuildVecAddCycleScalingKernel();
   const uint64_t a_addr = runtime.memory().AllocateGlobal(static_cast<uint64_t>(n) * sizeof(int32_t));
@@ -150,7 +150,7 @@ TEST_P(FmaCycleScalingTest, ProducesCorrectOutputAcrossRequestedScales) {
   constexpr int32_t mul1 = 3;
   constexpr int32_t add1 = 2;
 
-  HostRuntime runtime;
+  RuntimeEngine runtime;
   runtime.SetFixedGlobalMemoryLatency(8);
   const auto kernel = BuildFmaLoopCycleScalingKernel();
   const uint64_t out_addr = runtime.memory().AllocateGlobal(static_cast<uint64_t>(n) * sizeof(int32_t));

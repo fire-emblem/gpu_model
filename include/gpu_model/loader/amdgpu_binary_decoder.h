@@ -3,14 +3,14 @@
 #include <filesystem>
 #include <optional>
 
-#include "gpu_model/isa/program_image.h"
+#include "gpu_model/program/program_object.h"
 
 namespace gpu_model {
 
 class IAmdgpuBinaryDecoder {
  public:
   virtual ~IAmdgpuBinaryDecoder() = default;
-  virtual ProgramImage Decode(const std::filesystem::path& path,
+  virtual ProgramObject Decode(const std::filesystem::path& path,
                               std::optional<std::string> kernel_name) const = 0;
 };
 

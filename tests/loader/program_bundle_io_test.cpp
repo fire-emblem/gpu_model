@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "gpu_model/loader/program_bundle_io.h"
-#include "gpu_model/runtime/host_runtime.h"
+#include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -19,7 +19,7 @@ ConstSegment MakeConstSegment(const std::vector<int32_t>& values) {
   return segment;
 }
 
-TEST(ProgramBundleIOTest, RoundTripsProgramImageAndLaunchesLoadedBundle) {
+TEST(ProgramBundleIOTest, RoundTripsProgramObjectAndLaunchesLoadedBundle) {
   const std::filesystem::path bundle_path =
       std::filesystem::temp_directory_path() / "gpu_model_roundtrip.gpubin";
   std::vector<int32_t> table(48);
@@ -27,7 +27,7 @@ TEST(ProgramBundleIOTest, RoundTripsProgramImageAndLaunchesLoadedBundle) {
     table[i] = static_cast<int32_t>(i * 5);
   }
 
-  const ProgramImage original(
+  const ProgramObject original(
       "bundle_const_kernel",
       R"(
         .meta arch=c500
@@ -48,7 +48,7 @@ TEST(ProgramBundleIOTest, RoundTripsProgramImageAndLaunchesLoadedBundle) {
       MakeConstSegment(table));
 
   ProgramBundleIO::Write(bundle_path, original);
-  const ProgramImage loaded = ProgramBundleIO::Read(bundle_path);
+  const ProgramObject loaded = ProgramBundleIO::Read(bundle_path);
 
   EXPECT_EQ(loaded.kernel_name(), original.kernel_name());
   EXPECT_EQ(loaded.assembly_text(), original.assembly_text());
@@ -57,7 +57,7 @@ TEST(ProgramBundleIOTest, RoundTripsProgramImageAndLaunchesLoadedBundle) {
   EXPECT_EQ(format_it->second, "bundle");
   EXPECT_EQ(loaded.const_segment().bytes.size(), original.const_segment().bytes.size());
 
-  HostRuntime runtime;
+  RuntimeEngine runtime;
   const uint64_t out_addr = runtime.memory().AllocateGlobal(table.size() * sizeof(int32_t));
   LaunchRequest request;
   request.arch_name.clear();
@@ -82,13 +82,13 @@ TEST(ProgramBundleIOTest, RoundTripsRawDataSegment) {
   const std::filesystem::path bundle_path =
       std::filesystem::temp_directory_path() / "gpu_model_roundtrip_rawdata.gpubin";
 
-  ProgramImage original(
+  ProgramObject original(
       "bundle_rawdata_kernel", "s_endpgm\n",
       MetadataBlob{.values = {{"arch", "c500"}, {"format", "bundle_raw"}}}, {},
       RawDataSegment{.bytes = {std::byte{0xde}, std::byte{0xad}, std::byte{0xbe}, std::byte{0xef}}});
 
   ProgramBundleIO::Write(bundle_path, original);
-  const ProgramImage loaded = ProgramBundleIO::Read(bundle_path);
+  const ProgramObject loaded = ProgramBundleIO::Read(bundle_path);
 
   EXPECT_EQ(loaded.kernel_name(), original.kernel_name());
   EXPECT_EQ(loaded.raw_data_segment().bytes.size(), 4u);

@@ -3,12 +3,12 @@
 #include <cstdint>
 
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/host_runtime.h"
+#include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
 namespace {
 
-KernelProgram BuildLocalIdWriteKernel() {
+ExecutableKernel BuildLocalIdWriteKernel() {
   InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
   builder.SLoadArg("s1", 1);
@@ -25,7 +25,7 @@ KernelProgram BuildLocalIdWriteKernel() {
   return builder.Build("local_id_write");
 }
 
-KernelProgram BuildBitwiseBucketKernel() {
+ExecutableKernel BuildBitwiseBucketKernel() {
   InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
   builder.SLoadArg("s1", 1);
@@ -49,7 +49,7 @@ KernelProgram BuildBitwiseBucketKernel() {
 
 TEST(LocalBitwiseFunctionalTest, LocalIdWriteEmitsThreadIndexWithinBlock) {
   constexpr uint32_t n = 130;
-  HostRuntime runtime;
+  RuntimeEngine runtime;
   const auto kernel = BuildLocalIdWriteKernel();
   const uint64_t out_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
   for (uint32_t i = 0; i < n; ++i) {
@@ -74,7 +74,7 @@ TEST(LocalBitwiseFunctionalTest, LocalIdWriteEmitsThreadIndexWithinBlock) {
 
 TEST(LocalBitwiseFunctionalTest, BitwiseBucketUsesAndOrXorAndShift) {
   constexpr uint32_t n = 64;
-  HostRuntime runtime;
+  RuntimeEngine runtime;
   const auto kernel = BuildBitwiseBucketKernel();
   const uint64_t in_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
   const uint64_t out_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));

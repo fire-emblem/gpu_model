@@ -114,7 +114,7 @@ uint32_t WaveLaunchTraceScalarRegs(const AmdgpuKernelDescriptor& descriptor) {
 }
 
 void InitializeWaveAbiState(WaveState& wave,
-                            const AmdgpuCodeObjectImage& image,
+                            const EncodedProgramObject& image,
                             const LaunchConfig& config,
                             uint64_t kernarg_base,
                             uint32_t wave_count_in_block) {
@@ -271,7 +271,7 @@ std::vector<RawBlock> MaterializeRawBlocks(const PlacementMap& placement,
 
 }  // namespace
 
-LaunchResult RawGcnExecutor::Run(const AmdgpuCodeObjectImage& image,
+LaunchResult RawGcnExecutor::Run(const EncodedProgramObject& image,
                                  const GpuArchSpec& spec,
                                  const LaunchConfig& config,
                                  const KernelArgPack& args,

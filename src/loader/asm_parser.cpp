@@ -149,7 +149,7 @@ void RequireOperandCount(std::string_view opcode,
 
 }  // namespace
 
-KernelProgram AsmParser::Parse(const ProgramImage& image) const {
+ExecutableKernel AsmParser::Parse(const ProgramObject& image) const {
   CanonicalInstructionBuilder builder;
   MetadataBlob metadata = image.metadata();
 

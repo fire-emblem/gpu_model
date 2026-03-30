@@ -42,7 +42,7 @@ std::string ReadString(std::ifstream& in) {
 
 }  // namespace
 
-void ProgramBundleIO::Write(const std::filesystem::path& path, const ProgramImage& image) {
+void ProgramBundleIO::Write(const std::filesystem::path& path, const ProgramObject& image) {
   std::ofstream out(path, std::ios::binary);
   if (!out) {
     throw std::runtime_error("failed to open bundle for write: " + path.string());
@@ -68,7 +68,7 @@ void ProgramBundleIO::Write(const std::filesystem::path& path, const ProgramImag
   }
 }
 
-ProgramImage ProgramBundleIO::Read(const std::filesystem::path& path) {
+ProgramObject ProgramBundleIO::Read(const std::filesystem::path& path) {
   std::ifstream in(path, std::ios::binary);
   if (!in) {
     throw std::runtime_error("failed to open bundle for read: " + path.string());
@@ -112,8 +112,8 @@ ProgramImage ProgramBundleIO::Read(const std::filesystem::path& path) {
     }
   }
 
-  return ProgramImage(kernel_name, assembly_text, std::move(metadata), std::move(const_segment),
-                      std::move(raw_data_segment));
+  return ProgramObject(kernel_name, assembly_text, std::move(metadata), std::move(const_segment),
+                       std::move(raw_data_segment));
 }
 
 }  // namespace gpu_model

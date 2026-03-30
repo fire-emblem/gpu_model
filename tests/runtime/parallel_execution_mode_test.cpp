@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/host_runtime.h"
+#include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -33,7 +33,7 @@ class ScopedEnvUnset {
   std::string value_;
 };
 
-KernelProgram BuildParallelModeKernel() {
+ExecutableKernel BuildParallelModeKernel() {
   InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
   builder.SLoadArg("s1", 1);
@@ -50,7 +50,7 @@ KernelProgram BuildParallelModeKernel() {
   return builder.Build("parallel_mode_kernel");
 }
 
-KernelProgram BuildSharedAtomicReductionKernelForModeTest() {
+ExecutableKernel BuildSharedAtomicReductionKernelForModeTest() {
   InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
   builder.SysLaneId("v0");
@@ -87,7 +87,7 @@ KernelProgram BuildSharedAtomicReductionKernelForModeTest() {
   return builder.Build("parallel_mode_shared_atomic_reduce");
 }
 
-KernelProgram BuildGlobal2DWriteKernelForModeTest() {
+ExecutableKernel BuildGlobal2DWriteKernelForModeTest() {
   InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
   builder.SysGlobalIdX("v0");
@@ -105,16 +105,16 @@ KernelProgram BuildGlobal2DWriteKernelForModeTest() {
   return builder.Build("parallel_mode_global_2d_write");
 }
 
-TEST(ParallelExecutionModeTest, HostRuntimeDefaultsToSingleThreadedFunctionalMode) {
+TEST(ParallelExecutionModeTest, RuntimeEngineDefaultsToSingleThreadedFunctionalMode) {
   ScopedEnvUnset unset_mode("GPU_MODEL_FUNCTIONAL_MODE");
   ScopedEnvUnset unset_workers("GPU_MODEL_FUNCTIONAL_WORKERS");
-  HostRuntime runtime;
+  RuntimeEngine runtime;
   EXPECT_EQ(runtime.functional_execution_config().mode,
             FunctionalExecutionMode::SingleThreaded);
 }
 
-TEST(ParallelExecutionModeTest, HostRuntimeCanSwitchToMarlParallelMode) {
-  HostRuntime runtime;
+TEST(ParallelExecutionModeTest, RuntimeEngineCanSwitchToMarlParallelMode) {
+  RuntimeEngine runtime;
   runtime.SetFunctionalExecutionConfig(
       FunctionalExecutionConfig{
           .mode = FunctionalExecutionMode::MarlParallel,
@@ -130,7 +130,7 @@ TEST(ParallelExecutionModeTest, MarlParallelModeProducesSameFunctionalResults) {
   constexpr uint32_t n = 96;
 
   auto run_mode = [&](FunctionalExecutionMode mode) {
-    HostRuntime runtime;
+    RuntimeEngine runtime;
     runtime.SetFunctionalExecutionMode(mode);
     const uint64_t out_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
     for (uint32_t i = 0; i < n; ++i) {
@@ -162,7 +162,7 @@ TEST(ParallelExecutionModeTest, MarlParallelModeMatchesSingleThreadForSharedAtom
   const auto kernel = BuildSharedAtomicReductionKernelForModeTest();
 
   auto run_mode = [&](FunctionalExecutionMode mode) {
-    HostRuntime runtime;
+    RuntimeEngine runtime;
     runtime.SetFunctionalExecutionMode(mode);
     const uint64_t out_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
     runtime.memory().StoreGlobalValue<int32_t>(out_addr, -1);
@@ -194,7 +194,7 @@ TEST(ParallelExecutionModeTest, MarlParallelModeMatchesSingleThreadForTwoDimensi
   constexpr uint32_t total = grid_x * grid_y * block_x * block_y;
 
   auto run_mode = [&](FunctionalExecutionMode mode) {
-    HostRuntime runtime;
+    RuntimeEngine runtime;
     runtime.SetFunctionalExecutionMode(mode);
     const uint64_t out_addr = runtime.memory().AllocateGlobal(total * sizeof(int32_t));
 

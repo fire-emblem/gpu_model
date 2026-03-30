@@ -1,72 +1,10 @@
 #pragma once
 
-#include <optional>
-
-#include "gpu_model/debug/trace_sink.h"
-#include "gpu_model/exec/cycle_executor.h"
-#include "gpu_model/exec/functional_execution_mode.h"
-#include "gpu_model/memory/memory_system.h"
-#include "gpu_model/runtime/launch_request.h"
+// PHASE2-DELETE(runtime-program): legacy public header kept only for deletion order.
+#include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
 
-class HostRuntime {
- public:
-  explicit HostRuntime(TraceSink* default_trace = nullptr);
-
-  MemorySystem& memory() { return memory_; }
-  const MemorySystem& memory() const { return memory_; }
-  void SetFixedGlobalMemoryLatency(uint64_t latency);
-  void SetGlobalMemoryLatencyProfile(uint64_t dram_latency,
-                                     uint64_t l2_hit_latency,
-                                     uint64_t l1_hit_latency);
-  void SetSharedBankConflictModel(uint32_t bank_count, uint32_t bank_width_bytes);
-  void SetLaunchTimingProfile(uint64_t kernel_launch_gap_cycles,
-                              uint64_t kernel_launch_cycles,
-                              uint64_t block_launch_cycles,
-                              uint64_t wave_launch_cycles,
-                              uint64_t warp_switch_cycles,
-                              uint64_t arg_load_cycles);
-  void SetIssueCycleClassOverrides(const IssueCycleClassOverridesSpec& overrides);
-  void SetIssueCycleOpOverrides(const IssueCycleOpOverridesSpec& overrides);
-  void SetFunctionalExecutionConfig(FunctionalExecutionConfig config) {
-    functional_execution_config_ = config;
-  }
-  void SetFunctionalExecutionMode(FunctionalExecutionMode mode) {
-    functional_execution_config_.mode = mode;
-  }
-  const FunctionalExecutionConfig& functional_execution_config() const {
-    return functional_execution_config_;
-  }
-  uint64_t device_cycle() const { return device_cycle_; }
-  void ResetDeviceCycle() { device_cycle_ = 0; has_cycle_launch_history_ = false; }
-
-  LaunchResult Launch(const LaunchRequest& request);
-
- private:
-  CycleTimingConfig ResolveCycleTimingConfig(const GpuArchSpec& spec) const;
-  TraceSink& ResolveTraceSink(TraceSink* request_trace);
-
-  MemorySystem memory_;
-  NullTraceSink null_trace_sink_;
-  TraceSink* default_trace_ = nullptr;
-  std::optional<uint64_t> flat_global_latency_override_;
-  std::optional<uint64_t> dram_latency_override_;
-  std::optional<uint64_t> l2_hit_latency_override_;
-  std::optional<uint64_t> l1_hit_latency_override_;
-  std::optional<uint32_t> shared_bank_count_override_;
-  std::optional<uint32_t> shared_bank_width_override_;
-  std::optional<uint64_t> kernel_launch_gap_cycles_override_;
-  std::optional<uint64_t> kernel_launch_cycles_override_;
-  std::optional<uint64_t> block_launch_cycles_override_;
-  std::optional<uint64_t> wave_launch_cycles_override_;
-  std::optional<uint64_t> warp_switch_cycles_override_;
-  std::optional<uint64_t> arg_load_cycles_override_;
-  std::optional<IssueCycleClassOverridesSpec> issue_cycle_class_overrides_;
-  std::optional<IssueCycleOpOverridesSpec> issue_cycle_op_overrides_;
-  FunctionalExecutionConfig functional_execution_config_{};
-  uint64_t device_cycle_ = 0;
-  bool has_cycle_launch_history_ = false;
-};
+using HostRuntime = RuntimeEngine;
 
 }  // namespace gpu_model

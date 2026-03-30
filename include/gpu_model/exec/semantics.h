@@ -7,8 +7,8 @@
 #include "gpu_model/arch/gpu_arch_spec.h"
 #include "gpu_model/debug/trace_sink.h"
 #include "gpu_model/exec/op_plan.h"
-#include "gpu_model/isa/kernel_program.h"
 #include "gpu_model/memory/memory_system.h"
+#include "gpu_model/program/executable_kernel.h"
 #include "gpu_model/runtime/kernel_arg_pack.h"
 #include "gpu_model/runtime/launch_config.h"
 #include "gpu_model/runtime/launch_request.h"
@@ -21,7 +21,7 @@ struct DeviceLoadResult;
 
 struct ExecutionContext {
   const GpuArchSpec& spec;
-  const KernelProgram& kernel;
+  const ExecutableKernel& kernel;
   const LaunchConfig& launch_config;
   const KernelArgPack& args;
   const PlacementMap& placement;

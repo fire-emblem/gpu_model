@@ -66,9 +66,9 @@ Operand KernelProgramBuilder::ImmediateOperand(uint64_t value) const {
   return Operand::ImmediateU64(value);
 }
 
-KernelProgram KernelProgramBuilder::Build(std::string name,
-                                          MetadataBlob metadata,
-                                          ConstSegment const_segment) {
+ExecutableKernel KernelProgramBuilder::Build(std::string name,
+                                             MetadataBlob metadata,
+                                             ConstSegment const_segment) {
   for (const auto& pending : pending_labels_) {
     const auto it = labels_.find(pending.label);
     if (it == labels_.end()) {
@@ -78,8 +78,8 @@ KernelProgram KernelProgramBuilder::Build(std::string name,
         Operand::Branch(it->second);
   }
   pending_labels_.clear();
-  return KernelProgram(std::move(name), instructions_, labels_, std::move(metadata),
-                       std::move(const_segment));
+  return ExecutableKernel(std::move(name), instructions_, labels_, std::move(metadata),
+                          std::move(const_segment));
 }
 
 DebugLoc KernelProgramBuilder::ConsumeNextDebugLoc() {

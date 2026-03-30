@@ -3,12 +3,12 @@
 #include <cstdint>
 
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/host_runtime.h"
+#include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
 namespace {
 
-KernelProgram BuildBuiltinMixKernel() {
+ExecutableKernel BuildBuiltinMixKernel() {
   InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
   builder.SLoadArg("s1", 1);
@@ -29,7 +29,7 @@ KernelProgram BuildBuiltinMixKernel() {
   return builder.Build("builtin_mix");
 }
 
-KernelProgram BuildScalarBitmaskKernel() {
+ExecutableKernel BuildScalarBitmaskKernel() {
   InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
   builder.SLoadArg("s1", 1);
@@ -55,7 +55,7 @@ KernelProgram BuildScalarBitmaskKernel() {
 
 TEST(BuiltinScalarBitFunctionalTest, BuiltinMixUsesGridBlockAndLocalIndices) {
   constexpr uint32_t n = 130;
-  HostRuntime runtime;
+  RuntimeEngine runtime;
   const auto kernel = BuildBuiltinMixKernel();
   const uint64_t out_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
 
@@ -79,7 +79,7 @@ TEST(BuiltinScalarBitFunctionalTest, BuiltinMixUsesGridBlockAndLocalIndices) {
 
 TEST(BuiltinScalarBitFunctionalTest, ScalarBitmaskBroadcastsExpectedValue) {
   constexpr uint32_t n = 32;
-  HostRuntime runtime;
+  RuntimeEngine runtime;
   const auto kernel = BuildScalarBitmaskKernel();
   const uint64_t out_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
 

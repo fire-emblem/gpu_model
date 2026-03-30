@@ -1,13 +1,13 @@
 #pragma once
 
-#include "gpu_model/isa/kernel_program.h"
-#include "gpu_model/isa/program_image.h"
+#include "gpu_model/program/executable_kernel.h"
+#include "gpu_model/program/program_object.h"
 
 namespace gpu_model {
 
 class AsmParser {
  public:
-  KernelProgram Parse(const ProgramImage& image) const;
+  ExecutableKernel Parse(const ProgramObject& image) const;
 };
 
 }  // namespace gpu_model

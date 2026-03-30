@@ -1,9 +1,57 @@
 #pragma once
 
-#include "gpu_model/runtime/host_runtime.h"
+#include <cstdint>
+#include <memory>
+
+#include "gpu_model/debug/trace_sink.h"
+#include "gpu_model/exec/cycle_executor.h"
+#include "gpu_model/exec/functional_execution_mode.h"
+#include "gpu_model/memory/memory_system.h"
+#include "gpu_model/runtime/launch_request.h"
 
 namespace gpu_model {
 
-using RuntimeEngine = HostRuntime;
+class RuntimeEngineImpl;
+class HipRuntime;
+
+class RuntimeEngine {
+ public:
+  explicit RuntimeEngine(TraceSink* default_trace = nullptr);
+  ~RuntimeEngine();
+  RuntimeEngine(RuntimeEngine&& other) noexcept;
+  RuntimeEngine& operator=(RuntimeEngine&& other) noexcept;
+  RuntimeEngine(const RuntimeEngine&) = delete;
+  RuntimeEngine& operator=(const RuntimeEngine&) = delete;
+
+  MemorySystem& memory();
+  const MemorySystem& memory() const;
+  void SetFixedGlobalMemoryLatency(uint64_t latency);
+  void SetGlobalMemoryLatencyProfile(uint64_t dram_latency,
+                                     uint64_t l2_hit_latency,
+                                     uint64_t l1_hit_latency);
+  void SetSharedBankConflictModel(uint32_t bank_count, uint32_t bank_width_bytes);
+  void SetLaunchTimingProfile(uint64_t kernel_launch_gap_cycles,
+                              uint64_t kernel_launch_cycles,
+                              uint64_t block_launch_cycles,
+                              uint64_t wave_launch_cycles,
+                              uint64_t warp_switch_cycles,
+                              uint64_t arg_load_cycles);
+  void SetIssueCycleClassOverrides(const IssueCycleClassOverridesSpec& overrides);
+  void SetIssueCycleOpOverrides(const IssueCycleOpOverridesSpec& overrides);
+  void SetFunctionalExecutionConfig(FunctionalExecutionConfig config);
+  void SetFunctionalExecutionMode(FunctionalExecutionMode mode);
+  const FunctionalExecutionConfig& functional_execution_config() const;
+  uint64_t device_cycle() const;
+  void ResetDeviceCycle();
+
+  LaunchResult Launch(const LaunchRequest& request);
+
+ private:
+  RuntimeEngineImpl& legacy_runtime();
+  const RuntimeEngineImpl& legacy_runtime() const;
+  friend class HipRuntime;
+
+  std::unique_ptr<RuntimeEngineImpl> impl_;
+};
 
 }  // namespace gpu_model

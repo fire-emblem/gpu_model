@@ -1,4 +1,4 @@
-#include "gpu_model/runtime/host_runtime.h"
+#include "gpu_model/runtime/runtime_engine.h"
 
 #include <cstdlib>
 #include <cstdio>
@@ -13,17 +13,74 @@
 #include "gpu_model/exec/parallel_wave_executor.h"
 #include "gpu_model/exec/encoded/executor/raw_gcn_executor.h"
 #include "gpu_model/isa/kernel_metadata.h"
-#include "gpu_model/isa/kernel_program.h"
 #include "gpu_model/isa/target_isa.h"
 #include "gpu_model/loader/amdgpu_code_object_decoder.h"
 #include "gpu_model/loader/device_image_loader.h"
 #include "gpu_model/loader/program_lowering.h"
 #include "gpu_model/execution/encoded_exec_engine.h"
 #include "gpu_model/program/encoded_program_object.h"
-#include "gpu_model/program/executable_kernel.h"
-#include "gpu_model/runtime/program_execution.h"
+#include "gpu_model/program/execution_route.h"
 
 namespace gpu_model {
+
+class RuntimeEngineImpl {
+ public:
+  explicit RuntimeEngineImpl(TraceSink* default_trace = nullptr);
+
+  MemorySystem& memory() { return memory_; }
+  const MemorySystem& memory() const { return memory_; }
+  void SetFixedGlobalMemoryLatency(uint64_t latency);
+  void SetGlobalMemoryLatencyProfile(uint64_t dram_latency,
+                                     uint64_t l2_hit_latency,
+                                     uint64_t l1_hit_latency);
+  void SetSharedBankConflictModel(uint32_t bank_count, uint32_t bank_width_bytes);
+  void SetLaunchTimingProfile(uint64_t kernel_launch_gap_cycles,
+                              uint64_t kernel_launch_cycles,
+                              uint64_t block_launch_cycles,
+                              uint64_t wave_launch_cycles,
+                              uint64_t warp_switch_cycles,
+                              uint64_t arg_load_cycles);
+  void SetIssueCycleClassOverrides(const IssueCycleClassOverridesSpec& overrides);
+  void SetIssueCycleOpOverrides(const IssueCycleOpOverridesSpec& overrides);
+  void SetFunctionalExecutionConfig(FunctionalExecutionConfig config) {
+    functional_execution_config_ = config;
+  }
+  void SetFunctionalExecutionMode(FunctionalExecutionMode mode) {
+    functional_execution_config_.mode = mode;
+  }
+  const FunctionalExecutionConfig& functional_execution_config() const {
+    return functional_execution_config_;
+  }
+  uint64_t device_cycle() const { return device_cycle_; }
+  void ResetDeviceCycle() { device_cycle_ = 0; has_cycle_launch_history_ = false; }
+
+  LaunchResult Launch(const LaunchRequest& request);
+
+ private:
+  CycleTimingConfig ResolveCycleTimingConfig(const GpuArchSpec& spec) const;
+  TraceSink& ResolveTraceSink(TraceSink* request_trace);
+
+  MemorySystem memory_;
+  NullTraceSink null_trace_sink_;
+  TraceSink* default_trace_ = nullptr;
+  std::optional<uint64_t> flat_global_latency_override_;
+  std::optional<uint64_t> dram_latency_override_;
+  std::optional<uint64_t> l2_hit_latency_override_;
+  std::optional<uint64_t> l1_hit_latency_override_;
+  std::optional<uint32_t> shared_bank_count_override_;
+  std::optional<uint32_t> shared_bank_width_override_;
+  std::optional<uint64_t> kernel_launch_gap_cycles_override_;
+  std::optional<uint64_t> kernel_launch_cycles_override_;
+  std::optional<uint64_t> block_launch_cycles_override_;
+  std::optional<uint64_t> wave_launch_cycles_override_;
+  std::optional<uint64_t> warp_switch_cycles_override_;
+  std::optional<uint64_t> arg_load_cycles_override_;
+  std::optional<IssueCycleClassOverridesSpec> issue_cycle_class_overrides_;
+  std::optional<IssueCycleOpOverridesSpec> issue_cycle_op_overrides_;
+  FunctionalExecutionConfig functional_execution_config_{};
+  uint64_t device_cycle_ = 0;
+  bool has_cycle_launch_history_ = false;
+};
 
 namespace {
 
@@ -73,7 +130,7 @@ std::optional<FunctionalExecutionConfig> FunctionalExecutionConfigFromEnv() {
 
 }  // namespace
 
-HostRuntime::HostRuntime(TraceSink* default_trace) : default_trace_(default_trace) {
+RuntimeEngineImpl::RuntimeEngineImpl(TraceSink* default_trace) : default_trace_(default_trace) {
   if (const auto config = FunctionalExecutionConfigFromEnv(); config.has_value()) {
     functional_execution_config_ = *config;
     std::fprintf(stderr,
@@ -83,33 +140,33 @@ HostRuntime::HostRuntime(TraceSink* default_trace) : default_trace_(default_trac
   }
 }
 
-void HostRuntime::SetFixedGlobalMemoryLatency(uint64_t latency) {
+void RuntimeEngineImpl::SetFixedGlobalMemoryLatency(uint64_t latency) {
   flat_global_latency_override_ = latency;
   dram_latency_override_.reset();
   l2_hit_latency_override_.reset();
   l1_hit_latency_override_.reset();
 }
 
-void HostRuntime::SetGlobalMemoryLatencyProfile(uint64_t dram_latency,
-                                                uint64_t l2_hit_latency,
-                                                uint64_t l1_hit_latency) {
+void RuntimeEngineImpl::SetGlobalMemoryLatencyProfile(uint64_t dram_latency,
+                                                      uint64_t l2_hit_latency,
+                                                      uint64_t l1_hit_latency) {
   flat_global_latency_override_.reset();
   dram_latency_override_ = dram_latency;
   l2_hit_latency_override_ = l2_hit_latency;
   l1_hit_latency_override_ = l1_hit_latency;
 }
 
-void HostRuntime::SetSharedBankConflictModel(uint32_t bank_count, uint32_t bank_width_bytes) {
+void RuntimeEngineImpl::SetSharedBankConflictModel(uint32_t bank_count, uint32_t bank_width_bytes) {
   shared_bank_count_override_ = bank_count;
   shared_bank_width_override_ = bank_width_bytes;
 }
 
-void HostRuntime::SetLaunchTimingProfile(uint64_t kernel_launch_gap_cycles,
-                                         uint64_t kernel_launch_cycles,
-                                         uint64_t block_launch_cycles,
-                                         uint64_t wave_launch_cycles,
-                                         uint64_t warp_switch_cycles,
-                                         uint64_t arg_load_cycles) {
+void RuntimeEngineImpl::SetLaunchTimingProfile(uint64_t kernel_launch_gap_cycles,
+                                               uint64_t kernel_launch_cycles,
+                                               uint64_t block_launch_cycles,
+                                               uint64_t wave_launch_cycles,
+                                               uint64_t warp_switch_cycles,
+                                               uint64_t arg_load_cycles) {
   kernel_launch_gap_cycles_override_ = kernel_launch_gap_cycles;
   kernel_launch_cycles_override_ = kernel_launch_cycles;
   block_launch_cycles_override_ = block_launch_cycles;
@@ -118,15 +175,15 @@ void HostRuntime::SetLaunchTimingProfile(uint64_t kernel_launch_gap_cycles,
   arg_load_cycles_override_ = arg_load_cycles;
 }
 
-void HostRuntime::SetIssueCycleClassOverrides(const IssueCycleClassOverridesSpec& overrides) {
+void RuntimeEngineImpl::SetIssueCycleClassOverrides(const IssueCycleClassOverridesSpec& overrides) {
   issue_cycle_class_overrides_ = overrides;
 }
 
-void HostRuntime::SetIssueCycleOpOverrides(const IssueCycleOpOverridesSpec& overrides) {
+void RuntimeEngineImpl::SetIssueCycleOpOverrides(const IssueCycleOpOverridesSpec& overrides) {
   issue_cycle_op_overrides_ = overrides;
 }
 
-LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
+LaunchResult RuntimeEngineImpl::Launch(const LaunchRequest& request) {
   LaunchResult result;
 
   std::string arch_name = request.arch_name;
@@ -148,14 +205,14 @@ LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
 
   ExecutableKernel parsed_kernel;
   const ExecutableKernel* kernel = request.kernel;
-  std::optional<PreparedProgramExecution> prepared_program_execution;
-  const AmdgpuCodeObjectImage* raw_code_object = request.raw_code_object;
+  std::optional<PreparedExecutionRoute> prepared_program_execution;
+  const EncodedProgramObject* raw_code_object = request.raw_code_object;
   const EncodedProgramObject* encoded_program_object = raw_code_object;
   bool use_raw_gcn_executor = raw_code_object != nullptr;
   if (raw_code_object == nullptr && kernel == nullptr && request.program_image != nullptr) {
     try {
       prepared_program_execution.emplace(
-          PrepareProgramExecution(*request.program_image, request.program_execution_route));
+          PrepareExecutionRoute(*request.program_image, request.program_execution_route));
     } catch (const std::exception& ex) {
       result.error_message = ex.what();
       return result;
@@ -287,7 +344,7 @@ LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
     if (request.mode == ExecutionMode::Functional) {
         if (use_raw_gcn_executor) {
           const auto raw_result =
-            EncodedExecEngine{}.Run(*raw_code_object, *spec, request.config, request.args,
+            EncodedExecEngine{}.Run(*encoded_program_object, *spec, request.config, request.args,
                                     request.device_load, memory_, trace);
         result.ok = raw_result.ok;
         result.error_message = raw_result.error_message;
@@ -327,7 +384,7 @@ LaunchResult HostRuntime::Launch(const LaunchRequest& request) {
   return result;
 }
 
-CycleTimingConfig HostRuntime::ResolveCycleTimingConfig(const GpuArchSpec& spec) const {
+CycleTimingConfig RuntimeEngineImpl::ResolveCycleTimingConfig(const GpuArchSpec& spec) const {
   CycleTimingConfig config;
   config.cache_model = spec.cache_model;
   config.shared_bank_model = spec.shared_bank_model;
@@ -389,7 +446,7 @@ CycleTimingConfig HostRuntime::ResolveCycleTimingConfig(const GpuArchSpec& spec)
   return config;
 }
 
-TraceSink& HostRuntime::ResolveTraceSink(TraceSink* request_trace) {
+TraceSink& RuntimeEngineImpl::ResolveTraceSink(TraceSink* request_trace) {
   if (request_trace != nullptr) {
     return *request_trace;
   }
@@ -397,6 +454,89 @@ TraceSink& HostRuntime::ResolveTraceSink(TraceSink* request_trace) {
     return *default_trace_;
   }
   return null_trace_sink_;
+}
+
+RuntimeEngine::RuntimeEngine(TraceSink* default_trace)
+    : impl_(std::make_unique<RuntimeEngineImpl>(default_trace)) {}
+
+RuntimeEngine::~RuntimeEngine() = default;
+RuntimeEngine::RuntimeEngine(RuntimeEngine&& other) noexcept = default;
+RuntimeEngine& RuntimeEngine::operator=(RuntimeEngine&& other) noexcept = default;
+
+MemorySystem& RuntimeEngine::memory() {
+  return impl_->memory();
+}
+
+const MemorySystem& RuntimeEngine::memory() const {
+  return impl_->memory();
+}
+
+void RuntimeEngine::SetFixedGlobalMemoryLatency(uint64_t latency) {
+  impl_->SetFixedGlobalMemoryLatency(latency);
+}
+
+void RuntimeEngine::SetGlobalMemoryLatencyProfile(uint64_t dram_latency,
+                                                  uint64_t l2_hit_latency,
+                                                  uint64_t l1_hit_latency) {
+  impl_->SetGlobalMemoryLatencyProfile(dram_latency, l2_hit_latency, l1_hit_latency);
+}
+
+void RuntimeEngine::SetSharedBankConflictModel(uint32_t bank_count, uint32_t bank_width_bytes) {
+  impl_->SetSharedBankConflictModel(bank_count, bank_width_bytes);
+}
+
+void RuntimeEngine::SetLaunchTimingProfile(uint64_t kernel_launch_gap_cycles,
+                                           uint64_t kernel_launch_cycles,
+                                           uint64_t block_launch_cycles,
+                                           uint64_t wave_launch_cycles,
+                                           uint64_t warp_switch_cycles,
+                                           uint64_t arg_load_cycles) {
+  impl_->SetLaunchTimingProfile(kernel_launch_gap_cycles,
+                                kernel_launch_cycles,
+                                block_launch_cycles,
+                                wave_launch_cycles,
+                                warp_switch_cycles,
+                                arg_load_cycles);
+}
+
+void RuntimeEngine::SetIssueCycleClassOverrides(const IssueCycleClassOverridesSpec& overrides) {
+  impl_->SetIssueCycleClassOverrides(overrides);
+}
+
+void RuntimeEngine::SetIssueCycleOpOverrides(const IssueCycleOpOverridesSpec& overrides) {
+  impl_->SetIssueCycleOpOverrides(overrides);
+}
+
+void RuntimeEngine::SetFunctionalExecutionConfig(FunctionalExecutionConfig config) {
+  impl_->SetFunctionalExecutionConfig(config);
+}
+
+void RuntimeEngine::SetFunctionalExecutionMode(FunctionalExecutionMode mode) {
+  impl_->SetFunctionalExecutionMode(mode);
+}
+
+const FunctionalExecutionConfig& RuntimeEngine::functional_execution_config() const {
+  return impl_->functional_execution_config();
+}
+
+uint64_t RuntimeEngine::device_cycle() const {
+  return impl_->device_cycle();
+}
+
+void RuntimeEngine::ResetDeviceCycle() {
+  impl_->ResetDeviceCycle();
+}
+
+LaunchResult RuntimeEngine::Launch(const LaunchRequest& request) {
+  return impl_->Launch(request);
+}
+
+RuntimeEngineImpl& RuntimeEngine::legacy_runtime() {
+  return *impl_;
+}
+
+const RuntimeEngineImpl& RuntimeEngine::legacy_runtime() const {
+  return *impl_;
 }
 
 }  // namespace gpu_model

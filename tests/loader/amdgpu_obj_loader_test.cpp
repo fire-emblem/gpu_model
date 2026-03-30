@@ -29,7 +29,7 @@ std::filesystem::path MakeUniqueTempDir(const std::string& stem) {
   return path;
 }
 
-TEST(AmdgpuObjLoaderTest, LoadsKernelProgramFromAmdgpuObjectFile) {
+TEST(AmdgpuObjLoaderTest, LoadsExecutableKernelFromAmdgpuObjectFile) {
   if (std::system("command -v llc >/dev/null 2>&1") != 0 ||
       std::system("command -v llvm-objdump >/dev/null 2>&1") != 0 ||
       std::system("command -v readelf >/dev/null 2>&1") != 0) {
@@ -62,7 +62,7 @@ TEST(AmdgpuObjLoaderTest, LoadsKernelProgramFromAmdgpuObjectFile) {
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(AmdgpuObjLoaderTest, LoadsKernelProgramFromHipHostObjectWithFatbin) {
+TEST(AmdgpuObjLoaderTest, LoadsExecutableKernelFromHipHostObjectWithFatbin) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }

@@ -50,7 +50,7 @@ TEST(DebugInfoIOTest, WritesBuilderDebugInfoToTextAndJsonFiles) {
 }
 
 TEST(DebugInfoIOTest, PreservesAsmParserLineMappings) {
-  ProgramImage image(
+  ProgramObject image(
       "asm_debug",
       R"(
         s_load_kernarg s0, 0

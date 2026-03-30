@@ -3,12 +3,12 @@
 #include <cstdint>
 
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/host_runtime.h"
+#include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
 namespace {
 
-KernelProgram BuildPrivateCopyKernel() {
+ExecutableKernel BuildPrivateCopyKernel() {
   InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
   builder.SLoadArg("s1", 1);
@@ -32,7 +32,7 @@ KernelProgram BuildPrivateCopyKernel() {
 
 TEST(PrivateMemoryFunctionalTest, StoresAndLoadsPerLanePrivateValues) {
   constexpr uint32_t n = 192;
-  HostRuntime runtime;
+  RuntimeEngine runtime;
 
   const uint64_t in_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
   const uint64_t out_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));

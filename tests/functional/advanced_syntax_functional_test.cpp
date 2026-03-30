@@ -3,12 +3,12 @@
 #include <cstdint>
 
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/host_runtime.h"
+#include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
 namespace {
 
-KernelProgram BuildClampKernel() {
+ExecutableKernel BuildClampKernel() {
   InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
   builder.SLoadArg("s1", 1);
@@ -30,7 +30,7 @@ KernelProgram BuildClampKernel() {
   return builder.Build("clamp");
 }
 
-KernelProgram BuildDiffOrZeroKernel() {
+ExecutableKernel BuildDiffOrZeroKernel() {
   InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
   builder.SLoadArg("s1", 1);
@@ -54,7 +54,7 @@ KernelProgram BuildDiffOrZeroKernel() {
   return builder.Build("diff_or_zero");
 }
 
-KernelProgram BuildHistogramKernel() {
+ExecutableKernel BuildHistogramKernel() {
   InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
   builder.SLoadArg("s1", 1);
@@ -75,7 +75,7 @@ KernelProgram BuildHistogramKernel() {
 
 TEST(AdvancedSyntaxFunctionalTest, ClampUsesMinAndMax) {
   constexpr uint32_t n = 9;
-  HostRuntime runtime;
+  RuntimeEngine runtime;
   const auto kernel = BuildClampKernel();
   const uint64_t in_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
   const uint64_t out_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
@@ -105,7 +105,7 @@ TEST(AdvancedSyntaxFunctionalTest, ClampUsesMinAndMax) {
 
 TEST(AdvancedSyntaxFunctionalTest, DiffOrZeroUsesSubEqAndSelect) {
   constexpr uint32_t n = 8;
-  HostRuntime runtime;
+  RuntimeEngine runtime;
   const auto kernel = BuildDiffOrZeroKernel();
   const uint64_t a_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
   const uint64_t b_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
@@ -138,7 +138,7 @@ TEST(AdvancedSyntaxFunctionalTest, DiffOrZeroUsesSubEqAndSelect) {
 TEST(AdvancedSyntaxFunctionalTest, HistogramUsesGlobalAtomicAdd) {
   constexpr uint32_t n = 16;
   constexpr uint32_t bins = 4;
-  HostRuntime runtime;
+  RuntimeEngine runtime;
   const auto kernel = BuildHistogramKernel();
   const uint64_t in_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
   const uint64_t hist_addr = runtime.memory().AllocateGlobal(bins * sizeof(int32_t));

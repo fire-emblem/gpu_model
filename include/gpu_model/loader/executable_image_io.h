@@ -4,7 +4,7 @@
 #include <optional>
 
 #include "gpu_model/debug/debug_info.h"
-#include "gpu_model/isa/program_image.h"
+#include "gpu_model/program/program_object.h"
 
 namespace gpu_model {
 
@@ -19,11 +19,11 @@ enum class ExecutableSectionKind : uint32_t {
 
 class ExecutableImageIO {
  public:
-  static void Write(const std::filesystem::path& path, const ProgramImage& image);
+  static void Write(const std::filesystem::path& path, const ProgramObject& image);
   static void Write(const std::filesystem::path& path,
-                    const ProgramImage& image,
+                    const ProgramObject& image,
                     const std::optional<KernelDebugInfo>& debug_info);
-  static ProgramImage Read(const std::filesystem::path& path);
+  static ProgramObject Read(const std::filesystem::path& path);
   static std::optional<KernelDebugInfo> ReadDebugInfo(const std::filesystem::path& path);
 };
 

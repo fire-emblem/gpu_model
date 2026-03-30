@@ -4,12 +4,12 @@
 
 #include "gpu_model/debug/trace_sink.h"
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/host_runtime.h"
+#include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
 namespace {
 
-KernelProgram BuildCycleFmaLoopKernel() {
+ExecutableKernel BuildCycleFmaLoopKernel() {
   InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
   builder.SLoadArg("s1", 1);
@@ -46,7 +46,7 @@ TEST(FmaLoopCycleTest, ExecutesLoopAndProducesExpectedValues) {
   constexpr int32_t add = 1;
 
   CollectingTraceSink trace;
-  HostRuntime runtime(&trace);
+  RuntimeEngine runtime(&trace);
   runtime.SetFixedGlobalMemoryLatency(12);
 
   const auto kernel = BuildCycleFmaLoopKernel();

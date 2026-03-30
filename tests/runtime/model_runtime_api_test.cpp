@@ -7,7 +7,7 @@
 
 #include "gpu_model/loader/executable_image_io.h"
 #include "gpu_model/loader/program_bundle_io.h"
-#include "gpu_model/runtime/model_runtime_api.h"
+#include "gpu_model/runtime/model_runtime.h"
 
 namespace gpu_model {
 namespace {
@@ -21,8 +21,8 @@ std::filesystem::path MakeUniqueTempDir(const std::string& stem) {
   return path;
 }
 
-TEST(ModelRuntimeApiTest, ExposesSingleC500DevicePropertiesAndAttributes) {
-  ModelRuntimeApi api;
+TEST(ModelRuntimeTest, ExposesSingleC500DevicePropertiesAndAttributes) {
+  ModelRuntime api;
   EXPECT_EQ(api.GetDeviceCount(), 1);
   EXPECT_EQ(api.GetDevice(), 0);
   EXPECT_TRUE(api.SetDevice(0));
@@ -46,9 +46,9 @@ TEST(ModelRuntimeApiTest, ExposesSingleC500DevicePropertiesAndAttributes) {
   EXPECT_EQ(*api.GetDeviceAttribute(RuntimeDeviceAttribute::CooperativeLaunch), 1);
 }
 
-TEST(ModelRuntimeApiTest, LaunchesProgramImageThroughNativeFacade) {
+TEST(ModelRuntimeTest, LaunchesProgramObjectThroughNativeFacade) {
   constexpr uint32_t n = 64;
-  ProgramImage image(
+  ProgramObject image(
       "vecadd_model_api",
       R"(
         s_load_kernarg s0, 0
@@ -76,7 +76,7 @@ TEST(ModelRuntimeApiTest, LaunchesProgramImageThroughNativeFacade) {
     b[i] = static_cast<int32_t>(100 + i);
   }
 
-  ModelRuntimeApi api;
+  ModelRuntime api;
   const uint64_t a_addr = api.Malloc(n * sizeof(int32_t));
   const uint64_t b_addr = api.Malloc(n * sizeof(int32_t));
   const uint64_t c_addr = api.Malloc(n * sizeof(int32_t));
@@ -100,11 +100,11 @@ TEST(ModelRuntimeApiTest, LaunchesProgramImageThroughNativeFacade) {
   }
 }
 
-TEST(ModelRuntimeApiTest, LoadsModulesThroughUnifiedNativeFacadeAndAutoFormatDetection) {
+TEST(ModelRuntimeTest, LoadsModulesThroughUnifiedNativeFacadeAndAutoFormatDetection) {
   const auto temp_dir = MakeUniqueTempDir("gpu_model_model_runtime_modules");
 
   const int32_t constant_value = 37;
-  ProgramImage bundle_image(
+  ProgramObject bundle_image(
       "bundle_kernel",
       R"(
         .meta arch=c500
@@ -125,7 +125,7 @@ TEST(ModelRuntimeApiTest, LoadsModulesThroughUnifiedNativeFacadeAndAutoFormatDet
   const auto bundle_path = temp_dir / "bundle_kernel.gpubin";
   ProgramBundleIO::Write(bundle_path, bundle_image);
 
-  ProgramImage sectioned_image("sectioned_kernel", "s_endpgm\n",
+  ProgramObject sectioned_image("sectioned_kernel", "s_endpgm\n",
                                MetadataBlob{.values = {{"arch", "c500"}}});
   const auto sectioned_path = temp_dir / "sectioned_kernel.gpusec";
   ExecutableImageIO::Write(sectioned_path, sectioned_image);
@@ -141,7 +141,7 @@ TEST(ModelRuntimeApiTest, LoadsModulesThroughUnifiedNativeFacadeAndAutoFormatDet
     meta_file << "entry=stem_kernel\n";
   }
 
-  ModelRuntimeApi api;
+  ModelRuntime api;
   api.LoadModule(ModuleLoadRequest{
       .module_name = "bundle_mod",
       .path = bundle_path,
@@ -189,7 +189,7 @@ TEST(ModelRuntimeApiTest, LoadsModulesThroughUnifiedNativeFacadeAndAutoFormatDet
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(ModelRuntimeApiTest, DescribesHipMfmaExecutableWithTypedTensorAbi) {
+TEST(ModelRuntimeTest, DescribesHipMfmaExecutableWithTypedTensorAbi) {
   const auto temp_dir = MakeUniqueTempDir("gpu_model_model_runtime_mfma_describe");
   const auto src_path = temp_dir / "hip_mfma_describe.cpp";
   const auto exe_path = temp_dir / "hip_mfma_describe.out";
@@ -217,7 +217,7 @@ TEST(ModelRuntimeApiTest, DescribesHipMfmaExecutableWithTypedTensorAbi) {
     GTEST_SKIP() << "gfx90a mfma compilation not available";
   }
 
-  ModelRuntimeApi api;
+  ModelRuntime api;
   const auto image = api.DescribeAmdgpuObject(exe_path, "mfma_describe_probe");
   EXPECT_EQ(image.kernel_name, "mfma_describe_probe");
   EXPECT_GE(image.kernel_descriptor.accum_offset, 4u);
@@ -227,7 +227,7 @@ TEST(ModelRuntimeApiTest, DescribesHipMfmaExecutableWithTypedTensorAbi) {
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(ModelRuntimeApiTest, LaunchesAmdgpuObjectThroughLoweredModeledRoute) {
+TEST(ModelRuntimeTest, LaunchesAmdgpuObjectThroughLoweredModeledRoute) {
   const auto temp_dir = MakeUniqueTempDir("gpu_model_model_runtime_lowered_object");
   const auto src_path = temp_dir / "hip_vecadd_3d_adds.cpp";
   const auto exe_path = temp_dir / "hip_vecadd_3d_adds.out";
@@ -266,7 +266,7 @@ TEST(ModelRuntimeApiTest, LaunchesAmdgpuObjectThroughLoweredModeledRoute) {
     b[i] = 1.0f + 0.25f * static_cast<float>(i % 7);
   }
 
-  ModelRuntimeApi api;
+  ModelRuntime api;
   const uint64_t a_addr = api.Malloc(total * sizeof(float));
   const uint64_t b_addr = api.Malloc(total * sizeof(float));
   const uint64_t c_addr = api.Malloc(total * sizeof(float));
@@ -297,7 +297,7 @@ TEST(ModelRuntimeApiTest, LaunchesAmdgpuObjectThroughLoweredModeledRoute) {
       "c500",
       nullptr,
       "vecadd_3d_adds",
-      ProgramExecutionRoute::LoweredModeled);
+      ExecutionRoute::LoweredModeled);
   ASSERT_TRUE(result.ok) << result.error_message;
 
   api.MemcpyDtoH<float>(c_addr, std::span<float>(c));
@@ -308,7 +308,7 @@ TEST(ModelRuntimeApiTest, LaunchesAmdgpuObjectThroughLoweredModeledRoute) {
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(ModelRuntimeApiTest, LaunchesRegisteredRawModuleThroughLoweredModeledRoute) {
+TEST(ModelRuntimeTest, LaunchesRegisteredRawModuleThroughLoweredModeledRoute) {
   const auto temp_dir = MakeUniqueTempDir("gpu_model_model_runtime_registered_lowered");
   const auto src_path = temp_dir / "hip_vecadd_3d_adds_registered.cpp";
   const auto exe_path = temp_dir / "hip_vecadd_3d_adds_registered.out";
@@ -347,7 +347,7 @@ TEST(ModelRuntimeApiTest, LaunchesRegisteredRawModuleThroughLoweredModeledRoute)
     b[i] = 1.0f + 0.25f * static_cast<float>(i % 7);
   }
 
-  ModelRuntimeApi api;
+  ModelRuntime api;
   api.LoadAmdgpuObject("raw_mod", exe_path, "vecadd_3d_adds_registered");
   const uint64_t a_addr = api.Malloc(total * sizeof(float));
   const uint64_t b_addr = api.Malloc(total * sizeof(float));
@@ -379,7 +379,7 @@ TEST(ModelRuntimeApiTest, LaunchesRegisteredRawModuleThroughLoweredModeledRoute)
       ExecutionMode::Functional,
       "c500",
       nullptr,
-      ProgramExecutionRoute::LoweredModeled);
+      ExecutionRoute::LoweredModeled);
   ASSERT_TRUE(result.ok) << result.error_message;
 
   api.MemcpyDtoH<float>(c_addr, std::span<float>(c));

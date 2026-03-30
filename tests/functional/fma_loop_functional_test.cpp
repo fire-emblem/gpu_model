@@ -5,12 +5,12 @@
 
 #include "gpu_model/debug/trace_sink.h"
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/host_runtime.h"
+#include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
 namespace {
 
-KernelProgram BuildFmaLoopKernel() {
+ExecutableKernel BuildFmaLoopKernel() {
   InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
   builder.SLoadArg("s1", 1);
@@ -61,7 +61,7 @@ TEST(FmaLoopFunctionalTest, RunsLoopedFmaKernelAndValidatesOutput) {
   constexpr int32_t mul1 = 3;
   constexpr int32_t add1 = 2;
 
-  HostRuntime runtime;
+  RuntimeEngine runtime;
   const auto kernel = BuildFmaLoopKernel();
   const uint64_t out_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
   for (uint32_t i = 0; i < n; ++i) {
@@ -92,7 +92,7 @@ TEST(FmaLoopFunctionalTest, RunsLoopedFmaKernelAndValidatesOutput) {
 TEST(FmaLoopFunctionalTest, TraceShowsPcAndResolvedOperandValuesForFma) {
   constexpr uint32_t n = 8;
   CollectingTraceSink trace;
-  HostRuntime runtime(&trace);
+  RuntimeEngine runtime(&trace);
   const auto kernel = BuildFmaLoopKernel();
   const uint64_t out_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
 

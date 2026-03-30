@@ -1,9 +1,14 @@
 #pragma once
 
-#include "gpu_model/loader/program_file_loader.h"
+#include <filesystem>
+
+#include "gpu_model/program/program_object.h"
 
 namespace gpu_model {
 
-using ObjectReader = ProgramFileLoader;
+class ObjectReader {
+ public:
+  ProgramObject LoadFromStem(const std::filesystem::path& stem) const;
+};
 
 }  // namespace gpu_model

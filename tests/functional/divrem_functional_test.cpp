@@ -3,12 +3,12 @@
 #include <cstdint>
 
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/host_runtime.h"
+#include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
 namespace {
 
-KernelProgram BuildDivRemEncodeKernel() {
+ExecutableKernel BuildDivRemEncodeKernel() {
   InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
   builder.SLoadArg("s1", 1);
@@ -30,7 +30,7 @@ KernelProgram BuildDivRemEncodeKernel() {
   return builder.Build("divrem_encode");
 }
 
-KernelProgram BuildScalarDivRemKernel() {
+ExecutableKernel BuildScalarDivRemKernel() {
   InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
   builder.SLoadArg("s1", 1);
@@ -53,7 +53,7 @@ KernelProgram BuildScalarDivRemKernel() {
 TEST(DivRemFunctionalTest, DivRemEncodeKernelProducesExpectedOutput) {
   constexpr uint32_t n = 53;
   constexpr uint32_t width = 7;
-  HostRuntime runtime;
+  RuntimeEngine runtime;
   const auto kernel = BuildDivRemEncodeKernel();
   const uint64_t out_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
 
@@ -75,7 +75,7 @@ TEST(DivRemFunctionalTest, DivRemEncodeKernelProducesExpectedOutput) {
 
 TEST(DivRemFunctionalTest, ScalarDivRemKernelBroadcastsExpectedValue) {
   constexpr uint32_t n = 53;
-  HostRuntime runtime;
+  RuntimeEngine runtime;
   const auto kernel = BuildScalarDivRemKernel();
   const uint64_t out_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
 

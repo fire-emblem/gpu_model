@@ -4,12 +4,12 @@
 #include <vector>
 
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/host_runtime.h"
+#include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
 namespace {
 
-KernelProgram BuildPositiveCopyKernel() {
+ExecutableKernel BuildPositiveCopyKernel() {
   InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
   builder.SLoadArg("s1", 1);
@@ -33,7 +33,7 @@ KernelProgram BuildPositiveCopyKernel() {
 
 TEST(PredicatedIfFunctionalTest, UsesCmaskAndExecWithoutImplicitReconvergence) {
   std::vector<int32_t> input{3, -1, 0, 7, -8, 5};
-  HostRuntime runtime;
+  RuntimeEngine runtime;
 
   const uint64_t in_addr = runtime.memory().AllocateGlobal(input.size() * sizeof(int32_t));
   const uint64_t out_addr = runtime.memory().AllocateGlobal(input.size() * sizeof(int32_t));

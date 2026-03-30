@@ -3,12 +3,12 @@
 #include <cstdint>
 
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/host_runtime.h"
+#include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
 namespace {
 
-KernelProgram BuildDivRemEncodeKernel() {
+ExecutableKernel BuildDivRemEncodeKernel() {
   InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
   builder.SLoadArg("s1", 1);
@@ -33,7 +33,7 @@ KernelProgram BuildDivRemEncodeKernel() {
 TEST(DivRemCycleTest, DivRemEncodeKernelWorksInCycleMode) {
   constexpr uint32_t n = 53;
   constexpr uint32_t width = 7;
-  HostRuntime runtime;
+  RuntimeEngine runtime;
   runtime.SetFixedGlobalMemoryLatency(8);
   const auto kernel = BuildDivRemEncodeKernel();
   const uint64_t out_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));

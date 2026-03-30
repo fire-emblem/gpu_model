@@ -6,7 +6,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "gpu_model/isa/kernel_program.h"
+#include "gpu_model/program/executable_kernel.h"
 
 namespace gpu_model {
 
@@ -21,9 +21,9 @@ class KernelProgramBuilder {
   Operand ParseRegOperand(std::string_view text) const;
   Operand ImmediateOperand(uint64_t value) const;
 
-  KernelProgram Build(std::string name,
-                      MetadataBlob metadata = {},
-                      ConstSegment const_segment = {});
+  ExecutableKernel Build(std::string name,
+                         MetadataBlob metadata = {},
+                         ConstSegment const_segment = {});
 
  protected:
   struct PendingLabelRef {

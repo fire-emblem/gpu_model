@@ -1,9 +1,11 @@
-#include "gpu_model/runtime/program_execution.h"
+#include "gpu_model/program/execution_route.h"
 
 #include <filesystem>
 #include <stdexcept>
 
 #include "gpu_model/isa/target_isa.h"
+#include "gpu_model/loader/amdgpu_code_object_decoder.h"
+#include "gpu_model/program/encoded_program_object.h"
 #include "gpu_model/program/program_object.h"
 
 namespace gpu_model {
@@ -30,33 +32,35 @@ ProgramObject CreateLoweredModeledProgramImage(const ProgramObject& image) {
 
 }  // namespace
 
-PreparedProgramExecution PrepareProgramExecution(const ProgramObject& image,
-                                                 ProgramExecutionRoute requested_route) {
-  PreparedProgramExecution prepared;
+PreparedExecutionRoute PrepareExecutionRoute(const ProgramObject& image,
+                                             ExecutionRoute requested_route) {
+  PreparedExecutionRoute prepared;
   const bool is_raw_program = ResolveTargetIsa(image.metadata()) == TargetIsa::GcnRawAsm;
 
-  if (requested_route == ProgramExecutionRoute::AutoSelect) {
+  if (requested_route == ExecutionRoute::AutoSelect) {
     prepared.resolved_route =
-        is_raw_program ? ProgramExecutionRoute::EncodedRaw
-                       : ProgramExecutionRoute::LoweredModeled;
+        is_raw_program ? ExecutionRoute::EncodedRaw
+                       : ExecutionRoute::LoweredModeled;
   } else {
     prepared.resolved_route = requested_route;
   }
 
-  if (prepared.resolved_route == ProgramExecutionRoute::EncodedRaw) {
+  if (prepared.resolved_route == ExecutionRoute::EncodedRaw) {
     const auto artifact_path = ArtifactPathForProgramImage(image);
     if (!artifact_path.has_value()) {
       throw std::invalid_argument("raw code object execution requires artifact_path metadata");
     }
-    prepared.owned_raw_code_object.emplace(
-        AmdgpuCodeObjectDecoder{}.Decode(*artifact_path, image.kernel_name()));
-    prepared.raw_code_object = &*prepared.owned_raw_code_object;
+    prepared.owned_raw_code_object =
+        std::make_shared<EncodedProgramObject>(
+            AmdgpuCodeObjectDecoder{}.Decode(*artifact_path, image.kernel_name()));
+    prepared.raw_code_object = prepared.owned_raw_code_object.get();
     return prepared;
   }
 
-  if (prepared.resolved_route == ProgramExecutionRoute::LoweredModeled && is_raw_program) {
-    prepared.owned_program_image.emplace(CreateLoweredModeledProgramImage(image));
-    prepared.execution_image = &*prepared.owned_program_image;
+  if (prepared.resolved_route == ExecutionRoute::LoweredModeled && is_raw_program) {
+    prepared.owned_program_image =
+        std::make_shared<ProgramObject>(CreateLoweredModeledProgramImage(image));
+    prepared.execution_image = prepared.owned_program_image.get();
     return prepared;
   }
 

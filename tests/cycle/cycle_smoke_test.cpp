@@ -6,7 +6,7 @@
 #include "gpu_model/arch/arch_registry.h"
 #include "gpu_model/debug/trace_sink.h"
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/host_runtime.h"
+#include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -18,7 +18,7 @@ TEST(CycleSmokeTest, ScalarAndVectorOpsConsumeFourCyclesEach) {
   builder.BExit();
   const auto kernel = builder.Build("tiny_cycle_kernel");
 
-  HostRuntime runtime;
+  RuntimeEngine runtime;
   LaunchRequest request;
   request.kernel = &kernel;
   request.mode = ExecutionMode::Cycle;
@@ -35,7 +35,7 @@ TEST(CycleSmokeTest, ConsecutiveKernelLaunchesIncludeDeviceGap) {
   builder.BExit();
   const auto kernel = builder.Build("launch_gap_kernel");
 
-  HostRuntime runtime;
+  RuntimeEngine runtime;
   LaunchRequest request;
   request.kernel = &kernel;
   request.mode = ExecutionMode::Cycle;
@@ -63,7 +63,7 @@ TEST(CycleSmokeTest, QueuesBlocksWhenGridExceedsPhysicalApCount) {
   ASSERT_NE(spec, nullptr);
 
   CollectingTraceSink trace;
-  HostRuntime runtime(&trace);
+  RuntimeEngine runtime(&trace);
 
   InstructionBuilder builder;
   builder.BExit();
@@ -104,7 +104,7 @@ TEST(CycleSmokeTest, QueuesBlocksWhenGridExceedsPhysicalApCount) {
 
 TEST(CycleSmokeTest, AsyncLoadPromotesOverflowResidentWavesPerPeu) {
   CollectingTraceSink trace;
-  HostRuntime runtime(&trace);
+  RuntimeEngine runtime(&trace);
   runtime.SetFixedGlobalMemoryLatency(40);
   runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
                                  /*kernel_launch_cycles=*/0,
@@ -152,7 +152,7 @@ TEST(CycleSmokeTest, AsyncLoadPromotesOverflowResidentWavesPerPeu) {
 
 TEST(CycleSmokeTest, ReadyWavesIssueRoundRobinWithinPeu) {
   CollectingTraceSink trace;
-  HostRuntime runtime(&trace);
+  RuntimeEngine runtime(&trace);
   runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
                                  /*kernel_launch_cycles=*/0,
                                  /*block_launch_cycles=*/0,
@@ -204,7 +204,7 @@ TEST(CycleSmokeTest, IssueCycleClassOverrideChangesSelectedInstructionCategory) 
   builder.BExit();
   const auto kernel = builder.Build("class_override_kernel", {}, std::move(const_segment));
 
-  HostRuntime runtime;
+  RuntimeEngine runtime;
   IssueCycleClassOverridesSpec class_overrides;
   class_overrides.scalar_memory = 6;
   runtime.SetIssueCycleClassOverrides(class_overrides);
@@ -232,7 +232,7 @@ TEST(CycleSmokeTest, IssueCycleOpOverrideTakesPriorityOverClassOverride) {
   builder.BExit();
   const auto kernel = builder.Build("op_override_kernel", {}, std::move(const_segment));
 
-  HostRuntime runtime;
+  RuntimeEngine runtime;
   IssueCycleClassOverridesSpec class_overrides;
   class_overrides.scalar_memory = 6;
   runtime.SetIssueCycleClassOverrides(class_overrides);

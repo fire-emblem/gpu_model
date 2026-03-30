@@ -1,4 +1,4 @@
-#include "gpu_model/runtime/runtime_hooks.h"
+#include "gpu_model/runtime/hip_runtime.h"
 
 #include <algorithm>
 #include <array>
@@ -12,10 +12,11 @@
 
 #include "gpu_model/arch/arch_registry.h"
 #include "gpu_model/isa/target_isa.h"
-#include "gpu_model/program/executable_kernel.h"
-#include "gpu_model/program/program_object.h"
-#include "gpu_model/runtime/program_execution.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/loader/amdgpu_code_object_decoder.h"
+#include "gpu_model/loader/amdgpu_obj_loader.h"
+#include "gpu_model/loader/executable_image_io.h"
+#include "gpu_model/loader/program_bundle_io.h"
+#include "gpu_model/program/execution_route.h"
 
 namespace gpu_model {
 
@@ -97,54 +98,56 @@ ModuleLoadFormat DetectModuleLoadFormat(const std::filesystem::path& path) {
 
 }  // namespace
 
-RuntimeHooks::RuntimeHooks(RuntimeEngine* runtime) {
-  if (runtime != nullptr) {
-    runtime_ = runtime;
-  }
-}
+HipRuntime::HipRuntime(RuntimeEngine* runtime)
+    : runtime_engine_(runtime != nullptr ? runtime : &owned_runtime_),
+      owns_runtime_(runtime == nullptr) {}
 
-uint64_t RuntimeHooks::Malloc(size_t bytes) {
-  const uint64_t addr = runtime_->memory().AllocateGlobal(bytes);
+uint64_t HipRuntime::Malloc(size_t bytes) {
+  const uint64_t addr = runtime_engine_->memory().AllocateGlobal(bytes);
   allocations_.emplace(addr, bytes);
   return addr;
 }
 
-uint64_t RuntimeHooks::MallocManaged(size_t bytes) {
-  const uint64_t addr = runtime_->memory().Allocate(MemoryPoolKind::Managed, bytes);
+uint64_t HipRuntime::MallocManaged(size_t bytes) {
+  const uint64_t addr = runtime_engine_->memory().Allocate(MemoryPoolKind::Managed, bytes);
   allocations_.emplace(addr, bytes);
   return addr;
 }
 
-void RuntimeHooks::Free(uint64_t addr) {
+void HipRuntime::Free(uint64_t addr) {
   allocations_.erase(addr);
 }
 
-void RuntimeHooks::DeviceSynchronize() const {}
+void HipRuntime::DeviceSynchronize() const {}
 
-void RuntimeHooks::MemcpyDeviceToDevice(uint64_t dst_addr, uint64_t src_addr, size_t bytes) {
+void HipRuntime::MemcpyDeviceToDevice(uint64_t dst_addr, uint64_t src_addr, size_t bytes) {
   std::vector<std::byte> buffer(bytes);
-  runtime_->memory().ReadGlobal(src_addr, std::span<std::byte>(buffer));
-  runtime_->memory().WriteGlobal(dst_addr, std::span<const std::byte>(buffer));
+  runtime_engine_->memory().ReadGlobal(src_addr, std::span<std::byte>(buffer));
+  runtime_engine_->memory().WriteGlobal(dst_addr, std::span<const std::byte>(buffer));
 }
 
-void RuntimeHooks::MemsetD8(uint64_t addr, uint8_t value, size_t bytes) {
+void HipRuntime::MemsetD8(uint64_t addr, uint8_t value, size_t bytes) {
   std::vector<std::byte> buffer(bytes, static_cast<std::byte>(value));
-  runtime_->memory().WriteGlobal(addr, std::span<const std::byte>(buffer));
+  runtime_engine_->memory().WriteGlobal(addr, std::span<const std::byte>(buffer));
 }
 
-void RuntimeHooks::MemsetD32(uint64_t addr, uint32_t value, size_t count) {
+void HipRuntime::MemsetD32(uint64_t addr, uint32_t value, size_t count) {
   std::vector<std::byte> buffer(count * sizeof(uint32_t));
   for (size_t i = 0; i < count; ++i) {
     std::memcpy(buffer.data() + i * sizeof(uint32_t), &value, sizeof(uint32_t));
   }
-  runtime_->memory().WriteGlobal(addr, std::span<const std::byte>(buffer));
+  runtime_engine_->memory().WriteGlobal(addr, std::span<const std::byte>(buffer));
 }
 
-int RuntimeHooks::GetDeviceCount() const {
+int HipRuntime::GetDeviceCount() const {
   return 1;
 }
 
-bool RuntimeHooks::SetDevice(int device_id) {
+int HipRuntime::GetDevice() const {
+  return current_device_;
+}
+
+bool HipRuntime::SetDevice(int device_id) {
   if (device_id != 0) {
     return false;
   }
@@ -152,7 +155,7 @@ bool RuntimeHooks::SetDevice(int device_id) {
   return true;
 }
 
-RuntimeDeviceProperties RuntimeHooks::GetDeviceProperties(int device_id) const {
+RuntimeDeviceProperties HipRuntime::GetDeviceProperties(int device_id) const {
   if (device_id != 0) {
     throw std::out_of_range("invalid device id");
   }
@@ -163,8 +166,8 @@ RuntimeDeviceProperties RuntimeHooks::GetDeviceProperties(int device_id) const {
   return BuildRuntimeDeviceProperties(*spec);
 }
 
-std::optional<int> RuntimeHooks::GetDeviceAttribute(RuntimeDeviceAttribute attribute,
-                                                    int device_id) const {
+std::optional<int> HipRuntime::GetDeviceAttribute(RuntimeDeviceAttribute attribute,
+                                                  int device_id) const {
   const auto props = GetDeviceProperties(device_id);
   switch (attribute) {
     case RuntimeDeviceAttribute::WarpSize:
@@ -231,36 +234,34 @@ std::optional<int> RuntimeHooks::GetDeviceAttribute(RuntimeDeviceAttribute attri
   return std::nullopt;
 }
 
-LaunchResult RuntimeHooks::LaunchKernel(const ExecutableKernel& kernel,
-                                        LaunchConfig config,
-                                        KernelArgPack args,
-                                        ExecutionMode mode,
-                                        const std::string& arch_name,
-                                        TraceSink* trace) {
+LaunchResult HipRuntime::LaunchKernel(const ExecutableKernel& kernel,
+                                      LaunchConfig config,
+                                      KernelArgPack args,
+                                      ExecutionMode mode,
+                                      const std::string& arch_name,
+                                      TraceSink* trace) {
   LaunchRequest request;
   request.arch_name = arch_name;
   request.kernel = &kernel;
-  request.program_execution_route = ProgramExecutionRoute::AutoSelect;
+  request.program_execution_route = ExecutionRoute::AutoSelect;
   request.config = config;
   request.args = std::move(args);
   request.mode = mode;
   request.trace = trace;
-  return runtime_->Launch(request);
+  return runtime_engine_->Launch(request);
 }
 
-LaunchResult RuntimeHooks::LaunchProgramImage(const ProgramObject& image,
-                                              LaunchConfig config,
-                                              KernelArgPack args,
-                                              ExecutionMode mode,
-                                              std::string arch_name,
-                                              TraceSink* trace,
-                                              ProgramExecutionRoute route) {
-  const auto prepared = PrepareProgramExecution(image, route);
+LaunchResult HipRuntime::LaunchProgramImage(const ProgramObject& image,
+                                            LaunchConfig config,
+                                            KernelArgPack args,
+                                            ExecutionMode mode,
+                                            std::string arch_name,
+                                            TraceSink* trace,
+                                            ExecutionRoute route) {
+  const auto prepared = PrepareExecutionRoute(image, route);
 
-  if (prepared.resolved_route == ProgramExecutionRoute::EncodedRaw) {
-    const auto artifact_path =
-        std::filesystem::path(prepared.raw_code_object->metadata.values.at("artifact_path"));
-    last_load_result_ = LoadAmdgpuObjectToDevice(artifact_path, image.kernel_name());
+  if (prepared.resolved_route == ExecutionRoute::EncodedRaw) {
+    last_load_result_ = MaterializeLoadPlan(BuildDeviceLoadPlan(*prepared.raw_code_object));
   } else {
     last_load_result_ = LoadProgramImageToDevice(*prepared.execution_image);
   }
@@ -275,10 +276,10 @@ LaunchResult RuntimeHooks::LaunchProgramImage(const ProgramObject& image,
   request.args = std::move(args);
   request.mode = mode;
   request.trace = trace;
-  return runtime_->Launch(request);
+  return runtime_engine_->Launch(request);
 }
 
-DeviceLoadPlan RuntimeHooks::BuildLoadPlan(const ProgramObject& image) const {
+DeviceLoadPlan HipRuntime::BuildLoadPlan(const ProgramObject& image) const {
   if (ResolveTargetIsa(image.metadata()) == TargetIsa::GcnRawAsm) {
     const auto artifact_path = MetadataValue(image.metadata(), "artifact_path");
     if (artifact_path.has_value()) {
@@ -288,34 +289,34 @@ DeviceLoadPlan RuntimeHooks::BuildLoadPlan(const ProgramObject& image) const {
   return BuildDeviceLoadPlan(image);
 }
 
-DeviceLoadPlan RuntimeHooks::BuildLoadPlanFromAmdgpuObject(
+DeviceLoadPlan HipRuntime::BuildLoadPlanFromAmdgpuObject(
     const std::filesystem::path& path,
     std::optional<std::string> kernel_name) const {
-  const auto image = DescribeAmdgpuObject(path, std::move(kernel_name));
-  return BuildDeviceLoadPlan(image);
+  const auto decoded = AmdgpuCodeObjectDecoder{}.Decode(path, std::move(kernel_name));
+  return BuildDeviceLoadPlan(decoded);
 }
 
-AmdgpuCodeObjectImage RuntimeHooks::DescribeAmdgpuObject(
+EncodedProgramObject HipRuntime::DescribeAmdgpuObject(
     const std::filesystem::path& path,
     std::optional<std::string> kernel_name) const {
   return AmdgpuCodeObjectDecoder{}.Decode(path, std::move(kernel_name));
 }
 
-DeviceLoadResult RuntimeHooks::MaterializeLoadPlan(const DeviceLoadPlan& plan) {
-  return DeviceImageLoader{}.Materialize(plan, runtime_->memory());
+DeviceLoadResult HipRuntime::MaterializeLoadPlan(const DeviceLoadPlan& plan) {
+  return DeviceImageLoader{}.Materialize(plan, runtime_engine_->memory());
 }
 
-DeviceLoadResult RuntimeHooks::LoadProgramImageToDevice(const ProgramImage& image) {
+DeviceLoadResult HipRuntime::LoadProgramImageToDevice(const ProgramObject& image) {
   return MaterializeLoadPlan(BuildLoadPlan(image));
 }
 
-DeviceLoadResult RuntimeHooks::LoadAmdgpuObjectToDevice(
+DeviceLoadResult HipRuntime::LoadAmdgpuObjectToDevice(
     const std::filesystem::path& path,
     std::optional<std::string> kernel_name) {
   return MaterializeLoadPlan(BuildLoadPlanFromAmdgpuObject(path, std::move(kernel_name)));
 }
 
-void RuntimeHooks::LoadModule(const ModuleLoadRequest& request) {
+void HipRuntime::LoadModule(const ModuleLoadRequest& request) {
   if (request.module_name.empty()) {
     throw std::invalid_argument("module_name must not be empty");
   }
@@ -339,18 +340,18 @@ void RuntimeHooks::LoadModule(const ModuleLoadRequest& request) {
       RegisterProgramImage(request.module_name, ExecutableImageIO::Read(request.path));
       return;
     case ModuleLoadFormat::ProgramFileStem:
-      RegisterProgramImage(request.module_name, ProgramFileLoader{}.LoadFromStem(request.path));
+      RegisterProgramImage(request.module_name, ObjectReader{}.LoadFromStem(request.path));
       return;
   }
 }
 
-void RuntimeHooks::RegisterProgramImage(std::string module_name, ProgramObject image) {
+void HipRuntime::RegisterProgramImage(std::string module_name, ProgramObject image) {
   modules_[module_name][image.kernel_name()] = std::move(image);
 }
 
-void RuntimeHooks::LoadAmdgpuObject(std::string module_name,
-                                    const std::filesystem::path& path,
-                                    std::optional<std::string> kernel_name) {
+void HipRuntime::LoadAmdgpuObject(std::string module_name,
+                                  const std::filesystem::path& path,
+                                  std::optional<std::string> kernel_name) {
   LoadModule(ModuleLoadRequest{
       .module_name = std::move(module_name),
       .path = path,
@@ -359,7 +360,7 @@ void RuntimeHooks::LoadAmdgpuObject(std::string module_name,
   });
 }
 
-void RuntimeHooks::LoadProgramBundle(std::string module_name, const std::filesystem::path& path) {
+void HipRuntime::LoadProgramBundle(std::string module_name, const std::filesystem::path& path) {
   LoadModule(ModuleLoadRequest{
       .module_name = std::move(module_name),
       .path = path,
@@ -367,8 +368,7 @@ void RuntimeHooks::LoadProgramBundle(std::string module_name, const std::filesys
   });
 }
 
-void RuntimeHooks::LoadExecutableImage(std::string module_name,
-                                       const std::filesystem::path& path) {
+void HipRuntime::LoadExecutableImage(std::string module_name, const std::filesystem::path& path) {
   LoadModule(ModuleLoadRequest{
       .module_name = std::move(module_name),
       .path = path,
@@ -376,8 +376,7 @@ void RuntimeHooks::LoadExecutableImage(std::string module_name,
   });
 }
 
-void RuntimeHooks::LoadProgramFileStem(std::string module_name,
-                                       const std::filesystem::path& path) {
+void HipRuntime::LoadProgramFileStem(std::string module_name, const std::filesystem::path& path) {
   LoadModule(ModuleLoadRequest{
       .module_name = std::move(module_name),
       .path = path,
@@ -385,24 +384,28 @@ void RuntimeHooks::LoadProgramFileStem(std::string module_name,
   });
 }
 
-void RuntimeHooks::UnloadModule(const std::string& module_name) {
+void HipRuntime::UnloadModule(const std::string& module_name) {
   modules_.erase(module_name);
 }
 
-void RuntimeHooks::Reset() {
-  owned_runtime_ = RuntimeEngine{};
-  runtime_ = &owned_runtime_;
+void HipRuntime::Reset() {
+  if (owns_runtime_) {
+    owned_runtime_ = RuntimeEngine{};
+    runtime_engine_ = &owned_runtime_;
+  } else {
+    runtime_engine_->ResetDeviceCycle();
+  }
   current_device_ = 0;
   allocations_.clear();
   modules_.clear();
   last_load_result_.reset();
 }
 
-bool RuntimeHooks::HasModule(const std::string& module_name) const {
+bool HipRuntime::HasModule(const std::string& module_name) const {
   return modules_.find(module_name) != modules_.end();
 }
 
-bool RuntimeHooks::HasKernel(const std::string& module_name, const std::string& kernel_name) const {
+bool HipRuntime::HasKernel(const std::string& module_name, const std::string& kernel_name) const {
   const auto module_it = modules_.find(module_name);
   if (module_it == modules_.end()) {
     return false;
@@ -410,7 +413,7 @@ bool RuntimeHooks::HasKernel(const std::string& module_name, const std::string& 
   return module_it->second.find(kernel_name) != module_it->second.end();
 }
 
-std::vector<std::string> RuntimeHooks::ListModules() const {
+std::vector<std::string> HipRuntime::ListModules() const {
   std::vector<std::string> names;
   names.reserve(modules_.size());
   for (const auto& [name, kernels] : modules_) {
@@ -421,7 +424,7 @@ std::vector<std::string> RuntimeHooks::ListModules() const {
   return names;
 }
 
-std::vector<std::string> RuntimeHooks::ListKernels(const std::string& module_name) const {
+std::vector<std::string> HipRuntime::ListKernels(const std::string& module_name) const {
   std::vector<std::string> names;
   const auto module_it = modules_.find(module_name);
   if (module_it == modules_.end()) {
@@ -436,14 +439,14 @@ std::vector<std::string> RuntimeHooks::ListKernels(const std::string& module_nam
   return names;
 }
 
-LaunchResult RuntimeHooks::LaunchRegisteredKernel(const std::string& module_name,
-                                                  const std::string& kernel_name,
-                                                  LaunchConfig config,
-                                                  KernelArgPack args,
-                                                  ExecutionMode mode,
-                                                  std::string arch_name,
-                                                  TraceSink* trace,
-                                                  ProgramExecutionRoute route) {
+LaunchResult HipRuntime::LaunchRegisteredKernel(const std::string& module_name,
+                                                const std::string& kernel_name,
+                                                LaunchConfig config,
+                                                KernelArgPack args,
+                                                ExecutionMode mode,
+                                                std::string arch_name,
+                                                TraceSink* trace,
+                                                ExecutionRoute route) {
   const auto module_it = modules_.find(module_name);
   if (module_it == modules_.end()) {
     LaunchResult result;
@@ -462,32 +465,32 @@ LaunchResult RuntimeHooks::LaunchRegisteredKernel(const std::string& module_name
                             std::move(arch_name), trace, route);
 }
 
-LaunchResult RuntimeHooks::LaunchAmdgpuObject(const std::filesystem::path& path,
-                                              LaunchConfig config,
-                                              KernelArgPack args,
-                                              ExecutionMode mode,
-                                              std::string arch_name,
-                                              TraceSink* trace,
-                                              std::optional<std::string> kernel_name,
-                                              ProgramExecutionRoute route) {
-  if (route == ProgramExecutionRoute::LoweredModeled) {
+LaunchResult HipRuntime::LaunchAmdgpuObject(const std::filesystem::path& path,
+                                            LaunchConfig config,
+                                            KernelArgPack args,
+                                            ExecutionMode mode,
+                                            std::string arch_name,
+                                            TraceSink* trace,
+                                            std::optional<std::string> kernel_name,
+                                            ExecutionRoute route) {
+  if (route == ExecutionRoute::LoweredModeled) {
     const auto image = AmdgpuObjLoader{}.LoadFromObject(path, std::move(kernel_name));
     return LaunchProgramImage(image, std::move(config), std::move(args), mode,
-                              std::move(arch_name), trace, ProgramExecutionRoute::LoweredModeled);
+                              std::move(arch_name), trace, ExecutionRoute::LoweredModeled);
   }
 
-  const auto raw_code_object = AmdgpuCodeObjectDecoder{}.Decode(path, kernel_name);
-  last_load_result_ = LoadAmdgpuObjectToDevice(path, raw_code_object.kernel_name);
+  const auto raw_code_object = DescribeAmdgpuObject(path, kernel_name);
+  last_load_result_ = MaterializeLoadPlan(BuildDeviceLoadPlan(raw_code_object));
   LaunchRequest request;
   request.arch_name = std::move(arch_name);
   request.raw_code_object = &raw_code_object;
-  request.program_execution_route = ProgramExecutionRoute::EncodedRaw;
+  request.program_execution_route = ExecutionRoute::EncodedRaw;
   request.device_load = last_load_result_.has_value() ? &*last_load_result_ : nullptr;
   request.config = config;
   request.args = std::move(args);
   request.mode = mode;
   request.trace = trace;
-  return runtime_->Launch(request);
+  return runtime_engine_->Launch(request);
 }
 
 }  // namespace gpu_model

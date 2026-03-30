@@ -3,12 +3,12 @@
 #include <cstdint>
 
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/host_runtime.h"
+#include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
 namespace {
 
-KernelProgram BuildClampKernel() {
+ExecutableKernel BuildClampKernel() {
   InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
   builder.SLoadArg("s1", 1);
@@ -30,7 +30,7 @@ KernelProgram BuildClampKernel() {
   return builder.Build("clamp_cycle");
 }
 
-KernelProgram BuildHistogramKernel() {
+ExecutableKernel BuildHistogramKernel() {
   InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
   builder.SLoadArg("s1", 1);
@@ -51,7 +51,7 @@ KernelProgram BuildHistogramKernel() {
 
 TEST(AdvancedSyntaxCycleTest, ClampUsesMinMaxInCycleMode) {
   constexpr uint32_t n = 16;
-  HostRuntime runtime;
+  RuntimeEngine runtime;
   runtime.SetFixedGlobalMemoryLatency(8);
   const auto kernel = BuildClampKernel();
   const uint64_t in_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
@@ -84,7 +84,7 @@ TEST(AdvancedSyntaxCycleTest, ClampUsesMinMaxInCycleMode) {
 TEST(AdvancedSyntaxCycleTest, HistogramUsesGlobalAtomicAddInCycleMode) {
   constexpr uint32_t n = 16;
   constexpr uint32_t bins = 4;
-  HostRuntime runtime;
+  RuntimeEngine runtime;
   runtime.SetFixedGlobalMemoryLatency(8);
   const auto kernel = BuildHistogramKernel();
   const uint64_t in_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));

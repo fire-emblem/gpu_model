@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <vector>
 
+#include "gpu_model/loader/amdgpu_code_object_decoder.h"
 #include "gpu_model/runtime/hip_interposer_state.h"
 
 namespace gpu_model {

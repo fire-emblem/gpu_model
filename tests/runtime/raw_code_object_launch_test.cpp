@@ -10,8 +10,8 @@
 
 #include "gpu_model/loader/amdgpu_code_object_decoder.h"
 #include "gpu_model/isa/target_isa.h"
-#include "gpu_model/runtime/host_runtime.h"
-#include "gpu_model/runtime/runtime_hooks.h"
+#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/hip_runtime.h"
 
 namespace gpu_model {
 namespace {
@@ -68,7 +68,7 @@ std::filesystem::path AssembleLlvmMcFixture(const std::string& stem,
   return obj_path;
 }
 
-TEST(RawCodeObjectLaunchTest, HostRuntimeLaunchesExplicitEncodedRawInput) {
+TEST(RawCodeObjectLaunchTest, RuntimeEngineLaunchesExplicitEncodedRawInput) {
   if (!HasLlvmMcAmdgpuToolchain()) {
     GTEST_SKIP() << "required llvm-mc/LLVM/binutils tools not available";
   }
@@ -78,7 +78,7 @@ TEST(RawCodeObjectLaunchTest, HostRuntimeLaunchesExplicitEncodedRawInput) {
       std::filesystem::path("tests/asm_cases/loader/kernarg_aggregate_by_value.s"));
   const auto image = AmdgpuCodeObjectDecoder{}.Decode(obj_path, "asm_kernarg_aggregate_by_value");
 
-  HostRuntime runtime;
+  RuntimeEngine runtime;
   const uint64_t out_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
   runtime.memory().StoreGlobalValue<int32_t>(out_addr, 0);
 

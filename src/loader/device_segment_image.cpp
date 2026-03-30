@@ -45,7 +45,7 @@ DeviceSegmentImage MakeRawDataSegment(const RawDataSegment& raw_data_segment) {
 
 }  // namespace
 
-DeviceLoadPlan BuildDeviceLoadPlan(const ProgramImage& image) {
+DeviceLoadPlan BuildDeviceLoadPlan(const ProgramObject& image) {
   DeviceLoadPlan plan;
   const auto metadata = ParseKernelLaunchMetadata(image.metadata());
   const auto code_bytes = std::vector<std::byte>(
@@ -74,7 +74,7 @@ DeviceLoadPlan BuildDeviceLoadPlan(const ProgramImage& image) {
   return plan;
 }
 
-DeviceLoadPlan BuildDeviceLoadPlan(const AmdgpuCodeObjectImage& image) {
+DeviceLoadPlan BuildDeviceLoadPlan(const EncodedProgramObject& image) {
   DeviceLoadPlan plan;
   const auto metadata = ParseKernelLaunchMetadata(image.metadata);
   plan.segments.push_back(MakeCodeSegment(image.kernel_name + ".text", image.code_bytes));

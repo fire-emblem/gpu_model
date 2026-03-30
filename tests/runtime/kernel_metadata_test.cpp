@@ -2,7 +2,7 @@
 
 #include "gpu_model/isa/instruction_builder.h"
 #include "gpu_model/isa/kernel_metadata.h"
-#include "gpu_model/runtime/host_runtime.h"
+#include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -106,7 +106,7 @@ TEST(KernelMetadataTest, RejectsLaunchesThatViolateMetadataConstraints) {
                        {"max_block_dim", "128"},
                    }});
 
-  HostRuntime runtime;
+  RuntimeEngine runtime;
 
   LaunchRequest wrong_args;
   wrong_args.kernel = &kernel;
@@ -162,7 +162,7 @@ TEST(KernelMetadataTest, RejectsKernelNameNotPresentInModuleKernelList) {
                        {"module_kernels", "other_kernel,third_kernel"},
                    }});
 
-  HostRuntime runtime;
+  RuntimeEngine runtime;
   LaunchRequest request;
   request.kernel = &kernel;
   request.config.grid_dim_x = 1;

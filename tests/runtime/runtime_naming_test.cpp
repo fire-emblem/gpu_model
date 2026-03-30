@@ -13,13 +13,13 @@
 namespace gpu_model {
 namespace {
 
-TEST(RuntimeNamingTest, NewRuntimeNamesAliasLegacyTypes) {
-  static_assert(std::is_same_v<ModelRuntime, ModelRuntimeApi>);
-  static_assert(std::is_same_v<HipRuntime, RuntimeHooks>);
-  static_assert(std::is_same_v<RuntimeEngine, HostRuntime>);
-  static_assert(std::is_same_v<ProgramObject, ProgramImage>);
-  static_assert(std::is_same_v<ExecutableKernel, KernelProgram>);
-  static_assert(std::is_base_of_v<EncodedProgramObject, AmdgpuCodeObjectImage>);
+TEST(RuntimeNamingTest, NewRuntimeTypesAreConcreteAndUsable) {
+  static_assert(std::is_class_v<ModelRuntime>);
+  static_assert(std::is_class_v<HipRuntime>);
+  static_assert(std::is_class_v<RuntimeEngine>);
+  static_assert(std::is_constructible_v<HipRuntime, RuntimeEngine*>);
+  static_assert(std::is_constructible_v<ModelRuntime, RuntimeEngine*>);
+  static_assert(std::is_default_constructible_v<EncodedProgramObject>);
   static_assert(std::is_same_v<EncodedExecEngine, RawGcnExecutor>);
 
   RuntimeEngine engine;
@@ -27,6 +27,36 @@ TEST(RuntimeNamingTest, NewRuntimeNamesAliasLegacyTypes) {
   ModelRuntime model(&engine);
   EXPECT_EQ(hip.GetDeviceCount(), 1);
   EXPECT_EQ(model.GetDeviceCount(), 1);
+}
+
+TEST(RuntimeNamingTest, ResetReinitializesOwnedRuntimeState) {
+  HipRuntime hip;
+  const uint64_t hip_first = hip.Malloc(16);
+  (void)hip.Malloc(16);
+  hip.Reset();
+  EXPECT_EQ(hip.Malloc(16), hip_first);
+
+  ModelRuntime model;
+  const uint64_t model_first = model.Malloc(16);
+  (void)model.Malloc(16);
+  model.Reset();
+  EXPECT_EQ(model.Malloc(16), model_first);
+}
+
+TEST(RuntimeNamingTest, ResetKeepsInjectedRuntimeBinding) {
+  RuntimeEngine shared_runtime;
+  HipRuntime hip(&shared_runtime);
+  ModelRuntime model(&shared_runtime);
+
+  const uint64_t hip_first = hip.Malloc(16);
+  hip.Reset();
+  const uint64_t hip_second = hip.Malloc(16);
+  EXPECT_GT(hip_second, hip_first);
+
+  const uint64_t model_first = model.Malloc(16);
+  model.Reset();
+  const uint64_t model_second = model.Malloc(16);
+  EXPECT_GT(model_second, model_first);
 }
 
 }  // namespace

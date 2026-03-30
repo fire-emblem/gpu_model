@@ -7,7 +7,8 @@
 #include <string>
 #include <vector>
 
-#include "gpu_model/runtime/runtime_hooks.h"
+#include "gpu_model/runtime/hip_runtime.h"
+#include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -80,10 +81,10 @@ TEST(HipccParallelExecutionTest, ThreeDimensionalVecaddAddsMatchesBetweenStAndMt
   }
 
   const auto run_mode = [&](FunctionalExecutionMode mode, uint32_t worker_threads) {
-    HostRuntime runtime;
+    RuntimeEngine runtime;
     runtime.SetFunctionalExecutionConfig(
         FunctionalExecutionConfig{.mode = mode, .worker_threads = worker_threads});
-    RuntimeHooks hooks(&runtime);
+    HipRuntime hooks(&runtime);
 
     const uint64_t a_addr = hooks.Malloc(total * sizeof(float));
     const uint64_t b_addr = hooks.Malloc(total * sizeof(float));
@@ -117,7 +118,7 @@ TEST(HipccParallelExecutionTest, ThreeDimensionalVecaddAddsMatchesBetweenStAndMt
         "c500",
         nullptr,
         "vecadd_3d_adds",
-        ProgramExecutionRoute::LoweredModeled);
+        ExecutionRoute::LoweredModeled);
     const auto end = std::chrono::steady_clock::now();
     EXPECT_TRUE(launch.ok) << launch.error_message;
 

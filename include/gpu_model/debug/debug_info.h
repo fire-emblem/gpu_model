@@ -4,7 +4,7 @@
 #include <string>
 #include <unordered_map>
 
-#include "gpu_model/isa/kernel_program.h"
+#include "gpu_model/program/executable_kernel.h"
 
 namespace gpu_model {
 
@@ -12,7 +12,7 @@ struct KernelDebugInfo {
   std::string kernel_name;
   std::unordered_map<uint64_t, DebugLoc> pc_to_debug_loc;
 
-  static KernelDebugInfo FromKernel(const KernelProgram& kernel) {
+  static KernelDebugInfo FromKernel(const ExecutableKernel& kernel) {
     KernelDebugInfo info;
     info.kernel_name = kernel.name();
     for (uint64_t pc = 0; pc < kernel.instructions().size(); ++pc) {

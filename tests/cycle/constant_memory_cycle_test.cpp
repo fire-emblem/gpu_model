@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/host_runtime.h"
+#include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -18,7 +18,7 @@ ConstSegment MakeConstSegment(const std::vector<int32_t>& values) {
   return segment;
 }
 
-KernelProgram BuildConstCycleKernel(ConstSegment const_segment) {
+ExecutableKernel BuildConstCycleKernel(ConstSegment const_segment) {
   InstructionBuilder builder;
   builder.VMov("v0", 0);
   builder.MLoadConst("v1", "v0", 4);
@@ -26,7 +26,7 @@ KernelProgram BuildConstCycleKernel(ConstSegment const_segment) {
   return builder.Build("const_cycle", {}, std::move(const_segment));
 }
 
-KernelProgram BuildScalarBufferCycleKernel(ConstSegment const_segment) {
+ExecutableKernel BuildScalarBufferCycleKernel(ConstSegment const_segment) {
   InstructionBuilder builder;
   builder.SMov("s0", 0);
   builder.SBufferLoadDword("s1", "s0", 4);
@@ -37,7 +37,7 @@ KernelProgram BuildScalarBufferCycleKernel(ConstSegment const_segment) {
 
 TEST(ConstantMemoryCycleTest, ConstantLoadUsesOnlyFixedIssueCost) {
   const auto kernel = BuildConstCycleKernel(MakeConstSegment({42}));
-  HostRuntime runtime;
+  RuntimeEngine runtime;
 
   LaunchRequest request;
   request.kernel = &kernel;
@@ -52,7 +52,7 @@ TEST(ConstantMemoryCycleTest, ConstantLoadUsesOnlyFixedIssueCost) {
 
 TEST(ConstantMemoryCycleTest, ScalarBufferLoadUsesScalarDestination) {
   const auto kernel = BuildScalarBufferCycleKernel(MakeConstSegment({42}));
-  HostRuntime runtime;
+  RuntimeEngine runtime;
 
   LaunchRequest request;
   request.kernel = &kernel;

@@ -3,12 +3,12 @@
 #include <cstdint>
 
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/host_runtime.h"
+#include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
 namespace {
 
-KernelProgram BuildSharedAtomicReductionKernel() {
+ExecutableKernel BuildSharedAtomicReductionKernel() {
   InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
   builder.SysLaneId("v0");
@@ -46,7 +46,7 @@ KernelProgram BuildSharedAtomicReductionKernel() {
 }
 
 TEST(SharedSyncFunctionalTest, SharedAtomicReductionAcrossTwoWavesIsCorrect) {
-  HostRuntime runtime;
+  RuntimeEngine runtime;
   const auto kernel = BuildSharedAtomicReductionKernel();
   const uint64_t out_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
   runtime.memory().StoreGlobalValue<int32_t>(out_addr, -1);

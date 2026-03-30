@@ -11,7 +11,7 @@
 #include <vector>
 
 #include "gpu_model/runtime/hip_interposer_state.h"
-#include "gpu_model/runtime/runtime_hooks.h"
+#include "gpu_model/runtime/hip_runtime.h"
 #include "test_matrix_profile.h"
 
 namespace gpu_model {
@@ -265,7 +265,7 @@ std::vector<float> ExpectedSoftmax(uint32_t n) {
   return std::vector<float>(n, 1.0f / 64.0f);
 }
 
-std::vector<HipCtsCase> MakeRuntimeHooksCasesFull() {
+std::vector<HipCtsCase> MakeHipRuntimeCasesFull() {
   std::vector<HipCtsCase> cases;
   uint32_t id = 0;
   const auto add = [&](HipCtsCase c) {
@@ -368,16 +368,16 @@ std::vector<HipCtsCase> MakeRuntimeHooksCasesFull() {
   return cases;
 }
 
-std::vector<HipCtsCase> MakeRuntimeHooksCasesQuick() {
-  return test::SelectIndexedCases(MakeRuntimeHooksCasesFull(),
+std::vector<HipCtsCase> MakeHipRuntimeCasesQuick() {
+  return test::SelectIndexedCases(MakeHipRuntimeCasesFull(),
                                   {0, 4, 10, 19, 20, 24, 34, 35, 44, 45, 54, 55, 64, 65});
 }
 
-std::vector<HipCtsCase> MakeRuntimeHooksCases() {
+std::vector<HipCtsCase> MakeHipRuntimeCases() {
   if (test::Phase1CompatibilityAliasGateEnabled()) {
     return {};
   }
-  return test::FullTestMatrixEnabled() ? MakeRuntimeHooksCasesFull() : MakeRuntimeHooksCasesQuick();
+  return test::FullTestMatrixEnabled() ? MakeHipRuntimeCasesFull() : MakeHipRuntimeCasesQuick();
 }
 
 std::vector<HipCtsCase> MakeInterposerCasesFull() {
@@ -481,10 +481,10 @@ std::vector<HipCtsCase> MakeInterposerCases() {
   return test::FullTestMatrixEnabled() ? MakeInterposerCasesFull() : MakeInterposerCasesQuick();
 }
 
-class HipCtsRuntimeHooksTest : public ::testing::TestWithParam<HipCtsCase> {};
+class HipCtsHipRuntimeTest : public ::testing::TestWithParam<HipCtsCase> {};
 class HipCtsInterposerStateTest : public ::testing::TestWithParam<HipCtsCase> {};
 
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(HipCtsRuntimeHooksTest);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(HipCtsHipRuntimeTest);
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(HipCtsInterposerStateTest);
 
 std::string CaseName(const ::testing::TestParamInfo<HipCtsCase>& info) { return info.param.name; }
@@ -505,13 +505,13 @@ void ExpectNearVector(const std::vector<float>& actual,
   }
 }
 
-TEST_P(HipCtsRuntimeHooksTest, ExecutesHipOutAndValidatesResults) {
+TEST_P(HipCtsHipRuntimeTest, ExecutesHipOutAndValidatesResults) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
 
   const HipCtsCase& c = GetParam();
-  RuntimeHooks hooks;
+  HipRuntime hooks;
 
   switch (c.kernel) {
     case KernelKind::VecAdd: {
@@ -650,8 +650,8 @@ TEST_P(HipCtsRuntimeHooksTest, ExecutesHipOutAndValidatesResults) {
   }
 }
 
-TEST(RuntimeHooksTest, HipCtsFullCaseCountIsOneHundred) {
-  EXPECT_EQ(MakeRuntimeHooksCasesFull().size() + MakeInterposerCasesFull().size(), 100u);
+TEST(HipRuntimeTest, HipCtsFullCaseCountIsOneHundred) {
+  EXPECT_EQ(MakeHipRuntimeCasesFull().size() + MakeInterposerCasesFull().size(), 100u);
 }
 
 TEST_P(HipCtsInterposerStateTest, ExecutesHipOutThroughRegisteredHostFunctionAndValidatesResults) {
@@ -812,13 +812,13 @@ TEST_P(HipCtsInterposerStateTest, ExecutesHipOutThroughRegisteredHostFunctionAnd
   }
 }
 
-INSTANTIATE_TEST_SUITE_P(RuntimeHooksCTS, HipCtsRuntimeHooksTest,
-                         ::testing::ValuesIn(MakeRuntimeHooksCases()), CaseName);
+INSTANTIATE_TEST_SUITE_P(HipRuntimeCTS, HipCtsHipRuntimeTest,
+                         ::testing::ValuesIn(MakeHipRuntimeCases()), CaseName);
 INSTANTIATE_TEST_SUITE_P(InterposerCTS, HipCtsInterposerStateTest,
                          ::testing::ValuesIn(MakeInterposerCases()), CaseName);
 
-TEST(RuntimeHooksTest, CtsCaseCountIsOneHundred) {
-  EXPECT_EQ(MakeRuntimeHooksCasesFull().size() + MakeInterposerCasesFull().size(), 100u);
+TEST(HipRuntimeTest, CtsCaseCountIsOneHundred) {
+  EXPECT_EQ(MakeHipRuntimeCasesFull().size() + MakeInterposerCasesFull().size(), 100u);
 }
 
 }  // namespace
