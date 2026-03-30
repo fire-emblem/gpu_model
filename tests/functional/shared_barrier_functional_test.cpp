@@ -127,6 +127,50 @@ TEST(SharedBarrierFunctionalTest, EmitsBarrierTraceEvents) {
   EXPECT_TRUE(ContainsBarrierTrace(trace.events(), "release"));
 }
 
+TEST(SharedBarrierFunctionalTest, MatchesResultsAcrossSingleThreadedAndMarlParallelModes) {
+  constexpr uint32_t block_dim = 128;
+  constexpr uint32_t grid_dim = 2;
+  constexpr uint32_t n = block_dim * grid_dim;
+
+  const auto run_mode = [&](FunctionalExecutionMode mode) {
+    RuntimeEngine runtime;
+    runtime.SetFunctionalExecutionMode(mode);
+    const uint64_t in_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
+    const uint64_t out_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
+    for (uint32_t i = 0; i < n; ++i) {
+      runtime.memory().StoreGlobalValue<int32_t>(in_addr + i * sizeof(int32_t),
+                                                 static_cast<int32_t>(i + 1));
+      runtime.memory().StoreGlobalValue<int32_t>(out_addr + i * sizeof(int32_t), -1);
+    }
+
+    const auto kernel = BuildBlockReverseKernel();
+    LaunchRequest request;
+    request.kernel = &kernel;
+    request.config.grid_dim_x = grid_dim;
+    request.config.block_dim_x = block_dim;
+    request.config.shared_memory_bytes = block_dim * sizeof(int32_t);
+    request.args.PushU64(in_addr);
+    request.args.PushU64(out_addr);
+    request.args.PushU32(n);
+
+    const auto result = runtime.Launch(request);
+    EXPECT_TRUE(result.ok) << result.error_message;
+    if (!result.ok) {
+      return std::vector<int32_t>{};
+    }
+
+    std::vector<int32_t> out(n, 0);
+    for (uint32_t i = 0; i < n; ++i) {
+      out[i] = runtime.memory().LoadGlobalValue<int32_t>(out_addr + i * sizeof(int32_t));
+    }
+    return out;
+  };
+
+  const auto st = run_mode(FunctionalExecutionMode::SingleThreaded);
+  const auto mt = run_mode(FunctionalExecutionMode::MarlParallel);
+  EXPECT_EQ(st, mt);
+}
+
 TEST(SharedBarrierFunctionalTest, ReleaseResumesAllBarrierBlockedWaves) {
   constexpr uint32_t block_dim = 128;
   constexpr uint32_t expected_wave_count = block_dim / kWaveSize;
