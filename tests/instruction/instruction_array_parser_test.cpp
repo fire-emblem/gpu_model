@@ -15,7 +15,7 @@ DecodedInstruction MakeDecoded(std::vector<uint32_t> words,
   return instruction;
 }
 
-TEST(RawGcnInstructionArrayParserTest, CreatesConcreteAndPlaceholderInstructionObjects) {
+TEST(InstructionArrayParserTest, CreatesConcreteAndPlaceholderInstructionObjects) {
   std::vector<DecodedInstruction> decoded;
   decoded.push_back(MakeDecoded({0xc0020002u, 0x0000002cu}, GcnInstFormatClass::Smrd, "s_load_dword"));
   decoded.push_back(MakeDecoded({0x68000006u}, GcnInstFormatClass::Vop2, "v_add_u32_e32"));
@@ -42,7 +42,7 @@ TEST(RawGcnInstructionArrayParserTest, CreatesConcreteAndPlaceholderInstructionO
   EXPECT_EQ(objects[4]->op_type_name(), "exp");
 }
 
-TEST(RawGcnInstructionArrayParserTest, FactoryCreatesConcreteInstructionFromDecodedOpcode) {
+TEST(InstructionArrayParserTest, FactoryCreatesConcreteInstructionFromDecodedOpcode) {
   auto object = InstructionFactory::Create(
       MakeDecoded({0x68000006u}, GcnInstFormatClass::Vop2, "v_add_u32_e32"));
   ASSERT_NE(object, nullptr);
@@ -50,7 +50,7 @@ TEST(RawGcnInstructionArrayParserTest, FactoryCreatesConcreteInstructionFromDeco
   EXPECT_EQ(object->op_type_name(), "vop2");
 }
 
-TEST(RawGcnInstructionArrayParserTest, ParsesRawInstructionArrayIntoDecodedAndObjects) {
+TEST(InstructionArrayParserTest, ParsesRawInstructionArrayIntoDecodedAndObjects) {
   std::vector<RawGcnInstruction> raw;
   raw.push_back(RawGcnInstruction{
       .pc = 0x1000,
@@ -82,7 +82,7 @@ TEST(RawGcnInstructionArrayParserTest, ParsesRawInstructionArrayIntoDecodedAndOb
   EXPECT_EQ(parsed.instruction_objects[1]->class_name(), "v_add_u32_e32");
 }
 
-TEST(RawGcnInstructionArrayParserTest, ParsesTextBytesIntoInstructionArrays) {
+TEST(InstructionArrayParserTest, ParsesTextBytesIntoInstructionArrays) {
   const std::vector<std::byte> text = {
       std::byte{0x02}, std::byte{0x00}, std::byte{0x02}, std::byte{0xc0},
       std::byte{0x2c}, std::byte{0x00}, std::byte{0x00}, std::byte{0x00},
@@ -99,7 +99,7 @@ TEST(RawGcnInstructionArrayParserTest, ParsesTextBytesIntoInstructionArrays) {
   EXPECT_EQ(parsed.instruction_objects[1]->class_name(), "v_add_u32_e32");
 }
 
-TEST(RawGcnInstructionArrayParserTest, UsesCanonicalOpcodeExtractionForViStyleObjects) {
+TEST(InstructionArrayParserTest, UsesCanonicalOpcodeExtractionForViStyleObjects) {
   std::vector<RawGcnInstruction> raw;
   raw.push_back(RawGcnInstruction{
       .pc = 0x2000,

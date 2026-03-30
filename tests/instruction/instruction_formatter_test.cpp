@@ -7,7 +7,7 @@
 namespace gpu_model {
 namespace {
 
-TEST(GcnInstFormatterTest, ResolvesKnownEncodingDefinitions) {
+TEST(InstructionFormatterTest, ResolvesKnownEncodingDefinitions) {
   const auto* s_endpgm = FindGcnInstEncodingDef({0xbf810000u});
   ASSERT_NE(s_endpgm, nullptr);
   EXPECT_EQ(s_endpgm->mnemonic, "s_endpgm");
@@ -17,7 +17,7 @@ TEST(GcnInstFormatterTest, ResolvesKnownEncodingDefinitions) {
   EXPECT_EQ(s_load->mnemonic, "s_load_dword");
 }
 
-TEST(GcnInstFormatterTest, FormatsRawInstructionWithEncodingInfo) {
+TEST(InstructionFormatterTest, FormatsRawInstructionWithEncodingInfo) {
   RawGcnInstruction instruction{
       .pc = 0x1900,
       .size_bytes = 8,
@@ -39,7 +39,7 @@ TEST(GcnInstFormatterTest, FormatsRawInstructionWithEncodingInfo) {
   EXPECT_NE(text.find("format=smrd"), std::string::npos);
 }
 
-TEST(GcnInstFormatterTest, FormatsDecodedInstructionWithDecodedOperands) {
+TEST(InstructionFormatterTest, FormatsDecodedInstructionWithDecodedOperands) {
   DecodedInstruction instruction{
       .pc = 0x1968,
       .size_bytes = 8,

@@ -5,7 +5,7 @@
 namespace gpu_model {
 namespace {
 
-TEST(WaveStateTest, InitializesExecAndPredicateMasks) {
+TEST(WaveContextTest, InitializesExecAndPredicateMasks) {
   WaveContext wave;
   wave.thread_count = 10;
   wave.ResetInitialExec();

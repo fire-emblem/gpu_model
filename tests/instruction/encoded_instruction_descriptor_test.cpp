@@ -16,7 +16,7 @@ DecodedInstruction MakeDecoded(std::vector<uint32_t> words,
   return instruction;
 }
 
-TEST(RawGcnInstructionDescriptorTest, DescribesRepresentativeKnownInstructionFamilies) {
+TEST(EncodedInstructionDescriptorTest, DescribesRepresentativeKnownInstructionFamilies) {
   {
     const auto desc = DescribeRawGcnInstruction(
         MakeDecoded({0xc0020002u, 0x0000002cu}, GcnInstFormatClass::Smrd, "s_load_dword"));
@@ -54,7 +54,7 @@ TEST(RawGcnInstructionDescriptorTest, DescribesRepresentativeKnownInstructionFam
   }
 }
 
-TEST(RawGcnInstructionDescriptorTest, ReturnsUnknownDescriptorForUnrecognizedWords) {
+TEST(EncodedInstructionDescriptorTest, ReturnsUnknownDescriptorForUnrecognizedWords) {
   const auto desc =
       DescribeRawGcnInstruction(MakeDecoded({0xffffffffu}, GcnInstFormatClass::Unknown, "unknown"));
   EXPECT_FALSE(desc.known());

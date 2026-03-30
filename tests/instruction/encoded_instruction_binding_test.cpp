@@ -16,7 +16,7 @@ DecodedInstruction MakeDecoded(std::vector<uint32_t> words,
   return instruction;
 }
 
-TEST(RawGcnInstructionBindingTest, BindsRepresentativeConcreteObjects) {
+TEST(EncodedInstructionBindingTest, BindsRepresentativeConcreteObjects) {
   {
     auto object = BindRawGcnInstructionObject(
         MakeDecoded({0xc0020002u, 0x0000002cu}, GcnInstFormatClass::Smrd, "s_load_dword"));
@@ -42,7 +42,7 @@ TEST(RawGcnInstructionBindingTest, BindsRepresentativeConcreteObjects) {
   }
 }
 
-TEST(RawGcnInstructionBindingTest, BindsPlaceholderForRecognizedButUnsupportedFamilies) {
+TEST(EncodedInstructionBindingTest, BindsPlaceholderForRecognizedButUnsupportedFamilies) {
   auto object = BindRawGcnInstructionObject(
       MakeDecoded({0xf8000000u, 0x00000000u}, GcnInstFormatClass::Exp, "exp"));
   ASSERT_NE(object, nullptr);
@@ -50,7 +50,7 @@ TEST(RawGcnInstructionBindingTest, BindsPlaceholderForRecognizedButUnsupportedFa
   EXPECT_EQ(object->class_name(), "exp_placeholder");
 }
 
-TEST(RawGcnInstructionBindingTest, BindsUnknownPlaceholderForUnrecognizedWords) {
+TEST(EncodedInstructionBindingTest, BindsUnknownPlaceholderForUnrecognizedWords) {
   auto object = BindRawGcnInstructionObject(
       MakeDecoded({0xffffffffu}, GcnInstFormatClass::Unknown, "unknown"));
   ASSERT_NE(object, nullptr);

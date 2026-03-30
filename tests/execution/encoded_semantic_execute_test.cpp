@@ -22,7 +22,7 @@ uint32_t EncodeSop1Word(uint32_t opcode, uint32_t sdst, uint32_t ssrc0) {
   return 0xbe800000u | (sdst << 16u) | (opcode << 8u) | ssrc0;
 }
 
-class RawGcnSemanticExecuteTest : public ::testing::Test {
+class EncodedSemanticExecuteTest : public ::testing::Test {
  protected:
   struct Harness {
     WaveContext wave;
@@ -152,7 +152,7 @@ class RawGcnSemanticExecuteTest : public ::testing::Test {
   }
 };
 
-TEST_F(RawGcnSemanticExecuteTest, ExecutesScalarMemoryLoadsX2AndX4) {
+TEST_F(EncodedSemanticExecuteTest, ExecutesScalarMemoryLoadsX2AndX4) {
   Harness harness;
   const uint64_t base = harness.memory.AllocateGlobal(64);
   harness.memory.StoreGlobalValue<uint32_t>(base + 0x10, 0x11111111u);
@@ -181,7 +181,7 @@ TEST_F(RawGcnSemanticExecuteTest, ExecutesScalarMemoryLoadsX2AndX4) {
   EXPECT_EQ(harness.wave.pc, 0x1208u);
 }
 
-TEST_F(RawGcnSemanticExecuteTest, ExecutesBranchAndConditionalBranchOnScc) {
+TEST_F(EncodedSemanticExecuteTest, ExecutesBranchAndConditionalBranchOnScc) {
   {
     Harness harness;
     auto branch = Inst("s_branch", 27, {BranchTarget(5)}, 0x1300, 4);
@@ -209,7 +209,7 @@ TEST_F(RawGcnSemanticExecuteTest, ExecutesBranchAndConditionalBranchOnScc) {
   }
 }
 
-TEST_F(RawGcnSemanticExecuteTest, ExecutesAdditionalBranchControlInstructions) {
+TEST_F(EncodedSemanticExecuteTest, ExecutesAdditionalBranchControlInstructions) {
   {
     Harness harness;
     harness.vcc = 0;
@@ -256,7 +256,7 @@ TEST_F(RawGcnSemanticExecuteTest, ExecutesAdditionalBranchControlInstructions) {
   }
 }
 
-TEST_F(RawGcnSemanticExecuteTest, ExecutesBarrierAndMarksWaveWaiting) {
+TEST_F(EncodedSemanticExecuteTest, ExecutesBarrierAndMarksWaveWaiting) {
   Harness harness;
   auto barrier = Inst("s_barrier", 29, {}, 0x1400, 4);
   harness.wave.pc = barrier.pc;
@@ -269,7 +269,7 @@ TEST_F(RawGcnSemanticExecuteTest, ExecutesBarrierAndMarksWaveWaiting) {
   EXPECT_EQ(harness.wave.barrier_generation, 11u);
 }
 
-TEST_F(RawGcnSemanticExecuteTest, ExecutesSharedWriteAndRead) {
+TEST_F(EncodedSemanticExecuteTest, ExecutesSharedWriteAndRead) {
   Harness harness;
   harness.wave.vgpr.Write(4, 0, 12u);
   harness.wave.vgpr.Write(5, 0, 0xdeadbeefu);
@@ -290,7 +290,7 @@ TEST_F(RawGcnSemanticExecuteTest, ExecutesSharedWriteAndRead) {
   EXPECT_EQ(harness.wave.pc, 0x1518u);
 }
 
-TEST_F(RawGcnSemanticExecuteTest, ExecutesVectorFloatMathAndConvert) {
+TEST_F(EncodedSemanticExecuteTest, ExecutesVectorFloatMathAndConvert) {
   Harness harness;
   harness.wave.vgpr.Write(1, 0, FloatBits(1.5f));
   harness.wave.vgpr.Write(2, 0, FloatBits(2.25f));
@@ -313,7 +313,7 @@ TEST_F(RawGcnSemanticExecuteTest, ExecutesVectorFloatMathAndConvert) {
   EXPECT_EQ(harness.wave.vgpr.Read(8, 0), FloatBits(-3.0f));
 }
 
-TEST_F(RawGcnSemanticExecuteTest, ExecutesVectorCompareAndWritesVcc) {
+TEST_F(EncodedSemanticExecuteTest, ExecutesVectorCompareAndWritesVcc) {
   Harness harness;
   harness.wave.vgpr.Write(1, 0, 7u);
   harness.wave.vgpr.Write(2, 0, 7u);
@@ -328,7 +328,7 @@ TEST_F(RawGcnSemanticExecuteTest, ExecutesVectorCompareAndWritesVcc) {
   EXPECT_EQ(harness.wave.pc, 0x1704u);
 }
 
-TEST_F(RawGcnSemanticExecuteTest, ExecutesScalarCompareInstructionsAndWritesScc) {
+TEST_F(EncodedSemanticExecuteTest, ExecutesScalarCompareInstructionsAndWritesScc) {
   {
     Harness harness;
     harness.wave.sgpr.Write(1, 9u);
@@ -361,7 +361,7 @@ TEST_F(RawGcnSemanticExecuteTest, ExecutesScalarCompareInstructionsAndWritesScc)
   }
 }
 
-TEST_F(RawGcnSemanticExecuteTest, ExecutesRepresentativeSop2ScalarAluInstructions) {
+TEST_F(EncodedSemanticExecuteTest, ExecutesRepresentativeSop2ScalarAluInstructions) {
   {
     Harness harness;
     harness.wave.sgpr.Write(1, 7u);
@@ -478,7 +478,7 @@ TEST_F(RawGcnSemanticExecuteTest, ExecutesRepresentativeSop2ScalarAluInstruction
   }
 }
 
-TEST_F(RawGcnSemanticExecuteTest, ExecutesAdditionalSop1ScalarAluInstructions) {
+TEST_F(EncodedSemanticExecuteTest, ExecutesAdditionalSop1ScalarAluInstructions) {
   {
     Harness harness;
     harness.wave.sgpr.Write(2, 0x89abcdefu);
@@ -505,7 +505,7 @@ TEST_F(RawGcnSemanticExecuteTest, ExecutesAdditionalSop1ScalarAluInstructions) {
   }
 }
 
-TEST_F(RawGcnSemanticExecuteTest, ExecutesAdditionalVectorCompareInstructions) {
+TEST_F(EncodedSemanticExecuteTest, ExecutesAdditionalVectorCompareInstructions) {
   {
     Harness harness;
     harness.wave.vgpr.Write(1, 0, 8u);
@@ -550,7 +550,7 @@ TEST_F(RawGcnSemanticExecuteTest, ExecutesAdditionalVectorCompareInstructions) {
   }
 }
 
-TEST_F(RawGcnSemanticExecuteTest, ExecutesAdditionalVectorAluInstructionsAcrossFormats) {
+TEST_F(EncodedSemanticExecuteTest, ExecutesAdditionalVectorAluInstructionsAcrossFormats) {
   {
     Harness harness;
     harness.wave.sgpr.Write(1, 0x0f0f0000u);
@@ -702,7 +702,7 @@ TEST_F(RawGcnSemanticExecuteTest, ExecutesAdditionalVectorAluInstructionsAcrossF
   }
 }
 
-TEST_F(RawGcnSemanticExecuteTest, ExecutesRemainingSupportedScalarAndVectorInstructions) {
+TEST_F(EncodedSemanticExecuteTest, ExecutesRemainingSupportedScalarAndVectorInstructions) {
   {
     Harness harness;
     harness.wave.sgpr.Write(1, 0x0000f0f0u);
@@ -822,7 +822,7 @@ TEST_F(RawGcnSemanticExecuteTest, ExecutesRemainingSupportedScalarAndVectorInstr
   }
 }
 
-TEST_F(RawGcnSemanticExecuteTest, ExecutesRemainingExecCoverageInstructions) {
+TEST_F(EncodedSemanticExecuteTest, ExecutesRemainingExecCoverageInstructions) {
   {
     Harness harness;
     harness.wave.SetScalarMaskBit0(false);
@@ -992,7 +992,7 @@ TEST_F(RawGcnSemanticExecuteTest, ExecutesRemainingExecCoverageInstructions) {
   }
 }
 
-TEST_F(RawGcnSemanticExecuteTest, ExecutesTensorCoreMfmaVariants) {
+TEST_F(EncodedSemanticExecuteTest, ExecutesTensorCoreMfmaVariants) {
   {
     Harness harness;
     harness.wave.vgpr.Write(1, 0, FloatBits(2.0f));
@@ -1118,7 +1118,7 @@ TEST_F(RawGcnSemanticExecuteTest, ExecutesTensorCoreMfmaVariants) {
   }
 }
 
-TEST_F(RawGcnSemanticExecuteTest, ExecutesGlobalAtomicAddAndReturnsOldValue) {
+TEST_F(EncodedSemanticExecuteTest, ExecutesGlobalAtomicAddAndReturnsOldValue) {
   Harness harness;
   const uint64_t base = harness.memory.AllocateGlobal(sizeof(uint32_t));
   harness.memory.StoreGlobalValue<uint32_t>(base, 10u);

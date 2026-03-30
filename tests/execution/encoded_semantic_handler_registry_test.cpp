@@ -6,7 +6,7 @@
 namespace gpu_model {
 namespace {
 
-TEST(RawGcnSemanticHandlerRegistryTest, ResolvesGeneratedFamilyHandlers) {
+TEST(EncodedSemanticHandlerRegistryTest, ResolvesGeneratedFamilyHandlers) {
   EXPECT_NO_THROW((void)RawGcnSemanticHandlerRegistry::Get("s_load_dword"));
   EXPECT_NO_THROW((void)RawGcnSemanticHandlerRegistry::Get("s_load_dwordx2"));
   EXPECT_NO_THROW((void)RawGcnSemanticHandlerRegistry::Get("s_branch"));
@@ -28,13 +28,13 @@ TEST(RawGcnSemanticHandlerRegistryTest, ResolvesGeneratedFamilyHandlers) {
   EXPECT_NO_THROW((void)RawGcnSemanticHandlerRegistry::Get("v_accvgpr_write_b32"));
 }
 
-TEST(RawGcnSemanticHandlerRegistryTest, KeepsMaskSpecificOverride) {
+TEST(EncodedSemanticHandlerRegistryTest, KeepsMaskSpecificOverride) {
   const auto& first = RawGcnSemanticHandlerRegistry::Get("s_and_saveexec_b64");
   const auto& second = RawGcnSemanticHandlerRegistry::Get("s_and_saveexec_b64");
   EXPECT_EQ(&first, &second);
 }
 
-TEST(RawGcnSemanticHandlerRegistryTest, ResolvesFromDecodedInstruction) {
+TEST(EncodedSemanticHandlerRegistryTest, ResolvesFromDecodedInstruction) {
   DecodedInstruction instruction;
   instruction.encoding_id = 18;
   instruction.mnemonic = "global_load_dword";

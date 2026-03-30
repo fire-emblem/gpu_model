@@ -3,8 +3,8 @@ add_executable(gpu_model_tests
   decode/generated_gcn_inst_db_test.cpp
   decode/gcn_inst_db_lookup_test.cpp
   arch/arch_registry_test.cpp
-  decode/gcn_inst_decoder_test.cpp
-  decode/gcn_inst_formatter_test.cpp
+  instruction/instruction_decoder_test.cpp
+  instruction/instruction_formatter_test.cpp
   decode/gcn_inst_format_test.cpp
 
   # execution/*
@@ -14,23 +14,23 @@ add_executable(gpu_model_tests
   execution/sync_ops_test.cpp
   execution/plan_apply_test.cpp
 
-  # exec/* (legacy-compatible internals)
+  # instruction/execution migrated coverage
   exec/tensor_op_utils_test.cpp
   exec/issue_model_test.cpp
   exec/issue_eligibility_test.cpp
   exec/issue_scheduler_test.cpp
-  exec/encoded/object/raw_gcn_instruction_array_parser_test.cpp
-  exec/encoded/binding/raw_gcn_instruction_binding_test.cpp
-  exec/encoded/descriptor/raw_gcn_instruction_descriptor_test.cpp
-  exec/encoded/object/raw_gcn_instruction_object_execute_test.cpp
-  exec/encoded/semantics/raw_gcn_semantic_execute_test.cpp
-  exec/encoded/semantics/raw_gcn_semantic_handler_registry_test.cpp
+  instruction/instruction_array_parser_test.cpp
+  instruction/encoded_instruction_binding_test.cpp
+  instruction/encoded_instruction_descriptor_test.cpp
+  instruction/instruction_object_execute_test.cpp
+  execution/encoded_semantic_execute_test.cpp
+  execution/encoded_semantic_handler_registry_test.cpp
   exec/handlers/semantic_handler_test.cpp
   isa/executable_kernel_builder_test.cpp
   isa/executable_kernel_test.cpp
   isa/opcode_descriptor_test.cpp
   isa/target_isa_test.cpp
-  state/wave_state_test.cpp
+  execution/wave_context_test.cpp
   functional/mapper_test.cpp
   functional/vecadd_functional_test.cpp
   functional/predicated_if_functional_test.cpp

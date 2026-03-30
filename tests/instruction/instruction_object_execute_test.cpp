@@ -12,7 +12,7 @@
 namespace gpu_model {
 namespace {
 
-class RawGcnInstructionObjectExecuteTest : public ::testing::Test {
+class InstructionObjectExecuteTest : public ::testing::Test {
  protected:
   struct Harness {
     WaveContext wave;
@@ -56,7 +56,7 @@ class RawGcnInstructionObjectExecuteTest : public ::testing::Test {
   }
 };
 
-TEST_F(RawGcnInstructionObjectExecuteTest, ExecutesWaitcntDirectly) {
+TEST_F(InstructionObjectExecuteTest, ExecutesWaitcntDirectly) {
   auto object = ParseSingleObject(0x1910, {0xbf8cc07fu}, GcnInstFormatClass::Sopp, "s_waitcnt");
   ASSERT_NE(object, nullptr);
   ASSERT_EQ(object->class_name(), "s_waitcnt");
@@ -69,7 +69,7 @@ TEST_F(RawGcnInstructionObjectExecuteTest, ExecutesWaitcntDirectly) {
   EXPECT_EQ(harness.wave.status, WaveStatus::Active);
 }
 
-TEST_F(RawGcnInstructionObjectExecuteTest, ExecutesEndpgmDirectly) {
+TEST_F(InstructionObjectExecuteTest, ExecutesEndpgmDirectly) {
   auto object = ParseSingleObject(0x1994, {0xbf810000u}, GcnInstFormatClass::Sopp, "s_endpgm");
   ASSERT_NE(object, nullptr);
   ASSERT_EQ(object->class_name(), "s_endpgm");
@@ -82,7 +82,7 @@ TEST_F(RawGcnInstructionObjectExecuteTest, ExecutesEndpgmDirectly) {
   EXPECT_EQ(harness.stats.wave_exits, 1u);
 }
 
-TEST_F(RawGcnInstructionObjectExecuteTest, ExecutesExeczBranchDirectly) {
+TEST_F(InstructionObjectExecuteTest, ExecutesExeczBranchDirectly) {
   auto object =
       ParseSingleObject(0x192c, {0xbf880019u}, GcnInstFormatClass::Sopp, "s_cbranch_execz");
   ASSERT_NE(object, nullptr);
