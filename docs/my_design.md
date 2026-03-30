@@ -264,7 +264,8 @@ wave 是执行时的核心单位。
 
 长期对外语义统一称为 `WaveContext`。
 
-底层实现可以保留 `WaveState` 作为内部数据结构，但对外应使用更清晰的语义名称。
+执行语义统一使用 `WaveContext`。
+不再保留单独的 `WaveState` 对外层名称。
 
 ### 7.1 WaveContext 应包含的内容
 
@@ -409,6 +410,7 @@ timeline 至少应能展示：
 - `RuntimeHooks` -> `HipRuntime`
 - `ModelRuntimeApi` -> `ModelRuntime`
 - `FunctionalExecutionCore` -> `FunctionalExecEngine`
+- `FunctionalExecutor` / `ParallelWaveExecutor` -> `FunctionalExecEngine`
 - `CycleExecutor` -> `CycleExecEngine`
 - `RawGcnExecutor` -> `EncodedExecEngine`
 

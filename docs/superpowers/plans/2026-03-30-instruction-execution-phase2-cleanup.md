@@ -33,7 +33,7 @@
 - `src/execution/sync_ops.cpp`
 - `src/execution/plan_apply.cpp`
 
-### Legacy files that must be deleted by the end
+### Legacy files deleted in this cleanup
 - `include/gpu_model/decode/gcn_inst_decoder.h`
 - `include/gpu_model/decode/decoded_gcn_instruction.h`
 - `include/gpu_model/exec/functional_execution_core.h`
@@ -68,9 +68,9 @@
 - `include/gpu_model/execution/*`
 - directly related tests under `tests/instruction/*` and `tests/execution/*`
 
-- [ ] Write failing naming tests that reject old public names as the primary surface.
-- [ ] Move actual declarations into new instruction/execution headers.
-- [ ] Remove alias-based expectations from tests in this slice.
+- [x] Write failing naming tests that reject old public names as the primary surface.
+- [x] Move actual declarations into new instruction/execution headers.
+- [x] Remove alias-based expectations from tests in this slice.
 - [ ] Verify:
 Run: `cmake --build build-ninja --target gpu_model_tests`
 Run: `./build-ninja/tests/gpu_model_tests --gtest_filter='*InstructionNamingTest*:*ExecutionNamingTest*'`
@@ -81,7 +81,7 @@ Expected: PASS.
 **Files:**
 - `include/`, `src/`, `tests/`, `examples/` touching old instruction/execution names
 
-- [ ] Replace old public names in this slice:
+- [x] Replace old public names in this slice:
   - `GcnInstDecoder`
   - `DecodedGcnInstruction`
   - `DecodedGcnOperand`
@@ -98,7 +98,7 @@ Expected: PASS.
   - `ApplyPlanRegisterWrites`
   - `ApplyPlanControlFlow`
   - `MaybeFormatExecMaskUpdate`
-- [ ] Verify via grep and targeted tests.
+- [x] Verify via grep and targeted tests.
 
 ### Task 3: Rename Instruction/Execution Implementation Files
 
@@ -106,9 +106,9 @@ Expected: PASS.
 - move old `src/exec/*` and `src/decode/*` implementation files to final `src/execution/*` / `src/instruction/*` names
 - update `CMakeLists.txt`
 
-- [ ] Rename source files.
-- [ ] Update CMake source list.
-- [ ] Build and run instruction/execution focused test subsets.
+- [x] Rename source files.
+- [x] Update CMake source list.
+- [x] Build and run instruction/execution focused test subsets.
 
 ### Task 4: Delete Legacy Instruction/Execution Headers and Sources
 
@@ -116,22 +116,22 @@ Expected: PASS.
 - delete legacy headers and `.cpp` files listed above
 - fix remaining include references
 
-- [ ] Delete old headers and sources.
-- [ ] Verify no include/path matches remain.
-- [ ] Build and run targeted tests.
+- [x] Delete old headers and sources.
+- [x] Verify no include/path matches remain.
+- [x] Build and run targeted tests.
 
 ### Task 5: Clean Docs, Test Names, and Deletion Markers
 
 **Files:**
 - instruction/execution related docs and tests
 
-- [ ] Remove legacy instruction/execution names from test filenames, suite names, and docs.
-- [ ] Remove any `PHASE2-DELETE(instruction-execution)` markers.
+- [x] Remove legacy instruction/execution names from test filenames and suite names in this slice.
+- [x] Remove any `PHASE2-DELETE(instruction-execution)` markers.
 - [ ] Final verification:
 Run: `rg -n "PHASE2-DELETE\(instruction-execution\)" include src tests docs README.md examples CMakeLists.txt`
 Expected: 0 matches.
 Run: `rg -n "\b(GcnInstDecoder|DecodedGcnInstruction|RawGcnInstructionObject|FunctionalExecutionCore|FunctionalExecutor|ParallelWaveExecutor|CycleExecutor|RawGcnExecutor|WaveState|BuildExecutionBlockStates|execution_memory_ops|execution_sync_ops|ApplyPlanRegisterWrites|ApplyPlanControlFlow|MaybeFormatExecMaskUpdate)\b" include src tests examples`
-Expected: 0 matches in the slice.
+Expected: 0 matches.
 Run: `cmake --build build-ninja --target gpu_model_tests`
 Run: `./build-ninja/tests/gpu_model_tests --gtest_filter='*Instruction*:*Execution*'`
 Expected: PASS.

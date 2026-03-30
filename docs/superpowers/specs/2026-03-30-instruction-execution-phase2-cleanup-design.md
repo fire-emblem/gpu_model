@@ -167,12 +167,12 @@ Mitigation:
 - then move implementation file names
 - then delete the legacy headers and `.cpp` files
 
-### 2. Wave state naming leakage
+### 2. Wave context naming consistency
 
-`WaveState` is still used broadly as both internal data carrier and external semantic name.
+The public semantic name must be `WaveContext` everywhere in this slice.
 
 Mitigation:
-- keep `WaveState` as an internal storage type only where needed
+- remove `WaveState` as a public alias in this slice
 - make `WaveContext` the only public-facing semantic name in this slice
 
 ### 3. Test blast radius
@@ -199,7 +199,7 @@ This cleanup package is complete only when all of the following are true:
 2. Legacy public headers in this slice do not exist.
 3. Legacy implementation files in this slice do not exist.
 4. `rg "PHASE2-DELETE\(instruction-execution\)"` returns zero matches.
-5. `rg` over code/tests/examples in this slice returns zero matches for the removed legacy names.
+5. `rg` over code/tests/examples returns zero matches for the removed legacy names.
 6. instruction/execution targeted tests pass after deletion.
 
 ## Non-Goals
