@@ -190,7 +190,7 @@ Config ParseArgs(int argc, char** argv) {
   return config;
 }
 
-KernelProgram BuildFmaLoopKernel() {
+ExecutableKernel BuildFmaLoopKernel() {
   InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
   builder.SLoadArg("s1", 1);

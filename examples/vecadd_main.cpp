@@ -6,7 +6,7 @@
 
 namespace gpu_model {
 
-KernelProgram BuildVecAddKernel() {
+ExecutableKernel BuildVecAddKernel() {
   InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
   builder.SLoadArg("s1", 1);
