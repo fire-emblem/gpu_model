@@ -132,7 +132,10 @@ TEST(SharedBarrierFunctionalTest, MatchesResultsAcrossSingleThreadedAndMarlParal
   constexpr uint32_t grid_dim = 2;
   constexpr uint32_t n = block_dim * grid_dim;
 
-  const auto run_mode = [&](FunctionalExecutionMode mode) {
+  const auto run_mode = [&](FunctionalExecutionMode mode, std::vector<int32_t>& out) {
+    SCOPED_TRACE(mode == FunctionalExecutionMode::SingleThreaded
+                     ? "mode=SingleThreaded"
+                     : "mode=MarlParallel");
     RuntimeEngine runtime;
     runtime.SetFunctionalExecutionMode(mode);
     const uint64_t in_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
@@ -154,20 +157,32 @@ TEST(SharedBarrierFunctionalTest, MatchesResultsAcrossSingleThreadedAndMarlParal
     request.args.PushU32(n);
 
     const auto result = runtime.Launch(request);
-    EXPECT_TRUE(result.ok) << result.error_message;
-    if (!result.ok) {
-      return std::vector<int32_t>{};
-    }
+    ASSERT_TRUE(result.ok) << "Launch failed in "
+                           << (mode == FunctionalExecutionMode::SingleThreaded
+                                   ? "SingleThreaded"
+                                   : "MarlParallel")
+                           << " mode: " << result.error_message;
 
-    std::vector<int32_t> out(n, 0);
+    out.assign(n, 0);
     for (uint32_t i = 0; i < n; ++i) {
       out[i] = runtime.memory().LoadGlobalValue<int32_t>(out_addr + i * sizeof(int32_t));
     }
-    return out;
   };
 
-  const auto st = run_mode(FunctionalExecutionMode::SingleThreaded);
-  const auto mt = run_mode(FunctionalExecutionMode::MarlParallel);
+  std::vector<int32_t> st;
+  std::vector<int32_t> mt;
+  run_mode(FunctionalExecutionMode::SingleThreaded, st);
+  run_mode(FunctionalExecutionMode::MarlParallel, mt);
+
+  std::vector<int32_t> expected(n, 0);
+  for (uint32_t block = 0; block < grid_dim; ++block) {
+    const uint32_t base = block * block_dim;
+    for (uint32_t lane = 0; lane < block_dim; ++lane) {
+      expected[base + lane] = static_cast<int32_t>(base + (block_dim - lane));
+    }
+  }
+
+  EXPECT_EQ(st, expected);
   EXPECT_EQ(st, mt);
 }
 
