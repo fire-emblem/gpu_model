@@ -58,8 +58,6 @@ void MarkWaveAtBarrier(WaveContext& wave,
   wave.status = WaveStatus::Stalled;
   wave.waiting_at_barrier = true;
   wave.barrier_generation = barrier_generation;
-  wave.run_state = WaveRunState::Waiting;
-  wave.wait_reason = WaveWaitReason::BlockBarrier;
   if (set_valid_entry_on_arrive) {
     wave.valid_entry = false;
   }

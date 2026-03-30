@@ -9,6 +9,8 @@ TEST(SyncOpsTest, MarksWaveAtBarrier) {
   WaveContext wave;
   wave.thread_count = 64;
   wave.ResetInitialExec();
+  wave.run_state = WaveRunState::Runnable;
+  wave.wait_reason = WaveWaitReason::None;
   uint32_t arrivals = 0;
 
   sync_ops::MarkWaveAtBarrier(wave, 9, arrivals, true);
@@ -16,8 +18,8 @@ TEST(SyncOpsTest, MarksWaveAtBarrier) {
   EXPECT_EQ(wave.status, WaveStatus::Stalled);
   EXPECT_TRUE(wave.waiting_at_barrier);
   EXPECT_EQ(wave.barrier_generation, 9u);
-  EXPECT_EQ(wave.run_state, WaveRunState::Waiting);
-  EXPECT_EQ(wave.wait_reason, WaveWaitReason::BlockBarrier);
+  EXPECT_EQ(wave.run_state, WaveRunState::Runnable);
+  EXPECT_EQ(wave.wait_reason, WaveWaitReason::None);
   EXPECT_FALSE(wave.valid_entry);
   EXPECT_EQ(arrivals, 1u);
 }
@@ -33,10 +35,14 @@ TEST(SyncOpsTest, ReleasesBarrierOnlyWhenAllActiveWavesWait) {
   uint64_t generation = 3;
   uint32_t arrivals = 0;
   sync_ops::MarkWaveAtBarrier(waves[0], generation, arrivals, false);
+  waves[0].run_state = WaveRunState::Waiting;
+  waves[0].wait_reason = WaveWaitReason::BlockBarrier;
   EXPECT_FALSE(sync_ops::ReleaseBarrierIfReady(
       waves, generation, arrivals, 1, true));
 
   sync_ops::MarkWaveAtBarrier(waves[1], generation, arrivals, false);
+  waves[1].run_state = WaveRunState::Waiting;
+  waves[1].wait_reason = WaveWaitReason::BlockBarrier;
   EXPECT_TRUE(sync_ops::ReleaseBarrierIfReady(
       waves, generation, arrivals, 1, true));
   EXPECT_EQ(arrivals, 0u);
@@ -68,6 +74,10 @@ TEST(SyncOpsTest, ReleasesBarrierThroughWavePointers) {
   uint32_t arrivals = 0;
   sync_ops::MarkWaveAtBarrier(owned_waves[0], generation, arrivals, true);
   sync_ops::MarkWaveAtBarrier(owned_waves[1], generation, arrivals, true);
+  owned_waves[0].run_state = WaveRunState::Waiting;
+  owned_waves[0].wait_reason = WaveWaitReason::BlockBarrier;
+  owned_waves[1].run_state = WaveRunState::Waiting;
+  owned_waves[1].wait_reason = WaveWaitReason::BlockBarrier;
 
   EXPECT_TRUE(sync_ops::ReleaseBarrierIfReady(
       wave_ptrs, generation, arrivals, 4, false));
@@ -123,6 +133,10 @@ TEST(SyncOpsTest, BarrierReleaseDoesNotResumeRunState) {
   uint32_t arrivals = 0;
   sync_ops::MarkWaveAtBarrier(waves[0], generation, arrivals, false);
   sync_ops::MarkWaveAtBarrier(waves[1], generation, arrivals, false);
+  waves[0].run_state = WaveRunState::Waiting;
+  waves[1].run_state = WaveRunState::Waiting;
+  waves[0].wait_reason = WaveWaitReason::BlockBarrier;
+  waves[1].wait_reason = WaveWaitReason::BlockBarrier;
 
   ASSERT_TRUE(sync_ops::ReleaseBarrierIfReady(waves, generation, arrivals, 1, false));
   EXPECT_EQ(waves[0].run_state, WaveRunState::Waiting);
