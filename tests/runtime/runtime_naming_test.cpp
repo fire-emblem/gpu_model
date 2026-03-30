@@ -3,6 +3,7 @@
 #include <type_traits>
 
 #include "gpu_model/execution/encoded_exec_engine.h"
+#include "gpu_model/exec/encoded/executor/raw_gcn_executor.h"
 #include "gpu_model/program/encoded_program_object.h"
 #include "gpu_model/program/executable_kernel.h"
 #include "gpu_model/program/program_object.h"

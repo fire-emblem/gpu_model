@@ -1,4 +1,4 @@
-#include "gpu_model/exec/cycle_executor.h"
+#include "gpu_model/execution/cycle_exec_engine.h"
 
 #include <algorithm>
 #include <array>
@@ -17,10 +17,10 @@
 #include "gpu_model/debug/trace_event.h"
 #include "gpu_model/debug/wave_launch_trace.h"
 #include "gpu_model/exec/event_queue.h"
-#include "gpu_model/exec/execution_memory_ops.h"
-#include "gpu_model/exec/execution_state_builder.h"
-#include "gpu_model/exec/execution_sync_ops.h"
-#include "gpu_model/exec/op_plan_apply.h"
+#include "gpu_model/execution/memory_ops.h"
+#include "gpu_model/execution/plan_apply.h"
+#include "gpu_model/execution/sync_ops.h"
+#include "gpu_model/execution/wave_context_builder.h"
 #include "gpu_model/exec/issue_eligibility.h"
 #include "gpu_model/exec/scoreboard.h"
 #include "gpu_model/isa/opcode.h"
@@ -96,11 +96,11 @@ ReadyRef SmaskRef() {
 }
 
 uint64_t LoadLaneValue(const MemorySystem& memory, MemoryPoolKind pool, const LaneAccess& lane) {
-  return execution_memory_ops::LoadPoolLaneValue(memory, pool, lane);
+  return memory_ops::LoadPoolLaneValue(memory, pool, lane);
 }
 
 uint64_t LoadLaneValue(const MemorySystem& memory, const LaneAccess& lane) {
-  return execution_memory_ops::LoadGlobalLaneValue(memory, lane);
+  return memory_ops::LoadGlobalLaneValue(memory, lane);
 }
 
 uint64_t ConstantPoolBase(const ExecutionContext& context) {
@@ -116,27 +116,27 @@ uint64_t ConstantPoolBase(const ExecutionContext& context) {
 }
 
 void StoreLaneValue(MemorySystem& memory, const LaneAccess& lane) {
-  execution_memory_ops::StoreGlobalLaneValue(memory, lane);
+  memory_ops::StoreGlobalLaneValue(memory, lane);
 }
 
 uint64_t LoadLaneValue(const std::vector<std::byte>& memory, const LaneAccess& lane) {
-  return execution_memory_ops::LoadByteLaneValue(memory, lane);
+  return memory_ops::LoadByteLaneValue(memory, lane);
 }
 
 void StoreLaneValue(std::vector<std::byte>& memory, const LaneAccess& lane) {
-  execution_memory_ops::StoreByteLaneValue(memory, lane);
+  memory_ops::StoreByteLaneValue(memory, lane);
 }
 
 uint64_t LoadLaneValue(const std::array<std::vector<std::byte>, kWaveSize>& memory,
                        uint32_t lane_id,
                        const LaneAccess& lane) {
-  return execution_memory_ops::LoadPrivateLaneValue(memory, lane_id, lane);
+  return memory_ops::LoadPrivateLaneValue(memory, lane_id, lane);
 }
 
 void StoreLaneValue(std::array<std::vector<std::byte>, kWaveSize>& memory,
                     uint32_t lane_id,
                     const LaneAccess& lane) {
-  execution_memory_ops::StorePrivateLaneValue(memory, lane_id, lane);
+  memory_ops::StorePrivateLaneValue(memory, lane_id, lane);
 }
 
 void AddOperandDependency(const Operand& operand, std::vector<ReadyRef>& refs) {
@@ -330,7 +330,7 @@ void MarkPlanWritesPending(const Instruction& instruction,
 
 std::vector<ExecutableBlock> MaterializeBlocks(const PlacementMap& placement,
                                                const LaunchConfig& launch_config) {
-  const auto shared_blocks = BuildExecutionBlockStates(placement, launch_config);
+  const auto shared_blocks = BuildWaveContextBlocks(placement, launch_config);
   std::vector<ExecutableBlock> blocks;
   blocks.reserve(shared_blocks.size());
 
@@ -578,7 +578,7 @@ std::optional<std::pair<ScheduledWave*, std::string>> PickFirstBlockedWave(PeuSl
 
 }  // namespace
 
-uint64_t CycleExecutor::Run(ExecutionContext& context) {
+uint64_t CycleExecEngine::Run(ExecutionContext& context) {
   auto blocks = MaterializeBlocks(context.placement, context.launch_config);
   auto slots = BuildPeuSlots(blocks);
   EventQueue events;
@@ -742,8 +742,8 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
               [&, candidate, instruction, plan, commit_cycle]() {
                 context.cycle = commit_cycle;
 
-                ApplyPlanRegisterWrites(plan, candidate->wave);
-                if (const auto mask_text = MaybeFormatExecMaskUpdate(plan, candidate->wave);
+                ApplyExecutionPlanRegisterWrites(plan, candidate->wave);
+                if (const auto mask_text = MaybeFormatExecutionMaskUpdate(plan, candidate->wave);
                     mask_text.has_value()) {
                   context.trace.OnEvent(TraceEvent{
                       .kind = TraceEventKind::ExecMaskUpdate,
@@ -1023,10 +1023,10 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                   if (context.stats != nullptr) {
                     ++context.stats->barriers;
                   }
-                  execution_sync_ops::MarkWaveAtBarrier(candidate->wave,
-                                                        candidate->block->barrier_generation,
-                                                        candidate->block->barrier_arrivals,
-                                                        true);
+                  sync_ops::MarkWaveAtBarrier(candidate->wave,
+                                              candidate->block->barrier_generation,
+                                              candidate->block->barrier_arrivals,
+                                              true);
                   context.trace.OnEvent(TraceEvent{
                       .kind = TraceEventKind::Barrier,
                       .cycle = commit_cycle,
@@ -1043,11 +1043,11 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                   for (auto& waiting_wave : candidate->block->waves) {
                     waiting_waves.push_back(&waiting_wave.wave);
                   }
-                  if (execution_sync_ops::ReleaseBarrierIfReady(waiting_waves,
-                                                                candidate->block->barrier_generation,
-                                                                candidate->block->barrier_arrivals,
-                                                                1,
-                                                                true)) {
+                  if (sync_ops::ReleaseBarrierIfReady(waiting_waves,
+                                                      candidate->block->barrier_generation,
+                                                      candidate->block->barrier_arrivals,
+                                                      1,
+                                                      true)) {
                     context.trace.OnEvent(TraceEvent{
                         .kind = TraceEventKind::Barrier,
                         .cycle = commit_cycle,
@@ -1065,7 +1065,7 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                   if (context.stats != nullptr) {
                     ++context.stats->wave_exits;
                   }
-                  ApplyPlanControlFlow(plan, candidate->wave, false, false);
+                  ApplyExecutionPlanControlFlow(plan, candidate->wave, false, false);
                   context.trace.OnEvent(TraceEvent{
                       .kind = TraceEventKind::WaveExit,
                       .cycle = commit_cycle,
@@ -1106,7 +1106,7 @@ uint64_t CycleExecutor::Run(ExecutionContext& context) {
                 }
 
                 candidate->wave.status = WaveStatus::Active;
-                ApplyPlanControlFlow(plan, candidate->wave, true, true);
+                ApplyExecutionPlanControlFlow(plan, candidate->wave, true, true);
               },
       });
 

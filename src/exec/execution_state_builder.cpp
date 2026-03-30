@@ -1,10 +1,10 @@
-#include "gpu_model/exec/execution_state_builder.h"
+#include "gpu_model/execution/wave_context_builder.h"
 
 namespace gpu_model {
 
-WaveState BuildInitialWaveState(const BlockPlacement& block_placement,
-                                const WavePlacement& wave_placement) {
-  WaveState wave;
+WaveContext BuildInitialWaveContext(const BlockPlacement& block_placement,
+                                    const WavePlacement& wave_placement) {
+  WaveContext wave;
   wave.block_id = block_placement.block_id;
   wave.block_idx_x = block_placement.block_idx_x;
   wave.block_idx_y = block_placement.block_idx_y;
@@ -18,8 +18,8 @@ WaveState BuildInitialWaveState(const BlockPlacement& block_placement,
   return wave;
 }
 
-std::vector<ExecutionBlockState> BuildExecutionBlockStates(const PlacementMap& placement,
-                                                           const LaunchConfig& launch_config) {
+std::vector<ExecutionBlockState> BuildWaveContextBlocks(const PlacementMap& placement,
+                                                        const LaunchConfig& launch_config) {
   std::vector<ExecutionBlockState> blocks;
   blocks.reserve(placement.blocks.size());
 
@@ -36,7 +36,7 @@ std::vector<ExecutionBlockState> BuildExecutionBlockStates(const PlacementMap& p
     };
     block.waves.reserve(block_placement.waves.size());
     for (const auto& wave_placement : block_placement.waves) {
-      block.waves.push_back(BuildInitialWaveState(block_placement, wave_placement));
+      block.waves.push_back(BuildInitialWaveContext(block_placement, wave_placement));
     }
     blocks.push_back(std::move(block));
   }

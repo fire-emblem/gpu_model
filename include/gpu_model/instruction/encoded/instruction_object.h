@@ -1,13 +1,56 @@
 #pragma once
 
-#include "gpu_model/exec/encoded/object/raw_gcn_instruction_object.h"
+#include <memory>
+#include <span>
+#include <string_view>
+#include <vector>
+
+#include "gpu_model/instruction/encoded/decoded_instruction.h"
 
 namespace gpu_model {
 
-using InstructionObject = RawGcnInstructionObject;
-using InstructionObjectPtr = RawGcnInstructionObjectPtr;
-using InstructionFactory = RawGcnInstructionFactory;
-using ParsedInstructionArray = RawGcnParsedInstructionArray;
-using InstructionArrayParser = RawGcnInstructionArrayParser;
+struct InstructionExecutionContext {
+  virtual ~InstructionExecutionContext() = default;
+};
+
+class InstructionSemanticHandler {
+ public:
+  virtual ~InstructionSemanticHandler() = default;
+  virtual void Execute(const DecodedInstruction& instruction,
+                       InstructionExecutionContext& context) const = 0;
+};
+
+class InstructionObject {
+ public:
+  InstructionObject(DecodedInstruction instruction, const InstructionSemanticHandler& handler);
+  virtual ~InstructionObject() = default;
+
+  const DecodedInstruction& decoded() const { return instruction_; }
+  virtual std::string_view op_type_name() const = 0;
+  virtual std::string_view class_name() const = 0;
+  virtual void Execute(InstructionExecutionContext& context) const;
+
+ private:
+  DecodedInstruction instruction_;
+  const InstructionSemanticHandler* handler_ = nullptr;
+};
+
+using InstructionObjectPtr = std::unique_ptr<InstructionObject>;
+
+class InstructionFactory {
+ public:
+  static InstructionObjectPtr Create(DecodedInstruction instruction);
+};
+
+struct ParsedInstructionArray {
+  std::vector<DecodedInstruction> decoded_instructions;
+  std::vector<InstructionObjectPtr> instruction_objects;
+};
+
+class InstructionArrayParser {
+ public:
+  static ParsedInstructionArray Parse(std::span<const std::byte> text_bytes, uint64_t start_pc);
+  static std::vector<InstructionObjectPtr> Parse(const std::vector<DecodedInstruction>& instructions);
+};
 
 }  // namespace gpu_model

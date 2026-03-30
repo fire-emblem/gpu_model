@@ -1,9 +1,9 @@
-#include "gpu_model/exec/execution_memory_ops.h"
+#include "gpu_model/execution/memory_ops.h"
 
 #include <cstring>
 #include <stdexcept>
 
-namespace gpu_model::execution_memory_ops {
+namespace gpu_model::memory_ops {
 
 uint64_t LoadPoolLaneValue(const MemorySystem& memory, MemoryPoolKind pool, const LaneAccess& lane) {
   switch (lane.bytes) {
@@ -117,4 +117,4 @@ void StorePrivateLaneValue(std::array<std::vector<std::byte>, kWaveSize>& memory
   StoreByteLaneValue(lane_memory, lane);
 }
 
-}  // namespace gpu_model::execution_memory_ops
+}  // namespace gpu_model::memory_ops

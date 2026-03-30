@@ -1,4 +1,4 @@
-#include "gpu_model/exec/encoded/executor/raw_gcn_executor.h"
+#include "gpu_model/execution/encoded_exec_engine.h"
 
 #include <algorithm>
 #include <array>
@@ -13,10 +13,10 @@
 #include <vector>
 
 #include "gpu_model/exec/encoded/semantics/raw_gcn_semantic_handler.h"
-#include "gpu_model/exec/execution_state_builder.h"
-#include "gpu_model/exec/execution_sync_ops.h"
 #include "gpu_model/exec/tensor_op_utils.h"
 #include "gpu_model/debug/wave_launch_trace.h"
+#include "gpu_model/execution/sync_ops.h"
+#include "gpu_model/execution/wave_context_builder.h"
 #include "gpu_model/isa/kernel_metadata.h"
 #include "gpu_model/loader/device_image_loader.h"
 #include "gpu_model/runtime/kernarg_packer.h"
@@ -225,7 +225,7 @@ std::string HexU64(uint64_t value) {
 }
 
 std::string FormatRawWaveStepMessage(const DecodedGcnInstruction& instruction,
-                                     const RawGcnInstructionObject* object,
+                                     const InstructionObject* object,
                                      const WaveState& wave) {
   std::ostringstream out;
   out << "pc=" << HexU64(wave.pc)
@@ -252,7 +252,7 @@ std::vector<RawBlock> MaterializeRawBlocks(const PlacementMap& placement,
                                            LaunchConfig config,
                                            uint32_t shared_bytes) {
   config.shared_memory_bytes = shared_bytes;
-  const auto shared_blocks = BuildExecutionBlockStates(placement, config);
+  const auto shared_blocks = BuildWaveContextBlocks(placement, config);
   std::vector<RawBlock> blocks;
   blocks.reserve(shared_blocks.size());
   for (const auto& shared_block : shared_blocks) {
@@ -271,13 +271,13 @@ std::vector<RawBlock> MaterializeRawBlocks(const PlacementMap& placement,
 
 }  // namespace
 
-LaunchResult RawGcnExecutor::Run(const EncodedProgramObject& image,
-                                 const GpuArchSpec& spec,
-                                 const LaunchConfig& config,
-                                 const KernelArgPack& args,
-                                 const DeviceLoadResult* device_load,
-                                 MemorySystem& memory,
-                                 TraceSink& trace) const {
+LaunchResult EncodedExecEngine::Run(const EncodedProgramObject& image,
+                                    const GpuArchSpec& spec,
+                                    const LaunchConfig& config,
+                                    const KernelArgPack& args,
+                                    const DeviceLoadResult* device_load,
+                                    MemorySystem& memory,
+                                    TraceSink& trace) const {
   LaunchResult result;
   result.ok = false;
   result.placement = Mapper::Place(spec, config);
@@ -357,11 +357,11 @@ LaunchResult RawGcnExecutor::Run(const EncodedProgramObject& image,
       for (auto& raw_wave : raw_block.waves) {
         wave_ptrs.push_back(&raw_wave.wave);
       }
-      execution_sync_ops::ReleaseBarrierIfReady(wave_ptrs,
-                                                raw_block.barrier_generation,
-                                                raw_block.barrier_arrivals,
-                                                4,
-                                                false);
+      sync_ops::ReleaseBarrierIfReady(wave_ptrs,
+                                      raw_block.barrier_generation,
+                                      raw_block.barrier_arrivals,
+                                      4,
+                                      false);
 
       bool made_progress = false;
       for (auto& raw_wave : raw_block.waves) {
@@ -374,7 +374,7 @@ LaunchResult RawGcnExecutor::Run(const EncodedProgramObject& image,
         }
         const auto& inst = image.instructions[it->second];
         const auto& decoded = image.decoded_instructions[it->second];
-        const RawGcnInstructionObject* object =
+        const InstructionObject* object =
             (it->second < image.instruction_objects.size() && image.instruction_objects[it->second] != nullptr)
                 ? image.instruction_objects[it->second].get()
                 : nullptr;
@@ -400,15 +400,13 @@ LaunchResult RawGcnExecutor::Run(const EncodedProgramObject& image,
             .barrier_arrivals = raw_block.barrier_arrivals,
             .wave_count = static_cast<uint32_t>(raw_block.waves.size()),
         };
-        RawGcnWaveContext context{
-            .wave = raw_wave.wave,
-            .vcc = raw_wave.vcc,
-            .kernarg = kernarg,
-            .kernarg_base = kernarg_base,
-            .memory = memory,
-            .stats = result.stats,
-            .block = block_context,
-        };
+        RawGcnWaveContext context(raw_wave.wave,
+                                  raw_wave.vcc,
+                                  kernarg,
+                                  kernarg_base,
+                                  memory,
+                                  result.stats,
+                                  block_context);
         try {
           if (object != nullptr) {
             object->Execute(context);

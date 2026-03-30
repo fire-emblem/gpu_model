@@ -1,11 +1,12 @@
-#include "gpu_model/decode/gcn_inst_decoder.h"
+#include "gpu_model/instruction/encoded/instruction_decoder.h"
 
 #include "gpu_model/decode/gcn_inst_encoding_def.h"
+#include "gpu_model/decode/raw_gcn_instruction.h"
 
 namespace gpu_model {
 
-DecodedGcnInstruction GcnInstDecoder::Decode(const RawGcnInstruction& instruction) const {
-  DecodedGcnInstruction decoded;
+DecodedInstruction InstructionDecoder::Decode(const InstructionEncoding& instruction) const {
+  DecodedInstruction decoded;
   decoded.pc = instruction.pc;
   decoded.size_bytes = instruction.size_bytes;
   decoded.words = instruction.words;
@@ -22,43 +23,46 @@ DecodedGcnInstruction GcnInstDecoder::Decode(const RawGcnInstruction& instructio
     }
   }
 
-  RawGcnInstruction expanded = instruction;
-  if (expanded.decoded_operands.empty()) {
-    DecodeGcnOperands(expanded);
-  }
+  RawGcnInstruction expanded;
+  expanded.pc = instruction.pc;
+  expanded.size_bytes = instruction.size_bytes;
+  expanded.words = instruction.words;
+  expanded.format_class = instruction.format_class;
+  expanded.mnemonic = instruction.mnemonic;
+  DecodeGcnOperands(expanded);
   for (const auto& operand : expanded.decoded_operands) {
-    DecodedGcnOperandKind kind = DecodedGcnOperandKind::Unknown;
+    DecodedInstructionOperandKind kind = DecodedInstructionOperandKind::Unknown;
     switch (operand.kind) {
       case RawGcnOperandKind::ScalarReg:
-        kind = DecodedGcnOperandKind::ScalarReg;
+        kind = DecodedInstructionOperandKind::ScalarReg;
         break;
       case RawGcnOperandKind::ScalarRegRange:
-        kind = DecodedGcnOperandKind::ScalarRegRange;
+        kind = DecodedInstructionOperandKind::ScalarRegRange;
         break;
       case RawGcnOperandKind::VectorReg:
-        kind = DecodedGcnOperandKind::VectorReg;
+        kind = DecodedInstructionOperandKind::VectorReg;
         break;
       case RawGcnOperandKind::VectorRegRange:
-        kind = DecodedGcnOperandKind::VectorRegRange;
+        kind = DecodedInstructionOperandKind::VectorRegRange;
         break;
       case RawGcnOperandKind::AccumulatorReg:
-        kind = DecodedGcnOperandKind::AccumulatorReg;
+        kind = DecodedInstructionOperandKind::AccumulatorReg;
         break;
       case RawGcnOperandKind::SpecialReg:
-        kind = DecodedGcnOperandKind::SpecialReg;
+        kind = DecodedInstructionOperandKind::SpecialReg;
         break;
       case RawGcnOperandKind::Immediate:
-        kind = DecodedGcnOperandKind::Immediate;
+        kind = DecodedInstructionOperandKind::Immediate;
         break;
       case RawGcnOperandKind::BranchTarget:
-        kind = DecodedGcnOperandKind::BranchTarget;
+        kind = DecodedInstructionOperandKind::BranchTarget;
         break;
       case RawGcnOperandKind::Unknown:
-        kind = DecodedGcnOperandKind::Unknown;
+        kind = DecodedInstructionOperandKind::Unknown;
         break;
     }
     decoded.operands.push_back(
-        DecodedGcnOperand{.kind = kind, .text = operand.text, .info = operand.info});
+        DecodedInstructionOperand{.kind = kind, .text = operand.text, .info = operand.info});
   }
   return decoded;
 }

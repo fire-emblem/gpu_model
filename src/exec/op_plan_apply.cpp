@@ -1,10 +1,10 @@
-#include "gpu_model/exec/op_plan_apply.h"
+#include "gpu_model/execution/plan_apply.h"
 
 #include <sstream>
 
 namespace gpu_model {
 
-void ApplyPlanRegisterWrites(const OpPlan& plan, WaveState& wave) {
+void ApplyExecutionPlanRegisterWrites(const OpPlan& plan, WaveContext& wave) {
   for (const auto& write : plan.scalar_writes) {
     wave.sgpr.Write(write.reg_index, write.value);
   }
@@ -26,7 +26,8 @@ void ApplyPlanRegisterWrites(const OpPlan& plan, WaveState& wave) {
   }
 }
 
-std::optional<std::string> MaybeFormatExecMaskUpdate(const OpPlan& plan, const WaveState& wave) {
+std::optional<std::string> MaybeFormatExecutionMaskUpdate(const OpPlan& plan,
+                                                          const WaveContext& wave) {
   if (!plan.exec_write.has_value()) {
     return std::nullopt;
   }
@@ -35,10 +36,10 @@ std::optional<std::string> MaybeFormatExecMaskUpdate(const OpPlan& plan, const W
   return mask_text.str();
 }
 
-void ApplyPlanControlFlow(const OpPlan& plan,
-                          WaveState& wave,
-                          bool set_valid_entry,
-                          bool clear_branch_pending) {
+void ApplyExecutionPlanControlFlow(const OpPlan& plan,
+                                   WaveContext& wave,
+                                   bool set_valid_entry,
+                                   bool clear_branch_pending) {
   if (plan.exit_wave) {
     wave.status = WaveStatus::Exited;
     return;

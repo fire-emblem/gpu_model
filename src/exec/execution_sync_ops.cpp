@@ -1,6 +1,6 @@
-#include "gpu_model/exec/execution_sync_ops.h"
+#include "gpu_model/execution/sync_ops.h"
 
-namespace gpu_model::execution_sync_ops {
+namespace gpu_model::sync_ops {
 
 namespace {
 
@@ -50,7 +50,7 @@ bool ReleaseBarrierIfReadyImpl(size_t wave_count,
 
 }  // namespace
 
-void MarkWaveAtBarrier(WaveState& wave,
+void MarkWaveAtBarrier(WaveContext& wave,
                        uint64_t barrier_generation,
                        uint32_t& barrier_arrivals,
                        bool set_valid_entry_on_arrive) {
@@ -63,32 +63,32 @@ void MarkWaveAtBarrier(WaveState& wave,
   ++barrier_arrivals;
 }
 
-bool ReleaseBarrierIfReady(std::vector<WaveState>& waves,
+bool ReleaseBarrierIfReady(std::vector<WaveContext>& waves,
                            uint64_t& barrier_generation,
                            uint32_t& barrier_arrivals,
                            uint64_t pc_increment,
                            bool set_valid_entry_on_release) {
   return ReleaseBarrierIfReadyImpl(
       waves.size(),
-      [&waves](size_t i) -> WaveState& { return waves[i]; },
+      [&waves](size_t i) -> WaveContext& { return waves[i]; },
       barrier_generation,
       barrier_arrivals,
       pc_increment,
       set_valid_entry_on_release);
 }
 
-bool ReleaseBarrierIfReady(const std::vector<WaveState*>& waves,
+bool ReleaseBarrierIfReady(const std::vector<WaveContext*>& waves,
                            uint64_t& barrier_generation,
                            uint32_t& barrier_arrivals,
                            uint64_t pc_increment,
                            bool set_valid_entry_on_release) {
   return ReleaseBarrierIfReadyImpl(
       waves.size(),
-      [&waves](size_t i) -> WaveState& { return *waves[i]; },
+      [&waves](size_t i) -> WaveContext& { return *waves[i]; },
       barrier_generation,
       barrier_arrivals,
       pc_increment,
       set_valid_entry_on_release);
 }
 
-}  // namespace gpu_model::execution_sync_ops
+}  // namespace gpu_model::sync_ops

@@ -1,20 +1,9 @@
 #pragma once
 
-#include <cstdint>
-
-#include "gpu_model/exec/semantics.h"
+#include "gpu_model/execution/functional_exec_engine.h"
 
 namespace gpu_model {
 
-class FunctionalExecutionCore {
- public:
-  explicit FunctionalExecutionCore(ExecutionContext& context) : context_(context) {}
-
-  uint64_t RunSequential();
-  uint64_t RunParallelBlocks(uint32_t worker_threads);
-
- private:
-  ExecutionContext& context_;
-};
+using FunctionalExecutionCore = FunctionalExecEngine;
 
 }  // namespace gpu_model

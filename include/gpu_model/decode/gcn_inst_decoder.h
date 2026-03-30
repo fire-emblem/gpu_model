@@ -1,13 +1,10 @@
 #pragma once
 
 #include "gpu_model/decode/decoded_gcn_instruction.h"
-#include "gpu_model/decode/raw_gcn_instruction.h"
+#include "gpu_model/instruction/encoded/instruction_decoder.h"
 
 namespace gpu_model {
 
-class GcnInstDecoder {
- public:
-  DecodedGcnInstruction Decode(const RawGcnInstruction& instruction) const;
-};
+using GcnInstDecoder = InstructionDecoder;
 
 }  // namespace gpu_model

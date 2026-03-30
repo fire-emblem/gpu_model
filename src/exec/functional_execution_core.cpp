@@ -1,4 +1,4 @@
-#include "gpu_model/exec/functional_execution_core.h"
+#include "gpu_model/execution/functional_exec_engine.h"
 
 #include <array>
 #include <condition_variable>
@@ -20,10 +20,10 @@
 #include "gpu_model/debug/instruction_trace.h"
 #include "gpu_model/debug/trace_event.h"
 #include "gpu_model/debug/wave_launch_trace.h"
-#include "gpu_model/exec/execution_memory_ops.h"
-#include "gpu_model/exec/execution_state_builder.h"
-#include "gpu_model/exec/execution_sync_ops.h"
-#include "gpu_model/exec/op_plan_apply.h"
+#include "gpu_model/execution/memory_ops.h"
+#include "gpu_model/execution/plan_apply.h"
+#include "gpu_model/execution/sync_ops.h"
+#include "gpu_model/execution/wave_context_builder.h"
 #include "gpu_model/isa/opcode.h"
 #include "gpu_model/loader/device_image_loader.h"
 
@@ -48,28 +48,28 @@ struct ExecutableBlock {
 };
 
 uint64_t LoadLaneValue(const std::vector<std::byte>& memory, const LaneAccess& lane) {
-  return execution_memory_ops::LoadByteLaneValue(memory, lane);
+  return memory_ops::LoadByteLaneValue(memory, lane);
 }
 
 void StoreLaneValue(std::vector<std::byte>& memory, const LaneAccess& lane) {
-  execution_memory_ops::StoreByteLaneValue(memory, lane);
+  memory_ops::StoreByteLaneValue(memory, lane);
 }
 
 uint64_t LoadLaneValue(std::array<std::vector<std::byte>, kWaveSize>& memory,
                        uint32_t lane_id,
                        const LaneAccess& lane) {
-  return execution_memory_ops::LoadPrivateLaneValue(memory, lane_id, lane, true);
+  return memory_ops::LoadPrivateLaneValue(memory, lane_id, lane, true);
 }
 
 void StoreLaneValue(std::array<std::vector<std::byte>, kWaveSize>& memory,
                     uint32_t lane_id,
                     const LaneAccess& lane) {
-  execution_memory_ops::StorePrivateLaneValue(memory, lane_id, lane);
+  memory_ops::StorePrivateLaneValue(memory, lane_id, lane);
 }
 
 std::vector<ExecutableBlock> MaterializeBlocks(const PlacementMap& placement,
                                                const LaunchConfig& launch_config) {
-  const auto shared_blocks = BuildExecutionBlockStates(placement, launch_config);
+  const auto shared_blocks = BuildWaveContextBlocks(placement, launch_config);
   std::vector<ExecutableBlock> blocks;
   blocks.reserve(shared_blocks.size());
 
@@ -105,7 +105,7 @@ std::vector<ExecutableBlock> MaterializeBlocks(const PlacementMap& placement,
 }
 
 uint64_t LoadLaneValue(const MemorySystem& memory, MemoryPoolKind pool, const LaneAccess& lane) {
-  return execution_memory_ops::LoadPoolLaneValue(memory, pool, lane);
+  return memory_ops::LoadPoolLaneValue(memory, pool, lane);
 }
 
 uint64_t ConstantPoolBase(const ExecutionContext& context) {
@@ -397,7 +397,7 @@ class FunctionalExecutionCoreImpl {
   }
 
   bool ReleaseBlockBarrierIfReady(ExecutableBlock& block) {
-      if (!execution_sync_ops::ReleaseBarrierIfReady(
+      if (!sync_ops::ReleaseBarrierIfReady(
               block.waves, block.barrier_generation, block.barrier_arrivals, 1, false)) {
         return false;
       }
@@ -453,8 +453,8 @@ class FunctionalExecutionCoreImpl {
     block_context.stats = nullptr;
     const OpPlan plan = semantics_.BuildPlan(instruction, wave, block_context);
 
-    ApplyPlanRegisterWrites(plan, wave);
-    if (const auto mask_text = MaybeFormatExecMaskUpdate(plan, wave); mask_text.has_value()) {
+    ApplyExecutionPlanRegisterWrites(plan, wave);
+    if (const auto mask_text = MaybeFormatExecutionMaskUpdate(plan, wave); mask_text.has_value()) {
       TraceEventLocked(TraceEvent{
           .kind = TraceEventKind::ExecMaskUpdate,
           .cycle = context_.cycle,
@@ -600,7 +600,7 @@ class FunctionalExecutionCoreImpl {
       ++stats.barriers;
       {
         std::lock_guard<std::mutex> lock(*block.control_mutex);
-        execution_sync_ops::MarkWaveAtBarrier(
+        sync_ops::MarkWaveAtBarrier(
             wave, block.barrier_generation, block.barrier_arrivals, false);
       }
       TraceEventLocked(TraceEvent{
@@ -619,7 +619,7 @@ class FunctionalExecutionCoreImpl {
       ++stats.wave_exits;
       {
         std::lock_guard<std::mutex> lock(*block.control_mutex);
-        ApplyPlanControlFlow(plan, wave, false, false);
+        ApplyExecutionPlanControlFlow(plan, wave, false, false);
       }
       TraceEventLocked(TraceEvent{
           .kind = TraceEventKind::WaveExit,
@@ -630,7 +630,7 @@ class FunctionalExecutionCoreImpl {
           .message = "exit",
       });
     } else {
-      ApplyPlanControlFlow(plan, wave, false, false);
+      ApplyExecutionPlanControlFlow(plan, wave, false, false);
     }
   }
 
@@ -638,12 +638,12 @@ class FunctionalExecutionCoreImpl {
 
 }  // namespace
 
-uint64_t FunctionalExecutionCore::RunSequential() {
+uint64_t FunctionalExecEngine::RunSequential() {
   FunctionalExecutionCoreImpl core(context_);
   return core.RunSequential();
 }
 
-uint64_t FunctionalExecutionCore::RunParallelBlocks(uint32_t worker_threads) {
+uint64_t FunctionalExecEngine::RunParallelBlocks(uint32_t worker_threads) {
   FunctionalExecutionCoreImpl core(context_);
   return core.RunParallelBlocks(worker_threads);
 }

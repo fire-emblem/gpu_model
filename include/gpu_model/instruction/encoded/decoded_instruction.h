@@ -1,11 +1,41 @@
 #pragma once
 
-#include "gpu_model/decode/decoded_gcn_instruction.h"
+#include <cstdint>
+#include <string>
+#include <vector>
+
+#include "gpu_model/decode/gcn_inst_format.h"
+#include "gpu_model/decode/gcn_operand_info.h"
 
 namespace gpu_model {
 
-using DecodedInstructionOperandKind = DecodedGcnOperandKind;
-using DecodedInstructionOperand = DecodedGcnOperand;
-using DecodedInstruction = DecodedGcnInstruction;
+enum class DecodedInstructionOperandKind {
+  Unknown,
+  ScalarReg,
+  ScalarRegRange,
+  VectorReg,
+  VectorRegRange,
+  AccumulatorReg,
+  SpecialReg,
+  Immediate,
+  BranchTarget,
+};
+
+struct DecodedInstructionOperand {
+  DecodedInstructionOperandKind kind = DecodedInstructionOperandKind::Unknown;
+  std::string text;
+  GcnOperandInfo info;
+};
+
+struct DecodedInstruction {
+  uint64_t pc = 0;
+  uint32_t size_bytes = 0;
+  uint32_t encoding_id = 0;
+  GcnInstFormatClass format_class = GcnInstFormatClass::Unknown;
+  GcnInstLayout layout{};
+  std::vector<uint32_t> words;
+  std::string mnemonic;
+  std::vector<DecodedInstructionOperand> operands;
+};
 
 }  // namespace gpu_model

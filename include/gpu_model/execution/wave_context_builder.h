@@ -1,13 +1,14 @@
 #pragma once
 
-#include "gpu_model/exec/execution_state_builder.h"
+#include <vector>
+
+#include "gpu_model/exec/execution_state.h"
+#include "gpu_model/runtime/launch_config.h"
 
 namespace gpu_model {
 
-inline std::vector<ExecutionBlockState> BuildWaveContextBlocks(const PlacementMap& placement,
-                                                               const LaunchConfig& launch_config) {
-  return BuildExecutionBlockStates(placement, launch_config);
-}
+std::vector<ExecutionBlockState> BuildWaveContextBlocks(const PlacementMap& placement,
+                                                        const LaunchConfig& launch_config);
 
 using WaveContextBuilder = decltype(&BuildWaveContextBlocks);
 

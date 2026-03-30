@@ -43,15 +43,7 @@ class RawGcnSemanticExecuteTest : public ::testing::Test {
               .barrier_arrivals = barrier_arrivals,
               .wave_count = 1,
           },
-          context{
-              .wave = wave,
-              .vcc = vcc,
-              .kernarg = kernarg,
-              .kernarg_base = 0,
-              .memory = memory,
-              .stats = stats,
-              .block = block,
-          } {
+          context(wave, vcc, kernarg, 0, memory, stats, block) {
       wave.thread_count = kWaveSize;
       wave.ResetInitialExec();
       shared_memory.resize(256, std::byte{0});
