@@ -18,6 +18,17 @@ enum class WaveStatus {
   Stalled,
 };
 
+enum class WaveRunState {
+  Runnable,
+  Waiting,
+  Completed,
+};
+
+enum class WaveWaitReason {
+  None,
+  BlockBarrier,
+};
+
 struct WaveContext {
   uint32_t block_id = 0;
   uint32_t block_idx_x = 0;
@@ -40,6 +51,8 @@ struct WaveContext {
   uint32_t pending_scalar_buffer_mem_ops = 0;
   bool branch_pending = false;
   bool waiting_at_barrier = false;
+  WaveRunState run_state = WaveRunState::Runnable;
+  WaveWaitReason wait_reason = WaveWaitReason::None;
   uint64_t barrier_generation = 0;
   uint16_t tensor_agpr_count = 0;
   uint16_t tensor_accum_offset = 0;
@@ -62,6 +75,8 @@ struct WaveContext {
     pending_scalar_buffer_mem_ops = 0;
     branch_pending = false;
     waiting_at_barrier = false;
+    run_state = WaveRunState::Runnable;
+    wait_reason = WaveWaitReason::None;
     barrier_generation = 0;
     tensor_agpr_count = 0;
     tensor_accum_offset = 0;

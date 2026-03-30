@@ -15,5 +15,30 @@ TEST(WaveContextTest, InitializesExecAndPredicateMasks) {
   EXPECT_EQ(wave.smask, 0u);
 }
 
+TEST(WaveContextTest, InitializesRunStateAsRunnable) {
+  WaveContext wave;
+  EXPECT_EQ(wave.run_state, WaveRunState::Runnable);
+  EXPECT_EQ(wave.wait_reason, WaveWaitReason::None);
+  wave.thread_count = 8;
+  wave.ResetInitialExec();
+
+  EXPECT_EQ(wave.run_state, WaveRunState::Runnable);
+  EXPECT_EQ(wave.wait_reason, WaveWaitReason::None);
+}
+
+TEST(WaveContextTest, ClearsBarrierWaitStateOnReset) {
+  WaveContext wave;
+  wave.waiting_at_barrier = true;
+  wave.run_state = WaveRunState::Waiting;
+  wave.wait_reason = WaveWaitReason::BlockBarrier;
+  wave.thread_count = 4;
+
+  wave.ResetInitialExec();
+
+  EXPECT_FALSE(wave.waiting_at_barrier);
+  EXPECT_EQ(wave.run_state, WaveRunState::Runnable);
+  EXPECT_EQ(wave.wait_reason, WaveWaitReason::None);
+}
+
 }  // namespace
 }  // namespace gpu_model
