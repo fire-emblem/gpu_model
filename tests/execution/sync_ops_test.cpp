@@ -5,7 +5,7 @@
 namespace gpu_model {
 namespace {
 
-TEST(ExecutionSyncOpsTest, MarksWaveAtBarrier) {
+TEST(SyncOpsTest, MarksWaveAtBarrier) {
   WaveContext wave;
   wave.thread_count = 64;
   wave.ResetInitialExec();
@@ -16,11 +16,13 @@ TEST(ExecutionSyncOpsTest, MarksWaveAtBarrier) {
   EXPECT_EQ(wave.status, WaveStatus::Stalled);
   EXPECT_TRUE(wave.waiting_at_barrier);
   EXPECT_EQ(wave.barrier_generation, 9u);
+  EXPECT_EQ(wave.run_state, WaveRunState::Waiting);
+  EXPECT_EQ(wave.wait_reason, WaveWaitReason::BlockBarrier);
   EXPECT_FALSE(wave.valid_entry);
   EXPECT_EQ(arrivals, 1u);
 }
 
-TEST(ExecutionSyncOpsTest, ReleasesBarrierOnlyWhenAllActiveWavesWait) {
+TEST(SyncOpsTest, ReleasesBarrierOnlyWhenAllActiveWavesWait) {
   std::vector<WaveContext> waves(2);
   for (uint32_t i = 0; i < waves.size(); ++i) {
     waves[i].thread_count = 64;
@@ -49,7 +51,7 @@ TEST(ExecutionSyncOpsTest, ReleasesBarrierOnlyWhenAllActiveWavesWait) {
   EXPECT_EQ(waves[1].pc, 2u);
 }
 
-TEST(ExecutionSyncOpsTest, ReleasesBarrierThroughWavePointers) {
+TEST(SyncOpsTest, ReleasesBarrierThroughWavePointers) {
   std::vector<WaveContext> owned_waves(2);
   for (uint32_t i = 0; i < owned_waves.size(); ++i) {
     owned_waves[i].thread_count = 64;
@@ -79,6 +81,54 @@ TEST(ExecutionSyncOpsTest, ReleasesBarrierThroughWavePointers) {
   EXPECT_FALSE(owned_waves[1].valid_entry);
   EXPECT_EQ(owned_waves[0].pc, 14u);
   EXPECT_EQ(owned_waves[1].pc, 15u);
+}
+
+TEST(SyncOpsTest, ReleasesBarrierOnlyWhenAllBlockWavesWait) {
+  WaveContext a;
+  WaveContext b;
+  a.status = WaveStatus::Stalled;
+  a.run_state = WaveRunState::Waiting;
+  a.wait_reason = WaveWaitReason::BlockBarrier;
+  a.waiting_at_barrier = true;
+  a.barrier_generation = 0;
+  b.status = WaveStatus::Stalled;
+  b.run_state = WaveRunState::Runnable;
+  b.wait_reason = WaveWaitReason::None;
+  b.waiting_at_barrier = true;
+  b.barrier_generation = 0;
+
+  std::vector<WaveContext*> waves{&a, &b};
+  uint64_t target_generation = 0;
+  uint32_t barrier_arrivals = 2;
+  const bool released =
+      sync_ops::ReleaseBarrierIfReady(waves, target_generation, barrier_arrivals, 1, false);
+
+  EXPECT_FALSE(released);
+  EXPECT_EQ(target_generation, 0u);
+  EXPECT_EQ(barrier_arrivals, 2u);
+  EXPECT_EQ(a.run_state, WaveRunState::Waiting);
+  EXPECT_EQ(a.wait_reason, WaveWaitReason::BlockBarrier);
+  EXPECT_EQ(b.run_state, WaveRunState::Runnable);
+  EXPECT_EQ(b.wait_reason, WaveWaitReason::None);
+}
+
+TEST(SyncOpsTest, BarrierReleaseDoesNotResumeRunState) {
+  std::vector<WaveContext> waves(2);
+  for (auto& wave : waves) {
+    wave.thread_count = 64;
+    wave.ResetInitialExec();
+  }
+
+  uint64_t generation = 2;
+  uint32_t arrivals = 0;
+  sync_ops::MarkWaveAtBarrier(waves[0], generation, arrivals, false);
+  sync_ops::MarkWaveAtBarrier(waves[1], generation, arrivals, false);
+
+  ASSERT_TRUE(sync_ops::ReleaseBarrierIfReady(waves, generation, arrivals, 1, false));
+  EXPECT_EQ(waves[0].run_state, WaveRunState::Waiting);
+  EXPECT_EQ(waves[1].run_state, WaveRunState::Waiting);
+  EXPECT_EQ(waves[0].wait_reason, WaveWaitReason::BlockBarrier);
+  EXPECT_EQ(waves[1].wait_reason, WaveWaitReason::BlockBarrier);
 }
 
 }  // namespace

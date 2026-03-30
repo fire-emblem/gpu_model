@@ -21,7 +21,8 @@ bool ReleaseBarrierIfReadyImpl(size_t wave_count,
     const auto& wave = wave_at(i);
     if (wave.status == WaveStatus::Active || wave.status == WaveStatus::Stalled) {
       ++active_wave_count;
-      if (wave.waiting_at_barrier) {
+      if (wave.waiting_at_barrier && wave.run_state == WaveRunState::Waiting &&
+          wave.wait_reason == WaveWaitReason::BlockBarrier) {
         ++waiting_wave_count;
       }
     }
@@ -57,6 +58,8 @@ void MarkWaveAtBarrier(WaveContext& wave,
   wave.status = WaveStatus::Stalled;
   wave.waiting_at_barrier = true;
   wave.barrier_generation = barrier_generation;
+  wave.run_state = WaveRunState::Waiting;
+  wave.wait_reason = WaveWaitReason::BlockBarrier;
   if (set_valid_entry_on_arrive) {
     wave.valid_entry = false;
   }
