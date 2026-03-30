@@ -15,6 +15,7 @@ struct LaunchConfig {
   uint64_t global_offset_x = 0;
   uint64_t global_offset_y = 0;
   uint64_t global_offset_z = 0;
+  uint64_t queue_ptr = 0;
 };
 
 }  // namespace gpu_model

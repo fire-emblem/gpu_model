@@ -352,5 +352,23 @@ TEST(KernargPackerTest, PacksTypedGlobalOffsetsFromLaunchConfig) {
   EXPECT_EQ(LoadU64(bytes, 24), 0x9999aaaabbbbccccull);
 }
 
+TEST(KernargPackerTest, PacksTypedQueuePointerFromLaunchConfig) {
+  KernelLaunchMetadata metadata;
+  metadata.kernarg_segment_size = 24;
+  metadata.hidden_arg_layout = {
+      KernelHiddenArgLayoutEntry{.kind = KernelHiddenArgKind::QueuePtr,
+                                 .kind_name = "hidden_default_queue",
+                                 .offset = 8,
+                                 .size = 8},
+  };
+
+  const auto bytes = BuildKernargImage(
+      metadata, {},
+      LaunchConfig{.grid_dim_x = 1,
+                   .block_dim_x = 64,
+                   .queue_ptr = 0x123456789abcdef0ull});
+  EXPECT_EQ(LoadU64(bytes, 8), 0x123456789abcdef0ull);
+}
+
 }  // namespace
 }  // namespace gpu_model
