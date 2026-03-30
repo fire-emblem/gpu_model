@@ -5,7 +5,7 @@
 namespace gpu_model {
 namespace {
 
-TEST(KernelProgramTest, ResolvesLabelsAndInstructionCount) {
+TEST(ExecutableKernelTest, ResolvesLabelsAndInstructionCount) {
   InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
   builder.Label("exit");

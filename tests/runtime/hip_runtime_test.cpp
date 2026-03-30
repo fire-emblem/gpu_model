@@ -478,7 +478,7 @@ TEST(HipRuntimeTest, LoadsSectionedExecutableImageAndLaunchesRegisteredKernel) {
 
 TEST(HipRuntimeTest, LoadsBundleAndLooseFilesByModuleAndCanUnload) {
   const std::filesystem::path temp_dir =
-      std::filesystem::temp_directory_path() / "gpu_model_runtime_hooks_modules";
+      std::filesystem::temp_directory_path() / "gpu_model_hip_runtime_modules";
   std::filesystem::remove_all(temp_dir);
   std::filesystem::create_directories(temp_dir);
 
@@ -750,7 +750,7 @@ TEST(HipRuntimeTest, LaunchesRegisteredRawModuleThroughLoweredModeledRoute) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
 
-  const auto temp_dir = MakeUniqueTempDir("gpu_model_runtime_hooks_registered_lowered");
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_runtime_registered_lowered");
   const auto src_path = temp_dir / "hip_vecadd_3d_adds_registered.cpp";
   const auto exe_path = temp_dir / "hip_vecadd_3d_adds_registered.out";
 

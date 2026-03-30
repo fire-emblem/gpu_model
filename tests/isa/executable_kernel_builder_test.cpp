@@ -1,12 +1,12 @@
 #include <gtest/gtest.h>
 
-#include "gpu_model/isa/kernel_program_builder.h"
+#include "gpu_model/program/executable_kernel_builder.h"
 
 namespace gpu_model {
 namespace {
 
-TEST(KernelProgramBuilderTest, BuildsKernelProgramThroughLowLevelCreationApi) {
-  KernelProgramBuilder builder;
+TEST(ExecutableKernelBuilderTest, BuildsExecutableKernelThroughLowLevelCreationApi) {
+  ExecutableKernelBuilder builder;
   builder.SetNextDebugLoc("low_level.gcn", 1);
   builder.AddInstruction(Opcode::SysLoadArg, {builder.ParseRegOperand("s0"), Operand::Argument(0)});
   builder.Label("exit");

@@ -45,7 +45,7 @@ runtime 侧主线按三层来理解：
 
 当前包括：
 
-- `include/gpu_model/runtime/model_runtime_api.h`
+- `include/gpu_model/runtime/model_runtime.h`
 - `include/gpu_model/runtime/module_load.h`
 
 职责：
@@ -67,28 +67,24 @@ runtime 侧主线按三层来理解：
 - 驱动 `FunctionalExecEngine / CycleExecEngine / EncodedExecEngine`
 - 组织 `WaveContext` 生命周期与运行时状态输出
 
-当前实现文件仍包含历史命名：
+当前实现文件名已切换到主线术语：
 
-- `src/runtime/runtime_hooks.cpp`
-- `src/runtime/host_runtime.cpp`
+- `src/runtime/hip_runtime.cpp`
+- `src/runtime/runtime_engine.cpp`
 
-这些文件名和类名属于 legacy compatibility，不是主线术语。
+## 历史已删除名（仅用于阅读旧记录）
 
-## 术语迁移与兼容名
-
-- `ModelRuntimeApi` => `ModelRuntime`（legacy facade 名称）
-- `RuntimeHooks` => `HipRuntime` 路径中的 legacy C++ 接口
-- `HostRuntime` => `RuntimeEngine` 的 legacy 实现名
+- `ModelRuntimeApi` -> `ModelRuntime`
+- `RuntimeHooks` -> `HipRuntime`
+- `HostRuntime` -> `RuntimeEngine`
 
 ### 仓库内测试 / 工具
 
 优先使用：
 
 - `ModelRuntime`
-
-兼容保留：
-
-- `RuntimeHooks`（legacy compatibility）
+- `HipRuntime`
+- `RuntimeEngine`
 
 ### 真实 HIP `.out`
 
@@ -120,7 +116,7 @@ runtime 侧主线按三层来理解：
 
 当前已经完成：
 
-- `ModelRuntime` facade（由 `ModelRuntimeApi` 提供 legacy 兼容实现）
+- `ModelRuntime` facade
 - HIP interposer 到 `ModelRuntime` 的主路径复用
 - 基础 device property 查询
 - model-native 统一 `LoadModule` 入口和 `ExecutableKernel` launch 主路径
@@ -129,5 +125,5 @@ runtime 侧主线按三层来理解：
 
 - 更完整的 property / attribute 覆盖
 - 更明确的 `ProgramObject / EncodedProgramObject` API 分层
-- `RuntimeHooks` 到 `HipRuntime` 兼容接口的进一步职责收缩，以及 `HostRuntime` 到 `RuntimeEngine` 命名的进一步收口
-- 文档和测试中逐步统一采用 `ModelRuntime` 作为 model-native 层名称
+- 历史遗留命名对应实现文件的进一步收口
+- 文档和测试中的主线名称已统一采用 `ModelRuntime`

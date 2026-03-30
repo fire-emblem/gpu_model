@@ -24,8 +24,8 @@
 迁移状态（2026-03）：
 
 - 文档主线已切到上述术语
-- 代码里仍有历史兼容名：`ModelRuntimeApi / RuntimeHooks / HostRuntime`
-- 旧名仅作为 compatibility alias 使用，不再作为主名
+- 历史旧名 `ModelRuntimeApi / RuntimeHooks / HostRuntime` 已从主线术语移除
+- 阅读旧记录时请按 `ModelRuntime / HipRuntime / RuntimeEngine` 对照理解
 
 ## 当前能力
 
@@ -80,7 +80,7 @@
 - `exec/`
   issue model、semantic handlers、functional/cycle executor、parallel-wave executor scaffold
 - `runtime/`
-  HipRuntime、ModelRuntime、RuntimeEngine（legacy 兼容名见上）
+  HipRuntime、ModelRuntime、RuntimeEngine
 - `debug/`
   trace、timeline、debug info
 
@@ -96,11 +96,11 @@ runtime 侧主线按三层理解：
 - runtime core layer
   - `RuntimeEngine`
 
-历史兼容名：
+历史已删除名（仅用于阅读旧记录）：
 
-- `ModelRuntimeApi` => `ModelRuntime`（legacy facade 名称）
-- `RuntimeHooks` => `HipRuntime` 路径中的 legacy C++ 接口
-- `HostRuntime` => `RuntimeEngine` 的 legacy 实现名
+- `ModelRuntimeApi` -> `ModelRuntime`
+- `RuntimeHooks` -> `HipRuntime`
+- `HostRuntime` -> `RuntimeEngine`
 
 详细说明见：
 
@@ -182,8 +182,8 @@ GPU_MODEL_TEST_PROFILE=full ./build/tests/gpu_model_tests
 运行单组测试：
 
 ```bash
-# legacy compatibility test name
-./build/tests/gpu_model_tests --gtest_filter=RuntimeHooksTest.LaunchesHipVecAddExecutableAndValidatesOutput
+# runtime/program 主线命名示例
+./build/tests/gpu_model_tests --gtest_filter=HipRuntimeTest.LaunchesHipVecAddExecutableAndValidatesOutput
 ```
 
 ## 常用入口
@@ -280,7 +280,7 @@ cmake --build build --target gpu_model_hip_interposer -j
 
 - `third_party/marl`
 
-当前 `RuntimeEngine` 已支持 functional 执行模式切换（legacy 实现名：`HostRuntime`）：
+当前 `RuntimeEngine` 已支持 functional 执行模式切换：
 
 - `SingleThreaded`
 - `MarlParallel`

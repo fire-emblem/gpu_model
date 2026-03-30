@@ -26,8 +26,8 @@ add_executable(gpu_model_tests
   exec/encoded/semantics/raw_gcn_semantic_execute_test.cpp
   exec/encoded/semantics/raw_gcn_semantic_handler_registry_test.cpp
   exec/handlers/semantic_handler_test.cpp
-  isa/kernel_program_builder_test.cpp
-  isa/kernel_program_test.cpp
+  isa/executable_kernel_builder_test.cpp
+  isa/executable_kernel_test.cpp
   isa/opcode_descriptor_test.cpp
   isa/target_isa_test.cpp
   state/wave_state_test.cpp
@@ -79,7 +79,7 @@ add_executable(gpu_model_tests
   loader/amdgpu_code_object_decoder_test.cpp
   loader/executable_image_io_test.cpp
   loader/program_bundle_io_test.cpp
-  loader/program_image_launch_test.cpp
+  loader/program_object_launch_test.cpp
 
   # program/*
   program/program_source_reader_test.cpp
@@ -90,7 +90,7 @@ add_executable(gpu_model_tests
   runtime/kernarg_packer_test.cpp
   runtime/hipcc_parallel_execution_test.cpp
   runtime/raw_code_object_launch_test.cpp
-  runtime/model_runtime_api_test.cpp
+  runtime/model_runtime_test.cpp
   runtime/runtime_naming_test.cpp
   runtime/compatibility_alias_test.cpp
   runtime/debug_info_io_test.cpp
@@ -100,7 +100,7 @@ add_executable(gpu_model_tests
   runtime/hip_cts_test.cpp
   runtime/hip_feature_cts_test.cpp
   runtime/trace_test.cpp
-  runtime/runtime_hooks_test.cpp
+  runtime/hip_runtime_test.cpp
   runtime/execution_stats_test.cpp
   instruction/instruction_naming_test.cpp
 )
