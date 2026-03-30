@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <optional>
 #include <unordered_map>
 
@@ -18,7 +19,7 @@ namespace {
 
 thread_local hipError_t g_last_error = hipSuccess;
 thread_local int g_current_device = 0;
-uintptr_t g_next_stream_id = 1;
+thread_local std::optional<uintptr_t> g_active_stream_id;
 uintptr_t g_next_event_id = 1;
 
 struct EventState {
@@ -49,6 +50,14 @@ hipError_t Remember(hipError_t error) {
   return error;
 }
 
+bool IsValidStream(hipStream_t stream) {
+  if (stream == nullptr) {
+    return true;
+  }
+  return g_active_stream_id.has_value() &&
+         reinterpret_cast<uintptr_t>(stream) == *g_active_stream_id;
+}
+
 }  // namespace
 
 extern "C" {
@@ -70,7 +79,10 @@ void __hipRegisterFunction(void**, const void* hostFunction, char*, const char* 
 }
 
 hipError_t __hipPushCallConfiguration(dim3 gridDim, dim3 blockDim, size_t sharedMemBytes,
-                                      hipStream_t) {
+                                      hipStream_t stream) {
+  if (!IsValidStream(stream)) {
+    return Remember(hipErrorInvalidHandle);
+  }
   HipInterposerState::Instance().PushLaunchConfiguration(
       LaunchConfig{
           .grid_dim_x = gridDim.x,
@@ -152,7 +164,10 @@ hipError_t hipMemcpyAsync(void* dst,
                           const void* src,
                           size_t sizeBytes,
                           hipMemcpyKind kind,
-                          hipStream_t) {
+                          hipStream_t stream) {
+  if (!IsValidStream(stream)) {
+    return Remember(hipErrorInvalidHandle);
+  }
   return hipMemcpy(dst, src, sizeBytes, kind);
 }
 
@@ -164,6 +179,13 @@ hipError_t hipMemset(void* dst, int value, size_t sizeBytes) {
   state.MemsetDevice(dst, static_cast<uint8_t>(value), sizeBytes);
   DebugLog("hipMemset dst=%p value=%d bytes=%zu", dst, value, sizeBytes);
   return Remember(hipSuccess);
+}
+
+hipError_t hipMemsetAsync(void* dst, int value, size_t sizeBytes, hipStream_t stream) {
+  if (!IsValidStream(stream)) {
+    return Remember(hipErrorInvalidHandle);
+  }
+  return hipMemset(dst, value, sizeBytes);
 }
 
 hipError_t hipMemsetD8(hipDeviceptr_t dest, unsigned char value, size_t count) {
@@ -394,19 +416,37 @@ hipError_t hipStreamCreate(hipStream_t* stream) {
   if (stream == nullptr) {
     return Remember(hipErrorInvalidValue);
   }
-  *stream = reinterpret_cast<hipStream_t>(g_next_stream_id++);
+  if (g_active_stream_id.has_value()) {
+    return Remember(hipErrorInvalidValue);
+  }
+  static constexpr uintptr_t kSingleStreamId =
+      static_cast<uintptr_t>(std::numeric_limits<uint32_t>::max());
+  g_active_stream_id = kSingleStreamId;
+  *stream = reinterpret_cast<hipStream_t>(*g_active_stream_id);
   return Remember(hipSuccess);
 }
 
-hipError_t hipStreamDestroy(hipStream_t) {
+hipError_t hipStreamDestroy(hipStream_t stream) {
+  if (!g_active_stream_id.has_value() ||
+      stream == nullptr ||
+      reinterpret_cast<uintptr_t>(stream) != *g_active_stream_id) {
+    return Remember(hipErrorInvalidHandle);
+  }
+  g_active_stream_id.reset();
   return Remember(hipSuccess);
 }
 
-hipError_t hipStreamSynchronize(hipStream_t) {
+hipError_t hipStreamSynchronize(hipStream_t stream) {
+  if (!IsValidStream(stream)) {
+    return Remember(hipErrorInvalidHandle);
+  }
   return Remember(hipSuccess);
 }
 
-hipError_t hipStreamWaitEvent(hipStream_t, hipEvent_t event, unsigned int) {
+hipError_t hipStreamWaitEvent(hipStream_t stream, hipEvent_t event, unsigned int) {
+  if (!IsValidStream(stream)) {
+    return Remember(hipErrorInvalidHandle);
+  }
   const auto it = g_events.find(reinterpret_cast<uintptr_t>(event));
   if (it == g_events.end()) {
     return Remember(hipErrorInvalidHandle);
@@ -438,6 +478,9 @@ hipError_t hipEventDestroy(hipEvent_t event) {
 }
 
 hipError_t hipEventRecord(hipEvent_t event, hipStream_t stream) {
+  if (!IsValidStream(stream)) {
+    return Remember(hipErrorInvalidHandle);
+  }
   const auto it = g_events.find(reinterpret_cast<uintptr_t>(event));
   if (it == g_events.end()) {
     return Remember(hipErrorInvalidHandle);
@@ -472,8 +515,15 @@ hipError_t hipEventElapsedTime(float* ms, hipEvent_t start, hipEvent_t stop) {
   return Remember(hipSuccess);
 }
 
-hipError_t hipLaunchKernel(const void* function_address, dim3 numBlocks, dim3 dimBlocks, void** args,
-                           size_t sharedMemBytes, hipStream_t) {
+hipError_t hipLaunchKernel(const void* function_address,
+                           dim3 numBlocks,
+                           dim3 dimBlocks,
+                           void** args,
+                           size_t sharedMemBytes,
+                           hipStream_t stream) {
+  if (!IsValidStream(stream)) {
+    return Remember(hipErrorInvalidHandle);
+  }
   DebugLog("hipLaunchKernel host=%p grid=(%u,%u,%u) block=(%u,%u,%u) shared=%zu", function_address,
            numBlocks.x, numBlocks.y, numBlocks.z, dimBlocks.x, dimBlocks.y, dimBlocks.z,
            sharedMemBytes);

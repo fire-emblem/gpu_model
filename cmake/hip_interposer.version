@@ -28,6 +28,7 @@ hip_4.2 {
     hipMemcpy;
     hipMemcpyAsync;
     hipMemset;
+    hipMemsetAsync;
     hipMemsetD8;
     hipMemsetD32;
     hipDeviceSynchronize;

@@ -718,6 +718,128 @@ int main() {
   std::filesystem::remove_all(temp_dir);
 }
 
+TEST(HipInterposerStateTest, EnforcesSingleStreamBoundaryThroughLdPreloadInterposer) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto build_dir = BuildDirPath();
+  const auto interposer_path = build_dir / "libgpu_model_hip_interposer.so";
+  if (!std::filesystem::exists(interposer_path)) {
+    GTEST_SKIP() << "missing interposer library: " << interposer_path;
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_ld_preload_stream_boundary");
+  const auto src_path = temp_dir / "hip_ld_preload_stream_boundary.cpp";
+  const auto exe_path = temp_dir / "hip_ld_preload_stream_boundary.out";
+  const auto stdout_path = temp_dir / "stdout.txt";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << R"(
+#include <hip/hip_runtime.h>
+#include <cstdio>
+
+int main() {
+  hipStream_t stream0 = nullptr;
+  hipStream_t stream1 = nullptr;
+
+  if (hipStreamCreate(&stream0) != hipSuccess || stream0 == nullptr) return 10;
+  if (hipStreamCreate(&stream1) == hipSuccess) return 11;
+  if (hipStreamSynchronize(stream0) != hipSuccess) return 12;
+  if (hipStreamDestroy(stream0) != hipSuccess) return 13;
+  if (hipStreamSynchronize(stream0) == hipSuccess) return 14;
+  if (hipStreamDestroy(stream0) == hipSuccess) return 15;
+
+  std::puts("ld_preload single stream boundary ok");
+  return 0;
+}
+)";
+  }
+
+  const std::string compile_command =
+      "env -u LD_PRELOAD hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(compile_command.c_str()), 0);
+
+  const std::string run_command =
+      "env LD_PRELOAD=" + interposer_path.string() +
+      " GPU_MODEL_HIP_INTERPOSER_DEBUG=1 " + exe_path.string() + " > " + stdout_path.string() +
+      " 2>&1";
+  ASSERT_EQ(std::system(run_command.c_str()), 0);
+
+  std::ifstream in(stdout_path);
+  ASSERT_TRUE(static_cast<bool>(in));
+  const std::string output((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+  EXPECT_NE(output.find("ld_preload single stream boundary ok"), std::string::npos);
+
+  std::filesystem::remove_all(temp_dir);
+}
+
+TEST(HipInterposerStateTest, RunsHipHostExecutableWithMemsetAsyncThroughLdPreloadInterposer) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto build_dir = BuildDirPath();
+  const auto interposer_path = build_dir / "libgpu_model_hip_interposer.so";
+  if (!std::filesystem::exists(interposer_path)) {
+    GTEST_SKIP() << "missing interposer library: " << interposer_path;
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_ld_preload_memset_async");
+  const auto src_path = temp_dir / "hip_ld_preload_memset_async.cpp";
+  const auto exe_path = temp_dir / "hip_ld_preload_memset_async.out";
+  const auto stdout_path = temp_dir / "stdout.txt";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << R"(
+#include <hip/hip_runtime.h>
+#include <array>
+#include <cstdio>
+
+int main() {
+  hipStream_t stream = nullptr;
+  void* ptr = nullptr;
+  std::array<unsigned char, 64> host{};
+
+  if (hipStreamCreate(&stream) != hipSuccess) return 10;
+  if (hipMalloc(&ptr, host.size()) != hipSuccess) return 11;
+  if (hipMemsetAsync(ptr, 0x5a, host.size(), stream) != hipSuccess) return 12;
+  if (hipStreamSynchronize(stream) != hipSuccess) return 13;
+  if (hipMemcpy(host.data(), ptr, host.size(), hipMemcpyDeviceToHost) != hipSuccess) return 14;
+  for (unsigned char value : host) {
+    if (value != static_cast<unsigned char>(0x5a)) return 15;
+  }
+  if (hipFree(ptr) != hipSuccess) return 16;
+  if (hipStreamDestroy(stream) != hipSuccess) return 17;
+
+  std::puts("ld_preload memset async ok");
+  return 0;
+}
+)";
+  }
+
+  const std::string compile_command =
+      "env -u LD_PRELOAD hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(compile_command.c_str()), 0);
+
+  const std::string run_command =
+      "env LD_PRELOAD=" + interposer_path.string() +
+      " GPU_MODEL_HIP_INTERPOSER_DEBUG=1 " + exe_path.string() + " > " + stdout_path.string() +
+      " 2>&1";
+  ASSERT_EQ(std::system(run_command.c_str()), 0);
+
+  std::ifstream in(stdout_path);
+  ASSERT_TRUE(static_cast<bool>(in));
+  const std::string output((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+  EXPECT_NE(output.find("ld_preload memset async ok"), std::string::npos);
+
+  std::filesystem::remove_all(temp_dir);
+}
+
 TEST(HipInterposerStateTest, LaunchesHipSharedReverseExecutableThroughRegisteredHostFunction) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
