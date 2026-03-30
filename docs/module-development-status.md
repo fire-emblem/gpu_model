@@ -50,7 +50,7 @@
 - `runtime/program` 主线重构已基本完成
 - `instruction/execution` 的公开命名、实现主路径、测试主路径已完成收口
 - `exec/*` 与 `decode/*` 旧顶层代码目录已迁空并删除
-- 全量 `gpu_model_tests` 当前结果为 `454 passed, 3 skipped`
+- 全量 `gpu_model_tests` 当前结果为 `457 passed`
 
 当前可以认为：
 
@@ -70,8 +70,8 @@
 - 主线公开接口重构：`已完成`
 - 主线目录层级重构：`已完成`
 - 长期内部层划分：`已确定`
-- 历史文档最终整理：`未完成`
-- 整体代码重构按主线目标：`已基本完成`
+- 历史文档最终整理：`进行中`
+- 整体代码重构按主线目标：`已完成`
 
 ## 第一阶段边界
 
@@ -137,15 +137,15 @@
 | `M9` | Tensor / MFMA | 支持 tensor core / MFMA 指令解析、反汇编、执行与结果验证 | `Partial` | 已有 `v_mfma_f32_16x16x4f32` 最小路径和 probe/test | 还缺 MFMA 指令族系统覆盖；还缺寄存器布局、累加器语义、更多 datatype 支持；还缺真实 kernel 验证 |
 | `M10` | Trace / Log / Debug | 支持详细 log、instruction trace、wave launch trace、寄存器值打印、层级信息打印 | `Partial` | 已有 trace sink、file/json trace、ASCII timeline、Google trace、instruction trace、cycle timeline；`FunctionalExecEngine / EncodedExecEngine / CycleExecEngine` 三条当前执行 backend 已统一发出 `WaveLaunch` 事件并带初始 `WaveContext` 状态摘要；usage 脚本已能稳定导出 encoded decode 与 HIP interposer 主线结果 | 还缺更完整的 wave 启动初始寄存器 dump；还缺标准化 debug 日志等级；还缺 encoded / functional / runtime 三条路径的统一 trace 格式进一步收敛 |
 | `M11` | 命令行 `.out` 执行闭环 | `LD_PRELOAD` 后，任意第一阶段边界内 HIP 可执行程序可直接命令行执行 | `Partial` | 已有 host `main()` 原生执行 + HIP interposer + kernel 进入 model 的闭环；真实 `.out` 已验证 `vecadd/fma_loop/bias_chain/shared_reverse/softmax_row/mfma`；`HipInterposerState` 注册路径与 `LD_PRELOAD` 路径两条主线均有 CTS 覆盖；基础 property 查询与 model-native module API 已打通 | 还缺更完整 runtime API；还缺“任意 HIP 程序”所需的完整 decode/exec/runtime 覆盖 |
-| `M12` | 测试与状态门禁 | 用例矩阵、真实 HIP 程序、encoded decode、runtime、CTS、回归门禁 | `Partial` | 已有 gtest 统一测试；`HipRuntimeTest.*`、`HipInterposerStateTest.*`、encoded decode usage、主 CTS 和 feature CTS 均已打通；当前全量 `gpu_model_tests` 结果为 `454 passed, 3 skipped` | 还缺以“任意 HIP 可执行程序”为目标的分层门禁矩阵文档；还缺 decode/disasm/ABI/property/module-load 专项测试归档；还缺状态与模块看板绑定的验收标准；`LD_PRELOAD` 相关 3 个用例因缺少 interposer `.so` 仍被跳过 |
+| `M12` | 测试与状态门禁 | 用例矩阵、真实 HIP 程序、encoded decode、runtime、CTS、回归门禁 | `Partial` | 已有 gtest 统一测试；`HipRuntimeTest.*`、`HipInterposerStateTest.*`、encoded decode usage、主 CTS 和 feature CTS 均已打通；当前全量 `gpu_model_tests` 结果为 `457 passed`；`LD_PRELOAD` interposer 用例已转为通过 | 还缺以“任意 HIP 可执行程序”为目标的分层门禁矩阵文档；还缺 decode/disasm/ABI/property/module-load 专项测试归档；还缺状态与模块看板绑定的验收标准 |
 | `M13` | Cycle model | 完整 cycle 建模、issue/latency/waitcnt/event/timeline | `Partial` | 已有 naive cycle 主干、issue model、waitcnt 领域阻塞、event queue、timeline、Google trace、cache/bank conflict/waitcnt cycle 测试 | 仍缺更完整的架构资源冲突、更多 memory domain/pipe 细节、与真实硬件差异说明和参数化建模文档 |
 
 ## 当前阶段总评
-当前项目距离“任意第一阶段边界内 HIP 可执行程序可命令行执行”仍有差距，但已经不再是“主线未打通”的阶段。
+当前项目距离“更完整的功能覆盖与长期维护形态”仍有差距，但主线重构和当前边界内能力已经完成。
 
 同时需要明确：
 
-- 如果以“公开主路径命名、顶层目录层级、主测试路径是否收口”为标准，本轮重构已经完成
+- 如果以“公开主路径命名、顶层目录层级、主测试路径、当前全量验证结果是否收口”为标准，本轮重构已经完成
 - 如果以“彻底减少底层 GCN-specific 术语、整理全部历史文档”为标准，仍有收尾项
 
 当前最关键的缺口不是单点 bug，而是五个大面：
