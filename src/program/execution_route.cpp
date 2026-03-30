@@ -4,8 +4,8 @@
 #include <stdexcept>
 
 #include "gpu_model/isa/target_isa.h"
-#include "gpu_model/loader/amdgpu_code_object_decoder.h"
 #include "gpu_model/program/encoded_program_object.h"
+#include "gpu_model/program/object_reader.h"
 #include "gpu_model/program/program_object.h"
 
 namespace gpu_model {
@@ -52,7 +52,7 @@ PreparedExecutionRoute PrepareExecutionRoute(const ProgramObject& image,
     }
     prepared.owned_raw_code_object =
         std::make_shared<EncodedProgramObject>(
-            AmdgpuCodeObjectDecoder{}.Decode(*artifact_path, image.kernel_name()));
+            ObjectReader{}.LoadEncodedObject(*artifact_path, image.kernel_name()));
     prepared.raw_code_object = prepared.owned_raw_code_object.get();
     return prepared;
   }

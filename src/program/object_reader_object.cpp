@@ -1,3 +1,5 @@
+#include "gpu_model/program/object_reader.h"
+
 #include "gpu_model/loader/amdgpu_obj_loader.h"
 
 #include <array>
@@ -397,8 +399,8 @@ ProgramObject LoadFromHipFatbinHostElf(const std::filesystem::path& path,
 
 }  // namespace
 
-ProgramObject AmdgpuObjLoader::LoadFromObject(const std::filesystem::path& path,
-                                              std::optional<std::string> kernel_name) const {
+ProgramObject ObjectReader::LoadFromObject(const std::filesystem::path& path,
+                                           std::optional<std::string> kernel_name) const {
   if (!std::filesystem::exists(path)) {
     throw std::runtime_error("missing AMDGPU object file: " + path.string());
   }
@@ -416,6 +418,11 @@ ProgramObject AmdgpuObjLoader::LoadFromObject(const std::filesystem::path& path,
 
   throw std::runtime_error("ELF is neither AMDGPU code object nor HIP fatbin host artifact: " +
                            path.string());
+}
+
+ProgramObject AmdgpuObjLoader::LoadFromObject(const std::filesystem::path& path,
+                                              std::optional<std::string> kernel_name) const {
+  return ObjectReader{}.LoadFromObject(path, std::move(kernel_name));
 }
 
 }  // namespace gpu_model

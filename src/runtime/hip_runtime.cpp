@@ -12,11 +12,10 @@
 
 #include "gpu_model/arch/arch_registry.h"
 #include "gpu_model/isa/target_isa.h"
-#include "gpu_model/loader/amdgpu_code_object_decoder.h"
-#include "gpu_model/loader/amdgpu_obj_loader.h"
 #include "gpu_model/loader/executable_image_io.h"
 #include "gpu_model/loader/program_bundle_io.h"
 #include "gpu_model/program/execution_route.h"
+#include "gpu_model/program/object_reader.h"
 
 namespace gpu_model {
 
@@ -292,14 +291,14 @@ DeviceLoadPlan HipRuntime::BuildLoadPlan(const ProgramObject& image) const {
 DeviceLoadPlan HipRuntime::BuildLoadPlanFromAmdgpuObject(
     const std::filesystem::path& path,
     std::optional<std::string> kernel_name) const {
-  const auto decoded = AmdgpuCodeObjectDecoder{}.Decode(path, std::move(kernel_name));
+  const auto decoded = ObjectReader{}.LoadEncodedObject(path, std::move(kernel_name));
   return BuildDeviceLoadPlan(decoded);
 }
 
 EncodedProgramObject HipRuntime::DescribeAmdgpuObject(
     const std::filesystem::path& path,
     std::optional<std::string> kernel_name) const {
-  return AmdgpuCodeObjectDecoder{}.Decode(path, std::move(kernel_name));
+  return ObjectReader{}.LoadEncodedObject(path, std::move(kernel_name));
 }
 
 DeviceLoadResult HipRuntime::MaterializeLoadPlan(const DeviceLoadPlan& plan) {
@@ -330,8 +329,8 @@ void HipRuntime::LoadModule(const ModuleLoadRequest& request) {
     case ModuleLoadFormat::Auto:
       throw std::logic_error("auto format must be resolved before load");
     case ModuleLoadFormat::AmdgpuObject:
-      RegisterProgramImage(request.module_name,
-                           AmdgpuObjLoader{}.LoadFromObject(request.path, request.kernel_name));
+      RegisterProgramImage(request.module_name, ObjectReader{}.LoadFromObject(
+                                                    request.path, request.kernel_name));
       return;
     case ModuleLoadFormat::ProgramBundle:
       RegisterProgramImage(request.module_name, ProgramBundleIO::Read(request.path));
@@ -474,7 +473,7 @@ LaunchResult HipRuntime::LaunchAmdgpuObject(const std::filesystem::path& path,
                                             std::optional<std::string> kernel_name,
                                             ExecutionRoute route) {
   if (route == ExecutionRoute::LoweredModeled) {
-    const auto image = AmdgpuObjLoader{}.LoadFromObject(path, std::move(kernel_name));
+    const auto image = ObjectReader{}.LoadFromObject(path, std::move(kernel_name));
     return LaunchProgramImage(image, std::move(config), std::move(args), mode,
                               std::move(arch_name), trace, ExecutionRoute::LoweredModeled);
   }

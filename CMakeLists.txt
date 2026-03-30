@@ -44,8 +44,6 @@ add_library(gpu_model STATIC
   src/isa/opcode_descriptor.cpp
   src/isa/target_isa.cpp
   src/loader/asm_parser.cpp
-  src/loader/amdgpu_code_object_decoder.cpp
-  src/loader/amdgpu_obj_loader.cpp
   src/loader/device_image_loader.cpp
   src/loader/device_segment_image.cpp
   src/loader/executable_image_io.cpp
@@ -53,7 +51,9 @@ add_library(gpu_model STATIC
   src/loader/gcn_text_parser.cpp
   src/loader/program_lowering.cpp
   src/loader/program_bundle_io.cpp
+  src/program/encoded_program_object.cpp
   src/program/object_reader.cpp
+  src/program/object_reader_object.cpp
   src/memory/memory_system.cpp
   src/memory/cache_model.cpp
   src/memory/shared_bank_model.cpp

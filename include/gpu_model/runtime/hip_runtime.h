@@ -22,8 +22,6 @@
 
 namespace gpu_model {
 
-class AmdgpuCodeObjectDecoder;
-
 class HipRuntime {
  public:
   explicit HipRuntime(RuntimeEngine* runtime = nullptr);

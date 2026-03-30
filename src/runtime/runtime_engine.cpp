@@ -14,7 +14,6 @@
 #include "gpu_model/exec/encoded/executor/raw_gcn_executor.h"
 #include "gpu_model/isa/kernel_metadata.h"
 #include "gpu_model/isa/target_isa.h"
-#include "gpu_model/loader/amdgpu_code_object_decoder.h"
 #include "gpu_model/loader/device_image_loader.h"
 #include "gpu_model/loader/program_lowering.h"
 #include "gpu_model/execution/encoded_exec_engine.h"

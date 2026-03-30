@@ -7,8 +7,7 @@
 #include <unistd.h>
 
 #include "gpu_model/isa/kernel_metadata.h"
-#include "gpu_model/loader/amdgpu_code_object_decoder.h"
-#include "gpu_model/loader/amdgpu_obj_loader.h"
+#include "gpu_model/program/object_reader.h"
 #include "gpu_model/program/program_object.h"
 
 namespace gpu_model {
@@ -215,7 +214,7 @@ KernelArgPack HipInterposerState::PackArgs(const ProgramObject& image, void** ar
       const std::optional<std::string> kernel_name =
           entry_it != metadata.values.end() ? std::optional<std::string>(entry_it->second)
                                             : std::nullopt;
-      metadata = AmdgpuCodeObjectDecoder{}.Decode(path_it->second, kernel_name).metadata;
+      metadata = ObjectReader{}.LoadEncodedObject(path_it->second, kernel_name).metadata;
       layout = ParseArgLayout(metadata);
     }
   }
@@ -257,7 +256,7 @@ LaunchResult HipInterposerState::LaunchExecutableKernel(const std::filesystem::p
     result.error_message = "unregistered HIP host function";
     return result;
   }
-  const ProgramObject image = AmdgpuObjLoader{}.LoadFromObject(executable_path, *kernel_name);
+  const ProgramObject image = ObjectReader{}.LoadFromObject(executable_path, *kernel_name);
   SyncManagedHostToDevice();
   auto result = model_runtime_.LaunchProgramImage(image, std::move(config), PackArgs(image, args),
                                                   mode, arch_name);
@@ -272,7 +271,7 @@ DeviceLoadPlan HipInterposerState::BuildExecutableLoadPlan(
   if (!kernel_name.has_value()) {
     throw std::invalid_argument("unregistered HIP host function");
   }
-  const auto image = AmdgpuCodeObjectDecoder{}.Decode(executable_path, *kernel_name);
+  const auto image = ObjectReader{}.LoadEncodedObject(executable_path, *kernel_name);
   return BuildDeviceLoadPlan(image);
 }
 

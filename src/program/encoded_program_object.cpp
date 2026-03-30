@@ -1,3 +1,5 @@
+#include "gpu_model/program/object_reader.h"
+
 #include "gpu_model/loader/amdgpu_code_object_decoder.h"
 
 #include <array>
@@ -543,8 +545,9 @@ std::vector<std::byte> ReadBinaryFile(const std::filesystem::path& path) {
 
 }  // namespace
 
-EncodedProgramObject AmdgpuCodeObjectDecoder::Decode(const std::filesystem::path& path,
-                                                     std::optional<std::string> kernel_name) const {
+EncodedProgramObject ObjectReader::LoadEncodedObject(
+    const std::filesystem::path& path,
+    std::optional<std::string> kernel_name) const {
   ScopedTempDir temp_dir;
   const auto device_path = MaterializeDeviceCodeObject(path, temp_dir);
   EncodedProgramObject code_object;
@@ -619,6 +622,12 @@ EncodedProgramObject AmdgpuCodeObjectDecoder::Decode(const std::filesystem::path
     throw std::runtime_error("failed to decode AMDGPU kernel instructions: " + code_object.kernel_name);
   }
   return code_object;
+}
+
+EncodedProgramObject AmdgpuCodeObjectDecoder::Decode(
+    const std::filesystem::path& path,
+    std::optional<std::string> kernel_name) const {
+  return ObjectReader{}.LoadEncodedObject(path, std::move(kernel_name));
 }
 
 }  // namespace gpu_model

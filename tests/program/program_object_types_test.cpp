@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <filesystem>
+#include <optional>
 #include <stdexcept>
 #include <type_traits>
 #include <utility>
@@ -26,6 +27,16 @@ TEST(ProgramNamingTest, NewProgramTypesExposeConcreteInterfaces) {
                 decltype(std::declval<const ObjectReader&>().LoadFromStem(
                     std::declval<const std::filesystem::path&>())),
                 ProgramObject>);
+  static_assert(std::is_same_v<
+                decltype(std::declval<const ObjectReader&>().LoadFromObject(
+                    std::declval<const std::filesystem::path&>(),
+                    std::declval<std::optional<std::string>>())),
+                ProgramObject>);
+  static_assert(std::is_same_v<
+                decltype(std::declval<const ObjectReader&>().LoadEncodedObject(
+                    std::declval<const std::filesystem::path&>(),
+                    std::declval<std::optional<std::string>>())),
+                EncodedProgramObject>);
 }
 
 TEST(ProgramNamingTest, ExecutionRouteRemainsLightweightEnum) {
