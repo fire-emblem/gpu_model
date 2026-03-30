@@ -5,7 +5,6 @@
 
 #include "gpu_model/exec/op_plan.h"
 #include "gpu_model/execution/wave_context.h"
-#include "gpu_model/state/wave_state.h"
 
 namespace gpu_model {
 

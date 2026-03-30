@@ -1,4 +1,4 @@
-#include "gpu_model/exec/encoded/object/raw_gcn_instruction_object.h"
+#include "gpu_model/instruction/encoded/instruction_object.h"
 
 #include <cstring>
 #include <stdexcept>

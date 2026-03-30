@@ -2,7 +2,6 @@
 
 #include "gpu_model/exec/opcode_execution_info.h"
 #include "gpu_model/exec/semantics.h"
-#include "gpu_model/state/wave_state.h"
 
 namespace gpu_model {
 

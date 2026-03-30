@@ -9,13 +9,8 @@
 #include "gpu_model/memory/memory_system.h"
 #include "gpu_model/runtime/launch_request.h"
 #include "gpu_model/execution/wave_context.h"
-#include "gpu_model/state/wave_state.h"
 
 namespace gpu_model {
-
-using DecodedGcnInstruction = DecodedInstruction;
-using DecodedGcnOperand = DecodedInstructionOperand;
-using DecodedGcnOperandKind = DecodedInstructionOperandKind;
 
 struct RawGcnBlockContext {
   std::vector<std::byte>& shared_memory;

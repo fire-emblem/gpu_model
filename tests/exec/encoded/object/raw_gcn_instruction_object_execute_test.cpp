@@ -3,7 +3,6 @@
 #include <vector>
 
 #include "gpu_model/decode/gcn_inst_encoding_def.h"
-#include "gpu_model/decode/gcn_inst_decoder.h"
 #include "gpu_model/exec/encoded/semantics/raw_gcn_semantic_handler.h"
 #include "gpu_model/execution/wave_context.h"
 #include "gpu_model/instruction/encoded/instruction_object.h"

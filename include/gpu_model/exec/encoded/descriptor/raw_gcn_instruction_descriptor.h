@@ -2,7 +2,6 @@
 
 #include <string_view>
 
-#include "gpu_model/decode/decoded_gcn_instruction.h"
 #include "gpu_model/decode/generated_gcn_full_opcode_table.h"
 #include "gpu_model/instruction/encoded/decoded_instruction.h"
 
