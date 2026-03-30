@@ -449,8 +449,8 @@ Expected: FAIL because the new `instruction/*` headers do not exist
 
 namespace gpu_model {
 
-using EncodedInstructionObject = RawGcnInstructionObject;
-using EncodedInstructionObjectPtr = RawGcnInstructionObjectPtr;
+using EncodedInstructionObject = EncodedGcnInstructionObject;
+using EncodedInstructionObjectPtr = EncodedGcnInstructionObjectPtr;
 
 }  // namespace gpu_model
 ```
@@ -468,18 +468,18 @@ using EncodedInstructionObjectPtr = RawGcnInstructionObjectPtr;
 // include/gpu_model/exec/encoded/object/raw_gcn_instruction_object.h
 namespace gpu_model {
 
-class RawGcnInstructionObject {
+class EncodedGcnInstructionObject {
   // existing implementation
 };
 
-using EncodedInstructionObject = RawGcnInstructionObject;
+using EncodedInstructionObject = EncodedGcnInstructionObject;
 
 }  // namespace gpu_model
 ```
 
 - [ ] **Step 5: Run tests**
 
-Run: `cmake --build build-ninja --target gpu_model_tests && ./build-ninja/tests/gpu_model_tests --gtest_filter='InstructionNamingTest.NewInstructionHeadersCompile:RawGcnInstructionObjectExecuteTest.*:RawGcnInstructionDescriptorTest.*'`
+Run: `cmake --build build-ninja --target gpu_model_tests && ./build-ninja/tests/gpu_model_tests --gtest_filter='InstructionNamingTest.NewInstructionHeadersCompile:EncodedGcnInstructionObjectExecuteTest.*:EncodedGcnInstructionDescriptorTest.*'`
 Expected: PASS
 
 - [ ] **Step 6: Commit**

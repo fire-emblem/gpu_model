@@ -18,7 +18,7 @@ TEST(InstructionFormatterTest, ResolvesKnownEncodingDefinitions) {
 }
 
 TEST(InstructionFormatterTest, FormatsRawInstructionWithEncodingInfo) {
-  RawGcnInstruction instruction{
+  EncodedGcnInstruction instruction{
       .pc = 0x1900,
       .size_bytes = 8,
       .words = {0xc0020002u, 0x0000002cu},
@@ -28,9 +28,9 @@ TEST(InstructionFormatterTest, FormatsRawInstructionWithEncodingInfo) {
       .operands = "s0, s[4:5], 0x2c",
       .decoded_operands =
           {
-              RawGcnOperand{.kind = RawGcnOperandKind::ScalarReg, .text = "s0", .info = {}},
-              RawGcnOperand{.kind = RawGcnOperandKind::ScalarRegRange, .text = "s[4:5]", .info = {}},
-              RawGcnOperand{.kind = RawGcnOperandKind::Immediate, .text = "0x2c", .info = {}},
+              EncodedGcnOperand{.kind = EncodedGcnOperandKind::ScalarReg, .text = "s0", .info = {}},
+              EncodedGcnOperand{.kind = EncodedGcnOperandKind::ScalarRegRange, .text = "s[4:5]", .info = {}},
+              EncodedGcnOperand{.kind = EncodedGcnOperandKind::Immediate, .text = "0x2c", .info = {}},
           },
   };
 

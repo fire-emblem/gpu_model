@@ -213,7 +213,7 @@ TEST(AsmModuleIntegrationTest, DecodesModuleFromLlvmMcAssembledAmdgpuAssembly) {
 
   const auto cmp_it = std::find_if(
       image.instructions.begin(), image.instructions.end(),
-      [](const RawGcnInstruction& inst) { return inst.mnemonic == "s_cmp_lt_i32"; });
+      [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "s_cmp_lt_i32"; });
   ASSERT_NE(cmp_it, image.instructions.end());
   ASSERT_EQ(cmp_it->decoded_operands.size(), 2u);
   EXPECT_EQ(cmp_it->decoded_operands[0].text, "s4");
@@ -221,14 +221,14 @@ TEST(AsmModuleIntegrationTest, DecodesModuleFromLlvmMcAssembledAmdgpuAssembly) {
 
   const auto branch_it = std::find_if(
       image.instructions.begin(), image.instructions.end(),
-      [](const RawGcnInstruction& inst) { return inst.mnemonic == "s_cbranch_scc0"; });
+      [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "s_cbranch_scc0"; });
   ASSERT_NE(branch_it, image.instructions.end());
   ASSERT_EQ(branch_it->decoded_operands.size(), 1u);
   EXPECT_TRUE(branch_it->decoded_operands[0].info.has_immediate);
 
   const auto store_it = std::find_if(
       image.instructions.begin(), image.instructions.end(),
-      [](const RawGcnInstruction& inst) { return inst.mnemonic == "global_store_dword"; });
+      [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "global_store_dword"; });
   ASSERT_NE(store_it, image.instructions.end());
   ASSERT_EQ(store_it->decoded_operands.size(), 4u);
   EXPECT_EQ(store_it->decoded_operands[0].text, "v1");
@@ -255,7 +255,7 @@ TEST(AsmModuleIntegrationTest, DecodesVariantHeavyLlvmMcAssemblyModule) {
 
   const auto expect_present = [&](std::string_view mnemonic) {
     EXPECT_NE(std::find_if(image.instructions.begin(), image.instructions.end(),
-                           [&](const RawGcnInstruction& inst) { return inst.mnemonic == mnemonic; }),
+                           [&](const EncodedGcnInstruction& inst) { return inst.mnemonic == mnemonic; }),
               image.instructions.end());
   };
 
@@ -271,7 +271,7 @@ TEST(AsmModuleIntegrationTest, DecodesVariantHeavyLlvmMcAssemblyModule) {
 
   const auto movk_it = std::find_if(
       image.instructions.begin(), image.instructions.end(),
-      [](const RawGcnInstruction& inst) { return inst.mnemonic == "s_movk_i32"; });
+      [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "s_movk_i32"; });
   ASSERT_NE(movk_it, image.instructions.end());
   ASSERT_EQ(movk_it->decoded_operands.size(), 2u);
   EXPECT_EQ(movk_it->decoded_operands[0].text, "s5");
@@ -279,7 +279,7 @@ TEST(AsmModuleIntegrationTest, DecodesVariantHeavyLlvmMcAssemblyModule) {
 
   const auto cmp_it = std::find_if(
       image.instructions.begin(), image.instructions.end(),
-      [](const RawGcnInstruction& inst) { return inst.mnemonic == "s_cmp_lt_i32"; });
+      [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "s_cmp_lt_i32"; });
   ASSERT_NE(cmp_it, image.instructions.end());
   ASSERT_EQ(cmp_it->decoded_operands.size(), 2u);
   EXPECT_EQ(cmp_it->decoded_operands[0].text, "s6");
@@ -287,7 +287,7 @@ TEST(AsmModuleIntegrationTest, DecodesVariantHeavyLlvmMcAssemblyModule) {
 
   const auto vmax_it = std::find_if(
       image.instructions.begin(), image.instructions.end(),
-      [](const RawGcnInstruction& inst) { return inst.mnemonic == "v_max_f32_e32"; });
+      [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "v_max_f32_e32"; });
   ASSERT_NE(vmax_it, image.instructions.end());
   ASSERT_EQ(vmax_it->decoded_operands.size(), 3u);
   EXPECT_EQ(vmax_it->decoded_operands[0].text, "v4");
@@ -313,7 +313,7 @@ TEST(AsmModuleIntegrationTest, DecodesFlatAndAtomicLlvmMcAssemblyModule) {
 
   const auto flat_load_it = std::find_if(
       image.instructions.begin(), image.instructions.end(),
-      [](const RawGcnInstruction& inst) { return inst.mnemonic == "global_load_dword"; });
+      [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "global_load_dword"; });
   ASSERT_NE(flat_load_it, image.instructions.end());
   ASSERT_EQ(flat_load_it->decoded_operands.size(), 4u);
   EXPECT_EQ(flat_load_it->decoded_operands[0].text, "v4");
@@ -323,7 +323,7 @@ TEST(AsmModuleIntegrationTest, DecodesFlatAndAtomicLlvmMcAssemblyModule) {
 
   const auto flat_store_it = std::find_if(
       image.instructions.begin(), image.instructions.end(),
-      [](const RawGcnInstruction& inst) { return inst.mnemonic == "global_store_dword"; });
+      [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "global_store_dword"; });
   ASSERT_NE(flat_store_it, image.instructions.end());
   ASSERT_EQ(flat_store_it->decoded_operands.size(), 4u);
   EXPECT_EQ(flat_store_it->decoded_operands[0].text, "v1");
@@ -333,7 +333,7 @@ TEST(AsmModuleIntegrationTest, DecodesFlatAndAtomicLlvmMcAssemblyModule) {
 
   const auto atomic_it = std::find_if(
       image.instructions.begin(), image.instructions.end(),
-      [](const RawGcnInstruction& inst) { return inst.mnemonic == "global_atomic_add"; });
+      [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "global_atomic_add"; });
   ASSERT_NE(atomic_it, image.instructions.end());
   ASSERT_EQ(atomic_it->decoded_operands.size(), 3u);
   EXPECT_EQ(atomic_it->decoded_operands[0].text, "v5");
@@ -366,7 +366,7 @@ TEST_P(LoaderAsmFixtureTest, AssemblesAndDecodesFixtureModule) {
   const auto expected_mnemonics = ExpectedMnemonicsForFixture(fixture_path);
   for (const auto& mnemonic : expected_mnemonics) {
     EXPECT_NE(std::find_if(image.instructions.begin(), image.instructions.end(),
-                           [&](const RawGcnInstruction& inst) { return inst.mnemonic == mnemonic; }),
+                           [&](const EncodedGcnInstruction& inst) { return inst.mnemonic == mnemonic; }),
               image.instructions.end())
         << "missing mnemonic " << mnemonic << " in fixture " << fixture_path;
   }

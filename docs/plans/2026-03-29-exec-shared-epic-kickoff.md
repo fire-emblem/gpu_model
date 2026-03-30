@@ -101,7 +101,7 @@ Targeted regression set:
 
 - `ThreeDimensionalFunctionalTest.*`
 - `ThreeDimensionalCycleTest.*`
-- `RawGcnInstructionObjectExecuteTest.*`
+- `EncodedGcnInstructionObjectExecuteTest.*`
 - `RawGcnSemanticHandlerRegistryTest.*`
 
 ## Merge Notes

@@ -29,7 +29,7 @@ std::string GcnInstFormatter::Format(const DecodedInstruction& instruction) cons
   return out.str();
 }
 
-std::string GcnInstFormatter::Format(const RawGcnInstruction& instruction) const {
+std::string GcnInstFormatter::Format(const EncodedGcnInstruction& instruction) const {
   std::ostringstream out;
   const std::string_view mnemonic = instruction.mnemonic == "unknown"
                                         ? LookupGcnOpcodeName(instruction.words)

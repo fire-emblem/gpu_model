@@ -139,7 +139,7 @@ Purpose:
 
 Current seed type:
 
-- [raw_gcn_instruction.h](/data/gpu_model/include/gpu_model/decode/raw_gcn_instruction.h)
+- [raw_gcn_instruction.h](/data/gpu_model/include/gpu_model/instruction/encoded/encoded_gcn_instruction.h)
 
 Recommended evolution:
 

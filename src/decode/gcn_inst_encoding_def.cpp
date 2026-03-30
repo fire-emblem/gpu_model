@@ -89,8 +89,8 @@ uint32_t ExtractCanonicalOpcode(const std::vector<uint32_t>& words,
   }
 }
 
-RawGcnOperand MakeOperand(RawGcnOperandKind kind, std::string text) {
-  return RawGcnOperand{
+EncodedGcnOperand MakeOperand(EncodedGcnOperandKind kind, std::string text) {
+  return EncodedGcnOperand{
       .kind = kind,
       .text = std::move(text),
       .info = {},
@@ -122,9 +122,9 @@ std::string FormatImmediate(uint32_t value) {
   return out.str();
 }
 
-RawGcnOperand MakeScalarRegOperand(uint32_t reg) {
-  return RawGcnOperand{
-      .kind = RawGcnOperandKind::ScalarReg,
+EncodedGcnOperand MakeScalarRegOperand(uint32_t reg) {
+  return EncodedGcnOperand{
+      .kind = EncodedGcnOperandKind::ScalarReg,
       .text = FormatScalarReg(reg),
       .info =
           GcnOperandInfo{
@@ -134,9 +134,9 @@ RawGcnOperand MakeScalarRegOperand(uint32_t reg) {
   };
 }
 
-RawGcnOperand MakeScalarRegRangeOperand(uint32_t first, uint32_t count) {
-  return RawGcnOperand{
-      .kind = RawGcnOperandKind::ScalarRegRange,
+EncodedGcnOperand MakeScalarRegRangeOperand(uint32_t first, uint32_t count) {
+  return EncodedGcnOperand{
+      .kind = EncodedGcnOperandKind::ScalarRegRange,
       .text = FormatScalarRegRange(first, count),
       .info =
           GcnOperandInfo{
@@ -146,9 +146,9 @@ RawGcnOperand MakeScalarRegRangeOperand(uint32_t first, uint32_t count) {
   };
 }
 
-RawGcnOperand MakeVectorRegOperand(uint32_t reg) {
-  return RawGcnOperand{
-      .kind = RawGcnOperandKind::VectorReg,
+EncodedGcnOperand MakeVectorRegOperand(uint32_t reg) {
+  return EncodedGcnOperand{
+      .kind = EncodedGcnOperandKind::VectorReg,
       .text = FormatVectorReg(reg),
       .info =
           GcnOperandInfo{
@@ -158,9 +158,9 @@ RawGcnOperand MakeVectorRegOperand(uint32_t reg) {
   };
 }
 
-RawGcnOperand MakeVectorRegRangeOperand(uint32_t first, uint32_t count) {
-  return RawGcnOperand{
-      .kind = RawGcnOperandKind::VectorRegRange,
+EncodedGcnOperand MakeVectorRegRangeOperand(uint32_t first, uint32_t count) {
+  return EncodedGcnOperand{
+      .kind = EncodedGcnOperandKind::VectorRegRange,
       .text = "v[" + std::to_string(first) + ":" + std::to_string(first + count - 1) + "]",
       .info =
           GcnOperandInfo{
@@ -170,9 +170,9 @@ RawGcnOperand MakeVectorRegRangeOperand(uint32_t first, uint32_t count) {
   };
 }
 
-RawGcnOperand MakeAccumulatorRegOperand(uint32_t reg) {
-  return RawGcnOperand{
-      .kind = RawGcnOperandKind::AccumulatorReg,
+EncodedGcnOperand MakeAccumulatorRegOperand(uint32_t reg) {
+  return EncodedGcnOperand{
+      .kind = EncodedGcnOperandKind::AccumulatorReg,
       .text = "a" + std::to_string(reg),
       .info =
           GcnOperandInfo{
@@ -182,9 +182,9 @@ RawGcnOperand MakeAccumulatorRegOperand(uint32_t reg) {
   };
 }
 
-RawGcnOperand MakeSpecialRegOperand(GcnSpecialReg reg, std::string text) {
-  return RawGcnOperand{
-      .kind = RawGcnOperandKind::SpecialReg,
+EncodedGcnOperand MakeSpecialRegOperand(GcnSpecialReg reg, std::string text) {
+  return EncodedGcnOperand{
+      .kind = EncodedGcnOperandKind::SpecialReg,
       .text = std::move(text),
       .info =
           GcnOperandInfo{
@@ -193,9 +193,9 @@ RawGcnOperand MakeSpecialRegOperand(GcnSpecialReg reg, std::string text) {
   };
 }
 
-RawGcnOperand MakeImmediateOperand(std::string text, int64_t value) {
-  return RawGcnOperand{
-      .kind = RawGcnOperandKind::Immediate,
+EncodedGcnOperand MakeImmediateOperand(std::string text, int64_t value) {
+  return EncodedGcnOperand{
+      .kind = EncodedGcnOperandKind::Immediate,
       .text = std::move(text),
       .info =
           GcnOperandInfo{
@@ -219,7 +219,7 @@ int32_t DecodeSigned13Bit(uint32_t value) {
                                  : static_cast<int32_t>(masked);
 }
 
-void AppendFlatAddrOperands(RawGcnInstruction& instruction) {
+void AppendFlatAddrOperands(EncodedGcnInstruction& instruction) {
   const auto& words = instruction.words;
   const uint32_t high = words.size() > 1 ? words[1] : 0u;
   const uint32_t addr = high & 0xffu;
@@ -232,7 +232,7 @@ void AppendFlatAddrOperands(RawGcnInstruction& instruction) {
   instruction.decoded_operands.push_back(MakeScalarRegRangeOperand(saddr, 2));
 }
 
-RawGcnOperand DecodeFlatOffset13Operand(const std::vector<uint32_t>& words) {
+EncodedGcnOperand DecodeFlatOffset13Operand(const std::vector<uint32_t>& words) {
   const uint32_t low = words.empty() ? 0u : words[0];
   const int32_t offset = DecodeSigned13Bit(low);
   if (offset != 0) {
@@ -335,10 +335,10 @@ std::string FormatWaitCnt(const WaitCntInfo& info) {
   return text;
 }
 
-RawGcnOperand MakeWaitCntOperand(uint16_t imm16) {
+EncodedGcnOperand MakeWaitCntOperand(uint16_t imm16) {
   const auto wait = DecodeWaitCntInfo(imm16);
-  return RawGcnOperand{
-      .kind = RawGcnOperandKind::Immediate,
+  return EncodedGcnOperand{
+      .kind = EncodedGcnOperandKind::Immediate,
       .text = FormatWaitCnt(wait),
       .info =
           GcnOperandInfo{
@@ -352,9 +352,9 @@ RawGcnOperand MakeWaitCntOperand(uint16_t imm16) {
   };
 }
 
-RawGcnOperand MakeBranchTargetOperand(int64_t simm16) {
-  return RawGcnOperand{
-      .kind = RawGcnOperandKind::BranchTarget,
+EncodedGcnOperand MakeBranchTargetOperand(int64_t simm16) {
+  return EncodedGcnOperand{
+      .kind = EncodedGcnOperandKind::BranchTarget,
       .text = std::to_string(simm16),
       .info =
           GcnOperandInfo{
@@ -364,7 +364,7 @@ RawGcnOperand MakeBranchTargetOperand(int64_t simm16) {
   };
 }
 
-RawGcnOperand DecodeSrc9(uint32_t value) {
+EncodedGcnOperand DecodeSrc9(uint32_t value) {
   if (value <= 103u) {
     return MakeScalarRegOperand(value);
   }
@@ -404,10 +404,10 @@ RawGcnOperand DecodeSrc9(uint32_t value) {
   if (value == 126u || value == 127u) {
     return MakeSpecialRegOperand(GcnSpecialReg::Exec, "exec");
   }
-  return MakeOperand(RawGcnOperandKind::Unknown, "src" + std::to_string(value));
+  return MakeOperand(EncodedGcnOperandKind::Unknown, "src" + std::to_string(value));
 }
 
-RawGcnOperand DecodeSrc8(uint32_t value) {
+EncodedGcnOperand DecodeSrc8(uint32_t value) {
   if (value <= 103u) {
     return MakeScalarRegOperand(value);
   }
@@ -424,10 +424,10 @@ RawGcnOperand DecodeSrc8(uint32_t value) {
   if (value == 126u || value == 127u) {
     return MakeSpecialRegOperand(GcnSpecialReg::Exec, "exec");
   }
-  return MakeOperand(RawGcnOperandKind::Unknown, "s" + std::to_string(value));
+  return MakeOperand(EncodedGcnOperandKind::Unknown, "s" + std::to_string(value));
 }
 
-RawGcnOperand DecodeScalarPairDest(uint32_t value) {
+EncodedGcnOperand DecodeScalarPairDest(uint32_t value) {
   if (value == 0x7eu || value == 0x7fu) {
     return MakeSpecialRegOperand(GcnSpecialReg::Exec, "exec");
   }
@@ -437,7 +437,7 @@ RawGcnOperand DecodeScalarPairDest(uint32_t value) {
   return MakeScalarRegRangeOperand(value, 2);
 }
 
-RawGcnOperand DecodeScalarPairSrc8(uint32_t value) {
+EncodedGcnOperand DecodeScalarPairSrc8(uint32_t value) {
   if (value <= 103u) {
     return MakeScalarRegRangeOperand(value, 2);
   }
@@ -450,23 +450,23 @@ RawGcnOperand DecodeScalarPairSrc8(uint32_t value) {
   return DecodeSrc8(value);
 }
 
-RawGcnOperand DecodeVectorRegRangeField(uint32_t value, uint32_t reg_count) {
+EncodedGcnOperand DecodeVectorRegRangeField(uint32_t value, uint32_t reg_count) {
   return MakeVectorRegRangeOperand(value, reg_count);
 }
 
-RawGcnOperand DecodeSrc9OrVectorRegRange2(uint32_t value) {
+EncodedGcnOperand DecodeSrc9OrVectorRegRange2(uint32_t value) {
   if (value >= 256u) {
     return MakeVectorRegRangeOperand(value - 256u, 2);
   }
   return DecodeSrc9(value);
 }
 
-RawGcnOperand DecodeVop3SdstPair(const std::vector<uint32_t>& words) {
+EncodedGcnOperand DecodeVop3SdstPair(const std::vector<uint32_t>& words) {
   const uint32_t low = words.empty() ? 0u : words[0];
   return MakeScalarRegRangeOperand((low >> 8u) & 0x7fu, 2);
 }
 
-RawGcnOperand DecodeVop3Src2Pair(const std::vector<uint32_t>& words) {
+EncodedGcnOperand DecodeVop3Src2Pair(const std::vector<uint32_t>& words) {
   const uint32_t high = words.size() > 1 ? words[1] : 0u;
   return MakeScalarRegRangeOperand((high >> 18u) & 0x1ffu, 2);
 }
@@ -507,14 +507,14 @@ uint32_t ExtractGeneratedFieldValue(const std::vector<uint32_t>& words,
   return (word >> field.lsb) & mask;
 }
 
-RawGcnOperand MakeSpecialOperandFromName(std::string_view name) {
+EncodedGcnOperand MakeSpecialOperandFromName(std::string_view name) {
   if (name == "vcc") {
     return MakeSpecialRegOperand(GcnSpecialReg::Vcc, "vcc");
   }
   if (name == "exec") {
     return MakeSpecialRegOperand(GcnSpecialReg::Exec, "exec");
   }
-  return MakeOperand(RawGcnOperandKind::Unknown, std::string(name));
+  return MakeOperand(EncodedGcnOperandKind::Unknown, std::string(name));
 }
 
 uint32_t ScalarMemoryDestCount(std::string_view mnemonic) {
@@ -547,7 +547,7 @@ uint32_t MatrixDestCount(std::string_view mnemonic) {
   return 1;
 }
 
-bool DecodeViStyleScalarMemoryOperands(RawGcnInstruction& instruction) {
+bool DecodeViStyleScalarMemoryOperands(EncodedGcnInstruction& instruction) {
   if (instruction.words.size() != 2) {
     return false;
   }
@@ -587,7 +587,7 @@ bool DecodeViStyleScalarMemoryOperands(RawGcnInstruction& instruction) {
   return true;
 }
 
-bool DecodeVop3pOperands(RawGcnInstruction& instruction) {
+bool DecodeVop3pOperands(EncodedGcnInstruction& instruction) {
   if (instruction.words.size() != 2) {
     return false;
   }
@@ -628,7 +628,7 @@ bool NeedsScalarPairDest(std::string_view mnemonic) {
          mnemonic == "s_or_b64" || mnemonic == "s_and_b64" || mnemonic == "s_lshl_b64";
 }
 
-bool TryDecodeGeneratedOperands(RawGcnInstruction& instruction, const GcnGeneratedInstDef& inst_def) {
+bool TryDecodeGeneratedOperands(EncodedGcnInstruction& instruction, const GcnGeneratedInstDef& inst_def) {
   if (instruction.format_class == GcnInstFormatClass::Smrd &&
       DecodeViStyleScalarMemoryOperands(instruction)) {
     return true;
@@ -722,7 +722,7 @@ bool TryDecodeGeneratedOperands(RawGcnInstruction& instruction, const GcnGenerat
 
 }  // namespace
 
-void DecodeGcnOperands(RawGcnInstruction& instruction) {
+void DecodeGcnOperands(EncodedGcnInstruction& instruction) {
   instruction.decoded_operands.clear();
   if (instruction.format_class == GcnInstFormatClass::Vop3p &&
       DecodeVop3pOperands(instruction)) {

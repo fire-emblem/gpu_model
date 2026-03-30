@@ -99,11 +99,11 @@ Legacy public names to remove from code, tests, and examples in this slice:
 - `DecodedGcnInstruction`
 - `DecodedGcnOperand`
 - `DecodedGcnOperandKind`
-- `RawGcnInstructionObject`
-- `RawGcnInstructionObjectPtr`
-- `RawGcnInstructionFactory`
+- `EncodedGcnInstructionObject`
+- `EncodedGcnInstructionObjectPtr`
+- `EncodedGcnInstructionFactory`
 - `RawGcnParsedInstructionArray`
-- `RawGcnInstructionArrayParser`
+- `EncodedGcnInstructionArrayParser`
 - `FunctionalExecutionCore`
 - `FunctionalExecutor`
 - `ParallelWaveExecutor`

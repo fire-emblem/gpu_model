@@ -61,9 +61,9 @@ std::vector<uint32_t> ReadWords(std::span<const std::byte> bytes, size_t offset,
   return words;
 }
 
-std::vector<RawGcnInstruction> ParseRawInstructions(std::span<const std::byte> text_bytes,
+std::vector<EncodedGcnInstruction> ParseRawInstructions(std::span<const std::byte> text_bytes,
                                                     uint64_t start_pc) {
-  std::vector<RawGcnInstruction> instructions;
+  std::vector<EncodedGcnInstruction> instructions;
   size_t offset = 0;
   while (offset < text_bytes.size()) {
     if (offset + sizeof(uint32_t) > text_bytes.size()) {
@@ -77,7 +77,7 @@ std::vector<RawGcnInstruction> ParseRawInstructions(std::span<const std::byte> t
       throw std::runtime_error("raw instruction exceeds text section bounds");
     }
 
-    RawGcnInstruction instruction;
+    EncodedGcnInstruction instruction;
     instruction.pc = start_pc + offset;
     instruction.words = ReadWords(text_bytes, offset, size_bytes);
     instruction.size_bytes = size_bytes;
@@ -127,7 +127,7 @@ ParsedInstructionArray InstructionArrayParser::Parse(std::span<const std::byte> 
   return result;
 }
 
-ParsedInstructionArray InstructionArrayParser::Parse(const std::vector<RawGcnInstruction>& instructions) {
+ParsedInstructionArray InstructionArrayParser::Parse(const std::vector<EncodedGcnInstruction>& instructions) {
   ParsedInstructionArray result;
   result.raw_instructions = instructions;
   result.decoded_instructions.reserve(instructions.size());

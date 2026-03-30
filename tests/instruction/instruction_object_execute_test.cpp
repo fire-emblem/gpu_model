@@ -43,14 +43,14 @@ class InstructionObjectExecuteTest : public ::testing::Test {
                                                 std::vector<uint32_t> words,
                                                 GcnInstFormatClass format_class,
                                                 std::string mnemonic) {
-    RawGcnInstruction raw;
+    EncodedGcnInstruction raw;
     raw.pc = pc;
     raw.words = std::move(words);
     raw.format_class = format_class;
     raw.size_bytes = raw.words.size() * sizeof(uint32_t);
     raw.mnemonic = std::move(mnemonic);
     DecodeGcnOperands(raw);
-    auto parsed = InstructionArrayParser::Parse(std::vector<RawGcnInstruction>{raw});
+    auto parsed = InstructionArrayParser::Parse(std::vector<EncodedGcnInstruction>{raw});
     EXPECT_EQ(parsed.instruction_objects.size(), 1u);
     return std::move(parsed.instruction_objects.front());
   }

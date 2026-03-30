@@ -5,7 +5,7 @@
 #include <string_view>
 #include <vector>
 
-#include "gpu_model/decode/raw_gcn_instruction.h"
+#include "gpu_model/instruction/encoded/encoded_gcn_instruction.h"
 #include "gpu_model/instruction/encoded/decoded_instruction.h"
 
 namespace gpu_model {
@@ -44,7 +44,7 @@ class InstructionFactory {
 };
 
 struct ParsedInstructionArray {
-  std::vector<RawGcnInstruction> raw_instructions;
+  std::vector<EncodedGcnInstruction> raw_instructions;
   std::vector<DecodedInstruction> decoded_instructions;
   std::vector<InstructionObjectPtr> instruction_objects;
 };
@@ -52,7 +52,7 @@ struct ParsedInstructionArray {
 class InstructionArrayParser {
  public:
   static ParsedInstructionArray Parse(std::span<const std::byte> text_bytes, uint64_t start_pc);
-  static ParsedInstructionArray Parse(const std::vector<RawGcnInstruction>& instructions);
+  static ParsedInstructionArray Parse(const std::vector<EncodedGcnInstruction>& instructions);
   static std::vector<InstructionObjectPtr> Parse(const std::vector<DecodedInstruction>& instructions);
 };
 

@@ -51,8 +51,8 @@ TEST(InstructionArrayParserTest, FactoryCreatesConcreteInstructionFromDecodedOpc
 }
 
 TEST(InstructionArrayParserTest, ParsesRawInstructionArrayIntoDecodedAndObjects) {
-  std::vector<RawGcnInstruction> raw;
-  raw.push_back(RawGcnInstruction{
+  std::vector<EncodedGcnInstruction> raw;
+  raw.push_back(EncodedGcnInstruction{
       .pc = 0x1000,
       .size_bytes = 8,
       .words = {0xc0020002u, 0x0000002cu},
@@ -62,7 +62,7 @@ TEST(InstructionArrayParserTest, ParsesRawInstructionArrayIntoDecodedAndObjects)
       .operands = "",
       .decoded_operands = {},
   });
-  raw.push_back(RawGcnInstruction{
+  raw.push_back(EncodedGcnInstruction{
       .pc = 0x1008,
       .size_bytes = 4,
       .words = {0x68000006u},
@@ -100,8 +100,8 @@ TEST(InstructionArrayParserTest, ParsesTextBytesIntoInstructionArrays) {
 }
 
 TEST(InstructionArrayParserTest, UsesCanonicalOpcodeExtractionForViStyleObjects) {
-  std::vector<RawGcnInstruction> raw;
-  raw.push_back(RawGcnInstruction{
+  std::vector<EncodedGcnInstruction> raw;
+  raw.push_back(EncodedGcnInstruction{
       .pc = 0x2000,
       .size_bytes = 8,
       .words = {0xc00a0002u, 0x00000000u},
@@ -111,7 +111,7 @@ TEST(InstructionArrayParserTest, UsesCanonicalOpcodeExtractionForViStyleObjects)
       .operands = "",
       .decoded_operands = {},
   });
-  raw.push_back(RawGcnInstruction{
+  raw.push_back(EncodedGcnInstruction{
       .pc = 0x2008,
       .size_bytes = 8,
       .words = {0xc0060182u, 0x00000010u},

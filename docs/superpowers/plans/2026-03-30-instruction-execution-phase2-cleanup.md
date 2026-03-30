@@ -86,7 +86,7 @@ Expected: PASS.
   - `DecodedGcnInstruction`
   - `DecodedGcnOperand`
   - `DecodedGcnOperandKind`
-  - `RawGcnInstructionObject`
+  - `EncodedGcnInstructionObject`
   - `FunctionalExecutionCore`
   - `FunctionalExecutor`
   - `ParallelWaveExecutor`
@@ -130,7 +130,7 @@ Expected: PASS.
 - [ ] Final verification:
 Run: `rg -n "PHASE2-DELETE\(instruction-execution\)" include src tests docs README.md examples CMakeLists.txt`
 Expected: 0 matches.
-Run: `rg -n "\b(GcnInstDecoder|DecodedGcnInstruction|RawGcnInstructionObject|FunctionalExecutionCore|FunctionalExecutor|ParallelWaveExecutor|CycleExecutor|RawGcnExecutor|WaveState|BuildExecutionBlockStates|execution_memory_ops|execution_sync_ops|ApplyPlanRegisterWrites|ApplyPlanControlFlow|MaybeFormatExecMaskUpdate)\b" include src tests examples`
+Run: `rg -n "\b(GcnInstDecoder|DecodedGcnInstruction|EncodedGcnInstructionObject|FunctionalExecutionCore|FunctionalExecutor|ParallelWaveExecutor|CycleExecutor|RawGcnExecutor|WaveState|BuildExecutionBlockStates|execution_memory_ops|execution_sync_ops|ApplyPlanRegisterWrites|ApplyPlanControlFlow|MaybeFormatExecMaskUpdate)\b" include src tests examples`
 Expected: 0 matches.
 Run: `cmake --build build-ninja --target gpu_model_tests`
 Run: `./build-ninja/tests/gpu_model_tests --gtest_filter='*Instruction*:*Execution*'`

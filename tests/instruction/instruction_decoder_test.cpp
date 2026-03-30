@@ -89,7 +89,7 @@ std::vector<uint32_t> EncodeGlobalFlatWords(uint32_t opcode,
 }
 
 TEST(InstructionDecoderTest, DecodesRepresentativeScalarMemoryInstruction) {
-  RawGcnInstruction raw{
+  EncodedGcnInstruction raw{
       .pc = 0x1900,
       .size_bytes = 8,
       .words = {0xc0020002u, 0x0000002cu},
@@ -107,7 +107,7 @@ TEST(InstructionDecoderTest, DecodesRepresentativeScalarMemoryInstruction) {
 }
 
 TEST(InstructionDecoderTest, DecodesRepresentativeBranchInstruction) {
-  RawGcnInstruction raw{
+  EncodedGcnInstruction raw{
       .pc = 0x192c,
       .size_bytes = 4,
       .words = {0xbf880019u},
@@ -128,7 +128,7 @@ TEST(InstructionDecoderTest, DecodesRepresentativeBranchInstruction) {
 }
 
 TEST(InstructionDecoderTest, DecodesNoOperandTerminationInstruction) {
-  RawGcnInstruction raw{
+  EncodedGcnInstruction raw{
       .pc = 0x1904,
       .size_bytes = 4,
       .words = {0xbf810000u},
@@ -145,7 +145,7 @@ TEST(InstructionDecoderTest, DecodesNoOperandTerminationInstruction) {
 }
 
 TEST(InstructionDecoderTest, DecodesRepresentativeWaitcntInstruction) {
-  RawGcnInstruction raw{
+  EncodedGcnInstruction raw{
       .pc = 0x1910,
       .size_bytes = 4,
       .words = {0xbf8cc07fu},
@@ -167,7 +167,7 @@ TEST(InstructionDecoderTest, DecodesRepresentativeWaitcntInstruction) {
 }
 
 TEST(InstructionDecoderTest, DecodesRepresentativeVectorMoveInstruction) {
-  RawGcnInstruction raw{
+  EncodedGcnInstruction raw{
       .pc = 0x1950,
       .size_bytes = 4,
       .words = {0x7e060203u},
@@ -185,7 +185,7 @@ TEST(InstructionDecoderTest, DecodesRepresentativeVectorMoveInstruction) {
 }
 
 TEST(InstructionDecoderTest, DecodesRepresentativeScalarMoveLiteralInstruction) {
-  RawGcnInstruction raw{
+  EncodedGcnInstruction raw{
       .pc = 0x1954,
       .size_bytes = 8,
       .words = {0xbe8000ffu, 0x0000002au},
@@ -204,7 +204,7 @@ TEST(InstructionDecoderTest, DecodesRepresentativeScalarMoveLiteralInstruction) 
 }
 
 TEST(InstructionDecoderTest, DecodesRepresentativeScalarMovkInstruction) {
-  RawGcnInstruction raw{
+  EncodedGcnInstruction raw{
       .pc = 0x1958,
       .size_bytes = 4,
       .words = {0xb000002au},
@@ -223,7 +223,7 @@ TEST(InstructionDecoderTest, DecodesRepresentativeScalarMovkInstruction) {
 }
 
 TEST(InstructionDecoderTest, DecodesRepresentativeScalarShiftLeftB64Instruction) {
-  RawGcnInstruction raw{
+  EncodedGcnInstruction raw{
       .pc = 0x195c,
       .size_bytes = 4,
       .words = {0x8e848101u},
@@ -244,7 +244,7 @@ TEST(InstructionDecoderTest, DecodesRepresentativeScalarShiftLeftB64Instruction)
 
 TEST(InstructionDecoderTest, DecodesRepresentativeSop2ScalarAluInstructions) {
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1960,
         .size_bytes = 4,
         .words = {EncodeSop2Word(/*opcode=*/0, /*sdst=*/4, /*ssrc0=*/1, /*ssrc1=*/2)},
@@ -263,7 +263,7 @@ TEST(InstructionDecoderTest, DecodesRepresentativeSop2ScalarAluInstructions) {
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1964,
         .size_bytes = 4,
         .words = {EncodeSop2Word(/*opcode=*/4, /*sdst=*/5, /*ssrc0=*/3, /*ssrc1=*/6)},
@@ -282,7 +282,7 @@ TEST(InstructionDecoderTest, DecodesRepresentativeSop2ScalarAluInstructions) {
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1968,
         .size_bytes = 4,
         .words = {EncodeSop2Word(/*opcode=*/12, /*sdst=*/7, /*ssrc0=*/1, /*ssrc1=*/2)},
@@ -299,7 +299,7 @@ TEST(InstructionDecoderTest, DecodesRepresentativeSop2ScalarAluInstructions) {
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x196c,
         .size_bytes = 4,
         .words = {EncodeSop2Word(/*opcode=*/36, /*sdst=*/8, /*ssrc0=*/2, /*ssrc1=*/4)},
@@ -316,7 +316,7 @@ TEST(InstructionDecoderTest, DecodesRepresentativeSop2ScalarAluInstructions) {
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1970,
         .size_bytes = 4,
         .words = {EncodeSop2Word(/*opcode=*/30, /*sdst=*/9, /*ssrc0=*/1, /*ssrc1=*/5)},
@@ -335,7 +335,7 @@ TEST(InstructionDecoderTest, DecodesRepresentativeSop2ScalarAluInstructions) {
 
 TEST(InstructionDecoderTest, DecodesRepresentativeScalarMemoryRangeInstructions) {
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1960,
         .size_bytes = 8,
         .words = {EncodeViSmrdWord(/*opcode=*/32, /*sdst_first=*/6, /*sbase_first=*/4), 0x10u},
@@ -355,7 +355,7 @@ TEST(InstructionDecoderTest, DecodesRepresentativeScalarMemoryRangeInstructions)
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1968,
         .size_bytes = 8,
         .words = {EncodeViSmrdWord(/*opcode=*/64, /*sdst_first=*/0, /*sbase_first=*/4), 0x20u},
@@ -377,7 +377,7 @@ TEST(InstructionDecoderTest, DecodesRepresentativeScalarMemoryRangeInstructions)
 
 TEST(InstructionDecoderTest, DecodesAdditionalScalarControlInstructions) {
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1978,
         .size_bytes = 4,
         .words = {EncodeSoppWord(/*opcode=*/2, /*simm16=*/5)},
@@ -395,7 +395,7 @@ TEST(InstructionDecoderTest, DecodesAdditionalScalarControlInstructions) {
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x197c,
         .size_bytes = 4,
         .words = {EncodeSoppWord(/*opcode=*/5, /*simm16=*/3)},
@@ -413,7 +413,7 @@ TEST(InstructionDecoderTest, DecodesAdditionalScalarControlInstructions) {
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1980,
         .size_bytes = 4,
         .words = {EncodeSoppWord(/*opcode=*/10, /*simm16=*/0)},
@@ -433,7 +433,7 @@ TEST(InstructionDecoderTest, DecodesAdditionalScalarControlInstructions) {
 
 TEST(InstructionDecoderTest, DecodesAdditionalScalarCompareInstructions) {
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1984,
         .size_bytes = 4,
         .words = {0xbf060201u},
@@ -452,7 +452,7 @@ TEST(InstructionDecoderTest, DecodesAdditionalScalarCompareInstructions) {
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1988,
         .size_bytes = 4,
         .words = {0xbf080201u},
@@ -471,7 +471,7 @@ TEST(InstructionDecoderTest, DecodesAdditionalScalarCompareInstructions) {
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x198c,
         .size_bytes = 4,
         .words = {0xbf0a0201u},
@@ -491,7 +491,7 @@ TEST(InstructionDecoderTest, DecodesAdditionalScalarCompareInstructions) {
 }
 
 TEST(InstructionDecoderTest, DecodesRepresentativeGlobalLoadInstruction) {
-  RawGcnInstruction raw{
+  EncodedGcnInstruction raw{
       .pc = 0x1968,
       .size_bytes = 8,
       .words = {0xdc508000u, 0x067f0004u},
@@ -516,7 +516,7 @@ TEST(InstructionDecoderTest, DecodesRepresentativeGlobalLoadInstruction) {
 }
 
 TEST(InstructionDecoderTest, DecodesRepresentativeGlobalStoreInstruction) {
-  RawGcnInstruction raw{
+  EncodedGcnInstruction raw{
       .pc = 0x1970,
       .size_bytes = 8,
       .words = {0xdc708000u, 0x047f0405u},
@@ -537,7 +537,7 @@ TEST(InstructionDecoderTest, DecodesRepresentativeGlobalStoreInstruction) {
 }
 
 TEST(InstructionDecoderTest, DecodesRepresentativeVop3aFmaInstruction) {
-  RawGcnInstruction raw{
+  EncodedGcnInstruction raw{
       .pc = 0x1a00,
       .size_bytes = 8,
       .words = {0xd1cb0002u, 0x04140503u},
@@ -559,7 +559,7 @@ TEST(InstructionDecoderTest, DecodesRepresentativeVop3aFmaInstruction) {
 
 TEST(InstructionDecoderTest, DecodesAdditionalVectorAndLdsInstructions) {
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1a10,
         .size_bytes = 4,
         .words = {EncodeVop2Word(/*opcode=*/1, /*vdst=*/2, /*src0=*/0x100u + 6u, /*vsrc1=*/7u)},
@@ -579,7 +579,7 @@ TEST(InstructionDecoderTest, DecodesAdditionalVectorAndLdsInstructions) {
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1a14,
         .size_bytes = 4,
         .words = {EncodeVop2Word(/*opcode=*/5, /*vdst=*/4, /*src0=*/0x100u + 1u, /*vsrc1=*/2u)},
@@ -598,7 +598,7 @@ TEST(InstructionDecoderTest, DecodesAdditionalVectorAndLdsInstructions) {
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1a18,
         .size_bytes = 4,
         .words = {EncodeVopcWord(/*opcode=*/202, /*src0=*/0x100u + 2u, /*vsrc1=*/3u)},
@@ -618,7 +618,7 @@ TEST(InstructionDecoderTest, DecodesAdditionalVectorAndLdsInstructions) {
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1a1c,
         .size_bytes = 4,
         .words = {EncodeVop1Word(/*opcode=*/5, /*vdst=*/1, /*src0=*/0x100u + 4u)},
@@ -637,7 +637,7 @@ TEST(InstructionDecoderTest, DecodesAdditionalVectorAndLdsInstructions) {
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1a1e,
         .size_bytes = 4,
         .words = {EncodeVopcWord(/*opcode=*/196, /*src0=*/0x100u + 2u, /*vsrc1=*/3u)},
@@ -657,7 +657,7 @@ TEST(InstructionDecoderTest, DecodesAdditionalVectorAndLdsInstructions) {
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1a40,
         .size_bytes = 8,
         .words = {EncodeDsWord0(/*opcode=*/13), EncodeDsWord1(/*addr=*/4, /*data0=*/5, /*data1=*/0, /*vdst=*/0)},
@@ -676,7 +676,7 @@ TEST(InstructionDecoderTest, DecodesAdditionalVectorAndLdsInstructions) {
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1a48,
         .size_bytes = 8,
         .words = {EncodeDsWord0(/*opcode=*/54), EncodeDsWord1(/*addr=*/4, /*data0=*/0, /*data1=*/0, /*vdst=*/6)},
@@ -695,7 +695,7 @@ TEST(InstructionDecoderTest, DecodesAdditionalVectorAndLdsInstructions) {
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1a4c,
         .size_bytes = 4,
         .words = {EncodeVopcWord(/*opcode=*/204, /*src0=*/0x100u + 4u, /*vsrc1=*/5u)},
@@ -714,7 +714,7 @@ TEST(InstructionDecoderTest, DecodesAdditionalVectorAndLdsInstructions) {
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1a50,
         .size_bytes = 4,
         .words = {EncodeVopcWord(/*opcode=*/195, /*src0=*/0x100u + 6u, /*vsrc1=*/7u)},
@@ -733,7 +733,7 @@ TEST(InstructionDecoderTest, DecodesAdditionalVectorAndLdsInstructions) {
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1a54,
         .size_bytes = 4,
         .words = {EncodeVopcWord(/*opcode=*/193, /*src0=*/0x100u + 8u, /*vsrc1=*/9u)},
@@ -754,7 +754,7 @@ TEST(InstructionDecoderTest, DecodesAdditionalVectorAndLdsInstructions) {
 
 TEST(InstructionDecoderTest, FallsBackToGeneratedNameForReservedPlaceholderFamilies) {
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1b00,
         .size_bytes = 8,
         .words = {0xe0500000u, 0x00000000u},
@@ -768,7 +768,7 @@ TEST(InstructionDecoderTest, FallsBackToGeneratedNameForReservedPlaceholderFamil
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1b08,
         .size_bytes = 8,
         .words = {0xe8000000u, 0x00000000u},
@@ -782,7 +782,7 @@ TEST(InstructionDecoderTest, FallsBackToGeneratedNameForReservedPlaceholderFamil
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1b10,
         .size_bytes = 8,
         .words = {0xf0000000u, 0x00000000u},
@@ -796,7 +796,7 @@ TEST(InstructionDecoderTest, FallsBackToGeneratedNameForReservedPlaceholderFamil
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1b18,
         .size_bytes = 8,
         .words = {0xf8000000u, 0x00000000u},
@@ -810,7 +810,7 @@ TEST(InstructionDecoderTest, FallsBackToGeneratedNameForReservedPlaceholderFamil
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1b20,
         .size_bytes = 4,
         .words = {0xc8000000u},
@@ -825,7 +825,7 @@ TEST(InstructionDecoderTest, FallsBackToGeneratedNameForReservedPlaceholderFamil
 }
 
 TEST(InstructionDecoderTest, DecodesRepresentativeVop3B64ShiftInstruction) {
-  RawGcnInstruction raw{
+  EncodedGcnInstruction raw{
       .pc = 0x1a04,
       .size_bytes = 8,
       .words = {0xd28e0002u, 0x00020c01u},
@@ -845,7 +845,7 @@ TEST(InstructionDecoderTest, DecodesRepresentativeVop3B64ShiftInstruction) {
 }
 
 TEST(InstructionDecoderTest, DecodesRepresentativeMadU64U32Instruction) {
-  RawGcnInstruction raw{
+  EncodedGcnInstruction raw{
       .pc = 0x1a08,
       .size_bytes = 8,
       .words = {0xd1e80402u, 0x04180a03u},
@@ -867,7 +867,7 @@ TEST(InstructionDecoderTest, DecodesRepresentativeMadU64U32Instruction) {
 }
 
 TEST(InstructionDecoderTest, DecodesRepresentativeCarryProducingVectorAddInstruction) {
-  RawGcnInstruction raw{
+  EncodedGcnInstruction raw{
       .pc = 0x1a20,
       .size_bytes = 4,
       .words = {0x32060401u},
@@ -888,7 +888,7 @@ TEST(InstructionDecoderTest, DecodesRepresentativeCarryProducingVectorAddInstruc
 }
 
 TEST(InstructionDecoderTest, DecodesRepresentativeCarryConsumingVectorAddInstruction) {
-  RawGcnInstruction raw{
+  EncodedGcnInstruction raw{
       .pc = 0x1a24,
       .size_bytes = 4,
       .words = {0x38060401u},
@@ -910,7 +910,7 @@ TEST(InstructionDecoderTest, DecodesRepresentativeCarryConsumingVectorAddInstruc
 }
 
 TEST(InstructionDecoderTest, DecodesRepresentativeVop3CarryE64Instruction) {
-  RawGcnInstruction raw{
+  EncodedGcnInstruction raw{
       .pc = 0x1a30,
       .size_bytes = 8,
       .words = {0xd1180402u, 0x00000a03u},
@@ -931,7 +931,7 @@ TEST(InstructionDecoderTest, DecodesRepresentativeVop3CarryE64Instruction) {
 }
 
 TEST(InstructionDecoderTest, DecodesRepresentativeVop3CndmaskE64Instruction) {
-  RawGcnInstruction raw{
+  EncodedGcnInstruction raw{
       .pc = 0x1a38,
       .size_bytes = 8,
       .words = {0xd1000001u, 0x00100002u},
@@ -953,7 +953,7 @@ TEST(InstructionDecoderTest, DecodesRepresentativeVop3CndmaskE64Instruction) {
 
 TEST(InstructionDecoderTest, DecodesRepresentativeSop1ScalarAluInstructions) {
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1a40,
         .size_bytes = 4,
         .words = {EncodeSop1Word(/*opcode=*/1, /*sdst=*/4, /*ssrc0=*/2)},
@@ -972,7 +972,7 @@ TEST(InstructionDecoderTest, DecodesRepresentativeSop1ScalarAluInstructions) {
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1a44,
         .size_bytes = 4,
         .words = {EncodeSop1Word(/*opcode=*/13, /*sdst=*/7, /*ssrc0=*/10)},
@@ -993,7 +993,7 @@ TEST(InstructionDecoderTest, DecodesRepresentativeSop1ScalarAluInstructions) {
 
 TEST(InstructionDecoderTest, DecodesRepresentativeVectorAluInstructionsAcrossFormats) {
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1a48,
         .size_bytes = 4,
         .words = {EncodeVop1Word(/*opcode=*/43, /*vdst=*/5, /*src0=*/257)},
@@ -1012,7 +1012,7 @@ TEST(InstructionDecoderTest, DecodesRepresentativeVectorAluInstructionsAcrossFor
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1a4c,
         .size_bytes = 4,
         .words = {EncodeVop1Word(/*opcode=*/30, /*vdst=*/6, /*src0=*/258)},
@@ -1031,7 +1031,7 @@ TEST(InstructionDecoderTest, DecodesRepresentativeVectorAluInstructionsAcrossFor
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1a50,
         .size_bytes = 4,
         .words = {EncodeVop2Word(/*opcode=*/17, /*vdst=*/7, /*src0=*/3, /*vsrc1=*/8)},
@@ -1051,7 +1051,7 @@ TEST(InstructionDecoderTest, DecodesRepresentativeVectorAluInstructionsAcrossFor
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1a54,
         .size_bytes = 4,
         .words = {EncodeVop2Word(/*opcode=*/0, /*vdst=*/9, /*src0=*/260, /*vsrc1=*/10)},
@@ -1071,7 +1071,7 @@ TEST(InstructionDecoderTest, DecodesRepresentativeVectorAluInstructionsAcrossFor
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1a58,
         .size_bytes = 8,
         .words = EncodeVop3aWords(/*opcode=*/324, /*vdst=*/11, /*src0=*/257, /*src1=*/2, /*src2=*/0),
@@ -1092,7 +1092,7 @@ TEST(InstructionDecoderTest, DecodesRepresentativeVectorAluInstructionsAcrossFor
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1a60,
         .size_bytes = 8,
         .words = EncodeVop3aWords(
@@ -1113,7 +1113,7 @@ TEST(InstructionDecoderTest, DecodesRepresentativeVectorAluInstructionsAcrossFor
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1a68,
         .size_bytes = 8,
         .words = EncodeVop3aWords(
@@ -1136,7 +1136,7 @@ TEST(InstructionDecoderTest, DecodesRepresentativeVectorAluInstructionsAcrossFor
 
 TEST(InstructionDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats) {
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1a70,
         .size_bytes = 4,
         .words = {EncodeSop1Word(/*opcode=*/32, /*sdst=*/4, /*ssrc0=*/106)},
@@ -1154,7 +1154,7 @@ TEST(InstructionDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats)
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1a74,
         .size_bytes = 4,
         .words = {EncodeSoppWord(/*opcode=*/4, /*simm16=*/2)},
@@ -1171,7 +1171,7 @@ TEST(InstructionDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats)
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1a78,
         .size_bytes = 4,
         .words = {EncodeSoppWord(/*opcode=*/6, /*simm16=*/4)},
@@ -1188,7 +1188,7 @@ TEST(InstructionDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats)
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1a7c,
         .size_bytes = 4,
         .words = {EncodeSoppWord(/*opcode=*/9, /*simm16=*/1)},
@@ -1205,7 +1205,7 @@ TEST(InstructionDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats)
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1a80,
         .size_bytes = 4,
         .words = {EncodeSoppWord(/*opcode=*/0, /*simm16=*/7)},
@@ -1221,7 +1221,7 @@ TEST(InstructionDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats)
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1a84,
         .size_bytes = 4,
         .words = {0xbf040201u},
@@ -1239,7 +1239,7 @@ TEST(InstructionDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats)
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1a88,
         .size_bytes = 4,
         .words = {EncodeSop2Word(/*opcode=*/2, /*sdst=*/5, /*ssrc0=*/1, /*ssrc1=*/2)},
@@ -1256,7 +1256,7 @@ TEST(InstructionDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats)
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1a8c,
         .size_bytes = 4,
         .words = {EncodeSop2Word(/*opcode=*/13, /*sdst=*/8, /*ssrc0=*/4, /*ssrc1=*/6)},
@@ -1273,7 +1273,7 @@ TEST(InstructionDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats)
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1a90,
         .size_bytes = 4,
         .words = {EncodeSop2Word(/*opcode=*/19, /*sdst=*/10, /*ssrc0=*/4, /*ssrc1=*/6)},
@@ -1290,7 +1290,7 @@ TEST(InstructionDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats)
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1a94,
         .size_bytes = 4,
         .words = {EncodeSop2Word(/*opcode=*/32, /*sdst=*/12, /*ssrc0=*/1, /*ssrc1=*/2)},
@@ -1307,7 +1307,7 @@ TEST(InstructionDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats)
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1a98,
         .size_bytes = 4,
         .words = {EncodeSop2Word(/*opcode=*/15, /*sdst=*/14, /*ssrc0=*/4, /*ssrc1=*/6)},
@@ -1324,7 +1324,7 @@ TEST(InstructionDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats)
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1a9c,
         .size_bytes = 4,
         .words = {EncodeSop2Word(/*opcode=*/11, /*sdst=*/16, /*ssrc0=*/4, /*ssrc1=*/6)},
@@ -1341,7 +1341,7 @@ TEST(InstructionDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats)
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1aa0,
         .size_bytes = 4,
         .words = {EncodeVop2Word(/*opcode=*/52, /*vdst=*/2, /*src0=*/257, /*vsrc1=*/3)},
@@ -1358,7 +1358,7 @@ TEST(InstructionDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats)
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1aa4,
         .size_bytes = 4,
         .words = {EncodeVop2Word(/*opcode=*/59, /*vdst=*/4, /*src0=*/257, /*vsrc1=*/2)},
@@ -1375,7 +1375,7 @@ TEST(InstructionDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats)
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1aa8,
         .size_bytes = 4,
         .words = {EncodeVop1Word(/*opcode=*/8, /*vdst=*/5, /*src0=*/258)},
@@ -1393,7 +1393,7 @@ TEST(InstructionDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats)
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1aac,
         .size_bytes = 4,
         .words = {EncodeVop1Word(/*opcode=*/32, /*vdst=*/6, /*src0=*/259)},
@@ -1410,7 +1410,7 @@ TEST(InstructionDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats)
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1ab0,
         .size_bytes = 4,
         .words = {EncodeVop1Word(/*opcode=*/34, /*vdst=*/7, /*src0=*/260)},
@@ -1427,7 +1427,7 @@ TEST(InstructionDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats)
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1ab4,
         .size_bytes = 4,
         .words = {EncodeVop2Word(/*opcode=*/2, /*vdst=*/8, /*src0=*/257, /*vsrc1=*/2)},
@@ -1444,7 +1444,7 @@ TEST(InstructionDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats)
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1ab8,
         .size_bytes = 4,
         .words = {EncodeVop2Word(/*opcode=*/11, /*vdst=*/9, /*src0=*/257, /*vsrc1=*/2)},
@@ -1461,7 +1461,7 @@ TEST(InstructionDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats)
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1abc,
         .size_bytes = 4,
         .words = {EncodeVop2Word(/*opcode=*/18, /*vdst=*/10, /*src0=*/3, /*vsrc1=*/4)},
@@ -1478,7 +1478,7 @@ TEST(InstructionDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats)
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1ac0,
         .size_bytes = 8,
         .words = EncodeVop3aWords(/*opcode=*/239, /*vdst=*/11, /*src0=*/257, /*src1=*/258, /*src2=*/259),
@@ -1495,7 +1495,7 @@ TEST(InstructionDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats)
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1ac8,
         .size_bytes = 8,
         .words = EncodeVop3bWords(/*opcode=*/240, /*vdst=*/12, /*sdst=*/4, /*src0=*/257, /*src1=*/258, /*src2=*/259),
@@ -1513,7 +1513,7 @@ TEST(InstructionDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats)
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1ad0,
         .size_bytes = 8,
         .words = EncodeVop3aWords(/*opcode=*/241, /*vdst=*/13, /*src0=*/257, /*src1=*/258, /*src2=*/259),
@@ -1530,7 +1530,7 @@ TEST(InstructionDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats)
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1ad8,
         .size_bytes = 8,
         .words = EncodeVop3aWords(/*opcode=*/254, /*vdst=*/14, /*src0=*/257, /*src1=*/258, /*src2=*/259),
@@ -1547,7 +1547,7 @@ TEST(InstructionDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats)
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1ae0,
         .size_bytes = 8,
         .words = EncodeVop3bWords(/*opcode=*/142, /*vdst=*/15, /*sdst=*/4, /*src0=*/257, /*src1=*/258, /*src2=*/106),
@@ -1566,7 +1566,7 @@ TEST(InstructionDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats)
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1ae8,
         .size_bytes = 8,
         .words = EncodeVop3aWords(/*opcode=*/98, /*vdst=*/0, /*src0=*/257, /*src1=*/258, /*src2=*/0),
@@ -1583,7 +1583,7 @@ TEST(InstructionDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats)
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1af0,
         .size_bytes = 4,
         .words = {EncodeVopcWord(/*opcode=*/75, /*src0=*/257, /*vsrc1=*/2)},
@@ -1600,7 +1600,7 @@ TEST(InstructionDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats)
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1af4,
         .size_bytes = 4,
         .words = {EncodeVopcWord(/*opcode=*/78, /*src0=*/257, /*vsrc1=*/2)},
@@ -1617,7 +1617,7 @@ TEST(InstructionDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats)
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1af8,
         .size_bytes = 8,
         .words = EncodeVop3pWords(/*opcode=*/69, /*vdst=*/16, /*src0=*/257, /*src1=*/258, /*src2=*/259),
@@ -1634,7 +1634,7 @@ TEST(InstructionDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats)
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1b00,
         .size_bytes = 8,
         .words = EncodeVop3pWords(/*opcode=*/73, /*vdst=*/20, /*src0=*/257, /*src1=*/258, /*src2=*/259),
@@ -1651,7 +1651,7 @@ TEST(InstructionDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats)
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1b08,
         .size_bytes = 8,
         .words = EncodeVop3pWords(/*opcode=*/81, /*vdst=*/24, /*src0=*/257, /*src1=*/258, /*src2=*/259),
@@ -1668,7 +1668,7 @@ TEST(InstructionDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats)
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1b10,
         .size_bytes = 8,
         .words = EncodeVop3pWords(/*opcode=*/105, /*vdst=*/28, /*src0=*/257, /*src1=*/258, /*src2=*/259),
@@ -1685,7 +1685,7 @@ TEST(InstructionDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats)
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1b18,
         .size_bytes = 8,
         .words = EncodeVop3pWords(/*opcode=*/68, /*vdst=*/32, /*src0=*/257, /*src1=*/258, /*src2=*/259),
@@ -1701,7 +1701,7 @@ TEST(InstructionDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats)
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1b20,
         .size_bytes = 8,
         .words = EncodeVop3pWords(/*opcode=*/85, /*vdst=*/48, /*src0=*/257, /*src1=*/258, /*src2=*/259),
@@ -1717,7 +1717,7 @@ TEST(InstructionDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats)
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1b28,
         .size_bytes = 8,
         .words = EncodeVop3pWords(/*opcode=*/88, /*vdst=*/6, /*src0=*/3, /*src1=*/0, /*src2=*/0),
@@ -1734,7 +1734,7 @@ TEST(InstructionDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats)
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1b30,
         .size_bytes = 8,
         .words = EncodeVop3pWords(/*opcode=*/89, /*vdst=*/4, /*src0=*/257, /*src1=*/0, /*src2=*/0),
@@ -1751,7 +1751,7 @@ TEST(InstructionDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats)
   }
 
   {
-    RawGcnInstruction raw{
+    EncodedGcnInstruction raw{
         .pc = 0x1b38,
         .size_bytes = 8,
         .words = EncodeGlobalFlatWords(/*opcode=*/66, /*addr=*/1, /*data=*/2, /*saddr=*/2, /*vdst=*/0),

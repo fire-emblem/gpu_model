@@ -1,7 +1,7 @@
 #include "gpu_model/instruction/encoded/instruction_decoder.h"
 
 #include "gpu_model/decode/gcn_inst_encoding_def.h"
-#include "gpu_model/decode/raw_gcn_instruction.h"
+#include "gpu_model/instruction/encoded/encoded_gcn_instruction.h"
 
 namespace gpu_model {
 
@@ -23,7 +23,7 @@ DecodedInstruction InstructionDecoder::Decode(const InstructionEncoding& instruc
     }
   }
 
-  RawGcnInstruction expanded;
+  EncodedGcnInstruction expanded;
   expanded.pc = instruction.pc;
   expanded.size_bytes = instruction.size_bytes;
   expanded.words = instruction.words;
@@ -33,31 +33,31 @@ DecodedInstruction InstructionDecoder::Decode(const InstructionEncoding& instruc
   for (const auto& operand : expanded.decoded_operands) {
     DecodedInstructionOperandKind kind = DecodedInstructionOperandKind::Unknown;
     switch (operand.kind) {
-      case RawGcnOperandKind::ScalarReg:
+      case EncodedGcnOperandKind::ScalarReg:
         kind = DecodedInstructionOperandKind::ScalarReg;
         break;
-      case RawGcnOperandKind::ScalarRegRange:
+      case EncodedGcnOperandKind::ScalarRegRange:
         kind = DecodedInstructionOperandKind::ScalarRegRange;
         break;
-      case RawGcnOperandKind::VectorReg:
+      case EncodedGcnOperandKind::VectorReg:
         kind = DecodedInstructionOperandKind::VectorReg;
         break;
-      case RawGcnOperandKind::VectorRegRange:
+      case EncodedGcnOperandKind::VectorRegRange:
         kind = DecodedInstructionOperandKind::VectorRegRange;
         break;
-      case RawGcnOperandKind::AccumulatorReg:
+      case EncodedGcnOperandKind::AccumulatorReg:
         kind = DecodedInstructionOperandKind::AccumulatorReg;
         break;
-      case RawGcnOperandKind::SpecialReg:
+      case EncodedGcnOperandKind::SpecialReg:
         kind = DecodedInstructionOperandKind::SpecialReg;
         break;
-      case RawGcnOperandKind::Immediate:
+      case EncodedGcnOperandKind::Immediate:
         kind = DecodedInstructionOperandKind::Immediate;
         break;
-      case RawGcnOperandKind::BranchTarget:
+      case EncodedGcnOperandKind::BranchTarget:
         kind = DecodedInstructionOperandKind::BranchTarget;
         break;
-      case RawGcnOperandKind::Unknown:
+      case EncodedGcnOperandKind::Unknown:
         kind = DecodedInstructionOperandKind::Unknown;
         break;
     }

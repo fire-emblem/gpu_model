@@ -6,7 +6,7 @@
 #include <type_traits>
 #include <vector>
 
-#include "gpu_model/decode/raw_gcn_instruction.h"
+#include "gpu_model/instruction/encoded/encoded_gcn_instruction.h"
 #include "gpu_model/instruction/encoded/decoded_instruction.h"
 
 namespace gpu_model {

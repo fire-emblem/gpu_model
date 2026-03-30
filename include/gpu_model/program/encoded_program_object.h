@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-#include "gpu_model/decode/raw_gcn_instruction.h"
+#include "gpu_model/instruction/encoded/encoded_gcn_instruction.h"
 #include "gpu_model/instruction/encoded/decoded_instruction.h"
 #include "gpu_model/instruction/encoded/instruction_object.h"
 #include "gpu_model/isa/metadata.h"
@@ -50,7 +50,7 @@ struct EncodedProgramObject {
   MetadataBlob metadata;
   AmdgpuKernelDescriptor kernel_descriptor;
   std::vector<std::byte> code_bytes;
-  std::vector<RawGcnInstruction> instructions;
+  std::vector<EncodedGcnInstruction> instructions;
   std::vector<DecodedInstruction> decoded_instructions;
   std::vector<InstructionObjectPtr> instruction_objects;
 };

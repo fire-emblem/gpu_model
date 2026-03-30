@@ -107,15 +107,15 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesRawInstructionsFromHipExecutable) {
   EXPECT_EQ(image.instructions.front().encoding_id, 2u);
   ASSERT_EQ(image.instructions.front().decoded_operands.size(), 3u);
   EXPECT_FALSE(image.instructions.front().decoded_operands[0].text.empty());
-  EXPECT_EQ(image.instructions.front().decoded_operands[0].kind, RawGcnOperandKind::ScalarReg);
+  EXPECT_EQ(image.instructions.front().decoded_operands[0].kind, EncodedGcnOperandKind::ScalarReg);
   EXPECT_EQ(image.instructions.front().decoded_operands[0].text, "s0");
-  EXPECT_EQ(image.instructions.front().decoded_operands[1].kind, RawGcnOperandKind::ScalarRegRange);
+  EXPECT_EQ(image.instructions.front().decoded_operands[1].kind, EncodedGcnOperandKind::ScalarRegRange);
   EXPECT_EQ(image.instructions.front().decoded_operands[1].text, "s[4:5]");
   EXPECT_EQ(image.instructions.front().decoded_operands[1].info.reg_count, 2u);
   EXPECT_EQ(image.instructions.front().decoded_operands[2].text, "0x2c");
   const auto v_lshl_it = std::find_if(
       image.instructions.begin(), image.instructions.end(),
-      [](const RawGcnInstruction& inst) { return inst.mnemonic == "v_lshlrev_b64"; });
+      [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "v_lshlrev_b64"; });
   ASSERT_NE(v_lshl_it, image.instructions.end());
   ASSERT_EQ(v_lshl_it->decoded_operands.size(), 3u);
   EXPECT_EQ(v_lshl_it->decoded_operands[0].text, "v[0:1]");
@@ -163,7 +163,7 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesRawInstructionsFromHipFmaLoopExecutable
 
   const auto cmp_lt_it = std::find_if(
       image.instructions.begin(), image.instructions.end(),
-      [](const RawGcnInstruction& inst) { return inst.mnemonic == "s_cmp_lt_i32"; });
+      [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "s_cmp_lt_i32"; });
   ASSERT_NE(cmp_lt_it, image.instructions.end());
   ASSERT_EQ(cmp_lt_it->decoded_operands.size(), 2u);
   EXPECT_EQ(cmp_lt_it->decoded_operands[0].text, "s9");
@@ -171,7 +171,7 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesRawInstructionsFromHipFmaLoopExecutable
 
   const auto fma_it = std::find_if(
       image.instructions.begin(), image.instructions.end(),
-      [](const RawGcnInstruction& inst) { return inst.mnemonic == "v_fma_f32"; });
+      [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "v_fma_f32"; });
   ASSERT_NE(fma_it, image.instructions.end());
   ASSERT_EQ(fma_it->decoded_operands.size(), 4u);
   EXPECT_EQ(fma_it->decoded_operands[0].text, "v2");
@@ -181,7 +181,7 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesRawInstructionsFromHipFmaLoopExecutable
 
   const auto branch_it = std::find_if(
       image.instructions.begin(), image.instructions.end(),
-      [](const RawGcnInstruction& inst) { return inst.mnemonic == "s_cbranch_scc0"; });
+      [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "s_cbranch_scc0"; });
   ASSERT_NE(branch_it, image.instructions.end());
   ASSERT_EQ(branch_it->decoded_operands.size(), 1u);
   EXPECT_EQ(branch_it->decoded_operands[0].text, "-6");
@@ -220,12 +220,12 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesRawInstructionsFromHipBiasChainExecutab
 
   const auto add_float_count = std::count_if(
       image.instructions.begin(), image.instructions.end(),
-      [](const RawGcnInstruction& inst) { return inst.mnemonic == "v_add_f32_e32"; });
+      [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "v_add_f32_e32"; });
   EXPECT_GE(add_float_count, 4);
 
   const auto load_scalar_count = std::count_if(
       image.instructions.begin(), image.instructions.end(),
-      [](const RawGcnInstruction& inst) {
+      [](const EncodedGcnInstruction& inst) {
         return inst.mnemonic == "s_load_dword" || inst.mnemonic == "s_load_dwordx4" ||
                inst.mnemonic == "s_load_dwordx2";
       });
@@ -258,7 +258,7 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesRawInstructionsFromHipAtomicCountExecut
 
   const auto atomic_it = std::find_if(
       image.instructions.begin(), image.instructions.end(),
-      [](const RawGcnInstruction& inst) { return inst.mnemonic == "global_atomic_add"; });
+      [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "global_atomic_add"; });
   ASSERT_NE(atomic_it, image.instructions.end());
   ASSERT_EQ(atomic_it->decoded_operands.size(), 3u);
   EXPECT_EQ(atomic_it->decoded_operands[0].text, "v0");
@@ -310,19 +310,19 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipSoftmaxExecutableWithoutUnknownInstr
   EXPECT_EQ(image.metadata.values.at("arg_count"), "3");
   const auto barrier_count = std::count_if(
       image.instructions.begin(), image.instructions.end(),
-      [](const RawGcnInstruction& inst) { return inst.mnemonic == "s_barrier"; });
+      [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "s_barrier"; });
   const auto ds_write_count = std::count_if(
       image.instructions.begin(), image.instructions.end(),
-      [](const RawGcnInstruction& inst) { return inst.mnemonic == "ds_write_b32"; });
+      [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "ds_write_b32"; });
   const auto ds_read_count = std::count_if(
       image.instructions.begin(), image.instructions.end(),
-      [](const RawGcnInstruction& inst) { return inst.mnemonic == "ds_read_b32"; });
+      [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "ds_read_b32"; });
   const auto vmax_count = std::count_if(
       image.instructions.begin(), image.instructions.end(),
-      [](const RawGcnInstruction& inst) { return inst.mnemonic == "v_max_f32_e32"; });
+      [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "v_max_f32_e32"; });
   const auto unknown_count = std::count_if(
       image.instructions.begin(), image.instructions.end(),
-      [](const RawGcnInstruction& inst) { return inst.mnemonic == "unknown"; });
+      [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "unknown"; });
   EXPECT_GT(barrier_count, 0);
   EXPECT_GT(ds_write_count, 0);
   EXPECT_GT(ds_read_count, 0);
@@ -364,14 +364,14 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipMfmaExecutableWithoutUnknownInstruct
   EXPECT_EQ(image.kernel_name, "mfma_probe");
   const auto unknown_count = std::count_if(
       image.instructions.begin(), image.instructions.end(),
-      [](const RawGcnInstruction& inst) { return inst.mnemonic == "unknown"; });
+      [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "unknown"; });
   EXPECT_EQ(unknown_count, 0);
   EXPECT_EQ(image.metadata.values.at("agpr_count"), "4");
   EXPECT_EQ(image.kernel_descriptor.agpr_count, 4u);
   EXPECT_EQ(image.kernel_descriptor.accum_offset, 16u);
   const auto mfma_it = std::find_if(
       image.instructions.begin(), image.instructions.end(),
-      [](const RawGcnInstruction& inst) {
+      [](const EncodedGcnInstruction& inst) {
         return inst.mnemonic == "v_mfma_f32_16x16x4f32";
       });
   ASSERT_NE(mfma_it, image.instructions.end());
@@ -415,14 +415,14 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipMfmaFp16ExecutableWithoutUnknownInst
   EXPECT_EQ(image.kernel_name, "mfma_fp16_probe");
   const auto unknown_count = std::count_if(
       image.instructions.begin(), image.instructions.end(),
-      [](const RawGcnInstruction& inst) { return inst.mnemonic == "unknown"; });
+      [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "unknown"; });
   EXPECT_EQ(unknown_count, 0);
   EXPECT_EQ(image.metadata.values.at("agpr_count"), "16");
   EXPECT_EQ(image.kernel_descriptor.agpr_count, 16u);
   EXPECT_EQ(image.kernel_descriptor.accum_offset, 16u);
   const auto mfma_it = std::find_if(
       image.instructions.begin(), image.instructions.end(),
-      [](const RawGcnInstruction& inst) {
+      [](const EncodedGcnInstruction& inst) {
         return inst.mnemonic == "v_mfma_f32_16x16x4f16";
       });
   ASSERT_NE(mfma_it, image.instructions.end());
@@ -462,14 +462,14 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipMfmaI8ExecutableWithoutUnknownInstru
   EXPECT_EQ(image.kernel_name, "mfma_i8_probe");
   const auto unknown_count = std::count_if(
       image.instructions.begin(), image.instructions.end(),
-      [](const RawGcnInstruction& inst) { return inst.mnemonic == "unknown"; });
+      [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "unknown"; });
   EXPECT_EQ(unknown_count, 0);
   EXPECT_EQ(image.metadata.values.at("agpr_count"), "16");
   EXPECT_EQ(image.kernel_descriptor.agpr_count, 16u);
   EXPECT_EQ(image.kernel_descriptor.accum_offset, 16u);
   const auto mfma_it = std::find_if(
       image.instructions.begin(), image.instructions.end(),
-      [](const RawGcnInstruction& inst) {
+      [](const EncodedGcnInstruction& inst) {
         return inst.mnemonic == "v_mfma_i32_16x16x4i8";
       });
   ASSERT_NE(mfma_it, image.instructions.end());
@@ -512,14 +512,14 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipMfmaBf16ExecutableWithoutUnknownInst
   EXPECT_EQ(image.kernel_name, "mfma_bf16_probe");
   const auto unknown_count = std::count_if(
       image.instructions.begin(), image.instructions.end(),
-      [](const RawGcnInstruction& inst) { return inst.mnemonic == "unknown"; });
+      [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "unknown"; });
   EXPECT_EQ(unknown_count, 0);
   EXPECT_EQ(image.metadata.values.at("agpr_count"), "16");
   EXPECT_EQ(image.kernel_descriptor.agpr_count, 16u);
   EXPECT_EQ(image.kernel_descriptor.accum_offset, 16u);
   const auto mfma_it = std::find_if(
       image.instructions.begin(), image.instructions.end(),
-      [](const RawGcnInstruction& inst) {
+      [](const EncodedGcnInstruction& inst) {
         return inst.mnemonic == "v_mfma_f32_16x16x2bf16";
       });
   ASSERT_NE(mfma_it, image.instructions.end());
@@ -556,15 +556,15 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipSharedReverseExecutable) {
   EXPECT_EQ(image.metadata.values.at("group_segment_fixed_size"), "256");
   const auto ds_write_it = std::find_if(
       image.instructions.begin(), image.instructions.end(),
-      [](const RawGcnInstruction& inst) { return inst.mnemonic == "ds_write_b32"; });
+      [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "ds_write_b32"; });
   ASSERT_NE(ds_write_it, image.instructions.end());
   const auto ds_read_it = std::find_if(
       image.instructions.begin(), image.instructions.end(),
-      [](const RawGcnInstruction& inst) { return inst.mnemonic == "ds_read_b32"; });
+      [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "ds_read_b32"; });
   ASSERT_NE(ds_read_it, image.instructions.end());
   const auto barrier_it = std::find_if(
       image.instructions.begin(), image.instructions.end(),
-      [](const RawGcnInstruction& inst) { return inst.mnemonic == "s_barrier"; });
+      [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "s_barrier"; });
   ASSERT_NE(barrier_it, image.instructions.end());
 }
 

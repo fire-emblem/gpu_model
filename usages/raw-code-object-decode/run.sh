@@ -14,7 +14,7 @@ cmake --build "$ROOT/build" --target gpu_model_tests code_object_dump_main -j 8
 
 TEST_OUT="$OUT_DIR/gtest_stdout.txt"
 "$ROOT/build/tests/gpu_model_tests" \
-  --gtest_filter='RawGcnInstructionArrayParserTest.*:AmdgpuCodeObjectDecoderTest.DecodesRawInstructionsFromAmdgpuObject:AmdgpuCodeObjectDecoderTest.DecodesRawInstructionsFromHipExecutable' \
+  --gtest_filter='EncodedGcnInstructionArrayParserTest.*:AmdgpuCodeObjectDecoderTest.DecodesRawInstructionsFromAmdgpuObject:AmdgpuCodeObjectDecoderTest.DecodesRawInstructionsFromHipExecutable' \
   | tee "$TEST_OUT"
 
 SRC="$OUT_DIR/hip_vecadd.cpp"
@@ -39,7 +39,7 @@ hipcc "$SRC" -o "$EXE"
 
 {
   echo "check: parser/object pipeline test output present"
-  grep -q "RawGcnInstructionArrayParserTest.ParsesTextBytesIntoInstructionArrays" "$TEST_OUT"
+  grep -q "EncodedGcnInstructionArrayParserTest.ParsesTextBytesIntoInstructionArrays" "$TEST_OUT"
   echo "ok"
 
   echo "check: dump output contains op_type field"

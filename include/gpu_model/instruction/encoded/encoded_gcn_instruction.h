@@ -9,7 +9,7 @@
 
 namespace gpu_model {
 
-enum class RawGcnOperandKind {
+enum class EncodedGcnOperandKind {
   Unknown,
   ScalarReg,
   ScalarRegRange,
@@ -21,13 +21,13 @@ enum class RawGcnOperandKind {
   BranchTarget,
 };
 
-struct RawGcnOperand {
-  RawGcnOperandKind kind = RawGcnOperandKind::Unknown;
+struct EncodedGcnOperand {
+  EncodedGcnOperandKind kind = EncodedGcnOperandKind::Unknown;
   std::string text;
   GcnOperandInfo info;
 };
 
-struct RawGcnInstruction {
+struct EncodedGcnInstruction {
   uint64_t pc = 0;
   uint32_t size_bytes = 0;
   std::vector<uint32_t> words;
@@ -35,7 +35,7 @@ struct RawGcnInstruction {
   uint32_t encoding_id = 0;
   std::string mnemonic;
   std::string operands;
-  std::vector<RawGcnOperand> decoded_operands;
+  std::vector<EncodedGcnOperand> decoded_operands;
 };
 
 }  // namespace gpu_model
