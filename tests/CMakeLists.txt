@@ -1,11 +1,11 @@
 add_executable(gpu_model_tests
-  decode/generated_gcn_full_opcode_table_test.cpp
-  decode/generated_gcn_inst_db_test.cpp
-  decode/gcn_inst_db_lookup_test.cpp
+  instruction/internal/generated_encoded_gcn_full_opcode_table_test.cpp
+  instruction/internal/generated_encoded_gcn_inst_db_test.cpp
+  instruction/internal/encoded_gcn_db_lookup_test.cpp
   arch/arch_registry_test.cpp
   instruction/instruction_decoder_test.cpp
   instruction/instruction_formatter_test.cpp
-  decode/gcn_inst_format_test.cpp
+  instruction/encoded_gcn_inst_format_test.cpp
 
   # execution/*
   execution/execution_naming_test.cpp

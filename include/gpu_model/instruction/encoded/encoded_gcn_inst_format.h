@@ -10,7 +10,7 @@ namespace gpu_model {
 // Bitfield layouts are adapted from the MIAOW Southern Islands ISA format
 // definitions in third_party/miaow/src/sw/siagen/asm.h.
 
-enum class GcnInstFormatClass {
+enum class EncodedGcnInstFormatClass {
   Unknown,
   Sop2,
   Sopk,
@@ -270,7 +270,7 @@ union GcnInstLayout {
 };
 
 GcnInstLayout MakeGcnInstLayout(const std::vector<uint32_t>& words);
-GcnInstFormatClass ClassifyGcnInstFormat(const std::vector<uint32_t>& words);
-std::string_view ToString(GcnInstFormatClass format_class);
+EncodedGcnInstFormatClass ClassifyGcnInstFormat(const std::vector<uint32_t>& words);
+std::string_view ToString(EncodedGcnInstFormatClass format_class);
 
 }  // namespace gpu_model

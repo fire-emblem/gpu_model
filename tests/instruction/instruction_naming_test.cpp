@@ -19,7 +19,7 @@ TEST(InstructionNamingTest, InstructionHeadersDeclarePrimaryTypes) {
   static_assert(std::is_same_v<decltype(&InstructionDecoder::Decode), DecodeSignature>);
 
   static_assert(std::is_same_v<decltype(InstructionEncoding{}.words), std::vector<uint32_t>>);
-  static_assert(std::is_same_v<decltype(InstructionEncoding{}.format_class), GcnInstFormatClass>);
+  static_assert(std::is_same_v<decltype(InstructionEncoding{}.format_class), EncodedGcnInstFormatClass>);
 
   static_assert(std::is_enum_v<DecodedInstructionOperandKind>);
   static_assert(std::is_same_v<decltype(DecodedInstructionOperand{}.kind), DecodedInstructionOperandKind>);

@@ -284,5 +284,5 @@ The next implementation step should be:
 1. add `InstEncodingDef`
 2. add `RawDecodedInstruction`
 3. add a minimal `GcnInstDecoder` for the Phase 1 vecadd opcodes
-4. add a `GcnInstFormatter`
+4. add a `EncodedInstructionFormatter`
 5. keep the current text path as fallback until raw decode coverage is sufficient

@@ -2,7 +2,7 @@
 
 #include <vector>
 
-#include "gpu_model/decode/gcn_inst_encoding_def.h"
+#include "gpu_model/instruction/encoded/internal/encoded_gcn_encoding_def.h"
 #include "gpu_model/execution/encoded_semantic_handler.h"
 #include "gpu_model/execution/wave_context.h"
 #include "gpu_model/instruction/encoded/instruction_object.h"
@@ -41,7 +41,7 @@ class InstructionObjectExecuteTest : public ::testing::Test {
 
   static InstructionObjectPtr ParseSingleObject(uint64_t pc,
                                                 std::vector<uint32_t> words,
-                                                GcnInstFormatClass format_class,
+                                                EncodedGcnInstFormatClass format_class,
                                                 std::string mnemonic) {
     EncodedGcnInstruction raw;
     raw.pc = pc;
@@ -49,7 +49,7 @@ class InstructionObjectExecuteTest : public ::testing::Test {
     raw.format_class = format_class;
     raw.size_bytes = raw.words.size() * sizeof(uint32_t);
     raw.mnemonic = std::move(mnemonic);
-    DecodeGcnOperands(raw);
+    DecodeEncodedGcnOperands(raw);
     auto parsed = InstructionArrayParser::Parse(std::vector<EncodedGcnInstruction>{raw});
     EXPECT_EQ(parsed.instruction_objects.size(), 1u);
     return std::move(parsed.instruction_objects.front());
@@ -57,7 +57,7 @@ class InstructionObjectExecuteTest : public ::testing::Test {
 };
 
 TEST_F(InstructionObjectExecuteTest, ExecutesWaitcntDirectly) {
-  auto object = ParseSingleObject(0x1910, {0xbf8cc07fu}, GcnInstFormatClass::Sopp, "s_waitcnt");
+  auto object = ParseSingleObject(0x1910, {0xbf8cc07fu}, EncodedGcnInstFormatClass::Sopp, "s_waitcnt");
   ASSERT_NE(object, nullptr);
   ASSERT_EQ(object->class_name(), "s_waitcnt");
 
@@ -70,7 +70,7 @@ TEST_F(InstructionObjectExecuteTest, ExecutesWaitcntDirectly) {
 }
 
 TEST_F(InstructionObjectExecuteTest, ExecutesEndpgmDirectly) {
-  auto object = ParseSingleObject(0x1994, {0xbf810000u}, GcnInstFormatClass::Sopp, "s_endpgm");
+  auto object = ParseSingleObject(0x1994, {0xbf810000u}, EncodedGcnInstFormatClass::Sopp, "s_endpgm");
   ASSERT_NE(object, nullptr);
   ASSERT_EQ(object->class_name(), "s_endpgm");
 
@@ -84,7 +84,7 @@ TEST_F(InstructionObjectExecuteTest, ExecutesEndpgmDirectly) {
 
 TEST_F(InstructionObjectExecuteTest, ExecutesExeczBranchDirectly) {
   auto object =
-      ParseSingleObject(0x192c, {0xbf880019u}, GcnInstFormatClass::Sopp, "s_cbranch_execz");
+      ParseSingleObject(0x192c, {0xbf880019u}, EncodedGcnInstFormatClass::Sopp, "s_cbranch_execz");
   ASSERT_NE(object, nullptr);
   ASSERT_EQ(object->class_name(), "s_cbranch_execz");
 

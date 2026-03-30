@@ -30,13 +30,13 @@ FetchContent_MakeAvailable(googletest)
 add_library(gpu_model STATIC
   src/arch/arch_registry.cpp
   src/arch/c500_spec.cpp
-  src/decode/generated_gcn_full_opcode_table.cpp
-  src/decode/generated_gcn_inst_db.cpp
-  src/decode/gcn_inst_db_lookup.cpp
-  src/decode/gcn_inst_format.cpp
-  src/decode/gcn_inst_encoding_def.cpp
+  src/instruction/encoded/internal/generated_encoded_gcn_full_opcode_table.cpp
+  src/instruction/encoded/internal/generated_encoded_gcn_inst_db.cpp
+  src/instruction/encoded/internal/encoded_gcn_db_lookup.cpp
+  src/instruction/encoded/encoded_gcn_inst_format.cpp
+  src/instruction/encoded/internal/encoded_gcn_encoding_def.cpp
   src/instruction/encoded/instruction_decoder.cpp
-  src/decode/gcn_inst_formatter.cpp
+  src/instruction/encoded/encoded_instruction_formatter.cpp
   src/isa/instruction_builder.cpp
   src/isa/kernel_metadata.cpp
   src/isa/kernel_program_builder.cpp

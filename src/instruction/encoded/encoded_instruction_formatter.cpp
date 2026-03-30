@@ -1,15 +1,15 @@
-#include "gpu_model/decode/gcn_inst_formatter.h"
+#include "gpu_model/instruction/encoded/encoded_instruction_formatter.h"
 
 #include <sstream>
 
-#include "gpu_model/decode/gcn_inst_encoding_def.h"
+#include "gpu_model/instruction/encoded/internal/encoded_gcn_encoding_def.h"
 
 namespace gpu_model {
 
-std::string GcnInstFormatter::Format(const DecodedInstruction& instruction) const {
+std::string EncodedInstructionFormatter::Format(const DecodedInstruction& instruction) const {
   std::ostringstream out;
   const std::string_view mnemonic = instruction.mnemonic == "unknown"
-                                        ? LookupGcnOpcodeName(instruction.words)
+                                        ? LookupEncodedGcnOpcodeName(instruction.words)
                                         : std::string_view(instruction.mnemonic);
   out << mnemonic;
   if (!instruction.operands.empty()) {
@@ -21,7 +21,7 @@ std::string GcnInstFormatter::Format(const DecodedInstruction& instruction) cons
       out << instruction.operands[i].text;
     }
   }
-  if (const auto* def = FindGcnInstEncodingDef(instruction.words)) {
+  if (const auto* def = FindEncodedGcnEncodingDef(instruction.words)) {
     out << " ; format=" << ToString(def->format_class) << " op=" << def->op;
   } else {
     out << " ; format=" << ToString(instruction.format_class);
@@ -29,10 +29,10 @@ std::string GcnInstFormatter::Format(const DecodedInstruction& instruction) cons
   return out.str();
 }
 
-std::string GcnInstFormatter::Format(const EncodedGcnInstruction& instruction) const {
+std::string EncodedInstructionFormatter::Format(const EncodedGcnInstruction& instruction) const {
   std::ostringstream out;
   const std::string_view mnemonic = instruction.mnemonic == "unknown"
-                                        ? LookupGcnOpcodeName(instruction.words)
+                                        ? LookupEncodedGcnOpcodeName(instruction.words)
                                         : std::string_view(instruction.mnemonic);
   out << mnemonic;
   if (!instruction.decoded_operands.empty()) {
@@ -46,7 +46,7 @@ std::string GcnInstFormatter::Format(const EncodedGcnInstruction& instruction) c
   } else if (!instruction.operands.empty()) {
     out << ' ' << instruction.operands;
   }
-  if (const auto* def = FindGcnInstEncodingDef(instruction.words)) {
+  if (const auto* def = FindEncodedGcnEncodingDef(instruction.words)) {
     out << " ; format=" << ToString(def->format_class) << " op=" << def->op;
   } else {
     out << " ; format=" << ToString(instruction.format_class);

@@ -70,7 +70,7 @@ def summarize_format(name: str, items: list[dict], coverage: dict[str, set[str]]
 def build_report(repo_root: pathlib.Path) -> tuple[str, dict]:
     instructions = load_instructions(repo_root)
     known = {item["mnemonic"] for item in instructions}
-    full_opcode_text = (repo_root / "src/decode/generated_gcn_full_opcode_table.cpp").read_text(
+    full_opcode_text = (repo_root / "src/instruction/encoded/internal/generated_encoded_gcn_full_opcode_table.cpp").read_text(
         encoding="utf-8"
     )
     full_opcode_rows = re.findall(

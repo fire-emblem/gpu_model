@@ -1,11 +1,11 @@
-#include "gpu_model/decode/gcn_inst_encoding_def.h"
+#include "gpu_model/instruction/encoded/internal/encoded_gcn_encoding_def.h"
 
 #include <sstream>
 
-#include "gpu_model/decode/generated_gcn_full_opcode_table.h"
-#include "gpu_model/decode/generated_gcn_inst_db.h"
-#include "gpu_model/decode/gcn_inst_db_lookup.h"
-#include "gpu_model/decode/gcn_inst_format.h"
+#include "gpu_model/instruction/encoded/internal/generated_encoded_gcn_full_opcode_table.h"
+#include "gpu_model/instruction/encoded/internal/generated_encoded_gcn_inst_db.h"
+#include "gpu_model/instruction/encoded/internal/encoded_gcn_db_lookup.h"
+#include "gpu_model/instruction/encoded/encoded_gcn_inst_format.h"
 
 namespace gpu_model {
 
@@ -17,46 +17,46 @@ struct WaitCntInfo {
   uint8_t lgkmcnt = 0;
 };
 
-uint32_t ExtractOp(const std::vector<uint32_t>& words, GcnInstFormatClass format_class) {
+uint32_t ExtractOp(const std::vector<uint32_t>& words, EncodedGcnInstFormatClass format_class) {
   const uint32_t low = words.empty() ? 0u : words[0];
   switch (format_class) {
-    case GcnInstFormatClass::Sopp:
+    case EncodedGcnInstFormatClass::Sopp:
       return (low >> 16u) & 0x7fu;
-    case GcnInstFormatClass::Smrd:
+    case EncodedGcnInstFormatClass::Smrd:
       return (((low >> 18u) & 0x3u) << 5u) | ((low >> 22u) & 0x1fu);
-    case GcnInstFormatClass::Smem:
+    case EncodedGcnInstFormatClass::Smem:
       return (low >> 18u) & 0xffu;
-    case GcnInstFormatClass::Sop2:
+    case EncodedGcnInstFormatClass::Sop2:
       return (low >> 23u) & 0x7fu;
-    case GcnInstFormatClass::Sopk:
+    case EncodedGcnInstFormatClass::Sopk:
       return (low >> 23u) & 0x1fu;
-    case GcnInstFormatClass::Vop2:
+    case EncodedGcnInstFormatClass::Vop2:
       return (low >> 25u) & 0x3fu;
-    case GcnInstFormatClass::Vopc:
+    case EncodedGcnInstFormatClass::Vopc:
       return (low >> 17u) & 0xffu;
-    case GcnInstFormatClass::Sop1:
+    case EncodedGcnInstFormatClass::Sop1:
       return (low >> 8u) & 0xffu;
-    case GcnInstFormatClass::Sopc:
+    case EncodedGcnInstFormatClass::Sopc:
       return (low >> 16u) & 0x7fu;
-    case GcnInstFormatClass::Vop1:
+    case EncodedGcnInstFormatClass::Vop1:
       return (low >> 9u) & 0xffu;
-    case GcnInstFormatClass::Vop3a:
+    case EncodedGcnInstFormatClass::Vop3a:
       return (low >> 17u) & 0x1ffu;
-    case GcnInstFormatClass::Vop3p:
+    case EncodedGcnInstFormatClass::Vop3p:
       return (low >> 16u) & 0x7fu;
-    case GcnInstFormatClass::Flat:
+    case EncodedGcnInstFormatClass::Flat:
       return (low >> 18u) & 0x7fu;
-    case GcnInstFormatClass::Ds:
+    case EncodedGcnInstFormatClass::Ds:
       return (low >> 17u) & 0xffu;
-    case GcnInstFormatClass::Mubuf:
+    case EncodedGcnInstFormatClass::Mubuf:
       return (low >> 18u) & 0x7fu;
-    case GcnInstFormatClass::Mtbuf:
+    case EncodedGcnInstFormatClass::Mtbuf:
       return (low >> 15u) & 0x0fu;
-    case GcnInstFormatClass::Mimg:
+    case EncodedGcnInstFormatClass::Mimg:
       return (((low >> 0u) & 0x1u) << 7u) | ((low >> 18u) & 0x7fu);
-    case GcnInstFormatClass::Exp:
+    case EncodedGcnInstFormatClass::Exp:
       return 0u;
-    case GcnInstFormatClass::Vintrp:
+    case EncodedGcnInstFormatClass::Vintrp:
       if (((low >> 26u) & 0x3fu) == 0x32u) {
         return (low >> 16u) & 0x3u;
       }
@@ -67,19 +67,19 @@ uint32_t ExtractOp(const std::vector<uint32_t>& words, GcnInstFormatClass format
 }
 
 uint32_t ExtractCanonicalOpcode(const std::vector<uint32_t>& words,
-                                GcnInstFormatClass format_class) {
+                                EncodedGcnInstFormatClass format_class) {
   const uint32_t low = words.empty() ? 0u : words[0];
   switch (format_class) {
-    case GcnInstFormatClass::Smrd:
+    case EncodedGcnInstFormatClass::Smrd:
       return (((low >> 18u) & 0x3u) << 5u) | ((low >> 22u) & 0x1fu);
-    case GcnInstFormatClass::Smem:
+    case EncodedGcnInstFormatClass::Smem:
       return (low >> 18u) & 0xffu;
-    case GcnInstFormatClass::Vop3a:
-    case GcnInstFormatClass::Vop3b:
+    case EncodedGcnInstFormatClass::Vop3a:
+    case EncodedGcnInstFormatClass::Vop3b:
       return (low >> 16u) & 0x3ffu;
-    case GcnInstFormatClass::Vop3p:
+    case EncodedGcnInstFormatClass::Vop3p:
       return (low >> 16u) & 0x7fu;
-    case GcnInstFormatClass::Vintrp:
+    case EncodedGcnInstFormatClass::Vintrp:
       if (((low >> 26u) & 0x3fu) == 0x32u) {
         return (low >> 16u) & 0x3u;
       }
@@ -471,7 +471,7 @@ EncodedGcnOperand DecodeVop3Src2Pair(const std::vector<uint32_t>& words) {
   return MakeScalarRegRangeOperand((high >> 18u) & 0x1ffu, 2);
 }
 
-const GcnGeneratedFormatDef* FindGeneratedFormatDefByClass(GcnInstFormatClass format_class) {
+const GcnGeneratedFormatDef* FindGeneratedFormatDefByClass(EncodedGcnInstFormatClass format_class) {
   const auto& defs = GeneratedGcnFormatDefs();
   for (size_t i = 0; i < defs.size(); ++i) {
     if (defs[i].format_class == format_class) {
@@ -629,11 +629,11 @@ bool NeedsScalarPairDest(std::string_view mnemonic) {
 }
 
 bool TryDecodeGeneratedOperands(EncodedGcnInstruction& instruction, const GcnGeneratedInstDef& inst_def) {
-  if (instruction.format_class == GcnInstFormatClass::Smrd &&
+  if (instruction.format_class == EncodedGcnInstFormatClass::Smrd &&
       DecodeViStyleScalarMemoryOperands(instruction)) {
     return true;
   }
-  if (instruction.format_class == GcnInstFormatClass::Vop3p &&
+  if (instruction.format_class == EncodedGcnInstFormatClass::Vop3p &&
       DecodeVop3pOperands(instruction)) {
     return true;
   }
@@ -722,13 +722,13 @@ bool TryDecodeGeneratedOperands(EncodedGcnInstruction& instruction, const GcnGen
 
 }  // namespace
 
-void DecodeGcnOperands(EncodedGcnInstruction& instruction) {
+void DecodeEncodedGcnOperands(EncodedGcnInstruction& instruction) {
   instruction.decoded_operands.clear();
-  if (instruction.format_class == GcnInstFormatClass::Vop3p &&
+  if (instruction.format_class == EncodedGcnInstFormatClass::Vop3p &&
       DecodeVop3pOperands(instruction)) {
     return;
   }
-  const auto* def = FindGcnInstEncodingDef(instruction.words);
+  const auto* def = FindEncodedGcnEncodingDef(instruction.words);
   if (def == nullptr) {
     return;
   }
@@ -740,11 +740,11 @@ void DecodeGcnOperands(EncodedGcnInstruction& instruction) {
   }
 }
 
-const GcnInstEncodingDef* FindGcnInstEncodingDef(const std::vector<uint32_t>& words) {
+const EncodedGcnEncodingDef* FindEncodedGcnEncodingDef(const std::vector<uint32_t>& words) {
   const auto format_class = ClassifyGcnInstFormat(words);
   const uint32_t op = ExtractOp(words, format_class);
   const auto& defs = GeneratedGcnEncodingDefs();
-  if (format_class == GcnInstFormatClass::Vop3a &&
+  if (format_class == EncodedGcnInstFormatClass::Vop3a &&
       op == 326u &&
       static_cast<uint32_t>(words.size() * sizeof(uint32_t)) == 8u) {
     const bool is_hi = (words[0] & 0x00010000u) != 0;
@@ -764,60 +764,60 @@ const GcnInstEncodingDef* FindGcnInstEncodingDef(const std::vector<uint32_t>& wo
   return nullptr;
 }
 
-const GcnIsaOpcodeDescriptor* FindGcnFallbackOpcodeDescriptor(const std::vector<uint32_t>& words) {
+const GcnIsaOpcodeDescriptor* FindEncodedGcnFallbackOpcodeDescriptor(const std::vector<uint32_t>& words) {
   const auto format_class = ClassifyGcnInstFormat(words);
   const uint32_t opcode = ExtractCanonicalOpcode(words, format_class);
   switch (format_class) {
-    case GcnInstFormatClass::Sop2:
+    case EncodedGcnInstFormatClass::Sop2:
       return FindDescriptorByPair(GcnIsaOpType::Sop2, opcode);
-    case GcnInstFormatClass::Sopk:
+    case EncodedGcnInstFormatClass::Sopk:
       return FindDescriptorByPair(GcnIsaOpType::Sopk, opcode);
-    case GcnInstFormatClass::Sop1:
+    case EncodedGcnInstFormatClass::Sop1:
       return FindDescriptorByPair(GcnIsaOpType::Sop1, opcode);
-    case GcnInstFormatClass::Sopc:
+    case EncodedGcnInstFormatClass::Sopc:
       return FindDescriptorByPair(GcnIsaOpType::Sopc, opcode);
-    case GcnInstFormatClass::Sopp:
+    case EncodedGcnInstFormatClass::Sopp:
       return FindDescriptorByPair(GcnIsaOpType::Sopp, opcode);
-    case GcnInstFormatClass::Smrd:
+    case EncodedGcnInstFormatClass::Smrd:
       return FindSmrdDescriptor(opcode);
-    case GcnInstFormatClass::Smem:
+    case EncodedGcnInstFormatClass::Smem:
       return FindDescriptorByPair(GcnIsaOpType::Smem, opcode);
-    case GcnInstFormatClass::Vop2:
+    case EncodedGcnInstFormatClass::Vop2:
       return FindDescriptorByPair(GcnIsaOpType::Vop2, opcode);
-    case GcnInstFormatClass::Vop1:
+    case EncodedGcnInstFormatClass::Vop1:
       return FindDescriptorByPair(GcnIsaOpType::Vop1, opcode);
-    case GcnInstFormatClass::Vopc:
+    case EncodedGcnInstFormatClass::Vopc:
       return FindDescriptorByPair(GcnIsaOpType::Vopc, opcode);
-    case GcnInstFormatClass::Vop3a:
-    case GcnInstFormatClass::Vop3b:
+    case EncodedGcnInstFormatClass::Vop3a:
+    case EncodedGcnInstFormatClass::Vop3b:
       return FindVop3Descriptor(opcode);
-    case GcnInstFormatClass::Vop3p:
+    case EncodedGcnInstFormatClass::Vop3p:
       return FindDescriptorByPair(GcnIsaOpType::Vop3p, opcode);
-    case GcnInstFormatClass::Vintrp:
+    case EncodedGcnInstFormatClass::Vintrp:
       return FindDescriptorByPair(GcnIsaOpType::Vintrp, opcode);
-    case GcnInstFormatClass::Ds:
+    case EncodedGcnInstFormatClass::Ds:
       return FindDescriptorByPair(GcnIsaOpType::Ds, opcode);
-    case GcnInstFormatClass::Flat:
+    case EncodedGcnInstFormatClass::Flat:
       return FindFlatDescriptor(words, opcode);
-    case GcnInstFormatClass::Mubuf:
+    case EncodedGcnInstFormatClass::Mubuf:
       return FindDescriptorByPair(GcnIsaOpType::Mubuf, opcode);
-    case GcnInstFormatClass::Mtbuf:
+    case EncodedGcnInstFormatClass::Mtbuf:
       return FindDescriptorByPair(GcnIsaOpType::Mtbuf, opcode);
-    case GcnInstFormatClass::Mimg:
+    case EncodedGcnInstFormatClass::Mimg:
       return FindDescriptorByPair(GcnIsaOpType::Mimg, opcode);
-    case GcnInstFormatClass::Exp:
+    case EncodedGcnInstFormatClass::Exp:
       return FindDescriptorByPair(GcnIsaOpType::Exp, opcode);
-    case GcnInstFormatClass::Unknown:
+    case EncodedGcnInstFormatClass::Unknown:
       return nullptr;
   }
   return nullptr;
 }
 
-std::string_view LookupGcnOpcodeName(const std::vector<uint32_t>& words) {
-  if (const auto* def = FindGcnInstEncodingDef(words); def != nullptr) {
+std::string_view LookupEncodedGcnOpcodeName(const std::vector<uint32_t>& words) {
+  if (const auto* def = FindEncodedGcnEncodingDef(words); def != nullptr) {
     return def->mnemonic;
   }
-  if (const auto* descriptor = FindGcnFallbackOpcodeDescriptor(words); descriptor != nullptr) {
+  if (const auto* descriptor = FindEncodedGcnFallbackOpcodeDescriptor(words); descriptor != nullptr) {
     return descriptor->opname;
   }
   return "unknown";

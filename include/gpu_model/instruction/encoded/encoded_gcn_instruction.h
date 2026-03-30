@@ -4,8 +4,8 @@
 #include <string>
 #include <vector>
 
-#include "gpu_model/decode/gcn_inst_format.h"
-#include "gpu_model/decode/gcn_operand_info.h"
+#include "gpu_model/instruction/encoded/encoded_gcn_inst_format.h"
+#include "gpu_model/instruction/encoded/encoded_gcn_operand_info.h"
 
 namespace gpu_model {
 
@@ -31,7 +31,7 @@ struct EncodedGcnInstruction {
   uint64_t pc = 0;
   uint32_t size_bytes = 0;
   std::vector<uint32_t> words;
-  GcnInstFormatClass format_class = GcnInstFormatClass::Unknown;
+  EncodedGcnInstFormatClass format_class = EncodedGcnInstFormatClass::Unknown;
   uint32_t encoding_id = 0;
   std::string mnemonic;
   std::string operands;

@@ -12,8 +12,8 @@
 #include <string>
 #include <vector>
 
-#include "gpu_model/decode/gcn_inst_encoding_def.h"
-#include "gpu_model/decode/gcn_inst_db_lookup.h"
+#include "gpu_model/instruction/encoded/internal/encoded_gcn_encoding_def.h"
+#include "gpu_model/instruction/encoded/internal/encoded_gcn_db_lookup.h"
 #include "gpu_model/execution/sync_ops.h"
 #include "gpu_model/execution/internal/tensor_op_utils.h"
 
@@ -224,7 +224,7 @@ uint64_t ResolveVectorLane(const DecodedInstructionOperand& operand,
 }
 
 const GcnIsaOpcodeDescriptor& RequireCanonicalOpcode(const DecodedInstruction& instruction) {
-  if (const auto* descriptor = FindGcnFallbackOpcodeDescriptor(instruction.words); descriptor != nullptr) {
+  if (const auto* descriptor = FindEncodedGcnFallbackOpcodeDescriptor(instruction.words); descriptor != nullptr) {
     return *descriptor;
   }
   throw std::invalid_argument("missing canonical opcode descriptor: " + instruction.mnemonic);

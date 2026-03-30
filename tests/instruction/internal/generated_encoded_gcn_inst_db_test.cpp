@@ -3,8 +3,8 @@
 #include <algorithm>
 #include <string_view>
 
-#include "gpu_model/decode/gcn_inst_db_lookup.h"
-#include "gpu_model/decode/generated_gcn_inst_db.h"
+#include "gpu_model/instruction/encoded/internal/encoded_gcn_db_lookup.h"
+#include "gpu_model/instruction/encoded/internal/generated_encoded_gcn_inst_db.h"
 
 namespace gpu_model {
 namespace {
@@ -12,7 +12,7 @@ namespace {
 TEST(GeneratedGcnInstDbTest, ExposesFormatDefinitions) {
   const auto formats = GeneratedGcnFormatDefs();
   ASSERT_FALSE(formats.empty());
-  EXPECT_EQ(formats.front().format_class, GcnInstFormatClass::Sop2);
+  EXPECT_EQ(formats.front().format_class, EncodedGcnInstFormatClass::Sop2);
   EXPECT_STREQ(formats.front().id, "sop2");
 }
 
@@ -96,7 +96,7 @@ TEST(GeneratedGcnInstDbTest, ExposesImportedEncodingDefinitions) {
   const auto defs = GeneratedGcnEncodingDefs();
   ASSERT_GE(defs.size(), 86u);
   EXPECT_EQ(defs[0].id, 1u);
-  EXPECT_EQ(defs[0].format_class, GcnInstFormatClass::Sopp);
+  EXPECT_EQ(defs[0].format_class, EncodedGcnInstFormatClass::Sopp);
   EXPECT_EQ(defs[0].mnemonic, "s_endpgm");
 }
 
@@ -134,14 +134,14 @@ TEST(GeneratedGcnInstDbTest, ExposesTrackedTensorCoreVariants) {
   ASSERT_NE(i8_wide, insts.end());
   ASSERT_NE(acc_read, insts.end());
   ASSERT_NE(acc_write, insts.end());
-  EXPECT_EQ(fp32->format_class, GcnInstFormatClass::Vop3p);
-  EXPECT_EQ(fp16->format_class, GcnInstFormatClass::Vop3p);
-  EXPECT_EQ(i8->format_class, GcnInstFormatClass::Vop3p);
-  EXPECT_EQ(bf16->format_class, GcnInstFormatClass::Vop3p);
-  EXPECT_EQ(fp32_wide->format_class, GcnInstFormatClass::Vop3p);
-  EXPECT_EQ(i8_wide->format_class, GcnInstFormatClass::Vop3p);
-  EXPECT_EQ(acc_read->format_class, GcnInstFormatClass::Vop3p);
-  EXPECT_EQ(acc_write->format_class, GcnInstFormatClass::Vop3p);
+  EXPECT_EQ(fp32->format_class, EncodedGcnInstFormatClass::Vop3p);
+  EXPECT_EQ(fp16->format_class, EncodedGcnInstFormatClass::Vop3p);
+  EXPECT_EQ(i8->format_class, EncodedGcnInstFormatClass::Vop3p);
+  EXPECT_EQ(bf16->format_class, EncodedGcnInstFormatClass::Vop3p);
+  EXPECT_EQ(fp32_wide->format_class, EncodedGcnInstFormatClass::Vop3p);
+  EXPECT_EQ(i8_wide->format_class, EncodedGcnInstFormatClass::Vop3p);
+  EXPECT_EQ(acc_read->format_class, EncodedGcnInstFormatClass::Vop3p);
+  EXPECT_EQ(acc_write->format_class, EncodedGcnInstFormatClass::Vop3p);
   EXPECT_NE((fp32->flags & kGcnInstFlagIsMatrix), 0u);
   EXPECT_NE((fp16->flags & kGcnInstFlagIsMatrix), 0u);
   EXPECT_NE((i8->flags & kGcnInstFlagIsMatrix), 0u);
@@ -156,7 +156,7 @@ TEST(GeneratedGcnInstDbTest, PreservesRepresentativeFlatInstruction) {
     return std::string_view(def.mnemonic) == "global_load_dword";
   });
   ASSERT_NE(it, defs.end());
-  EXPECT_EQ(it->format_class, GcnInstFormatClass::Flat);
+  EXPECT_EQ(it->format_class, EncodedGcnInstFormatClass::Flat);
   EXPECT_EQ(it->size_bytes, 8u);
 }
 

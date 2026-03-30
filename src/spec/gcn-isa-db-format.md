@@ -339,7 +339,7 @@ struct OperandSpec {
 struct GcnInstDef {
   uint32_t id;
   GcnProfileId profile;
-  GcnInstFormatClass format_class;
+  EncodedGcnInstFormatClass format_class;
   uint32_t opcode;
   uint8_t size_bytes;
   const char* mnemonic;

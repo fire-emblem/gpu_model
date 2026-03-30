@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "gpu_model/decode/gcn_inst_db_lookup.h"
+#include "gpu_model/instruction/encoded/internal/encoded_gcn_db_lookup.h"
 
 namespace gpu_model {
 namespace {
@@ -16,7 +16,7 @@ TEST(GcnInstDbLookupTest, FindsInstructionByIdAndMnemonic) {
 }
 
 TEST(GcnInstDbLookupTest, FindsInstructionByFormatOpcodeAndSize) {
-  const auto* def = FindGeneratedGcnInstDef(GcnInstFormatClass::Flat, 66, 8);
+  const auto* def = FindGeneratedGcnInstDef(EncodedGcnInstFormatClass::Flat, 66, 8);
   ASSERT_NE(def, nullptr);
   EXPECT_EQ(std::string_view(def->mnemonic), "global_atomic_add");
   EXPECT_EQ(std::string_view(def->exec_domain), "memory");

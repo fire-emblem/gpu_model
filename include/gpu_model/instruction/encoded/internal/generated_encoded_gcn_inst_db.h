@@ -3,8 +3,8 @@
 #include <cstdint>
 #include <vector>
 
-#include "gpu_model/decode/gcn_inst_encoding_def.h"
-#include "gpu_model/decode/gcn_inst_format.h"
+#include "gpu_model/instruction/encoded/internal/encoded_gcn_encoding_def.h"
+#include "gpu_model/instruction/encoded/encoded_gcn_inst_format.h"
 
 namespace gpu_model {
 
@@ -67,7 +67,7 @@ struct GcnGeneratedOperandSpec {
 
 struct GcnGeneratedFormatDef {
   const char* id;
-  GcnInstFormatClass format_class;
+  EncodedGcnInstFormatClass format_class;
   uint8_t size_bytes;
   GcnGeneratedFieldRef opcode_field;
   uint16_t field_begin;
@@ -77,7 +77,7 @@ struct GcnGeneratedFormatDef {
 struct GcnGeneratedInstDef {
   uint32_t id;
   const char* profile;
-  GcnInstFormatClass format_class;
+  EncodedGcnInstFormatClass format_class;
   uint32_t opcode;
   uint8_t size_bytes;
   const char* mnemonic;
@@ -99,6 +99,6 @@ const std::vector<GcnGeneratedOperandSpec>& GeneratedGcnOperandSpecs();
 const std::vector<GcnGeneratedFieldRef>& GeneratedGcnFieldRefs();
 const std::vector<GcnGeneratedFormatDef>& GeneratedGcnFormatDefs();
 const std::vector<GcnGeneratedInstDef>& GeneratedGcnInstDefs();
-const std::vector<GcnInstEncodingDef>& GeneratedGcnEncodingDefs();
+const std::vector<EncodedGcnEncodingDef>& GeneratedGcnEncodingDefs();
 
 }  // namespace gpu_model

@@ -1,4 +1,4 @@
-#include "gpu_model/decode/gcn_inst_db_lookup.h"
+#include "gpu_model/instruction/encoded/internal/encoded_gcn_db_lookup.h"
 
 namespace gpu_model {
 
@@ -22,7 +22,7 @@ const GcnGeneratedInstDef* FindGeneratedGcnInstDefByMnemonic(std::string_view mn
   return nullptr;
 }
 
-const GcnGeneratedInstDef* FindGeneratedGcnInstDef(GcnInstFormatClass format_class,
+const GcnGeneratedInstDef* FindGeneratedGcnInstDef(EncodedGcnInstFormatClass format_class,
                                                    uint32_t opcode,
                                                    uint32_t size_bytes) {
   const auto& defs = GeneratedGcnInstDefs();

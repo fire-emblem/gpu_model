@@ -1,4 +1,4 @@
-#include "gpu_model/decode/generated_gcn_full_opcode_table.h"
+#include "gpu_model/instruction/encoded/internal/generated_encoded_gcn_full_opcode_table.h"
 
 #include <array>
 

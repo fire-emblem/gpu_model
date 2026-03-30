@@ -1,18 +1,18 @@
 #include <gtest/gtest.h>
 
-#include "gpu_model/decode/gcn_inst_encoding_def.h"
-#include "gpu_model/decode/gcn_inst_formatter.h"
+#include "gpu_model/instruction/encoded/internal/encoded_gcn_encoding_def.h"
+#include "gpu_model/instruction/encoded/encoded_instruction_formatter.h"
 #include "gpu_model/instruction/encoded/decoded_instruction.h"
 
 namespace gpu_model {
 namespace {
 
 TEST(InstructionFormatterTest, ResolvesKnownEncodingDefinitions) {
-  const auto* s_endpgm = FindGcnInstEncodingDef({0xbf810000u});
+  const auto* s_endpgm = FindEncodedGcnEncodingDef({0xbf810000u});
   ASSERT_NE(s_endpgm, nullptr);
   EXPECT_EQ(s_endpgm->mnemonic, "s_endpgm");
 
-  const auto* s_load = FindGcnInstEncodingDef({0xc0020002u, 0x0000002cu});
+  const auto* s_load = FindEncodedGcnEncodingDef({0xc0020002u, 0x0000002cu});
   ASSERT_NE(s_load, nullptr);
   EXPECT_EQ(s_load->mnemonic, "s_load_dword");
 }
@@ -22,7 +22,7 @@ TEST(InstructionFormatterTest, FormatsRawInstructionWithEncodingInfo) {
       .pc = 0x1900,
       .size_bytes = 8,
       .words = {0xc0020002u, 0x0000002cu},
-      .format_class = GcnInstFormatClass::Smrd,
+      .format_class = EncodedGcnInstFormatClass::Smrd,
       .encoding_id = 2,
       .mnemonic = "s_load_dword",
       .operands = "s0, s[4:5], 0x2c",
@@ -34,7 +34,7 @@ TEST(InstructionFormatterTest, FormatsRawInstructionWithEncodingInfo) {
           },
   };
 
-  const std::string text = GcnInstFormatter{}.Format(instruction);
+  const std::string text = EncodedInstructionFormatter{}.Format(instruction);
   EXPECT_NE(text.find("s_load_dword s0, s[4:5], 0x2c"), std::string::npos);
   EXPECT_NE(text.find("format=smrd"), std::string::npos);
 }
@@ -44,7 +44,7 @@ TEST(InstructionFormatterTest, FormatsDecodedInstructionWithDecodedOperands) {
       .pc = 0x1968,
       .size_bytes = 8,
       .encoding_id = 18,
-      .format_class = GcnInstFormatClass::Flat,
+      .format_class = EncodedGcnInstFormatClass::Flat,
       .words = {0xdc508000u, 0x067f0004u},
       .mnemonic = "global_load_dword",
       .operands =
@@ -55,7 +55,7 @@ TEST(InstructionFormatterTest, FormatsDecodedInstructionWithDecodedOperands) {
           },
   };
 
-  const std::string text = GcnInstFormatter{}.Format(instruction);
+  const std::string text = EncodedInstructionFormatter{}.Format(instruction);
   EXPECT_NE(text.find("global_load_dword v6, v[4:5], off"), std::string::npos);
   EXPECT_NE(text.find("format=flat"), std::string::npos);
 }

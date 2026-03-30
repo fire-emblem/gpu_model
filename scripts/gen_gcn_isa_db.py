@@ -100,8 +100,8 @@ def emit_header(out_path: pathlib.Path) -> None:
 #include <cstdint>
 #include <vector>
 
-#include "gpu_model/decode/gcn_inst_encoding_def.h"
-#include "gpu_model/decode/gcn_inst_format.h"
+#include "gpu_model/instruction/encoded/internal/encoded_gcn_encoding_def.h"
+#include "gpu_model/instruction/encoded/encoded_gcn_inst_format.h"
 
 namespace gpu_model {
 
@@ -164,7 +164,7 @@ struct GcnGeneratedOperandSpec {
 
 struct GcnGeneratedFormatDef {
   const char* id;
-  GcnInstFormatClass format_class;
+  EncodedGcnInstFormatClass format_class;
   uint8_t size_bytes;
   GcnGeneratedFieldRef opcode_field;
   uint16_t field_begin;
@@ -174,7 +174,7 @@ struct GcnGeneratedFormatDef {
 struct GcnGeneratedInstDef {
   uint32_t id;
   const char* profile;
-  GcnInstFormatClass format_class;
+  EncodedGcnInstFormatClass format_class;
   uint32_t opcode;
   uint8_t size_bytes;
   const char* mnemonic;
@@ -196,7 +196,7 @@ const std::vector<GcnGeneratedOperandSpec>& GeneratedGcnOperandSpecs();
 const std::vector<GcnGeneratedFieldRef>& GeneratedGcnFieldRefs();
 const std::vector<GcnGeneratedFormatDef>& GeneratedGcnFormatDefs();
 const std::vector<GcnGeneratedInstDef>& GeneratedGcnInstDefs();
-const std::vector<GcnInstEncodingDef>& GeneratedGcnEncodingDefs();
+const std::vector<EncodedGcnEncodingDef>& GeneratedGcnEncodingDefs();
 
 }  // namespace gpu_model
 """
@@ -235,7 +235,7 @@ def emit_cpp(db_dir: pathlib.Path, out_path: pathlib.Path) -> None:
             )
         opcode_field = fmt["opcode_field"]
         format_entries.append(
-            "  {{ {id}, GcnInstFormatClass::{format_class}, {size_bytes}, "
+            "  {{ {id}, EncodedGcnInstFormatClass::{format_class}, {size_bytes}, "
             "{{ {opcode_name}, {opcode_word}, {opcode_lsb}, {opcode_width}, false, {opcode_meaning} }}, "
             "{field_begin}, {field_count} }}".format(
                 id=c_str(fmt["id"]),
@@ -332,7 +332,7 @@ def emit_cpp(db_dir: pathlib.Path, out_path: pathlib.Path) -> None:
                 )
             )
         generated_inst_entries.append(
-            "  {{ {id}, {profile}, GcnInstFormatClass::{fmt}, {opcode}, {size_bytes}, {mnemonic}, {exec_domain}, {semantic_family}, {issue_family}, {flags}, {implicit_begin}, {implicit_count}, {operand_begin}, {operand_count} }}".format(
+            "  {{ {id}, {profile}, EncodedGcnInstFormatClass::{fmt}, {opcode}, {size_bytes}, {mnemonic}, {exec_domain}, {semantic_family}, {issue_family}, {flags}, {implicit_begin}, {implicit_count}, {operand_begin}, {operand_count} }}".format(
                 id=inst["id"],
                 profile=c_str(inst.get("profile", "gfx6_gfx8")),
                 fmt=fmt_enum,
@@ -352,7 +352,7 @@ def emit_cpp(db_dir: pathlib.Path, out_path: pathlib.Path) -> None:
         implicit_index += len(implicit_reads) + len(implicit_writes)
         operand_index += len(operands)
         encoding_entries.append(
-            "  GcnInstEncodingDef{{ .id = {id}, .format_class = GcnInstFormatClass::{fmt}, .op = {opcode}, .size_bytes = {size_bytes}, .mnemonic = {mnemonic} }}".format(
+            "  EncodedGcnEncodingDef{{ .id = {id}, .format_class = EncodedGcnInstFormatClass::{fmt}, .op = {opcode}, .size_bytes = {size_bytes}, .mnemonic = {mnemonic} }}".format(
                 id=inst["id"],
                 fmt=fmt_enum,
                 opcode=inst["opcode"],
@@ -362,7 +362,7 @@ def emit_cpp(db_dir: pathlib.Path, out_path: pathlib.Path) -> None:
         )
 
     lines: list[str] = []
-    lines.append('#include "gpu_model/decode/generated_gcn_inst_db.h"')
+    lines.append('#include "gpu_model/instruction/encoded/internal/generated_encoded_gcn_inst_db.h"')
     lines.append("")
     lines.append("#include <vector>")
     lines.append("")
@@ -440,8 +440,8 @@ def emit_cpp(db_dir: pathlib.Path, out_path: pathlib.Path) -> None:
     lines.append("  return kInstDefs;")
     lines.append("}")
     lines.append("")
-    lines.append("const std::vector<GcnInstEncodingDef>& GeneratedGcnEncodingDefs() {")
-    lines.append("  static const std::vector<GcnInstEncodingDef> kEncodingDefs = {")
+    lines.append("const std::vector<EncodedGcnEncodingDef>& GeneratedGcnEncodingDefs() {")
+    lines.append("  static const std::vector<EncodedGcnEncodingDef> kEncodingDefs = {")
     lines.extend([entry + "," for entry in encoding_entries[:-1]])
     if encoding_entries:
         lines.append(encoding_entries[-1])

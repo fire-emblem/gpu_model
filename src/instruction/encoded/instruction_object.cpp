@@ -4,7 +4,7 @@
 #include <stdexcept>
 #include <vector>
 
-#include "gpu_model/decode/gcn_inst_encoding_def.h"
+#include "gpu_model/instruction/encoded/internal/encoded_gcn_encoding_def.h"
 #include "gpu_model/instruction/encoded/internal/encoded_instruction_binding.h"
 #include "gpu_model/execution/encoded_semantic_handler.h"
 #include "gpu_model/instruction/encoded/instruction_decoder.h"
@@ -14,37 +14,37 @@ namespace gpu_model {
 namespace {
 
 uint32_t InstructionSizeForFormat(const std::vector<uint32_t>& words,
-                                  GcnInstFormatClass format_class) {
+                                  EncodedGcnInstFormatClass format_class) {
   const uint32_t low = words.empty() ? 0u : words[0];
   switch (format_class) {
-    case GcnInstFormatClass::Sopp:
-    case GcnInstFormatClass::Sopk:
+    case EncodedGcnInstFormatClass::Sopp:
+    case EncodedGcnInstFormatClass::Sopk:
       return 4;
-    case GcnInstFormatClass::Sop2:
-    case GcnInstFormatClass::Sopc:
+    case EncodedGcnInstFormatClass::Sop2:
+    case EncodedGcnInstFormatClass::Sopc:
       return ((low & 0xffu) == 255u || ((low >> 8u) & 0xffu) == 255u) ? 8u : 4u;
-    case GcnInstFormatClass::Sop1:
+    case EncodedGcnInstFormatClass::Sop1:
       return (low & 0xffu) == 255u ? 8u : 4u;
-    case GcnInstFormatClass::Vop2:
-    case GcnInstFormatClass::Vopc:
+    case EncodedGcnInstFormatClass::Vop2:
+    case EncodedGcnInstFormatClass::Vopc:
       return (low & 0x1ffu) == 255u ? 8u : 4u;
-    case GcnInstFormatClass::Vop1:
+    case EncodedGcnInstFormatClass::Vop1:
       return (low & 0x1ffu) == 255u ? 8u : 4u;
-    case GcnInstFormatClass::Smrd:
-    case GcnInstFormatClass::Smem:
-    case GcnInstFormatClass::Vop3a:
-    case GcnInstFormatClass::Vop3b:
-    case GcnInstFormatClass::Vop3p:
-    case GcnInstFormatClass::Ds:
-    case GcnInstFormatClass::Flat:
-    case GcnInstFormatClass::Mubuf:
-    case GcnInstFormatClass::Mtbuf:
-    case GcnInstFormatClass::Mimg:
-    case GcnInstFormatClass::Exp:
+    case EncodedGcnInstFormatClass::Smrd:
+    case EncodedGcnInstFormatClass::Smem:
+    case EncodedGcnInstFormatClass::Vop3a:
+    case EncodedGcnInstFormatClass::Vop3b:
+    case EncodedGcnInstFormatClass::Vop3p:
+    case EncodedGcnInstFormatClass::Ds:
+    case EncodedGcnInstFormatClass::Flat:
+    case EncodedGcnInstFormatClass::Mubuf:
+    case EncodedGcnInstFormatClass::Mtbuf:
+    case EncodedGcnInstFormatClass::Mimg:
+    case EncodedGcnInstFormatClass::Exp:
       return 8;
-    case GcnInstFormatClass::Vintrp:
+    case EncodedGcnInstFormatClass::Vintrp:
       return (((low >> 26u) & 0x3fu) == 0x32u) ? 4u : 8u;
-    case GcnInstFormatClass::Unknown:
+    case EncodedGcnInstFormatClass::Unknown:
       break;
   }
   throw std::runtime_error("failed to determine raw instruction size");
@@ -82,13 +82,13 @@ std::vector<EncodedGcnInstruction> ParseRawInstructions(std::span<const std::byt
     instruction.words = ReadWords(text_bytes, offset, size_bytes);
     instruction.size_bytes = size_bytes;
     instruction.format_class = format_class;
-    if (const auto* def = FindGcnInstEncodingDef(instruction.words)) {
+    if (const auto* def = FindEncodedGcnEncodingDef(instruction.words)) {
       instruction.encoding_id = def->id;
       instruction.mnemonic = std::string(def->mnemonic);
     } else {
-      instruction.mnemonic = std::string(LookupGcnOpcodeName(instruction.words));
+      instruction.mnemonic = std::string(LookupEncodedGcnOpcodeName(instruction.words));
     }
-    DecodeGcnOperands(instruction);
+    DecodeEncodedGcnOperands(instruction);
     instructions.push_back(instruction);
     offset += size_bytes;
   }

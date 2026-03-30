@@ -3,7 +3,7 @@
 #include <optional>
 #include <string>
 
-#include "gpu_model/decode/gcn_inst_formatter.h"
+#include "gpu_model/instruction/encoded/encoded_instruction_formatter.h"
 #include "gpu_model/program/object_reader.h"
 
 int main(int argc, char** argv) {
@@ -22,7 +22,7 @@ int main(int argc, char** argv) {
   try {
     const auto image =
         gpu_model::ObjectReader{}.LoadEncodedObject(path, kernel_name);
-    gpu_model::GcnInstFormatter formatter;
+    gpu_model::EncodedInstructionFormatter formatter;
 
     std::cout << "kernel=" << image.kernel_name << '\n';
     for (size_t i = 0; i < image.decoded_instructions.size(); ++i) {

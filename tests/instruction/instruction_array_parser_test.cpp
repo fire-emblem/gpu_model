@@ -6,7 +6,7 @@ namespace gpu_model {
 namespace {
 
 DecodedInstruction MakeDecoded(std::vector<uint32_t> words,
-                                  GcnInstFormatClass format_class,
+                                  EncodedGcnInstFormatClass format_class,
                                   std::string mnemonic) {
   DecodedInstruction instruction;
   instruction.words = std::move(words);
@@ -17,11 +17,11 @@ DecodedInstruction MakeDecoded(std::vector<uint32_t> words,
 
 TEST(InstructionArrayParserTest, CreatesConcreteAndPlaceholderInstructionObjects) {
   std::vector<DecodedInstruction> decoded;
-  decoded.push_back(MakeDecoded({0xc0020002u, 0x0000002cu}, GcnInstFormatClass::Smrd, "s_load_dword"));
-  decoded.push_back(MakeDecoded({0x68000006u}, GcnInstFormatClass::Vop2, "v_add_u32_e32"));
-  decoded.push_back(MakeDecoded({0xdc508000u, 0x067f0004u}, GcnInstFormatClass::Flat, "global_load_dword"));
-  decoded.push_back(MakeDecoded({0xf0000000u, 0x00000000u}, GcnInstFormatClass::Mimg, "image_load"));
-  decoded.push_back(MakeDecoded({0xf8000000u, 0x00000000u}, GcnInstFormatClass::Exp, "exp"));
+  decoded.push_back(MakeDecoded({0xc0020002u, 0x0000002cu}, EncodedGcnInstFormatClass::Smrd, "s_load_dword"));
+  decoded.push_back(MakeDecoded({0x68000006u}, EncodedGcnInstFormatClass::Vop2, "v_add_u32_e32"));
+  decoded.push_back(MakeDecoded({0xdc508000u, 0x067f0004u}, EncodedGcnInstFormatClass::Flat, "global_load_dword"));
+  decoded.push_back(MakeDecoded({0xf0000000u, 0x00000000u}, EncodedGcnInstFormatClass::Mimg, "image_load"));
+  decoded.push_back(MakeDecoded({0xf8000000u, 0x00000000u}, EncodedGcnInstFormatClass::Exp, "exp"));
 
   auto objects = InstructionArrayParser::Parse(decoded);
   ASSERT_EQ(objects.size(), decoded.size());
@@ -44,7 +44,7 @@ TEST(InstructionArrayParserTest, CreatesConcreteAndPlaceholderInstructionObjects
 
 TEST(InstructionArrayParserTest, FactoryCreatesConcreteInstructionFromDecodedOpcode) {
   auto object = InstructionFactory::Create(
-      MakeDecoded({0x68000006u}, GcnInstFormatClass::Vop2, "v_add_u32_e32"));
+      MakeDecoded({0x68000006u}, EncodedGcnInstFormatClass::Vop2, "v_add_u32_e32"));
   ASSERT_NE(object, nullptr);
   EXPECT_EQ(object->class_name(), "v_add_u32_e32");
   EXPECT_EQ(object->op_type_name(), "vop2");
@@ -56,7 +56,7 @@ TEST(InstructionArrayParserTest, ParsesRawInstructionArrayIntoDecodedAndObjects)
       .pc = 0x1000,
       .size_bytes = 8,
       .words = {0xc0020002u, 0x0000002cu},
-      .format_class = GcnInstFormatClass::Smrd,
+      .format_class = EncodedGcnInstFormatClass::Smrd,
       .encoding_id = 2,
       .mnemonic = "s_load_dword",
       .operands = "",
@@ -66,7 +66,7 @@ TEST(InstructionArrayParserTest, ParsesRawInstructionArrayIntoDecodedAndObjects)
       .pc = 0x1008,
       .size_bytes = 4,
       .words = {0x68000006u},
-      .format_class = GcnInstFormatClass::Vop2,
+      .format_class = EncodedGcnInstFormatClass::Vop2,
       .encoding_id = 7,
       .mnemonic = "v_add_u32_e32",
       .operands = "",
@@ -105,7 +105,7 @@ TEST(InstructionArrayParserTest, UsesCanonicalOpcodeExtractionForViStyleObjects)
       .pc = 0x2000,
       .size_bytes = 8,
       .words = {0xc00a0002u, 0x00000000u},
-      .format_class = GcnInstFormatClass::Smrd,
+      .format_class = EncodedGcnInstFormatClass::Smrd,
       .encoding_id = 4,
       .mnemonic = "s_load_dwordx4",
       .operands = "",
@@ -115,7 +115,7 @@ TEST(InstructionArrayParserTest, UsesCanonicalOpcodeExtractionForViStyleObjects)
       .pc = 0x2008,
       .size_bytes = 8,
       .words = {0xc0060182u, 0x00000010u},
-      .format_class = GcnInstFormatClass::Smrd,
+      .format_class = EncodedGcnInstFormatClass::Smrd,
       .encoding_id = 3,
       .mnemonic = "s_load_dwordx2",
       .operands = "",

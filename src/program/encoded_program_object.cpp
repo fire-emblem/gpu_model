@@ -16,7 +16,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "gpu_model/decode/gcn_inst_encoding_def.h"
+#include "gpu_model/instruction/encoded/internal/encoded_gcn_encoding_def.h"
 #include "gpu_model/instruction/encoded/instruction_object.h"
 #include "gpu_model/isa/kernel_metadata.h"
 #include "gpu_model/isa/target_isa.h"

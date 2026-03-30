@@ -345,7 +345,7 @@ def emit_header(rows: list[OpcodeRow], out_path: pathlib.Path) -> None:
 
 def emit_cpp(rows: list[OpcodeRow], out_path: pathlib.Path) -> None:
     lines: list[str] = []
-    lines.append('#include "gpu_model/decode/generated_gcn_full_opcode_table.h"')
+    lines.append('#include "gpu_model/instruction/encoded/internal/generated_encoded_gcn_full_opcode_table.h"')
     lines.append("")
     lines.append("#include <array>")
     lines.append("")

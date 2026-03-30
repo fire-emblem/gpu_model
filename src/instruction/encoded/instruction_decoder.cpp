@@ -1,6 +1,6 @@
 #include "gpu_model/instruction/encoded/instruction_decoder.h"
 
-#include "gpu_model/decode/gcn_inst_encoding_def.h"
+#include "gpu_model/instruction/encoded/internal/encoded_gcn_encoding_def.h"
 #include "gpu_model/instruction/encoded/encoded_gcn_instruction.h"
 
 namespace gpu_model {
@@ -13,11 +13,11 @@ DecodedInstruction InstructionDecoder::Decode(const InstructionEncoding& instruc
   decoded.format_class = instruction.format_class;
   decoded.layout = MakeGcnInstLayout(instruction.words);
 
-  if (const auto* def = FindGcnInstEncodingDef(instruction.words)) {
+  if (const auto* def = FindEncodedGcnEncodingDef(instruction.words)) {
     decoded.encoding_id = def->id;
     decoded.mnemonic = std::string(def->mnemonic);
   } else {
-    decoded.mnemonic = std::string(LookupGcnOpcodeName(instruction.words));
+    decoded.mnemonic = std::string(LookupEncodedGcnOpcodeName(instruction.words));
     if (decoded.mnemonic == "unknown") {
       decoded.mnemonic = instruction.mnemonic;
     }
@@ -29,7 +29,7 @@ DecodedInstruction InstructionDecoder::Decode(const InstructionEncoding& instruc
   expanded.words = instruction.words;
   expanded.format_class = instruction.format_class;
   expanded.mnemonic = instruction.mnemonic;
-  DecodeGcnOperands(expanded);
+  DecodeEncodedGcnOperands(expanded);
   for (const auto& operand : expanded.decoded_operands) {
     DecodedInstructionOperandKind kind = DecodedInstructionOperandKind::Unknown;
     switch (operand.kind) {

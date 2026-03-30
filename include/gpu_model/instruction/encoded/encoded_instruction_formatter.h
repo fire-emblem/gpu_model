@@ -7,7 +7,7 @@
 
 namespace gpu_model {
 
-class GcnInstFormatter {
+class EncodedInstructionFormatter {
  public:
   std::string Format(const DecodedInstruction& instruction) const;
   std::string Format(const EncodedGcnInstruction& instruction) const;

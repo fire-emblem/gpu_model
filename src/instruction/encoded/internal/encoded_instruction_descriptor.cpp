@@ -1,6 +1,6 @@
 #include "gpu_model/instruction/encoded/internal/encoded_instruction_descriptor.h"
 
-#include "gpu_model/decode/gcn_inst_encoding_def.h"
+#include "gpu_model/instruction/encoded/internal/encoded_gcn_encoding_def.h"
 
 namespace gpu_model {
 
@@ -41,7 +41,7 @@ std::string_view ToString(EncodedInstructionCategory category) {
 }
 
 EncodedInstructionDescriptor DescribeEncodedInstruction(const DecodedInstruction& instruction) {
-  const auto* descriptor = FindGcnFallbackOpcodeDescriptor(instruction.words);
+  const auto* descriptor = FindEncodedGcnFallbackOpcodeDescriptor(instruction.words);
   if (descriptor == nullptr) {
     return MakeUnknownDescriptor();
   }

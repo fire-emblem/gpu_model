@@ -7,7 +7,7 @@ namespace gpu_model {
 namespace {
 
 DecodedInstruction MakeDecoded(std::vector<uint32_t> words,
-                                  GcnInstFormatClass format_class,
+                                  EncodedGcnInstFormatClass format_class,
                                   std::string mnemonic) {
   DecodedInstruction instruction;
   instruction.words = std::move(words);
@@ -19,7 +19,7 @@ DecodedInstruction MakeDecoded(std::vector<uint32_t> words,
 TEST(EncodedInstructionBindingTest, BindsRepresentativeConcreteObjects) {
   {
     auto object = BindEncodedInstructionObject(
-        MakeDecoded({0xc0020002u, 0x0000002cu}, GcnInstFormatClass::Smrd, "s_load_dword"));
+        MakeDecoded({0xc0020002u, 0x0000002cu}, EncodedGcnInstFormatClass::Smrd, "s_load_dword"));
     ASSERT_NE(object, nullptr);
     EXPECT_EQ(object->op_type_name(), "smrd");
     EXPECT_EQ(object->class_name(), "s_load_dword");
@@ -27,7 +27,7 @@ TEST(EncodedInstructionBindingTest, BindsRepresentativeConcreteObjects) {
 
   {
     auto object = BindEncodedInstructionObject(
-        MakeDecoded({0x68000006u}, GcnInstFormatClass::Vop2, "v_add_u32_e32"));
+        MakeDecoded({0x68000006u}, EncodedGcnInstFormatClass::Vop2, "v_add_u32_e32"));
     ASSERT_NE(object, nullptr);
     EXPECT_EQ(object->op_type_name(), "vop2");
     EXPECT_EQ(object->class_name(), "v_add_u32_e32");
@@ -35,7 +35,7 @@ TEST(EncodedInstructionBindingTest, BindsRepresentativeConcreteObjects) {
 
   {
     auto object = BindEncodedInstructionObject(
-        MakeDecoded({0xdc508000u, 0x067f0004u}, GcnInstFormatClass::Flat, "global_load_dword"));
+        MakeDecoded({0xdc508000u, 0x067f0004u}, EncodedGcnInstFormatClass::Flat, "global_load_dword"));
     ASSERT_NE(object, nullptr);
     EXPECT_EQ(object->op_type_name(), "flat");
     EXPECT_EQ(object->class_name(), "global_load_dword");
@@ -44,7 +44,7 @@ TEST(EncodedInstructionBindingTest, BindsRepresentativeConcreteObjects) {
 
 TEST(EncodedInstructionBindingTest, BindsPlaceholderForRecognizedButUnsupportedFamilies) {
   auto object = BindEncodedInstructionObject(
-      MakeDecoded({0xf8000000u, 0x00000000u}, GcnInstFormatClass::Exp, "exp"));
+      MakeDecoded({0xf8000000u, 0x00000000u}, EncodedGcnInstFormatClass::Exp, "exp"));
   ASSERT_NE(object, nullptr);
   EXPECT_EQ(object->op_type_name(), "exp");
   EXPECT_EQ(object->class_name(), "exp_placeholder");
@@ -52,7 +52,7 @@ TEST(EncodedInstructionBindingTest, BindsPlaceholderForRecognizedButUnsupportedF
 
 TEST(EncodedInstructionBindingTest, BindsUnknownPlaceholderForUnrecognizedWords) {
   auto object = BindEncodedInstructionObject(
-      MakeDecoded({0xffffffffu}, GcnInstFormatClass::Unknown, "unknown"));
+      MakeDecoded({0xffffffffu}, EncodedGcnInstFormatClass::Unknown, "unknown"));
   ASSERT_NE(object, nullptr);
   EXPECT_EQ(object->op_type_name(), "unknown");
   EXPECT_EQ(object->class_name(), "unknown_placeholder");

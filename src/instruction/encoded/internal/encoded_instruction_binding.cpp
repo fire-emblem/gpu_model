@@ -8,7 +8,7 @@
 #include <stdexcept>
 #include <string>
 
-#include "gpu_model/decode/gcn_inst_encoding_def.h"
+#include "gpu_model/instruction/encoded/internal/encoded_gcn_encoding_def.h"
 #include "gpu_model/instruction/encoded/internal/encoded_instruction_descriptor.h"
 #include "gpu_model/execution/encoded_semantic_handler.h"
 

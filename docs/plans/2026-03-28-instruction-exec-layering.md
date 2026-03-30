@@ -69,7 +69,7 @@
 
 - [src/spec/gcn_db/](/data/gpu_model/src/spec/gcn_db)
 - [scripts/gen_gcn_isa_db.py](/data/gpu_model/scripts/gen_gcn_isa_db.py)
-- [generated_gcn_inst_db.h](/data/gpu_model/include/gpu_model/decode/generated_gcn_inst_db.h)
+- [generated_gcn_inst_db.h](/data/gpu_model/include/gpu_model/instruction/encoded/internal/generated_encoded_gcn_inst_db.h)
 
 ## 第三层：Exec
 

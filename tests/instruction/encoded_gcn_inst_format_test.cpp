@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "gpu_model/decode/gcn_inst_format.h"
+#include "gpu_model/instruction/encoded/encoded_gcn_inst_format.h"
 
 namespace gpu_model {
 namespace {
@@ -28,21 +28,21 @@ TEST(GcnInstFormatTest, BitfieldLayoutsMatchExpectedSizes) {
 }
 
 TEST(GcnInstFormatTest, ClassifiesRepresentativeEncodings) {
-  EXPECT_EQ(ClassifyGcnInstFormat({0xbf810000u}), GcnInstFormatClass::Sopp);
-  EXPECT_EQ(ClassifyGcnInstFormat({0xc0020002u, 0x0000002cu}), GcnInstFormatClass::Smrd);
-  EXPECT_EQ(ClassifyGcnInstFormat({0x68000006u}), GcnInstFormatClass::Vop2);
-  EXPECT_EQ(ClassifyGcnInstFormat({0x7d880001u}), GcnInstFormatClass::Vopc);
-  EXPECT_EQ(ClassifyGcnInstFormat({0xbe80206au}), GcnInstFormatClass::Sop1);
-  EXPECT_EQ(ClassifyGcnInstFormat({0xd28f0000u, 0x00020082u}), GcnInstFormatClass::Vop3a);
-  EXPECT_EQ(ClassifyGcnInstFormat({0xdc508000u, 0x067f0004u}), GcnInstFormatClass::Flat);
+  EXPECT_EQ(ClassifyGcnInstFormat({0xbf810000u}), EncodedGcnInstFormatClass::Sopp);
+  EXPECT_EQ(ClassifyGcnInstFormat({0xc0020002u, 0x0000002cu}), EncodedGcnInstFormatClass::Smrd);
+  EXPECT_EQ(ClassifyGcnInstFormat({0x68000006u}), EncodedGcnInstFormatClass::Vop2);
+  EXPECT_EQ(ClassifyGcnInstFormat({0x7d880001u}), EncodedGcnInstFormatClass::Vopc);
+  EXPECT_EQ(ClassifyGcnInstFormat({0xbe80206au}), EncodedGcnInstFormatClass::Sop1);
+  EXPECT_EQ(ClassifyGcnInstFormat({0xd28f0000u, 0x00020082u}), EncodedGcnInstFormatClass::Vop3a);
+  EXPECT_EQ(ClassifyGcnInstFormat({0xdc508000u, 0x067f0004u}), EncodedGcnInstFormatClass::Flat);
 }
 
 TEST(GcnInstFormatTest, ClassifiesReservedPlaceholderFamilies) {
-  EXPECT_EQ(ClassifyGcnInstFormat({0xf0000000u, 0x00000000u}), GcnInstFormatClass::Mimg);
-  EXPECT_EQ(ClassifyGcnInstFormat({0xe8000000u, 0x00000000u}), GcnInstFormatClass::Mtbuf);
-  EXPECT_EQ(ClassifyGcnInstFormat({0xe0500000u, 0x00000000u}), GcnInstFormatClass::Mubuf);
-  EXPECT_EQ(ClassifyGcnInstFormat({0xf8000000u, 0x00000000u}), GcnInstFormatClass::Exp);
-  EXPECT_EQ(ClassifyGcnInstFormat({0xc8000000u}), GcnInstFormatClass::Vintrp);
+  EXPECT_EQ(ClassifyGcnInstFormat({0xf0000000u, 0x00000000u}), EncodedGcnInstFormatClass::Mimg);
+  EXPECT_EQ(ClassifyGcnInstFormat({0xe8000000u, 0x00000000u}), EncodedGcnInstFormatClass::Mtbuf);
+  EXPECT_EQ(ClassifyGcnInstFormat({0xe0500000u, 0x00000000u}), EncodedGcnInstFormatClass::Mubuf);
+  EXPECT_EQ(ClassifyGcnInstFormat({0xf8000000u, 0x00000000u}), EncodedGcnInstFormatClass::Exp);
+  EXPECT_EQ(ClassifyGcnInstFormat({0xc8000000u}), EncodedGcnInstFormatClass::Vintrp);
 }
 
 TEST(GcnInstFormatTest, ExposesBitfieldsThroughUnion) {
