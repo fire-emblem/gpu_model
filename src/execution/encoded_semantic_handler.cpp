@@ -1393,6 +1393,32 @@ class SharedMemoryHandler final : public IEncodedSemanticHandler {
       context.wave.pc += instruction.size_bytes;
       return;
     }
+    if (instruction.mnemonic == "ds_read2_b32") {
+      const auto [vdst, _] = RequireVectorRange(instruction.operands.at(0));
+      const uint32_t addr_vgpr = RequireVectorIndex(instruction.operands.at(1));
+      const uint32_t offset0 =
+          static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(2), context));
+      const uint32_t offset1 =
+          static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(3), context));
+      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        const uint32_t base_byte_offset =
+            static_cast<uint32_t>(context.wave.vgpr.Read(addr_vgpr, lane));
+        if (!context.wave.exec.test(lane)) {
+          continue;
+        }
+        const uint32_t byte_offset0 = base_byte_offset + offset0 * sizeof(uint32_t);
+        const uint32_t byte_offset1 = base_byte_offset + offset1 * sizeof(uint32_t);
+        if (static_cast<size_t>(byte_offset0) + sizeof(uint32_t) > context.block.shared_memory.size() ||
+            static_cast<size_t>(byte_offset1) + sizeof(uint32_t) > context.block.shared_memory.size()) {
+          continue;
+        }
+        context.wave.vgpr.Write(vdst, lane, LoadU32(context.block.shared_memory, byte_offset0));
+        context.wave.vgpr.Write(vdst + 1, lane, LoadU32(context.block.shared_memory, byte_offset1));
+      }
+      ++context.stats.shared_loads;
+      context.wave.pc += instruction.size_bytes;
+      return;
+    }
     throw std::invalid_argument("unsupported shared memory opcode: " + instruction.mnemonic);
   }
 };
@@ -1477,11 +1503,13 @@ const IEncodedSemanticHandler* HandlerForSemanticFamily(std::string_view semanti
 const std::vector<HandlerBinding>& HandlerBindings() {
   static const MaskHandler kMaskHandler;
   static const ScalarAluHandler kScalarAluHandler;
+  static const SharedMemoryHandler kSharedMemoryHandler;
   static const VectorAluHandler kVectorAluHandler;
   static const VectorCompareHandler kVectorCompareHandler;
   static const std::vector<HandlerBinding> kBindings = {
       {.mnemonic = "s_and_saveexec_b64", .handler = &kMaskHandler},
       {.mnemonic = "s_or_b32", .handler = &kScalarAluHandler},
+      {.mnemonic = "ds_read2_b32", .handler = &kSharedMemoryHandler},
       {.mnemonic = "v_or_b32_e32", .handler = &kVectorAluHandler},
       {.mnemonic = "v_or3_b32", .handler = &kVectorAluHandler},
       {.mnemonic = "v_cmp_gt_i32_e64", .handler = &kVectorCompareHandler},

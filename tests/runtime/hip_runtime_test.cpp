@@ -1507,6 +1507,72 @@ TEST(HipRuntimeTest, LaunchesHipMixedArgsAggregateExecutableInRawGcnPath) {
   std::filesystem::remove_all(temp_dir);
 }
 
+TEST(HipRuntimeTest, LaunchesHipDynamicSharedExecutableInRawGcnPath) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_dynamic_shared");
+  const auto src_path = temp_dir / "hip_dynamic_shared.cpp";
+  const auto exe_path = temp_dir / "hip_dynamic_shared.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n\n"
+           "extern \"C\" __global__ void dynamic_shared_sum(int* out) {\n"
+           "  extern __shared__ int scratch[];\n"
+           "  int tid = threadIdx.x;\n"
+           "  scratch[tid] = tid + 1;\n"
+           "  __syncthreads();\n"
+           "  if (tid == 0) {\n"
+           "    int acc = 0;\n"
+           "    for (int i = 0; i < blockDim.x; ++i) acc += scratch[i];\n"
+           "    out[0] = acc;\n"
+           "  }\n"
+           "}\n\n"
+           "int main() { return 0; }\n";
+  }
+
+  const std::string command =
+      "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  HipRuntime hooks;
+  const auto image = hooks.DescribeAmdgpuObject(exe_path, "dynamic_shared_sum");
+  ASSERT_TRUE(image.metadata.values.contains("hidden_arg_layout"));
+  EXPECT_NE(image.metadata.values.at("hidden_arg_layout").find("hidden_dynamic_lds_size"),
+            std::string::npos);
+
+  const uint64_t out_addr = hooks.Malloc(sizeof(int32_t));
+  int32_t zero = 0;
+  hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(&zero, 1));
+
+  constexpr uint32_t block_dim = 64;
+  KernelArgPack args;
+  args.PushU64(out_addr);
+
+  const auto result = hooks.LaunchAmdgpuObject(
+      exe_path,
+      LaunchConfig{
+          .grid_dim_x = 1,
+          .block_dim_x = block_dim,
+          .shared_memory_bytes = block_dim * sizeof(int32_t),
+      },
+      std::move(args),
+      ExecutionMode::Functional,
+      "c500",
+      nullptr,
+      "dynamic_shared_sum");
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  int32_t output = 0;
+  hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(&output, 1));
+  EXPECT_EQ(output, static_cast<int32_t>(block_dim * (block_dim + 1) / 2));
+
+  std::filesystem::remove_all(temp_dir);
+}
+
 TEST(HipRuntimeTest, LaunchesHipAtomicCountExecutableInRawGcnPath) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";

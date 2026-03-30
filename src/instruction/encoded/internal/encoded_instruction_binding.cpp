@@ -451,6 +451,7 @@ DEFINE_RAW_GCN_OPCODE_CLASS(GlobalAtomicAddInstruction, FlatInstructionBase, "gl
 
 DEFINE_RAW_GCN_OPCODE_CLASS(DsWriteB32Instruction, DsInstructionBase, "ds_write_b32");
 DEFINE_RAW_GCN_OPCODE_CLASS(DsReadB32Instruction, DsInstructionBase, "ds_read_b32");
+DEFINE_RAW_GCN_OPCODE_CLASS(DsRead2B32Instruction, DsInstructionBase, "ds_read2_b32");
 
 #undef DEFINE_RAW_GCN_OPCODE_CLASS
 
@@ -837,6 +838,9 @@ InstructionObjectPtr CreateMemoryInstruction(const GcnIsaOpcodeDescriptor& descr
             std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
       case static_cast<uint16_t>(GcnIsaDsOpcode::DS_READ_B32):
         return std::make_unique<DsReadB32Instruction>(
+            std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
+      case static_cast<uint16_t>(GcnIsaDsOpcode::DS_READ2_B32):
+        return std::make_unique<DsRead2B32Instruction>(
             std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
       default:
         break;

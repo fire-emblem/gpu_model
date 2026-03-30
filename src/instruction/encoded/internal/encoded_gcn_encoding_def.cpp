@@ -623,6 +623,25 @@ bool DecodeVop3pOperands(EncodedGcnInstruction& instruction) {
   return true;
 }
 
+bool DecodeDsRead2B32Operands(EncodedGcnInstruction& instruction) {
+  if (instruction.words.size() < 2) {
+    return false;
+  }
+  const uint32_t low = instruction.words[0];
+  const uint32_t high = instruction.words[1];
+  const uint32_t offset0 = low & 0xffu;
+  const uint32_t offset1 = (low >> 8u) & 0xffu;
+  const uint32_t addr = high & 0xffu;
+  const uint32_t vdst = (high >> 24u) & 0xffu;
+  instruction.decoded_operands.push_back(MakeVectorRegRangeOperand(vdst, 2));
+  instruction.decoded_operands.push_back(MakeVectorRegOperand(addr));
+  instruction.decoded_operands.push_back(
+      MakeImmediateOperand(FormatImmediate(offset0), offset0));
+  instruction.decoded_operands.push_back(
+      MakeImmediateOperand(FormatImmediate(offset1), offset1));
+  return true;
+}
+
 bool NeedsScalarPairDest(std::string_view mnemonic) {
   return mnemonic == "s_mov_b64" || mnemonic == "s_cselect_b64" || mnemonic == "s_andn2_b64" ||
          mnemonic == "s_or_b64" || mnemonic == "s_and_b64" || mnemonic == "s_lshl_b64";
@@ -726,6 +745,9 @@ void DecodeEncodedGcnOperands(EncodedGcnInstruction& instruction) {
   instruction.decoded_operands.clear();
   if (instruction.format_class == EncodedGcnInstFormatClass::Vop3p &&
       DecodeVop3pOperands(instruction)) {
+    return;
+  }
+  if (instruction.mnemonic == "ds_read2_b32" && DecodeDsRead2B32Operands(instruction)) {
     return;
   }
   const auto* def = FindEncodedGcnEncodingDef(instruction.words);
