@@ -331,7 +331,7 @@ class FunctionalExecutionCoreImpl {
   }
 
   void ExecuteBlock(ExecutableBlock& block, ExecutionStats& stats) {
-    while (HasActiveWave(block)) {
+    while (HasUncompletedWave(block)) {
       bool made_progress = false;
       {
         std::lock_guard<std::mutex> lock(*block.control_mutex);
@@ -365,7 +365,7 @@ class FunctionalExecutionCoreImpl {
     }
   }
 
-  bool HasActiveWave(const ExecutableBlock& block) const {
+  bool HasUncompletedWave(const ExecutableBlock& block) const {
     for (const auto& wave : block.waves) {
       if (wave.run_state != WaveRunState::Completed) {
         return true;
