@@ -368,6 +368,7 @@ DEFINE_RAW_GCN_OPCODE_CLASS(SLoadDwordx4Instruction, SmrdInstructionBase, "s_loa
 
 DEFINE_RAW_GCN_OPCODE_CLASS(SMovB32Instruction, Sop1InstructionBase, "s_mov_b32");
 DEFINE_RAW_GCN_OPCODE_CLASS(SMovB64Instruction, Sop1InstructionBase, "s_mov_b64");
+DEFINE_RAW_GCN_OPCODE_CLASS(SSextI32I16Instruction, Sop1InstructionBase, "s_sext_i32_i16");
 DEFINE_RAW_GCN_OPCODE_CLASS(SBcnt1I32B64Instruction, Sop1InstructionBase, "s_bcnt1_i32_b64");
 DEFINE_RAW_GCN_OPCODE_CLASS(SMovkI32Instruction, SopkInstructionBase, "s_movk_i32");
 DEFINE_RAW_GCN_OPCODE_CLASS(SCselectB64Instruction, Sop2InstructionBase, "s_cselect_b64");
@@ -492,6 +493,9 @@ InstructionObjectPtr CreateScalarInstruction(const GcnIsaOpcodeDescriptor& descr
               std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
         case static_cast<uint16_t>(GcnIsaSop1Opcode::S_MOV_B64):
           return std::make_unique<SMovB64Instruction>(
+              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
+        case static_cast<uint16_t>(GcnIsaSop1Opcode::S_SEXT_I32_I16):
+          return std::make_unique<SSextI32I16Instruction>(
               std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
         case static_cast<uint16_t>(GcnIsaSop1Opcode::S_BCNT1_I32_B64):
           return std::make_unique<SBcnt1I32B64Instruction>(

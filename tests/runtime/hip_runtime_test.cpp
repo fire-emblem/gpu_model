@@ -1434,6 +1434,79 @@ TEST(HipRuntimeTest, LaunchesHipThreeDimensionalBuiltinIdsExecutableInRawGcnPath
   std::filesystem::remove_all(temp_dir);
 }
 
+TEST(HipRuntimeTest, LaunchesHipMixedArgsAggregateExecutableInRawGcnPath) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_mixed_args_aggregate");
+  const auto src_path = temp_dir / "hip_mixed_args_aggregate.cpp";
+  const auto exe_path = temp_dir / "hip_mixed_args_aggregate.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n\n"
+           "struct MixedPayload {\n"
+           "  int a;\n"
+           "  int b;\n"
+           "  short c;\n"
+           "  short d;\n"
+           "};\n\n"
+           "extern \"C\" __global__ void mixed_args_aggregate(const int* in, int* out, int bias,\n"
+           "                                                  MixedPayload payload) {\n"
+           "  if (threadIdx.x == 0 && blockIdx.x == 0) {\n"
+           "    out[0] = in[0] + bias + payload.a + payload.b + payload.c + payload.d;\n"
+           "  }\n"
+           "}\n\n"
+           "int main() { return 0; }\n";
+  }
+
+  const std::string command =
+      "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  HipRuntime hooks;
+  const auto image = hooks.DescribeAmdgpuObject(exe_path, "mixed_args_aggregate");
+  ASSERT_TRUE(image.metadata.values.contains("arg_layout"));
+  EXPECT_NE(image.metadata.values.at("arg_layout").find("by_value"), std::string::npos);
+
+  const uint64_t in_addr = hooks.Malloc(sizeof(int32_t));
+  const uint64_t out_addr = hooks.Malloc(sizeof(int32_t));
+  int32_t input = 7;
+  int32_t output = 0;
+  hooks.MemcpyHtoD<int32_t>(in_addr, std::span<const int32_t>(&input, 1));
+  hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(&output, 1));
+
+  struct MixedPayloadHost {
+    int32_t a;
+    int32_t b;
+    int16_t c;
+    int16_t d;
+  } payload{11, 13, 17, 19};
+
+  KernelArgPack args;
+  args.PushU64(in_addr);
+  args.PushU64(out_addr);
+  args.PushI32(5);
+  args.PushBytes(&payload, sizeof(payload));
+
+  const auto result = hooks.LaunchAmdgpuObject(
+      exe_path,
+      LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
+      std::move(args),
+      ExecutionMode::Functional,
+      "c500",
+      nullptr,
+      "mixed_args_aggregate");
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(&output, 1));
+  EXPECT_EQ(output, 7 + 5 + 11 + 13 + 17 + 19);
+
+  std::filesystem::remove_all(temp_dir);
+}
+
 TEST(HipRuntimeTest, LaunchesHipAtomicCountExecutableInRawGcnPath) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";

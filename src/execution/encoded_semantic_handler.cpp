@@ -293,6 +293,12 @@ class ScalarAluHandler final : public IEncodedSemanticHandler {
                descriptor.opcode == static_cast<uint16_t>(GcnIsaSop1Opcode::S_MOV_B64)) {
       const uint64_t value = ResolveScalarPair(instruction.operands.at(1), context);
       StoreScalarPair(instruction.operands.at(0), context, value);
+    } else if (descriptor.op_type == GcnIsaOpType::Sop1 &&
+               descriptor.opcode == static_cast<uint16_t>(GcnIsaSop1Opcode::S_SEXT_I32_I16)) {
+      const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
+      const int16_t value = static_cast<int16_t>(
+          static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(1), context)) & 0xffffu);
+      context.wave.sgpr.Write(sdst, static_cast<uint32_t>(static_cast<int32_t>(value)));
     } else if (descriptor.op_type == GcnIsaOpType::Sop2 &&
                descriptor.opcode == static_cast<uint16_t>(GcnIsaSop2Opcode::S_OR_B64)) {
       const uint64_t lhs = ResolveScalarPair(instruction.operands.at(1), context);
