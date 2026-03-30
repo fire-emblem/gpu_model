@@ -14,7 +14,7 @@
 
 #include "gpu_model/decode/gcn_inst_encoding_def.h"
 #include "gpu_model/decode/gcn_inst_db_lookup.h"
-#include "gpu_model/exec/execution_sync_ops.h"
+#include "gpu_model/execution/sync_ops.h"
 #include "gpu_model/exec/tensor_op_utils.h"
 
 namespace gpu_model {
@@ -93,111 +93,111 @@ void DebugLog(const char* fmt, ...) {
   va_end(args);
 }
 
-uint32_t RequireScalarIndex(const DecodedGcnOperand& operand) {
-  if (operand.kind != DecodedGcnOperandKind::ScalarReg || operand.info.reg_count != 1) {
+uint32_t RequireScalarIndex(const DecodedInstructionOperand& operand) {
+  if (operand.kind != DecodedInstructionOperandKind::ScalarReg || operand.info.reg_count != 1) {
     throw std::invalid_argument("expected scalar register operand");
   }
   return operand.info.reg_first;
 }
 
-uint32_t RequireVectorIndex(const DecodedGcnOperand& operand) {
-  if (operand.kind != DecodedGcnOperandKind::VectorReg || operand.info.reg_count != 1) {
+uint32_t RequireVectorIndex(const DecodedInstructionOperand& operand) {
+  if (operand.kind != DecodedInstructionOperandKind::VectorReg || operand.info.reg_count != 1) {
     throw std::invalid_argument("expected vector register operand");
   }
   return operand.info.reg_first;
 }
 
-uint32_t RequireAccumulatorIndex(const DecodedGcnOperand& operand) {
-  if (operand.kind != DecodedGcnOperandKind::AccumulatorReg || operand.info.reg_count != 1) {
+uint32_t RequireAccumulatorIndex(const DecodedInstructionOperand& operand) {
+  if (operand.kind != DecodedInstructionOperandKind::AccumulatorReg || operand.info.reg_count != 1) {
     throw std::invalid_argument("expected accumulator register operand");
   }
   return operand.info.reg_first;
 }
 
-std::pair<uint32_t, uint32_t> RequireScalarRange(const DecodedGcnOperand& operand) {
-  if (operand.kind != DecodedGcnOperandKind::ScalarRegRange || operand.info.reg_count == 0) {
+std::pair<uint32_t, uint32_t> RequireScalarRange(const DecodedInstructionOperand& operand) {
+  if (operand.kind != DecodedInstructionOperandKind::ScalarRegRange || operand.info.reg_count == 0) {
     throw std::invalid_argument("expected scalar register range operand");
   }
   return {operand.info.reg_first, operand.info.reg_first + operand.info.reg_count - 1};
 }
 
-std::pair<uint32_t, uint32_t> RequireVectorRange(const DecodedGcnOperand& operand) {
-  if (operand.kind != DecodedGcnOperandKind::VectorRegRange || operand.info.reg_count == 0) {
+std::pair<uint32_t, uint32_t> RequireVectorRange(const DecodedInstructionOperand& operand) {
+  if (operand.kind != DecodedInstructionOperandKind::VectorRegRange || operand.info.reg_count == 0) {
     throw std::invalid_argument("expected vector register range operand");
   }
   return {operand.info.reg_first, operand.info.reg_first + operand.info.reg_count - 1};
 }
 
-uint64_t ResolveScalarLike(const DecodedGcnOperand& operand, const RawGcnWaveContext& context) {
-  if (operand.kind == DecodedGcnOperandKind::Immediate ||
-      operand.kind == DecodedGcnOperandKind::BranchTarget) {
+uint64_t ResolveScalarLike(const DecodedInstructionOperand& operand, const RawGcnWaveContext& context) {
+  if (operand.kind == DecodedInstructionOperandKind::Immediate ||
+      operand.kind == DecodedInstructionOperandKind::BranchTarget) {
     if (!operand.info.has_immediate) {
       throw std::invalid_argument("immediate operand missing value");
     }
     return static_cast<uint64_t>(operand.info.immediate);
   }
-  if (operand.kind == DecodedGcnOperandKind::ScalarReg) {
+  if (operand.kind == DecodedInstructionOperandKind::ScalarReg) {
     return context.wave.sgpr.Read(RequireScalarIndex(operand));
   }
-  if (operand.kind == DecodedGcnOperandKind::SpecialReg &&
+  if (operand.kind == DecodedInstructionOperandKind::SpecialReg &&
       operand.info.special_reg == GcnSpecialReg::Vcc) {
     return context.vcc;
   }
-  if (operand.kind == DecodedGcnOperandKind::SpecialReg &&
+  if (operand.kind == DecodedInstructionOperandKind::SpecialReg &&
       operand.info.special_reg == GcnSpecialReg::Exec) {
     return context.wave.exec.to_ullong();
   }
   throw std::invalid_argument("unsupported scalar-like raw operand");
 }
 
-uint64_t ResolveScalarPair(const DecodedGcnOperand& operand, const RawGcnWaveContext& context) {
-  if (operand.kind == DecodedGcnOperandKind::Immediate ||
-      operand.kind == DecodedGcnOperandKind::BranchTarget) {
+uint64_t ResolveScalarPair(const DecodedInstructionOperand& operand, const RawGcnWaveContext& context) {
+  if (operand.kind == DecodedInstructionOperandKind::Immediate ||
+      operand.kind == DecodedInstructionOperandKind::BranchTarget) {
     if (!operand.info.has_immediate) {
       throw std::invalid_argument("scalar pair immediate missing value");
     }
     return static_cast<uint64_t>(operand.info.immediate);
   }
-  if (operand.kind == DecodedGcnOperandKind::ScalarReg) {
+  if (operand.kind == DecodedInstructionOperandKind::ScalarReg) {
     const uint32_t first = operand.info.reg_first;
     return static_cast<uint64_t>(context.wave.sgpr.Read(first)) |
            (static_cast<uint64_t>(context.wave.sgpr.Read(first + 1)) << 32u);
   }
-  if (operand.kind == DecodedGcnOperandKind::ScalarRegRange && operand.info.reg_count == 2) {
+  if (operand.kind == DecodedInstructionOperandKind::ScalarRegRange && operand.info.reg_count == 2) {
     const uint32_t first = operand.info.reg_first;
     return static_cast<uint64_t>(context.wave.sgpr.Read(first)) |
            (static_cast<uint64_t>(context.wave.sgpr.Read(first + 1)) << 32u);
   }
-  if (operand.kind == DecodedGcnOperandKind::SpecialReg &&
+  if (operand.kind == DecodedInstructionOperandKind::SpecialReg &&
       operand.info.special_reg == GcnSpecialReg::Vcc) {
     return context.vcc;
   }
-  if (operand.kind == DecodedGcnOperandKind::SpecialReg &&
+  if (operand.kind == DecodedInstructionOperandKind::SpecialReg &&
       operand.info.special_reg == GcnSpecialReg::Exec) {
     return context.wave.exec.to_ullong();
   }
   throw std::invalid_argument("unsupported scalar pair operand");
 }
 
-void StoreScalarPair(const DecodedGcnOperand& operand, RawGcnWaveContext& context, uint64_t value) {
-  if (operand.kind == DecodedGcnOperandKind::ScalarReg) {
+void StoreScalarPair(const DecodedInstructionOperand& operand, RawGcnWaveContext& context, uint64_t value) {
+  if (operand.kind == DecodedInstructionOperandKind::ScalarReg) {
     const uint32_t first = operand.info.reg_first;
     context.wave.sgpr.Write(first, static_cast<uint32_t>(value & 0xffffffffu));
     context.wave.sgpr.Write(first + 1, static_cast<uint32_t>(value >> 32u));
     return;
   }
-  if (operand.kind == DecodedGcnOperandKind::ScalarRegRange && operand.info.reg_count == 2) {
+  if (operand.kind == DecodedInstructionOperandKind::ScalarRegRange && operand.info.reg_count == 2) {
     const uint32_t first = operand.info.reg_first;
     context.wave.sgpr.Write(first, static_cast<uint32_t>(value & 0xffffffffu));
     context.wave.sgpr.Write(first + 1, static_cast<uint32_t>(value >> 32u));
     return;
   }
-  if (operand.kind == DecodedGcnOperandKind::SpecialReg &&
+  if (operand.kind == DecodedInstructionOperandKind::SpecialReg &&
       operand.info.special_reg == GcnSpecialReg::Vcc) {
     context.vcc = value;
     return;
   }
-  if (operand.kind == DecodedGcnOperandKind::SpecialReg &&
+  if (operand.kind == DecodedInstructionOperandKind::SpecialReg &&
       operand.info.special_reg == GcnSpecialReg::Exec) {
     context.wave.exec = MaskFromU64(value);
     return;
@@ -205,25 +205,25 @@ void StoreScalarPair(const DecodedGcnOperand& operand, RawGcnWaveContext& contex
   throw std::invalid_argument("unsupported scalar pair destination");
 }
 
-uint64_t ResolveVectorLane(const DecodedGcnOperand& operand,
+uint64_t ResolveVectorLane(const DecodedInstructionOperand& operand,
                            const RawGcnWaveContext& context,
                            uint32_t lane) {
-  if (operand.kind == DecodedGcnOperandKind::Immediate) {
+  if (operand.kind == DecodedInstructionOperandKind::Immediate) {
     if (!operand.info.has_immediate) {
       throw std::invalid_argument("immediate operand missing value");
     }
     return static_cast<uint64_t>(operand.info.immediate);
   }
-  if (operand.kind == DecodedGcnOperandKind::ScalarReg) {
+  if (operand.kind == DecodedInstructionOperandKind::ScalarReg) {
     return context.wave.sgpr.Read(RequireScalarIndex(operand));
   }
-  if (operand.kind == DecodedGcnOperandKind::VectorReg) {
+  if (operand.kind == DecodedInstructionOperandKind::VectorReg) {
     return context.wave.vgpr.Read(RequireVectorIndex(operand), lane);
   }
   throw std::invalid_argument("unsupported vector-lane raw operand");
 }
 
-const GcnIsaOpcodeDescriptor& RequireCanonicalOpcode(const DecodedGcnInstruction& instruction) {
+const GcnIsaOpcodeDescriptor& RequireCanonicalOpcode(const DecodedInstruction& instruction) {
   if (const auto* descriptor = FindGcnFallbackOpcodeDescriptor(instruction.words); descriptor != nullptr) {
     return *descriptor;
   }
@@ -232,7 +232,7 @@ const GcnIsaOpcodeDescriptor& RequireCanonicalOpcode(const DecodedGcnInstruction
 
 class ScalarMemoryHandler final : public IRawGcnSemanticHandler {
  public:
-  void Execute(const DecodedGcnInstruction& instruction, RawGcnWaveContext& context) const override {
+  void Execute(const DecodedInstruction& instruction, RawGcnWaveContext& context) const override {
     if (instruction.mnemonic == "s_load_dword") {
       const uint32_t offset =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(2), context));
@@ -266,7 +266,7 @@ class ScalarMemoryHandler final : public IRawGcnSemanticHandler {
 
 class ScalarAluHandler final : public IRawGcnSemanticHandler {
  public:
-  void Execute(const DecodedGcnInstruction& instruction, RawGcnWaveContext& context) const override {
+  void Execute(const DecodedInstruction& instruction, RawGcnWaveContext& context) const override {
     const auto& descriptor = RequireCanonicalOpcode(instruction);
     if (descriptor.op_type == GcnIsaOpType::Sop2 &&
         descriptor.opcode == static_cast<uint16_t>(GcnIsaSop2Opcode::S_CSELECT_B64)) {
@@ -295,7 +295,7 @@ class ScalarAluHandler final : public IRawGcnSemanticHandler {
       const uint64_t rhs = ResolveScalarPair(instruction.operands.at(2), context);
       const uint64_t value = lhs | rhs;
       StoreScalarPair(instruction.operands.at(0), context, value);
-      if (instruction.operands.at(0).kind == DecodedGcnOperandKind::SpecialReg &&
+      if (instruction.operands.at(0).kind == DecodedInstructionOperandKind::SpecialReg &&
           instruction.operands.at(0).info.special_reg == GcnSpecialReg::Exec) {
         DebugLog("pc=0x%llx s_or_b64 exec lhs=0x%llx rhs=0x%llx out=0x%llx",
                  static_cast<unsigned long long>(instruction.pc),
@@ -403,7 +403,7 @@ class ScalarAluHandler final : public IRawGcnSemanticHandler {
 
 class ScalarCompareHandler final : public IRawGcnSemanticHandler {
  public:
-  void Execute(const DecodedGcnInstruction& instruction, RawGcnWaveContext& context) const override {
+  void Execute(const DecodedInstruction& instruction, RawGcnWaveContext& context) const override {
     const auto& descriptor = RequireCanonicalOpcode(instruction);
     if (descriptor.op_type == GcnIsaOpType::Sopc &&
         descriptor.opcode == static_cast<uint16_t>(GcnIsaSopcOpcode::S_CMP_LT_I32)) {
@@ -442,7 +442,7 @@ class ScalarCompareHandler final : public IRawGcnSemanticHandler {
 
 class VectorAluHandler final : public IRawGcnSemanticHandler {
  public:
-  void Execute(const DecodedGcnInstruction& instruction, RawGcnWaveContext& context) const override {
+  void Execute(const DecodedInstruction& instruction, RawGcnWaveContext& context) const override {
     if (instruction.mnemonic == "v_not_b32_e32") {
       const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
       for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
@@ -481,7 +481,7 @@ class VectorAluHandler final : public IRawGcnSemanticHandler {
       const auto [vdst, _] = RequireVectorRange(instruction.operands.at(0));
       const uint32_t shift =
           static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(1), context, 0));
-      const uint32_t src_pair = instruction.operands.at(2).kind == DecodedGcnOperandKind::VectorRegRange
+      const uint32_t src_pair = instruction.operands.at(2).kind == DecodedInstructionOperandKind::VectorRegRange
                                     ? RequireVectorRange(instruction.operands.at(2)).first
                                     : RequireVectorIndex(instruction.operands.at(2));
       for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
@@ -705,7 +705,7 @@ class VectorAluHandler final : public IRawGcnSemanticHandler {
         context.wave.vgpr.Write(vdst, lane, src0 | src1 | src2);
       }
     } else if (instruction.mnemonic == "v_mfma_f32_16x16x4f32") {
-      const uint32_t vdst = instruction.operands.at(0).kind == DecodedGcnOperandKind::VectorRegRange
+      const uint32_t vdst = instruction.operands.at(0).kind == DecodedInstructionOperandKind::VectorRegRange
                                 ? RequireVectorRange(instruction.operands.at(0)).first
                                 : RequireVectorIndex(instruction.operands.at(0));
       const auto storage_policy = DefaultTensorResultStoragePolicy();
@@ -724,7 +724,7 @@ class VectorAluHandler final : public IRawGcnSemanticHandler {
             context.wave, vdst, 4, lane, FloatAsU32(value), storage_policy);
       }
     } else if (instruction.mnemonic == "v_mfma_f32_32x32x2f32") {
-      const uint32_t vdst = instruction.operands.at(0).kind == DecodedGcnOperandKind::VectorRegRange
+      const uint32_t vdst = instruction.operands.at(0).kind == DecodedInstructionOperandKind::VectorRegRange
                                 ? RequireVectorRange(instruction.operands.at(0)).first
                                 : RequireVectorIndex(instruction.operands.at(0));
       const auto storage_policy = DefaultTensorResultStoragePolicy();
@@ -743,7 +743,7 @@ class VectorAluHandler final : public IRawGcnSemanticHandler {
             context.wave, vdst, 16, lane, FloatAsU32(value), storage_policy);
       }
     } else if (instruction.mnemonic == "v_mfma_f32_16x16x4f16") {
-      const uint32_t vdst = instruction.operands.at(0).kind == DecodedGcnOperandKind::VectorRegRange
+      const uint32_t vdst = instruction.operands.at(0).kind == DecodedInstructionOperandKind::VectorRegRange
                                 ? RequireVectorRange(instruction.operands.at(0)).first
                                 : RequireVectorIndex(instruction.operands.at(0));
       const auto storage_policy = DefaultTensorResultStoragePolicy();
@@ -766,7 +766,7 @@ class VectorAluHandler final : public IRawGcnSemanticHandler {
             context.wave, vdst, 4, lane, FloatAsU32(value), storage_policy);
       }
     } else if (instruction.mnemonic == "v_mfma_i32_16x16x4i8") {
-      const uint32_t vdst = instruction.operands.at(0).kind == DecodedGcnOperandKind::VectorRegRange
+      const uint32_t vdst = instruction.operands.at(0).kind == DecodedInstructionOperandKind::VectorRegRange
                                 ? RequireVectorRange(instruction.operands.at(0)).first
                                 : RequireVectorIndex(instruction.operands.at(0));
       const auto storage_policy = DefaultTensorResultStoragePolicy();
@@ -789,7 +789,7 @@ class VectorAluHandler final : public IRawGcnSemanticHandler {
             context.wave, vdst, 4, lane, static_cast<uint32_t>(acc), storage_policy);
       }
     } else if (instruction.mnemonic == "v_mfma_i32_16x16x16i8") {
-      const uint32_t vdst = instruction.operands.at(0).kind == DecodedGcnOperandKind::VectorRegRange
+      const uint32_t vdst = instruction.operands.at(0).kind == DecodedInstructionOperandKind::VectorRegRange
                                 ? RequireVectorRange(instruction.operands.at(0)).first
                                 : RequireVectorIndex(instruction.operands.at(0));
       const auto storage_policy = DefaultTensorResultStoragePolicy();
@@ -812,7 +812,7 @@ class VectorAluHandler final : public IRawGcnSemanticHandler {
             context.wave, vdst, 4, lane, static_cast<uint32_t>(acc), storage_policy);
       }
     } else if (instruction.mnemonic == "v_mfma_f32_16x16x2bf16") {
-      const uint32_t vdst = instruction.operands.at(0).kind == DecodedGcnOperandKind::VectorRegRange
+      const uint32_t vdst = instruction.operands.at(0).kind == DecodedInstructionOperandKind::VectorRegRange
                                 ? RequireVectorRange(instruction.operands.at(0)).first
                                 : RequireVectorIndex(instruction.operands.at(0));
       const auto storage_policy = DefaultTensorResultStoragePolicy();
@@ -1038,7 +1038,7 @@ class VectorAluHandler final : public IRawGcnSemanticHandler {
 
 class VectorCompareHandler final : public IRawGcnSemanticHandler {
  public:
-  void Execute(const DecodedGcnInstruction& instruction, RawGcnWaveContext& context) const override {
+  void Execute(const DecodedInstruction& instruction, RawGcnWaveContext& context) const override {
     uint64_t mask = 0;
     switch (instruction.encoding_id) {
       case 8:
@@ -1151,8 +1151,8 @@ class VectorCompareHandler final : public IRawGcnSemanticHandler {
         throw std::invalid_argument("unsupported vector compare opcode: " + instruction.mnemonic);
     }
     context.vcc = mask;
-    if (instruction.operands.at(0).kind == DecodedGcnOperandKind::ScalarRegRange ||
-        instruction.operands.at(0).kind == DecodedGcnOperandKind::SpecialReg) {
+    if (instruction.operands.at(0).kind == DecodedInstructionOperandKind::ScalarRegRange ||
+        instruction.operands.at(0).kind == DecodedInstructionOperandKind::SpecialReg) {
       StoreScalarPair(instruction.operands.at(0), context, mask);
     }
     DebugLog("pc=0x%llx %s mask=0x%llx",
@@ -1165,7 +1165,7 @@ class VectorCompareHandler final : public IRawGcnSemanticHandler {
 
 class MaskHandler final : public IRawGcnSemanticHandler {
  public:
-  void Execute(const DecodedGcnInstruction& instruction, RawGcnWaveContext& context) const override {
+  void Execute(const DecodedInstruction& instruction, RawGcnWaveContext& context) const override {
     if (instruction.mnemonic != "s_and_saveexec_b64") {
       throw std::invalid_argument("unsupported mask opcode: " + instruction.mnemonic);
     }
@@ -1184,7 +1184,7 @@ class MaskHandler final : public IRawGcnSemanticHandler {
 
 class BranchHandler final : public IRawGcnSemanticHandler {
  public:
-  void Execute(const DecodedGcnInstruction& instruction, RawGcnWaveContext& context) const override {
+  void Execute(const DecodedInstruction& instruction, RawGcnWaveContext& context) const override {
     switch (instruction.encoding_id) {
       case 10: {  // s_cbranch_execz
       if (context.wave.exec.none()) {
@@ -1244,7 +1244,7 @@ class BranchHandler final : public IRawGcnSemanticHandler {
 
 class FlatMemoryHandler final : public IRawGcnSemanticHandler {
  public:
-  void Execute(const DecodedGcnInstruction& instruction, RawGcnWaveContext& context) const override {
+  void Execute(const DecodedInstruction& instruction, RawGcnWaveContext& context) const override {
     if (instruction.mnemonic == "global_load_dword") {
       const int64_t offset = instruction.operands.size() >= 3 && instruction.operands.back().info.has_immediate
                                  ? instruction.operands.back().info.immediate
@@ -1271,7 +1271,7 @@ class FlatMemoryHandler final : public IRawGcnSemanticHandler {
       const int64_t offset = instruction.operands.size() >= 4 && instruction.operands.back().info.has_immediate
                                  ? instruction.operands.back().info.immediate
                                  : 0;
-      if (instruction.operands.at(0).kind == DecodedGcnOperandKind::VectorRegRange) {
+      if (instruction.operands.at(0).kind == DecodedInstructionOperandKind::VectorRegRange) {
         const auto [addr, _] = RequireVectorRange(instruction.operands.at(0));
         const uint32_t data = RequireVectorIndex(instruction.operands.at(1));
         for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
@@ -1339,7 +1339,7 @@ class FlatMemoryHandler final : public IRawGcnSemanticHandler {
 
 class SharedMemoryHandler final : public IRawGcnSemanticHandler {
  public:
-  void Execute(const DecodedGcnInstruction& instruction, RawGcnWaveContext& context) const override {
+  void Execute(const DecodedInstruction& instruction, RawGcnWaveContext& context) const override {
     if (instruction.mnemonic == "ds_write_b32") {
       const uint32_t addr_vgpr = RequireVectorIndex(instruction.operands.at(0));
       const uint32_t data_vgpr = RequireVectorIndex(instruction.operands.at(1));
@@ -1389,11 +1389,11 @@ class SharedMemoryHandler final : public IRawGcnSemanticHandler {
 
 class SpecialHandler final : public IRawGcnSemanticHandler {
  public:
-  void Execute(const DecodedGcnInstruction& instruction, RawGcnWaveContext& context) const override {
+  void Execute(const DecodedInstruction& instruction, RawGcnWaveContext& context) const override {
     switch (instruction.encoding_id) {
       case 29: {  // s_barrier
       ++context.stats.barriers;
-      execution_sync_ops::MarkWaveAtBarrier(context.wave,
+      sync_ops::MarkWaveAtBarrier(context.wave,
                                             context.block.barrier_generation,
                                             context.block.barrier_arrivals,
                                             false);
@@ -1491,7 +1491,7 @@ const IRawGcnSemanticHandler& RawGcnSemanticHandlerRegistry::Get(std::string_vie
 }
 
 const IRawGcnSemanticHandler& RawGcnSemanticHandlerRegistry::Get(
-    const DecodedGcnInstruction& instruction) {
+    const DecodedInstruction& instruction) {
   for (const auto& binding : HandlerBindings()) {
     if (binding.mnemonic == instruction.mnemonic) {
       return *binding.handler;

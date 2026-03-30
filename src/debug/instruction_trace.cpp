@@ -27,7 +27,7 @@ std::string RegisterName(const RegRef& reg) {
   return std::string(1, prefix) + std::to_string(reg.index);
 }
 
-std::string FormatVectorValue(uint32_t reg_index, const WaveState& wave) {
+std::string FormatVectorValue(uint32_t reg_index, const WaveContext& wave) {
   std::ostringstream out;
   out << '\n';
   bool emitted = false;
@@ -45,7 +45,7 @@ std::string FormatVectorValue(uint32_t reg_index, const WaveState& wave) {
   return out.str();
 }
 
-std::string FormatOperand(const Operand& operand, const WaveState& wave) {
+std::string FormatOperand(const Operand& operand, const WaveContext& wave) {
   switch (operand.kind) {
     case OperandKind::Register:
       if (operand.reg.file == RegisterFile::Scalar) {
@@ -66,7 +66,7 @@ std::string FormatOperand(const Operand& operand, const WaveState& wave) {
 
 }  // namespace
 
-std::string FormatWaveStepMessage(const Instruction& instruction, const WaveState& wave) {
+std::string FormatWaveStepMessage(const Instruction& instruction, const WaveContext& wave) {
   std::ostringstream out;
   out << "pc=" << HexU64(wave.pc) << " op=" << ToString(instruction.opcode)
       << " exec_lanes=" << HexU64(wave.exec.count());

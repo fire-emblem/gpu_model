@@ -1,14 +1,14 @@
 #include <gtest/gtest.h>
 
-#include "gpu_model/exec/encoded/object/raw_gcn_instruction_object.h"
+#include "gpu_model/instruction/encoded/instruction_object.h"
 
 namespace gpu_model {
 namespace {
 
-DecodedGcnInstruction MakeDecoded(std::vector<uint32_t> words,
+DecodedInstruction MakeDecoded(std::vector<uint32_t> words,
                                   GcnInstFormatClass format_class,
                                   std::string mnemonic) {
-  DecodedGcnInstruction instruction;
+  DecodedInstruction instruction;
   instruction.words = std::move(words);
   instruction.format_class = format_class;
   instruction.mnemonic = std::move(mnemonic);
@@ -16,14 +16,14 @@ DecodedGcnInstruction MakeDecoded(std::vector<uint32_t> words,
 }
 
 TEST(RawGcnInstructionArrayParserTest, CreatesConcreteAndPlaceholderInstructionObjects) {
-  std::vector<DecodedGcnInstruction> decoded;
+  std::vector<DecodedInstruction> decoded;
   decoded.push_back(MakeDecoded({0xc0020002u, 0x0000002cu}, GcnInstFormatClass::Smrd, "s_load_dword"));
   decoded.push_back(MakeDecoded({0x68000006u}, GcnInstFormatClass::Vop2, "v_add_u32_e32"));
   decoded.push_back(MakeDecoded({0xdc508000u, 0x067f0004u}, GcnInstFormatClass::Flat, "global_load_dword"));
   decoded.push_back(MakeDecoded({0xf0000000u, 0x00000000u}, GcnInstFormatClass::Mimg, "image_load"));
   decoded.push_back(MakeDecoded({0xf8000000u, 0x00000000u}, GcnInstFormatClass::Exp, "exp"));
 
-  auto objects = RawGcnInstructionArrayParser::Parse(decoded);
+  auto objects = InstructionArrayParser::Parse(decoded);
   ASSERT_EQ(objects.size(), decoded.size());
 
   EXPECT_EQ(objects[0]->class_name(), "s_load_dword");
@@ -43,7 +43,7 @@ TEST(RawGcnInstructionArrayParserTest, CreatesConcreteAndPlaceholderInstructionO
 }
 
 TEST(RawGcnInstructionArrayParserTest, FactoryCreatesConcreteInstructionFromDecodedOpcode) {
-  auto object = RawGcnInstructionFactory::Create(
+  auto object = InstructionFactory::Create(
       MakeDecoded({0x68000006u}, GcnInstFormatClass::Vop2, "v_add_u32_e32"));
   ASSERT_NE(object, nullptr);
   EXPECT_EQ(object->class_name(), "v_add_u32_e32");
@@ -73,7 +73,7 @@ TEST(RawGcnInstructionArrayParserTest, ParsesRawInstructionArrayIntoDecodedAndOb
       .decoded_operands = {},
   });
 
-  auto parsed = RawGcnInstructionArrayParser::Parse(raw);
+  auto parsed = InstructionArrayParser::Parse(raw);
   ASSERT_EQ(parsed.decoded_instructions.size(), 2u);
   ASSERT_EQ(parsed.instruction_objects.size(), 2u);
   EXPECT_EQ(parsed.decoded_instructions[0].mnemonic, "s_load_dword");
@@ -89,7 +89,7 @@ TEST(RawGcnInstructionArrayParserTest, ParsesTextBytesIntoInstructionArrays) {
       std::byte{0x06}, std::byte{0x00}, std::byte{0x00}, std::byte{0x68},
   };
 
-  auto parsed = RawGcnInstructionArrayParser::Parse(text, 0x1000);
+  auto parsed = InstructionArrayParser::Parse(text, 0x1000);
   ASSERT_EQ(parsed.raw_instructions.size(), 2u);
   ASSERT_EQ(parsed.decoded_instructions.size(), 2u);
   ASSERT_EQ(parsed.instruction_objects.size(), 2u);
@@ -122,7 +122,7 @@ TEST(RawGcnInstructionArrayParserTest, UsesCanonicalOpcodeExtractionForViStyleOb
       .decoded_operands = {},
   });
 
-  auto parsed = RawGcnInstructionArrayParser::Parse(raw);
+  auto parsed = InstructionArrayParser::Parse(raw);
   ASSERT_EQ(parsed.instruction_objects.size(), 2u);
   EXPECT_EQ(parsed.instruction_objects[0]->class_name(), "s_load_dwordx4");
   EXPECT_EQ(parsed.instruction_objects[0]->op_type_name(), "smrd");

@@ -38,7 +38,7 @@ struct ExecutableBlock {
   uint64_t barrier_generation = 0;
   uint32_t barrier_arrivals = 0;
   std::vector<std::byte> shared_memory;
-  std::vector<WaveState> waves;
+  std::vector<WaveContext> waves;
   std::vector<std::vector<size_t>> wave_indices_per_peu;
   std::vector<size_t> next_wave_rr_per_peu;
   std::vector<bool> wave_busy;
@@ -432,7 +432,7 @@ class FunctionalExecutionCoreImpl {
     return std::nullopt;
   }
 
-  void ExecuteWave(ExecutableBlock& block, WaveState& wave, ExecutionStats& stats) {
+  void ExecuteWave(ExecutableBlock& block, WaveContext& wave, ExecutionStats& stats) {
     if (wave.pc >= context_.kernel.instructions().size()) {
       throw std::out_of_range("wave pc out of range");
     }

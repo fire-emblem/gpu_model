@@ -8,6 +8,7 @@
 #include "gpu_model/instruction/encoded/instruction_object.h"
 #include "gpu_model/memory/memory_system.h"
 #include "gpu_model/runtime/launch_request.h"
+#include "gpu_model/execution/wave_context.h"
 #include "gpu_model/state/wave_state.h"
 
 namespace gpu_model {
@@ -24,7 +25,7 @@ struct RawGcnBlockContext {
 };
 
 struct RawGcnWaveContext : InstructionExecutionContext {
-  WaveState& wave;
+  WaveContext& wave;
   uint64_t& vcc;
   const std::vector<std::byte>& kernarg;
   uint64_t kernarg_base = 0;
@@ -32,7 +33,7 @@ struct RawGcnWaveContext : InstructionExecutionContext {
   ExecutionStats& stats;
   RawGcnBlockContext& block;
 
-  RawGcnWaveContext(WaveState& wave_ref,
+  RawGcnWaveContext(WaveContext& wave_ref,
                     uint64_t& vcc_ref,
                     const std::vector<std::byte>& kernarg_ref,
                     uint64_t kernarg_base_value,

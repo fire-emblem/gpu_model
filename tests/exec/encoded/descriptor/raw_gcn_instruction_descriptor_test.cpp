@@ -1,14 +1,15 @@
 #include <gtest/gtest.h>
 
 #include "gpu_model/exec/encoded/descriptor/raw_gcn_instruction_descriptor.h"
+#include "gpu_model/instruction/encoded/decoded_instruction.h"
 
 namespace gpu_model {
 namespace {
 
-DecodedGcnInstruction MakeDecoded(std::vector<uint32_t> words,
+DecodedInstruction MakeDecoded(std::vector<uint32_t> words,
                                   GcnInstFormatClass format_class,
                                   std::string mnemonic) {
-  DecodedGcnInstruction instruction;
+  DecodedInstruction instruction;
   instruction.words = std::move(words);
   instruction.format_class = format_class;
   instruction.mnemonic = std::move(mnemonic);

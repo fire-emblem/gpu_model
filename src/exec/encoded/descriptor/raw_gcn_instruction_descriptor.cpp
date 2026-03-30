@@ -40,7 +40,7 @@ std::string_view ToString(RawGcnInstructionCategory category) {
   return "unknown";
 }
 
-RawGcnInstructionDescriptor DescribeRawGcnInstruction(const DecodedGcnInstruction& instruction) {
+RawGcnInstructionDescriptor DescribeRawGcnInstruction(const DecodedInstruction& instruction) {
   const auto* descriptor = FindGcnFallbackOpcodeDescriptor(instruction.words);
   if (descriptor == nullptr) {
     return MakeUnknownDescriptor();

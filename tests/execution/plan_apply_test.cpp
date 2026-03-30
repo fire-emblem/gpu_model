@@ -6,7 +6,7 @@ namespace gpu_model {
 namespace {
 
 TEST(PlanApplyTest, AppliesRegisterWritesAndFormatsExecUpdate) {
-  WaveState wave;
+  WaveContext wave;
   wave.thread_count = 64;
   wave.ResetInitialExec();
 
@@ -40,7 +40,7 @@ TEST(PlanApplyTest, AppliesRegisterWritesAndFormatsExecUpdate) {
 }
 
 TEST(PlanApplyTest, AppliesControlFlowAndExitSemantics) {
-  WaveState branch_wave;
+  WaveContext branch_wave;
   branch_wave.thread_count = 64;
   branch_wave.ResetInitialExec();
   branch_wave.pc = 10;
@@ -55,7 +55,7 @@ TEST(PlanApplyTest, AppliesControlFlowAndExitSemantics) {
   EXPECT_TRUE(branch_wave.valid_entry);
   EXPECT_EQ(branch_wave.status, WaveStatus::Active);
 
-  WaveState exit_wave;
+  WaveContext exit_wave;
   exit_wave.thread_count = 64;
   exit_wave.ResetInitialExec();
   exit_wave.pc = 9;

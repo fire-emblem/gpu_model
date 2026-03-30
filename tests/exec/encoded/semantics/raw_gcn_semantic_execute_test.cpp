@@ -25,7 +25,7 @@ uint32_t EncodeSop1Word(uint32_t opcode, uint32_t sdst, uint32_t ssrc0) {
 class RawGcnSemanticExecuteTest : public ::testing::Test {
  protected:
   struct Harness {
-    WaveState wave;
+    WaveContext wave;
     uint64_t vcc = 0;
     std::vector<std::byte> kernarg;
     MemorySystem memory;
@@ -50,9 +50,9 @@ class RawGcnSemanticExecuteTest : public ::testing::Test {
     }
   };
 
-  static DecodedGcnOperand SReg(uint32_t index) {
-    return DecodedGcnOperand{
-        .kind = DecodedGcnOperandKind::ScalarReg,
+  static DecodedInstructionOperand SReg(uint32_t index) {
+    return DecodedInstructionOperand{
+        .kind = DecodedInstructionOperandKind::ScalarReg,
         .text = "s" + std::to_string(index),
         .info =
             GcnOperandInfo{
@@ -62,9 +62,9 @@ class RawGcnSemanticExecuteTest : public ::testing::Test {
     };
   }
 
-  static DecodedGcnOperand SRange(uint32_t first, uint32_t count) {
-    return DecodedGcnOperand{
-        .kind = DecodedGcnOperandKind::ScalarRegRange,
+  static DecodedInstructionOperand SRange(uint32_t first, uint32_t count) {
+    return DecodedInstructionOperand{
+        .kind = DecodedInstructionOperandKind::ScalarRegRange,
         .text = count == 1 ? ("s" + std::to_string(first))
                            : ("s[" + std::to_string(first) + ":" + std::to_string(first + count - 1) + "]"),
         .info =
@@ -75,9 +75,9 @@ class RawGcnSemanticExecuteTest : public ::testing::Test {
     };
   }
 
-  static DecodedGcnOperand VReg(uint32_t index) {
-    return DecodedGcnOperand{
-        .kind = DecodedGcnOperandKind::VectorReg,
+  static DecodedInstructionOperand VReg(uint32_t index) {
+    return DecodedInstructionOperand{
+        .kind = DecodedInstructionOperandKind::VectorReg,
         .text = "v" + std::to_string(index),
         .info =
             GcnOperandInfo{
@@ -87,9 +87,9 @@ class RawGcnSemanticExecuteTest : public ::testing::Test {
     };
   }
 
-  static DecodedGcnOperand VRange(uint32_t first, uint32_t count) {
-    return DecodedGcnOperand{
-        .kind = DecodedGcnOperandKind::VectorRegRange,
+  static DecodedInstructionOperand VRange(uint32_t first, uint32_t count) {
+    return DecodedInstructionOperand{
+        .kind = DecodedInstructionOperandKind::VectorRegRange,
         .text = count == 1 ? ("v" + std::to_string(first))
                            : ("v[" + std::to_string(first) + ":" + std::to_string(first + count - 1) + "]"),
         .info =
@@ -100,9 +100,9 @@ class RawGcnSemanticExecuteTest : public ::testing::Test {
     };
   }
 
-  static DecodedGcnOperand Special(GcnSpecialReg reg) {
-    return DecodedGcnOperand{
-        .kind = DecodedGcnOperandKind::SpecialReg,
+  static DecodedInstructionOperand Special(GcnSpecialReg reg) {
+    return DecodedInstructionOperand{
+        .kind = DecodedInstructionOperandKind::SpecialReg,
         .text = reg == GcnSpecialReg::Vcc ? "vcc" : "exec",
         .info =
             GcnOperandInfo{
@@ -111,9 +111,9 @@ class RawGcnSemanticExecuteTest : public ::testing::Test {
     };
   }
 
-  static DecodedGcnOperand Imm(int64_t value) {
-    return DecodedGcnOperand{
-        .kind = DecodedGcnOperandKind::Immediate,
+  static DecodedInstructionOperand Imm(int64_t value) {
+    return DecodedInstructionOperand{
+        .kind = DecodedInstructionOperandKind::Immediate,
         .text = std::to_string(value),
         .info =
             GcnOperandInfo{
@@ -123,9 +123,9 @@ class RawGcnSemanticExecuteTest : public ::testing::Test {
     };
   }
 
-  static DecodedGcnOperand BranchTarget(int64_t value) {
-    return DecodedGcnOperand{
-        .kind = DecodedGcnOperandKind::BranchTarget,
+  static DecodedInstructionOperand BranchTarget(int64_t value) {
+    return DecodedInstructionOperand{
+        .kind = DecodedInstructionOperandKind::BranchTarget,
         .text = std::to_string(value),
         .info =
             GcnOperandInfo{
@@ -135,13 +135,13 @@ class RawGcnSemanticExecuteTest : public ::testing::Test {
     };
   }
 
-  static DecodedGcnInstruction Inst(std::string mnemonic,
+  static DecodedInstruction Inst(std::string mnemonic,
                                     uint32_t encoding_id,
-                                    std::initializer_list<DecodedGcnOperand> operands,
+                                    std::initializer_list<DecodedInstructionOperand> operands,
                                     uint64_t pc = 0x1000,
                                     uint32_t size_bytes = 4,
                                     std::vector<uint32_t> words = {}) {
-    DecodedGcnInstruction instruction;
+    DecodedInstruction instruction;
     instruction.pc = pc;
     instruction.size_bytes = size_bytes;
     instruction.encoding_id = encoding_id;
@@ -1070,8 +1070,8 @@ TEST_F(RawGcnSemanticExecuteTest, ExecutesTensorCoreMfmaVariants) {
   {
     Harness harness;
     harness.wave.agpr.Write(3, 0, 0x12345678u);
-    auto inst = Inst("v_accvgpr_read_b32", 90, {VReg(50), DecodedGcnOperand{
-                                                       .kind = DecodedGcnOperandKind::AccumulatorReg,
+    auto inst = Inst("v_accvgpr_read_b32", 90, {VReg(50), DecodedInstructionOperand{
+                                                       .kind = DecodedInstructionOperandKind::AccumulatorReg,
                                                        .text = "a3",
                                                        .info = GcnOperandInfo{.reg_first = 3, .reg_count = 1},
                                                    }},
@@ -1090,8 +1090,8 @@ TEST_F(RawGcnSemanticExecuteTest, ExecutesTensorCoreMfmaVariants) {
     harness.wave.pc = mfma.pc;
     RawGcnSemanticHandlerRegistry::Get(mfma).Execute(mfma, harness.context);
 
-    auto read = Inst("v_accvgpr_read_b32", 90, {VReg(60), DecodedGcnOperand{
-                                                         .kind = DecodedGcnOperandKind::AccumulatorReg,
+    auto read = Inst("v_accvgpr_read_b32", 90, {VReg(60), DecodedInstructionOperand{
+                                                         .kind = DecodedInstructionOperandKind::AccumulatorReg,
                                                          .text = "a8",
                                                          .info = GcnOperandInfo{.reg_first = 8, .reg_count = 1},
                                                      }},
@@ -1105,8 +1105,8 @@ TEST_F(RawGcnSemanticExecuteTest, ExecutesTensorCoreMfmaVariants) {
     Harness harness;
     harness.wave.vgpr.Write(1, 0, 0x87654321u);
     auto inst = Inst("v_accvgpr_write_b32", 91,
-                     {DecodedGcnOperand{
-                          .kind = DecodedGcnOperandKind::AccumulatorReg,
+                     {DecodedInstructionOperand{
+                          .kind = DecodedInstructionOperandKind::AccumulatorReg,
                           .text = "a4",
                           .info = GcnOperandInfo{.reg_first = 4, .reg_count = 1},
                       },

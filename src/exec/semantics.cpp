@@ -143,7 +143,7 @@ uint32_t ResolveIssueCycles(Opcode opcode, const ExecutionContext& context) {
 }  // namespace
 
 OpPlan Semantics::BuildPlan(const Instruction& instruction,
-                            const WaveState& wave,
+                            const WaveContext& wave,
                             const ExecutionContext& context) const {
   OpPlan plan = SemanticHandlerRegistry::Build(instruction, wave, context);
   plan.issue_cycles = ResolveIssueCycles(instruction.opcode, context);

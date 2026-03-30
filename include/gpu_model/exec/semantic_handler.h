@@ -2,6 +2,7 @@
 
 #include "gpu_model/exec/opcode_execution_info.h"
 #include "gpu_model/exec/semantics.h"
+#include "gpu_model/state/wave_state.h"
 
 namespace gpu_model {
 
@@ -10,7 +11,7 @@ class ISemanticHandler {
   virtual ~ISemanticHandler() = default;
   virtual SemanticFamily family() const = 0;
   virtual OpPlan Build(const Instruction& instruction,
-                       const WaveState& wave,
+                       const WaveContext& wave,
                        const ExecutionContext& context) const = 0;
 };
 
@@ -18,7 +19,7 @@ class SemanticHandlerRegistry {
  public:
   static const ISemanticHandler& Get(SemanticFamily family);
   static OpPlan Build(const Instruction& instruction,
-                      const WaveState& wave,
+                      const WaveContext& wave,
                       const ExecutionContext& context);
 };
 

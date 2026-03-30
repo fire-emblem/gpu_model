@@ -35,7 +35,7 @@ namespace {
 struct ScheduledWave {
   uint32_t dpc_id = 0;
   struct ExecutableBlock* block = nullptr;
-  WaveState wave;
+  WaveContext wave;
   Scoreboard scoreboard;
   uint64_t launch_cycle = 0;
   bool dispatch_enabled = false;
@@ -417,7 +417,7 @@ std::vector<uint64_t> ActiveAddresses(const MemoryRequest& request) {
   return addrs;
 }
 
-uint64_t WaveTag(const WaveState& wave) {
+uint64_t WaveTag(const WaveContext& wave) {
   return (static_cast<uint64_t>(wave.block_id) << 32) | wave.wave_id;
 }
 
@@ -644,7 +644,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
         continue;
       }
 
-      WaveState& wave = candidate->wave;
+      WaveContext& wave = candidate->wave;
       const Instruction instruction = context.kernel.instructions().at(wave.pc);
       if (context.stats != nullptr) {
         ++context.stats->wave_steps;
@@ -1038,7 +1038,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                       .pc = candidate->wave.pc,
                       .message = "arrive",
                   });
-                  std::vector<WaveState*> waiting_waves;
+                  std::vector<WaveContext*> waiting_waves;
                   waiting_waves.reserve(candidate->block->waves.size());
                   for (auto& waiting_wave : candidate->block->waves) {
                     waiting_waves.push_back(&waiting_wave.wave);

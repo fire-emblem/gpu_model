@@ -23,7 +23,7 @@ MemoryWaitDomain MemoryDomainForOpcode(Opcode opcode) {
   }
 }
 
-uint32_t PendingMemoryOpsForDomain(const WaveState& wave, MemoryWaitDomain domain) {
+uint32_t PendingMemoryOpsForDomain(const WaveContext& wave, MemoryWaitDomain domain) {
   switch (domain) {
     case MemoryWaitDomain::Global:
       return wave.pending_global_mem_ops;
@@ -39,7 +39,7 @@ uint32_t PendingMemoryOpsForDomain(const WaveState& wave, MemoryWaitDomain domai
   return 0;
 }
 
-void IncrementPendingMemoryOps(WaveState& wave, MemoryWaitDomain domain) {
+void IncrementPendingMemoryOps(WaveContext& wave, MemoryWaitDomain domain) {
   switch (domain) {
     case MemoryWaitDomain::Global:
       ++wave.pending_global_mem_ops;
@@ -58,7 +58,7 @@ void IncrementPendingMemoryOps(WaveState& wave, MemoryWaitDomain domain) {
   }
 }
 
-void DecrementPendingMemoryOps(WaveState& wave, MemoryWaitDomain domain) {
+void DecrementPendingMemoryOps(WaveContext& wave, MemoryWaitDomain domain) {
   switch (domain) {
     case MemoryWaitDomain::Global:
       if (wave.pending_global_mem_ops > 0) {
@@ -97,7 +97,7 @@ WaitCntThresholds WaitCntThresholdsForInstruction(const Instruction& instruction
   return thresholds;
 }
 
-bool WaitCntSatisfied(const WaveState& wave, const Instruction& instruction) {
+bool WaitCntSatisfied(const WaveContext& wave, const Instruction& instruction) {
   if (instruction.opcode != Opcode::SWaitCnt) {
     return true;
   }
@@ -108,7 +108,7 @@ bool WaitCntSatisfied(const WaveState& wave, const Instruction& instruction) {
          wave.pending_scalar_buffer_mem_ops <= thresholds.scalar_buffer;
 }
 
-std::optional<std::string> WaitCntBlockReason(const WaveState& wave,
+std::optional<std::string> WaitCntBlockReason(const WaveContext& wave,
                                               const Instruction& instruction) {
   if (instruction.opcode != Opcode::SWaitCnt) {
     return std::nullopt;
@@ -129,7 +129,7 @@ std::optional<std::string> WaitCntBlockReason(const WaveState& wave,
   return std::nullopt;
 }
 
-std::optional<std::string> MemoryDomainBlockReason(const WaveState& wave,
+std::optional<std::string> MemoryDomainBlockReason(const WaveContext& wave,
                                                    const Instruction& instruction) {
   switch (MemoryDomainForOpcode(instruction.opcode)) {
     case MemoryWaitDomain::Global:
@@ -159,7 +159,7 @@ std::optional<std::string> MemoryDomainBlockReason(const WaveState& wave,
 }
 
 bool CanIssueInstruction(bool dispatch_enabled,
-                         const WaveState& wave,
+                         const WaveContext& wave,
                          const Instruction& instruction,
                          bool dependencies_ready) {
   const auto memory_domain = MemoryDomainForOpcode(instruction.opcode);
@@ -173,7 +173,7 @@ bool CanIssueInstruction(bool dispatch_enabled,
 }
 
 std::optional<std::string> IssueBlockReason(bool dispatch_enabled,
-                                            const WaveState& wave,
+                                            const WaveContext& wave,
                                             const Instruction& instruction,
                                             bool dependencies_ready) {
   if (!dispatch_enabled || wave.status != WaveStatus::Active) {

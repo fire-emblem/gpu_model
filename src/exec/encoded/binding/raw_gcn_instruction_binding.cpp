@@ -9,7 +9,8 @@
 #include <string>
 
 #include "gpu_model/decode/gcn_inst_encoding_def.h"
-#include "gpu_model/decode/gcn_inst_decoder.h"
+#include "gpu_model/exec/encoded/descriptor/raw_gcn_instruction_descriptor.h"
+#include "gpu_model/exec/encoded/semantics/raw_gcn_semantic_handler.h"
 
 namespace gpu_model {
 
@@ -33,7 +34,7 @@ void DebugLog(const char* fmt, ...) {
 
 class UnsupportedInstructionHandler final : public IRawGcnSemanticHandler {
  public:
-  void Execute(const DecodedGcnInstruction& instruction, RawGcnWaveContext&) const override {
+  void Execute(const DecodedInstruction& instruction, RawGcnWaveContext&) const override {
     throw std::invalid_argument("unsupported instantiated raw GCN opcode: " + instruction.mnemonic);
   }
 };
@@ -47,133 +48,142 @@ uint64_t BranchTarget(uint64_t pc, int32_t simm16) {
   return static_cast<uint64_t>(target);
 }
 
-std::pair<uint32_t, uint32_t> RequireScalarRange(const DecodedGcnOperand& operand) {
-  if (operand.kind != DecodedGcnOperandKind::ScalarRegRange || operand.info.reg_count == 0) {
+std::pair<uint32_t, uint32_t> RequireScalarRange(const DecodedInstructionOperand& operand) {
+  if (operand.kind != DecodedInstructionOperandKind::ScalarRegRange || operand.info.reg_count == 0) {
     throw std::invalid_argument("expected scalar register range operand");
   }
   return {operand.info.reg_first, operand.info.reg_first + operand.info.reg_count - 1};
 }
 
-uint64_t ResolveScalarPair(const DecodedGcnOperand& operand, const RawGcnWaveContext& context) {
-  if (operand.kind == DecodedGcnOperandKind::Immediate ||
-      operand.kind == DecodedGcnOperandKind::BranchTarget) {
+uint64_t ResolveScalarPair(const DecodedInstructionOperand& operand, const RawGcnWaveContext& context) {
+  if (operand.kind == DecodedInstructionOperandKind::Immediate ||
+      operand.kind == DecodedInstructionOperandKind::BranchTarget) {
     if (!operand.info.has_immediate) {
       throw std::invalid_argument("scalar pair immediate missing value");
     }
     return static_cast<uint64_t>(operand.info.immediate);
   }
-  if (operand.kind == DecodedGcnOperandKind::ScalarReg) {
+  if (operand.kind == DecodedInstructionOperandKind::ScalarReg) {
     const uint32_t first = operand.info.reg_first;
     return static_cast<uint64_t>(context.wave.sgpr.Read(first)) |
            (static_cast<uint64_t>(context.wave.sgpr.Read(first + 1)) << 32u);
   }
-  if (operand.kind == DecodedGcnOperandKind::ScalarRegRange && operand.info.reg_count == 2) {
+  if (operand.kind == DecodedInstructionOperandKind::ScalarRegRange && operand.info.reg_count == 2) {
     const uint32_t first = operand.info.reg_first;
     return static_cast<uint64_t>(context.wave.sgpr.Read(first)) |
            (static_cast<uint64_t>(context.wave.sgpr.Read(first + 1)) << 32u);
   }
-  if (operand.kind == DecodedGcnOperandKind::SpecialReg &&
+  if (operand.kind == DecodedInstructionOperandKind::SpecialReg &&
       operand.info.special_reg == GcnSpecialReg::Vcc) {
     return context.vcc;
   }
-  if (operand.kind == DecodedGcnOperandKind::SpecialReg &&
+  if (operand.kind == DecodedInstructionOperandKind::SpecialReg &&
       operand.info.special_reg == GcnSpecialReg::Exec) {
     return context.wave.exec.to_ullong();
   }
   throw std::invalid_argument("unsupported scalar pair operand");
 }
 
-class SmrdInstructionBase : public RawGcnInstructionObject {
+class EncodedInstructionObject : public InstructionObject {
  public:
-  using RawGcnInstructionObject::RawGcnInstructionObject;
+  using InstructionObject::InstructionObject;
+
+  virtual void Execute(RawGcnWaveContext& context) const {
+    InstructionObject::Execute(context);
+  }
+};
+
+class SmrdInstructionBase : public EncodedInstructionObject {
+ public:
+  using EncodedInstructionObject::EncodedInstructionObject;
   std::string_view op_type_name() const override { return "smrd"; }
 };
 
-class Sop1InstructionBase : public RawGcnInstructionObject {
+class Sop1InstructionBase : public EncodedInstructionObject {
  public:
-  using RawGcnInstructionObject::RawGcnInstructionObject;
+  using EncodedInstructionObject::EncodedInstructionObject;
   std::string_view op_type_name() const override { return "sop1"; }
 };
 
-class Sop2InstructionBase : public RawGcnInstructionObject {
+class Sop2InstructionBase : public EncodedInstructionObject {
  public:
-  using RawGcnInstructionObject::RawGcnInstructionObject;
+  using EncodedInstructionObject::EncodedInstructionObject;
   std::string_view op_type_name() const override { return "sop2"; }
 };
 
-class SopkInstructionBase : public RawGcnInstructionObject {
+class SopkInstructionBase : public EncodedInstructionObject {
  public:
-  using RawGcnInstructionObject::RawGcnInstructionObject;
+  using EncodedInstructionObject::EncodedInstructionObject;
   std::string_view op_type_name() const override { return "sopk"; }
 };
 
-class SopcInstructionBase : public RawGcnInstructionObject {
+class SopcInstructionBase : public EncodedInstructionObject {
  public:
-  using RawGcnInstructionObject::RawGcnInstructionObject;
+  using EncodedInstructionObject::EncodedInstructionObject;
   std::string_view op_type_name() const override { return "sopc"; }
 };
 
-class SoppInstructionBase : public RawGcnInstructionObject {
+class SoppInstructionBase : public EncodedInstructionObject {
  public:
-  using RawGcnInstructionObject::RawGcnInstructionObject;
+  using EncodedInstructionObject::EncodedInstructionObject;
   std::string_view op_type_name() const override { return "sopp"; }
 };
 
-class Vop1InstructionBase : public RawGcnInstructionObject {
+class Vop1InstructionBase : public EncodedInstructionObject {
  public:
-  using RawGcnInstructionObject::RawGcnInstructionObject;
+  using EncodedInstructionObject::EncodedInstructionObject;
   std::string_view op_type_name() const override { return "vop1"; }
 };
 
-class Vop2InstructionBase : public RawGcnInstructionObject {
+class Vop2InstructionBase : public EncodedInstructionObject {
  public:
-  using RawGcnInstructionObject::RawGcnInstructionObject;
+  using EncodedInstructionObject::EncodedInstructionObject;
   std::string_view op_type_name() const override { return "vop2"; }
 };
 
-class Vop3aInstructionBase : public RawGcnInstructionObject {
+class Vop3aInstructionBase : public EncodedInstructionObject {
  public:
-  using RawGcnInstructionObject::RawGcnInstructionObject;
+  using EncodedInstructionObject::EncodedInstructionObject;
   std::string_view op_type_name() const override { return "vop3a"; }
 };
 
-class Vop3bInstructionBase : public RawGcnInstructionObject {
+class Vop3bInstructionBase : public EncodedInstructionObject {
  public:
-  using RawGcnInstructionObject::RawGcnInstructionObject;
+  using EncodedInstructionObject::EncodedInstructionObject;
   std::string_view op_type_name() const override { return "vop3b"; }
 };
 
-class Vop3pInstructionBase : public RawGcnInstructionObject {
+class Vop3pInstructionBase : public EncodedInstructionObject {
  public:
-  using RawGcnInstructionObject::RawGcnInstructionObject;
+  using EncodedInstructionObject::EncodedInstructionObject;
   std::string_view op_type_name() const override { return "vop3p"; }
 };
 
-class VopcInstructionBase : public RawGcnInstructionObject {
+class VopcInstructionBase : public EncodedInstructionObject {
  public:
-  using RawGcnInstructionObject::RawGcnInstructionObject;
+  using EncodedInstructionObject::EncodedInstructionObject;
   std::string_view op_type_name() const override { return "vopc"; }
 };
 
-class FlatInstructionBase : public RawGcnInstructionObject {
+class FlatInstructionBase : public EncodedInstructionObject {
  public:
-  using RawGcnInstructionObject::RawGcnInstructionObject;
+  using EncodedInstructionObject::EncodedInstructionObject;
   std::string_view op_type_name() const override { return "flat"; }
 };
 
-class DsInstructionBase : public RawGcnInstructionObject {
+class DsInstructionBase : public EncodedInstructionObject {
  public:
-  using RawGcnInstructionObject::RawGcnInstructionObject;
+  using EncodedInstructionObject::EncodedInstructionObject;
   std::string_view op_type_name() const override { return "ds"; }
 };
 
-class PlaceholderInstructionBase : public RawGcnInstructionObject {
+class PlaceholderInstructionBase : public EncodedInstructionObject {
  public:
-  PlaceholderInstructionBase(DecodedGcnInstruction instruction,
+  PlaceholderInstructionBase(DecodedInstruction instruction,
                              const IRawGcnSemanticHandler& handler,
                              std::string_view op_type_name,
                              std::string_view class_name)
-      : RawGcnInstructionObject(std::move(instruction), handler),
+      : EncodedInstructionObject(std::move(instruction), handler),
         op_type_name_(op_type_name),
         class_name_(class_name) {}
 
@@ -443,7 +453,7 @@ DEFINE_RAW_GCN_OPCODE_CLASS(DsReadB32Instruction, DsInstructionBase, "ds_read_b3
 
 #undef DEFINE_RAW_GCN_OPCODE_CLASS
 
-RawGcnInstructionObjectPtr MakePlaceholderInstruction(DecodedGcnInstruction instruction,
+InstructionObjectPtr MakePlaceholderInstruction(DecodedInstruction instruction,
                                                       std::string_view op_type_name,
                                                       std::string_view class_name) {
   static const UnsupportedInstructionHandler kUnsupportedHandler;
@@ -451,8 +461,8 @@ RawGcnInstructionObjectPtr MakePlaceholderInstruction(DecodedGcnInstruction inst
                                                       op_type_name, class_name);
 }
 
-RawGcnInstructionObjectPtr CreateScalarMemoryInstruction(const GcnIsaOpcodeDescriptor& descriptor,
-                                                         DecodedGcnInstruction instruction) {
+InstructionObjectPtr CreateScalarMemoryInstruction(const GcnIsaOpcodeDescriptor& descriptor,
+                                                         DecodedInstruction instruction) {
   if (descriptor.op_type == GcnIsaOpType::Smrd || descriptor.op_type == GcnIsaOpType::Smem) {
     switch (descriptor.opcode) {
       case static_cast<uint16_t>(GcnIsaSmrdOpcode::S_LOAD_DWORD):
@@ -472,8 +482,8 @@ RawGcnInstructionObjectPtr CreateScalarMemoryInstruction(const GcnIsaOpcodeDescr
                                     "scalar_memory_placeholder");
 }
 
-RawGcnInstructionObjectPtr CreateScalarInstruction(const GcnIsaOpcodeDescriptor& descriptor,
-                                                   DecodedGcnInstruction instruction) {
+InstructionObjectPtr CreateScalarInstruction(const GcnIsaOpcodeDescriptor& descriptor,
+                                                   DecodedInstruction instruction) {
   switch (descriptor.op_type) {
     case GcnIsaOpType::Sop1:
       switch (descriptor.opcode) {
@@ -604,8 +614,8 @@ RawGcnInstructionObjectPtr CreateScalarInstruction(const GcnIsaOpcodeDescriptor&
   return MakePlaceholderInstruction(std::move(instruction), "scalar", "scalar_placeholder");
 }
 
-RawGcnInstructionObjectPtr CreateVectorInstruction(const GcnIsaOpcodeDescriptor& descriptor,
-                                                   DecodedGcnInstruction instruction) {
+InstructionObjectPtr CreateVectorInstruction(const GcnIsaOpcodeDescriptor& descriptor,
+                                                   DecodedInstruction instruction) {
   switch (descriptor.op_type) {
     case GcnIsaOpType::Vop1:
       switch (descriptor.opcode) {
@@ -796,8 +806,8 @@ RawGcnInstructionObjectPtr CreateVectorInstruction(const GcnIsaOpcodeDescriptor&
   return MakePlaceholderInstruction(std::move(instruction), "vector", "vector_placeholder");
 }
 
-RawGcnInstructionObjectPtr CreateMemoryInstruction(const GcnIsaOpcodeDescriptor& descriptor,
-                                                   DecodedGcnInstruction instruction) {
+InstructionObjectPtr CreateMemoryInstruction(const GcnIsaOpcodeDescriptor& descriptor,
+                                                   DecodedInstruction instruction) {
   if (descriptor.op_type == GcnIsaOpType::Flat) {
     if (descriptor.opname == std::string_view("global_load_dword") ||
         descriptor.opname == std::string_view("flat_load_dword")) {
@@ -849,7 +859,7 @@ RawGcnInstructionObjectPtr CreateMemoryInstruction(const GcnIsaOpcodeDescriptor&
 
 }  // namespace
 
-RawGcnInstructionObjectPtr BindRawGcnInstructionObject(DecodedGcnInstruction instruction) {
+InstructionObjectPtr BindRawGcnInstructionObject(DecodedInstruction instruction) {
   const RawGcnInstructionDescriptor descriptor = DescribeRawGcnInstruction(instruction);
   if (!descriptor.known()) {
     return MakePlaceholderInstruction(std::move(instruction), descriptor.placeholder_op_type_name,

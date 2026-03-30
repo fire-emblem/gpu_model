@@ -4,6 +4,7 @@
 
 #include "gpu_model/decode/decoded_gcn_instruction.h"
 #include "gpu_model/decode/generated_gcn_full_opcode_table.h"
+#include "gpu_model/instruction/encoded/decoded_instruction.h"
 
 namespace gpu_model {
 
@@ -24,7 +25,7 @@ struct RawGcnInstructionDescriptor {
   bool known() const { return opcode_descriptor != nullptr; }
 };
 
-RawGcnInstructionDescriptor DescribeRawGcnInstruction(const DecodedGcnInstruction& instruction);
+RawGcnInstructionDescriptor DescribeRawGcnInstruction(const DecodedInstruction& instruction);
 std::string_view ToString(RawGcnInstructionCategory category);
 
 }  // namespace gpu_model

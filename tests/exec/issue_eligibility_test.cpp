@@ -27,7 +27,7 @@ TEST(IssueEligibilityTest, MapsMemoryOpcodesToDomains) {
 }
 
 TEST(IssueEligibilityTest, WaitCntSatisfiedChecksPerDomainCounters) {
-  WaveState wave;
+  WaveContext wave;
   wave.pending_global_mem_ops = 1;
   wave.pending_shared_mem_ops = 2;
   wave.pending_private_mem_ops = 3;
@@ -41,7 +41,7 @@ TEST(IssueEligibilityTest, WaitCntSatisfiedChecksPerDomainCounters) {
 }
 
 TEST(IssueEligibilityTest, IssueBlockReasonReportsWaitcntAndDependencyReasons) {
-  WaveState wave;
+  WaveContext wave;
   wave.status = WaveStatus::Active;
   wave.valid_entry = true;
   wave.pending_global_mem_ops = 1;

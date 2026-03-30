@@ -38,7 +38,7 @@ TEST(SemanticHandlerTest, DispatchesBuiltinAndScalarAluFamilies) {
       .issue_cycle_op_overrides = {},
   };
 
-  WaveState wave;
+  WaveContext wave;
   wave.thread_count = 64;
   wave.ResetInitialExec();
 

@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "gpu_model/runtime/mapper.h"
+#include "gpu_model/execution/wave_context.h"
 #include "gpu_model/state/wave_state.h"
 
 namespace gpu_model {
@@ -17,10 +18,10 @@ struct ExecutionBlockState {
   uint64_t barrier_generation = 0;
   uint32_t barrier_arrivals = 0;
   std::vector<std::byte> shared_memory;
-  std::vector<WaveState> waves;
+  std::vector<WaveContext> waves;
 };
 
-WaveState BuildInitialWaveState(const BlockPlacement& block_placement,
-                                const WavePlacement& wave_placement);
+WaveContext BuildInitialWaveContext(const BlockPlacement& block_placement,
+                                    const WavePlacement& wave_placement);
 
 }  // namespace gpu_model

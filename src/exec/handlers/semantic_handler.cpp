@@ -29,19 +29,19 @@ uint32_t RequireScalarReg(const Operand& operand) {
   return operand.reg.index;
 }
 
-uint32_t LocalLinearId(const WaveState& wave, uint32_t lane) {
+uint32_t LocalLinearId(const WaveContext& wave, uint32_t lane) {
   return wave.wave_id * kWaveSize + lane;
 }
 
-uint32_t LocalIdY(const WaveState& wave, const LaunchConfig& config, uint32_t lane) {
+uint32_t LocalIdY(const WaveContext& wave, const LaunchConfig& config, uint32_t lane) {
   return (LocalLinearId(wave, lane) / config.block_dim_x) % config.block_dim_y;
 }
 
-uint32_t LocalIdZ(const WaveState& wave, const LaunchConfig& config, uint32_t lane) {
+uint32_t LocalIdZ(const WaveContext& wave, const LaunchConfig& config, uint32_t lane) {
   return LocalLinearId(wave, lane) / (config.block_dim_x * config.block_dim_y);
 }
 
-uint64_t ReadScalarOperand(const Operand& operand, const WaveState& wave) {
+uint64_t ReadScalarOperand(const Operand& operand, const WaveContext& wave) {
   switch (operand.kind) {
     case OperandKind::Immediate:
     case OperandKind::ArgumentIndex:
@@ -58,7 +58,7 @@ uint64_t ReadScalarOperand(const Operand& operand, const WaveState& wave) {
   throw std::invalid_argument("unsupported scalar operand kind");
 }
 
-uint64_t ReadVectorLaneOperand(const Operand& operand, const WaveState& wave, uint32_t lane) {
+uint64_t ReadVectorLaneOperand(const Operand& operand, const WaveContext& wave, uint32_t lane) {
   switch (operand.kind) {
     case OperandKind::Immediate:
     case OperandKind::ArgumentIndex:
@@ -75,7 +75,7 @@ uint64_t ReadVectorLaneOperand(const Operand& operand, const WaveState& wave, ui
   throw std::invalid_argument("unsupported vector operand kind");
 }
 
-std::bitset<64> ThreadMask(const WaveState& wave) {
+std::bitset<64> ThreadMask(const WaveContext& wave) {
   std::bitset<64> mask;
   for (uint32_t lane = 0; lane < wave.thread_count && lane < kWaveSize; ++lane) {
     mask.set(lane);
@@ -88,7 +88,7 @@ class BuiltinHandler final : public ISemanticHandler {
   SemanticFamily family() const override { return SemanticFamily::Builtin; }
 
   OpPlan Build(const Instruction& instruction,
-               const WaveState& wave,
+               const WaveContext& wave,
                const ExecutionContext& context) const override {
     OpPlan plan;
     switch (instruction.opcode) {
@@ -268,7 +268,7 @@ class ScalarAluHandler final : public ISemanticHandler {
   SemanticFamily family() const override { return SemanticFamily::ScalarAlu; }
 
   OpPlan Build(const Instruction& instruction,
-               const WaveState& wave,
+               const WaveContext& wave,
                const ExecutionContext&) const override {
     OpPlan plan;
     const uint32_t dest = RequireScalarReg(instruction.operands.at(0));
@@ -334,7 +334,7 @@ class ScalarCompareHandler final : public ISemanticHandler {
   SemanticFamily family() const override { return SemanticFamily::ScalarCompare; }
 
   OpPlan Build(const Instruction& instruction,
-               const WaveState& wave,
+               const WaveContext& wave,
                const ExecutionContext&) const override {
     OpPlan plan;
     switch (instruction.opcode) {
@@ -394,7 +394,7 @@ class VectorAluHandler final : public ISemanticHandler {
   SemanticFamily family() const override { return family_; }
 
   OpPlan Build(const Instruction& instruction,
-               const WaveState& wave,
+               const WaveContext& wave,
                const ExecutionContext&) const override {
     OpPlan plan;
     auto make_write = [&](uint32_t reg_index) {
@@ -559,7 +559,7 @@ class VectorMemoryHandler final : public ISemanticHandler {
   SemanticFamily family() const override { return family_; }
 
   OpPlan Build(const Instruction& instruction,
-               const WaveState& wave,
+               const WaveContext& wave,
                const ExecutionContext&) const override {
     OpPlan plan;
     MemoryRequest request;
@@ -756,7 +756,7 @@ class MaskHandler final : public ISemanticHandler {
   SemanticFamily family() const override { return SemanticFamily::Mask; }
 
   OpPlan Build(const Instruction& instruction,
-               const WaveState& wave,
+               const WaveContext& wave,
                const ExecutionContext&) const override {
     OpPlan plan;
     switch (instruction.opcode) {
@@ -785,7 +785,7 @@ class BranchHandler final : public ISemanticHandler {
   SemanticFamily family() const override { return SemanticFamily::Branch; }
 
   OpPlan Build(const Instruction& instruction,
-               const WaveState& wave,
+               const WaveContext& wave,
                const ExecutionContext&) const override {
     OpPlan plan;
     switch (instruction.opcode) {
@@ -815,7 +815,7 @@ class SyncSpecialHandler final : public ISemanticHandler {
   SemanticFamily family() const override { return family_; }
 
   OpPlan Build(const Instruction& instruction,
-               const WaveState&,
+               const WaveContext&,
                const ExecutionContext&) const override {
     OpPlan plan;
     switch (instruction.opcode) {
@@ -889,7 +889,7 @@ const ISemanticHandler& SemanticHandlerRegistry::Get(SemanticFamily family) {
 }
 
 OpPlan SemanticHandlerRegistry::Build(const Instruction& instruction,
-                                      const WaveState& wave,
+                                      const WaveContext& wave,
                                       const ExecutionContext& context) {
   return Get(GetOpcodeExecutionInfo(instruction.opcode).family).Build(instruction, wave, context);
 }

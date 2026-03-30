@@ -3,13 +3,13 @@
 #include <type_traits>
 
 #include "gpu_model/execution/encoded_exec_engine.h"
-#include "gpu_model/exec/encoded/executor/raw_gcn_executor.h"
 
 namespace gpu_model {
 namespace {
 
 TEST(RuntimeProgramCompatibilityAliasTest, NonRuntimeProgramAliasesRemainEquivalentInPhase2) {
-  static_assert(std::is_same_v<EncodedExecEngine, RawGcnExecutor>);
+  static_assert(std::is_class_v<EncodedExecEngine>);
+  static_assert(std::is_default_constructible_v<EncodedExecEngine>);
 }
 
 }  // namespace

@@ -3,7 +3,6 @@
 #include <type_traits>
 
 #include "gpu_model/execution/encoded_exec_engine.h"
-#include "gpu_model/exec/encoded/executor/raw_gcn_executor.h"
 #include "gpu_model/program/encoded_program_object.h"
 #include "gpu_model/program/executable_kernel.h"
 #include "gpu_model/program/program_object.h"
@@ -21,7 +20,7 @@ TEST(RuntimeNamingTest, NewRuntimeTypesAreConcreteAndUsable) {
   static_assert(std::is_constructible_v<HipRuntime, RuntimeEngine*>);
   static_assert(std::is_constructible_v<ModelRuntime, RuntimeEngine*>);
   static_assert(std::is_default_constructible_v<EncodedProgramObject>);
-  static_assert(std::is_same_v<EncodedExecEngine, RawGcnExecutor>);
+  static_assert(std::is_default_constructible_v<EncodedExecEngine>);
 
   RuntimeEngine engine;
   HipRuntime hip(&engine);

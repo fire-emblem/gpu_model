@@ -17,7 +17,7 @@
 #include <vector>
 
 #include "gpu_model/decode/gcn_inst_encoding_def.h"
-#include "gpu_model/decode/gcn_inst_decoder.h"
+#include "gpu_model/instruction/encoded/instruction_object.h"
 #include "gpu_model/isa/kernel_metadata.h"
 #include "gpu_model/isa/target_isa.h"
 
@@ -597,7 +597,7 @@ EncodedProgramObject ObjectReader::LoadEncodedObject(
   const auto code_begin = static_cast<size_t>(kernel_offset);
   const auto code_size = static_cast<size_t>(symbol_info.size);
   std::span<const std::byte> kernel_text{text_bytes.data() + code_begin, code_size};
-  auto parsed = RawGcnInstructionArrayParser::Parse(kernel_text, symbol_info.value);
+  auto parsed = InstructionArrayParser::Parse(kernel_text, symbol_info.value);
   code_object.instructions = std::move(parsed.raw_instructions);
   code_object.decoded_instructions = std::move(parsed.decoded_instructions);
   code_object.instruction_objects = std::move(parsed.instruction_objects);

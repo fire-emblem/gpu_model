@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "gpu_model/exec/encoded/semantics/raw_gcn_semantic_handler.h"
+#include "gpu_model/instruction/encoded/decoded_instruction.h"
 
 namespace gpu_model {
 namespace {
@@ -34,7 +35,7 @@ TEST(RawGcnSemanticHandlerRegistryTest, KeepsMaskSpecificOverride) {
 }
 
 TEST(RawGcnSemanticHandlerRegistryTest, ResolvesFromDecodedInstruction) {
-  DecodedGcnInstruction instruction;
+  DecodedInstruction instruction;
   instruction.encoding_id = 18;
   instruction.mnemonic = "global_load_dword";
   EXPECT_NO_THROW((void)RawGcnSemanticHandlerRegistry::Get(instruction));

@@ -6,7 +6,7 @@
 
 namespace gpu_model {
 
-std::string GcnInstFormatter::Format(const DecodedGcnInstruction& instruction) const {
+std::string GcnInstFormatter::Format(const DecodedInstruction& instruction) const {
   std::ostringstream out;
   const std::string_view mnemonic = instruction.mnemonic == "unknown"
                                         ? LookupGcnOpcodeName(instruction.words)

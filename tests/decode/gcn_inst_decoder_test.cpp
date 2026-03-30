@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "gpu_model/decode/gcn_inst_decoder.h"
+#include "gpu_model/instruction/encoded/instruction_decoder.h"
 
 namespace gpu_model {
 namespace {
@@ -88,7 +88,7 @@ std::vector<uint32_t> EncodeGlobalFlatWords(uint32_t opcode,
   return {low, high};
 }
 
-TEST(GcnInstDecoderTest, DecodesRepresentativeScalarMemoryInstruction) {
+TEST(InstructionDecoderTest, DecodesRepresentativeScalarMemoryInstruction) {
   RawGcnInstruction raw{
       .pc = 0x1900,
       .size_bytes = 8,
@@ -99,14 +99,14 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeScalarMemoryInstruction) {
       .decoded_operands = {},
   };
 
-  const auto decoded = GcnInstDecoder{}.Decode(raw);
+  const auto decoded = InstructionDecoder{}.Decode(raw);
   EXPECT_EQ(decoded.encoding_id, 2u);
   EXPECT_EQ(decoded.mnemonic, "s_load_dword");
   EXPECT_EQ(decoded.format_class, GcnInstFormatClass::Smrd);
   ASSERT_EQ(decoded.operands.size(), 3u);
 }
 
-TEST(GcnInstDecoderTest, DecodesRepresentativeBranchInstruction) {
+TEST(InstructionDecoderTest, DecodesRepresentativeBranchInstruction) {
   RawGcnInstruction raw{
       .pc = 0x192c,
       .size_bytes = 4,
@@ -117,17 +117,17 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeBranchInstruction) {
       .decoded_operands = {},
   };
 
-  const auto decoded = GcnInstDecoder{}.Decode(raw);
+  const auto decoded = InstructionDecoder{}.Decode(raw);
   EXPECT_EQ(decoded.encoding_id, 10u);
   EXPECT_EQ(decoded.mnemonic, "s_cbranch_execz");
   ASSERT_EQ(decoded.operands.size(), 1u);
   EXPECT_EQ(decoded.operands[0].text, "25");
-  EXPECT_EQ(decoded.operands[0].kind, DecodedGcnOperandKind::BranchTarget);
+  EXPECT_EQ(decoded.operands[0].kind, DecodedInstructionOperandKind::BranchTarget);
   EXPECT_TRUE(decoded.operands[0].info.has_immediate);
   EXPECT_EQ(decoded.operands[0].info.immediate, 25);
 }
 
-TEST(GcnInstDecoderTest, DecodesNoOperandTerminationInstruction) {
+TEST(InstructionDecoderTest, DecodesNoOperandTerminationInstruction) {
   RawGcnInstruction raw{
       .pc = 0x1904,
       .size_bytes = 4,
@@ -138,13 +138,13 @@ TEST(GcnInstDecoderTest, DecodesNoOperandTerminationInstruction) {
       .decoded_operands = {},
   };
 
-  const auto decoded = GcnInstDecoder{}.Decode(raw);
+  const auto decoded = InstructionDecoder{}.Decode(raw);
   EXPECT_EQ(decoded.encoding_id, 1u);
   EXPECT_EQ(decoded.mnemonic, "s_endpgm");
   EXPECT_TRUE(decoded.operands.empty());
 }
 
-TEST(GcnInstDecoderTest, DecodesRepresentativeWaitcntInstruction) {
+TEST(InstructionDecoderTest, DecodesRepresentativeWaitcntInstruction) {
   RawGcnInstruction raw{
       .pc = 0x1910,
       .size_bytes = 4,
@@ -155,7 +155,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeWaitcntInstruction) {
       .decoded_operands = {},
   };
 
-  const auto decoded = GcnInstDecoder{}.Decode(raw);
+  const auto decoded = InstructionDecoder{}.Decode(raw);
   EXPECT_EQ(decoded.encoding_id, 12u);
   EXPECT_EQ(decoded.mnemonic, "s_waitcnt");
   ASSERT_EQ(decoded.operands.size(), 1u);
@@ -166,7 +166,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeWaitcntInstruction) {
   EXPECT_EQ(decoded.operands[0].info.wait_expcnt, 7u);
 }
 
-TEST(GcnInstDecoderTest, DecodesRepresentativeVectorMoveInstruction) {
+TEST(InstructionDecoderTest, DecodesRepresentativeVectorMoveInstruction) {
   RawGcnInstruction raw{
       .pc = 0x1950,
       .size_bytes = 4,
@@ -177,14 +177,14 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeVectorMoveInstruction) {
       .decoded_operands = {},
   };
 
-  const auto decoded = GcnInstDecoder{}.Decode(raw);
+  const auto decoded = InstructionDecoder{}.Decode(raw);
   EXPECT_EQ(decoded.encoding_id, 13u);
   EXPECT_EQ(decoded.mnemonic, "v_mov_b32_e32");
   ASSERT_EQ(decoded.operands.size(), 2u);
   EXPECT_EQ(decoded.operands[0].text, "v3");
 }
 
-TEST(GcnInstDecoderTest, DecodesRepresentativeScalarMoveLiteralInstruction) {
+TEST(InstructionDecoderTest, DecodesRepresentativeScalarMoveLiteralInstruction) {
   RawGcnInstruction raw{
       .pc = 0x1954,
       .size_bytes = 8,
@@ -195,7 +195,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeScalarMoveLiteralInstruction) {
       .decoded_operands = {},
   };
 
-  const auto decoded = GcnInstDecoder{}.Decode(raw);
+  const auto decoded = InstructionDecoder{}.Decode(raw);
   EXPECT_EQ(decoded.encoding_id, 54u);
   EXPECT_EQ(decoded.mnemonic, "s_mov_b32");
   ASSERT_EQ(decoded.operands.size(), 2u);
@@ -203,7 +203,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeScalarMoveLiteralInstruction) {
   EXPECT_EQ(decoded.operands[1].text, "0x2a");
 }
 
-TEST(GcnInstDecoderTest, DecodesRepresentativeScalarMovkInstruction) {
+TEST(InstructionDecoderTest, DecodesRepresentativeScalarMovkInstruction) {
   RawGcnInstruction raw{
       .pc = 0x1958,
       .size_bytes = 4,
@@ -214,7 +214,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeScalarMovkInstruction) {
       .decoded_operands = {},
   };
 
-  const auto decoded = GcnInstDecoder{}.Decode(raw);
+  const auto decoded = InstructionDecoder{}.Decode(raw);
   EXPECT_EQ(decoded.encoding_id, 78u);
   EXPECT_EQ(decoded.mnemonic, "s_movk_i32");
   ASSERT_EQ(decoded.operands.size(), 2u);
@@ -222,7 +222,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeScalarMovkInstruction) {
   EXPECT_EQ(decoded.operands[1].text, "42");
 }
 
-TEST(GcnInstDecoderTest, DecodesRepresentativeScalarShiftLeftB64Instruction) {
+TEST(InstructionDecoderTest, DecodesRepresentativeScalarShiftLeftB64Instruction) {
   RawGcnInstruction raw{
       .pc = 0x195c,
       .size_bytes = 4,
@@ -233,7 +233,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeScalarShiftLeftB64Instruction) {
       .decoded_operands = {},
   };
 
-  const auto decoded = GcnInstDecoder{}.Decode(raw);
+  const auto decoded = InstructionDecoder{}.Decode(raw);
   EXPECT_EQ(decoded.encoding_id, 73u);
   EXPECT_EQ(decoded.mnemonic, "s_lshl_b64");
   ASSERT_EQ(decoded.operands.size(), 3u);
@@ -242,7 +242,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeScalarShiftLeftB64Instruction) {
   EXPECT_EQ(decoded.operands[2].text, "1");
 }
 
-TEST(GcnInstDecoderTest, DecodesRepresentativeSop2ScalarAluInstructions) {
+TEST(InstructionDecoderTest, DecodesRepresentativeSop2ScalarAluInstructions) {
   {
     RawGcnInstruction raw{
         .pc = 0x1960,
@@ -253,7 +253,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeSop2ScalarAluInstructions) {
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 69u);
     EXPECT_EQ(decoded.mnemonic, "s_add_u32");
     ASSERT_EQ(decoded.operands.size(), 3u);
@@ -272,7 +272,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeSop2ScalarAluInstructions) {
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 70u);
     EXPECT_EQ(decoded.mnemonic, "s_addc_u32");
     ASSERT_EQ(decoded.operands.size(), 3u);
@@ -291,7 +291,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeSop2ScalarAluInstructions) {
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 5u);
     EXPECT_EQ(decoded.mnemonic, "s_and_b32");
     ASSERT_EQ(decoded.operands.size(), 3u);
@@ -308,7 +308,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeSop2ScalarAluInstructions) {
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 6u);
     EXPECT_EQ(decoded.mnemonic, "s_mul_i32");
     ASSERT_EQ(decoded.operands.size(), 3u);
@@ -325,7 +325,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeSop2ScalarAluInstructions) {
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 55u);
     EXPECT_EQ(decoded.mnemonic, "s_lshr_b32");
     ASSERT_EQ(decoded.operands.size(), 3u);
@@ -333,7 +333,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeSop2ScalarAluInstructions) {
   }
 }
 
-TEST(GcnInstDecoderTest, DecodesRepresentativeScalarMemoryRangeInstructions) {
+TEST(InstructionDecoderTest, DecodesRepresentativeScalarMemoryRangeInstructions) {
   {
     RawGcnInstruction raw{
         .pc = 0x1960,
@@ -345,7 +345,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeScalarMemoryRangeInstructions) {
         .decoded_operands = {},
     };
 
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 3u);
     EXPECT_EQ(decoded.mnemonic, "s_load_dwordx2");
     ASSERT_EQ(decoded.operands.size(), 3u);
@@ -365,7 +365,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeScalarMemoryRangeInstructions) {
         .decoded_operands = {},
     };
 
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 4u);
     EXPECT_EQ(decoded.mnemonic, "s_load_dwordx4");
     ASSERT_EQ(decoded.operands.size(), 3u);
@@ -375,7 +375,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeScalarMemoryRangeInstructions) {
   }
 }
 
-TEST(GcnInstDecoderTest, DecodesAdditionalScalarControlInstructions) {
+TEST(InstructionDecoderTest, DecodesAdditionalScalarControlInstructions) {
   {
     RawGcnInstruction raw{
         .pc = 0x1978,
@@ -387,7 +387,7 @@ TEST(GcnInstDecoderTest, DecodesAdditionalScalarControlInstructions) {
         .decoded_operands = {},
     };
 
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 27u);
     EXPECT_EQ(decoded.mnemonic, "s_branch");
     ASSERT_EQ(decoded.operands.size(), 1u);
@@ -405,7 +405,7 @@ TEST(GcnInstDecoderTest, DecodesAdditionalScalarControlInstructions) {
         .decoded_operands = {},
     };
 
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 22u);
     EXPECT_EQ(decoded.mnemonic, "s_cbranch_scc1");
     ASSERT_EQ(decoded.operands.size(), 1u);
@@ -423,7 +423,7 @@ TEST(GcnInstDecoderTest, DecodesAdditionalScalarControlInstructions) {
         .decoded_operands = {},
     };
 
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 29u);
     EXPECT_EQ(decoded.mnemonic, "s_barrier");
     ASSERT_EQ(decoded.operands.size(), 1u);
@@ -431,7 +431,7 @@ TEST(GcnInstDecoderTest, DecodesAdditionalScalarControlInstructions) {
   }
 }
 
-TEST(GcnInstDecoderTest, DecodesAdditionalScalarCompareInstructions) {
+TEST(InstructionDecoderTest, DecodesAdditionalScalarCompareInstructions) {
   {
     RawGcnInstruction raw{
         .pc = 0x1984,
@@ -443,7 +443,7 @@ TEST(GcnInstDecoderTest, DecodesAdditionalScalarCompareInstructions) {
         .decoded_operands = {},
     };
 
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 24u);
     EXPECT_EQ(decoded.mnemonic, "s_cmp_eq_u32");
     ASSERT_EQ(decoded.operands.size(), 2u);
@@ -462,7 +462,7 @@ TEST(GcnInstDecoderTest, DecodesAdditionalScalarCompareInstructions) {
         .decoded_operands = {},
     };
 
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 39u);
     EXPECT_EQ(decoded.mnemonic, "s_cmp_gt_u32");
     ASSERT_EQ(decoded.operands.size(), 2u);
@@ -481,7 +481,7 @@ TEST(GcnInstDecoderTest, DecodesAdditionalScalarCompareInstructions) {
         .decoded_operands = {},
     };
 
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 40u);
     EXPECT_EQ(decoded.mnemonic, "s_cmp_lt_u32");
     ASSERT_EQ(decoded.operands.size(), 2u);
@@ -490,7 +490,7 @@ TEST(GcnInstDecoderTest, DecodesAdditionalScalarCompareInstructions) {
   }
 }
 
-TEST(GcnInstDecoderTest, DecodesRepresentativeGlobalLoadInstruction) {
+TEST(InstructionDecoderTest, DecodesRepresentativeGlobalLoadInstruction) {
   RawGcnInstruction raw{
       .pc = 0x1968,
       .size_bytes = 8,
@@ -501,11 +501,11 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeGlobalLoadInstruction) {
       .decoded_operands = {},
   };
 
-  const auto decoded = GcnInstDecoder{}.Decode(raw);
+  const auto decoded = InstructionDecoder{}.Decode(raw);
   EXPECT_EQ(decoded.encoding_id, 18u);
   EXPECT_EQ(decoded.mnemonic, "global_load_dword");
   ASSERT_EQ(decoded.operands.size(), 3u);
-  EXPECT_EQ(decoded.operands[1].kind, DecodedGcnOperandKind::VectorRegRange);
+  EXPECT_EQ(decoded.operands[1].kind, DecodedInstructionOperandKind::VectorRegRange);
   EXPECT_EQ(decoded.operands[1].text, "v[4:5]");
   EXPECT_EQ(decoded.operands[1].info.reg_first, 4u);
   EXPECT_EQ(decoded.operands[1].info.reg_count, 2u);
@@ -515,7 +515,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeGlobalLoadInstruction) {
   EXPECT_EQ(decoded.operands[2].info.immediate, 0);
 }
 
-TEST(GcnInstDecoderTest, DecodesRepresentativeGlobalStoreInstruction) {
+TEST(InstructionDecoderTest, DecodesRepresentativeGlobalStoreInstruction) {
   RawGcnInstruction raw{
       .pc = 0x1970,
       .size_bytes = 8,
@@ -526,17 +526,17 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeGlobalStoreInstruction) {
       .decoded_operands = {},
   };
 
-  const auto decoded = GcnInstDecoder{}.Decode(raw);
+  const auto decoded = InstructionDecoder{}.Decode(raw);
   EXPECT_EQ(decoded.encoding_id, 19u);
   EXPECT_EQ(decoded.mnemonic, "global_store_dword");
   ASSERT_EQ(decoded.operands.size(), 3u);
-  EXPECT_EQ(decoded.operands[0].kind, DecodedGcnOperandKind::VectorRegRange);
+  EXPECT_EQ(decoded.operands[0].kind, DecodedInstructionOperandKind::VectorRegRange);
   EXPECT_EQ(decoded.operands[0].text, "v[5:6]");
   EXPECT_EQ(decoded.operands[1].text, "v4");
   EXPECT_EQ(decoded.operands[2].text, "off");
 }
 
-TEST(GcnInstDecoderTest, DecodesRepresentativeVop3aFmaInstruction) {
+TEST(InstructionDecoderTest, DecodesRepresentativeVop3aFmaInstruction) {
   RawGcnInstruction raw{
       .pc = 0x1a00,
       .size_bytes = 8,
@@ -547,7 +547,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeVop3aFmaInstruction) {
       .decoded_operands = {},
   };
 
-  const auto decoded = GcnInstDecoder{}.Decode(raw);
+  const auto decoded = InstructionDecoder{}.Decode(raw);
   EXPECT_EQ(decoded.encoding_id, 25u);
   EXPECT_EQ(decoded.mnemonic, "v_fma_f32");
   ASSERT_EQ(decoded.operands.size(), 4u);
@@ -557,7 +557,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeVop3aFmaInstruction) {
   EXPECT_EQ(decoded.operands[3].text, "v5");
 }
 
-TEST(GcnInstDecoderTest, DecodesAdditionalVectorAndLdsInstructions) {
+TEST(InstructionDecoderTest, DecodesAdditionalVectorAndLdsInstructions) {
   {
     RawGcnInstruction raw{
         .pc = 0x1a10,
@@ -569,7 +569,7 @@ TEST(GcnInstDecoderTest, DecodesAdditionalVectorAndLdsInstructions) {
         .decoded_operands = {},
     };
 
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 11u);
     EXPECT_EQ(decoded.mnemonic, "v_add_f32_e32");
     ASSERT_EQ(decoded.operands.size(), 3u);
@@ -589,7 +589,7 @@ TEST(GcnInstDecoderTest, DecodesAdditionalVectorAndLdsInstructions) {
         .decoded_operands = {},
     };
 
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.mnemonic, "v_mul_f32_e32");
     ASSERT_EQ(decoded.operands.size(), 3u);
     EXPECT_EQ(decoded.operands[0].text, "v4");
@@ -608,7 +608,7 @@ TEST(GcnInstDecoderTest, DecodesAdditionalVectorAndLdsInstructions) {
         .decoded_operands = {},
     };
 
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 66u);
     EXPECT_EQ(decoded.mnemonic, "v_cmp_eq_u32_e32");
     ASSERT_EQ(decoded.operands.size(), 3u);
@@ -628,7 +628,7 @@ TEST(GcnInstDecoderTest, DecodesAdditionalVectorAndLdsInstructions) {
         .decoded_operands = {},
     };
 
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 80u);
     EXPECT_EQ(decoded.mnemonic, "v_cvt_f32_i32_e32");
     ASSERT_EQ(decoded.operands.size(), 2u);
@@ -647,7 +647,7 @@ TEST(GcnInstDecoderTest, DecodesAdditionalVectorAndLdsInstructions) {
         .decoded_operands = {},
     };
 
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 8u);
     EXPECT_EQ(decoded.mnemonic, "v_cmp_gt_i32_e32");
     ASSERT_EQ(decoded.operands.size(), 3u);
@@ -667,7 +667,7 @@ TEST(GcnInstDecoderTest, DecodesAdditionalVectorAndLdsInstructions) {
         .decoded_operands = {},
     };
 
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 30u);
     EXPECT_EQ(decoded.mnemonic, "ds_write_b32");
     ASSERT_EQ(decoded.operands.size(), 2u);
@@ -686,7 +686,7 @@ TEST(GcnInstDecoderTest, DecodesAdditionalVectorAndLdsInstructions) {
         .decoded_operands = {},
     };
 
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 31u);
     EXPECT_EQ(decoded.mnemonic, "ds_read_b32");
     ASSERT_EQ(decoded.operands.size(), 2u);
@@ -705,7 +705,7 @@ TEST(GcnInstDecoderTest, DecodesAdditionalVectorAndLdsInstructions) {
         .decoded_operands = {},
     };
 
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 56u);
     EXPECT_EQ(decoded.mnemonic, "v_cmp_gt_u32_e32");
     ASSERT_EQ(decoded.operands.size(), 3u);
@@ -724,7 +724,7 @@ TEST(GcnInstDecoderTest, DecodesAdditionalVectorAndLdsInstructions) {
         .decoded_operands = {},
     };
 
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 75u);
     EXPECT_EQ(decoded.mnemonic, "v_cmp_le_i32_e32");
     ASSERT_EQ(decoded.operands.size(), 3u);
@@ -743,7 +743,7 @@ TEST(GcnInstDecoderTest, DecodesAdditionalVectorAndLdsInstructions) {
         .decoded_operands = {},
     };
 
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 76u);
     EXPECT_EQ(decoded.mnemonic, "v_cmp_lt_i32_e32");
     ASSERT_EQ(decoded.operands.size(), 3u);
@@ -752,7 +752,7 @@ TEST(GcnInstDecoderTest, DecodesAdditionalVectorAndLdsInstructions) {
   }
 }
 
-TEST(GcnInstDecoderTest, FallsBackToGeneratedNameForReservedPlaceholderFamilies) {
+TEST(InstructionDecoderTest, FallsBackToGeneratedNameForReservedPlaceholderFamilies) {
   {
     RawGcnInstruction raw{
         .pc = 0x1b00,
@@ -763,7 +763,7 @@ TEST(GcnInstDecoderTest, FallsBackToGeneratedNameForReservedPlaceholderFamilies)
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.mnemonic, "buffer_load_dword");
   }
 
@@ -777,7 +777,7 @@ TEST(GcnInstDecoderTest, FallsBackToGeneratedNameForReservedPlaceholderFamilies)
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.mnemonic, "tbuffer_load_format_x");
   }
 
@@ -791,7 +791,7 @@ TEST(GcnInstDecoderTest, FallsBackToGeneratedNameForReservedPlaceholderFamilies)
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.mnemonic, "image_load");
   }
 
@@ -805,7 +805,7 @@ TEST(GcnInstDecoderTest, FallsBackToGeneratedNameForReservedPlaceholderFamilies)
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.mnemonic, "exp");
   }
 
@@ -819,12 +819,12 @@ TEST(GcnInstDecoderTest, FallsBackToGeneratedNameForReservedPlaceholderFamilies)
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.mnemonic, "v_interp_p1_f32");
   }
 }
 
-TEST(GcnInstDecoderTest, DecodesRepresentativeVop3B64ShiftInstruction) {
+TEST(InstructionDecoderTest, DecodesRepresentativeVop3B64ShiftInstruction) {
   RawGcnInstruction raw{
       .pc = 0x1a04,
       .size_bytes = 8,
@@ -835,7 +835,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeVop3B64ShiftInstruction) {
       .decoded_operands = {},
   };
 
-  const auto decoded = GcnInstDecoder{}.Decode(raw);
+  const auto decoded = InstructionDecoder{}.Decode(raw);
   EXPECT_EQ(decoded.encoding_id, 17u);
   EXPECT_EQ(decoded.mnemonic, "v_lshlrev_b64");
   ASSERT_EQ(decoded.operands.size(), 3u);
@@ -844,7 +844,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeVop3B64ShiftInstruction) {
   EXPECT_EQ(decoded.operands[2].text, "v[6:7]");
 }
 
-TEST(GcnInstDecoderTest, DecodesRepresentativeMadU64U32Instruction) {
+TEST(InstructionDecoderTest, DecodesRepresentativeMadU64U32Instruction) {
   RawGcnInstruction raw{
       .pc = 0x1a08,
       .size_bytes = 8,
@@ -855,7 +855,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeMadU64U32Instruction) {
       .decoded_operands = {},
   };
 
-  const auto decoded = GcnInstDecoder{}.Decode(raw);
+  const auto decoded = InstructionDecoder{}.Decode(raw);
   EXPECT_EQ(decoded.encoding_id, 79u);
   EXPECT_EQ(decoded.mnemonic, "v_mad_u64_u32");
   ASSERT_EQ(decoded.operands.size(), 5u);
@@ -866,7 +866,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeMadU64U32Instruction) {
   EXPECT_EQ(decoded.operands[4].text, "v[6:7]");
 }
 
-TEST(GcnInstDecoderTest, DecodesRepresentativeCarryProducingVectorAddInstruction) {
+TEST(InstructionDecoderTest, DecodesRepresentativeCarryProducingVectorAddInstruction) {
   RawGcnInstruction raw{
       .pc = 0x1a20,
       .size_bytes = 4,
@@ -877,7 +877,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeCarryProducingVectorAddInstruction
       .decoded_operands = {},
   };
 
-  const auto decoded = GcnInstDecoder{}.Decode(raw);
+  const auto decoded = InstructionDecoder{}.Decode(raw);
   EXPECT_EQ(decoded.encoding_id, 15u);
   EXPECT_EQ(decoded.mnemonic, "v_add_co_u32_e32");
   ASSERT_EQ(decoded.operands.size(), 4u);
@@ -887,7 +887,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeCarryProducingVectorAddInstruction
   EXPECT_EQ(decoded.operands[3].text, "v2");
 }
 
-TEST(GcnInstDecoderTest, DecodesRepresentativeCarryConsumingVectorAddInstruction) {
+TEST(InstructionDecoderTest, DecodesRepresentativeCarryConsumingVectorAddInstruction) {
   RawGcnInstruction raw{
       .pc = 0x1a24,
       .size_bytes = 4,
@@ -898,7 +898,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeCarryConsumingVectorAddInstruction
       .decoded_operands = {},
   };
 
-  const auto decoded = GcnInstDecoder{}.Decode(raw);
+  const auto decoded = InstructionDecoder{}.Decode(raw);
   EXPECT_EQ(decoded.encoding_id, 16u);
   EXPECT_EQ(decoded.mnemonic, "v_addc_co_u32_e32");
   ASSERT_EQ(decoded.operands.size(), 5u);
@@ -909,7 +909,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeCarryConsumingVectorAddInstruction
   EXPECT_EQ(decoded.operands[4].text, "vcc");
 }
 
-TEST(GcnInstDecoderTest, DecodesRepresentativeVop3CarryE64Instruction) {
+TEST(InstructionDecoderTest, DecodesRepresentativeVop3CarryE64Instruction) {
   RawGcnInstruction raw{
       .pc = 0x1a30,
       .size_bytes = 8,
@@ -920,7 +920,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeVop3CarryE64Instruction) {
       .decoded_operands = {},
   };
 
-  const auto decoded = GcnInstDecoder{}.Decode(raw);
+  const auto decoded = InstructionDecoder{}.Decode(raw);
   EXPECT_EQ(decoded.encoding_id, 35u);
   EXPECT_EQ(decoded.mnemonic, "v_add_co_u32_e64");
   ASSERT_EQ(decoded.operands.size(), 4u);
@@ -930,7 +930,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeVop3CarryE64Instruction) {
   EXPECT_EQ(decoded.operands[3].text, "s5");
 }
 
-TEST(GcnInstDecoderTest, DecodesRepresentativeVop3CndmaskE64Instruction) {
+TEST(InstructionDecoderTest, DecodesRepresentativeVop3CndmaskE64Instruction) {
   RawGcnInstruction raw{
       .pc = 0x1a38,
       .size_bytes = 8,
@@ -941,7 +941,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeVop3CndmaskE64Instruction) {
       .decoded_operands = {},
   };
 
-  const auto decoded = GcnInstDecoder{}.Decode(raw);
+  const auto decoded = InstructionDecoder{}.Decode(raw);
   EXPECT_EQ(decoded.encoding_id, 59u);
   EXPECT_EQ(decoded.mnemonic, "v_cndmask_b32_e64");
   ASSERT_EQ(decoded.operands.size(), 4u);
@@ -951,7 +951,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeVop3CndmaskE64Instruction) {
   EXPECT_EQ(decoded.operands[3].text, "s[4:5]");
 }
 
-TEST(GcnInstDecoderTest, DecodesRepresentativeSop1ScalarAluInstructions) {
+TEST(InstructionDecoderTest, DecodesRepresentativeSop1ScalarAluInstructions) {
   {
     RawGcnInstruction raw{
         .pc = 0x1a40,
@@ -963,7 +963,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeSop1ScalarAluInstructions) {
         .decoded_operands = {},
     };
 
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 71u);
     EXPECT_EQ(decoded.mnemonic, "s_mov_b64");
     ASSERT_EQ(decoded.operands.size(), 2u);
@@ -982,7 +982,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeSop1ScalarAluInstructions) {
         .decoded_operands = {},
     };
 
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 83u);
     EXPECT_EQ(decoded.mnemonic, "s_bcnt1_i32_b64");
     ASSERT_EQ(decoded.operands.size(), 2u);
@@ -991,7 +991,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeSop1ScalarAluInstructions) {
   }
 }
 
-TEST(GcnInstDecoderTest, DecodesRepresentativeVectorAluInstructionsAcrossFormats) {
+TEST(InstructionDecoderTest, DecodesRepresentativeVectorAluInstructionsAcrossFormats) {
   {
     RawGcnInstruction raw{
         .pc = 0x1a48,
@@ -1003,7 +1003,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeVectorAluInstructionsAcrossFormats
         .decoded_operands = {},
     };
 
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 32u);
     EXPECT_EQ(decoded.mnemonic, "v_not_b32_e32");
     ASSERT_EQ(decoded.operands.size(), 2u);
@@ -1022,7 +1022,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeVectorAluInstructionsAcrossFormats
         .decoded_operands = {},
     };
 
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 50u);
     EXPECT_EQ(decoded.mnemonic, "v_rndne_f32_e32");
     ASSERT_EQ(decoded.operands.size(), 2u);
@@ -1041,7 +1041,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeVectorAluInstructionsAcrossFormats
         .decoded_operands = {},
     };
 
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 14u);
     EXPECT_EQ(decoded.mnemonic, "v_ashrrev_i32_e32");
     ASSERT_EQ(decoded.operands.size(), 3u);
@@ -1061,7 +1061,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeVectorAluInstructionsAcrossFormats
         .decoded_operands = {},
     };
 
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 48u);
     EXPECT_EQ(decoded.mnemonic, "v_cndmask_b32_e32");
     ASSERT_EQ(decoded.operands.size(), 3u);
@@ -1081,7 +1081,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeVectorAluInstructionsAcrossFormats
         .decoded_operands = {},
     };
 
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 63u);
     EXPECT_EQ(decoded.mnemonic, "v_ldexp_f32");
     ASSERT_EQ(decoded.operands.size(), 4u);
@@ -1103,7 +1103,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeVectorAluInstructionsAcrossFormats
         .decoded_operands = {},
     };
 
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 81u);
     EXPECT_EQ(decoded.mnemonic, "v_mbcnt_lo_u32_b32");
     ASSERT_EQ(decoded.operands.size(), 3u);
@@ -1124,7 +1124,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeVectorAluInstructionsAcrossFormats
         .decoded_operands = {},
     };
 
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 82u);
     EXPECT_EQ(decoded.mnemonic, "v_mbcnt_hi_u32_b32");
     ASSERT_EQ(decoded.operands.size(), 3u);
@@ -1134,7 +1134,7 @@ TEST(GcnInstDecoderTest, DecodesRepresentativeVectorAluInstructionsAcrossFormats
   }
 }
 
-TEST(GcnInstDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats) {
+TEST(InstructionDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats) {
   {
     RawGcnInstruction raw{
         .pc = 0x1a70,
@@ -1145,7 +1145,7 @@ TEST(GcnInstDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats) {
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 9u);
     EXPECT_EQ(decoded.mnemonic, "s_and_saveexec_b64");
     ASSERT_EQ(decoded.operands.size(), 2u);
@@ -1163,7 +1163,7 @@ TEST(GcnInstDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats) {
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 26u);
     EXPECT_EQ(decoded.mnemonic, "s_cbranch_scc0");
     ASSERT_EQ(decoded.operands.size(), 1u);
@@ -1180,7 +1180,7 @@ TEST(GcnInstDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats) {
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 43u);
     EXPECT_EQ(decoded.mnemonic, "s_cbranch_vccz");
     ASSERT_EQ(decoded.operands.size(), 1u);
@@ -1197,7 +1197,7 @@ TEST(GcnInstDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats) {
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 74u);
     EXPECT_EQ(decoded.mnemonic, "s_cbranch_execnz");
     ASSERT_EQ(decoded.operands.size(), 1u);
@@ -1214,7 +1214,7 @@ TEST(GcnInstDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats) {
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 68u);
     EXPECT_EQ(decoded.mnemonic, "s_nop");
     EXPECT_TRUE(decoded.operands.empty());
@@ -1230,7 +1230,7 @@ TEST(GcnInstDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats) {
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 21u);
     EXPECT_EQ(decoded.mnemonic, "s_cmp_lt_i32");
     ASSERT_EQ(decoded.operands.size(), 2u);
@@ -1248,7 +1248,7 @@ TEST(GcnInstDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats) {
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 23u);
     EXPECT_EQ(decoded.mnemonic, "s_add_i32");
     ASSERT_EQ(decoded.operands.size(), 3u);
@@ -1265,7 +1265,7 @@ TEST(GcnInstDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats) {
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 77u);
     EXPECT_EQ(decoded.mnemonic, "s_and_b64");
     ASSERT_EQ(decoded.operands.size(), 3u);
@@ -1282,7 +1282,7 @@ TEST(GcnInstDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats) {
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 42u);
     EXPECT_EQ(decoded.mnemonic, "s_andn2_b64");
     ASSERT_EQ(decoded.operands.size(), 3u);
@@ -1299,7 +1299,7 @@ TEST(GcnInstDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats) {
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 72u);
     EXPECT_EQ(decoded.mnemonic, "s_ashr_i32");
     ASSERT_EQ(decoded.operands.size(), 3u);
@@ -1316,7 +1316,7 @@ TEST(GcnInstDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats) {
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 28u);
     EXPECT_EQ(decoded.mnemonic, "s_or_b64");
     ASSERT_EQ(decoded.operands.size(), 3u);
@@ -1333,7 +1333,7 @@ TEST(GcnInstDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats) {
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 41u);
     EXPECT_EQ(decoded.mnemonic, "s_cselect_b64");
     ASSERT_EQ(decoded.operands.size(), 3u);
@@ -1350,7 +1350,7 @@ TEST(GcnInstDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats) {
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 7u);
     EXPECT_EQ(decoded.mnemonic, "v_add_u32_e32");
     ASSERT_EQ(decoded.operands.size(), 3u);
@@ -1367,7 +1367,7 @@ TEST(GcnInstDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats) {
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 65u);
     EXPECT_EQ(decoded.mnemonic, "v_fmac_f32_e32");
     ASSERT_EQ(decoded.operands.size(), 3u);
@@ -1384,7 +1384,7 @@ TEST(GcnInstDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats) {
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 49u);
     EXPECT_EQ(decoded.mnemonic, "v_cvt_i32_f32_e32");
     ASSERT_EQ(decoded.operands.size(), 2u);
@@ -1402,7 +1402,7 @@ TEST(GcnInstDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats) {
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 51u);
     EXPECT_EQ(decoded.mnemonic, "v_exp_f32_e32");
     ASSERT_EQ(decoded.operands.size(), 2u);
@@ -1419,7 +1419,7 @@ TEST(GcnInstDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats) {
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 52u);
     EXPECT_EQ(decoded.mnemonic, "v_rcp_f32_e32");
     ASSERT_EQ(decoded.operands.size(), 2u);
@@ -1436,7 +1436,7 @@ TEST(GcnInstDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats) {
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 44u);
     EXPECT_EQ(decoded.mnemonic, "v_sub_f32_e32");
     ASSERT_EQ(decoded.operands.size(), 3u);
@@ -1453,7 +1453,7 @@ TEST(GcnInstDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats) {
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 46u);
     EXPECT_EQ(decoded.mnemonic, "v_max_f32_e32");
     ASSERT_EQ(decoded.operands.size(), 3u);
@@ -1470,7 +1470,7 @@ TEST(GcnInstDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats) {
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 33u);
     EXPECT_EQ(decoded.mnemonic, "v_lshlrev_b32_e32");
     ASSERT_EQ(decoded.operands.size(), 3u);
@@ -1487,7 +1487,7 @@ TEST(GcnInstDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats) {
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 60u);
     EXPECT_EQ(decoded.mnemonic, "v_div_fixup_f32");
     ASSERT_EQ(decoded.operands.size(), 4u);
@@ -1504,7 +1504,7 @@ TEST(GcnInstDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats) {
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 61u);
     EXPECT_EQ(decoded.mnemonic, "v_div_scale_f32");
     ASSERT_EQ(decoded.operands.size(), 4u);
@@ -1522,7 +1522,7 @@ TEST(GcnInstDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats) {
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 62u);
     EXPECT_EQ(decoded.mnemonic, "v_div_fmas_f32");
     ASSERT_EQ(decoded.operands.size(), 4u);
@@ -1539,7 +1539,7 @@ TEST(GcnInstDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats) {
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 34u);
     EXPECT_EQ(decoded.mnemonic, "v_lshl_add_u32");
     ASSERT_EQ(decoded.operands.size(), 4u);
@@ -1556,7 +1556,7 @@ TEST(GcnInstDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats) {
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 36u);
     EXPECT_EQ(decoded.mnemonic, "v_addc_co_u32_e64");
     ASSERT_EQ(decoded.operands.size(), 5u);
@@ -1575,7 +1575,7 @@ TEST(GcnInstDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats) {
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 38u);
     EXPECT_EQ(decoded.mnemonic, "v_cmp_gt_i32_e64");
     ASSERT_EQ(decoded.operands.size(), 3u);
@@ -1592,7 +1592,7 @@ TEST(GcnInstDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats) {
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 57u);
     EXPECT_EQ(decoded.mnemonic, "v_cmp_ngt_f32_e32");
     ASSERT_EQ(decoded.operands.size(), 3u);
@@ -1609,7 +1609,7 @@ TEST(GcnInstDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats) {
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 58u);
     EXPECT_EQ(decoded.mnemonic, "v_cmp_nlt_f32_e32");
     ASSERT_EQ(decoded.operands.size(), 3u);
@@ -1626,7 +1626,7 @@ TEST(GcnInstDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats) {
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 67u);
     EXPECT_EQ(decoded.mnemonic, "v_mfma_f32_16x16x4f32");
     ASSERT_EQ(decoded.operands.size(), 4u);
@@ -1643,7 +1643,7 @@ TEST(GcnInstDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats) {
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 85u);
     EXPECT_EQ(decoded.mnemonic, "v_mfma_f32_16x16x4f16");
     ASSERT_EQ(decoded.operands.size(), 4u);
@@ -1660,7 +1660,7 @@ TEST(GcnInstDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats) {
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 86u);
     EXPECT_EQ(decoded.mnemonic, "v_mfma_i32_16x16x4i8");
     ASSERT_EQ(decoded.operands.size(), 4u);
@@ -1677,7 +1677,7 @@ TEST(GcnInstDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats) {
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 87u);
     EXPECT_EQ(decoded.mnemonic, "v_mfma_f32_16x16x2bf16");
     ASSERT_EQ(decoded.operands.size(), 4u);
@@ -1694,7 +1694,7 @@ TEST(GcnInstDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats) {
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.mnemonic, "v_mfma_f32_32x32x2f32");
     ASSERT_EQ(decoded.operands.size(), 4u);
     EXPECT_EQ(decoded.operands[0].text, "v[32:47]");
@@ -1710,7 +1710,7 @@ TEST(GcnInstDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats) {
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.mnemonic, "v_mfma_i32_16x16x16i8");
     ASSERT_EQ(decoded.operands.size(), 4u);
     EXPECT_EQ(decoded.operands[0].text, "v[48:51]");
@@ -1726,7 +1726,7 @@ TEST(GcnInstDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats) {
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.mnemonic, "v_accvgpr_read_b32");
     ASSERT_EQ(decoded.operands.size(), 2u);
     EXPECT_EQ(decoded.operands[0].text, "v6");
@@ -1743,7 +1743,7 @@ TEST(GcnInstDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats) {
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.mnemonic, "v_accvgpr_write_b32");
     ASSERT_EQ(decoded.operands.size(), 2u);
     EXPECT_EQ(decoded.operands[0].text, "a4");
@@ -1760,7 +1760,7 @@ TEST(GcnInstDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats) {
         .operands = "",
         .decoded_operands = {},
     };
-    const auto decoded = GcnInstDecoder{}.Decode(raw);
+    const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 84u);
     EXPECT_EQ(decoded.mnemonic, "global_atomic_add");
     ASSERT_EQ(decoded.operands.size(), 3u);

@@ -118,50 +118,28 @@ std::vector<InstructionObjectPtr> InstructionArrayParser::Parse(
 ParsedInstructionArray InstructionArrayParser::Parse(std::span<const std::byte> text_bytes,
                                                      uint64_t start_pc) {
   ParsedInstructionArray result;
-  const auto raw_instructions = ParseRawInstructions(text_bytes, start_pc);
-  result.decoded_instructions.reserve(raw_instructions.size());
-  for (const auto& instruction : raw_instructions) {
+  result.raw_instructions = ParseRawInstructions(text_bytes, start_pc);
+  result.decoded_instructions.reserve(result.raw_instructions.size());
+  for (const auto& instruction : result.raw_instructions) {
     result.decoded_instructions.push_back(InstructionDecoder{}.Decode(instruction));
   }
   result.instruction_objects = Parse(result.decoded_instructions);
   return result;
 }
 
-RawGcnParsedInstructionArray RawGcnInstructionArrayParser::Parse(
-    const std::vector<RawGcnInstruction>& instructions) {
-  RawGcnParsedInstructionArray result;
+ParsedInstructionArray InstructionArrayParser::Parse(const std::vector<RawGcnInstruction>& instructions) {
+  ParsedInstructionArray result;
   result.raw_instructions = instructions;
   result.decoded_instructions.reserve(instructions.size());
   for (const auto& instruction : instructions) {
     result.decoded_instructions.push_back(InstructionDecoder{}.Decode(instruction));
   }
-  result.instruction_objects = InstructionArrayParser::Parse(result.decoded_instructions);
+  result.instruction_objects = Parse(result.decoded_instructions);
   return result;
-}
-
-RawGcnParsedInstructionArray RawGcnInstructionArrayParser::Parse(std::span<const std::byte> text_bytes,
-                                                                 uint64_t start_pc) {
-  RawGcnParsedInstructionArray result;
-  result.raw_instructions = ParseRawInstructions(text_bytes, start_pc);
-  result.decoded_instructions.reserve(result.raw_instructions.size());
-  for (const auto& instruction : result.raw_instructions) {
-    result.decoded_instructions.push_back(InstructionDecoder{}.Decode(instruction));
-  }
-  result.instruction_objects = InstructionArrayParser::Parse(result.decoded_instructions);
-  return result;
-}
-
-std::vector<RawGcnInstructionObjectPtr> RawGcnInstructionArrayParser::Parse(
-    const std::vector<DecodedInstruction>& instructions) {
-  return InstructionArrayParser::Parse(instructions);
 }
 
 InstructionObjectPtr InstructionFactory::Create(DecodedInstruction instruction) {
   return BindRawGcnInstructionObject(std::move(instruction));
-}
-
-RawGcnInstructionObjectPtr RawGcnInstructionFactory::Create(DecodedInstruction instruction) {
-  return InstructionFactory::Create(std::move(instruction));
 }
 
 }  // namespace gpu_model

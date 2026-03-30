@@ -6,7 +6,7 @@ namespace gpu_model {
 namespace {
 
 TEST(ExecutionSyncOpsTest, MarksWaveAtBarrier) {
-  WaveState wave;
+  WaveContext wave;
   wave.thread_count = 64;
   wave.ResetInitialExec();
   uint32_t arrivals = 0;
@@ -21,7 +21,7 @@ TEST(ExecutionSyncOpsTest, MarksWaveAtBarrier) {
 }
 
 TEST(ExecutionSyncOpsTest, ReleasesBarrierOnlyWhenAllActiveWavesWait) {
-  std::vector<WaveState> waves(2);
+  std::vector<WaveContext> waves(2);
   for (uint32_t i = 0; i < waves.size(); ++i) {
     waves[i].thread_count = 64;
     waves[i].ResetInitialExec();
@@ -50,14 +50,14 @@ TEST(ExecutionSyncOpsTest, ReleasesBarrierOnlyWhenAllActiveWavesWait) {
 }
 
 TEST(ExecutionSyncOpsTest, ReleasesBarrierThroughWavePointers) {
-  std::vector<WaveState> owned_waves(2);
+  std::vector<WaveContext> owned_waves(2);
   for (uint32_t i = 0; i < owned_waves.size(); ++i) {
     owned_waves[i].thread_count = 64;
     owned_waves[i].ResetInitialExec();
     owned_waves[i].pc = 10 + i;
   }
 
-  std::vector<WaveState*> wave_ptrs;
+  std::vector<WaveContext*> wave_ptrs;
   for (auto& wave : owned_waves) {
     wave_ptrs.push_back(&wave);
   }

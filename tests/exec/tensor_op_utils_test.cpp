@@ -12,7 +12,7 @@ TEST(TensorOpUtilsTest, DetectsTensorMnemonics) {
 }
 
 TEST(TensorOpUtilsTest, MirrorPolicyWritesBothVgprAndAgpr) {
-  WaveState wave;
+  WaveContext wave;
 
   WriteTensorResultRange(
       wave, 8, 2, 3, 0x12345678u, TensorResultStoragePolicy::MirrorToVgprAndAgpr);
@@ -24,7 +24,7 @@ TEST(TensorOpUtilsTest, MirrorPolicyWritesBothVgprAndAgpr) {
 }
 
 TEST(TensorOpUtilsTest, AgprOnlyPolicyLeavesVgprUntouched) {
-  WaveState wave;
+  WaveContext wave;
   wave.vgpr.Write(4, 1, 0xaabbccddu);
 
   WriteTensorResultRange(

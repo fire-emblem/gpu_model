@@ -2,6 +2,7 @@
 
 #include "gpu_model/decode/gcn_inst_encoding_def.h"
 #include "gpu_model/decode/gcn_inst_formatter.h"
+#include "gpu_model/instruction/encoded/decoded_instruction.h"
 
 namespace gpu_model {
 namespace {
@@ -39,7 +40,7 @@ TEST(GcnInstFormatterTest, FormatsRawInstructionWithEncodingInfo) {
 }
 
 TEST(GcnInstFormatterTest, FormatsDecodedInstructionWithDecodedOperands) {
-  DecodedGcnInstruction instruction{
+  DecodedInstruction instruction{
       .pc = 0x1968,
       .size_bytes = 8,
       .encoding_id = 18,
@@ -48,9 +49,9 @@ TEST(GcnInstFormatterTest, FormatsDecodedInstructionWithDecodedOperands) {
       .mnemonic = "global_load_dword",
       .operands =
           {
-              DecodedGcnOperand{.kind = DecodedGcnOperandKind::VectorReg, .text = "v6", .info = {}},
-              DecodedGcnOperand{.kind = DecodedGcnOperandKind::VectorRegRange, .text = "v[4:5]", .info = {}},
-              DecodedGcnOperand{.kind = DecodedGcnOperandKind::Immediate, .text = "off", .info = {}},
+              DecodedInstructionOperand{.kind = DecodedInstructionOperandKind::VectorReg, .text = "v6", .info = {}},
+              DecodedInstructionOperand{.kind = DecodedInstructionOperandKind::VectorRegRange, .text = "v[4:5]", .info = {}},
+              DecodedInstructionOperand{.kind = DecodedInstructionOperandKind::Immediate, .text = "off", .info = {}},
           },
   };
 

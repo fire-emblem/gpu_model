@@ -1,9 +1,11 @@
 #pragma once
 
-#include "gpu_model/exec/encoded/object/raw_gcn_instruction_object.h"
+#include "gpu_model/decode/decoded_gcn_instruction.h"
+#include "gpu_model/instruction/encoded/decoded_instruction.h"
+#include "gpu_model/instruction/encoded/instruction_object.h"
 
 namespace gpu_model {
 
-RawGcnInstructionObjectPtr BindRawGcnInstructionObject(DecodedGcnInstruction instruction);
+InstructionObjectPtr BindRawGcnInstructionObject(DecodedInstruction instruction);
 
 }  // namespace gpu_model

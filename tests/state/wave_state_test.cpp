@@ -1,12 +1,12 @@
 #include <gtest/gtest.h>
 
-#include "gpu_model/state/wave_state.h"
+#include "gpu_model/execution/wave_context.h"
 
 namespace gpu_model {
 namespace {
 
 TEST(WaveStateTest, InitializesExecAndPredicateMasks) {
-  WaveState wave;
+  WaveContext wave;
   wave.thread_count = 10;
   wave.ResetInitialExec();
 

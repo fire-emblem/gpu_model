@@ -21,14 +21,13 @@
 #include "gpu_model/loader/device_image_loader.h"
 #include "gpu_model/runtime/kernarg_packer.h"
 #include "gpu_model/runtime/mapper.h"
-#include "gpu_model/state/wave_state.h"
 
 namespace gpu_model {
 
 namespace {
 
 struct RawWave {
-  WaveState wave;
+  WaveContext wave;
   uint64_t vcc = 0;
 };
 
@@ -42,7 +41,7 @@ struct RawBlock {
 bool DebugEnabled();
 void DebugLog(const char* fmt, ...);
 
-void WriteWaveSgprPair(WaveState& wave, uint32_t first, uint64_t value) {
+void WriteWaveSgprPair(WaveContext& wave, uint32_t first, uint64_t value) {
   wave.sgpr.Write(first, static_cast<uint32_t>(value & 0xffffffffu));
   wave.sgpr.Write(first + 1, static_cast<uint32_t>(value >> 32u));
 }
@@ -113,7 +112,7 @@ uint32_t WaveLaunchTraceScalarRegs(const AmdgpuKernelDescriptor& descriptor) {
   return std::max(4u, sgpr_count);
 }
 
-void InitializeWaveAbiState(WaveState& wave,
+void InitializeWaveAbiState(WaveContext& wave,
                             const EncodedProgramObject& image,
                             const LaunchConfig& config,
                             uint64_t kernarg_base,
@@ -224,9 +223,9 @@ std::string HexU64(uint64_t value) {
   return out.str();
 }
 
-std::string FormatRawWaveStepMessage(const DecodedGcnInstruction& instruction,
+std::string FormatRawWaveStepMessage(const DecodedInstruction& instruction,
                                      const InstructionObject* object,
-                                     const WaveState& wave) {
+                                     const WaveContext& wave) {
   std::ostringstream out;
   out << "pc=" << HexU64(wave.pc)
       << " op=" << instruction.mnemonic
@@ -352,7 +351,7 @@ LaunchResult EncodedExecEngine::Run(const EncodedProgramObject& image,
         break;
       }
 
-      std::vector<WaveState*> wave_ptrs;
+      std::vector<WaveContext*> wave_ptrs;
       wave_ptrs.reserve(raw_block.waves.size());
       for (auto& raw_wave : raw_block.waves) {
         wave_ptrs.push_back(&raw_wave.wave);

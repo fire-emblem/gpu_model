@@ -2,7 +2,7 @@
 
 本目录测试：
 
-- `DecodedGcnInstruction`
+- `DecodedInstruction`
 - `RawGcnInstructionDescriptor`
 - `BindRawGcnInstructionObject()`
 

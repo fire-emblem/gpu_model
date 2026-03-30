@@ -2,7 +2,7 @@
 
 #include <thread>
 
-#include "gpu_model/exec/functional_execution_core.h"
+#include "gpu_model/execution/functional_exec_engine.h"
 
 namespace gpu_model {
 
@@ -16,7 +16,7 @@ uint32_t DefaultMarlWorkerThreadCount() {
 }  // namespace
 
 uint64_t ParallelWaveExecutor::Run(ExecutionContext& context) {
-  FunctionalExecutionCore core(context);
+  FunctionalExecEngine core(context);
   const uint32_t workers =
       config_.worker_threads == 0 ? DefaultMarlWorkerThreadCount() : config_.worker_threads;
   return core.RunParallelBlocks(workers);

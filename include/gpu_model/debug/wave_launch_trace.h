@@ -4,7 +4,7 @@
 #include <sstream>
 #include <string>
 
-#include "gpu_model/state/wave_state.h"
+#include "gpu_model/execution/wave_context.h"
 
 namespace gpu_model {
 
@@ -14,7 +14,7 @@ inline std::string HexWaveTraceU64(uint64_t value) {
   return out.str();
 }
 
-inline std::string FormatWaveLaunchTraceMessage(const WaveState& wave,
+inline std::string FormatWaveLaunchTraceMessage(const WaveContext& wave,
                                                 uint32_t scalar_regs = 4,
                                                 uint32_t vector_regs = 2,
                                                 uint32_t lanes_per_vector = 2) {

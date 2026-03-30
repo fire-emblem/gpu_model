@@ -5,9 +5,9 @@
 #include <string>
 #include <vector>
 
-#include "gpu_model/decode/decoded_gcn_instruction.h"
 #include "gpu_model/decode/raw_gcn_instruction.h"
-#include "gpu_model/exec/encoded/object/raw_gcn_instruction_object.h"
+#include "gpu_model/instruction/encoded/decoded_instruction.h"
+#include "gpu_model/instruction/encoded/instruction_object.h"
 #include "gpu_model/isa/metadata.h"
 
 namespace gpu_model {
@@ -51,8 +51,8 @@ struct EncodedProgramObject {
   AmdgpuKernelDescriptor kernel_descriptor;
   std::vector<std::byte> code_bytes;
   std::vector<RawGcnInstruction> instructions;
-  std::vector<DecodedGcnInstruction> decoded_instructions;
-  std::vector<RawGcnInstructionObjectPtr> instruction_objects;
+  std::vector<DecodedInstruction> decoded_instructions;
+  std::vector<InstructionObjectPtr> instruction_objects;
 };
 
 }  // namespace gpu_model

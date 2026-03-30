@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <string_view>
 
+#include "gpu_model/execution/wave_context.h"
 #include "gpu_model/state/wave_state.h"
 
 namespace gpu_model {
@@ -21,7 +22,7 @@ inline TensorResultStoragePolicy DefaultTensorResultStoragePolicy() {
   return TensorResultStoragePolicy::MirrorToVgprAndAgpr;
 }
 
-inline void WriteTensorResult(WaveState& wave,
+inline void WriteTensorResult(WaveContext& wave,
                               uint32_t reg_index,
                               uint32_t lane,
                               uint64_t value,
@@ -32,7 +33,7 @@ inline void WriteTensorResult(WaveState& wave,
   }
 }
 
-inline void WriteTensorResultRange(WaveState& wave,
+inline void WriteTensorResultRange(WaveContext& wave,
                                    uint32_t first_reg_index,
                                    uint32_t reg_count,
                                    uint32_t lane,

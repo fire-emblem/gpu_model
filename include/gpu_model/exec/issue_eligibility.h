@@ -5,6 +5,7 @@
 #include <string>
 
 #include "gpu_model/isa/instruction.h"
+#include "gpu_model/execution/wave_context.h"
 #include "gpu_model/state/wave_state.h"
 
 namespace gpu_model {
@@ -25,22 +26,22 @@ struct WaitCntThresholds {
 };
 
 MemoryWaitDomain MemoryDomainForOpcode(Opcode opcode);
-uint32_t PendingMemoryOpsForDomain(const WaveState& wave, MemoryWaitDomain domain);
-void IncrementPendingMemoryOps(WaveState& wave, MemoryWaitDomain domain);
-void DecrementPendingMemoryOps(WaveState& wave, MemoryWaitDomain domain);
+uint32_t PendingMemoryOpsForDomain(const WaveContext& wave, MemoryWaitDomain domain);
+void IncrementPendingMemoryOps(WaveContext& wave, MemoryWaitDomain domain);
+void DecrementPendingMemoryOps(WaveContext& wave, MemoryWaitDomain domain);
 
 WaitCntThresholds WaitCntThresholdsForInstruction(const Instruction& instruction);
-bool WaitCntSatisfied(const WaveState& wave, const Instruction& instruction);
-std::optional<std::string> WaitCntBlockReason(const WaveState& wave,
+bool WaitCntSatisfied(const WaveContext& wave, const Instruction& instruction);
+std::optional<std::string> WaitCntBlockReason(const WaveContext& wave,
                                               const Instruction& instruction);
-std::optional<std::string> MemoryDomainBlockReason(const WaveState& wave,
+std::optional<std::string> MemoryDomainBlockReason(const WaveContext& wave,
                                                    const Instruction& instruction);
 bool CanIssueInstruction(bool dispatch_enabled,
-                         const WaveState& wave,
+                         const WaveContext& wave,
                          const Instruction& instruction,
                          bool dependencies_ready);
 std::optional<std::string> IssueBlockReason(bool dispatch_enabled,
-                                            const WaveState& wave,
+                                            const WaveContext& wave,
                                             const Instruction& instruction,
                                             bool dependencies_ready);
 

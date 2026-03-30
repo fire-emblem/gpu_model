@@ -4,7 +4,11 @@
 
 #include "gpu_model/decode/gcn_inst_encoding_def.h"
 #include "gpu_model/decode/gcn_inst_decoder.h"
-#include "gpu_model/exec/encoded/object/raw_gcn_instruction_object.h"
+#include "gpu_model/exec/encoded/semantics/raw_gcn_semantic_handler.h"
+#include "gpu_model/execution/wave_context.h"
+#include "gpu_model/instruction/encoded/instruction_object.h"
+#include "gpu_model/memory/memory_system.h"
+#include "gpu_model/runtime/launch_request.h"
 
 namespace gpu_model {
 namespace {
@@ -12,7 +16,7 @@ namespace {
 class RawGcnInstructionObjectExecuteTest : public ::testing::Test {
  protected:
   struct Harness {
-    WaveState wave;
+    WaveContext wave;
     uint64_t vcc = 0;
     std::vector<std::byte> kernarg;
     MemorySystem memory;
@@ -36,10 +40,10 @@ class RawGcnInstructionObjectExecuteTest : public ::testing::Test {
     }
   };
 
-  static RawGcnInstructionObjectPtr ParseSingleObject(uint64_t pc,
-                                                      std::vector<uint32_t> words,
-                                                      GcnInstFormatClass format_class,
-                                                      std::string mnemonic) {
+  static InstructionObjectPtr ParseSingleObject(uint64_t pc,
+                                                std::vector<uint32_t> words,
+                                                GcnInstFormatClass format_class,
+                                                std::string mnemonic) {
     RawGcnInstruction raw;
     raw.pc = pc;
     raw.words = std::move(words);
@@ -47,7 +51,7 @@ class RawGcnInstructionObjectExecuteTest : public ::testing::Test {
     raw.size_bytes = raw.words.size() * sizeof(uint32_t);
     raw.mnemonic = std::move(mnemonic);
     DecodeGcnOperands(raw);
-    auto parsed = RawGcnInstructionArrayParser::Parse(std::vector<RawGcnInstruction>{raw});
+    auto parsed = InstructionArrayParser::Parse(std::vector<RawGcnInstruction>{raw});
     EXPECT_EQ(parsed.instruction_objects.size(), 1u);
     return std::move(parsed.instruction_objects.front());
   }

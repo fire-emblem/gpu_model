@@ -1,5 +1,6 @@
 #include "gpu_model/runtime/runtime_engine.h"
 
+#include <algorithm>
 #include <cstdlib>
 #include <cstdio>
 #include <sstream>
@@ -8,15 +9,13 @@
 #include <thread>
 
 #include "gpu_model/arch/arch_registry.h"
-#include "gpu_model/exec/cycle_executor.h"
-#include "gpu_model/exec/functional_executor.h"
-#include "gpu_model/exec/parallel_wave_executor.h"
-#include "gpu_model/exec/encoded/executor/raw_gcn_executor.h"
+#include "gpu_model/execution/cycle_exec_engine.h"
+#include "gpu_model/execution/functional_exec_engine.h"
+#include "gpu_model/execution/encoded_exec_engine.h"
 #include "gpu_model/isa/kernel_metadata.h"
 #include "gpu_model/isa/target_isa.h"
 #include "gpu_model/loader/device_image_loader.h"
 #include "gpu_model/loader/program_lowering.h"
-#include "gpu_model/execution/encoded_exec_engine.h"
 #include "gpu_model/program/encoded_program_object.h"
 #include "gpu_model/program/execution_route.h"
 
@@ -352,17 +351,21 @@ LaunchResult RuntimeEngineImpl::Launch(const LaunchRequest& request) {
         result.stats = raw_result.stats;
       } else {
         if (functional_execution_config_.mode == FunctionalExecutionMode::MarlParallel) {
-          ParallelWaveExecutor executor(functional_execution_config_);
-          result.total_cycles = executor.Run(context);
+          FunctionalExecEngine executor(context);
+          const uint32_t workers =
+              functional_execution_config_.worker_threads == 0
+                  ? DefaultMarlWorkerThreadCount()
+                  : functional_execution_config_.worker_threads;
+          result.total_cycles = executor.RunParallelBlocks(workers);
         } else {
-          FunctionalExecutor executor;
-          result.total_cycles = executor.Run(context);
+          FunctionalExecEngine executor(context);
+          result.total_cycles = executor.RunSequential();
         }
         result.end_cycle = result.total_cycles;
       }
     } else if (request.mode == ExecutionMode::Cycle) {
       context.cycle = result.begin_cycle;
-      CycleExecutor executor(ResolveCycleTimingConfig(*spec));
+      CycleExecEngine executor(ResolveCycleTimingConfig(*spec));
       result.end_cycle = executor.Run(context);
       result.total_cycles = result.end_cycle - result.begin_cycle;
       device_cycle_ = result.end_cycle;
