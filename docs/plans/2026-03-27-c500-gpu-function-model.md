@@ -1,5 +1,9 @@
 # C500 GPU Function Model Implementation Plan
 
+> [!NOTE]
+> 历史计划文档。用于保留当时的拆解和决策上下文，不作为当前代码结构的权威描述。当前主线以 `docs/my_design.md` 和 `docs/module-development-status.md` 为准。
+
+
 > **For Claude:** Use `${SUPERPOWERS_SKILLS_ROOT}/skills/collaboration/executing-plans/SKILL.md` to implement this plan task-by-task.
 
 **Goal:** Build a C++20 GPU functional model for the `c500` architecture with a custom AMD-style instruction IR, functional execution, trace/debug support, core integration tests, and a naive cycle model that reuses the same instruction semantics.

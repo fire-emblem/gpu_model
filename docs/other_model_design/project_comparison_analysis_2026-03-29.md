@@ -1,5 +1,9 @@
 # 基于 other_model_design 的项目对比分析
 
+> [!NOTE]
+> 外部参考/对比文档。用于记录其他方案与比较分析，不直接定义当前仓库实现。当前主线以 `docs/my_design.md` 和 `docs/module-development-status.md` 为准。
+
+
 日期：`2026-03-29`
 
 适用范围：

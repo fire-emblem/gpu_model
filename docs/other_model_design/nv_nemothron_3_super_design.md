@@ -1,4 +1,8 @@
 # 轻量级 AMDGPU Cycle 仿真器设计方案  
+
+> [!NOTE]
+> 外部参考/对比文档。用于记录其他方案与比较分析，不直接定义当前仓库实现。当前主线以 `docs/my_design.md` 和 `docs/module-development-status.md` 为准。
+
 *面向编译器与算子库的指令/算法优化分析*  
 
 > **关键点**  

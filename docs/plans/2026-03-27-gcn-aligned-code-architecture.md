@@ -1,5 +1,9 @@
 # GCN-Aligned Code Architecture
 
+> [!NOTE]
+> 历史计划文档。用于保留当时的拆解和决策上下文，不作为当前代码结构的权威描述。当前主线以 `docs/my_design.md` 和 `docs/module-development-status.md` 为准。
+
+
 ## Objective
 
 This document defines the target code architecture for the project when aligning

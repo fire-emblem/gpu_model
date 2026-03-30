@@ -1,3 +1,6 @@
+> [!NOTE]
+> 外部参考/对比文档。用于记录其他方案与比较分析，不直接定义当前仓库实现。当前主线以 `docs/my_design.md` 和 `docs/module-development-status.md` 为准。
+
 AMD GPU 轻量级 Cycle Simulator 设计文档
 1. 项目目标
 1.1 核心目标

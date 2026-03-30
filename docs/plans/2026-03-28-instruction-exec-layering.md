@@ -1,5 +1,9 @@
 # Instruction Exec Layering
 
+> [!NOTE]
+> 历史计划文档。用于保留当时的拆解和决策上下文，不作为当前代码结构的权威描述。当前主线以 `docs/my_design.md` 和 `docs/module-development-status.md` 为准。
+
+
 ## 目标
 
 把指令相关实现稳定分成三层：

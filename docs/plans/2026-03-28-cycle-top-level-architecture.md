@@ -1,5 +1,9 @@
 # Cycle Top-Level Architecture
 
+> [!NOTE]
+> 历史计划文档。用于保留当时的拆解和决策上下文，不作为当前代码结构的权威描述。当前主线以 `docs/my_design.md` 和 `docs/module-development-status.md` 为准。
+
+
 ## 目标
 
 `cycle model` 的目标不是硬件精准复刻。
