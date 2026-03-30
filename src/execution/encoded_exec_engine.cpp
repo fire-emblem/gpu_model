@@ -112,6 +112,13 @@ uint32_t WaveLaunchTraceScalarRegs(const AmdgpuKernelDescriptor& descriptor) {
   return std::max(4u, sgpr_count);
 }
 
+uint32_t WaveLaunchTraceVectorRegs(const AmdgpuKernelDescriptor& descriptor) {
+  if (!HasExplicitDescriptorAbiRecipe(descriptor)) {
+    return 3;
+  }
+  return std::max(1u, static_cast<uint32_t>(descriptor.enable_vgpr_workitem_id) + 1u);
+}
+
 void InitializeWaveAbiState(WaveContext& wave,
                             const EncodedProgramObject& image,
                             const LaunchConfig& config,
@@ -335,7 +342,8 @@ LaunchResult EncodedExecEngine::Run(const EncodedProgramObject& image,
           .pc = raw_wave.wave.pc,
           .message = FormatWaveLaunchTraceMessage(
               raw_wave.wave,
-              WaveLaunchTraceScalarRegs(image.kernel_descriptor)),
+              WaveLaunchTraceScalarRegs(image.kernel_descriptor),
+              WaveLaunchTraceVectorRegs(image.kernel_descriptor)),
       });
     }
 

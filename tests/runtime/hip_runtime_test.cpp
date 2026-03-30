@@ -1388,6 +1388,7 @@ TEST(HipRuntimeTest, LaunchesHipThreeDimensionalBuiltinIdsExecutableInRawGcnPath
   EXPECT_GE(image.kernel_descriptor.enable_vgpr_workitem_id, 2u);
 
   constexpr uint32_t depth = 64;
+  CollectingTraceSink trace;
   const uint64_t out_addr = hooks.Malloc(depth * sizeof(int32_t));
   std::vector<int32_t> out(depth, -1);
   hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(out));
@@ -1408,7 +1409,7 @@ TEST(HipRuntimeTest, LaunchesHipThreeDimensionalBuiltinIdsExecutableInRawGcnPath
       std::move(args),
       ExecutionMode::Functional,
       "c500",
-      nullptr,
+      &trace,
       "three_dimensional_builtin_ids");
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -1416,6 +1417,19 @@ TEST(HipRuntimeTest, LaunchesHipThreeDimensionalBuiltinIdsExecutableInRawGcnPath
   for (uint32_t i = 0; i < depth; ++i) {
     EXPECT_EQ(out[i], static_cast<int32_t>(i));
   }
+
+  bool saw_wave_launch = false;
+  for (const auto& event : trace.events()) {
+    if (event.kind != TraceEventKind::WaveLaunch) {
+      continue;
+    }
+    saw_wave_launch = true;
+    EXPECT_NE(event.message.find("s4=0x0"), std::string::npos);
+    EXPECT_NE(event.message.find("v2["), std::string::npos);
+    EXPECT_NE(event.message.find("v2[0,1]={0x0,0x1}"), std::string::npos);
+    break;
+  }
+  EXPECT_TRUE(saw_wave_launch);
 
   std::filesystem::remove_all(temp_dir);
 }
