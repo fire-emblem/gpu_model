@@ -5,7 +5,7 @@
 
 #include "gpu_model/debug/trace_sink.h"
 #include "gpu_model/execution/cycle_exec_engine.h"
-#include "gpu_model/exec/functional_execution_mode.h"
+#include "gpu_model/execution/functional_execution_mode.h"
 #include "gpu_model/memory/memory_system.h"
 #include "gpu_model/runtime/launch_request.h"
 

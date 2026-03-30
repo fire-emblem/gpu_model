@@ -202,7 +202,7 @@ void InitializeWaveAbiState(WaveContext& wave,
 }
 
 bool DebugEnabled() {
-  return std::getenv("GPU_MODEL_RAW_GCN_DEBUG") != nullptr;
+  return std::getenv("GPU_MODEL_ENCODED_EXEC_DEBUG") != nullptr;
 }
 
 void DebugLog(const char* fmt, ...) {
@@ -211,7 +211,7 @@ void DebugLog(const char* fmt, ...) {
   }
   va_list args;
   va_start(args, fmt);
-  std::fputs("[gpu_model_raw_gcn] ", stderr);
+  std::fputs("[gpu_model_encoded_exec] ", stderr);
   std::vfprintf(stderr, fmt, args);
   std::fputc('\n', stderr);
   va_end(args);
@@ -393,13 +393,13 @@ LaunchResult EncodedExecEngine::Run(const EncodedProgramObject& image,
             .pc = raw_wave.wave.pc,
             .message = FormatRawWaveStepMessage(decoded, object, raw_wave.wave),
         });
-        RawGcnBlockContext block_context{
+        EncodedBlockContext block_context{
             .shared_memory = raw_block.shared_memory,
             .barrier_generation = raw_block.barrier_generation,
             .barrier_arrivals = raw_block.barrier_arrivals,
             .wave_count = static_cast<uint32_t>(raw_block.waves.size()),
         };
-        RawGcnWaveContext context(raw_wave.wave,
+        EncodedWaveContext context(raw_wave.wave,
                                   raw_wave.vcc,
                                   kernarg,
                                   kernarg_base,
@@ -410,7 +410,7 @@ LaunchResult EncodedExecEngine::Run(const EncodedProgramObject& image,
           if (object != nullptr) {
             object->Execute(context);
           } else {
-            const auto& handler = RawGcnSemanticHandlerRegistry::Get(decoded);
+            const auto& handler = EncodedSemanticHandlerRegistry::Get(decoded);
             handler.Execute(decoded, context);
           }
           made_progress = true;

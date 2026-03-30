@@ -3,8 +3,8 @@
 本目录测试：
 
 - `DecodedInstruction`
-- `RawGcnInstructionDescriptor`
-- `BindRawGcnInstructionObject()`
+- `EncodedInstructionDescriptor`
+- `BindEncodedInstructionObject()`
 
 之间的绑定关系是否正确。
 

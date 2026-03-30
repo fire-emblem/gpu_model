@@ -5,6 +5,6 @@
 
 namespace gpu_model {
 
-InstructionObjectPtr BindRawGcnInstructionObject(DecodedInstruction instruction);
+InstructionObjectPtr BindEncodedInstructionObject(DecodedInstruction instruction);
 
 }  // namespace gpu_model

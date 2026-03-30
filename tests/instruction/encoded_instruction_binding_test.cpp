@@ -18,7 +18,7 @@ DecodedInstruction MakeDecoded(std::vector<uint32_t> words,
 
 TEST(EncodedInstructionBindingTest, BindsRepresentativeConcreteObjects) {
   {
-    auto object = BindRawGcnInstructionObject(
+    auto object = BindEncodedInstructionObject(
         MakeDecoded({0xc0020002u, 0x0000002cu}, GcnInstFormatClass::Smrd, "s_load_dword"));
     ASSERT_NE(object, nullptr);
     EXPECT_EQ(object->op_type_name(), "smrd");
@@ -26,7 +26,7 @@ TEST(EncodedInstructionBindingTest, BindsRepresentativeConcreteObjects) {
   }
 
   {
-    auto object = BindRawGcnInstructionObject(
+    auto object = BindEncodedInstructionObject(
         MakeDecoded({0x68000006u}, GcnInstFormatClass::Vop2, "v_add_u32_e32"));
     ASSERT_NE(object, nullptr);
     EXPECT_EQ(object->op_type_name(), "vop2");
@@ -34,7 +34,7 @@ TEST(EncodedInstructionBindingTest, BindsRepresentativeConcreteObjects) {
   }
 
   {
-    auto object = BindRawGcnInstructionObject(
+    auto object = BindEncodedInstructionObject(
         MakeDecoded({0xdc508000u, 0x067f0004u}, GcnInstFormatClass::Flat, "global_load_dword"));
     ASSERT_NE(object, nullptr);
     EXPECT_EQ(object->op_type_name(), "flat");
@@ -43,7 +43,7 @@ TEST(EncodedInstructionBindingTest, BindsRepresentativeConcreteObjects) {
 }
 
 TEST(EncodedInstructionBindingTest, BindsPlaceholderForRecognizedButUnsupportedFamilies) {
-  auto object = BindRawGcnInstructionObject(
+  auto object = BindEncodedInstructionObject(
       MakeDecoded({0xf8000000u, 0x00000000u}, GcnInstFormatClass::Exp, "exp"));
   ASSERT_NE(object, nullptr);
   EXPECT_EQ(object->op_type_name(), "exp");
@@ -51,7 +51,7 @@ TEST(EncodedInstructionBindingTest, BindsPlaceholderForRecognizedButUnsupportedF
 }
 
 TEST(EncodedInstructionBindingTest, BindsUnknownPlaceholderForUnrecognizedWords) {
-  auto object = BindRawGcnInstructionObject(
+  auto object = BindEncodedInstructionObject(
       MakeDecoded({0xffffffffu}, GcnInstFormatClass::Unknown, "unknown"));
   ASSERT_NE(object, nullptr);
   EXPECT_EQ(object->op_type_name(), "unknown");

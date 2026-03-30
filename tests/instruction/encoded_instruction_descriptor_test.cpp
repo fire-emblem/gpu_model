@@ -18,37 +18,37 @@ DecodedInstruction MakeDecoded(std::vector<uint32_t> words,
 
 TEST(EncodedInstructionDescriptorTest, DescribesRepresentativeKnownInstructionFamilies) {
   {
-    const auto desc = DescribeRawGcnInstruction(
+    const auto desc = DescribeEncodedInstruction(
         MakeDecoded({0xc0020002u, 0x0000002cu}, GcnInstFormatClass::Smrd, "s_load_dword"));
     ASSERT_TRUE(desc.known());
-    EXPECT_EQ(desc.category, RawGcnInstructionCategory::ScalarMemory);
+    EXPECT_EQ(desc.category, EncodedInstructionCategory::ScalarMemory);
     EXPECT_EQ(desc.placeholder_op_type_name, "scalar_memory");
     EXPECT_EQ(desc.placeholder_class_name, "scalar_memory_placeholder");
   }
 
   {
-    const auto desc = DescribeRawGcnInstruction(
+    const auto desc = DescribeEncodedInstruction(
         MakeDecoded({0xbf880019u}, GcnInstFormatClass::Sopp, "s_cbranch_execz"));
     ASSERT_TRUE(desc.known());
-    EXPECT_EQ(desc.category, RawGcnInstructionCategory::Scalar);
+    EXPECT_EQ(desc.category, EncodedInstructionCategory::Scalar);
     EXPECT_EQ(desc.placeholder_op_type_name, "sopp");
     EXPECT_EQ(desc.placeholder_class_name, "sopp_placeholder");
   }
 
   {
-    const auto desc = DescribeRawGcnInstruction(
+    const auto desc = DescribeEncodedInstruction(
         MakeDecoded({0x68000006u}, GcnInstFormatClass::Vop2, "v_add_u32_e32"));
     ASSERT_TRUE(desc.known());
-    EXPECT_EQ(desc.category, RawGcnInstructionCategory::Vector);
+    EXPECT_EQ(desc.category, EncodedInstructionCategory::Vector);
     EXPECT_EQ(desc.placeholder_op_type_name, "vop2");
     EXPECT_EQ(desc.placeholder_class_name, "vop2_placeholder");
   }
 
   {
-    const auto desc = DescribeRawGcnInstruction(
+    const auto desc = DescribeEncodedInstruction(
         MakeDecoded({0xdc508000u, 0x067f0004u}, GcnInstFormatClass::Flat, "global_load_dword"));
     ASSERT_TRUE(desc.known());
-    EXPECT_EQ(desc.category, RawGcnInstructionCategory::Memory);
+    EXPECT_EQ(desc.category, EncodedInstructionCategory::Memory);
     EXPECT_EQ(desc.placeholder_op_type_name, "flat");
     EXPECT_EQ(desc.placeholder_class_name, "flat_placeholder");
   }
@@ -56,9 +56,9 @@ TEST(EncodedInstructionDescriptorTest, DescribesRepresentativeKnownInstructionFa
 
 TEST(EncodedInstructionDescriptorTest, ReturnsUnknownDescriptorForUnrecognizedWords) {
   const auto desc =
-      DescribeRawGcnInstruction(MakeDecoded({0xffffffffu}, GcnInstFormatClass::Unknown, "unknown"));
+      DescribeEncodedInstruction(MakeDecoded({0xffffffffu}, GcnInstFormatClass::Unknown, "unknown"));
   EXPECT_FALSE(desc.known());
-  EXPECT_EQ(desc.category, RawGcnInstructionCategory::Unknown);
+  EXPECT_EQ(desc.category, EncodedInstructionCategory::Unknown);
   EXPECT_EQ(desc.placeholder_op_type_name, "unknown");
   EXPECT_EQ(desc.placeholder_class_name, "unknown_placeholder");
 }

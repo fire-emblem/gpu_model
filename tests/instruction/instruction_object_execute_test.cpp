@@ -23,8 +23,8 @@ class InstructionObjectExecuteTest : public ::testing::Test {
     std::vector<std::byte> shared_memory;
     uint64_t barrier_generation = 0;
     uint32_t barrier_arrivals = 0;
-    RawGcnBlockContext block;
-    RawGcnWaveContext context;
+    EncodedBlockContext block;
+    EncodedWaveContext context;
 
     Harness()
         : block{

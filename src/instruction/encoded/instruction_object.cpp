@@ -5,8 +5,8 @@
 #include <vector>
 
 #include "gpu_model/decode/gcn_inst_encoding_def.h"
-#include "gpu_model/exec/encoded/binding/raw_gcn_instruction_binding.h"
-#include "gpu_model/exec/encoded/semantics/raw_gcn_semantic_handler.h"
+#include "gpu_model/instruction/encoded/internal/encoded_instruction_binding.h"
+#include "gpu_model/execution/encoded_semantic_handler.h"
 #include "gpu_model/instruction/encoded/instruction_decoder.h"
 
 namespace gpu_model {
@@ -139,7 +139,7 @@ ParsedInstructionArray InstructionArrayParser::Parse(const std::vector<RawGcnIns
 }
 
 InstructionObjectPtr InstructionFactory::Create(DecodedInstruction instruction) {
-  return BindRawGcnInstructionObject(std::move(instruction));
+  return BindEncodedInstructionObject(std::move(instruction));
 }
 
 }  // namespace gpu_model

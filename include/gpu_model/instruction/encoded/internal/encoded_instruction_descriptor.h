@@ -7,7 +7,7 @@
 
 namespace gpu_model {
 
-enum class RawGcnInstructionCategory {
+enum class EncodedInstructionCategory {
   Unknown,
   ScalarMemory,
   Scalar,
@@ -15,16 +15,16 @@ enum class RawGcnInstructionCategory {
   Memory,
 };
 
-struct RawGcnInstructionDescriptor {
+struct EncodedInstructionDescriptor {
   const GcnIsaOpcodeDescriptor* opcode_descriptor = nullptr;
-  RawGcnInstructionCategory category = RawGcnInstructionCategory::Unknown;
+  EncodedInstructionCategory category = EncodedInstructionCategory::Unknown;
   std::string_view placeholder_op_type_name = "unknown";
   std::string_view placeholder_class_name = "unknown_placeholder";
 
   bool known() const { return opcode_descriptor != nullptr; }
 };
 
-RawGcnInstructionDescriptor DescribeRawGcnInstruction(const DecodedInstruction& instruction);
-std::string_view ToString(RawGcnInstructionCategory category);
+EncodedInstructionDescriptor DescribeEncodedInstruction(const DecodedInstruction& instruction);
+std::string_view ToString(EncodedInstructionCategory category);
 
 }  // namespace gpu_model

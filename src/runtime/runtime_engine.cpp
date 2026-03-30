@@ -206,7 +206,7 @@ LaunchResult RuntimeEngineImpl::Launch(const LaunchRequest& request) {
   std::optional<PreparedExecutionRoute> prepared_program_execution;
   const EncodedProgramObject* raw_code_object = request.raw_code_object;
   const EncodedProgramObject* encoded_program_object = raw_code_object;
-  bool use_raw_gcn_executor = raw_code_object != nullptr;
+  bool use_encoded_exec_engine = raw_code_object != nullptr;
   if (raw_code_object == nullptr && kernel == nullptr && request.program_image != nullptr) {
     try {
       prepared_program_execution.emplace(
@@ -217,13 +217,13 @@ LaunchResult RuntimeEngineImpl::Launch(const LaunchRequest& request) {
     }
     raw_code_object = prepared_program_execution->raw_code_object;
     encoded_program_object = raw_code_object;
-    use_raw_gcn_executor = raw_code_object != nullptr;
-    if (!use_raw_gcn_executor) {
+    use_encoded_exec_engine = raw_code_object != nullptr;
+    if (!use_encoded_exec_engine) {
       parsed_kernel = ProgramLoweringRegistry::Lower(*prepared_program_execution->execution_image);
       kernel = &parsed_kernel;
     }
   }
-  if (kernel == nullptr && !use_raw_gcn_executor) {
+  if (kernel == nullptr && !use_encoded_exec_engine) {
     result.error_message = "launch request missing kernel or program image";
     return result;
   }
@@ -235,7 +235,7 @@ LaunchResult RuntimeEngineImpl::Launch(const LaunchRequest& request) {
   }
 
   const MetadataBlob& launch_metadata_source =
-      use_raw_gcn_executor ? encoded_program_object->metadata
+      use_encoded_exec_engine ? encoded_program_object->metadata
                            : (request.program_image != nullptr && kernel == nullptr
                                   ? request.program_image->metadata()
                                   : kernel->metadata());
@@ -248,7 +248,7 @@ LaunchResult RuntimeEngineImpl::Launch(const LaunchRequest& request) {
       return result;
     }
     const std::string kernel_name =
-        use_raw_gcn_executor ? encoded_program_object->kernel_name : kernel->name();
+        use_encoded_exec_engine ? encoded_program_object->kernel_name : kernel->name();
     if (launch_metadata.entry.has_value() && *launch_metadata.entry != kernel_name) {
       result.error_message = "kernel metadata entry does not match kernel name";
       return result;
@@ -305,7 +305,7 @@ LaunchResult RuntimeEngineImpl::Launch(const LaunchRequest& request) {
         .kind = TraceEventKind::Launch,
         .cycle = result.submit_cycle,
         .message = "kernel=" +
-                   (use_raw_gcn_executor ? encoded_program_object->kernel_name : kernel->name()) +
+                   (use_encoded_exec_engine ? encoded_program_object->kernel_name : kernel->name()) +
                    " arch=" + spec->name,
     });
 
@@ -340,7 +340,7 @@ LaunchResult RuntimeEngineImpl::Launch(const LaunchRequest& request) {
     };
 
     if (request.mode == ExecutionMode::Functional) {
-        if (use_raw_gcn_executor) {
+        if (use_encoded_exec_engine) {
           const auto raw_result =
             EncodedExecEngine{}.Run(*encoded_program_object, *spec, request.config, request.args,
                                     request.device_load, memory_, trace);
@@ -375,7 +375,7 @@ LaunchResult RuntimeEngineImpl::Launch(const LaunchRequest& request) {
       return result;
     }
 
-    if (!use_raw_gcn_executor || result.error_message.empty()) {
+    if (!use_encoded_exec_engine || result.error_message.empty()) {
       result.ok = true;
     }
   } catch (const std::exception& ex) {

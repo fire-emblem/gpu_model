@@ -6,15 +6,15 @@ namespace gpu_model {
 
 namespace {
 
-RawGcnInstructionDescriptor MakeUnknownDescriptor() {
-  return RawGcnInstructionDescriptor{};
+EncodedInstructionDescriptor MakeUnknownDescriptor() {
+  return EncodedInstructionDescriptor{};
 }
 
-RawGcnInstructionDescriptor MakeDescriptor(const GcnIsaOpcodeDescriptor* opcode_descriptor,
-                                          RawGcnInstructionCategory category,
+EncodedInstructionDescriptor MakeDescriptor(const GcnIsaOpcodeDescriptor* opcode_descriptor,
+                                          EncodedInstructionCategory category,
                                           std::string_view placeholder_op_type_name,
                                           std::string_view placeholder_class_name) {
-  return RawGcnInstructionDescriptor{
+  return EncodedInstructionDescriptor{
       .opcode_descriptor = opcode_descriptor,
       .category = category,
       .placeholder_op_type_name = placeholder_op_type_name,
@@ -24,23 +24,23 @@ RawGcnInstructionDescriptor MakeDescriptor(const GcnIsaOpcodeDescriptor* opcode_
 
 }  // namespace
 
-std::string_view ToString(RawGcnInstructionCategory category) {
+std::string_view ToString(EncodedInstructionCategory category) {
   switch (category) {
-    case RawGcnInstructionCategory::Unknown:
+    case EncodedInstructionCategory::Unknown:
       return "unknown";
-    case RawGcnInstructionCategory::ScalarMemory:
+    case EncodedInstructionCategory::ScalarMemory:
       return "scalar_memory";
-    case RawGcnInstructionCategory::Scalar:
+    case EncodedInstructionCategory::Scalar:
       return "scalar";
-    case RawGcnInstructionCategory::Vector:
+    case EncodedInstructionCategory::Vector:
       return "vector";
-    case RawGcnInstructionCategory::Memory:
+    case EncodedInstructionCategory::Memory:
       return "memory";
   }
   return "unknown";
 }
 
-RawGcnInstructionDescriptor DescribeRawGcnInstruction(const DecodedInstruction& instruction) {
+EncodedInstructionDescriptor DescribeEncodedInstruction(const DecodedInstruction& instruction) {
   const auto* descriptor = FindGcnFallbackOpcodeDescriptor(instruction.words);
   if (descriptor == nullptr) {
     return MakeUnknownDescriptor();
@@ -49,61 +49,61 @@ RawGcnInstructionDescriptor DescribeRawGcnInstruction(const DecodedInstruction& 
   switch (descriptor->op_type) {
     case GcnIsaOpType::Smrd:
     case GcnIsaOpType::Smem:
-      return MakeDescriptor(descriptor, RawGcnInstructionCategory::ScalarMemory,
+      return MakeDescriptor(descriptor, EncodedInstructionCategory::ScalarMemory,
                             "scalar_memory", "scalar_memory_placeholder");
     case GcnIsaOpType::Sop1:
-      return MakeDescriptor(descriptor, RawGcnInstructionCategory::Scalar, "sop1",
+      return MakeDescriptor(descriptor, EncodedInstructionCategory::Scalar, "sop1",
                             "sop1_placeholder");
     case GcnIsaOpType::Sop2:
-      return MakeDescriptor(descriptor, RawGcnInstructionCategory::Scalar, "sop2",
+      return MakeDescriptor(descriptor, EncodedInstructionCategory::Scalar, "sop2",
                             "sop2_placeholder");
     case GcnIsaOpType::Sopk:
-      return MakeDescriptor(descriptor, RawGcnInstructionCategory::Scalar, "sopk",
+      return MakeDescriptor(descriptor, EncodedInstructionCategory::Scalar, "sopk",
                             "sopk_placeholder");
     case GcnIsaOpType::Sopc:
-      return MakeDescriptor(descriptor, RawGcnInstructionCategory::Scalar, "sopc",
+      return MakeDescriptor(descriptor, EncodedInstructionCategory::Scalar, "sopc",
                             "sopc_placeholder");
     case GcnIsaOpType::Sopp:
-      return MakeDescriptor(descriptor, RawGcnInstructionCategory::Scalar, "sopp",
+      return MakeDescriptor(descriptor, EncodedInstructionCategory::Scalar, "sopp",
                             "sopp_placeholder");
     case GcnIsaOpType::Vop1:
-      return MakeDescriptor(descriptor, RawGcnInstructionCategory::Vector, "vop1",
+      return MakeDescriptor(descriptor, EncodedInstructionCategory::Vector, "vop1",
                             "vop1_placeholder");
     case GcnIsaOpType::Vop2:
-      return MakeDescriptor(descriptor, RawGcnInstructionCategory::Vector, "vop2",
+      return MakeDescriptor(descriptor, EncodedInstructionCategory::Vector, "vop2",
                             "vop2_placeholder");
     case GcnIsaOpType::Vop3a:
-      return MakeDescriptor(descriptor, RawGcnInstructionCategory::Vector, "vop3a",
+      return MakeDescriptor(descriptor, EncodedInstructionCategory::Vector, "vop3a",
                             "vop3a_placeholder");
     case GcnIsaOpType::Vop3b:
-      return MakeDescriptor(descriptor, RawGcnInstructionCategory::Vector, "vop3b",
+      return MakeDescriptor(descriptor, EncodedInstructionCategory::Vector, "vop3b",
                             "vop3b_placeholder");
     case GcnIsaOpType::Vop3p:
-      return MakeDescriptor(descriptor, RawGcnInstructionCategory::Vector, "vop3p",
+      return MakeDescriptor(descriptor, EncodedInstructionCategory::Vector, "vop3p",
                             "vop3p_placeholder");
     case GcnIsaOpType::Vopc:
-      return MakeDescriptor(descriptor, RawGcnInstructionCategory::Vector, "vopc",
+      return MakeDescriptor(descriptor, EncodedInstructionCategory::Vector, "vopc",
                             "vopc_placeholder");
     case GcnIsaOpType::Flat:
-      return MakeDescriptor(descriptor, RawGcnInstructionCategory::Memory, "flat",
+      return MakeDescriptor(descriptor, EncodedInstructionCategory::Memory, "flat",
                             "flat_placeholder");
     case GcnIsaOpType::Ds:
-      return MakeDescriptor(descriptor, RawGcnInstructionCategory::Memory, "ds",
+      return MakeDescriptor(descriptor, EncodedInstructionCategory::Memory, "ds",
                             "ds_placeholder");
     case GcnIsaOpType::Mubuf:
-      return MakeDescriptor(descriptor, RawGcnInstructionCategory::Memory, "mubuf",
+      return MakeDescriptor(descriptor, EncodedInstructionCategory::Memory, "mubuf",
                             "mubuf_placeholder");
     case GcnIsaOpType::Mtbuf:
-      return MakeDescriptor(descriptor, RawGcnInstructionCategory::Memory, "mtbuf",
+      return MakeDescriptor(descriptor, EncodedInstructionCategory::Memory, "mtbuf",
                             "mtbuf_placeholder");
     case GcnIsaOpType::Mimg:
-      return MakeDescriptor(descriptor, RawGcnInstructionCategory::Memory, "mimg",
+      return MakeDescriptor(descriptor, EncodedInstructionCategory::Memory, "mimg",
                             "mimg_placeholder");
     case GcnIsaOpType::Vintrp:
-      return MakeDescriptor(descriptor, RawGcnInstructionCategory::Memory, "vintrp",
+      return MakeDescriptor(descriptor, EncodedInstructionCategory::Memory, "vintrp",
                             "vintrp_placeholder");
     case GcnIsaOpType::Exp:
-      return MakeDescriptor(descriptor, RawGcnInstructionCategory::Memory, "exp",
+      return MakeDescriptor(descriptor, EncodedInstructionCategory::Memory, "exp",
                             "exp_placeholder");
   }
   return MakeUnknownDescriptor();

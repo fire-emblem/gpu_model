@@ -21,7 +21,7 @@ namespace gpu_model {
 
 namespace {
 
-uint32_t LaneCount(const RawGcnWaveContext& context) {
+uint32_t LaneCount(const EncodedWaveContext& context) {
   return context.wave.thread_count < kWaveSize ? context.wave.thread_count : kWaveSize;
 }
 
@@ -78,7 +78,7 @@ float BFloat16ToFloat(uint16_t bits) {
 }
 
 bool DebugEnabled() {
-  return std::getenv("GPU_MODEL_RAW_GCN_DEBUG") != nullptr;
+  return std::getenv("GPU_MODEL_ENCODED_EXEC_DEBUG") != nullptr;
 }
 
 void DebugLog(const char* fmt, ...) {
@@ -87,7 +87,7 @@ void DebugLog(const char* fmt, ...) {
   }
   va_list args;
   va_start(args, fmt);
-  std::fputs("[gpu_model_raw_gcn] ", stderr);
+  std::fputs("[gpu_model_encoded_exec] ", stderr);
   std::vfprintf(stderr, fmt, args);
   std::fputc('\n', stderr);
   va_end(args);
@@ -128,7 +128,7 @@ std::pair<uint32_t, uint32_t> RequireVectorRange(const DecodedInstructionOperand
   return {operand.info.reg_first, operand.info.reg_first + operand.info.reg_count - 1};
 }
 
-uint64_t ResolveScalarLike(const DecodedInstructionOperand& operand, const RawGcnWaveContext& context) {
+uint64_t ResolveScalarLike(const DecodedInstructionOperand& operand, const EncodedWaveContext& context) {
   if (operand.kind == DecodedInstructionOperandKind::Immediate ||
       operand.kind == DecodedInstructionOperandKind::BranchTarget) {
     if (!operand.info.has_immediate) {
@@ -150,7 +150,7 @@ uint64_t ResolveScalarLike(const DecodedInstructionOperand& operand, const RawGc
   throw std::invalid_argument("unsupported scalar-like raw operand");
 }
 
-uint64_t ResolveScalarPair(const DecodedInstructionOperand& operand, const RawGcnWaveContext& context) {
+uint64_t ResolveScalarPair(const DecodedInstructionOperand& operand, const EncodedWaveContext& context) {
   if (operand.kind == DecodedInstructionOperandKind::Immediate ||
       operand.kind == DecodedInstructionOperandKind::BranchTarget) {
     if (!operand.info.has_immediate) {
@@ -179,7 +179,7 @@ uint64_t ResolveScalarPair(const DecodedInstructionOperand& operand, const RawGc
   throw std::invalid_argument("unsupported scalar pair operand");
 }
 
-void StoreScalarPair(const DecodedInstructionOperand& operand, RawGcnWaveContext& context, uint64_t value) {
+void StoreScalarPair(const DecodedInstructionOperand& operand, EncodedWaveContext& context, uint64_t value) {
   if (operand.kind == DecodedInstructionOperandKind::ScalarReg) {
     const uint32_t first = operand.info.reg_first;
     context.wave.sgpr.Write(first, static_cast<uint32_t>(value & 0xffffffffu));
@@ -206,7 +206,7 @@ void StoreScalarPair(const DecodedInstructionOperand& operand, RawGcnWaveContext
 }
 
 uint64_t ResolveVectorLane(const DecodedInstructionOperand& operand,
-                           const RawGcnWaveContext& context,
+                           const EncodedWaveContext& context,
                            uint32_t lane) {
   if (operand.kind == DecodedInstructionOperandKind::Immediate) {
     if (!operand.info.has_immediate) {
@@ -230,9 +230,9 @@ const GcnIsaOpcodeDescriptor& RequireCanonicalOpcode(const DecodedInstruction& i
   throw std::invalid_argument("missing canonical opcode descriptor: " + instruction.mnemonic);
 }
 
-class ScalarMemoryHandler final : public IRawGcnSemanticHandler {
+class ScalarMemoryHandler final : public IEncodedSemanticHandler {
  public:
-  void Execute(const DecodedInstruction& instruction, RawGcnWaveContext& context) const override {
+  void Execute(const DecodedInstruction& instruction, EncodedWaveContext& context) const override {
     if (instruction.mnemonic == "s_load_dword") {
       const uint32_t offset =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(2), context));
@@ -264,9 +264,9 @@ class ScalarMemoryHandler final : public IRawGcnSemanticHandler {
   }
 };
 
-class ScalarAluHandler final : public IRawGcnSemanticHandler {
+class ScalarAluHandler final : public IEncodedSemanticHandler {
  public:
-  void Execute(const DecodedInstruction& instruction, RawGcnWaveContext& context) const override {
+  void Execute(const DecodedInstruction& instruction, EncodedWaveContext& context) const override {
     const auto& descriptor = RequireCanonicalOpcode(instruction);
     if (descriptor.op_type == GcnIsaOpType::Sop2 &&
         descriptor.opcode == static_cast<uint16_t>(GcnIsaSop2Opcode::S_CSELECT_B64)) {
@@ -401,9 +401,9 @@ class ScalarAluHandler final : public IRawGcnSemanticHandler {
   }
 };
 
-class ScalarCompareHandler final : public IRawGcnSemanticHandler {
+class ScalarCompareHandler final : public IEncodedSemanticHandler {
  public:
-  void Execute(const DecodedInstruction& instruction, RawGcnWaveContext& context) const override {
+  void Execute(const DecodedInstruction& instruction, EncodedWaveContext& context) const override {
     const auto& descriptor = RequireCanonicalOpcode(instruction);
     if (descriptor.op_type == GcnIsaOpType::Sopc &&
         descriptor.opcode == static_cast<uint16_t>(GcnIsaSopcOpcode::S_CMP_LT_I32)) {
@@ -440,9 +440,9 @@ class ScalarCompareHandler final : public IRawGcnSemanticHandler {
   }
 };
 
-class VectorAluHandler final : public IRawGcnSemanticHandler {
+class VectorAluHandler final : public IEncodedSemanticHandler {
  public:
-  void Execute(const DecodedInstruction& instruction, RawGcnWaveContext& context) const override {
+  void Execute(const DecodedInstruction& instruction, EncodedWaveContext& context) const override {
     if (instruction.mnemonic == "v_not_b32_e32") {
       const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
       for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
@@ -1036,9 +1036,9 @@ class VectorAluHandler final : public IRawGcnSemanticHandler {
   }
 };
 
-class VectorCompareHandler final : public IRawGcnSemanticHandler {
+class VectorCompareHandler final : public IEncodedSemanticHandler {
  public:
-  void Execute(const DecodedInstruction& instruction, RawGcnWaveContext& context) const override {
+  void Execute(const DecodedInstruction& instruction, EncodedWaveContext& context) const override {
     uint64_t mask = 0;
     switch (instruction.encoding_id) {
       case 8:
@@ -1163,9 +1163,9 @@ class VectorCompareHandler final : public IRawGcnSemanticHandler {
   }
 };
 
-class MaskHandler final : public IRawGcnSemanticHandler {
+class MaskHandler final : public IEncodedSemanticHandler {
  public:
-  void Execute(const DecodedInstruction& instruction, RawGcnWaveContext& context) const override {
+  void Execute(const DecodedInstruction& instruction, EncodedWaveContext& context) const override {
     if (instruction.mnemonic != "s_and_saveexec_b64") {
       throw std::invalid_argument("unsupported mask opcode: " + instruction.mnemonic);
     }
@@ -1182,9 +1182,9 @@ class MaskHandler final : public IRawGcnSemanticHandler {
   }
 };
 
-class BranchHandler final : public IRawGcnSemanticHandler {
+class BranchHandler final : public IEncodedSemanticHandler {
  public:
-  void Execute(const DecodedInstruction& instruction, RawGcnWaveContext& context) const override {
+  void Execute(const DecodedInstruction& instruction, EncodedWaveContext& context) const override {
     switch (instruction.encoding_id) {
       case 10: {  // s_cbranch_execz
       if (context.wave.exec.none()) {
@@ -1242,9 +1242,9 @@ class BranchHandler final : public IRawGcnSemanticHandler {
   }
 };
 
-class FlatMemoryHandler final : public IRawGcnSemanticHandler {
+class FlatMemoryHandler final : public IEncodedSemanticHandler {
  public:
-  void Execute(const DecodedInstruction& instruction, RawGcnWaveContext& context) const override {
+  void Execute(const DecodedInstruction& instruction, EncodedWaveContext& context) const override {
     if (instruction.mnemonic == "global_load_dword") {
       const int64_t offset = instruction.operands.size() >= 3 && instruction.operands.back().info.has_immediate
                                  ? instruction.operands.back().info.immediate
@@ -1337,9 +1337,9 @@ class FlatMemoryHandler final : public IRawGcnSemanticHandler {
   }
 };
 
-class SharedMemoryHandler final : public IRawGcnSemanticHandler {
+class SharedMemoryHandler final : public IEncodedSemanticHandler {
  public:
-  void Execute(const DecodedInstruction& instruction, RawGcnWaveContext& context) const override {
+  void Execute(const DecodedInstruction& instruction, EncodedWaveContext& context) const override {
     if (instruction.mnemonic == "ds_write_b32") {
       const uint32_t addr_vgpr = RequireVectorIndex(instruction.operands.at(0));
       const uint32_t data_vgpr = RequireVectorIndex(instruction.operands.at(1));
@@ -1387,9 +1387,9 @@ class SharedMemoryHandler final : public IRawGcnSemanticHandler {
   }
 };
 
-class SpecialHandler final : public IRawGcnSemanticHandler {
+class SpecialHandler final : public IEncodedSemanticHandler {
  public:
-  void Execute(const DecodedInstruction& instruction, RawGcnWaveContext& context) const override {
+  void Execute(const DecodedInstruction& instruction, EncodedWaveContext& context) const override {
     switch (instruction.encoding_id) {
       case 29: {  // s_barrier
       ++context.stats.barriers;
@@ -1417,10 +1417,10 @@ class SpecialHandler final : public IRawGcnSemanticHandler {
 
 struct HandlerBinding {
   const char* mnemonic = nullptr;
-  const IRawGcnSemanticHandler* handler = nullptr;
+  const IEncodedSemanticHandler* handler = nullptr;
 };
 
-const IRawGcnSemanticHandler* HandlerForSemanticFamily(std::string_view semantic_family,
+const IEncodedSemanticHandler* HandlerForSemanticFamily(std::string_view semantic_family,
                                                        std::string_view mnemonic) {
   static const ScalarMemoryHandler kScalarMemoryHandler;
   static const ScalarAluHandler kScalarAluHandler;
@@ -1476,7 +1476,7 @@ const std::vector<HandlerBinding>& HandlerBindings() {
 
 }  // namespace
 
-const IRawGcnSemanticHandler& RawGcnSemanticHandlerRegistry::Get(std::string_view mnemonic) {
+const IEncodedSemanticHandler& EncodedSemanticHandlerRegistry::Get(std::string_view mnemonic) {
   if (const auto* def = FindGeneratedGcnInstDefByMnemonic(mnemonic); def != nullptr) {
     if (const auto* handler = HandlerForSemanticFamily(def->semantic_family, def->mnemonic)) {
       return *handler;
@@ -1490,7 +1490,7 @@ const IRawGcnSemanticHandler& RawGcnSemanticHandlerRegistry::Get(std::string_vie
   throw std::invalid_argument("unsupported raw GCN opcode: " + std::string(mnemonic));
 }
 
-const IRawGcnSemanticHandler& RawGcnSemanticHandlerRegistry::Get(
+const IEncodedSemanticHandler& EncodedSemanticHandlerRegistry::Get(
     const DecodedInstruction& instruction) {
   for (const auto& binding : HandlerBindings()) {
     if (binding.mnemonic == instruction.mnemonic) {

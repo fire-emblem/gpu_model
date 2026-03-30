@@ -12,29 +12,29 @@
 
 namespace gpu_model {
 
-struct RawGcnBlockContext {
+struct EncodedBlockContext {
   std::vector<std::byte>& shared_memory;
   uint64_t& barrier_generation;
   uint32_t& barrier_arrivals;
   uint32_t wave_count = 0;
 };
 
-struct RawGcnWaveContext : InstructionExecutionContext {
+struct EncodedWaveContext : InstructionExecutionContext {
   WaveContext& wave;
   uint64_t& vcc;
   const std::vector<std::byte>& kernarg;
   uint64_t kernarg_base = 0;
   MemorySystem& memory;
   ExecutionStats& stats;
-  RawGcnBlockContext& block;
+  EncodedBlockContext& block;
 
-  RawGcnWaveContext(WaveContext& wave_ref,
+  EncodedWaveContext(WaveContext& wave_ref,
                     uint64_t& vcc_ref,
                     const std::vector<std::byte>& kernarg_ref,
                     uint64_t kernarg_base_value,
                     MemorySystem& memory_ref,
                     ExecutionStats& stats_ref,
-                    RawGcnBlockContext& block_ref)
+                    EncodedBlockContext& block_ref)
       : wave(wave_ref),
         vcc(vcc_ref),
         kernarg(kernarg_ref),
@@ -44,21 +44,21 @@ struct RawGcnWaveContext : InstructionExecutionContext {
         block(block_ref) {}
 };
 
-class IRawGcnSemanticHandler : public InstructionSemanticHandler {
+class IEncodedSemanticHandler : public InstructionSemanticHandler {
  public:
-  virtual ~IRawGcnSemanticHandler() = default;
+  virtual ~IEncodedSemanticHandler() = default;
   virtual void Execute(const DecodedInstruction& instruction,
-                       RawGcnWaveContext& context) const = 0;
+                       EncodedWaveContext& context) const = 0;
   void Execute(const DecodedInstruction& instruction,
                InstructionExecutionContext& context) const final {
-    Execute(instruction, static_cast<RawGcnWaveContext&>(context));
+    Execute(instruction, static_cast<EncodedWaveContext&>(context));
   }
 };
 
-class RawGcnSemanticHandlerRegistry {
+class EncodedSemanticHandlerRegistry {
  public:
-  static const IRawGcnSemanticHandler& Get(const DecodedInstruction& instruction);
-  static const IRawGcnSemanticHandler& Get(std::string_view mnemonic);
+  static const IEncodedSemanticHandler& Get(const DecodedInstruction& instruction);
+  static const IEncodedSemanticHandler& Get(std::string_view mnemonic);
 };
 
 }  // namespace gpu_model

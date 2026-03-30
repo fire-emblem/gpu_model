@@ -14,7 +14,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "gpu_model/exec/tensor_op_utils.h"
+#include "gpu_model/execution/internal/tensor_op_utils.h"
 
 namespace gpu_model {
 
