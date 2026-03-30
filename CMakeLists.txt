@@ -130,6 +130,9 @@ if(EXISTS "/opt/rocm/include/hip/hip_runtime_api.h")
   target_link_options(gpu_model_hip_interposer PRIVATE
     "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/cmake/hip_interposer.version")
   gpu_model_enable_warnings(gpu_model_hip_interposer)
+  if(TARGET gpu_model_tests)
+    add_dependencies(gpu_model_tests gpu_model_hip_interposer)
+  endif()
 endif()
 
 add_executable(fma_loop_cycle_trace_main
