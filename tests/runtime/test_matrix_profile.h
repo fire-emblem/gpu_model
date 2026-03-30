@@ -18,6 +18,16 @@ inline bool FullTestMatrixEnabled() {
          profile == "1" || profile == "true" || profile == "TRUE";
 }
 
+inline bool Phase1CompatibilityAliasGateEnabled() {
+  const char* value = std::getenv("GPU_MODEL_TEST_PROFILE");
+  if (value == nullptr || *value == '\0') {
+    return false;
+  }
+  const std::string_view profile(value);
+  return profile == "phase1-compat" || profile == "PHASE1-COMPAT" ||
+         profile == "compat" || profile == "COMPAT";
+}
+
 template <typename T>
 std::vector<T> SelectIndexedCases(const std::vector<T>& full_cases,
                                   std::initializer_list<size_t> indices) {

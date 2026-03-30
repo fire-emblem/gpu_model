@@ -326,6 +326,9 @@ std::vector<HipFeatureCase> MakeRuntimeHooksFeatureCasesQuick() {
 }
 
 std::vector<HipFeatureCase> MakeRuntimeHooksFeatureCases() {
+  if (test::Phase1CompatibilityAliasGateEnabled()) {
+    return {};
+  }
   return test::FullTestMatrixEnabled() ? MakeRuntimeHooksFeatureCasesFull()
                                        : MakeRuntimeHooksFeatureCasesQuick();
 }
@@ -493,6 +496,9 @@ std::vector<HipFeatureCase> MakeInterposerFeatureCasesQuick() {
 }
 
 std::vector<HipFeatureCase> MakeInterposerFeatureCases() {
+  if (test::Phase1CompatibilityAliasGateEnabled()) {
+    return {};
+  }
   return test::FullTestMatrixEnabled() ? MakeInterposerFeatureCasesFull()
                                        : MakeInterposerFeatureCasesQuick();
 }
@@ -515,6 +521,9 @@ void ExpectNearVector(const std::vector<float>& actual,
 
 class HipFeatureRuntimeHooksTest : public ::testing::TestWithParam<HipFeatureCase> {};
 class HipFeatureInterposerStateTest : public ::testing::TestWithParam<HipFeatureCase> {};
+
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(HipFeatureRuntimeHooksTest);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(HipFeatureInterposerStateTest);
 
 std::string FeatureCaseName(const ::testing::TestParamInfo<HipFeatureCase>& info) {
   return info.param.name;

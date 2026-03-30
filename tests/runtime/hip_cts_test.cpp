@@ -374,6 +374,9 @@ std::vector<HipCtsCase> MakeRuntimeHooksCasesQuick() {
 }
 
 std::vector<HipCtsCase> MakeRuntimeHooksCases() {
+  if (test::Phase1CompatibilityAliasGateEnabled()) {
+    return {};
+  }
   return test::FullTestMatrixEnabled() ? MakeRuntimeHooksCasesFull() : MakeRuntimeHooksCasesQuick();
 }
 
@@ -472,11 +475,17 @@ std::vector<HipCtsCase> MakeInterposerCasesQuick() {
 }
 
 std::vector<HipCtsCase> MakeInterposerCases() {
+  if (test::Phase1CompatibilityAliasGateEnabled()) {
+    return {};
+  }
   return test::FullTestMatrixEnabled() ? MakeInterposerCasesFull() : MakeInterposerCasesQuick();
 }
 
 class HipCtsRuntimeHooksTest : public ::testing::TestWithParam<HipCtsCase> {};
 class HipCtsInterposerStateTest : public ::testing::TestWithParam<HipCtsCase> {};
+
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(HipCtsRuntimeHooksTest);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(HipCtsInterposerStateTest);
 
 std::string CaseName(const ::testing::TestParamInfo<HipCtsCase>& info) { return info.param.name; }
 
