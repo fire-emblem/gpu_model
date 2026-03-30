@@ -260,5 +260,63 @@ TEST(KernargPackerTest, HonorsVisibleArgOffsetsForPaddedAggregateLayout) {
   EXPECT_TRUE(std::equal(aggregate.begin(), aggregate.end(), bytes.begin() + 16));
 }
 
+TEST(KernargPackerTest, FallsBackToActualVisibleArgSizesWhenLayoutIsAbsent) {
+  KernelLaunchMetadata metadata;
+
+  const std::array<std::byte, 12> aggregate = {
+      std::byte{0x31}, std::byte{0x32}, std::byte{0x33}, std::byte{0x34},
+      std::byte{0x35}, std::byte{0x36}, std::byte{0x37}, std::byte{0x38},
+      std::byte{0x39}, std::byte{0x3a}, std::byte{0x3b}, std::byte{0x3c},
+  };
+
+  KernelArgPack args;
+  args.PushU64(0x0102030405060708ull);
+  args.PushBytes(aggregate);
+  args.PushU64(0x1112131415161718ull);
+
+  const auto bytes = BuildKernargImage(
+      metadata, args,
+      LaunchConfig{.grid_dim_x = 2,
+                   .grid_dim_y = 3,
+                   .grid_dim_z = 4,
+                   .block_dim_x = 8,
+                   .block_dim_y = 16,
+                   .block_dim_z = 32});
+  EXPECT_EQ(LoadU64(bytes, 0), 0x0102030405060708ull);
+  EXPECT_TRUE(std::equal(aggregate.begin(), aggregate.end(), bytes.begin() + 8));
+  EXPECT_EQ(LoadU64(bytes, 20), 0x1112131415161718ull);
+}
+
+TEST(KernargPackerTest, AlignsFallbackHiddenArgsAfterActualVisibleArgPayload) {
+  KernelLaunchMetadata metadata;
+
+  const std::array<std::byte, 12> aggregate = {
+      std::byte{0x41}, std::byte{0x42}, std::byte{0x43}, std::byte{0x44},
+      std::byte{0x45}, std::byte{0x46}, std::byte{0x47}, std::byte{0x48},
+      std::byte{0x49}, std::byte{0x4a}, std::byte{0x4b}, std::byte{0x4c},
+  };
+
+  KernelArgPack args;
+  args.PushU64(0x99);
+  args.PushBytes(aggregate);
+
+  const auto bytes = BuildKernargImage(
+      metadata, args,
+      LaunchConfig{.grid_dim_x = 5,
+                   .grid_dim_y = 6,
+                   .grid_dim_z = 7,
+                   .block_dim_x = 64,
+                   .block_dim_y = 2,
+                   .block_dim_z = 1});
+  EXPECT_EQ(LoadU64(bytes, 0), 0x99u);
+  EXPECT_TRUE(std::equal(aggregate.begin(), aggregate.end(), bytes.begin() + 8));
+  EXPECT_EQ(LoadU32(bytes, 24), 5u);
+  EXPECT_EQ(LoadU32(bytes, 28), 6u);
+  EXPECT_EQ(LoadU32(bytes, 32), 7u);
+  EXPECT_EQ(static_cast<uint16_t>(LoadU32(bytes, 36) & 0xffffu), 64u);
+  EXPECT_EQ(static_cast<uint16_t>(LoadU32(bytes, 38) & 0xffffu), 2u);
+  EXPECT_EQ(static_cast<uint16_t>(LoadU32(bytes, 40) & 0xffffu), 1u);
+}
+
 }  // namespace
 }  // namespace gpu_model

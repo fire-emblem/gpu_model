@@ -94,7 +94,7 @@ std::vector<std::byte> BuildKernargImage(const KernelLaunchMetadata& metadata,
 
   uint32_t arg_offset = 0;
   for (size_t i = 0; i < args.size(); ++i) {
-    uint32_t size = (i < 3 ? 8u : 4u);
+    uint32_t size = static_cast<uint32_t>(args.bytes(i).size());
     uint32_t write_offset = arg_offset;
     if (i < metadata.arg_layout.size()) {
       size = metadata.arg_layout[i].size;
