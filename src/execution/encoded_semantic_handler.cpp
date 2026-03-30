@@ -227,6 +227,10 @@ const GcnIsaOpcodeDescriptor& RequireCanonicalOpcode(const DecodedInstruction& i
   if (const auto* descriptor = FindEncodedGcnFallbackOpcodeDescriptor(instruction.words); descriptor != nullptr) {
     return *descriptor;
   }
+  if (const auto* descriptor = FindGcnIsaOpcodeDescriptorByName(instruction.mnemonic);
+      descriptor != nullptr) {
+    return *descriptor;
+  }
   throw std::invalid_argument("missing canonical opcode descriptor: " + instruction.mnemonic);
 }
 
@@ -1466,9 +1470,14 @@ const IEncodedSemanticHandler* HandlerForSemanticFamily(std::string_view semanti
 
 const std::vector<HandlerBinding>& HandlerBindings() {
   static const MaskHandler kMaskHandler;
+  static const ScalarAluHandler kScalarAluHandler;
+  static const VectorAluHandler kVectorAluHandler;
   static const VectorCompareHandler kVectorCompareHandler;
   static const std::vector<HandlerBinding> kBindings = {
       {.mnemonic = "s_and_saveexec_b64", .handler = &kMaskHandler},
+      {.mnemonic = "s_or_b32", .handler = &kScalarAluHandler},
+      {.mnemonic = "v_or_b32_e32", .handler = &kVectorAluHandler},
+      {.mnemonic = "v_or3_b32", .handler = &kVectorAluHandler},
       {.mnemonic = "v_cmp_gt_i32_e64", .handler = &kVectorCompareHandler},
   };
   return kBindings;
