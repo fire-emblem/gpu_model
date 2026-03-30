@@ -1,7 +1,5 @@
 #include "gpu_model/program/object_reader.h"
 
-#include "gpu_model/loader/amdgpu_obj_loader.h"
-
 #include <array>
 #include <cctype>
 #include <cstdio>
@@ -418,11 +416,6 @@ ProgramObject ObjectReader::LoadFromObject(const std::filesystem::path& path,
 
   throw std::runtime_error("ELF is neither AMDGPU code object nor HIP fatbin host artifact: " +
                            path.string());
-}
-
-ProgramObject AmdgpuObjLoader::LoadFromObject(const std::filesystem::path& path,
-                                              std::optional<std::string> kernel_name) const {
-  return ObjectReader{}.LoadFromObject(path, std::move(kernel_name));
 }
 
 }  // namespace gpu_model

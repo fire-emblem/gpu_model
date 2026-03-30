@@ -4,7 +4,7 @@
 #include <string>
 
 #include "gpu_model/decode/gcn_inst_formatter.h"
-#include "gpu_model/loader/amdgpu_code_object_decoder.h"
+#include "gpu_model/program/object_reader.h"
 
 int main(int argc, char** argv) {
   if (argc < 2 || argc > 3) {
@@ -21,7 +21,7 @@ int main(int argc, char** argv) {
 
   try {
     const auto image =
-        gpu_model::AmdgpuCodeObjectDecoder{}.Decode(path, kernel_name);
+        gpu_model::ObjectReader{}.LoadEncodedObject(path, kernel_name);
     gpu_model::GcnInstFormatter formatter;
 
     std::cout << "kernel=" << image.kernel_name << '\n';

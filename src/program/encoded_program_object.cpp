@@ -1,7 +1,5 @@
 #include "gpu_model/program/object_reader.h"
 
-#include "gpu_model/loader/amdgpu_code_object_decoder.h"
-
 #include <array>
 #include <cctype>
 #include <cstdio>
@@ -622,12 +620,6 @@ EncodedProgramObject ObjectReader::LoadEncodedObject(
     throw std::runtime_error("failed to decode AMDGPU kernel instructions: " + code_object.kernel_name);
   }
   return code_object;
-}
-
-EncodedProgramObject AmdgpuCodeObjectDecoder::Decode(
-    const std::filesystem::path& path,
-    std::optional<std::string> kernel_name) const {
-  return ObjectReader{}.LoadEncodedObject(path, std::move(kernel_name));
 }
 
 }  // namespace gpu_model

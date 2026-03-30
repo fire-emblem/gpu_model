@@ -6,7 +6,7 @@
 #include <filesystem>
 #include <fstream>
 
-#include "gpu_model/loader/amdgpu_code_object_decoder.h"
+#include "gpu_model/program/object_reader.h"
 
 namespace gpu_model {
 namespace {
@@ -53,7 +53,7 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesRawInstructionsFromAmdgpuObject) {
       "llc -march=amdgcn -mcpu=gfx900 -filetype=obj " + ir_path.string() + " -o " + obj_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  const auto image = AmdgpuCodeObjectDecoder{}.Decode(obj_path, "empty_kernel");
+  const auto image = ObjectReader{}.LoadEncodedObject(obj_path, "empty_kernel");
   EXPECT_EQ(image.kernel_name, "empty_kernel");
   ASSERT_FALSE(image.instructions.empty());
   ASSERT_EQ(image.instruction_objects.size(), image.instructions.size());
@@ -87,7 +87,7 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesRawInstructionsFromHipExecutable) {
   const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  const auto image = AmdgpuCodeObjectDecoder{}.Decode(exe_path, "vecadd");
+  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "vecadd");
   EXPECT_EQ(image.kernel_name, "vecadd");
   EXPECT_EQ(image.metadata.values.at("arg_count"), "4");
   EXPECT_EQ(image.metadata.values.at("descriptor_symbol"), "vecadd.kd");
@@ -155,7 +155,7 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesRawInstructionsFromHipFmaLoopExecutable
   const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  const auto image = AmdgpuCodeObjectDecoder{}.Decode(exe_path, "fma_loop");
+  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "fma_loop");
   EXPECT_EQ(image.kernel_name, "fma_loop");
   EXPECT_EQ(image.metadata.values.at("arg_count"), "5");
   EXPECT_EQ(image.metadata.values.at("arg_layout"),
@@ -212,7 +212,7 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesRawInstructionsFromHipBiasChainExecutab
   const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  const auto image = AmdgpuCodeObjectDecoder{}.Decode(exe_path, "bias_chain");
+  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "bias_chain");
   EXPECT_EQ(image.kernel_name, "bias_chain");
   EXPECT_EQ(image.metadata.values.at("arg_count"), "7");
   EXPECT_EQ(image.metadata.values.at("arg_layout"),
@@ -253,7 +253,7 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesRawInstructionsFromHipAtomicCountExecut
   const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  const auto image = AmdgpuCodeObjectDecoder{}.Decode(exe_path, "atomic_count");
+  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "atomic_count");
   EXPECT_EQ(image.kernel_name, "atomic_count");
 
   const auto atomic_it = std::find_if(
@@ -305,7 +305,7 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipSoftmaxExecutableWithoutUnknownInstr
   const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  const auto image = AmdgpuCodeObjectDecoder{}.Decode(exe_path, "softmax_row");
+  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "softmax_row");
   EXPECT_EQ(image.kernel_name, "softmax_row");
   EXPECT_EQ(image.metadata.values.at("arg_count"), "3");
   const auto barrier_count = std::count_if(
@@ -360,7 +360,7 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipMfmaExecutableWithoutUnknownInstruct
     GTEST_SKIP() << "gfx90a mfma compilation not available";
   }
 
-  const auto image = AmdgpuCodeObjectDecoder{}.Decode(exe_path, "mfma_probe");
+  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "mfma_probe");
   EXPECT_EQ(image.kernel_name, "mfma_probe");
   const auto unknown_count = std::count_if(
       image.instructions.begin(), image.instructions.end(),
@@ -411,7 +411,7 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipMfmaFp16ExecutableWithoutUnknownInst
     GTEST_SKIP() << "gfx90a mfma fp16 compilation not available";
   }
 
-  const auto image = AmdgpuCodeObjectDecoder{}.Decode(exe_path, "mfma_fp16_probe");
+  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "mfma_fp16_probe");
   EXPECT_EQ(image.kernel_name, "mfma_fp16_probe");
   const auto unknown_count = std::count_if(
       image.instructions.begin(), image.instructions.end(),
@@ -458,7 +458,7 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipMfmaI8ExecutableWithoutUnknownInstru
     GTEST_SKIP() << "gfx90a mfma i8 compilation not available";
   }
 
-  const auto image = AmdgpuCodeObjectDecoder{}.Decode(exe_path, "mfma_i8_probe");
+  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "mfma_i8_probe");
   EXPECT_EQ(image.kernel_name, "mfma_i8_probe");
   const auto unknown_count = std::count_if(
       image.instructions.begin(), image.instructions.end(),
@@ -508,7 +508,7 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipMfmaBf16ExecutableWithoutUnknownInst
     GTEST_SKIP() << "gfx90a mfma bf16 compilation not available";
   }
 
-  const auto image = AmdgpuCodeObjectDecoder{}.Decode(exe_path, "mfma_bf16_probe");
+  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "mfma_bf16_probe");
   EXPECT_EQ(image.kernel_name, "mfma_bf16_probe");
   const auto unknown_count = std::count_if(
       image.instructions.begin(), image.instructions.end(),
@@ -550,7 +550,7 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipSharedReverseExecutable) {
   const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  const auto image = AmdgpuCodeObjectDecoder{}.Decode(exe_path, "shared_reverse");
+  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "shared_reverse");
   EXPECT_EQ(image.kernel_name, "shared_reverse");
   EXPECT_EQ(image.metadata.values.at("arg_count"), "3");
   EXPECT_EQ(image.metadata.values.at("group_segment_fixed_size"), "256");

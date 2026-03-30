@@ -220,7 +220,7 @@ Some residual files may need to survive for part of the rollout if there is a de
 Those temporary residuals must be marked using this exact format:
 
 - source/header comments:
-  - `PHASE2-DELETE(runtime-program): <reason>`
+  - `PHASE2-delete(runtime-program): <reason>`
 - docs:
   - `Phase 2 delete marker: <reason>`
 
@@ -228,7 +228,7 @@ Rules:
 
 1. Only apply the marker to files inside the current cleanup slice.
 2. Markers are temporary and must be driven to zero by the end of the package.
-3. The package is not complete while any `PHASE2-DELETE(runtime-program)` markers remain.
+3. The package is not complete while any phase2 runtime-program delete markers remain.
 
 ## Risks
 
@@ -281,7 +281,7 @@ Mitigation:
 
 - tests in this slice must migrate together with public API changes
 - test suite names must also migrate
-- any temporary test residual must carry a `PHASE2-DELETE(runtime-program)` marker
+- any temporary test residual must carry a phase2 runtime-program delete marker
 
 ## Completion Criteria
 

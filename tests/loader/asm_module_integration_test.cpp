@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-#include "gpu_model/loader/amdgpu_code_object_decoder.h"
+#include "gpu_model/program/object_reader.h"
 
 namespace gpu_model {
 namespace {
@@ -71,7 +71,7 @@ AssembledModule AssembleAndDecodeLlvmMcModule(const std::string& stem,
       .temp_dir = temp_dir,
       .asm_path = asm_path,
       .obj_path = obj_path,
-      .image = AmdgpuCodeObjectDecoder{}.Decode(obj_path, kernel_name),
+      .image = ObjectReader{}.LoadEncodedObject(obj_path, kernel_name),
   };
 }
 

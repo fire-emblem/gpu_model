@@ -6,7 +6,7 @@
 #include <fstream>
 #include <string>
 
-#include "gpu_model/loader/amdgpu_obj_loader.h"
+#include "gpu_model/program/object_reader.h"
 
 namespace gpu_model {
 namespace {
@@ -54,7 +54,7 @@ TEST(AmdgpuObjLoaderTest, LoadsExecutableKernelFromAmdgpuObjectFile) {
       "llc -march=amdgcn -mcpu=gfx900 -filetype=obj " + ir_path.string() + " -o " + obj_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  const auto image = AmdgpuObjLoader{}.LoadFromObject(obj_path);
+  const auto image = ObjectReader{}.LoadFromObject(obj_path);
   EXPECT_EQ(image.kernel_name(), "empty_kernel");
   EXPECT_NE(image.assembly_text().find("s_endpgm"), std::string::npos);
   EXPECT_EQ(image.metadata().values.at("target_isa"), "gcn_raw_asm");
@@ -85,7 +85,7 @@ TEST(AmdgpuObjLoaderTest, LoadsExecutableKernelFromHipHostObjectWithFatbin) {
       "hipcc -c " + src_path.string() + " -o " + obj_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  const auto image = AmdgpuObjLoader{}.LoadFromObject(obj_path, "empty_kernel");
+  const auto image = ObjectReader{}.LoadFromObject(obj_path, "empty_kernel");
   EXPECT_EQ(image.kernel_name(), "empty_kernel");
   EXPECT_NE(image.assembly_text().find("s_endpgm"), std::string::npos);
   EXPECT_EQ(image.metadata().values.at("target_isa"), "gcn_raw_asm");

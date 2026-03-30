@@ -11,7 +11,7 @@
 #include <unistd.h>
 #include <vector>
 
-#include "gpu_model/loader/amdgpu_code_object_decoder.h"
+#include "gpu_model/program/object_reader.h"
 #include "gpu_model/runtime/hip_interposer_state.h"
 
 namespace gpu_model {
@@ -1001,7 +1001,7 @@ TEST(HipInterposerStateTest, BuildsExecutableLoadPlanForHipMfmaWithTypedTensorAb
 
   const auto plan = state.BuildExecutableLoadPlan(exe_path, &host_symbol);
   EXPECT_FALSE(plan.segments.empty());
-  const auto image = AmdgpuCodeObjectDecoder{}.Decode(exe_path, "mfma_plan_probe");
+  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "mfma_plan_probe");
   EXPECT_GE(image.kernel_descriptor.accum_offset, 4u);
   if (const auto it = image.metadata.values.find("agpr_count"); it != image.metadata.values.end()) {
     EXPECT_EQ(std::to_string(image.kernel_descriptor.agpr_count), it->second);

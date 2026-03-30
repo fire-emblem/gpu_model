@@ -378,7 +378,7 @@ git add README.md docs/runtime-layering.md docs/module-development-status.md tes
 ### Task 7: Clear Deletion Markers and Final Verification
 
 **Files:**
-- Any file carrying `PHASE2-DELETE(runtime-program)` markers
+- Any file carrying phase2 runtime-program delete markers
 
 - [ ] **Step 1: Scan deletion markers**
 

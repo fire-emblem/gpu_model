@@ -40,7 +40,6 @@ add_library(gpu_model STATIC
   src/isa/instruction_builder.cpp
   src/isa/kernel_metadata.cpp
   src/isa/kernel_program_builder.cpp
-  src/isa/kernel_program.cpp
   src/isa/opcode_descriptor.cpp
   src/isa/target_isa.cpp
   src/loader/asm_parser.cpp

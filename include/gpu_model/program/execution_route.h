@@ -2,14 +2,16 @@
 
 #include <memory>
 
-#include "gpu_model/program/program_execution_route.h"
-
 namespace gpu_model {
 
 class ProgramObject;
 struct EncodedProgramObject;
 
-using ExecutionRoute = ProgramExecutionRoute;
+enum class ExecutionRoute {
+  AutoSelect,
+  EncodedRaw,
+  LoweredModeled,
+};
 
 struct PreparedExecutionRoute {
   ExecutionRoute resolved_route = ExecutionRoute::AutoSelect;

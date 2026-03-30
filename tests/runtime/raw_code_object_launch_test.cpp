@@ -8,8 +8,8 @@
 #include <string>
 #include <vector>
 
-#include "gpu_model/loader/amdgpu_code_object_decoder.h"
 #include "gpu_model/isa/target_isa.h"
+#include "gpu_model/program/object_reader.h"
 #include "gpu_model/runtime/runtime_engine.h"
 #include "gpu_model/runtime/hip_runtime.h"
 
@@ -76,7 +76,7 @@ TEST(RawCodeObjectLaunchTest, RuntimeEngineLaunchesExplicitEncodedRawInput) {
   const auto obj_path = AssembleLlvmMcFixture(
       "gpu_model_runtime_raw_code_object",
       std::filesystem::path("tests/asm_cases/loader/kernarg_aggregate_by_value.s"));
-  const auto image = AmdgpuCodeObjectDecoder{}.Decode(obj_path, "asm_kernarg_aggregate_by_value");
+  const auto image = ObjectReader{}.LoadEncodedObject(obj_path, "asm_kernarg_aggregate_by_value");
 
   RuntimeEngine runtime;
   const uint64_t out_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
