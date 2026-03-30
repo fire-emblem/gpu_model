@@ -318,5 +318,39 @@ TEST(KernargPackerTest, AlignsFallbackHiddenArgsAfterActualVisibleArgPayload) {
   EXPECT_EQ(static_cast<uint16_t>(LoadU32(bytes, 40) & 0xffffu), 1u);
 }
 
+TEST(KernargPackerTest, PacksTypedGlobalOffsetsFromLaunchConfig) {
+  KernelLaunchMetadata metadata;
+  metadata.kernarg_segment_size = 40;
+  metadata.hidden_arg_layout = {
+      KernelHiddenArgLayoutEntry{.kind = KernelHiddenArgKind::GlobalOffsetX,
+                                 .kind_name = "hidden_global_offset_x",
+                                 .offset = 8,
+                                 .size = 8},
+      KernelHiddenArgLayoutEntry{.kind = KernelHiddenArgKind::GlobalOffsetY,
+                                 .kind_name = "hidden_global_offset_y",
+                                 .offset = 16,
+                                 .size = 8},
+      KernelHiddenArgLayoutEntry{.kind = KernelHiddenArgKind::GlobalOffsetZ,
+                                 .kind_name = "hidden_global_offset_z",
+                                 .offset = 24,
+                                 .size = 8},
+  };
+
+  const auto bytes = BuildKernargImage(
+      metadata, {},
+      LaunchConfig{.grid_dim_x = 2,
+                   .grid_dim_y = 3,
+                   .grid_dim_z = 4,
+                   .block_dim_x = 8,
+                   .block_dim_y = 16,
+                   .block_dim_z = 32,
+                   .global_offset_x = 0x1111222233334444ull,
+                   .global_offset_y = 0x5555666677778888ull,
+                   .global_offset_z = 0x9999aaaabbbbccccull});
+  EXPECT_EQ(LoadU64(bytes, 8), 0x1111222233334444ull);
+  EXPECT_EQ(LoadU64(bytes, 16), 0x5555666677778888ull);
+  EXPECT_EQ(LoadU64(bytes, 24), 0x9999aaaabbbbccccull);
+}
+
 }  // namespace
 }  // namespace gpu_model

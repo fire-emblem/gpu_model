@@ -58,9 +58,11 @@ uint64_t HiddenArgValue(const KernelHiddenArgLayoutEntry& entry, const LaunchCon
     case KernelHiddenArgKind::RemainderZ:
       return 1;
     case KernelHiddenArgKind::GlobalOffsetX:
+      return config.global_offset_x;
     case KernelHiddenArgKind::GlobalOffsetY:
+      return config.global_offset_y;
     case KernelHiddenArgKind::GlobalOffsetZ:
-      return 0;
+      return config.global_offset_z;
     case KernelHiddenArgKind::GridDims:
       if (config.grid_dim_z > 1 || config.block_dim_z > 1) {
         return 3;
