@@ -118,8 +118,8 @@ Target responsibilities:
 Current code scattered across:
 
 - [cycle_executor.cpp](/data/gpu_model/src/exec/cycle_executor.cpp)
-- [issue_model.h](/data/gpu_model/include/gpu_model/exec/issue_model.h)
-- [issue_scheduler.h](/data/gpu_model/include/gpu_model/exec/issue_scheduler.h)
+- [issue_model.h](/data/gpu_model/include/gpu_model/execution/internal/issue_model.h)
+- [issue_scheduler.h](/data/gpu_model/include/gpu_model/execution/internal/issue_scheduler.h)
 
 Target future modules:
 
@@ -144,8 +144,8 @@ Purpose:
 
 Current code:
 
-- [semantics.h](/data/gpu_model/include/gpu_model/exec/semantics.h)
-- [op_plan.h](/data/gpu_model/include/gpu_model/exec/op_plan.h)
+- [semantics.h](/data/gpu_model/include/gpu_model/execution/internal/semantics.h)
+- [op_plan.h](/data/gpu_model/include/gpu_model/execution/internal/op_plan.h)
 
 Target rule:
 
@@ -173,8 +173,8 @@ Current code:
 
 - [functional_executor.h](/data/gpu_model/include/gpu_model/exec/functional_executor.h)
 - [cycle_executor.h](/data/gpu_model/include/gpu_model/exec/cycle_executor.h)
-- [event_queue.h](/data/gpu_model/include/gpu_model/exec/event_queue.h)
-- [scoreboard.h](/data/gpu_model/include/gpu_model/exec/scoreboard.h)
+- [event_queue.h](/data/gpu_model/include/gpu_model/execution/internal/event_queue.h)
+- [scoreboard.h](/data/gpu_model/include/gpu_model/execution/internal/scoreboard.h)
 
 Target rule:
 

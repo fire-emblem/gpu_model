@@ -2,7 +2,7 @@
 
 #include <vector>
 
-#include "gpu_model/exec/execution_state.h"
+#include "gpu_model/execution/internal/execution_state.h"
 #include "gpu_model/runtime/launch_config.h"
 
 namespace gpu_model {

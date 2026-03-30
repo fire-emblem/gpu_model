@@ -80,8 +80,8 @@
 
 当前基础：
 
-- [issue_eligibility.h](/data/gpu_model/include/gpu_model/exec/issue_eligibility.h)
-- [issue_eligibility.cpp](/data/gpu_model/src/exec/issue_eligibility.cpp)
+- [issue_eligibility.h](/data/gpu_model/include/gpu_model/execution/internal/issue_eligibility.h)
+- [issue_eligibility.cpp](/data/gpu_model/src/execution/internal/issue_eligibility.cpp)
 
 建议文件：
 
@@ -106,8 +106,8 @@
 
 当前基础：
 
-- [issue_model.h](/data/gpu_model/include/gpu_model/exec/issue_model.h)
-- [issue_scheduler.h](/data/gpu_model/include/gpu_model/exec/issue_scheduler.h)
+- [issue_model.h](/data/gpu_model/include/gpu_model/execution/internal/issue_model.h)
+- [issue_scheduler.h](/data/gpu_model/include/gpu_model/execution/internal/issue_scheduler.h)
 
 建议文件：
 
@@ -129,8 +129,8 @@
 
 当前基础：
 
-- [scoreboard.h](/data/gpu_model/include/gpu_model/exec/scoreboard.h)
-- [event_queue.h](/data/gpu_model/include/gpu_model/exec/event_queue.h)
+- [scoreboard.h](/data/gpu_model/include/gpu_model/execution/internal/scoreboard.h)
+- [event_queue.h](/data/gpu_model/include/gpu_model/execution/internal/event_queue.h)
 
 建议文件：
 
@@ -447,7 +447,7 @@ struct CycleTraceArgs {
 
 涉及文件：
 
-- 新增 `include/gpu_model/exec/execution_state.h`
+- 新增 `include/gpu_model/execution/internal/execution_state.h`
 - 新增 `src/exec/execution_state_builder.cpp`
 - 从 [functional_execution_core.cpp](/data/gpu_model/src/exec/functional_execution_core.cpp) 和 [cycle_executor.cpp](/data/gpu_model/src/exec/cycle_executor.cpp) 搬迁 materialize 逻辑
 

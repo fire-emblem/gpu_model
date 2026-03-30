@@ -70,13 +70,13 @@
 
 下面这些地方方向是对的，不建议推翻：
 
-- [semantics.h](/data/gpu_model/include/gpu_model/exec/semantics.h) + [semantic_handlers.cpp](/data/gpu_model/src/exec/semantic_handlers.cpp)
+- [semantics.h](/data/gpu_model/include/gpu_model/execution/internal/semantics.h) + [semantic_handlers.cpp](/data/gpu_model/src/exec/semantic_handlers.cpp)
   - `Instruction -> OpPlan` 这层已经是正确分层
 - [functional_execution_core.cpp](/data/gpu_model/src/exec/functional_execution_core.cpp)
   - `st/mt functional` 已经开始共核
-- [issue_model.h](/data/gpu_model/include/gpu_model/exec/issue_model.h) + [issue_scheduler.h](/data/gpu_model/include/gpu_model/exec/issue_scheduler.h)
+- [issue_model.h](/data/gpu_model/include/gpu_model/execution/internal/issue_model.h) + [issue_scheduler.h](/data/gpu_model/include/gpu_model/execution/internal/issue_scheduler.h)
   - cycle 特有的 issue 逻辑被单独放出来，这是对的
-- [scoreboard.h](/data/gpu_model/include/gpu_model/exec/scoreboard.h) + [event_queue.h](/data/gpu_model/include/gpu_model/exec/event_queue.h)
+- [scoreboard.h](/data/gpu_model/include/gpu_model/execution/internal/scoreboard.h) + [event_queue.h](/data/gpu_model/include/gpu_model/execution/internal/event_queue.h)
   - 这些本来就应该是 cycle 专属部件，不应该塞回 functional
 
 ## 当前设计哪里不合理

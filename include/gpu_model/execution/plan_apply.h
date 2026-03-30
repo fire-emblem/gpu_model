@@ -3,7 +3,7 @@
 #include <optional>
 #include <string>
 
-#include "gpu_model/exec/op_plan.h"
+#include "gpu_model/execution/internal/op_plan.h"
 #include "gpu_model/execution/wave_context.h"
 
 namespace gpu_model {

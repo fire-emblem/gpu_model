@@ -12,8 +12,8 @@
 #include <unordered_map>
 #include <vector>
 
-#include "gpu_model/exec/encoded/semantics/raw_gcn_semantic_handler.h"
-#include "gpu_model/exec/tensor_op_utils.h"
+#include "gpu_model/execution/encoded_semantic_handler.h"
+#include "gpu_model/execution/internal/tensor_op_utils.h"
 #include "gpu_model/debug/wave_launch_trace.h"
 #include "gpu_model/execution/sync_ops.h"
 #include "gpu_model/execution/wave_context_builder.h"

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "gpu_model/arch/gpu_arch_spec.h"
-#include "gpu_model/exec/execution_engine.h"
+#include "gpu_model/execution/internal/execution_engine.h"
 
 namespace gpu_model {
 

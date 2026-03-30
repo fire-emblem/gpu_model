@@ -56,25 +56,25 @@ add_library(gpu_model STATIC
   src/memory/memory_system.cpp
   src/memory/cache_model.cpp
   src/memory/shared_bank_model.cpp
-  src/exec/opcode_execution_info.cpp
-  src/exec/encoded/descriptor/raw_gcn_instruction_descriptor.cpp
-  src/exec/encoded/binding/raw_gcn_instruction_binding.cpp
+  src/execution/internal/opcode_execution_info.cpp
+  src/instruction/encoded/internal/encoded_instruction_descriptor.cpp
+  src/instruction/encoded/internal/encoded_instruction_binding.cpp
   src/instruction/encoded/instruction_object.cpp
   src/execution/encoded_exec_engine.cpp
-  src/exec/encoded/semantics/raw_gcn_semantic_handlers.cpp
+  src/execution/encoded_semantic_handler.cpp
   src/execution/memory_ops.cpp
   src/execution/sync_ops.cpp
   src/execution/plan_apply.cpp
-  src/exec/handlers/semantic_handler.cpp
-  src/exec/semantics.cpp
+  src/execution/internal/semantic_handler.cpp
+  src/execution/internal/semantics.cpp
   src/execution/wave_context_builder.cpp
-  src/exec/issue_model.cpp
-  src/exec/issue_scheduler.cpp
-  src/exec/issue_eligibility.cpp
+  src/execution/internal/issue_model.cpp
+  src/execution/internal/issue_scheduler.cpp
+  src/execution/internal/issue_eligibility.cpp
   src/execution/functional_exec_engine.cpp
-  src/exec/scoreboard.cpp
-  src/exec/event_queue.cpp
-  src/exec/handlers/compute_functor_registry.cpp
+  src/execution/internal/scoreboard.cpp
+  src/execution/internal/event_queue.cpp
+  src/execution/internal/handlers/compute_functor_registry.cpp
   src/execution/cycle_exec_engine.cpp
   src/runtime/mapper.cpp
   src/program/execution_route.cpp

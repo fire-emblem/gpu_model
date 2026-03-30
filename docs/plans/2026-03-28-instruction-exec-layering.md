@@ -191,13 +191,13 @@
 
 建议新增目录：
 
-- `include/gpu_model/exec/handlers/`
+- `include/gpu_model/execution/internal/handlers/`
 - `src/exec/handlers/`
 
 建议文件结构：
 
 ```text
-include/gpu_model/exec/handlers/
+include/gpu_model/execution/internal/handlers/
   exec_handler_base.h
   compute_handler_base.h
   memory_handler_base.h

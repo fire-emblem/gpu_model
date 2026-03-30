@@ -699,11 +699,11 @@ git commit -m "feat: add trace infrastructure and host runtime shell"
 ## Task 7: Implement Shared Semantics And The Functional Executor
 
 **Files:**
-- Create: `/data/gpu_model/include/gpu_model/exec/op_plan.h`
-- Create: `/data/gpu_model/include/gpu_model/exec/semantics.h`
-- Create: `/data/gpu_model/include/gpu_model/exec/execution_engine.h`
+- Create: `/data/gpu_model/include/gpu_model/execution/internal/op_plan.h`
+- Create: `/data/gpu_model/include/gpu_model/execution/internal/semantics.h`
+- Create: `/data/gpu_model/include/gpu_model/execution/internal/execution_engine.h`
 - Create: `/data/gpu_model/include/gpu_model/exec/functional_executor.h`
-- Create: `/data/gpu_model/src/exec/semantics.cpp`
+- Create: `/data/gpu_model/src/execution/internal/semantics.cpp`
 - Create: `/data/gpu_model/src/exec/functional_executor.cpp`
 - Modify: `/data/gpu_model/src/runtime/host_runtime.cpp`
 - Modify: `/data/gpu_model/CMakeLists.txt`
@@ -806,7 +806,7 @@ git commit -m "feat: add shared semantics and functional executor"
 
 **Files:**
 - Modify: `/data/gpu_model/tests/functional/predicated_if_functional_test.cpp`
-- Modify: `/data/gpu_model/src/exec/semantics.cpp`
+- Modify: `/data/gpu_model/src/execution/internal/semantics.cpp`
 - Modify: `/data/gpu_model/src/exec/functional_executor.cpp`
 
 **Step 1: Write the failing test**
@@ -955,11 +955,11 @@ git commit -m "test: complete functional placement and trace coverage"
 ## Task 10: Add `Scoreboard`, `EventQueue`, And `CycleExecutor` Skeleton
 
 **Files:**
-- Create: `/data/gpu_model/include/gpu_model/exec/scoreboard.h`
-- Create: `/data/gpu_model/include/gpu_model/exec/event_queue.h`
+- Create: `/data/gpu_model/include/gpu_model/execution/internal/scoreboard.h`
+- Create: `/data/gpu_model/include/gpu_model/execution/internal/event_queue.h`
 - Create: `/data/gpu_model/include/gpu_model/exec/cycle_executor.h`
-- Create: `/data/gpu_model/src/exec/scoreboard.cpp`
-- Create: `/data/gpu_model/src/exec/event_queue.cpp`
+- Create: `/data/gpu_model/src/execution/internal/scoreboard.cpp`
+- Create: `/data/gpu_model/src/execution/internal/event_queue.cpp`
 - Create: `/data/gpu_model/src/exec/cycle_executor.cpp`
 - Modify: `/data/gpu_model/CMakeLists.txt`
 - Test: `/data/gpu_model/tests/cycle/cycle_smoke_test.cpp`
@@ -1030,8 +1030,8 @@ git commit -m "feat: add scoreboard event queue and cycle executor skeleton"
 
 **Files:**
 - Modify: `/data/gpu_model/include/gpu_model/memory/memory_request.h`
-- Modify: `/data/gpu_model/include/gpu_model/exec/op_plan.h`
-- Modify: `/data/gpu_model/src/exec/semantics.cpp`
+- Modify: `/data/gpu_model/include/gpu_model/execution/internal/op_plan.h`
+- Modify: `/data/gpu_model/src/execution/internal/semantics.cpp`
 - Modify: `/data/gpu_model/src/exec/cycle_executor.cpp`
 - Create: `/data/gpu_model/tests/cycle/async_memory_cycle_test.cpp`
 
@@ -1090,7 +1090,7 @@ Expected: total cycle count and dependency ordering both pass.
 **Step 5: Commit**
 
 ```bash
-git add include/gpu_model/memory/memory_request.h include/gpu_model/exec/op_plan.h src/exec/semantics.cpp src/exec/cycle_executor.cpp tests/cycle/async_memory_cycle_test.cpp
+git add include/gpu_model/memory/memory_request.h include/gpu_model/execution/internal/op_plan.h src/execution/internal/semantics.cpp src/exec/cycle_executor.cpp tests/cycle/async_memory_cycle_test.cpp
 git commit -m "feat: add async memory arrive handling to cycle model"
 ```
 

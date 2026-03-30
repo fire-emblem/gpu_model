@@ -103,9 +103,9 @@ Current categories:
 
 Files:
 
-- [opcode_execution_info.h](/data/gpu_model/include/gpu_model/exec/opcode_execution_info.h)
-- [opcode_execution_info.cpp](/data/gpu_model/src/exec/opcode_execution_info.cpp)
-- [semantic_handler.h](/data/gpu_model/include/gpu_model/exec/semantic_handler.h)
+- [opcode_execution_info.h](/data/gpu_model/include/gpu_model/execution/internal/opcode_execution_info.h)
+- [opcode_execution_info.cpp](/data/gpu_model/src/execution/internal/opcode_execution_info.cpp)
+- [semantic_handler.h](/data/gpu_model/include/gpu_model/execution/internal/semantic_handler.h)
 - [semantic_handlers.cpp](/data/gpu_model/src/exec/semantic_handlers.cpp)
 
 Role:
@@ -133,7 +133,7 @@ Current semantic families:
 
 Current execution dispatch rule:
 
-- [`semantics.cpp`](/data/gpu_model/src/exec/semantics.cpp) no longer owns the full opcode-by-opcode
+- [`semantics.cpp`](/data/gpu_model/src/execution/internal/semantics.cpp) no longer owns the full opcode-by-opcode
   behavior table directly
 - top-level plan construction now resolves:
   - semantic family

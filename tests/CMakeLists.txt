@@ -15,17 +15,17 @@ add_executable(gpu_model_tests
   execution/plan_apply_test.cpp
 
   # instruction/execution migrated coverage
-  exec/tensor_op_utils_test.cpp
-  exec/issue_model_test.cpp
-  exec/issue_eligibility_test.cpp
-  exec/issue_scheduler_test.cpp
+  execution/internal/tensor_op_utils_test.cpp
+  execution/internal/issue_model_test.cpp
+  execution/internal/issue_eligibility_test.cpp
+  execution/internal/issue_scheduler_test.cpp
   instruction/instruction_array_parser_test.cpp
   instruction/encoded_instruction_binding_test.cpp
   instruction/encoded_instruction_descriptor_test.cpp
   instruction/instruction_object_execute_test.cpp
   execution/encoded_semantic_execute_test.cpp
   execution/encoded_semantic_handler_registry_test.cpp
-  exec/handlers/semantic_handler_test.cpp
+  execution/internal/handlers/semantic_handler_test.cpp
   isa/executable_kernel_builder_test.cpp
   isa/executable_kernel_test.cpp
   isa/opcode_descriptor_test.cpp

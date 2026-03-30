@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-#include "gpu_model/exec/semantics.h"
+#include "gpu_model/execution/internal/semantics.h"
 
 namespace gpu_model {
 

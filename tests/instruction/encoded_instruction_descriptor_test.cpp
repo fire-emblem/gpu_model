@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "gpu_model/exec/encoded/descriptor/raw_gcn_instruction_descriptor.h"
+#include "gpu_model/instruction/encoded/internal/encoded_instruction_descriptor.h"
 #include "gpu_model/instruction/encoded/decoded_instruction.h"
 
 namespace gpu_model {

@@ -40,7 +40,7 @@ Primary ownership:
 
 Expected new files:
 
-- `include/gpu_model/exec/execution_state.h`
+- `include/gpu_model/execution/internal/execution_state.h`
 - `include/gpu_model/exec/execution_state_builder.h`
 - `include/gpu_model/exec/execution_memory_ops.h`
 - `include/gpu_model/exec/execution_sync_ops.h`

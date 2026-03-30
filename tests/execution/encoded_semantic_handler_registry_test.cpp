@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "gpu_model/exec/encoded/semantics/raw_gcn_semantic_handler.h"
+#include "gpu_model/execution/encoded_semantic_handler.h"
 #include "gpu_model/instruction/encoded/decoded_instruction.h"
 
 namespace gpu_model {
