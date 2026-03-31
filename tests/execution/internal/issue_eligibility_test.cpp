@@ -40,6 +40,26 @@ TEST(IssueEligibilityTest, WaitCntSatisfiedChecksPerDomainCounters) {
   EXPECT_FALSE(WaitCntSatisfied(wave, MakeWaitCntInstruction(1, 2, 3, 3)));
 }
 
+TEST(IssueEligibilityTest, ReportsGlobalWaitcntReasonWhenGlobalOpsExceedThreshold) {
+  WaveContext wave;
+  wave.pending_global_mem_ops = 1;
+
+  const auto wait_reason = WaitCntBlockReason(wave, MakeWaitCntInstruction(0, 0, 0, 0));
+
+  ASSERT_TRUE(wait_reason.has_value());
+  EXPECT_EQ(*wait_reason, "waitcnt_global");
+}
+
+TEST(IssueEligibilityTest, ReportsSharedWaitcntReasonWhenSharedOpsExceedThreshold) {
+  WaveContext wave;
+  wave.pending_shared_mem_ops = 1;
+
+  const auto wait_reason = WaitCntBlockReason(wave, MakeWaitCntInstruction(0, 0, 0, 0));
+
+  ASSERT_TRUE(wait_reason.has_value());
+  EXPECT_EQ(*wait_reason, "waitcnt_shared");
+}
+
 TEST(IssueEligibilityTest, IssueBlockReasonReportsWaitcntAndDependencyReasons) {
   WaveContext wave;
   wave.status = WaveStatus::Active;

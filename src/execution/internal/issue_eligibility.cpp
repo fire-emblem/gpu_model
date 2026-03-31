@@ -2,6 +2,27 @@
 
 namespace gpu_model {
 
+namespace {
+
+std::optional<std::string> DetermineWaitReason(const WaveContext& wave,
+                                               const WaitCntThresholds& thresholds) {
+  if (wave.pending_global_mem_ops > thresholds.global) {
+    return "waitcnt_global";
+  }
+  if (wave.pending_shared_mem_ops > thresholds.shared) {
+    return "waitcnt_shared";
+  }
+  if (wave.pending_private_mem_ops > thresholds.private_mem) {
+    return "waitcnt_private";
+  }
+  if (wave.pending_scalar_buffer_mem_ops > thresholds.scalar_buffer) {
+    return "waitcnt_scalar_buffer";
+  }
+  return std::nullopt;
+}
+
+}  // namespace
+
 MemoryWaitDomain MemoryDomainForOpcode(Opcode opcode) {
   switch (opcode) {
     case Opcode::MLoadGlobal:
@@ -113,20 +134,7 @@ std::optional<std::string> WaitCntBlockReason(const WaveContext& wave,
   if (instruction.opcode != Opcode::SWaitCnt) {
     return std::nullopt;
   }
-  const auto thresholds = WaitCntThresholdsForInstruction(instruction);
-  if (wave.pending_global_mem_ops > thresholds.global) {
-    return "waitcnt_global";
-  }
-  if (wave.pending_shared_mem_ops > thresholds.shared) {
-    return "waitcnt_shared";
-  }
-  if (wave.pending_private_mem_ops > thresholds.private_mem) {
-    return "waitcnt_private";
-  }
-  if (wave.pending_scalar_buffer_mem_ops > thresholds.scalar_buffer) {
-    return "waitcnt_scalar_buffer";
-  }
-  return std::nullopt;
+  return DetermineWaitReason(wave, WaitCntThresholdsForInstruction(instruction));
 }
 
 std::optional<std::string> MemoryDomainBlockReason(const WaveContext& wave,
