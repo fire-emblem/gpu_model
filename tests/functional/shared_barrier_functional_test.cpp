@@ -131,6 +131,7 @@ TEST(SharedBarrierFunctionalTest, EmitsWaveStatsDuringBarrierProgress) {
   constexpr uint32_t block_dim = 128;
   CollectingTraceSink trace;
   RuntimeEngine runtime(&trace);
+  runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
 
   const uint64_t in_addr = runtime.memory().AllocateGlobal(block_dim * sizeof(int32_t));
   const uint64_t out_addr = runtime.memory().AllocateGlobal(block_dim * sizeof(int32_t));
@@ -152,15 +153,21 @@ TEST(SharedBarrierFunctionalTest, EmitsWaveStatsDuringBarrierProgress) {
   const auto result = runtime.Launch(request);
   ASSERT_TRUE(result.ok) << result.error_message;
 
-  bool saw_mid_stats = false;
+  std::vector<std::string> wave_stats_messages;
   for (const auto& event : trace.events()) {
-    if (event.kind == TraceEventKind::WaveStats &&
-        event.message != "launch=2 init=2 active=2 end=0" &&
-        event.message != "launch=2 init=2 active=0 end=2") {
-      saw_mid_stats = true;
+    if (event.kind == TraceEventKind::WaveStats) {
+      wave_stats_messages.push_back(event.message);
     }
   }
-  EXPECT_TRUE(saw_mid_stats);
+
+  const std::vector<std::string> expected = {
+      "launch=2 init=2 active=2 end=0",  // launch snapshot
+      "launch=2 init=2 active=2 end=0",  // barrier release snapshot
+      "launch=2 init=2 active=1 end=1",  // first wave completion snapshot
+      "launch=2 init=2 active=0 end=2",  // second wave completion snapshot
+      "launch=2 init=2 active=0 end=2",  // final snapshot
+  };
+  EXPECT_EQ(wave_stats_messages, expected);
 }
 
 TEST(SharedBarrierFunctionalTest, MatchesResultsAcrossSingleThreadedAndMarlParallelModes) {
