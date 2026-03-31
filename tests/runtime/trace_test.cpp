@@ -13,6 +13,18 @@
 namespace gpu_model {
 namespace {
 
+ExecutableKernel BuildWaitcntTraceKernel() {
+  InstructionBuilder builder;
+  builder.SLoadArg("s0", 0);
+  builder.SMov("s1", 0);
+  builder.MLoadGlobal("v1", "s0", "s1", 4);
+  builder.SWaitCnt(/*global_count=*/0, /*shared_count=*/UINT32_MAX,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
+  builder.SMov("s2", 7);
+  builder.BExit();
+  return builder.Build("trace_waitcnt_kernel");
+}
+
 TEST(TraceTest, EmitsLaunchAndBlockPlacementEvents) {
   CollectingTraceSink trace;
   RuntimeEngine runtime(&trace);
@@ -137,6 +149,40 @@ TEST(TraceTest, EmitsWaveStatsStateSplitForFunctionalLaunch) {
   ASSERT_FALSE(messages.empty());
   EXPECT_EQ(messages.front(), "launch=2 init=2 active=2 runnable=2 waiting=0 end=0");
   EXPECT_EQ(messages.back(), "launch=2 init=2 active=0 runnable=0 waiting=0 end=2");
+}
+
+TEST(TraceTest, EmitsUnifiedWaitStateMachineTraceForWaitcnt) {
+  CollectingTraceSink trace;
+  RuntimeEngine runtime(&trace);
+  runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
+
+  const auto kernel = BuildWaitcntTraceKernel();
+  const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
+  runtime.memory().StoreGlobalValue<int32_t>(base_addr, 11);
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+  request.args.PushU64(base_addr);
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok);
+
+  bool saw_waiting_snapshot = false;
+  bool saw_waitcnt_stall = false;
+  for (const auto& event : trace.events()) {
+    if (event.kind == TraceEventKind::WaveStats &&
+        event.message.find("waiting=1") != std::string::npos) {
+      saw_waiting_snapshot = true;
+    }
+    if (event.kind == TraceEventKind::Stall && event.message == "waitcnt_global") {
+      saw_waitcnt_stall = true;
+    }
+  }
+
+  EXPECT_TRUE(saw_waiting_snapshot);
+  EXPECT_TRUE(saw_waitcnt_stall);
 }
 
 TEST(TraceTest, WritesHumanReadableTraceFile) {
