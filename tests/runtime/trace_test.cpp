@@ -151,6 +151,8 @@ TEST(TraceTest, WritesWaveStatsEventsToTraceSinks) {
   EXPECT_NE(text_line.find("msg=launch=2 init=2 active=2 end=0"), std::string::npos);
   EXPECT_NE(json_line.find("\"kind\":\"WaveStats\""), std::string::npos);
   EXPECT_NE(json_line.find("\"message\":\"launch=2 init=2 active=2 end=0\""), std::string::npos);
+  std::filesystem::remove(text_path);
+  std::filesystem::remove(json_path);
 }
 
 }  // namespace

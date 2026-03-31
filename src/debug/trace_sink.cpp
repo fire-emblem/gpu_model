@@ -22,12 +22,12 @@ std::string_view KindToString(TraceEventKind kind) {
       return "BlockPlaced";
     case TraceEventKind::BlockLaunch:
       return "BlockLaunch";
-  case TraceEventKind::WaveLaunch:
-    return "WaveLaunch";
-  case TraceEventKind::WaveStats:
-    return "WaveStats";
-  case TraceEventKind::WaveStep:
-    return "WaveStep";
+    case TraceEventKind::WaveLaunch:
+      return "WaveLaunch";
+    case TraceEventKind::WaveStats:
+      return "WaveStats";
+    case TraceEventKind::WaveStep:
+      return "WaveStep";
     case TraceEventKind::Commit:
       return "Commit";
     case TraceEventKind::ExecMaskUpdate:
