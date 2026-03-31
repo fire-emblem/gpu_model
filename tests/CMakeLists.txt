@@ -18,7 +18,6 @@ add_executable(gpu_model_tests
   execution/internal/tensor_op_utils_test.cpp
   execution/internal/issue_model_test.cpp
   execution/internal/issue_eligibility_test.cpp
-  execution/internal/functional_wait_reason_test.cpp
   execution/internal/issue_scheduler_test.cpp
   instruction/instruction_array_parser_test.cpp
   instruction/encoded_instruction_binding_test.cpp
@@ -38,6 +37,7 @@ add_executable(gpu_model_tests
   functional/shared_barrier_functional_test.cpp
   functional/private_memory_functional_test.cpp
   functional/constant_memory_functional_test.cpp
+  functional/waitcnt_functional_test.cpp
   functional/fma_loop_functional_test.cpp
   functional/scaling_functional_test.cpp
   functional/shared_sync_functional_test.cpp

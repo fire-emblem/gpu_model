@@ -5,10 +5,13 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <deque>
 #include <exception>
 #include <mutex>
+#include <optional>
 #include <sstream>
 #include <stdexcept>
+#include <string_view>
 #include <thread>
 #include <vector>
 
@@ -20,7 +23,6 @@
 #include "gpu_model/debug/instruction_trace.h"
 #include "gpu_model/debug/trace_event.h"
 #include "gpu_model/debug/wave_launch_trace.h"
-#include "gpu_model/execution/internal/functional_wait_reason.h"
 #include "gpu_model/execution/internal/issue_eligibility.h"
 #include "gpu_model/execution/memory_ops.h"
 #include "gpu_model/execution/plan_apply.h"
@@ -30,6 +32,20 @@
 #include "gpu_model/loader/device_image_loader.h"
 
 namespace gpu_model {
+
+namespace {
+
+constexpr uint8_t kFunctionalPendingMemoryCompletionTurns = 5;
+
+struct PendingMemoryOp {
+  MemoryWaitDomain domain = MemoryWaitDomain::None;
+  uint8_t turns_until_complete = kFunctionalPendingMemoryCompletionTurns;
+};
+
+struct FunctionalWaveState {
+  std::deque<PendingMemoryOp> pending_memory_ops;
+  std::optional<WaitCntThresholds> waiting_waitcnt_thresholds;
+};
 
 std::optional<WaveWaitReason> MapWaitcntStringToWaveWaitReason(std::string_view reason) {
   if (reason == "waitcnt_global") {
@@ -47,47 +63,101 @@ std::optional<WaveWaitReason> MapWaitcntStringToWaveWaitReason(std::string_view 
   return std::nullopt;
 }
 
-bool EnterWaitStateFromInstruction(const Instruction& instruction, WaveContext& wave) {
+std::string_view WaitReasonTraceMessage(WaveWaitReason reason) {
+  switch (reason) {
+    case WaveWaitReason::PendingGlobalMemory:
+      return "waitcnt_global";
+    case WaveWaitReason::PendingSharedMemory:
+      return "waitcnt_shared";
+    case WaveWaitReason::PendingPrivateMemory:
+      return "waitcnt_private";
+    case WaveWaitReason::PendingScalarBufferMemory:
+      return "waitcnt_scalar_buffer";
+    case WaveWaitReason::None:
+    case WaveWaitReason::BlockBarrier:
+      return "";
+  }
+  return "";
+}
+
+bool IsMemoryWaitReason(WaveWaitReason reason) {
+  return reason == WaveWaitReason::PendingGlobalMemory ||
+         reason == WaveWaitReason::PendingSharedMemory ||
+         reason == WaveWaitReason::PendingPrivateMemory ||
+         reason == WaveWaitReason::PendingScalarBufferMemory;
+}
+
+bool WaitCntSatisfiedForThresholds(const WaveContext& wave, const WaitCntThresholds& thresholds) {
+  return wave.pending_global_mem_ops <= thresholds.global &&
+         wave.pending_shared_mem_ops <= thresholds.shared &&
+         wave.pending_private_mem_ops <= thresholds.private_mem &&
+         wave.pending_scalar_buffer_mem_ops <= thresholds.scalar_buffer;
+}
+
+bool EnterWaitStateFromWaitcnt(const Instruction& instruction,
+                               FunctionalWaveState& state,
+                               WaveContext& wave) {
   const auto wait_reason = WaitCntBlockReason(wave, instruction);
   if (!wait_reason.has_value()) {
+    state.waiting_waitcnt_thresholds.reset();
     return false;
   }
   const auto mapped_wait_reason = MapWaitcntStringToWaveWaitReason(*wait_reason);
   if (!mapped_wait_reason.has_value()) {
+    state.waiting_waitcnt_thresholds.reset();
     return false;
   }
+  state.waiting_waitcnt_thresholds = WaitCntThresholdsForInstruction(instruction);
   wave.run_state = WaveRunState::Waiting;
   wave.wait_reason = *mapped_wait_reason;
   return true;
 }
 
-bool WaitReasonSatisfied(const WaveContext& wave) {
-  switch (wave.wait_reason) {
-    case WaveWaitReason::PendingGlobalMemory:
-      return wave.pending_global_mem_ops == 0;
-    case WaveWaitReason::PendingSharedMemory:
-      return wave.pending_shared_mem_ops == 0;
-    case WaveWaitReason::PendingPrivateMemory:
-      return wave.pending_private_mem_ops == 0;
-    case WaveWaitReason::PendingScalarBufferMemory:
-      return wave.pending_scalar_buffer_mem_ops == 0;
-    case WaveWaitReason::None:
-    case WaveWaitReason::BlockBarrier:
-      return false;
-  }
-  return false;
-}
-
-bool ResumeWaveIfWaitReasonSatisfied(WaveContext& wave) {
-  if (wave.run_state != WaveRunState::Waiting || !WaitReasonSatisfied(wave)) {
+bool ResumeWaveIfWaitcntSatisfied(FunctionalWaveState& state, WaveContext& wave) {
+  if (wave.run_state != WaveRunState::Waiting || !IsMemoryWaitReason(wave.wait_reason) ||
+      !state.waiting_waitcnt_thresholds.has_value()) {
     return false;
   }
+  if (!WaitCntSatisfiedForThresholds(wave, *state.waiting_waitcnt_thresholds)) {
+    return false;
+  }
+  state.waiting_waitcnt_thresholds.reset();
+  ++wave.pc;
   wave.run_state = WaveRunState::Runnable;
   wave.wait_reason = WaveWaitReason::None;
   return true;
 }
 
-namespace {
+void ClearWaitcntWaitState(FunctionalWaveState& state) {
+  state.waiting_waitcnt_thresholds.reset();
+}
+
+bool AdvancePendingMemoryOps(FunctionalWaveState& state, WaveContext& wave) {
+  bool advanced = false;
+  for (auto it = state.pending_memory_ops.begin(); it != state.pending_memory_ops.end();) {
+    advanced = true;
+    if (it->turns_until_complete > 0) {
+      --it->turns_until_complete;
+    }
+    if (it->turns_until_complete == 0) {
+      DecrementPendingMemoryOps(wave, it->domain);
+      it = state.pending_memory_ops.erase(it);
+      continue;
+    }
+    ++it;
+  }
+  return advanced;
+}
+
+void RecordPendingMemoryOp(FunctionalWaveState& state,
+                           WaveContext& wave,
+                           MemoryWaitDomain domain) {
+  if (domain == MemoryWaitDomain::None) {
+    return;
+  }
+  IncrementPendingMemoryOps(wave, domain);
+  state.pending_memory_ops.push_back(PendingMemoryOp{.domain = domain});
+}
 
 struct ExecutableBlock {
   uint32_t block_id = 0;
@@ -97,6 +167,7 @@ struct ExecutableBlock {
   uint32_t barrier_arrivals = 0;
   std::vector<std::byte> shared_memory;
   std::vector<WaveContext> waves;
+  std::vector<FunctionalWaveState> wave_states;
   std::vector<std::vector<size_t>> wave_indices_per_peu;
   std::vector<size_t> next_wave_rr_per_peu;
   std::vector<bool> wave_busy;
@@ -140,6 +211,7 @@ std::vector<ExecutableBlock> MaterializeBlocks(const PlacementMap& placement,
         .barrier_arrivals = shared_block.barrier_arrivals,
         .shared_memory = shared_block.shared_memory,
         .waves = shared_block.waves,
+        .wave_states = std::vector<FunctionalWaveState>(shared_block.waves.size()),
         .wave_indices_per_peu = {},
         .next_wave_rr_per_peu = {},
         .wave_busy = {},
@@ -260,12 +332,17 @@ class FunctionalExecutionCoreImpl {
                     if (IsBlockComplete(blocks_[i])) {
                       break;
                     }
-                    ResumeMemoryWaitingWaves(blocks_[i]);
-                    ReleaseBlockBarrierIfReady(blocks_[i]);
+                    const bool progressed = AdvancePendingMemoryOps(blocks_[i]) ||
+                                            ResumeMemoryWaitingWaves(blocks_[i]) ||
+                                            ReleaseBlockBarrierIfReady(blocks_[i]);
+                    EmitWaitingWaveStalls(blocks_[i]);
                     wave_index = SelectNextWaveIndexForPeu(blocks_[i], peu_index);
                     if (wave_index.has_value()) {
                       blocks_[i].wave_busy[*wave_index] = true;
                       break;
+                    }
+                    if (progressed) {
+                      continue;
                     }
                     blocks_[i].control_cv->wait(lock);
                   }
@@ -273,12 +350,10 @@ class FunctionalExecutionCoreImpl {
                 if (!wave_index.has_value()) {
                   break;
                 }
-                ExecuteWave(blocks_[i], blocks_[i].waves[*wave_index], peu_stats);
+                ExecuteWave(blocks_[i], *wave_index, peu_stats);
                 {
                   std::lock_guard<std::mutex> lock(*blocks_[i].control_mutex);
                   blocks_[i].wave_busy[*wave_index] = false;
-                  ResumeMemoryWaitingWaves(blocks_[i]);
-                  ReleaseBlockBarrierIfReady(blocks_[i]);
                 }
                 blocks_[i].control_cv->notify_all();
               }
@@ -395,16 +470,16 @@ class FunctionalExecutionCoreImpl {
       bool made_progress = false;
       {
         std::lock_guard<std::mutex> lock(*block.control_mutex);
-        ResumeMemoryWaitingWaves(block);
-        ReleaseBlockBarrierIfReady(block);
+        made_progress = AdvancePendingMemoryOps(block) || made_progress;
+        made_progress = ResumeMemoryWaitingWaves(block) || made_progress;
+        made_progress = ReleaseBlockBarrierIfReady(block) || made_progress;
+        EmitWaitingWaveStalls(block);
       }
 
       for (size_t peu_index = 0; peu_index < block.wave_indices_per_peu.size(); ++peu_index) {
         std::optional<size_t> wave_index;
         {
           std::lock_guard<std::mutex> lock(*block.control_mutex);
-          ResumeMemoryWaitingWaves(block);
-          ReleaseBlockBarrierIfReady(block);
           wave_index = SelectNextWaveIndexForPeu(block, peu_index);
           if (wave_index.has_value()) {
             block.wave_busy[*wave_index] = true;
@@ -413,12 +488,10 @@ class FunctionalExecutionCoreImpl {
         if (!wave_index.has_value()) {
           continue;
         }
-        ExecuteWave(block, block.waves[*wave_index], stats);
+        ExecuteWave(block, *wave_index, stats);
         {
           std::lock_guard<std::mutex> lock(*block.control_mutex);
           block.wave_busy[*wave_index] = false;
-          ResumeMemoryWaitingWaves(block);
-          ReleaseBlockBarrierIfReady(block);
         }
         made_progress = true;
       }
@@ -488,12 +561,39 @@ class FunctionalExecutionCoreImpl {
     return true;
   }
 
+  bool AdvancePendingMemoryOps(ExecutableBlock& block) {
+    bool advanced = false;
+    for (size_t i = 0; i < block.waves.size(); ++i) {
+      advanced = ::gpu_model::AdvancePendingMemoryOps(block.wave_states[i], block.waves[i]) || advanced;
+    }
+    return advanced;
+  }
+
   bool ResumeMemoryWaitingWaves(ExecutableBlock& block) {
     bool resumed = false;
-    for (auto& wave : block.waves) {
-      resumed = ResumeWaveIfWaitReasonSatisfied(wave) || resumed;
+    for (size_t i = 0; i < block.waves.size(); ++i) {
+      resumed = ResumeWaveIfWaitcntSatisfied(block.wave_states[i], block.waves[i]) || resumed;
     }
     return resumed;
+  }
+
+  void EmitWaitingWaveStalls(const ExecutableBlock& block) {
+    for (const auto& wave : block.waves) {
+      if (wave.run_state != WaveRunState::Waiting || !IsMemoryWaitReason(wave.wait_reason)) {
+        continue;
+      }
+      TraceEventLocked(TraceEvent{
+          .kind = TraceEventKind::Stall,
+          .cycle = context_.cycle,
+          .dpc_id = wave.dpc_id,
+          .ap_id = wave.ap_id,
+          .peu_id = wave.peu_id,
+          .block_id = wave.block_id,
+          .wave_id = wave.wave_id,
+          .pc = wave.pc,
+          .message = std::string(WaitReasonTraceMessage(wave.wait_reason)),
+      });
+    }
   }
 
   bool TryReleaseBarrierBlockedWaves(ExecutableBlock& block) {
@@ -542,7 +642,9 @@ class FunctionalExecutionCoreImpl {
     return std::nullopt;
   }
 
-  void ExecuteWave(ExecutableBlock& block, WaveContext& wave, ExecutionStats& stats) {
+  void ExecuteWave(ExecutableBlock& block, size_t wave_index, ExecutionStats& stats) {
+    WaveContext& wave = block.waves[wave_index];
+    FunctionalWaveState& wave_state = block.wave_states[wave_index];
     if (wave.pc >= context_.kernel.instructions().size()) {
       throw std::out_of_range("wave pc out of range");
     }
@@ -575,6 +677,7 @@ class FunctionalExecutionCoreImpl {
       });
     }
     if (plan.memory.has_value()) {
+      RecordPendingMemoryOp(wave_state, wave, MemoryDomainForOpcode(instruction.opcode));
       const auto& request = *plan.memory;
       ++stats.memory_ops;
       if (request.space == MemorySpace::Global) {
@@ -729,6 +832,8 @@ class FunctionalExecutionCoreImpl {
       {
         std::lock_guard<std::mutex> lock(*block.control_mutex);
         ApplyExecutionPlanControlFlow(plan, wave, false, false);
+        ClearWaitcntWaitState(wave_state);
+        wave_state.pending_memory_ops.clear();
         MarkWaveCompleted(wave);
       }
       TraceEventLocked(TraceEvent{
@@ -740,8 +845,22 @@ class FunctionalExecutionCoreImpl {
           .message = "exit",
       });
     } else {
+      if (EnterWaitStateFromWaitcnt(instruction, wave_state, wave)) {
+        TraceEventLocked(TraceEvent{
+            .kind = TraceEventKind::Stall,
+            .cycle = context_.cycle,
+            .dpc_id = wave.dpc_id,
+            .ap_id = wave.ap_id,
+            .peu_id = wave.peu_id,
+            .block_id = wave.block_id,
+            .wave_id = wave.wave_id,
+            .pc = wave.pc,
+            .message = std::string(WaitReasonTraceMessage(wave.wait_reason)),
+        });
+        return;
+      }
       ApplyExecutionPlanControlFlow(plan, wave, false, false);
-      if (!EnterWaitStateFromInstruction(instruction, wave)) {
+      if (instruction.opcode != Opcode::SWaitCnt) {
         wave.run_state = WaveRunState::Runnable;
         wave.wait_reason = WaveWaitReason::None;
       }
