@@ -4,6 +4,19 @@ namespace gpu_model::sync_ops {
 
 namespace {
 
+void ResumeBarrierReleasedWave(WaveContext& wave,
+                               uint64_t pc_increment,
+                               bool set_valid_entry_on_release) {
+  wave.waiting_at_barrier = false;
+  wave.status = WaveStatus::Active;
+  wave.run_state = WaveRunState::Runnable;
+  wave.wait_reason = WaveWaitReason::None;
+  if (set_valid_entry_on_release) {
+    wave.valid_entry = true;
+  }
+  wave.pc += pc_increment;
+}
+
 template <typename WaveAccessor>
 bool ReleaseBarrierIfReadyImpl(size_t wave_count,
                                WaveAccessor&& wave_at,
@@ -35,14 +48,7 @@ bool ReleaseBarrierIfReadyImpl(size_t wave_count,
   for (size_t i = 0; i < wave_count; ++i) {
     auto& wave = wave_at(i);
     if (wave.waiting_at_barrier && wave.barrier_generation == barrier_generation) {
-      wave.waiting_at_barrier = false;
-      wave.status = WaveStatus::Active;
-      wave.run_state = WaveRunState::Runnable;
-      wave.wait_reason = WaveWaitReason::None;
-      if (set_valid_entry_on_release) {
-        wave.valid_entry = true;
-      }
-      wave.pc += pc_increment;
+      ResumeBarrierReleasedWave(wave, pc_increment, set_valid_entry_on_release);
     }
   }
 
