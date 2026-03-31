@@ -87,9 +87,12 @@ TEST(TraceTest, EmitsWaveStatsSnapshotsForFunctionalLaunch) {
     }
   }
 
-  constexpr const char* kInitial = "launch=2 init=2 active=2 end=0";
-  constexpr const char* kIntermediate = "launch=2 init=2 active=1 end=1";
-  constexpr const char* kFinal = "launch=2 init=2 active=0 end=2";
+  constexpr const char* kInitial =
+      "launch=2 init=2 active=2 runnable=2 waiting=0 end=0";
+  constexpr const char* kIntermediate =
+      "launch=2 init=2 active=1 runnable=1 waiting=0 end=1";
+  constexpr const char* kFinal =
+      "launch=2 init=2 active=0 runnable=0 waiting=0 end=2";
   ASSERT_EQ(wave_stats_messages.size(), 4u);
   EXPECT_EQ(wave_stats_messages.front(), kInitial);
   EXPECT_EQ(wave_stats_messages.back(), kFinal);
@@ -103,6 +106,35 @@ TEST(TraceTest, EmitsWaveStatsSnapshotsForFunctionalLaunch) {
       std::count(wave_stats_messages.begin(), wave_stats_messages.end(), kFinal);
   EXPECT_GE(final_count, 2u);
   EXPECT_LE(final_count, 3u);
+}
+
+TEST(TraceTest, EmitsWaveStatsStateSplitForFunctionalLaunch) {
+  CollectingTraceSink trace;
+  RuntimeEngine runtime(&trace);
+  runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::MarlParallel);
+
+  InstructionBuilder builder;
+  builder.BExit();
+  const auto kernel = builder.Build("wave_stats_state_split_kernel");
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.config.grid_dim_x = 2;
+  request.config.block_dim_x = 64;
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok);
+
+  std::vector<std::string> messages;
+  for (const auto& event : trace.events()) {
+    if (event.kind == TraceEventKind::WaveStats) {
+      messages.push_back(event.message);
+    }
+  }
+
+  ASSERT_FALSE(messages.empty());
+  EXPECT_EQ(messages.front(), "launch=2 init=2 active=2 runnable=2 waiting=0 end=0");
+  EXPECT_EQ(messages.back(), "launch=2 init=2 active=0 runnable=0 waiting=0 end=2");
 }
 
 TEST(TraceTest, WritesHumanReadableTraceFile) {

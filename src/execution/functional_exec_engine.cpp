@@ -51,13 +51,19 @@ struct WaveStatsSnapshot {
   uint32_t launch = 0;
   uint32_t init = 0;
   uint32_t active = 0;
+  uint32_t runnable = 0;
+  uint32_t waiting = 0;
   uint32_t end = 0;
 };
 
 std::string FormatWaveStatsMessage(const WaveStatsSnapshot& stats) {
   std::ostringstream oss;
-  oss << "launch=" << stats.launch << " init=" << stats.init << " active=" << stats.active
-      << " end=" << stats.end;
+  oss << "launch=" << stats.launch;
+  oss << " init=" << stats.init;
+  oss << " active=" << stats.active;
+  oss << " runnable=" << stats.runnable;
+  oss << " waiting=" << stats.waiting;
+  oss << " end=" << stats.end;
   return oss.str();
 }
 
@@ -451,13 +457,20 @@ class FunctionalExecutionCoreImpl {
         ++stats.launch;
         // Task 2 scope: "init" currently mirrors the count of materialized waves.
         ++stats.init;
-        if (wave.status == WaveStatus::Exited) {
-          ++stats.end;
-        } else {
-          ++stats.active;
+        switch (wave.run_state) {
+          case WaveRunState::Runnable:
+            ++stats.runnable;
+            break;
+          case WaveRunState::Waiting:
+            ++stats.waiting;
+            break;
+          case WaveRunState::Completed:
+            ++stats.end;
+            break;
         }
       }
     }
+    stats.active = stats.runnable + stats.waiting;
     return stats;
   }
 
