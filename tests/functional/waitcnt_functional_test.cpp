@@ -235,7 +235,7 @@ TEST(WaitcntFunctionalTest, WaitcntResumesWhenThresholdBecomesSatisfiedNotOnlyAt
   EXPECT_LT(second_waitcnt_stall_index, zero_resume_marker_index);
 }
 
-TEST(WaitcntFunctionalTest, MarlParallelWaitcntResumeIsConsistentAcrossTwoWaves) {
+TEST(WaitcntFunctionalTest, MarlParallelWaitcntResumeIsConsistentAcrossTwoBlocks) {
   constexpr uint32_t kBlockDim = 64;
   constexpr std::array<uint32_t, 2> kTargetBlockIds{0, 1};
   const auto kernel = BuildParallelWaitcntZeroResumeKernel();

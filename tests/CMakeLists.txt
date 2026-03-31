@@ -13,6 +13,7 @@ add_executable(gpu_model_tests
   execution/wave_context_builder_test.cpp
   execution/sync_ops_test.cpp
   execution/plan_apply_test.cpp
+  execution/functional_exec_engine_waitcnt_test.cpp
 
   # instruction/execution migrated coverage
   execution/internal/tensor_op_utils_test.cpp
