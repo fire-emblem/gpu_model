@@ -1,3 +1,4 @@
+#include <array>
 #include <gtest/gtest.h>
 
 #include "gpu_model/execution/wave_context.h"
@@ -40,21 +41,42 @@ TEST(WaveContextTest, ClearsBarrierWaitStateOnReset) {
   EXPECT_EQ(wave.wait_reason, WaveWaitReason::None);
 }
 
+namespace {
+constexpr std::array kMemoryDomainWaitReasons{
+    WaveWaitReason::PendingGlobalMemory,
+    WaveWaitReason::PendingSharedMemory,
+    WaveWaitReason::PendingPrivateMemory,
+    WaveWaitReason::PendingScalarBufferMemory,
+};
+}  // namespace
+
 TEST(WaveContextTest, SupportsMemoryDomainWaitReasons) {
-  EXPECT_NE(WaveWaitReason::PendingGlobalMemory, WaveWaitReason::PendingSharedMemory);
-  EXPECT_NE(WaveWaitReason::PendingPrivateMemory, WaveWaitReason::PendingScalarBufferMemory);
+  for (size_t i = 0; i < kMemoryDomainWaitReasons.size(); ++i) {
+    for (size_t j = i + 1; j < kMemoryDomainWaitReasons.size(); ++j) {
+      EXPECT_NE(kMemoryDomainWaitReasons[i], kMemoryDomainWaitReasons[j]);
+    }
+  }
+
+  WaveContext wave;
+  for (auto wait_reason : kMemoryDomainWaitReasons) {
+    wave.wait_reason = wait_reason;
+    EXPECT_EQ(wave.wait_reason, wait_reason);
+  }
 }
 
 TEST(WaveContextTest, ResetClearsMemoryWaitReasonBackToNone) {
   WaveContext wave;
-  wave.run_state = WaveRunState::Waiting;
-  wave.wait_reason = WaveWaitReason::PendingGlobalMemory;
   wave.thread_count = 8;
 
-  wave.ResetInitialExec();
+  for (auto wait_reason : kMemoryDomainWaitReasons) {
+    wave.run_state = WaveRunState::Waiting;
+    wave.wait_reason = wait_reason;
 
-  EXPECT_EQ(wave.run_state, WaveRunState::Runnable);
-  EXPECT_EQ(wave.wait_reason, WaveWaitReason::None);
+    wave.ResetInitialExec();
+
+    EXPECT_EQ(wave.run_state, WaveRunState::Runnable);
+    EXPECT_EQ(wave.wait_reason, WaveWaitReason::None);
+  }
 }
 
 }  // namespace
