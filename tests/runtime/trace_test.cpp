@@ -62,6 +62,34 @@ TEST(TraceTest, EmitsWaveLaunchEventWithInitialWaveStateSummary) {
   EXPECT_TRUE(saw_wave_launch);
 }
 
+TEST(TraceTest, EmitsWaveStatsSnapshotsForFunctionalLaunch) {
+  CollectingTraceSink trace;
+  RuntimeEngine runtime(&trace);
+
+  InstructionBuilder builder;
+  builder.BExit();
+  const auto kernel = builder.Build("wave_stats_trace_kernel");
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.config.grid_dim_x = 2;
+  request.config.block_dim_x = 64;
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok);
+
+  std::vector<std::string> wave_stats_messages;
+  for (const auto& event : trace.events()) {
+    if (event.kind == TraceEventKind::WaveStats) {
+      wave_stats_messages.push_back(event.message);
+    }
+  }
+
+  ASSERT_GE(wave_stats_messages.size(), 2u);
+  EXPECT_EQ(wave_stats_messages.front(), "launch=2 init=2 active=2 end=0");
+  EXPECT_EQ(wave_stats_messages.back(), "launch=2 init=2 active=0 end=2");
+}
+
 TEST(TraceTest, WritesHumanReadableTraceFile) {
   const std::filesystem::path path =
       std::filesystem::temp_directory_path() / "gpu_model_trace.txt";

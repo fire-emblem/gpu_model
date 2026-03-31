@@ -47,6 +47,20 @@ struct FunctionalWaveState {
   std::optional<WaitCntThresholds> waiting_waitcnt_thresholds;
 };
 
+struct WaveStatsSnapshot {
+  uint32_t launch = 0;
+  uint32_t init = 0;
+  uint32_t active = 0;
+  uint32_t end = 0;
+};
+
+std::string FormatWaveStatsMessage(const WaveStatsSnapshot& stats) {
+  std::ostringstream oss;
+  oss << "launch=" << stats.launch << " init=" << stats.init << " active=" << stats.active
+      << " end=" << stats.end;
+  return oss.str();
+}
+
 std::optional<WaveWaitReason> MapWaitcntStringToWaveWaitReason(std::string_view reason) {
   if (reason == "waitcnt_global") {
     return WaveWaitReason::PendingGlobalMemory;
@@ -293,16 +307,19 @@ class FunctionalExecutionCoreImpl {
 
   uint64_t RunSequential() {
     EmitWaveLaunchEvents();
+    EmitWaveStatsSnapshot();
     for (auto& block : blocks_) {
       ExecutionStats block_stats;
       ExecuteBlock(block, block_stats);
       CommitStats(block_stats);
     }
+    EmitWaveStatsSnapshot();
     return 0;
   }
 
   uint64_t RunParallelBlocks(uint32_t worker_threads) {
     EmitWaveLaunchEvents();
+    EmitWaveStatsSnapshot();
 #ifdef GPU_MODEL_HAS_MARL
     marl::Scheduler::Config scheduler_config;
     if (worker_threads == 0) {
@@ -379,6 +396,7 @@ class FunctionalExecutionCoreImpl {
     if (failure != nullptr) {
       std::rethrow_exception(failure);
     }
+    EmitWaveStatsSnapshot();
     return 0;
 #else
     (void)worker_threads;
@@ -423,6 +441,30 @@ class FunctionalExecutionCoreImpl {
         });
       }
     }
+  }
+
+  WaveStatsSnapshot CaptureWaveStatsSnapshot() const {
+    WaveStatsSnapshot stats;
+    for (const auto& block : blocks_) {
+      for (const auto& wave : block.waves) {
+        ++stats.launch;
+        ++stats.init;
+        if (wave.status == WaveStatus::Exited) {
+          ++stats.end;
+        } else {
+          ++stats.active;
+        }
+      }
+    }
+    return stats;
+  }
+
+  void EmitWaveStatsSnapshot() {
+    TraceEventLocked(TraceEvent{
+        .kind = TraceEventKind::WaveStats,
+        .cycle = context_.cycle,
+        .message = FormatWaveStatsMessage(CaptureWaveStatsSnapshot()),
+    });
   }
 
   uint64_t LoadGlobalLaneValue(const LaneAccess& lane) {
