@@ -19,7 +19,7 @@ Following TDD philosophy, each criterion includes positive and negative tests fo
 - AC-1: `WaveLaunch` 保持单条单行摘要，且现有顶层执行/拓扑字段不回归
   - Positive Tests (expected to PASS):
     - `./build-ninja/tests/gpu_model_tests --gtest_filter='TraceTest.EmitsWaveLaunchEventWithInitialWaveStateSummary'` 通过，并继续看到 `lanes=0x40`、`exec=0xffffffffffffffff`、`sgpr={`、`vgpr={`
-    - `./build-ninja/tests/gpu_model_tests --gtest_filter='CycleSmokeTest.QueuedBlocksRespectApCapacityAndActivateOverflowLater'` 通过，说明 `WaveLaunch` 事件数量与 cycle launch 统计不变
+    - `./build-ninja/tests/gpu_model_tests --gtest_filter='CycleSmokeTest.QueuesBlocksWhenGridExceedsPhysicalApCount'` 通过，说明 `WaveLaunch` 事件数量与 cycle launch 统计不变
   - Negative Tests (expected to FAIL):
     - 如果 `WaveLaunch` message 变成多行或移除 `lanes/exec` 顶层字段，`TraceTest.EmitsWaveLaunchEventWithInitialWaveStateSummary` 应失败
     - 如果把 `WaveLaunch` 改成新 event kind 或跳过现有发射点，`CycleSmokeTest` 中的 wave launch 计数断言应失败
@@ -178,4 +178,3 @@ Each task must include exactly one routing tag:
 - Implementation code and comments must NOT contain plan-specific terminology such as "AC-", "Milestone", "Step", "Phase", or similar workflow markers
 - These terms are for plan documentation only, not for the resulting codebase
 - Use descriptive, domain-appropriate naming in code instead
-
