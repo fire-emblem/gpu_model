@@ -104,6 +104,24 @@ ExecutableKernel BuildScalarBufferWaitcntLifecycleKernel() {
                        MakeConstSegment({321}));
 }
 
+ExecutableKernel BuildMultiDomainWaitcntResumeKernel() {
+  InstructionBuilder builder;
+  builder.SLoadArg("s0", 0);
+  builder.SMov("s1", 0);
+  builder.MLoadGlobal("v1", "s0", "s1", 4);
+  builder.VMov("v0", 0);
+  builder.VMov("v2", 11);
+  builder.MStoreShared("v0", "v2", 4);
+  builder.SWaitCnt(/*global_count=*/0, /*shared_count=*/0,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
+  builder.SMov("s2", 17);
+  builder.SWaitCnt(/*global_count=*/UINT32_MAX, /*shared_count=*/0,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
+  builder.SMov("s3", 19);
+  builder.BExit();
+  return builder.Build("exec_waitcnt_multi_domain_resume");
+}
+
 uint64_t NthInstructionPcWithOpcode(const ExecutableKernel& kernel, Opcode opcode, size_t ordinal) {
   size_t seen = 0;
   for (uint64_t pc = 0; pc < kernel.instructions().size(); ++pc) {
@@ -398,6 +416,38 @@ TEST(FunctionalExecEngineWaitcntTest, ScalarBufferWaitcntTransitionsThroughWaiti
   EXPECT_TRUE(ContainsStallMessage(events, "waitcnt_scalar_buffer"));
   EXPECT_TRUE(
       HasResumeOrdering(events, waitcnt_pc, resume_marker_pc, "waitcnt_scalar_buffer"));
+}
+
+TEST(FunctionalExecEngineWaitcntTest, WaitcntResumeRequiresAllStoredThresholdDomains) {
+  auto harness =
+      MakeWaitcntHarness(BuildMultiDomainWaitcntResumeKernel(), /*shared_memory_bytes=*/4);
+  const uint64_t base_addr = harness.memory.AllocateGlobal(sizeof(int32_t));
+  harness.memory.StoreGlobalValue<int32_t>(base_addr, 11);
+  harness.args.PushU64(base_addr);
+
+  const auto events = RunHarnessAndCollectTrace(harness);
+  const uint64_t combined_waitcnt_pc = NthInstructionPcWithOpcode(harness.kernel, Opcode::SWaitCnt, 0);
+  const uint64_t shared_only_waitcnt_pc = NthInstructionPcWithOpcode(harness.kernel, Opcode::SWaitCnt, 1);
+  const uint64_t marker_after_combined_pc = NthInstructionPcWithOpcode(harness.kernel, Opcode::SMov, 1);
+  const uint64_t marker_after_shared_only_pc = NthInstructionPcWithOpcode(harness.kernel, Opcode::SMov, 2);
+  ASSERT_NE(combined_waitcnt_pc, std::numeric_limits<uint64_t>::max());
+  ASSERT_NE(shared_only_waitcnt_pc, std::numeric_limits<uint64_t>::max());
+  ASSERT_NE(marker_after_combined_pc, std::numeric_limits<uint64_t>::max());
+  ASSERT_NE(marker_after_shared_only_pc, std::numeric_limits<uint64_t>::max());
+
+  EXPECT_TRUE(ContainsStallMessage(events, "waitcnt_global"));
+  EXPECT_EQ(FirstEventIndex(events, TraceEventKind::Stall, shared_only_waitcnt_pc, "waitcnt_shared"),
+            std::numeric_limits<size_t>::max());
+  EXPECT_TRUE(HasResumeOrdering(events, combined_waitcnt_pc, marker_after_combined_pc, "waitcnt_global"));
+  EXPECT_EQ(
+      FirstEventIndexAfter(events,
+                           FirstEventIndex(events, TraceEventKind::WaveStep, marker_after_combined_pc),
+                           TraceEventKind::Stall,
+                           shared_only_waitcnt_pc,
+                           "waitcnt_shared"),
+      std::numeric_limits<size_t>::max());
+  EXPECT_NE(FirstEventIndex(events, TraceEventKind::WaveStep, marker_after_shared_only_pc),
+            std::numeric_limits<size_t>::max());
 }
 
 }  // namespace

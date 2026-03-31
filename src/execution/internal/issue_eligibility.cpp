@@ -4,19 +4,45 @@ namespace gpu_model {
 
 namespace {
 
+uint32_t WaitCntThresholdForDomain(const WaitCntThresholds& thresholds, MemoryWaitDomain domain) {
+  switch (domain) {
+    case MemoryWaitDomain::Global:
+      return thresholds.global;
+    case MemoryWaitDomain::Shared:
+      return thresholds.shared;
+    case MemoryWaitDomain::Private:
+      return thresholds.private_mem;
+    case MemoryWaitDomain::ScalarBuffer:
+      return thresholds.scalar_buffer;
+    case MemoryWaitDomain::None:
+      return UINT32_MAX;
+  }
+  return UINT32_MAX;
+}
+
+std::optional<std::string> WaitReasonForDomain(MemoryWaitDomain domain) {
+  switch (domain) {
+    case MemoryWaitDomain::Global:
+      return "waitcnt_global";
+    case MemoryWaitDomain::Shared:
+      return "waitcnt_shared";
+    case MemoryWaitDomain::Private:
+      return "waitcnt_private";
+    case MemoryWaitDomain::ScalarBuffer:
+      return "waitcnt_scalar_buffer";
+    case MemoryWaitDomain::None:
+      return std::nullopt;
+  }
+  return std::nullopt;
+}
+
 std::optional<std::string> DetermineWaitCntBlockReason(const WaveContext& wave,
                                                        const WaitCntThresholds& thresholds) {
-  if (wave.pending_global_mem_ops > thresholds.global) {
-    return "waitcnt_global";
-  }
-  if (wave.pending_shared_mem_ops > thresholds.shared) {
-    return "waitcnt_shared";
-  }
-  if (wave.pending_private_mem_ops > thresholds.private_mem) {
-    return "waitcnt_private";
-  }
-  if (wave.pending_scalar_buffer_mem_ops > thresholds.scalar_buffer) {
-    return "waitcnt_scalar_buffer";
+  for (const auto domain : {MemoryWaitDomain::Global, MemoryWaitDomain::Shared,
+                            MemoryWaitDomain::Private, MemoryWaitDomain::ScalarBuffer}) {
+    if (PendingMemoryOpsForDomain(wave, domain) > WaitCntThresholdForDomain(thresholds, domain)) {
+      return WaitReasonForDomain(domain);
+    }
   }
   return std::nullopt;
 }
@@ -123,10 +149,13 @@ bool WaitCntSatisfied(const WaveContext& wave, const Instruction& instruction) {
     return true;
   }
   const auto thresholds = WaitCntThresholdsForInstruction(instruction);
-  return wave.pending_global_mem_ops <= thresholds.global &&
-         wave.pending_shared_mem_ops <= thresholds.shared &&
-         wave.pending_private_mem_ops <= thresholds.private_mem &&
-         wave.pending_scalar_buffer_mem_ops <= thresholds.scalar_buffer;
+  for (const auto domain : {MemoryWaitDomain::Global, MemoryWaitDomain::Shared,
+                            MemoryWaitDomain::Private, MemoryWaitDomain::ScalarBuffer}) {
+    if (PendingMemoryOpsForDomain(wave, domain) > WaitCntThresholdForDomain(thresholds, domain)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 std::optional<std::string> WaitCntBlockReason(const WaveContext& wave,
@@ -139,29 +168,9 @@ std::optional<std::string> WaitCntBlockReason(const WaveContext& wave,
 
 std::optional<std::string> MemoryDomainBlockReason(const WaveContext& wave,
                                                    const Instruction& instruction) {
-  switch (MemoryDomainForOpcode(instruction.opcode)) {
-    case MemoryWaitDomain::Global:
-      if (wave.pending_global_mem_ops > 0) {
-        return "waitcnt_global";
-      }
-      break;
-    case MemoryWaitDomain::Shared:
-      if (wave.pending_shared_mem_ops > 0) {
-        return "waitcnt_shared";
-      }
-      break;
-    case MemoryWaitDomain::Private:
-      if (wave.pending_private_mem_ops > 0) {
-        return "waitcnt_private";
-      }
-      break;
-    case MemoryWaitDomain::ScalarBuffer:
-      if (wave.pending_scalar_buffer_mem_ops > 0) {
-        return "waitcnt_scalar_buffer";
-      }
-      break;
-    case MemoryWaitDomain::None:
-      break;
+  const auto domain = MemoryDomainForOpcode(instruction.opcode);
+  if (PendingMemoryOpsForDomain(wave, domain) > 0) {
+    return WaitReasonForDomain(domain);
   }
   return std::nullopt;
 }

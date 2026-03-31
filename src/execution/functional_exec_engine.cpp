@@ -100,11 +100,33 @@ std::string_view WaitReasonTraceMessage(WaveWaitReason reason) {
   return "";
 }
 
+void MarkWaveWaiting(WaveContext& wave, WaveWaitReason reason) {
+  if (wave.run_state == WaveRunState::Completed) {
+    return;
+  }
+  wave.run_state = WaveRunState::Waiting;
+  wave.wait_reason = reason;
+}
+
+std::optional<MemoryWaitDomain> MemoryWaitDomainForReason(WaveWaitReason reason) {
+  switch (reason) {
+    case WaveWaitReason::PendingGlobalMemory:
+      return MemoryWaitDomain::Global;
+    case WaveWaitReason::PendingSharedMemory:
+      return MemoryWaitDomain::Shared;
+    case WaveWaitReason::PendingPrivateMemory:
+      return MemoryWaitDomain::Private;
+    case WaveWaitReason::PendingScalarBufferMemory:
+      return MemoryWaitDomain::ScalarBuffer;
+    case WaveWaitReason::None:
+    case WaveWaitReason::BlockBarrier:
+      return std::nullopt;
+  }
+  return std::nullopt;
+}
+
 bool IsMemoryWaitReason(WaveWaitReason reason) {
-  return reason == WaveWaitReason::PendingGlobalMemory ||
-         reason == WaveWaitReason::PendingSharedMemory ||
-         reason == WaveWaitReason::PendingPrivateMemory ||
-         reason == WaveWaitReason::PendingScalarBufferMemory;
+  return MemoryWaitDomainForReason(reason).has_value();
 }
 
 bool WaitCntSatisfiedForThresholds(const WaveContext& wave, const WaitCntThresholds& thresholds) {
@@ -112,6 +134,16 @@ bool WaitCntSatisfiedForThresholds(const WaveContext& wave, const WaitCntThresho
          wave.pending_shared_mem_ops <= thresholds.shared &&
          wave.pending_private_mem_ops <= thresholds.private_mem &&
          wave.pending_scalar_buffer_mem_ops <= thresholds.scalar_buffer;
+}
+
+bool IsWaveWaitSatisfied(const FunctionalWaveState& state, const WaveContext& wave) {
+  if (wave.run_state != WaveRunState::Waiting || !state.waiting_waitcnt_thresholds.has_value()) {
+    return false;
+  }
+  if (!IsMemoryWaitReason(wave.wait_reason)) {
+    return false;
+  }
+  return WaitCntSatisfiedForThresholds(wave, *state.waiting_waitcnt_thresholds);
 }
 
 bool EnterWaitStateFromWaitcnt(const Instruction& instruction,
@@ -128,17 +160,12 @@ bool EnterWaitStateFromWaitcnt(const Instruction& instruction,
     return false;
   }
   state.waiting_waitcnt_thresholds = WaitCntThresholdsForInstruction(instruction);
-  wave.run_state = WaveRunState::Waiting;
-  wave.wait_reason = *mapped_wait_reason;
+  MarkWaveWaiting(wave, *mapped_wait_reason);
   return true;
 }
 
-bool ResumeWaveIfWaitcntSatisfied(FunctionalWaveState& state, WaveContext& wave) {
-  if (wave.run_state != WaveRunState::Waiting || !IsMemoryWaitReason(wave.wait_reason) ||
-      !state.waiting_waitcnt_thresholds.has_value()) {
-    return false;
-  }
-  if (!WaitCntSatisfiedForThresholds(wave, *state.waiting_waitcnt_thresholds)) {
+bool ResumeWaveIfWaitSatisfied(FunctionalWaveState& state, WaveContext& wave) {
+  if (!IsWaveWaitSatisfied(state, wave)) {
     return false;
   }
   state.waiting_waitcnt_thresholds.reset();
@@ -295,8 +322,7 @@ void MarkWaveWaitingAtBarrier(WaveContext& wave, uint64_t barrier_generation) {
   wave.status = WaveStatus::Stalled;
   wave.waiting_at_barrier = true;
   wave.barrier_generation = barrier_generation;
-  wave.run_state = WaveRunState::Waiting;
-  wave.wait_reason = WaveWaitReason::BlockBarrier;
+  MarkWaveWaiting(wave, WaveWaitReason::BlockBarrier);
 }
 
 void MarkWaveCompleted(WaveContext& wave) {
@@ -637,7 +663,7 @@ class FunctionalExecutionCoreImpl {
     {
       std::lock_guard<std::mutex> state_lock(*block.wave_state_mutex);
       for (size_t i = 0; i < block.waves.size(); ++i) {
-        resumed = ResumeWaveIfWaitcntSatisfied(block.wave_states[i], block.waves[i]) || resumed;
+        resumed = ResumeWaveIfWaitSatisfied(block.wave_states[i], block.waves[i]) || resumed;
       }
     }
     if (resumed) {
