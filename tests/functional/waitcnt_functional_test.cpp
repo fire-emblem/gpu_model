@@ -49,8 +49,9 @@ ExecutableKernel BuildParallelWaitcntZeroResumeKernel() {
   InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
   builder.SMov("s1", 0);
-  builder.SyncBarrier();
-  builder.MLoadGlobal("v1", "s0", "s1", 4);
+  for (int i = 0; i < 16; ++i) {
+    builder.MLoadGlobal("v1", "s0", "s1", 4);
+  }
   builder.SWaitCnt(/*global_count=*/0, /*shared_count=*/UINT32_MAX,
                    /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
   builder.SMov("s2", 9);
@@ -105,13 +106,15 @@ size_t FirstEventIndexAfter(const std::vector<TraceEvent>& events,
   return std::numeric_limits<size_t>::max();
 }
 
-size_t FirstEventIndexForWave(const std::vector<TraceEvent>& events,
+size_t FirstEventIndexForBlockWave(const std::vector<TraceEvent>& events,
+                              uint32_t block_id,
                               uint32_t wave_id,
                               TraceEventKind kind,
                               uint64_t pc,
                               std::optional<std::string_view> message = std::nullopt) {
   for (size_t i = 0; i < events.size(); ++i) {
-    if (events[i].wave_id != wave_id || events[i].kind != kind || events[i].pc != pc) {
+    if (events[i].block_id != block_id || events[i].wave_id != wave_id ||
+        events[i].kind != kind || events[i].pc != pc) {
       continue;
     }
     if (message.has_value() && events[i].message != *message) {
@@ -122,12 +125,14 @@ size_t FirstEventIndexForWave(const std::vector<TraceEvent>& events,
   return std::numeric_limits<size_t>::max();
 }
 
-const TraceEvent* FirstEventForWave(const std::vector<TraceEvent>& events,
+const TraceEvent* FirstEventForBlockWave(const std::vector<TraceEvent>& events,
+                                    uint32_t block_id,
                                     uint32_t wave_id,
                                     TraceEventKind kind,
                                     uint64_t pc) {
   for (const auto& event : events) {
-    if (event.wave_id == wave_id && event.kind == kind && event.pc == pc) {
+    if (event.block_id == block_id && event.wave_id == wave_id &&
+        event.kind == kind && event.pc == pc) {
       return &event;
     }
   }
@@ -231,8 +236,8 @@ TEST(WaitcntFunctionalTest, WaitcntResumesWhenThresholdBecomesSatisfiedNotOnlyAt
 }
 
 TEST(WaitcntFunctionalTest, MarlParallelWaitcntResumeIsConsistentAcrossTwoWaves) {
-  constexpr uint32_t kBlockDim = 128;
-  constexpr std::array<uint32_t, 2> kTargetWaveIds{0, 1};
+  constexpr uint32_t kBlockDim = 64;
+  constexpr std::array<uint32_t, 2> kTargetBlockIds{0, 1};
   const auto kernel = BuildParallelWaitcntZeroResumeKernel();
   const uint64_t waitcnt_pc = NthInstructionPcWithOpcode(kernel, Opcode::SWaitCnt, 0);
   const uint64_t resume_marker_pc = NthInstructionPcWithOpcode(kernel, Opcode::SMov, 1);
@@ -255,7 +260,7 @@ TEST(WaitcntFunctionalTest, MarlParallelWaitcntResumeIsConsistentAcrossTwoWaves)
 
     LaunchRequest request;
     request.kernel = &kernel;
-    request.config.grid_dim_x = 1;
+    request.config.grid_dim_x = 2;
     request.config.block_dim_x = kBlockDim;
     request.args.PushU64(base_addr);
 
@@ -263,21 +268,24 @@ TEST(WaitcntFunctionalTest, MarlParallelWaitcntResumeIsConsistentAcrossTwoWaves)
     ASSERT_TRUE(result.ok) << result.error_message;
 
     const auto& events = trace.events();
-    for (uint32_t wave_id : kTargetWaveIds) {
+    for (uint32_t block_id : kTargetBlockIds) {
       const auto* waitcnt_event =
-          FirstEventForWave(events, wave_id, TraceEventKind::WaveStep, waitcnt_pc);
+          FirstEventForBlockWave(events, block_id, 0, TraceEventKind::WaveStep, waitcnt_pc);
       const size_t waitcnt_index =
-          FirstEventIndexForWave(events, wave_id, TraceEventKind::WaveStep, waitcnt_pc);
+          FirstEventIndexForBlockWave(events, block_id, 0, TraceEventKind::WaveStep, waitcnt_pc);
+      const size_t waitcnt_stall_index =
+          FirstEventIndexForBlockWave(events, block_id, 0, TraceEventKind::Stall,
+                                      waitcnt_pc, "waitcnt_global");
       const size_t resume_marker_index =
-          FirstEventIndexForWave(events, wave_id, TraceEventKind::WaveStep, resume_marker_pc);
+          FirstEventIndexForBlockWave(events, block_id, 0, TraceEventKind::WaveStep, resume_marker_pc);
 
       ASSERT_NE(waitcnt_event, nullptr);
       ASSERT_NE(waitcnt_index, std::numeric_limits<size_t>::max());
+      ASSERT_NE(waitcnt_stall_index, std::numeric_limits<size_t>::max());
       ASSERT_NE(resume_marker_index, std::numeric_limits<size_t>::max());
       EXPECT_NE(waitcnt_event->message.find("op=s_waitcnt"), std::string::npos);
-      EXPECT_NE(waitcnt_event->message.find("pending_mem={g="), std::string::npos);
-      EXPECT_EQ(waitcnt_event->message.find("pending_mem={g=0,"), std::string::npos);
-      EXPECT_LT(waitcnt_index, resume_marker_index);
+      EXPECT_LT(waitcnt_index, waitcnt_stall_index);
+      EXPECT_LT(waitcnt_stall_index, resume_marker_index);
     }
   }
 }

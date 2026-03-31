@@ -69,11 +69,7 @@ std::string FormatOperand(const Operand& operand, const WaveContext& wave) {
 std::string FormatWaveStepMessage(const Instruction& instruction, const WaveContext& wave) {
   std::ostringstream out;
   out << "pc=" << HexU64(wave.pc) << " op=" << ToString(instruction.opcode)
-      << " exec_lanes=" << HexU64(wave.exec.count())
-      << " pending_mem={g=" << wave.pending_global_mem_ops
-      << ", s=" << wave.pending_shared_mem_ops
-      << ", p=" << wave.pending_private_mem_ops
-      << ", sb=" << wave.pending_scalar_buffer_mem_ops << "}";
+      << " exec_lanes=" << HexU64(wave.exec.count());
   if (instruction.operands.empty()) {
     return out.str();
   }
