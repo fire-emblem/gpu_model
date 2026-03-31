@@ -318,9 +318,9 @@ class FunctionalExecutionCoreImpl {
   }
 
   uint64_t RunParallelBlocks(uint32_t worker_threads) {
+#ifdef GPU_MODEL_HAS_MARL
     EmitWaveLaunchEvents();
     EmitWaveStatsSnapshot();
-#ifdef GPU_MODEL_HAS_MARL
     marl::Scheduler::Config scheduler_config;
     if (worker_threads == 0) {
       scheduler_config = marl::Scheduler::Config::allCores();
@@ -448,6 +448,7 @@ class FunctionalExecutionCoreImpl {
     for (const auto& block : blocks_) {
       for (const auto& wave : block.waves) {
         ++stats.launch;
+        // Task 2 scope: "init" currently mirrors the count of materialized waves.
         ++stats.init;
         if (wave.status == WaveStatus::Exited) {
           ++stats.end;

@@ -85,7 +85,7 @@ TEST(TraceTest, EmitsWaveStatsSnapshotsForFunctionalLaunch) {
     }
   }
 
-  ASSERT_GE(wave_stats_messages.size(), 2u);
+  ASSERT_EQ(wave_stats_messages.size(), 2u);
   EXPECT_EQ(wave_stats_messages.front(), "launch=2 init=2 active=2 end=0");
   EXPECT_EQ(wave_stats_messages.back(), "launch=2 init=2 active=0 end=2");
 }
