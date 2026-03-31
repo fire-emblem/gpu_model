@@ -119,6 +119,96 @@ uint32_t WaveLaunchTraceVectorRegs(const AmdgpuKernelDescriptor& descriptor) {
   return std::max(1u, static_cast<uint32_t>(descriptor.enable_vgpr_workitem_id) + 1u);
 }
 
+WaveLaunchAbiSummary BuildWaveLaunchAbiSummary(const WaveContext& wave,
+                                               const AmdgpuKernelDescriptor& descriptor) {
+  WaveLaunchAbiSummary summary;
+  if (!HasExplicitDescriptorAbiRecipe(descriptor)) {
+    const uint64_t kernarg_ptr =
+        static_cast<uint64_t>(wave.sgpr.Read(4)) |
+        (static_cast<uint64_t>(wave.sgpr.Read(5)) << 32u);
+    summary.sgpr_fields.push_back({"kernarg_ptr", kernarg_ptr});
+    summary.sgpr_fields.push_back({"wg_id_x", wave.sgpr.Read(6)});
+    summary.sgpr_fields.push_back({"wg_id_y", wave.sgpr.Read(7)});
+    summary.vgpr_fields.push_back({"workitem_id_x", 0});
+    summary.vgpr_fields.push_back({"workitem_id_y", 1});
+    summary.vgpr_fields.push_back({"workitem_id_z", 2});
+    return summary;
+  }
+
+  uint32_t sgpr_cursor = 0;
+  if (descriptor.enable_sgpr_private_segment_buffer) {
+    sgpr_cursor += 4;
+  }
+  if (descriptor.enable_sgpr_dispatch_ptr) {
+    const uint64_t dispatch_ptr =
+        static_cast<uint64_t>(wave.sgpr.Read(sgpr_cursor)) |
+        (static_cast<uint64_t>(wave.sgpr.Read(sgpr_cursor + 1)) << 32u);
+    summary.sgpr_fields.push_back({"dispatch_ptr", dispatch_ptr});
+    sgpr_cursor += 2;
+  }
+  if (descriptor.enable_sgpr_queue_ptr) {
+    const uint64_t queue_ptr =
+        static_cast<uint64_t>(wave.sgpr.Read(sgpr_cursor)) |
+        (static_cast<uint64_t>(wave.sgpr.Read(sgpr_cursor + 1)) << 32u);
+    summary.sgpr_fields.push_back({"queue_ptr", queue_ptr});
+    sgpr_cursor += 2;
+  }
+  if (descriptor.enable_sgpr_kernarg_segment_ptr) {
+    const uint64_t kernarg_ptr =
+        static_cast<uint64_t>(wave.sgpr.Read(sgpr_cursor)) |
+        (static_cast<uint64_t>(wave.sgpr.Read(sgpr_cursor + 1)) << 32u);
+    summary.sgpr_fields.push_back({"kernarg_ptr", kernarg_ptr});
+    sgpr_cursor += 2;
+  }
+  if (descriptor.enable_sgpr_dispatch_id) {
+    const uint64_t dispatch_id =
+        static_cast<uint64_t>(wave.sgpr.Read(sgpr_cursor)) |
+        (static_cast<uint64_t>(wave.sgpr.Read(sgpr_cursor + 1)) << 32u);
+    summary.sgpr_fields.push_back({"dispatch_id", dispatch_id});
+    sgpr_cursor += 2;
+  }
+  if (descriptor.enable_sgpr_flat_scratch_init) {
+    const uint64_t flat_scratch_init =
+        static_cast<uint64_t>(wave.sgpr.Read(sgpr_cursor)) |
+        (static_cast<uint64_t>(wave.sgpr.Read(sgpr_cursor + 1)) << 32u);
+    summary.sgpr_fields.push_back({"flat_scratch_init", flat_scratch_init});
+    sgpr_cursor += 2;
+  }
+  if (descriptor.enable_sgpr_private_segment_size) {
+    summary.sgpr_fields.push_back({"private_segment_size", wave.sgpr.Read(sgpr_cursor)});
+    ++sgpr_cursor;
+  }
+  sgpr_cursor += descriptor.kernarg_preload_spec_length;
+  if (descriptor.enable_sgpr_workgroup_id_x) {
+    summary.sgpr_fields.push_back({"wg_id_x", wave.sgpr.Read(sgpr_cursor)});
+    ++sgpr_cursor;
+  }
+  if (descriptor.enable_sgpr_workgroup_id_y) {
+    summary.sgpr_fields.push_back({"wg_id_y", wave.sgpr.Read(sgpr_cursor)});
+    ++sgpr_cursor;
+  }
+  if (descriptor.enable_sgpr_workgroup_id_z) {
+    summary.sgpr_fields.push_back({"wg_id_z", wave.sgpr.Read(sgpr_cursor)});
+    ++sgpr_cursor;
+  }
+  if (descriptor.enable_sgpr_workgroup_info) {
+    summary.sgpr_fields.push_back({"workgroup_info", wave.sgpr.Read(sgpr_cursor)});
+    ++sgpr_cursor;
+  }
+  if (descriptor.enable_private_segment) {
+    ++sgpr_cursor;
+  }
+
+  summary.vgpr_fields.push_back({"workitem_id_x", 0});
+  if (descriptor.enable_vgpr_workitem_id >= 1) {
+    summary.vgpr_fields.push_back({"workitem_id_y", 1});
+  }
+  if (descriptor.enable_vgpr_workitem_id >= 2) {
+    summary.vgpr_fields.push_back({"workitem_id_z", 2});
+  }
+  return summary;
+}
+
 void InitializeWaveAbiState(WaveContext& wave,
                             const EncodedProgramObject& image,
                             const LaunchConfig& config,
@@ -331,6 +421,7 @@ LaunchResult EncodedExecEngine::Run(const EncodedProgramObject& image,
       raw_wave.wave.tensor_accum_offset = image.kernel_descriptor.accum_offset;
       InitializeWaveAbiState(raw_wave.wave, image, config, kernarg_base,
                              static_cast<uint32_t>(raw_block.waves.size()));
+      const auto launch_summary = BuildWaveLaunchAbiSummary(raw_wave.wave, image.kernel_descriptor);
       trace.OnEvent(TraceEvent{
           .kind = TraceEventKind::WaveLaunch,
           .cycle = 0,
@@ -342,6 +433,7 @@ LaunchResult EncodedExecEngine::Run(const EncodedProgramObject& image,
           .pc = raw_wave.wave.pc,
           .message = FormatWaveLaunchTraceMessage(
               raw_wave.wave,
+              &launch_summary,
               WaveLaunchTraceScalarRegs(image.kernel_descriptor),
               WaveLaunchTraceVectorRegs(image.kernel_descriptor)),
       });

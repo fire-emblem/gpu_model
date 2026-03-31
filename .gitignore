@@ -3,3 +3,4 @@ build-ninja/
 .cache/
 .toolchains/
 __pycache__/
+.humanize/

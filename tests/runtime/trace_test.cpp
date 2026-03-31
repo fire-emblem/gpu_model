@@ -59,7 +59,9 @@ TEST(TraceTest, EmitsWaveLaunchEventWithInitialWaveStateSummary) {
     EXPECT_NE(event.message.find("exec=0xffffffffffffffff"), std::string::npos);
     EXPECT_NE(event.message.find("sgpr={"), std::string::npos);
     EXPECT_NE(event.message.find("vgpr={"), std::string::npos);
-  }
+    EXPECT_TRUE(event.message.find("s0=") != std::string::npos ||
+                event.message.find("kernarg_ptr=") != std::string::npos);
+    }
   EXPECT_TRUE(saw_wave_launch);
 }
 

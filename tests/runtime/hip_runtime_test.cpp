@@ -1424,9 +1424,9 @@ TEST(HipRuntimeTest, LaunchesHipThreeDimensionalBuiltinIdsExecutableInRawGcnPath
       continue;
     }
     saw_wave_launch = true;
-    EXPECT_NE(event.message.find("s4=0x0"), std::string::npos);
-    EXPECT_NE(event.message.find("v2["), std::string::npos);
-    EXPECT_NE(event.message.find("v2[0,1]={0x0,0x1}"), std::string::npos);
+    EXPECT_NE(event.message.find("kernarg_ptr="), std::string::npos);
+    EXPECT_NE(event.message.find("workitem_id_z["), std::string::npos);
+    EXPECT_NE(event.message.find("workitem_id_z[0,1]={0x0,0x1}"), std::string::npos);
     break;
   }
   EXPECT_TRUE(saw_wave_launch);
@@ -1765,10 +1765,9 @@ TEST(HipRuntimeTest, LaunchesLlvmMcFallbackAbiObjectInRawGcnPath) {
       continue;
     }
     saw_wave_launch = true;
-    EXPECT_NE(event.message.find("s4=0x0"), std::string::npos);
-    EXPECT_NE(event.message.find("s5=0x50000000"), std::string::npos);
-    EXPECT_NE(event.message.find("s6=0x0"), std::string::npos);
-    EXPECT_NE(event.message.find("s7=0x0"), std::string::npos);
+    EXPECT_NE(event.message.find("kernarg_ptr=0x50000000"), std::string::npos);
+    EXPECT_NE(event.message.find("wg_id_x=0x0"), std::string::npos);
+    EXPECT_NE(event.message.find("wg_id_y=0x0"), std::string::npos);
     break;
   }
   EXPECT_TRUE(saw_wave_launch);
