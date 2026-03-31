@@ -446,6 +446,7 @@ class FunctionalExecutionCoreImpl {
   WaveStatsSnapshot CaptureWaveStatsSnapshot() const {
     WaveStatsSnapshot stats;
     for (const auto& block : blocks_) {
+      std::lock_guard<std::mutex> state_lock(*block.wave_state_mutex);
       for (const auto& wave : block.waves) {
         ++stats.launch;
         // Task 2 scope: "init" currently mirrors the count of materialized waves.
@@ -605,6 +606,7 @@ class FunctionalExecutionCoreImpl {
         .block_id = block.block_id,
         .message = "release",
     });
+    EmitWaveStatsSnapshot();
     return true;
   }
 
@@ -618,10 +620,15 @@ class FunctionalExecutionCoreImpl {
   }
 
   bool ResumeMemoryWaitingWaves(ExecutableBlock& block) {
-    std::lock_guard<std::mutex> state_lock(*block.wave_state_mutex);
     bool resumed = false;
-    for (size_t i = 0; i < block.waves.size(); ++i) {
-      resumed = ResumeWaveIfWaitcntSatisfied(block.wave_states[i], block.waves[i]) || resumed;
+    {
+      std::lock_guard<std::mutex> state_lock(*block.wave_state_mutex);
+      for (size_t i = 0; i < block.waves.size(); ++i) {
+        resumed = ResumeWaveIfWaitcntSatisfied(block.wave_states[i], block.waves[i]) || resumed;
+      }
+    }
+    if (resumed) {
+      EmitWaveStatsSnapshot();
     }
     return resumed;
   }
@@ -888,6 +895,7 @@ class FunctionalExecutionCoreImpl {
       });
     } else if (plan.exit_wave) {
       ++stats.wave_exits;
+      bool wave_completed = false;
       {
         std::lock_guard<std::mutex> lock(*block.control_mutex);
         std::lock_guard<std::mutex> state_lock(*block.wave_state_mutex);
@@ -895,6 +903,7 @@ class FunctionalExecutionCoreImpl {
         ClearWaitcntWaitState(wave_state);
         wave_state.pending_memory_ops.clear();
         MarkWaveCompleted(wave);
+        wave_completed = true;
       }
       TraceEventLocked(TraceEvent{
           .kind = TraceEventKind::WaveExit,
@@ -904,6 +913,9 @@ class FunctionalExecutionCoreImpl {
           .pc = wave.pc,
           .message = "exit",
       });
+      if (wave_completed) {
+        EmitWaveStatsSnapshot();
+      }
     } else {
       {
         std::lock_guard<std::mutex> state_lock(*block.wave_state_mutex);

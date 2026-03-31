@@ -127,6 +127,42 @@ TEST(SharedBarrierFunctionalTest, EmitsBarrierTraceEvents) {
   EXPECT_TRUE(ContainsBarrierTrace(trace.events(), "release"));
 }
 
+TEST(SharedBarrierFunctionalTest, EmitsWaveStatsDuringBarrierProgress) {
+  constexpr uint32_t block_dim = 128;
+  CollectingTraceSink trace;
+  RuntimeEngine runtime(&trace);
+
+  const uint64_t in_addr = runtime.memory().AllocateGlobal(block_dim * sizeof(int32_t));
+  const uint64_t out_addr = runtime.memory().AllocateGlobal(block_dim * sizeof(int32_t));
+  for (uint32_t i = 0; i < block_dim; ++i) {
+    runtime.memory().StoreGlobalValue<int32_t>(in_addr + i * sizeof(int32_t),
+                                               static_cast<int32_t>(i));
+  }
+
+  const auto kernel = BuildBlockReverseKernel();
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = block_dim;
+  request.config.shared_memory_bytes = block_dim * sizeof(int32_t);
+  request.args.PushU64(in_addr);
+  request.args.PushU64(out_addr);
+  request.args.PushU32(block_dim);
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  bool saw_mid_stats = false;
+  for (const auto& event : trace.events()) {
+    if (event.kind == TraceEventKind::WaveStats &&
+        event.message != "launch=2 init=2 active=2 end=0" &&
+        event.message != "launch=2 init=2 active=0 end=2") {
+      saw_mid_stats = true;
+    }
+  }
+  EXPECT_TRUE(saw_mid_stats);
+}
+
 TEST(SharedBarrierFunctionalTest, MatchesResultsAcrossSingleThreadedAndMarlParallelModes) {
   constexpr uint32_t block_dim = 128;
   constexpr uint32_t grid_dim = 2;
