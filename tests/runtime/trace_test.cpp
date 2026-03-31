@@ -123,5 +123,35 @@ TEST(TraceTest, WritesJsonTraceFile) {
   std::filesystem::remove(path);
 }
 
+TEST(TraceTest, WritesWaveStatsEventsToTraceSinks) {
+  const std::filesystem::path text_path =
+      std::filesystem::temp_directory_path() / "gpu_model_wave_stats_trace.txt";
+  const std::filesystem::path json_path =
+      std::filesystem::temp_directory_path() / "gpu_model_wave_stats_trace.jsonl";
+
+  {
+    FileTraceSink text_trace(text_path);
+    JsonTraceSink json_trace(json_path);
+    TraceEvent event{
+        .kind = TraceEventKind::WaveStats,
+        .cycle = 7,
+        .message = "launch=2 init=2 active=2 end=0",
+    };
+    text_trace.OnEvent(event);
+    json_trace.OnEvent(event);
+  }
+
+  std::ifstream text_in(text_path);
+  std::ifstream json_in(json_path);
+  std::string text_line;
+  std::string json_line;
+  ASSERT_TRUE(static_cast<bool>(std::getline(text_in, text_line)));
+  ASSERT_TRUE(static_cast<bool>(std::getline(json_in, json_line)));
+  EXPECT_NE(text_line.find("kind=WaveStats"), std::string::npos);
+  EXPECT_NE(text_line.find("msg=launch=2 init=2 active=2 end=0"), std::string::npos);
+  EXPECT_NE(json_line.find("\"kind\":\"WaveStats\""), std::string::npos);
+  EXPECT_NE(json_line.find("\"message\":\"launch=2 init=2 active=2 end=0\""), std::string::npos);
+}
+
 }  // namespace
 }  // namespace gpu_model

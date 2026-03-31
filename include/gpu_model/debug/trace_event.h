@@ -10,6 +10,7 @@ enum class TraceEventKind {
   BlockPlaced,
   BlockLaunch,
   WaveLaunch,
+  WaveStats,
   WaveStep,
   Commit,
   ExecMaskUpdate,
