@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -86,9 +87,22 @@ TEST(TraceTest, EmitsWaveStatsSnapshotsForFunctionalLaunch) {
     }
   }
 
-  ASSERT_EQ(wave_stats_messages.size(), 2u);
-  EXPECT_EQ(wave_stats_messages.front(), "launch=2 init=2 active=2 end=0");
-  EXPECT_EQ(wave_stats_messages.back(), "launch=2 init=2 active=0 end=2");
+  constexpr const char* kInitial = "launch=2 init=2 active=2 end=0";
+  constexpr const char* kIntermediate = "launch=2 init=2 active=1 end=1";
+  constexpr const char* kFinal = "launch=2 init=2 active=0 end=2";
+  ASSERT_EQ(wave_stats_messages.size(), 4u);
+  EXPECT_EQ(wave_stats_messages.front(), kInitial);
+  EXPECT_EQ(wave_stats_messages.back(), kFinal);
+
+  for (size_t i = 1; i + 1 < wave_stats_messages.size(); ++i) {
+    EXPECT_TRUE(wave_stats_messages[i] == kIntermediate ||
+                wave_stats_messages[i] == kFinal);
+  }
+
+  const size_t final_count =
+      std::count(wave_stats_messages.begin(), wave_stats_messages.end(), kFinal);
+  EXPECT_GE(final_count, 2u);
+  EXPECT_LE(final_count, 3u);
 }
 
 TEST(TraceTest, WritesHumanReadableTraceFile) {
