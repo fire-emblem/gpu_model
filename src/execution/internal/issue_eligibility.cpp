@@ -4,8 +4,8 @@ namespace gpu_model {
 
 namespace {
 
-std::optional<std::string> DetermineWaitReason(const WaveContext& wave,
-                                               const WaitCntThresholds& thresholds) {
+std::optional<std::string> DetermineWaitCntBlockReason(const WaveContext& wave,
+                                                       const WaitCntThresholds& thresholds) {
   if (wave.pending_global_mem_ops > thresholds.global) {
     return "waitcnt_global";
   }
@@ -134,7 +134,7 @@ std::optional<std::string> WaitCntBlockReason(const WaveContext& wave,
   if (instruction.opcode != Opcode::SWaitCnt) {
     return std::nullopt;
   }
-  return DetermineWaitReason(wave, WaitCntThresholdsForInstruction(instruction));
+  return DetermineWaitCntBlockReason(wave, WaitCntThresholdsForInstruction(instruction));
 }
 
 std::optional<std::string> MemoryDomainBlockReason(const WaveContext& wave,
