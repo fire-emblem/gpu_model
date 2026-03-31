@@ -1,12 +1,14 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
 
 #include "gpu_model/program/execution_route.h"
 #include "gpu_model/runtime/kernel_arg_pack.h"
 #include "gpu_model/runtime/launch_config.h"
 #include "gpu_model/runtime/mapper.h"
+#include "gpu_model/runtime/program_cycle_estimate.h"
 
 namespace gpu_model {
 
@@ -62,6 +64,7 @@ struct LaunchResult {
   uint64_t total_cycles = 0;
   PlacementMap placement;
   ExecutionStats stats;
+  std::optional<ProgramCycleEstimate> program_cycle_estimate;
 };
 
 }  // namespace gpu_model

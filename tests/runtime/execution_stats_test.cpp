@@ -69,6 +69,33 @@ TEST(ExecutionStatsTest, FunctionalLaunchReportsMemoryAndBarrierCounts) {
   EXPECT_EQ(result.stats.wave_exits, 2u);
 }
 
+TEST(ExecutionStatsTest, FunctionalLaunchReportsProgramCycleEstimate) {
+  RuntimeEngine runtime;
+  runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
+
+  const auto kernel = BuildStatsFunctionalKernel();
+  constexpr uint32_t n = 64;
+  const uint64_t out_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
+  for (uint32_t i = 0; i < n; ++i) {
+    runtime.memory().StoreGlobalValue<int32_t>(out_addr + i * sizeof(int32_t), -1);
+  }
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+  request.config.shared_memory_bytes = n * sizeof(int32_t);
+  request.args.PushU64(out_addr);
+  request.args.PushU32(n);
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+  ASSERT_TRUE(result.program_cycle_estimate.has_value());
+  EXPECT_GT(result.program_cycle_estimate->total_cycles, 0u);
+  EXPECT_GE(result.program_cycle_estimate->total_issued_work_cycles,
+            result.program_cycle_estimate->total_cycles);
+}
+
 TEST(ExecutionStatsTest, CycleLaunchReportsCacheAndBankPenaltyCounts) {
   RuntimeEngine runtime;
   runtime.SetGlobalMemoryLatencyProfile(/*dram=*/40, /*l2=*/20, /*l1=*/8);
