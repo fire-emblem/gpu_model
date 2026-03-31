@@ -27,6 +27,10 @@ enum class WaveRunState {
 enum class WaveWaitReason {
   None,
   BlockBarrier,
+  PendingGlobalMemory,
+  PendingSharedMemory,
+  PendingPrivateMemory,
+  PendingScalarBufferMemory,
 };
 
 struct WaveContext {
