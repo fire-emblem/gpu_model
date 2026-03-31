@@ -2,8 +2,11 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
+#include <initializer_list>
 #include <limits>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -16,6 +19,13 @@
 
 namespace gpu_model {
 namespace {
+
+ConstSegment MakeConstSegment(std::initializer_list<int32_t> values) {
+  ConstSegment segment;
+  segment.bytes.resize(values.size() * sizeof(int32_t));
+  std::memcpy(segment.bytes.data(), values.begin(), segment.bytes.size());
+  return segment;
+}
 
 ExecutableKernel BuildPendingMemoryBeforeExplicitWaitcntKernel() {
   InstructionBuilder builder;
@@ -44,6 +54,54 @@ ExecutableKernel BuildWaitcntThresholdResumeKernel() {
   builder.SMov("s4", 9);
   builder.BExit();
   return builder.Build("exec_waitcnt_threshold_resume");
+}
+
+ExecutableKernel BuildGlobalWaitcntLifecycleKernel() {
+  InstructionBuilder builder;
+  builder.SLoadArg("s0", 0);
+  builder.SMov("s1", 0);
+  builder.MLoadGlobal("v1", "s0", "s1", 4);
+  builder.SWaitCnt(/*global_count=*/0, /*shared_count=*/UINT32_MAX,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
+  builder.SMov("s2", 7);
+  builder.BExit();
+  return builder.Build("exec_waitcnt_global_lifecycle");
+}
+
+ExecutableKernel BuildSharedWaitcntLifecycleKernel() {
+  InstructionBuilder builder;
+  builder.VMov("v0", 0);
+  builder.VMov("v1", 11);
+  builder.MStoreShared("v0", "v1", 4);
+  builder.SWaitCnt(/*global_count=*/UINT32_MAX, /*shared_count=*/0,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
+  builder.SMov("s0", 7);
+  builder.BExit();
+  return builder.Build("exec_waitcnt_shared_lifecycle");
+}
+
+ExecutableKernel BuildPrivateWaitcntLifecycleKernel() {
+  InstructionBuilder builder;
+  builder.VMov("v0", 0);
+  builder.VMov("v1", 11);
+  builder.MStorePrivate("v0", "v1", 4);
+  builder.SWaitCnt(/*global_count=*/UINT32_MAX, /*shared_count=*/UINT32_MAX,
+                   /*private_count=*/0, /*scalar_buffer_count=*/UINT32_MAX);
+  builder.SMov("s0", 7);
+  builder.BExit();
+  return builder.Build("exec_waitcnt_private_lifecycle");
+}
+
+ExecutableKernel BuildScalarBufferWaitcntLifecycleKernel() {
+  InstructionBuilder builder;
+  builder.SMov("s0", 0);
+  builder.SBufferLoadDword("s1", "s0", 4);
+  builder.SWaitCnt(/*global_count=*/UINT32_MAX, /*shared_count=*/UINT32_MAX,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/0);
+  builder.SMov("s2", 7);
+  builder.BExit();
+  return builder.Build("exec_waitcnt_scalar_buffer_lifecycle", {},
+                       MakeConstSegment({321}));
 }
 
 uint64_t NthInstructionPcWithOpcode(const ExecutableKernel& kernel, Opcode opcode, size_t ordinal) {
@@ -124,6 +182,78 @@ struct FunctionalExecHarness {
             .issue_cycle_op_overrides = {},
         } {}
 };
+
+FunctionalExecHarness MakeWaitcntHarness(ExecutableKernel kernel,
+                                         uint32_t shared_memory_bytes = 0) {
+  return FunctionalExecHarness(std::move(kernel),
+                               LaunchConfig{.grid_dim_x = 1,
+                                            .block_dim_x = 64,
+                                            .shared_memory_bytes = shared_memory_bytes});
+}
+
+std::vector<TraceEvent> RunHarnessAndCollectTrace(FunctionalExecHarness& harness) {
+  FunctionalExecEngine engine(harness.context);
+  EXPECT_EQ(engine.RunSequential(), 0u);
+  return harness.trace.events();
+}
+
+bool ContainsMessage(const std::vector<TraceEvent>& events,
+                     TraceEventKind kind,
+                     std::string_view message) {
+  for (const auto& event : events) {
+    if (event.kind == kind && event.message == message) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool ContainsWaveStatsMessage(const std::vector<TraceEvent>& events, std::string_view message) {
+  return ContainsMessage(events, TraceEventKind::WaveStats, message);
+}
+
+bool ContainsStallMessage(const std::vector<TraceEvent>& events, std::string_view message) {
+  return ContainsMessage(events, TraceEventKind::Stall, message);
+}
+
+size_t FirstWaveStatsIndexContainingAfter(const std::vector<TraceEvent>& events,
+                                          size_t start,
+                                          std::string_view snippet) {
+  for (size_t i = start + 1; i < events.size(); ++i) {
+    if (events[i].kind != TraceEventKind::WaveStats) {
+      continue;
+    }
+    if (events[i].message.find(snippet) == std::string::npos) {
+      continue;
+    }
+    return i;
+  }
+  return std::numeric_limits<size_t>::max();
+}
+
+bool HasResumeOrdering(const std::vector<TraceEvent>& events,
+                       uint64_t waitcnt_pc,
+                       uint64_t resume_marker_pc,
+                       std::string_view stall_reason) {
+  const size_t waitcnt_index = FirstEventIndex(events, TraceEventKind::WaveStep, waitcnt_pc);
+  const size_t stall_index =
+      FirstEventIndex(events, TraceEventKind::Stall, waitcnt_pc, stall_reason);
+  const size_t waiting_stats_index = FirstWaveStatsIndexContainingAfter(events, stall_index, "waiting=1");
+  const size_t runnable_stats_index =
+      FirstWaveStatsIndexContainingAfter(events, waiting_stats_index, "waiting=0");
+  const size_t resume_marker_index =
+      FirstEventIndexAfter(events, runnable_stats_index, TraceEventKind::WaveStep, resume_marker_pc);
+
+  return waitcnt_index != std::numeric_limits<size_t>::max() &&
+         stall_index != std::numeric_limits<size_t>::max() &&
+         waiting_stats_index != std::numeric_limits<size_t>::max() &&
+         runnable_stats_index != std::numeric_limits<size_t>::max() &&
+         resume_marker_index != std::numeric_limits<size_t>::max() &&
+         waitcnt_index < stall_index &&
+         stall_index < waiting_stats_index &&
+         waiting_stats_index < runnable_stats_index &&
+         runnable_stats_index < resume_marker_index;
+}
 
 TEST(FunctionalExecEngineWaitcntTest, PendingMemoryDoesNotStallBeforeExplicitWaitcnt) {
   FunctionalExecHarness harness(
@@ -211,6 +341,63 @@ TEST(FunctionalExecEngineWaitcntTest, ResumesWhenStoredThresholdBecomesSatisfied
   EXPECT_LT(threshold_resume_marker_index, second_waitcnt_index);
   EXPECT_LT(second_waitcnt_index, second_waitcnt_stall_index);
   EXPECT_LT(second_waitcnt_stall_index, zero_resume_marker_index);
+}
+
+TEST(FunctionalExecEngineWaitcntTest, GlobalWaitcntTransitionsThroughWaitingAndResume) {
+  auto harness = MakeWaitcntHarness(BuildGlobalWaitcntLifecycleKernel());
+  const uint64_t base_addr = harness.memory.AllocateGlobal(sizeof(int32_t));
+  harness.memory.StoreGlobalValue<int32_t>(base_addr, 11);
+  harness.args.PushU64(base_addr);
+
+  const auto events = RunHarnessAndCollectTrace(harness);
+  const uint64_t waitcnt_pc = NthInstructionPcWithOpcode(harness.kernel, Opcode::SWaitCnt, 0);
+  const uint64_t resume_marker_pc = waitcnt_pc + 1;
+  ASSERT_NE(waitcnt_pc, std::numeric_limits<uint64_t>::max());
+
+  EXPECT_TRUE(
+      ContainsWaveStatsMessage(events, "launch=1 init=1 active=1 runnable=0 waiting=1 end=0"));
+  EXPECT_TRUE(ContainsStallMessage(events, "waitcnt_global"));
+  EXPECT_TRUE(HasResumeOrdering(events, waitcnt_pc, resume_marker_pc, "waitcnt_global"));
+}
+
+TEST(FunctionalExecEngineWaitcntTest, SharedWaitcntTransitionsThroughWaitingAndResume) {
+  auto harness = MakeWaitcntHarness(BuildSharedWaitcntLifecycleKernel(), /*shared_memory_bytes=*/4);
+  const auto events = RunHarnessAndCollectTrace(harness);
+  const uint64_t waitcnt_pc = NthInstructionPcWithOpcode(harness.kernel, Opcode::SWaitCnt, 0);
+  const uint64_t resume_marker_pc = waitcnt_pc + 1;
+  ASSERT_NE(waitcnt_pc, std::numeric_limits<uint64_t>::max());
+
+  EXPECT_TRUE(
+      ContainsWaveStatsMessage(events, "launch=1 init=1 active=1 runnable=0 waiting=1 end=0"));
+  EXPECT_TRUE(ContainsStallMessage(events, "waitcnt_shared"));
+  EXPECT_TRUE(HasResumeOrdering(events, waitcnt_pc, resume_marker_pc, "waitcnt_shared"));
+}
+
+TEST(FunctionalExecEngineWaitcntTest, PrivateWaitcntTransitionsThroughWaitingAndResume) {
+  auto harness = MakeWaitcntHarness(BuildPrivateWaitcntLifecycleKernel());
+  const auto events = RunHarnessAndCollectTrace(harness);
+  const uint64_t waitcnt_pc = NthInstructionPcWithOpcode(harness.kernel, Opcode::SWaitCnt, 0);
+  const uint64_t resume_marker_pc = waitcnt_pc + 1;
+  ASSERT_NE(waitcnt_pc, std::numeric_limits<uint64_t>::max());
+
+  EXPECT_TRUE(
+      ContainsWaveStatsMessage(events, "launch=1 init=1 active=1 runnable=0 waiting=1 end=0"));
+  EXPECT_TRUE(ContainsStallMessage(events, "waitcnt_private"));
+  EXPECT_TRUE(HasResumeOrdering(events, waitcnt_pc, resume_marker_pc, "waitcnt_private"));
+}
+
+TEST(FunctionalExecEngineWaitcntTest, ScalarBufferWaitcntTransitionsThroughWaitingAndResume) {
+  auto harness = MakeWaitcntHarness(BuildScalarBufferWaitcntLifecycleKernel());
+  const auto events = RunHarnessAndCollectTrace(harness);
+  const uint64_t waitcnt_pc = NthInstructionPcWithOpcode(harness.kernel, Opcode::SWaitCnt, 0);
+  const uint64_t resume_marker_pc = waitcnt_pc + 1;
+  ASSERT_NE(waitcnt_pc, std::numeric_limits<uint64_t>::max());
+
+  EXPECT_TRUE(
+      ContainsWaveStatsMessage(events, "launch=1 init=1 active=1 runnable=0 waiting=1 end=0"));
+  EXPECT_TRUE(ContainsStallMessage(events, "waitcnt_scalar_buffer"));
+  EXPECT_TRUE(
+      HasResumeOrdering(events, waitcnt_pc, resume_marker_pc, "waitcnt_scalar_buffer"));
 }
 
 }  // namespace

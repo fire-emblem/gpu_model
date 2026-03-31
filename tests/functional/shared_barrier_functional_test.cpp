@@ -1,7 +1,9 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <limits>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -22,6 +24,14 @@ struct ParsedWaveStatsSnapshot {
   uint32_t runnable = 0;
   uint32_t waiting = 0;
   uint32_t end = 0;
+
+  bool operator==(const ParsedWaveStatsSnapshot&) const = default;
+};
+
+struct BarrierLifecycleSummary {
+  bool saw_waiting = false;
+  uint32_t peak_waiting = 0;
+  std::optional<ParsedWaveStatsSnapshot> first_post_wait_resume;
 };
 
 ParsedWaveStatsSnapshot ParseWaveStatsSnapshot(const std::string& message) {
@@ -99,6 +109,68 @@ uint64_t FirstInstructionPcWithOpcode(const ExecutableKernel& kernel, Opcode opc
     }
   }
   return std::numeric_limits<uint64_t>::max();
+}
+
+std::vector<ParsedWaveStatsSnapshot> RunBarrierKernelAndCollectWaveStats(
+    FunctionalExecutionMode mode) {
+  constexpr uint32_t block_dim = 128;
+  CollectingTraceSink trace;
+  RuntimeEngine runtime(&trace);
+  runtime.SetFunctionalExecutionMode(mode);
+
+  const uint64_t in_addr = runtime.memory().AllocateGlobal(block_dim * sizeof(int32_t));
+  const uint64_t out_addr = runtime.memory().AllocateGlobal(block_dim * sizeof(int32_t));
+  for (uint32_t i = 0; i < block_dim; ++i) {
+    runtime.memory().StoreGlobalValue<int32_t>(in_addr + i * sizeof(int32_t),
+                                               static_cast<int32_t>(i));
+  }
+
+  const auto kernel = BuildBlockReverseKernel();
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = block_dim;
+  request.config.shared_memory_bytes = block_dim * sizeof(int32_t);
+  request.args.PushU64(in_addr);
+  request.args.PushU64(out_addr);
+  request.args.PushU32(block_dim);
+
+  const auto result = runtime.Launch(request);
+  EXPECT_TRUE(result.ok) << result.error_message;
+
+  std::vector<ParsedWaveStatsSnapshot> wave_stats_snapshots;
+  for (const auto& event : trace.events()) {
+    if (event.kind == TraceEventKind::WaveStats) {
+      wave_stats_snapshots.push_back(ParseWaveStatsSnapshot(event.message));
+    }
+  }
+  return wave_stats_snapshots;
+}
+
+bool ContainsWaitingSnapshot(const std::vector<ParsedWaveStatsSnapshot>& snapshots) {
+  for (const auto& snapshot : snapshots) {
+    if (snapshot.waiting > 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+BarrierLifecycleSummary SummarizeBarrierLifecycle(
+    const std::vector<ParsedWaveStatsSnapshot>& snapshots) {
+  BarrierLifecycleSummary summary;
+  for (const auto& snapshot : snapshots) {
+    if (snapshot.waiting > 0) {
+      summary.saw_waiting = true;
+      summary.peak_waiting = std::max(summary.peak_waiting, snapshot.waiting);
+      continue;
+    }
+    if (summary.saw_waiting && !summary.first_post_wait_resume.has_value() &&
+        snapshot.waiting == 0 && snapshot.runnable > 0) {
+      summary.first_post_wait_resume = snapshot;
+    }
+  }
+  return summary;
 }
 
 TEST(SharedBarrierFunctionalTest, ReversesValuesWithinEachBlock) {
@@ -217,6 +289,31 @@ TEST(SharedBarrierFunctionalTest, EmitsWaveStatsDuringBarrierProgress) {
     saw_waiting_snapshot = saw_waiting_snapshot || snapshot.waiting > 0;
   }
   EXPECT_TRUE(saw_waiting_snapshot);
+}
+
+TEST(SharedBarrierFunctionalTest, BarrierWaitAndResumeHaveMatchingStateProgressInStAndMt) {
+  const auto st_messages =
+      RunBarrierKernelAndCollectWaveStats(FunctionalExecutionMode::SingleThreaded);
+  const auto mt_messages =
+      RunBarrierKernelAndCollectWaveStats(FunctionalExecutionMode::MarlParallel);
+
+  EXPECT_TRUE(ContainsWaitingSnapshot(st_messages));
+  EXPECT_TRUE(ContainsWaitingSnapshot(mt_messages));
+
+  const auto st_lifecycle = SummarizeBarrierLifecycle(st_messages);
+  const auto mt_lifecycle = SummarizeBarrierLifecycle(mt_messages);
+
+  EXPECT_TRUE(st_lifecycle.saw_waiting);
+  EXPECT_TRUE(mt_lifecycle.saw_waiting);
+  EXPECT_EQ(st_lifecycle.peak_waiting, mt_lifecycle.peak_waiting);
+
+  ASSERT_TRUE(st_lifecycle.first_post_wait_resume.has_value());
+  ASSERT_TRUE(mt_lifecycle.first_post_wait_resume.has_value());
+  EXPECT_EQ(st_lifecycle.first_post_wait_resume->waiting, 0u);
+  EXPECT_EQ(mt_lifecycle.first_post_wait_resume->waiting, 0u);
+  EXPECT_EQ(st_lifecycle.first_post_wait_resume->runnable, st_lifecycle.peak_waiting);
+  EXPECT_EQ(mt_lifecycle.first_post_wait_resume->runnable, mt_lifecycle.peak_waiting);
+  EXPECT_EQ(*st_lifecycle.first_post_wait_resume, *mt_lifecycle.first_post_wait_resume);
 }
 
 TEST(SharedBarrierFunctionalTest, MatchesResultsAcrossSingleThreadedAndMarlParallelModes) {
