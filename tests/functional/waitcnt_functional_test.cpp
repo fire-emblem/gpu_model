@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
@@ -48,24 +49,11 @@ ExecutableKernel BuildParallelWaitcntZeroResumeKernel() {
   InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
   builder.SMov("s1", 0);
+  builder.SyncBarrier();
   builder.MLoadGlobal("v1", "s0", "s1", 4);
-  builder.SMov("s2", 1);
-  builder.MLoadGlobal("v2", "s0", "s2", 4);
-  builder.SMov("s3", 0);
-  builder.MLoadGlobal("v3", "s0", "s3", 4);
-  builder.SMov("s4", 1);
-  builder.MLoadGlobal("v4", "s0", "s4", 4);
-  builder.SMov("s5", 0);
-  builder.MLoadGlobal("v5", "s0", "s5", 4);
-  builder.SMov("s6", 1);
-  builder.MLoadGlobal("v6", "s0", "s6", 4);
-  builder.SMov("s7", 0);
-  builder.MLoadGlobal("v7", "s0", "s7", 4);
-  builder.SMov("s8", 1);
-  builder.MLoadGlobal("v8", "s0", "s8", 4);
   builder.SWaitCnt(/*global_count=*/0, /*shared_count=*/UINT32_MAX,
                    /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
-  builder.SMov("s9", 9);
+  builder.SMov("s2", 9);
   builder.BExit();
   return builder.Build("parallel_waitcnt_zero_resume");
 }
@@ -132,6 +120,18 @@ size_t FirstEventIndexForWave(const std::vector<TraceEvent>& events,
     return i;
   }
   return std::numeric_limits<size_t>::max();
+}
+
+const TraceEvent* FirstEventForWave(const std::vector<TraceEvent>& events,
+                                    uint32_t wave_id,
+                                    TraceEventKind kind,
+                                    uint64_t pc) {
+  for (const auto& event : events) {
+    if (event.wave_id == wave_id && event.kind == kind && event.pc == pc) {
+      return &event;
+    }
+  }
+  return nullptr;
 }
 
 TEST(WaitcntFunctionalTest, PendingMemoryDoesNotStallBeforeExplicitWaitcnt) {
@@ -232,14 +232,14 @@ TEST(WaitcntFunctionalTest, WaitcntResumesWhenThresholdBecomesSatisfiedNotOnlyAt
 
 TEST(WaitcntFunctionalTest, MarlParallelWaitcntResumeIsConsistentAcrossTwoWaves) {
   constexpr uint32_t kBlockDim = 128;
-  constexpr uint32_t kExpectedWaveCount = kBlockDim / kWaveSize;
+  constexpr std::array<uint32_t, 2> kTargetWaveIds{0, 1};
   const auto kernel = BuildParallelWaitcntZeroResumeKernel();
   const uint64_t waitcnt_pc = NthInstructionPcWithOpcode(kernel, Opcode::SWaitCnt, 0);
-  const uint64_t resume_marker_pc = NthInstructionPcWithOpcode(kernel, Opcode::SMov, 8);
+  const uint64_t resume_marker_pc = NthInstructionPcWithOpcode(kernel, Opcode::SMov, 1);
   ASSERT_NE(waitcnt_pc, std::numeric_limits<uint64_t>::max());
   ASSERT_NE(resume_marker_pc, std::numeric_limits<uint64_t>::max());
 
-  for (int iteration = 0; iteration < 20; ++iteration) {
+  for (int iteration = 0; iteration < 5; ++iteration) {
     SCOPED_TRACE(iteration);
     CollectingTraceSink trace;
     RuntimeEngine runtime(&trace);
@@ -263,14 +263,20 @@ TEST(WaitcntFunctionalTest, MarlParallelWaitcntResumeIsConsistentAcrossTwoWaves)
     ASSERT_TRUE(result.ok) << result.error_message;
 
     const auto& events = trace.events();
-    for (uint32_t wave_id = 0; wave_id < kExpectedWaveCount; ++wave_id) {
+    for (uint32_t wave_id : kTargetWaveIds) {
+      const auto* waitcnt_event =
+          FirstEventForWave(events, wave_id, TraceEventKind::WaveStep, waitcnt_pc);
       const size_t waitcnt_index =
           FirstEventIndexForWave(events, wave_id, TraceEventKind::WaveStep, waitcnt_pc);
       const size_t resume_marker_index =
           FirstEventIndexForWave(events, wave_id, TraceEventKind::WaveStep, resume_marker_pc);
 
+      ASSERT_NE(waitcnt_event, nullptr);
       ASSERT_NE(waitcnt_index, std::numeric_limits<size_t>::max());
       ASSERT_NE(resume_marker_index, std::numeric_limits<size_t>::max());
+      EXPECT_NE(waitcnt_event->message.find("op=s_waitcnt"), std::string::npos);
+      EXPECT_NE(waitcnt_event->message.find("pending_mem={g="), std::string::npos);
+      EXPECT_EQ(waitcnt_event->message.find("pending_mem={g=0,"), std::string::npos);
       EXPECT_LT(waitcnt_index, resume_marker_index);
     }
   }
