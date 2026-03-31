@@ -70,7 +70,7 @@ Following TDD philosophy, each criterion includes positive and negative tests fo
 ## MUTABLE SECTION
 <!-- Update each round with justification for changes -->
 
-### Plan Version: 1 (Updated: Round 0)
+### Plan Version: 2 (Updated: Round 2)
 
 #### Plan Evolution Log
 <!-- Document any changes to the plan with justification -->
@@ -78,6 +78,7 @@ Following TDD philosophy, each criterion includes positive and negative tests fo
 |-------|--------|--------|--------------|
 | 0 | Initial plan | - | - |
 | 0 | Initialized tracker against already-implemented `main` HEAD at `c3f6ca7` | This RLCR session starts after the implementation and verification commits already landed | No AC scope change |
+| 1 | Reconciled tracker with `docs/plan.md` and normalized the task ledger after review feedback | Round 1 restored the missing AC text, removed already-completed tasks from `Active Tasks`, and recorded `task1` in `Completed and Verified`; this audit trail was approved during Round 2 review because tracker edits are review-owned after Round 0 | No AC scope change |
 
 #### Active Tasks
 <!-- Map each task to its target Acceptance Criterion and routing tag -->
