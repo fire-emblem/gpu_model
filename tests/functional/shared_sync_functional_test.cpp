@@ -135,7 +135,10 @@ TEST(SharedSyncFunctionalTest,
     request.args.PushU64(out_addr);
 
     const auto result = runtime.Launch(request);
-    EXPECT_TRUE(result.ok) << result.error_message;
+    if (!result.ok) {
+      ADD_FAILURE() << result.error_message;
+      return std::vector<int32_t>{};
+    }
     EXPECT_TRUE(ContainsStallTrace(trace.events(), waitcnt_pc, "waitcnt_global"));
 
     std::vector<int32_t> out(kElementCount, 0);
@@ -147,6 +150,12 @@ TEST(SharedSyncFunctionalTest,
 
   const auto st = run_mode(FunctionalExecutionMode::SingleThreaded);
   const auto mt = run_mode(FunctionalExecutionMode::MarlParallel);
+  std::vector<int32_t> expected(kElementCount, 0);
+  for (uint32_t i = 0; i < kElementCount; ++i) {
+    expected[i] = static_cast<int32_t>(7 * i + 4);
+  }
+  EXPECT_EQ(st, expected);
+  EXPECT_EQ(mt, expected);
   EXPECT_EQ(st, mt);
 }
 
