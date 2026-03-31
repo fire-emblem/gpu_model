@@ -906,6 +906,7 @@ class FunctionalExecutionCoreImpl {
           .pc = wave.pc,
           .message = "arrive",
       });
+      EmitWaveStatsSnapshot();
     } else if (plan.exit_wave) {
       ++stats.wave_exits;
       bool wave_completed = false;
@@ -930,6 +931,7 @@ class FunctionalExecutionCoreImpl {
         EmitWaveStatsSnapshot();
       }
     } else {
+      bool emit_waitcnt_wave_stats = false;
       {
         std::lock_guard<std::mutex> state_lock(*block.wave_state_mutex);
         if (EnterWaitStateFromWaitcnt(instruction, wave_state, wave)) {
@@ -944,13 +946,18 @@ class FunctionalExecutionCoreImpl {
               .pc = wave.pc,
               .message = std::string(WaitReasonTraceMessage(wave.wait_reason)),
           });
-          return;
+          emit_waitcnt_wave_stats = true;
+        } else {
+          ApplyExecutionPlanControlFlow(plan, wave, false, false);
+          if (instruction.opcode != Opcode::SWaitCnt) {
+            wave.run_state = WaveRunState::Runnable;
+            wave.wait_reason = WaveWaitReason::None;
+          }
         }
-        ApplyExecutionPlanControlFlow(plan, wave, false, false);
-        if (instruction.opcode != Opcode::SWaitCnt) {
-          wave.run_state = WaveRunState::Runnable;
-          wave.wait_reason = WaveWaitReason::None;
-        }
+      }
+      if (emit_waitcnt_wave_stats) {
+        EmitWaveStatsSnapshot();
+        return;
       }
     }
   }

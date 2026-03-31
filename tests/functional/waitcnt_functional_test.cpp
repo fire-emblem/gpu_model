@@ -235,6 +235,40 @@ TEST(WaitcntFunctionalTest, WaitcntResumesWhenThresholdBecomesSatisfiedNotOnlyAt
   EXPECT_LT(second_waitcnt_stall_index, zero_resume_marker_index);
 }
 
+TEST(WaitcntFunctionalTest, EmitsWaveStatsDuringWaitcntProgress) {
+  CollectingTraceSink trace;
+  RuntimeEngine runtime(&trace);
+  runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
+
+  const uint64_t base_addr = runtime.memory().AllocateGlobal(2 * sizeof(int32_t));
+  runtime.memory().StoreGlobalValue<int32_t>(base_addr + 0 * sizeof(int32_t), 11);
+  runtime.memory().StoreGlobalValue<int32_t>(base_addr + 1 * sizeof(int32_t), 13);
+
+  const auto kernel = BuildPendingMemoryBeforeExplicitWaitcntKernel();
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+  request.args.PushU64(base_addr);
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  bool saw_waiting_stats = false;
+  for (const auto& event : trace.events()) {
+    if (event.kind != TraceEventKind::WaveStats) {
+      continue;
+    }
+    if (event.message.find("active=1 runnable=0 waiting=1 end=0") != std::string::npos) {
+      saw_waiting_stats = true;
+      break;
+    }
+  }
+
+  EXPECT_TRUE(saw_waiting_stats);
+}
+
 TEST(WaitcntFunctionalTest, MarlParallelWaitcntResumeIsConsistentAcrossTwoBlocks) {
   constexpr uint32_t kBlockDim = 64;
   constexpr std::array<uint32_t, 2> kTargetBlockIds{0, 1};

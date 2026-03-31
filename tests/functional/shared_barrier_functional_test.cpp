@@ -1,7 +1,9 @@
 #include <gtest/gtest.h>
 
-#include <limits>
 #include <cstdint>
+#include <limits>
+#include <sstream>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -12,6 +14,43 @@
 
 namespace gpu_model {
 namespace {
+
+struct ParsedWaveStatsSnapshot {
+  uint32_t launch = 0;
+  uint32_t init = 0;
+  uint32_t active = 0;
+  uint32_t runnable = 0;
+  uint32_t waiting = 0;
+  uint32_t end = 0;
+};
+
+ParsedWaveStatsSnapshot ParseWaveStatsSnapshot(const std::string& message) {
+  ParsedWaveStatsSnapshot snapshot;
+  std::istringstream input(message);
+  std::string token;
+  while (input >> token) {
+    const auto split = token.find('=');
+    if (split == std::string::npos) {
+      continue;
+    }
+    const auto key = token.substr(0, split);
+    const auto value = static_cast<uint32_t>(std::stoul(token.substr(split + 1)));
+    if (key == "launch") {
+      snapshot.launch = value;
+    } else if (key == "init") {
+      snapshot.init = value;
+    } else if (key == "active") {
+      snapshot.active = value;
+    } else if (key == "runnable") {
+      snapshot.runnable = value;
+    } else if (key == "waiting") {
+      snapshot.waiting = value;
+    } else if (key == "end") {
+      snapshot.end = value;
+    }
+  }
+  return snapshot;
+}
 
 ExecutableKernel BuildBlockReverseKernel() {
   InstructionBuilder builder;
@@ -161,13 +200,23 @@ TEST(SharedBarrierFunctionalTest, EmitsWaveStatsDuringBarrierProgress) {
   }
 
   const std::vector<std::string> expected = {
-      "launch=2 init=2 active=2 end=0",  // launch snapshot
-      "launch=2 init=2 active=2 end=0",  // barrier release snapshot
-      "launch=2 init=2 active=1 end=1",  // first wave completion snapshot
-      "launch=2 init=2 active=0 end=2",  // second wave completion snapshot
-      "launch=2 init=2 active=0 end=2",  // final snapshot
+      "launch=2 init=2 active=2 runnable=2 waiting=0 end=0",  // launch snapshot
+      "launch=2 init=2 active=2 runnable=1 waiting=1 end=0",  // first barrier arrival snapshot
+      "launch=2 init=2 active=2 runnable=0 waiting=2 end=0",  // second barrier arrival snapshot
+      "launch=2 init=2 active=2 runnable=2 waiting=0 end=0",  // barrier release snapshot
+      "launch=2 init=2 active=1 runnable=1 waiting=0 end=1",  // first wave completion snapshot
+      "launch=2 init=2 active=0 runnable=0 waiting=0 end=2",  // second wave completion snapshot
+      "launch=2 init=2 active=0 runnable=0 waiting=0 end=2",  // final snapshot
   };
   EXPECT_EQ(wave_stats_messages, expected);
+  bool saw_waiting_snapshot = false;
+  for (const auto& message : wave_stats_messages) {
+    const auto snapshot = ParseWaveStatsSnapshot(message);
+    EXPECT_EQ(snapshot.active, snapshot.runnable + snapshot.waiting);
+    EXPECT_EQ(snapshot.launch, snapshot.active + snapshot.end);
+    saw_waiting_snapshot = saw_waiting_snapshot || snapshot.waiting > 0;
+  }
+  EXPECT_TRUE(saw_waiting_snapshot);
 }
 
 TEST(SharedBarrierFunctionalTest, MatchesResultsAcrossSingleThreadedAndMarlParallelModes) {

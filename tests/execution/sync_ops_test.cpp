@@ -18,8 +18,8 @@ TEST(SyncOpsTest, MarksWaveAtBarrier) {
   EXPECT_EQ(wave.status, WaveStatus::Stalled);
   EXPECT_TRUE(wave.waiting_at_barrier);
   EXPECT_EQ(wave.barrier_generation, 9u);
-  EXPECT_EQ(wave.run_state, WaveRunState::Runnable);
-  EXPECT_EQ(wave.wait_reason, WaveWaitReason::None);
+  EXPECT_EQ(wave.run_state, WaveRunState::Waiting);
+  EXPECT_EQ(wave.wait_reason, WaveWaitReason::BlockBarrier);
   EXPECT_FALSE(wave.valid_entry);
   EXPECT_EQ(arrivals, 1u);
 }
@@ -122,7 +122,7 @@ TEST(SyncOpsTest, ReleasesBarrierOnlyWhenAllBlockWavesWait) {
   EXPECT_EQ(b.wait_reason, WaveWaitReason::None);
 }
 
-TEST(SyncOpsTest, BarrierReleaseDoesNotResumeRunState) {
+TEST(SyncOpsTest, BarrierReleaseResumesRunStateAndClearsBarrierWaitReason) {
   std::vector<WaveContext> waves(2);
   for (auto& wave : waves) {
     wave.thread_count = 64;
@@ -139,10 +139,10 @@ TEST(SyncOpsTest, BarrierReleaseDoesNotResumeRunState) {
   waves[1].wait_reason = WaveWaitReason::BlockBarrier;
 
   ASSERT_TRUE(sync_ops::ReleaseBarrierIfReady(waves, generation, arrivals, 1, false));
-  EXPECT_EQ(waves[0].run_state, WaveRunState::Waiting);
-  EXPECT_EQ(waves[1].run_state, WaveRunState::Waiting);
-  EXPECT_EQ(waves[0].wait_reason, WaveWaitReason::BlockBarrier);
-  EXPECT_EQ(waves[1].wait_reason, WaveWaitReason::BlockBarrier);
+  EXPECT_EQ(waves[0].run_state, WaveRunState::Runnable);
+  EXPECT_EQ(waves[1].run_state, WaveRunState::Runnable);
+  EXPECT_EQ(waves[0].wait_reason, WaveWaitReason::None);
+  EXPECT_EQ(waves[1].wait_reason, WaveWaitReason::None);
 }
 
 }  // namespace

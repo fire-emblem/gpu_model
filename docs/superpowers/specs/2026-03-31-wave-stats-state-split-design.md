@@ -111,13 +111,15 @@ active = runnable + waiting
 
 ## Functional Executor Integration
 
-这轮仍沿用上一批已确定的发射点：
+这轮 `FunctionalExecEngine` 的实际发射点为：
 
 1. `WaveLaunch` 批量发完后
-2. barrier release 后
-3. waitcnt resume 后
-4. wave end 后
-5. kernel 结束前
+2. barrier arrive 后
+3. barrier release 后
+4. waitcnt stall 进入 waiting 后
+5. waitcnt resume 后
+6. wave end 后
+7. kernel 结束前
 
 也就是说：
 
