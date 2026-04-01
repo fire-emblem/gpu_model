@@ -70,7 +70,7 @@ struct PeuSlot {
   std::vector<ScheduledWave*> waves;
   std::vector<ScheduledWave*> resident_waves;
   std::vector<ScheduledWave*> active_window;
-  std::vector<ScheduledWave*> standby_waves;
+  std::deque<ScheduledWave*> standby_waves;
 };
 
 struct ApResidentState {
@@ -477,7 +477,8 @@ void ScheduleWaveLaunch(ScheduledWave& scheduled_wave,
   });
 }
 
-void RemoveWaveFromList(std::vector<ScheduledWave*>& waves, const ScheduledWave* target) {
+template <typename Container>
+void RemoveWaveFromList(Container& waves, const ScheduledWave* target) {
   waves.erase(std::remove(waves.begin(), waves.end(), target), waves.end());
 }
 
@@ -507,7 +508,7 @@ void RefillActiveWindow(PeuSlot& slot,
   uint32_t launch_order = 0;
   while (slot.active_window.size() < max_issuable_waves && !slot.standby_waves.empty()) {
     ScheduledWave* scheduled_wave = slot.standby_waves.front();
-    slot.standby_waves.erase(slot.standby_waves.begin());
+    slot.standby_waves.pop_front();
     if (scheduled_wave == nullptr || scheduled_wave->wave.status == WaveStatus::Exited) {
       continue;
     }
