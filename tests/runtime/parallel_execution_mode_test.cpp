@@ -138,15 +138,15 @@ TEST(ParallelExecutionModeTest, RuntimeEngineDefaultsToSingleThreadedFunctionalM
             FunctionalExecutionMode::SingleThreaded);
 }
 
-TEST(ParallelExecutionModeTest, RuntimeEngineCanSwitchToMarlParallelMode) {
+TEST(ParallelExecutionModeTest, RuntimeEngineCanSwitchToMultiThreadedMode) {
   RuntimeEngine runtime;
   runtime.SetFunctionalExecutionConfig(
       FunctionalExecutionConfig{
-          .mode = FunctionalExecutionMode::MarlParallel,
+          .mode = FunctionalExecutionMode::MultiThreaded,
           .worker_threads = 2,
       });
   EXPECT_EQ(runtime.functional_execution_config().mode,
-            FunctionalExecutionMode::MarlParallel);
+            FunctionalExecutionMode::MultiThreaded);
   EXPECT_EQ(runtime.functional_execution_config().worker_threads, 2u);
 }
 
@@ -157,11 +157,11 @@ TEST(ParallelExecutionModeTest, RuntimeEngineDefaultsMarlWorkersToNinetyPercentO
   const uint32_t cpu_count = std::max(1u, std::thread::hardware_concurrency());
   const uint32_t expected_workers = std::max(1u, (cpu_count * 9u) / 10u);
   EXPECT_EQ(runtime.functional_execution_config().mode,
-            FunctionalExecutionMode::MarlParallel);
+            FunctionalExecutionMode::MultiThreaded);
   EXPECT_EQ(runtime.functional_execution_config().worker_threads, expected_workers);
 }
 
-TEST(ParallelExecutionModeTest, MarlParallelModeProducesSameFunctionalResults) {
+TEST(ParallelExecutionModeTest, MultiThreadedModeProducesSameFunctionalResults) {
   const auto kernel = BuildParallelModeKernel();
   constexpr uint32_t n = 96;
 
@@ -190,11 +190,11 @@ TEST(ParallelExecutionModeTest, MarlParallelModeProducesSameFunctionalResults) {
   };
 
   const auto single = run_mode(FunctionalExecutionMode::SingleThreaded);
-  const auto parallel = run_mode(FunctionalExecutionMode::MarlParallel);
+  const auto parallel = run_mode(FunctionalExecutionMode::MultiThreaded);
   EXPECT_EQ(parallel, single);
 }
 
-TEST(ParallelExecutionModeTest, MarlParallelModeMatchesSingleThreadForSharedAtomicReduction) {
+TEST(ParallelExecutionModeTest, MultiThreadedModeMatchesSingleThreadForSharedAtomicReduction) {
   const auto kernel = BuildSharedAtomicReductionKernelForModeTest();
 
   auto run_mode = [&](FunctionalExecutionMode mode) {
@@ -216,12 +216,12 @@ TEST(ParallelExecutionModeTest, MarlParallelModeMatchesSingleThreadForSharedAtom
   };
 
   const auto single = run_mode(FunctionalExecutionMode::SingleThreaded);
-  const auto parallel = run_mode(FunctionalExecutionMode::MarlParallel);
+  const auto parallel = run_mode(FunctionalExecutionMode::MultiThreaded);
   EXPECT_EQ(single, 128);
   EXPECT_EQ(parallel, single);
 }
 
-TEST(ParallelExecutionModeTest, MarlParallelModeMatchesSingleThreadForTwoDimensionalBuiltins) {
+TEST(ParallelExecutionModeTest, MultiThreadedModeMatchesSingleThreadForTwoDimensionalBuiltins) {
   const auto kernel = BuildGlobal2DWriteKernelForModeTest();
   constexpr uint32_t grid_x = 3;
   constexpr uint32_t grid_y = 2;
@@ -252,7 +252,7 @@ TEST(ParallelExecutionModeTest, MarlParallelModeMatchesSingleThreadForTwoDimensi
   };
 
   const auto single = run_mode(FunctionalExecutionMode::SingleThreaded);
-  const auto parallel = run_mode(FunctionalExecutionMode::MarlParallel);
+  const auto parallel = run_mode(FunctionalExecutionMode::MultiThreaded);
   EXPECT_EQ(parallel, single);
 }
 

@@ -295,7 +295,7 @@ TEST(SharedBarrierFunctionalTest, BarrierWaitAndResumeHaveMatchingStateProgressI
   const auto st_messages =
       RunBarrierKernelAndCollectWaveStats(FunctionalExecutionMode::SingleThreaded);
   const auto mt_messages =
-      RunBarrierKernelAndCollectWaveStats(FunctionalExecutionMode::MarlParallel);
+      RunBarrierKernelAndCollectWaveStats(FunctionalExecutionMode::MultiThreaded);
 
   EXPECT_TRUE(ContainsWaitingSnapshot(st_messages));
   EXPECT_TRUE(ContainsWaitingSnapshot(mt_messages));
@@ -317,7 +317,7 @@ TEST(SharedBarrierFunctionalTest, BarrierWaitAndResumeHaveMatchingStateProgressI
   EXPECT_GE(mt_lifecycle.first_post_wait_resume->runnable, mt_lifecycle.peak_waiting);
 }
 
-TEST(SharedBarrierFunctionalTest, MatchesResultsAcrossSingleThreadedAndMarlParallelModes) {
+TEST(SharedBarrierFunctionalTest, MatchesResultsAcrossSingleThreadedAndMultiThreadedModes) {
   constexpr uint32_t block_dim = 128;
   constexpr uint32_t grid_dim = 2;
   constexpr uint32_t n = block_dim * grid_dim;
@@ -325,7 +325,7 @@ TEST(SharedBarrierFunctionalTest, MatchesResultsAcrossSingleThreadedAndMarlParal
   const auto run_mode = [&](FunctionalExecutionMode mode, std::vector<int32_t>& out) {
     SCOPED_TRACE(mode == FunctionalExecutionMode::SingleThreaded
                      ? "mode=SingleThreaded"
-                     : "mode=MarlParallel");
+                     : "mode=MultiThreaded");
     RuntimeEngine runtime;
     runtime.SetFunctionalExecutionMode(mode);
     const uint64_t in_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
@@ -350,7 +350,7 @@ TEST(SharedBarrierFunctionalTest, MatchesResultsAcrossSingleThreadedAndMarlParal
     ASSERT_TRUE(result.ok) << "Launch failed in "
                            << (mode == FunctionalExecutionMode::SingleThreaded
                                    ? "SingleThreaded"
-                                   : "MarlParallel")
+                                   : "MultiThreaded")
                            << " mode: " << result.error_message;
 
     out.assign(n, 0);
@@ -362,7 +362,7 @@ TEST(SharedBarrierFunctionalTest, MatchesResultsAcrossSingleThreadedAndMarlParal
   std::vector<int32_t> st;
   std::vector<int32_t> mt;
   run_mode(FunctionalExecutionMode::SingleThreaded, st);
-  run_mode(FunctionalExecutionMode::MarlParallel, mt);
+  run_mode(FunctionalExecutionMode::MultiThreaded, mt);
 
   std::vector<int32_t> expected(n, 0);
   for (uint32_t block = 0; block < grid_dim; ++block) {
@@ -438,12 +438,12 @@ TEST(SharedBarrierFunctionalTest, ReleaseResumesAllBarrierBlockedWaves) {
   }
 }
 
-TEST(SharedBarrierFunctionalTest, MarlParallelReleaseResumesAllBarrierBlockedWaves) {
+TEST(SharedBarrierFunctionalTest, MultiThreadedReleaseResumesAllBarrierBlockedWaves) {
   constexpr uint32_t block_dim = 128;
   constexpr uint32_t expected_wave_count = block_dim / kWaveSize;
   CollectingTraceSink trace;
   RuntimeEngine runtime(&trace);
-  runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::MarlParallel);
+  runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::MultiThreaded);
 
   const uint64_t in_addr = runtime.memory().AllocateGlobal(block_dim * sizeof(int32_t));
   const uint64_t out_addr = runtime.memory().AllocateGlobal(block_dim * sizeof(int32_t));

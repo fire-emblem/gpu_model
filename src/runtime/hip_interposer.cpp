@@ -47,7 +47,7 @@ const char* ToFunctionalModeName(gpu_model::FunctionalExecutionMode mode) {
   switch (mode) {
     case gpu_model::FunctionalExecutionMode::SingleThreaded:
       return "st";
-    case gpu_model::FunctionalExecutionMode::MarlParallel:
+    case gpu_model::FunctionalExecutionMode::MultiThreaded:
       return "mt";
   }
   return "unknown";

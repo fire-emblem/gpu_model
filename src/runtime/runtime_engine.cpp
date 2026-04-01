@@ -80,7 +80,7 @@ class RuntimeEngineImpl {
 
 namespace {
 
-uint32_t DefaultMarlWorkerThreadCount() {
+uint32_t DefaultMtWorkerThreadCount() {
   const uint32_t cpu_count = std::max(1u, std::thread::hardware_concurrency());
   return std::max(1u, (cpu_count * 9u) / 10u);
 }
@@ -89,7 +89,7 @@ const char* ToEnvModeName(FunctionalExecutionMode mode) {
   switch (mode) {
     case FunctionalExecutionMode::SingleThreaded:
       return "st";
-    case FunctionalExecutionMode::MarlParallel:
+    case FunctionalExecutionMode::MultiThreaded:
       return "mt";
   }
   return "unknown";
@@ -103,8 +103,8 @@ std::optional<FunctionalExecutionConfig> FunctionalExecutionConfigFromEnv() {
 
   FunctionalExecutionConfig config;
   const std::string_view mode(mode_env);
-  if (mode == "mt" || mode == "marl" || mode == "parallel" || mode == "marl_parallel") {
-    config.mode = FunctionalExecutionMode::MarlParallel;
+  if (mode == "mt" || mode == "parallel" || mode == "multi_threaded") {
+    config.mode = FunctionalExecutionMode::MultiThreaded;
   } else if (mode == "st" || mode == "single" || mode == "single_threaded") {
     config.mode = FunctionalExecutionMode::SingleThreaded;
   } else {
@@ -118,8 +118,8 @@ std::optional<FunctionalExecutionConfig> FunctionalExecutionConfigFromEnv() {
     } catch (const std::exception&) {
       return std::nullopt;
     }
-  } else if (config.mode == FunctionalExecutionMode::MarlParallel) {
-    config.worker_threads = DefaultMarlWorkerThreadCount();
+  } else if (config.mode == FunctionalExecutionMode::MultiThreaded) {
+    config.worker_threads = DefaultMtWorkerThreadCount();
   }
   return config;
 }
@@ -333,11 +333,11 @@ LaunchResult RuntimeEngineImpl::Launch(const LaunchRequest& request) {
             .issue_cycle_class_overrides = ResolveCycleTimingConfig(*spec).issue_cycle_class_overrides,
             .issue_cycle_op_overrides = ResolveCycleTimingConfig(*spec).issue_cycle_op_overrides,
         };
-        if (functional_execution_config_.mode == FunctionalExecutionMode::MarlParallel) {
+        if (functional_execution_config_.mode == FunctionalExecutionMode::MultiThreaded) {
           FunctionalExecEngine executor(context);
           const uint32_t workers =
               functional_execution_config_.worker_threads == 0
-                  ? DefaultMarlWorkerThreadCount()
+                  ? DefaultMtWorkerThreadCount()
                   : functional_execution_config_.worker_threads;
           result.total_cycles = executor.RunParallelBlocks(workers);
           result.program_cycle_stats = executor.TakeProgramCycleStats();

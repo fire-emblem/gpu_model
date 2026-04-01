@@ -132,7 +132,7 @@ TEST(HipccParallelExecutionTest, ThreeDimensionalVecaddAddsMatchesBetweenStAndMt
   };
 
   const auto st = run_mode(FunctionalExecutionMode::SingleThreaded, 0);
-  const auto mt = run_mode(FunctionalExecutionMode::MarlParallel, 2);
+  const auto mt = run_mode(FunctionalExecutionMode::MultiThreaded, 2);
 
   for (uint32_t i = 0; i < total; ++i) {
     EXPECT_FLOAT_EQ(st.output[i], expect[i]);

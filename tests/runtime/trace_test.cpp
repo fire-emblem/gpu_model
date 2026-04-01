@@ -81,7 +81,7 @@ TEST(TraceTest, EmitsWaveLaunchEventWithInitialWaveStateSummary) {
 TEST(TraceTest, EmitsWaveStatsSnapshotsForFunctionalLaunch) {
   CollectingTraceSink trace;
   RuntimeEngine runtime(&trace);
-  runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::MarlParallel);
+  runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::MultiThreaded);
 
   InstructionBuilder builder;
   builder.BExit();
@@ -126,7 +126,7 @@ TEST(TraceTest, EmitsWaveStatsSnapshotsForFunctionalLaunch) {
 TEST(TraceTest, EmitsWaveStatsStateSplitForFunctionalLaunch) {
   CollectingTraceSink trace;
   RuntimeEngine runtime(&trace);
-  runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::MarlParallel);
+  runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::MultiThreaded);
 
   InstructionBuilder builder;
   builder.BExit();

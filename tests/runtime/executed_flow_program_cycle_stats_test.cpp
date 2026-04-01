@@ -28,10 +28,10 @@ LaunchResult LaunchProgramCycleStatsKernel(const ExecutableKernel& kernel,
                                            uint32_t shared_memory_bytes = 0,
                                            uint32_t worker_threads = 2) {
   RuntimeEngine runtime;
-  if (mode == FunctionalExecutionMode::MarlParallel) {
+  if (mode == FunctionalExecutionMode::MultiThreaded) {
     runtime.SetFunctionalExecutionConfig(
         FunctionalExecutionConfig{
-            .mode = FunctionalExecutionMode::MarlParallel,
+            .mode = FunctionalExecutionMode::MultiThreaded,
             .worker_threads = worker_threads,
         });
   } else {
@@ -438,9 +438,9 @@ ExecutableKernel BuildSoftmaxStyleCycleStatsKernel() {
 
 LaunchResult LaunchSharedReverseCycleStats(FunctionalExecutionMode mode) {
   RuntimeEngine runtime;
-  if (mode == FunctionalExecutionMode::MarlParallel) {
+  if (mode == FunctionalExecutionMode::MultiThreaded) {
     runtime.SetFunctionalExecutionConfig(
-        FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MarlParallel, .worker_threads = 4});
+        FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MultiThreaded, .worker_threads = 4});
   } else {
     runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
   }
@@ -469,9 +469,9 @@ LaunchResult LaunchSharedReverseCycleStats(FunctionalExecutionMode mode) {
 
 LaunchResult LaunchGlobalWaitcntCycleStats(FunctionalExecutionMode mode) {
   RuntimeEngine runtime;
-  if (mode == FunctionalExecutionMode::MarlParallel) {
+  if (mode == FunctionalExecutionMode::MultiThreaded) {
     runtime.SetFunctionalExecutionConfig(
-        FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MarlParallel, .worker_threads = 4});
+        FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MultiThreaded, .worker_threads = 4});
   } else {
     runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
   }
@@ -491,9 +491,9 @@ LaunchResult LaunchGlobalWaitcntCycleStats(FunctionalExecutionMode mode) {
 
 LaunchResult LaunchScalarBufferWaitcntCycleStats(FunctionalExecutionMode mode) {
   RuntimeEngine runtime;
-  if (mode == FunctionalExecutionMode::MarlParallel) {
+  if (mode == FunctionalExecutionMode::MultiThreaded) {
     runtime.SetFunctionalExecutionConfig(
-        FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MarlParallel, .worker_threads = 4});
+        FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MultiThreaded, .worker_threads = 4});
   } else {
     runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
   }
@@ -509,9 +509,9 @@ LaunchResult LaunchScalarBufferWaitcntCycleStats(FunctionalExecutionMode mode) {
 
 LaunchResult LaunchSamePeuWaitcntSiblingCycleStats(FunctionalExecutionMode mode) {
   RuntimeEngine runtime;
-  if (mode == FunctionalExecutionMode::MarlParallel) {
+  if (mode == FunctionalExecutionMode::MultiThreaded) {
     runtime.SetFunctionalExecutionConfig(
-        FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MarlParallel, .worker_threads = 4});
+        FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MultiThreaded, .worker_threads = 4});
   } else {
     runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
   }
@@ -537,9 +537,9 @@ LaunchResult LaunchSamePeuWaitcntSiblingCycleStats(FunctionalExecutionMode mode)
 
 LaunchResult LaunchSamePeuBarrierResumeCycleStats(FunctionalExecutionMode mode) {
   RuntimeEngine runtime;
-  if (mode == FunctionalExecutionMode::MarlParallel) {
+  if (mode == FunctionalExecutionMode::MultiThreaded) {
     runtime.SetFunctionalExecutionConfig(
-        FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MarlParallel, .worker_threads = 4});
+        FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MultiThreaded, .worker_threads = 4});
   } else {
     runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
   }
@@ -564,9 +564,9 @@ LaunchResult LaunchSharedReverseCase(ExecutionMode mode,
                                          FunctionalExecutionMode::SingleThreaded) {
   RuntimeEngine runtime;
   if (mode == ExecutionMode::Functional) {
-    if (functional_mode == FunctionalExecutionMode::MarlParallel) {
+    if (functional_mode == FunctionalExecutionMode::MultiThreaded) {
       runtime.SetFunctionalExecutionConfig(
-          FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MarlParallel, .worker_threads = 4});
+          FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MultiThreaded, .worker_threads = 4});
     } else {
       runtime.SetFunctionalExecutionMode(functional_mode);
     }
@@ -597,9 +597,9 @@ LaunchResult LaunchSharedReverseCase(ExecutionMode mode,
 
 LaunchResult LaunchSharedTransposeCycleStats(FunctionalExecutionMode mode) {
   RuntimeEngine runtime;
-  if (mode == FunctionalExecutionMode::MarlParallel) {
+  if (mode == FunctionalExecutionMode::MultiThreaded) {
     runtime.SetFunctionalExecutionConfig(
-        FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MarlParallel, .worker_threads = 4});
+        FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MultiThreaded, .worker_threads = 4});
   } else {
     runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
   }
@@ -633,9 +633,9 @@ LaunchResult LaunchSharedTransposeCycleStats(FunctionalExecutionMode mode) {
 
 LaunchResult LaunchSoftmaxStyleCycleStats(FunctionalExecutionMode mode) {
   RuntimeEngine runtime;
-  if (mode == FunctionalExecutionMode::MarlParallel) {
+  if (mode == FunctionalExecutionMode::MultiThreaded) {
     runtime.SetFunctionalExecutionConfig(
-        FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MarlParallel, .worker_threads = 4});
+        FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MultiThreaded, .worker_threads = 4});
   } else {
     runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
   }
@@ -671,9 +671,9 @@ LaunchResult LaunchSoftmaxStyleCase(ExecutionMode mode,
                                         FunctionalExecutionMode::SingleThreaded) {
   RuntimeEngine runtime;
   if (mode == ExecutionMode::Functional) {
-    if (functional_mode == FunctionalExecutionMode::MarlParallel) {
+    if (functional_mode == FunctionalExecutionMode::MultiThreaded) {
       runtime.SetFunctionalExecutionConfig(
-          FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MarlParallel, .worker_threads = 4});
+          FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MultiThreaded, .worker_threads = 4});
     } else {
       runtime.SetFunctionalExecutionMode(functional_mode);
     }
@@ -805,7 +805,7 @@ TEST(ExecutedFlowProgramCycleStatsTest,
      GlobalWaitcntKernelMatchesTheoryAcrossModes) {
   const ProgramCycleStatsConfig config;
   const auto st = LaunchGlobalWaitcntCycleStats(FunctionalExecutionMode::SingleThreaded);
-  const auto mt = LaunchGlobalWaitcntCycleStats(FunctionalExecutionMode::MarlParallel);
+  const auto mt = LaunchGlobalWaitcntCycleStats(FunctionalExecutionMode::MultiThreaded);
 
   ASSERT_TRUE(st.ok) << st.error_message;
   ASSERT_TRUE(mt.ok) << mt.error_message;
@@ -830,7 +830,7 @@ TEST(ExecutedFlowProgramCycleStatsTest,
      ScalarBufferWaitcntKernelMatchesTheoryAcrossModes) {
   const ProgramCycleStatsConfig config;
   const auto st = LaunchScalarBufferWaitcntCycleStats(FunctionalExecutionMode::SingleThreaded);
-  const auto mt = LaunchScalarBufferWaitcntCycleStats(FunctionalExecutionMode::MarlParallel);
+  const auto mt = LaunchScalarBufferWaitcntCycleStats(FunctionalExecutionMode::MultiThreaded);
 
   ASSERT_TRUE(st.ok) << st.error_message;
   ASSERT_TRUE(mt.ok) << mt.error_message;
@@ -877,13 +877,13 @@ TEST(ExecutedFlowProgramCycleStatsTest,
                             FunctionalExecutionMode::SingleThreaded, 128);
   const auto single_mt =
       LaunchProgramCycleStatsKernel(BuildBarrierReleaseWaitKernel(),
-                            FunctionalExecutionMode::MarlParallel, 128);
+                            FunctionalExecutionMode::MultiThreaded, 128);
   const auto double_st =
       LaunchProgramCycleStatsKernel(BuildDoubleBarrierReleaseWaitKernel(),
                             FunctionalExecutionMode::SingleThreaded, 128);
   const auto double_mt =
       LaunchProgramCycleStatsKernel(BuildDoubleBarrierReleaseWaitKernel(),
-                            FunctionalExecutionMode::MarlParallel, 128);
+                            FunctionalExecutionMode::MultiThreaded, 128);
 
   ASSERT_TRUE(single_st.ok) << single_st.error_message;
   ASSERT_TRUE(single_mt.ok) << single_mt.error_message;
@@ -907,7 +907,7 @@ TEST(ExecutedFlowProgramCycleStatsTest,
 TEST(ExecutedFlowProgramCycleStatsTest,
      SamePeuWaitcntSiblingMaintainsModeAgreementAndOverlap) {
   const auto st = LaunchSamePeuWaitcntSiblingCycleStats(FunctionalExecutionMode::SingleThreaded);
-  const auto mt = LaunchSamePeuWaitcntSiblingCycleStats(FunctionalExecutionMode::MarlParallel);
+  const auto mt = LaunchSamePeuWaitcntSiblingCycleStats(FunctionalExecutionMode::MultiThreaded);
 
   ASSERT_TRUE(st.ok) << st.error_message;
   ASSERT_TRUE(mt.ok) << mt.error_message;
@@ -933,7 +933,7 @@ TEST(ExecutedFlowProgramCycleStatsTest,
 TEST(ExecutedFlowProgramCycleStatsTest,
      SamePeuBarrierResumeMaintainsModeAgreementAndBarrierAccounting) {
   const auto st = LaunchSamePeuBarrierResumeCycleStats(FunctionalExecutionMode::SingleThreaded);
-  const auto mt = LaunchSamePeuBarrierResumeCycleStats(FunctionalExecutionMode::MarlParallel);
+  const auto mt = LaunchSamePeuBarrierResumeCycleStats(FunctionalExecutionMode::MultiThreaded);
 
   ASSERT_TRUE(st.ok) << st.error_message;
   ASSERT_TRUE(mt.ok) << mt.error_message;
@@ -963,7 +963,7 @@ TEST(ExecutedFlowProgramCycleStatsTest,
   const auto st =
       LaunchProgramCycleStatsKernel(kernel, FunctionalExecutionMode::SingleThreaded, /*block_dim_x=*/128);
   const auto mt =
-      LaunchProgramCycleStatsKernel(kernel, FunctionalExecutionMode::MarlParallel, /*block_dim_x=*/128);
+      LaunchProgramCycleStatsKernel(kernel, FunctionalExecutionMode::MultiThreaded, /*block_dim_x=*/128);
 
   ASSERT_TRUE(st.ok) << st.error_message;
   ASSERT_TRUE(mt.ok) << mt.error_message;
@@ -991,7 +991,7 @@ TEST(ExecutedFlowProgramCycleStatsTest,
   const auto st = LaunchProgramCycleStatsKernel(
       kernel, FunctionalExecutionMode::SingleThreaded, kBlockDimX, kGridDimX);
   const auto mt = LaunchProgramCycleStatsKernel(
-      kernel, FunctionalExecutionMode::MarlParallel, kBlockDimX, kGridDimX,
+      kernel, FunctionalExecutionMode::MultiThreaded, kBlockDimX, kGridDimX,
       /*shared_memory_bytes=*/0, /*worker_threads=*/4);
 
   ASSERT_TRUE(st.ok) << st.error_message;
@@ -1020,7 +1020,7 @@ TEST(ExecutedFlowProgramCycleStatsTest,
       /*grid_dim_x=*/1,
       /*shared_memory_bytes=*/4);
   const auto mt = LaunchProgramCycleStatsKernel(
-      kernel, FunctionalExecutionMode::MarlParallel, /*block_dim_x=*/128,
+      kernel, FunctionalExecutionMode::MultiThreaded, /*block_dim_x=*/128,
       /*grid_dim_x=*/1,
       /*shared_memory_bytes=*/4);
 
@@ -1053,7 +1053,7 @@ TEST(ExecutedFlowProgramCycleStatsTest,
   const auto st = LaunchProgramCycleStatsKernel(
       kernel, FunctionalExecutionMode::SingleThreaded, kBlockDimX, kGridDimX);
   const auto mt = LaunchProgramCycleStatsKernel(
-      kernel, FunctionalExecutionMode::MarlParallel, kBlockDimX, kGridDimX);
+      kernel, FunctionalExecutionMode::MultiThreaded, kBlockDimX, kGridDimX);
 
   ASSERT_TRUE(st.ok) << st.error_message;
   ASSERT_TRUE(mt.ok) << mt.error_message;
@@ -1096,7 +1096,7 @@ TEST(ExecutedFlowProgramCycleStatsTest,
   const auto st = LaunchProgramCycleStatsKernel(
       kernel, FunctionalExecutionMode::SingleThreaded, kBlockDimX, kGridDimX);
   const auto mt = LaunchProgramCycleStatsKernel(
-      kernel, FunctionalExecutionMode::MarlParallel, kBlockDimX, kGridDimX);
+      kernel, FunctionalExecutionMode::MultiThreaded, kBlockDimX, kGridDimX);
 
   ASSERT_TRUE(st.ok) << st.error_message;
   ASSERT_TRUE(mt.ok) << mt.error_message;
@@ -1149,7 +1149,7 @@ TEST(ExecutedFlowProgramCycleStatsTest,
       kernel, FunctionalExecutionMode::SingleThreaded, kBlockDimX, kGridDimX,
       /*shared_memory_bytes=*/4);
   const auto mt = LaunchProgramCycleStatsKernel(
-      kernel, FunctionalExecutionMode::MarlParallel, kBlockDimX, kGridDimX,
+      kernel, FunctionalExecutionMode::MultiThreaded, kBlockDimX, kGridDimX,
       /*shared_memory_bytes=*/4, /*worker_threads=*/4);
 
   ASSERT_TRUE(st.ok) << st.error_message;
@@ -1281,7 +1281,7 @@ TEST(ExecutedFlowProgramCycleStatsTest,
         test_case.kernel, FunctionalExecutionMode::SingleThreaded, test_case.block_dim_x,
         test_case.grid_dim_x, test_case.shared_memory_bytes);
     const auto mt = LaunchProgramCycleStatsKernel(
-        test_case.kernel, FunctionalExecutionMode::MarlParallel, test_case.block_dim_x,
+        test_case.kernel, FunctionalExecutionMode::MultiThreaded, test_case.block_dim_x,
         test_case.grid_dim_x, test_case.shared_memory_bytes, /*worker_threads=*/4);
 
     ASSERT_TRUE(st.ok) << st.error_message;
@@ -1303,11 +1303,11 @@ TEST(ExecutedFlowProgramCycleStatsTest,
 TEST(ExecutedFlowProgramCycleStatsTest,
      RealisticSharedKernelsRemainModeStableAndSelfConsistent) {
   const auto reverse_st = LaunchSharedReverseCycleStats(FunctionalExecutionMode::SingleThreaded);
-  const auto reverse_mt = LaunchSharedReverseCycleStats(FunctionalExecutionMode::MarlParallel);
+  const auto reverse_mt = LaunchSharedReverseCycleStats(FunctionalExecutionMode::MultiThreaded);
   const auto transpose_st = LaunchSharedTransposeCycleStats(FunctionalExecutionMode::SingleThreaded);
-  const auto transpose_mt = LaunchSharedTransposeCycleStats(FunctionalExecutionMode::MarlParallel);
+  const auto transpose_mt = LaunchSharedTransposeCycleStats(FunctionalExecutionMode::MultiThreaded);
   const auto softmax_st = LaunchSoftmaxStyleCycleStats(FunctionalExecutionMode::SingleThreaded);
-  const auto softmax_mt = LaunchSoftmaxStyleCycleStats(FunctionalExecutionMode::MarlParallel);
+  const auto softmax_mt = LaunchSoftmaxStyleCycleStats(FunctionalExecutionMode::MultiThreaded);
 
   ASSERT_TRUE(reverse_st.ok) << reverse_st.error_message;
   ASSERT_TRUE(reverse_mt.ok) << reverse_mt.error_message;

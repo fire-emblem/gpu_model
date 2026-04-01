@@ -239,7 +239,7 @@ TEST(SharedSyncFunctionalTest, SharedAtomicReductionAcrossTwoWavesIsCorrect) {
 }
 
 TEST(SharedSyncFunctionalTest,
-     WaitcntDrivenKernelMatchesAcrossSingleThreadedAndMarlParallelModes) {
+     WaitcntDrivenKernelMatchesAcrossSingleThreadedAndMultiThreadedModes) {
   constexpr uint32_t kGridDim = 2;
   constexpr uint32_t kBlockDim = 128;
   constexpr uint32_t kElementCount = kGridDim * kBlockDim;
@@ -281,7 +281,7 @@ TEST(SharedSyncFunctionalTest,
   };
 
   const auto st = run_mode(FunctionalExecutionMode::SingleThreaded);
-  const auto mt = run_mode(FunctionalExecutionMode::MarlParallel);
+  const auto mt = run_mode(FunctionalExecutionMode::MultiThreaded);
   std::vector<int32_t> expected(kElementCount, 0);
   for (uint32_t i = 0; i < kElementCount; ++i) {
     expected[i] = static_cast<int32_t>(7 * i + 4);
@@ -294,7 +294,7 @@ TEST(SharedSyncFunctionalTest,
 TEST(SharedSyncFunctionalTest, BarrierReleaseReturnsEarlyWaveToDispatch) {
   CollectingTraceSink trace;
   RuntimeEngine runtime(&trace);
-  runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::MarlParallel);
+  runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::MultiThreaded);
 
   constexpr uint32_t kBlockDim = 320;
   constexpr uint32_t kElementCount = kBlockDim;
@@ -336,12 +336,12 @@ TEST(SharedSyncFunctionalTest, BarrierReleaseReturnsEarlyWaveToDispatch) {
                                         early_post_barrier_store_pc));
 }
 
-TEST(SharedSyncFunctionalTest, MarlParallelSingleWorkerCanRunOtherBlockWaveWhileBarrierBlockWaits) {
+TEST(SharedSyncFunctionalTest, MultiThreadedSingleWorkerCanRunOtherBlockWaveWhileBarrierBlockWaits) {
   CollectingTraceSink trace;
   RuntimeEngine runtime(&trace);
   runtime.SetFunctionalExecutionConfig(
       FunctionalExecutionConfig{
-          .mode = FunctionalExecutionMode::MarlParallel,
+          .mode = FunctionalExecutionMode::MultiThreaded,
           .worker_threads = 1,
       });
 

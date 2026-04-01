@@ -37,7 +37,7 @@
 - naive cycle execution
 - functional execution mode switch
   - `SingleThreaded`
-  - `MarlParallel`
+  - `MultiThreaded`
 - trace / debug / ASCII timeline / Google trace
 - AMDGPU object / HIP fatbin / HIP `.out` 的加载入口
 - HIP command-line interposer
@@ -273,13 +273,14 @@ GPU_MODEL_TEST_PROFILE=full ./build/tests/gpu_model_tests
 当前 `RuntimeEngine` 已支持 functional 执行模式切换：
 
 - `SingleThreaded`
-- `MarlParallel`
+- `MultiThreaded`
 
-现阶段 `MarlParallel` 先作为 scheduler-backed 执行骨架接入，
+当前 `MultiThreaded` 已按 functional `wave` 粒度推进，并使用全局 worker pool 执行，
 保证：
 
 - 构建链闭合
 - 运行时模式可切换
 - 结果与当前 single-thread functional 路径一致
+- block barrier / wait 状态仍按 block / wave 语义同步
 
-下一阶段再把真正的 wave 并行、block 内 barrier/atomic/wait 协调逐步落到这个骨架上。
+同时不在 functional 模型中引入 resident block / dispatch capacity 这类 cycle 资源约束。

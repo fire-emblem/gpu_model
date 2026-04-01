@@ -6,7 +6,7 @@ namespace gpu_model {
 
 enum class FunctionalExecutionMode {
   SingleThreaded,
-  MarlParallel,
+  MultiThreaded,
 };
 
 struct FunctionalExecutionConfig {

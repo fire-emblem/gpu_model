@@ -294,7 +294,7 @@ TEST(WaitcntFunctionalTest, EmitsWaveStatsDuringWaitcntProgress) {
   EXPECT_TRUE(saw_waiting_stats);
 }
 
-TEST(WaitcntFunctionalTest, MarlParallelWaitcntResumeIsConsistentAcrossTwoBlocks) {
+TEST(WaitcntFunctionalTest, MultiThreadedWaitcntResumeIsConsistentAcrossTwoBlocks) {
   constexpr uint32_t kBlockDim = 64;
   constexpr std::array<uint32_t, 2> kTargetBlockIds{0, 1};
   const auto kernel = BuildParallelWaitcntZeroResumeKernel();
@@ -309,7 +309,7 @@ TEST(WaitcntFunctionalTest, MarlParallelWaitcntResumeIsConsistentAcrossTwoBlocks
     RuntimeEngine runtime(&trace);
     runtime.SetFunctionalExecutionConfig(
         FunctionalExecutionConfig{
-            .mode = FunctionalExecutionMode::MarlParallel,
+            .mode = FunctionalExecutionMode::MultiThreaded,
             .worker_threads = 2,
         });
 
