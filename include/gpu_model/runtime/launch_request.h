@@ -47,7 +47,6 @@ struct LaunchRequest {
   const ExecutableKernel* kernel = nullptr;
   const ProgramObject* program_image = nullptr;
   const EncodedProgramObject* raw_code_object = nullptr;
-  ExecutionRoute program_execution_route = ExecutionRoute::AutoSelect;
   const DeviceLoadResult* device_load = nullptr;
   LaunchConfig config;
   KernelArgPack args;

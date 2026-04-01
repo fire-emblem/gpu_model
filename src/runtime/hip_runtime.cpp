@@ -242,7 +242,6 @@ LaunchResult HipRuntime::LaunchKernel(const ExecutableKernel& kernel,
   LaunchRequest request;
   request.arch_name = arch_name;
   request.kernel = &kernel;
-  request.program_execution_route = ExecutionRoute::AutoSelect;
   request.config = config;
   request.args = std::move(args);
   request.mode = mode;
@@ -269,7 +268,6 @@ LaunchResult HipRuntime::LaunchProgramImage(const ProgramObject& image,
   request.arch_name = std::move(arch_name);
   request.program_image = prepared.execution_image;
   request.raw_code_object = prepared.raw_code_object;
-  request.program_execution_route = prepared.resolved_route;
   request.device_load = last_load_result_.has_value() ? &*last_load_result_ : nullptr;
   request.config = config;
   request.args = std::move(args);
@@ -470,15 +468,12 @@ LaunchResult HipRuntime::LaunchAmdgpuObject(const std::filesystem::path& path,
                                             ExecutionMode mode,
                                             std::string arch_name,
                                             TraceSink* trace,
-                                            std::optional<std::string> kernel_name,
-                                            ExecutionRoute route) {
-  (void)route;
+                                            std::optional<std::string> kernel_name) {
   const auto raw_code_object = DescribeAmdgpuObject(path, kernel_name);
   last_load_result_ = MaterializeLoadPlan(BuildDeviceLoadPlan(raw_code_object));
   LaunchRequest request;
   request.arch_name = std::move(arch_name);
   request.raw_code_object = &raw_code_object;
-  request.program_execution_route = ExecutionRoute::EncodedRaw;
   request.device_load = last_load_result_.has_value() ? &*last_load_result_ : nullptr;
   request.config = config;
   request.args = std::move(args);

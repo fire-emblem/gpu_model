@@ -210,7 +210,7 @@ LaunchResult RuntimeEngineImpl::Launch(const LaunchRequest& request) {
   if (raw_code_object == nullptr && kernel == nullptr && request.program_image != nullptr) {
     try {
       prepared_program_execution.emplace(
-          PrepareExecutionRoute(*request.program_image, request.program_execution_route));
+          PrepareExecutionRoute(*request.program_image, ExecutionRoute::AutoSelect));
     } catch (const std::exception& ex) {
       result.error_message = ex.what();
       return result;

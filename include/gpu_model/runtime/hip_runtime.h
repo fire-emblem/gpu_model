@@ -105,8 +105,7 @@ class HipRuntime {
                                   ExecutionMode mode = ExecutionMode::Functional,
                                   std::string arch_name = "",
                                   TraceSink* trace = nullptr,
-                                  std::optional<std::string> kernel_name = std::nullopt,
-                                  ExecutionRoute route = ExecutionRoute::EncodedRaw);
+                                  std::optional<std::string> kernel_name = std::nullopt);
 
  RuntimeEngine& runtime() { return *runtime_engine_; }
   const RuntimeEngine& runtime() const { return *runtime_engine_; }
