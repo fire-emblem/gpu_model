@@ -19,7 +19,6 @@
 #include "gpu_model/instruction/encoded/internal/encoded_gcn_encoding_def.h"
 #include "gpu_model/instruction/encoded/instruction_object.h"
 #include "gpu_model/isa/kernel_metadata.h"
-#include "gpu_model/isa/target_isa.h"
 
 namespace gpu_model {
 
@@ -440,7 +439,6 @@ MetadataBlob BuildMetadataFromNotes(const std::filesystem::path& note_source_pat
                                     MetadataBlob metadata = {}) {
   metadata.values["entry"] = kernel_name;
   metadata.values["artifact_path"] = artifact_path.string();
-  SetTargetIsa(metadata, TargetIsa::GcnRawAsm);
 
   const std::string notes =
       RunCommand("llvm-readelf --notes " + ShellQuote(note_source_path.string()));

@@ -57,7 +57,7 @@ TEST(AmdgpuObjLoaderTest, LoadsExecutableKernelFromAmdgpuObjectFile) {
   const auto image = ObjectReader{}.LoadEncodedObject(obj_path);
   EXPECT_EQ(image.kernel_name, "empty_kernel");
   EXPECT_FALSE(image.instructions.empty());
-  EXPECT_EQ(image.metadata.values.at("target_isa"), "gcn_raw_asm");
+  EXPECT_EQ(image.metadata.values.at("artifact_path"), obj_path.string());
 
   std::filesystem::remove_all(temp_dir);
 }
@@ -88,7 +88,7 @@ TEST(AmdgpuObjLoaderTest, LoadsExecutableKernelFromHipHostObjectWithFatbin) {
   const auto image = ObjectReader{}.LoadEncodedObject(obj_path, "empty_kernel");
   EXPECT_EQ(image.kernel_name, "empty_kernel");
   EXPECT_FALSE(image.instructions.empty());
-  EXPECT_EQ(image.metadata.values.at("target_isa"), "gcn_raw_asm");
+  EXPECT_EQ(image.metadata.values.at("artifact_path"), obj_path.string());
 
   const auto source_it = image.metadata.values.find("loader_source");
   ASSERT_NE(source_it, image.metadata.values.end());

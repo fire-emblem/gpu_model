@@ -13,7 +13,6 @@
 #include "gpu_model/execution/functional_exec_engine.h"
 #include "gpu_model/execution/encoded_exec_engine.h"
 #include "gpu_model/isa/kernel_metadata.h"
-#include "gpu_model/isa/target_isa.h"
 #include "gpu_model/loader/device_image_loader.h"
 #include "gpu_model/loader/asm_parser.h"
 #include "gpu_model/program/encoded_program_object.h"

@@ -8,7 +8,6 @@
 #include <string>
 #include <vector>
 
-#include "gpu_model/isa/target_isa.h"
 #include "gpu_model/program/object_reader.h"
 #include "gpu_model/runtime/runtime_engine.h"
 #include "gpu_model/runtime/hip_runtime.h"

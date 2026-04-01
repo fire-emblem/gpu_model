@@ -30,7 +30,6 @@ add_executable(gpu_model_tests
   isa/executable_kernel_builder_test.cpp
   isa/executable_kernel_test.cpp
   isa/opcode_descriptor_test.cpp
-  isa/target_isa_test.cpp
   execution/wave_context_test.cpp
   functional/mapper_test.cpp
   functional/vecadd_functional_test.cpp
