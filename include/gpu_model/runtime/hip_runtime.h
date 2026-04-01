@@ -7,6 +7,7 @@
 #include <span>
 #include <string>
 #include <unordered_map>
+#include <variant>
 #include <vector>
 
 #include "gpu_model/loader/device_image_loader.h"
@@ -109,12 +110,21 @@ class HipRuntime {
   const RuntimeEngine& runtime() const { return *runtime_engine_; }
 
  private:
+  using ModuleImage = std::variant<ProgramObject, EncodedProgramObject>;
+
+  LaunchResult LaunchEncodedProgramObject(const EncodedProgramObject& image,
+                                          LaunchConfig config,
+                                          KernelArgPack args,
+                                          ExecutionMode mode,
+                                          std::string arch_name,
+                                          TraceSink* trace);
+
   RuntimeEngine owned_runtime_;
   RuntimeEngine* runtime_engine_ = &owned_runtime_;
   bool owns_runtime_ = true;
   int current_device_ = 0;
   std::unordered_map<uint64_t, size_t> allocations_;
-  std::unordered_map<std::string, std::unordered_map<std::string, ProgramObject>> modules_;
+  std::unordered_map<std::string, std::unordered_map<std::string, ModuleImage>> modules_;
   std::optional<DeviceLoadResult> last_load_result_;
 };
 

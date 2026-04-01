@@ -325,10 +325,11 @@ void HipRuntime::LoadModule(const ModuleLoadRequest& request) {
   switch (format) {
     case ModuleLoadFormat::Auto:
       throw std::logic_error("auto format must be resolved before load");
-    case ModuleLoadFormat::AmdgpuObject:
-      RegisterProgramImage(request.module_name, ObjectReader{}.LoadFromObject(
-                                                    request.path, request.kernel_name));
+    case ModuleLoadFormat::AmdgpuObject: {
+      auto image = ObjectReader{}.LoadEncodedObject(request.path, request.kernel_name);
+      modules_[request.module_name][image.kernel_name] = std::move(image);
       return;
+    }
     case ModuleLoadFormat::ProgramBundle:
       RegisterProgramImage(request.module_name, ProgramBundleIO::Read(request.path));
       return;
@@ -427,12 +428,30 @@ std::vector<std::string> HipRuntime::ListKernels(const std::string& module_name)
     return names;
   }
   names.reserve(module_it->second.size());
-  for (const auto& [name, image] : module_it->second) {
-    (void)image;
+  for (const auto& [name, entry] : module_it->second) {
+    (void)entry;
     names.push_back(name);
   }
   std::sort(names.begin(), names.end());
   return names;
+}
+
+LaunchResult HipRuntime::LaunchEncodedProgramObject(const EncodedProgramObject& image,
+                                                    LaunchConfig config,
+                                                    KernelArgPack args,
+                                                    ExecutionMode mode,
+                                                    std::string arch_name,
+                                                    TraceSink* trace) {
+  last_load_result_ = MaterializeLoadPlan(BuildDeviceLoadPlan(image));
+  LaunchRequest request;
+  request.arch_name = std::move(arch_name);
+  request.raw_code_object = &image;
+  request.device_load = last_load_result_.has_value() ? &*last_load_result_ : nullptr;
+  request.config = config;
+  request.args = std::move(args);
+  request.mode = mode;
+  request.trace = trace;
+  return runtime_engine_->Launch(request);
 }
 
 LaunchResult HipRuntime::LaunchRegisteredKernel(const std::string& module_name,
@@ -456,8 +475,16 @@ LaunchResult HipRuntime::LaunchRegisteredKernel(const std::string& module_name,
     result.error_message = "unknown kernel in module: " + kernel_name;
     return result;
   }
-  return LaunchProgramImage(kernel_it->second, std::move(config), std::move(args), mode,
-                            std::move(arch_name), trace);
+  if (const auto* image = std::get_if<ProgramObject>(&kernel_it->second)) {
+    return LaunchProgramImage(*image, std::move(config), std::move(args), mode,
+                              std::move(arch_name), trace);
+  }
+  return LaunchEncodedProgramObject(std::get<EncodedProgramObject>(kernel_it->second),
+                                    std::move(config),
+                                    std::move(args),
+                                    mode,
+                                    std::move(arch_name),
+                                    trace);
 }
 
 LaunchResult HipRuntime::LaunchAmdgpuObject(const std::filesystem::path& path,
@@ -468,16 +495,8 @@ LaunchResult HipRuntime::LaunchAmdgpuObject(const std::filesystem::path& path,
                                             TraceSink* trace,
                                             std::optional<std::string> kernel_name) {
   const auto raw_code_object = DescribeAmdgpuObject(path, kernel_name);
-  last_load_result_ = MaterializeLoadPlan(BuildDeviceLoadPlan(raw_code_object));
-  LaunchRequest request;
-  request.arch_name = std::move(arch_name);
-  request.raw_code_object = &raw_code_object;
-  request.device_load = last_load_result_.has_value() ? &*last_load_result_ : nullptr;
-  request.config = config;
-  request.args = std::move(args);
-  request.mode = mode;
-  request.trace = trace;
-  return runtime_engine_->Launch(request);
+  return LaunchEncodedProgramObject(raw_code_object, std::move(config), std::move(args), mode,
+                                    std::move(arch_name), trace);
 }
 
 }  // namespace gpu_model
