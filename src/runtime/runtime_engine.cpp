@@ -84,7 +84,7 @@ namespace {
 
 uint32_t DefaultMarlWorkerThreadCount() {
   const uint32_t cpu_count = std::max(1u, std::thread::hardware_concurrency());
-  return std::max(1u, (cpu_count * 2u) / 3u);
+  return std::max(1u, (cpu_count * 9u) / 10u);
 }
 
 const char* ToEnvModeName(FunctionalExecutionMode mode) {

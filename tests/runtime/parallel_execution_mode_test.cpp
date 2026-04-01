@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <cstdlib>
+#include <thread>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -31,6 +32,30 @@ class ScopedEnvUnset {
   const char* name_;
   bool had_value_ = false;
   std::string value_;
+};
+
+class ScopedEnvSet {
+ public:
+  ScopedEnvSet(const char* name, std::string value) : name_(name) {
+    if (const char* current = std::getenv(name_); current != nullptr) {
+      had_value_ = true;
+      value_before_ = current;
+    }
+    ::setenv(name_, value.c_str(), 1);
+  }
+
+  ~ScopedEnvSet() {
+    if (had_value_) {
+      ::setenv(name_, value_before_.c_str(), 1);
+    } else {
+      ::unsetenv(name_);
+    }
+  }
+
+ private:
+  const char* name_;
+  bool had_value_ = false;
+  std::string value_before_;
 };
 
 ExecutableKernel BuildParallelModeKernel() {
@@ -123,6 +148,17 @@ TEST(ParallelExecutionModeTest, RuntimeEngineCanSwitchToMarlParallelMode) {
   EXPECT_EQ(runtime.functional_execution_config().mode,
             FunctionalExecutionMode::MarlParallel);
   EXPECT_EQ(runtime.functional_execution_config().worker_threads, 2u);
+}
+
+TEST(ParallelExecutionModeTest, RuntimeEngineDefaultsMarlWorkersToNinetyPercentOfCpuCount) {
+  ScopedEnvSet set_mode("GPU_MODEL_FUNCTIONAL_MODE", "mt");
+  ScopedEnvUnset unset_workers("GPU_MODEL_FUNCTIONAL_WORKERS");
+  RuntimeEngine runtime;
+  const uint32_t cpu_count = std::max(1u, std::thread::hardware_concurrency());
+  const uint32_t expected_workers = std::max(1u, (cpu_count * 9u) / 10u);
+  EXPECT_EQ(runtime.functional_execution_config().mode,
+            FunctionalExecutionMode::MarlParallel);
+  EXPECT_EQ(runtime.functional_execution_config().worker_threads, expected_workers);
 }
 
 TEST(ParallelExecutionModeTest, MarlParallelModeProducesSameFunctionalResults) {

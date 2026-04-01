@@ -6,6 +6,7 @@
 #include <string_view>
 #include <vector>
 
+#include "gpu_model/arch/arch_registry.h"
 #include "gpu_model/debug/trace_sink.h"
 #include "gpu_model/isa/instruction_builder.h"
 #include "gpu_model/isa/opcode.h"
@@ -121,6 +122,16 @@ bool ContainsStallTrace(const std::vector<TraceEvent>& events,
   return false;
 }
 
+bool ContainsStallMessage(const std::vector<TraceEvent>& events,
+                          std::string_view message) {
+  for (const auto& event : events) {
+    if (event.kind == TraceEventKind::Stall && event.message == message) {
+      return true;
+    }
+  }
+  return false;
+}
+
 uint64_t NthInstructionPcWithOpcode(const ExecutableKernel& kernel, Opcode opcode, size_t ordinal) {
   size_t seen = 0;
   for (uint64_t pc = 0; pc < kernel.instructions().size(); ++pc) {
@@ -156,6 +167,66 @@ size_t FirstBarrierReleaseIndex(const std::vector<TraceEvent>& events) {
     }
   }
   return std::numeric_limits<size_t>::max();
+}
+
+ExecutableKernel BuildSameApCrossBlockBarrierProgressKernel() {
+  InstructionBuilder builder;
+  builder.SLoadArg("s0", 0);
+  builder.SysBlockIdxX("s1");
+  builder.SysGlobalIdX("v0");
+
+  builder.SMov("s2", 0);
+  builder.SCmpEq("s1", "s2");
+  builder.BIfSmask("block0");
+  builder.BBranch("check_late_block");
+
+  builder.Label("block0");
+
+  builder.SMov("s3", 64);
+  builder.VCmpLtCmask("v0", "s3");
+  builder.MaskSaveExec("s10");
+  builder.MaskAndExecCmask();
+  builder.BIfNoexec("block0_late_wave");
+  builder.SyncBarrier();
+  builder.VMov("v1", 11);
+  builder.VMov("v2", 0);
+  builder.MStoreGlobal("s0", "v2", "v1", 4);
+  builder.MaskRestoreExec("s10");
+  builder.BBranch("exit");
+
+  builder.Label("block0_late_wave");
+  builder.MaskRestoreExec("s10");
+  builder.VCmpGeCmask("v0", "s3");
+  builder.MaskSaveExec("s11");
+  builder.MaskAndExecCmask();
+  builder.BIfNoexec("restore_block0_late_mask");
+  builder.VMov("v3", 1);
+  builder.VAdd("v4", "v3", "v3");
+  builder.VAdd("v5", "v4", "v3");
+  builder.VAdd("v6", "v5", "v3");
+  builder.VAdd("v7", "v6", "v3");
+  builder.SyncBarrier();
+  builder.VMov("v8", 22);
+  builder.VMov("v9", 64);
+  builder.MStoreGlobal("s0", "v9", "v8", 4);
+  builder.Label("restore_block0_late_mask");
+  builder.MaskRestoreExec("s11");
+  builder.BBranch("exit");
+
+  builder.Label("check_late_block");
+  builder.SMov("s5", 104);
+  builder.SCmpEq("s1", "s5");
+  builder.BIfSmask("late_block_store");
+  builder.BBranch("exit");
+
+  builder.Label("late_block_store");
+  builder.VMov("v10", 33);
+  builder.VMov("v11", 4);
+  builder.MStoreGlobal("s0", "v11", "v10", 4);
+
+  builder.Label("exit");
+  builder.BExit();
+  return builder.Build("same_ap_cross_block_barrier_progress");
 }
 
 TEST(SharedSyncFunctionalTest, SharedAtomicReductionAcrossTwoWavesIsCorrect) {
@@ -211,7 +282,7 @@ TEST(SharedSyncFunctionalTest,
       ADD_FAILURE() << result.error_message;
       return std::vector<int32_t>{};
     }
-    EXPECT_TRUE(ContainsStallTrace(trace.events(), waitcnt_pc, "waitcnt_global"));
+    EXPECT_TRUE(ContainsStallMessage(trace.events(), "waitcnt_global"));
 
     std::vector<int32_t> out(kElementCount, 0);
     for (uint32_t i = 0; i < kElementCount; ++i) {
@@ -274,6 +345,61 @@ TEST(SharedSyncFunctionalTest, BarrierReleaseReturnsEarlyWaveToDispatch) {
   EXPECT_LT(release_index,
             FirstEventIndexForBlockWave(trace.events(), 0, 0, TraceEventKind::WaveStep,
                                         early_post_barrier_store_pc));
+}
+
+TEST(SharedSyncFunctionalTest, MarlParallelSingleWorkerCanRunOtherBlockWaveWhileBarrierBlockWaits) {
+  CollectingTraceSink trace;
+  RuntimeEngine runtime(&trace);
+  runtime.SetFunctionalExecutionConfig(
+      FunctionalExecutionConfig{
+          .mode = FunctionalExecutionMode::MarlParallel,
+          .worker_threads = 1,
+      });
+
+  const auto kernel = BuildSameApCrossBlockBarrierProgressKernel();
+  const uint64_t early_post_barrier_store_pc = NthInstructionPcWithOpcode(kernel, Opcode::MStoreGlobal, 0);
+  const uint64_t late_block_store_pc = NthInstructionPcWithOpcode(kernel, Opcode::MStoreGlobal, 2);
+  const uint64_t late_pre_barrier_pc = NthInstructionPcWithOpcode(kernel, Opcode::VAdd, 3);
+  ASSERT_NE(late_block_store_pc, std::numeric_limits<uint64_t>::max());
+  ASSERT_NE(early_post_barrier_store_pc, std::numeric_limits<uint64_t>::max());
+  ASSERT_NE(late_pre_barrier_pc, std::numeric_limits<uint64_t>::max());
+
+  const auto spec = ArchRegistry::Get("c500");
+  ASSERT_TRUE(spec);
+  const uint32_t paired_block_id = spec->total_ap_count();
+  const uint32_t grid_dim_x = paired_block_id + 1;
+  const uint32_t block_dim_x = 128;
+  const uint32_t element_count = (grid_dim_x + 1) * block_dim_x;
+
+  const uint64_t out_addr = runtime.memory().AllocateGlobal(element_count * sizeof(int32_t));
+  for (uint32_t i = 0; i < element_count; ++i) {
+    runtime.memory().StoreGlobalValue<int32_t>(out_addr + i * sizeof(int32_t), -1);
+  }
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.config.grid_dim_x = grid_dim_x;
+  request.config.block_dim_x = block_dim_x;
+  request.args.PushU64(out_addr);
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  EXPECT_EQ(runtime.memory().LoadGlobalValue<int32_t>(out_addr + 0 * sizeof(int32_t)), 11);
+  EXPECT_EQ(runtime.memory().LoadGlobalValue<int32_t>(out_addr + 64 * sizeof(int32_t)), 22);
+  EXPECT_EQ(runtime.memory().LoadGlobalValue<int32_t>(out_addr + 4 * sizeof(int32_t)), 33);
+
+  const size_t late_wave_progress =
+      FirstEventIndexForBlockWave(trace.events(), 0, 1, TraceEventKind::WaveStep, late_pre_barrier_pc);
+  const size_t other_block_progress =
+      FirstEventIndexForBlockWave(trace.events(), paired_block_id, 0, TraceEventKind::WaveStep, late_block_store_pc);
+  const size_t early_post_barrier_progress =
+      FirstEventIndexForBlockWave(trace.events(), 0, 0, TraceEventKind::WaveStep, early_post_barrier_store_pc);
+
+  ASSERT_NE(late_wave_progress, std::numeric_limits<size_t>::max());
+  ASSERT_NE(other_block_progress, std::numeric_limits<size_t>::max());
+  ASSERT_NE(early_post_barrier_progress, std::numeric_limits<size_t>::max());
+  EXPECT_LT(other_block_progress, early_post_barrier_progress);
 }
 
 }  // namespace

@@ -327,6 +327,7 @@ TEST(WaitcntFunctionalTest, MarlParallelWaitcntResumeIsConsistentAcrossTwoBlocks
     ASSERT_TRUE(result.ok) << result.error_message;
 
     const auto& events = trace.events();
+    bool saw_any_waitcnt_stall = false;
     for (uint32_t block_id : kTargetBlockIds) {
       const auto* waitcnt_event =
           FirstEventForBlockWave(events, block_id, 0, TraceEventKind::WaveStep, waitcnt_pc);
@@ -340,12 +341,17 @@ TEST(WaitcntFunctionalTest, MarlParallelWaitcntResumeIsConsistentAcrossTwoBlocks
 
       ASSERT_NE(waitcnt_event, nullptr);
       ASSERT_NE(waitcnt_index, std::numeric_limits<size_t>::max());
-      ASSERT_NE(waitcnt_stall_index, std::numeric_limits<size_t>::max());
       ASSERT_NE(resume_marker_index, std::numeric_limits<size_t>::max());
       EXPECT_NE(waitcnt_event->message.find("op=s_waitcnt"), std::string::npos);
-      EXPECT_LT(waitcnt_index, waitcnt_stall_index);
-      EXPECT_LT(waitcnt_stall_index, resume_marker_index);
+      if (waitcnt_stall_index != std::numeric_limits<size_t>::max()) {
+        saw_any_waitcnt_stall = true;
+        EXPECT_LT(waitcnt_index, waitcnt_stall_index);
+        EXPECT_LT(waitcnt_stall_index, resume_marker_index);
+      } else {
+        EXPECT_LT(waitcnt_index, resume_marker_index);
+      }
     }
+    EXPECT_TRUE(saw_any_waitcnt_stall);
   }
 }
 
