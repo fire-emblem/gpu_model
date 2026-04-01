@@ -482,6 +482,11 @@ void RemoveWaveFromList(Container& waves, const ScheduledWave* target) {
   waves.erase(std::remove(waves.begin(), waves.end(), target), waves.end());
 }
 
+template <typename Container>
+bool ContainsWave(const Container& waves, const ScheduledWave* target) {
+  return std::find(waves.begin(), waves.end(), target) != waves.end();
+}
+
 void RegisterResidentWave(PeuSlot& slot, ScheduledWave& scheduled_wave) {
   RemoveWaveFromList(slot.resident_waves, &scheduled_wave);
   RemoveWaveFromList(slot.active_window, &scheduled_wave);
@@ -491,12 +496,29 @@ void RegisterResidentWave(PeuSlot& slot, ScheduledWave& scheduled_wave) {
   slot.standby_waves.push_back(&scheduled_wave);
 }
 
-void RemoveResidentWave(PeuSlot& slot, ScheduledWave& scheduled_wave) {
-  RemoveWaveFromList(slot.resident_waves, &scheduled_wave);
+void RemoveWaveFromActiveWindow(PeuSlot& slot, ScheduledWave& scheduled_wave) {
   RemoveWaveFromList(slot.active_window, &scheduled_wave);
-  RemoveWaveFromList(slot.standby_waves, &scheduled_wave);
   scheduled_wave.dispatch_enabled = false;
   slot.last_issue_index = std::numeric_limits<size_t>::max();
+}
+
+void QueueResidentWaveForRefill(PeuSlot& slot, ScheduledWave& scheduled_wave) {
+  if (!ContainsWave(slot.resident_waves, &scheduled_wave) ||
+      ContainsWave(slot.active_window, &scheduled_wave) ||
+      ContainsWave(slot.standby_waves, &scheduled_wave) ||
+      scheduled_wave.wave.status == WaveStatus::Exited ||
+      scheduled_wave.wave.waiting_at_barrier) {
+    return;
+  }
+  scheduled_wave.dispatch_enabled = false;
+  slot.standby_waves.push_back(&scheduled_wave);
+}
+
+void RemoveResidentWave(PeuSlot& slot, ScheduledWave& scheduled_wave) {
+  RemoveWaveFromList(slot.resident_waves, &scheduled_wave);
+  RemoveWaveFromActiveWindow(slot, scheduled_wave);
+  RemoveWaveFromList(slot.standby_waves, &scheduled_wave);
+  scheduled_wave.dispatch_enabled = false;
 }
 
 void RefillActiveWindow(PeuSlot& slot,
@@ -1148,6 +1170,8 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                                               candidate->block->barrier_generation,
                                               candidate->block->barrier_arrivals,
                                               true);
+                  PeuSlot& slot = slots.at(candidate->peu_slot_index);
+                  RemoveWaveFromActiveWindow(slot, *candidate);
                   context.trace.OnEvent(TraceEvent{
                       .kind = TraceEventKind::Barrier,
                       .cycle = commit_cycle,
@@ -1159,6 +1183,21 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                       .pc = candidate->wave.pc,
                       .message = "arrive",
                   });
+                  RefillActiveWindow(slot,
+                                     commit_cycle,
+                                     context.spec.max_issuable_waves,
+                                     timing_config_.launch_timing.wave_launch_cycles,
+                                     events,
+                                     context.trace);
+                  std::vector<ScheduledWave*> barrier_generation_waves;
+                  barrier_generation_waves.reserve(candidate->block->waves.size());
+                  for (auto& waiting_wave : candidate->block->waves) {
+                    if (waiting_wave.wave.waiting_at_barrier &&
+                        waiting_wave.wave.barrier_generation ==
+                            candidate->block->barrier_generation) {
+                      barrier_generation_waves.push_back(&waiting_wave);
+                    }
+                  }
                   std::vector<WaveContext*> waiting_waves;
                   waiting_waves.reserve(candidate->block->waves.size());
                   for (auto& waiting_wave : candidate->block->waves) {
@@ -1178,6 +1217,28 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                         .pc = candidate->wave.pc,
                         .message = "release",
                     });
+                    std::vector<size_t> refill_slots;
+                    refill_slots.reserve(barrier_generation_waves.size());
+                    for (ScheduledWave* released_wave : barrier_generation_waves) {
+                      if (released_wave == nullptr || released_wave->wave.waiting_at_barrier) {
+                        continue;
+                      }
+                      PeuSlot& released_slot = slots.at(released_wave->peu_slot_index);
+                      QueueResidentWaveForRefill(released_slot, *released_wave);
+                      if (std::find(refill_slots.begin(),
+                                    refill_slots.end(),
+                                    released_wave->peu_slot_index) == refill_slots.end()) {
+                        refill_slots.push_back(released_wave->peu_slot_index);
+                      }
+                    }
+                    for (size_t slot_index : refill_slots) {
+                      RefillActiveWindow(slots.at(slot_index),
+                                         commit_cycle,
+                                         context.spec.max_issuable_waves,
+                                         timing_config_.launch_timing.wave_launch_cycles,
+                                         events,
+                                         context.trace);
+                    }
                   }
                   return;
                 }

@@ -32,6 +32,14 @@ ExecutableKernel BuildCycleResidentAsyncLoadKernel(uint64_t base_addr) {
   return builder.Build("cycle_resident_async_load_kernel");
 }
 
+ExecutableKernel BuildCycleResidentBarrierYieldKernel() {
+  InstructionBuilder builder;
+  builder.SyncBarrier();
+  builder.VMov("v0", 1);
+  builder.BExit();
+  return builder.Build("cycle_resident_barrier_yield_kernel");
+}
+
 size_t FirstBlockLaunchIndex(const std::vector<TraceEvent>& events, uint32_t block_id) {
   for (size_t i = 0; i < events.size(); ++i) {
     if (events[i].kind == TraceEventKind::BlockLaunch && events[i].block_id == block_id) {
@@ -66,6 +74,45 @@ uint32_t CountWaveLaunchesForBlockAtCycle(const std::vector<TraceEvent>& events,
 size_t FirstWaveLaunchIndexForBlock(const std::vector<TraceEvent>& events, uint32_t block_id) {
   for (size_t i = 0; i < events.size(); ++i) {
     if (events[i].kind == TraceEventKind::WaveLaunch && events[i].block_id == block_id) {
+      return i;
+    }
+  }
+  return std::numeric_limits<size_t>::max();
+}
+
+size_t FirstBarrierEventIndex(const std::vector<TraceEvent>& events,
+                              uint32_t block_id,
+                              std::string_view message) {
+  for (size_t i = 0; i < events.size(); ++i) {
+    if (events[i].kind == TraceEventKind::Barrier && events[i].block_id == block_id &&
+        events[i].message == message) {
+      return i;
+    }
+  }
+  return std::numeric_limits<size_t>::max();
+}
+
+uint32_t CountWaveLaunchesForBlockBeforeIndex(const std::vector<TraceEvent>& events,
+                                              uint32_t block_id,
+                                              size_t limit) {
+  uint32_t count = 0;
+  for (size_t i = 0; i < events.size() && i < limit; ++i) {
+    if (events[i].kind == TraceEventKind::WaveLaunch && events[i].block_id == block_id) {
+      ++count;
+    }
+  }
+  return count;
+}
+
+size_t FirstPostIndexWaveProgressEvent(const std::vector<TraceEvent>& events,
+                                       uint32_t block_id,
+                                       uint32_t wave_id,
+                                       size_t start_index) {
+  for (size_t i = start_index + 1; i < events.size(); ++i) {
+    if (events[i].block_id != block_id || events[i].wave_id != wave_id) {
+      continue;
+    }
+    if (events[i].kind == TraceEventKind::WaveStep || events[i].kind == TraceEventKind::WaveExit) {
       return i;
     }
   }
@@ -231,6 +278,45 @@ TEST(CycleApResidentBlocksTest, StandbyWavePromotesAfterActiveWaveExits) {
   // Event-index ordering is the oracle here because promotion can happen in the same cycle as an
   // exit, but the promoting launch must still be emitted after the exit event in the trace.
   EXPECT_LT(block0_exit, block1_launch);
+}
+
+TEST(CycleApResidentBlocksTest, BarrierWaitingResidentWaveYieldsActiveSlotUntilRelease) {
+  CollectingTraceSink trace;
+  RuntimeEngine runtime(&trace);
+  runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
+                                 /*kernel_launch_cycles=*/0,
+                                 /*block_launch_cycles=*/0,
+                                 /*wave_launch_cycles=*/0,
+                                 /*warp_switch_cycles=*/1,
+                                 /*arg_load_cycles=*/4);
+
+  const auto spec = ArchRegistry::Get("c500");
+  ASSERT_NE(spec, nullptr);
+  const auto kernel = BuildCycleResidentBarrierYieldKernel();
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x =
+      spec->peu_per_ap * (spec->max_issuable_waves + 1) * 64;
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  const uint32_t block0 = 0;
+  const uint32_t active_window_waves_per_ap = spec->peu_per_ap * spec->max_issuable_waves;
+  const size_t first_exit = FirstWaveExitIndex(trace.events(), block0);
+  const size_t release = FirstBarrierEventIndex(trace.events(), block0, "release");
+  const size_t wave0_progress = FirstPostIndexWaveProgressEvent(trace.events(), block0, 0, release);
+  ASSERT_NE(first_exit, std::numeric_limits<size_t>::max());
+  ASSERT_NE(release, std::numeric_limits<size_t>::max());
+  ASSERT_NE(wave0_progress, std::numeric_limits<size_t>::max());
+
+  EXPECT_GT(CountWaveLaunchesForBlockBeforeIndex(trace.events(), block0, first_exit),
+            active_window_waves_per_ap);
+  EXPECT_LT(release, first_exit);
+  EXPECT_LT(release, wave0_progress);
 }
 
 }  // namespace
