@@ -495,12 +495,12 @@ void ActivateBlock(ExecutableBlock& block,
   }
 }
 
-void AdmitResidentBlocks(ApResidentState& ap_state,
-                         uint64_t cycle,
-                         uint32_t max_issuable_waves,
-                         uint64_t wave_launch_cycles,
-                         EventQueue& events,
-                         TraceSink& trace) {
+bool AdmitOneResidentBlock(ApResidentState& ap_state,
+                           uint64_t cycle,
+                           uint32_t max_issuable_waves,
+                           uint64_t wave_launch_cycles,
+                           EventQueue& events,
+                           TraceSink& trace) {
   while (ap_state.resident_blocks.size() < ap_state.resident_block_limit &&
          !ap_state.pending_blocks.empty()) {
     ExecutableBlock* next_block = ap_state.pending_blocks.front();
@@ -510,6 +510,23 @@ void AdmitResidentBlocks(ApResidentState& ap_state,
     }
     ap_state.resident_blocks.push_back(next_block);
     ActivateBlock(*next_block, cycle, max_issuable_waves, wave_launch_cycles, events, trace);
+    return true;
+  }
+  return false;
+}
+
+void AdmitResidentBlocks(ApResidentState& ap_state,
+                         uint64_t cycle,
+                         uint32_t max_issuable_waves,
+                         uint64_t wave_launch_cycles,
+                         EventQueue& events,
+                         TraceSink& trace) {
+  while (AdmitOneResidentBlock(ap_state,
+                               cycle,
+                               max_issuable_waves,
+                               wave_launch_cycles,
+                               events,
+                               trace)) {
   }
 }
 
@@ -1126,7 +1143,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                     if (ap_state_it != ap_states.end()) {
                       const bool removed =
                           RetireResidentBlock(ap_state_it->second, candidate->block);
-                      if (removed) {
+                      if (removed && !ap_state_it->second.pending_blocks.empty()) {
                         events.Schedule(TimedEvent{
                             .cycle = commit_cycle + timing_config_.launch_timing.block_launch_cycles,
                             .action =
@@ -1135,7 +1152,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                                   if (state_it == ap_states.end()) {
                                     return;
                                   }
-                                  AdmitResidentBlocks(
+                                  AdmitOneResidentBlock(
                                       state_it->second,
                                       commit_cycle + timing_config_.launch_timing.block_launch_cycles,
                                       context.spec.max_issuable_waves,
