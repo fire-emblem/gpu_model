@@ -19,14 +19,6 @@ namespace gpu_model {
 
 namespace {
 
-std::optional<std::string> MetadataValue(const MetadataBlob& metadata, const std::string& key) {
-  const auto it = metadata.values.find(key);
-  if (it == metadata.values.end()) {
-    return std::nullopt;
-  }
-  return it->second;
-}
-
 RuntimeDeviceProperties BuildRuntimeDeviceProperties(const GpuArchSpec& spec) {
   RuntimeDeviceProperties props;
   props.name = spec.name;

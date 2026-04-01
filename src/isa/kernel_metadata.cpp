@@ -192,9 +192,6 @@ KernelLaunchMetadata ParseKernelLaunchMetadata(const MetadataBlob& metadata) {
   KernelLaunchMetadata parsed;
   parsed.arch = FindString(metadata, "arch");
   parsed.entry = FindString(metadata, "entry");
-  parsed.format = FindString(metadata, "format");
-  parsed.artifact_path = FindString(metadata, "artifact_path");
-  parsed.module_name = FindString(metadata, "module_name");
   parsed.module_kernels = FindCsv(metadata, "module_kernels");
   parsed.arg_count = FindU32(metadata, "arg_count");
   parsed.required_shared_bytes = FindU32(metadata, "required_shared_bytes");

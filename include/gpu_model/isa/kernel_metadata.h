@@ -55,9 +55,6 @@ struct KernelHiddenArgLayoutEntry {
 struct KernelLaunchMetadata {
   std::optional<std::string> arch;
   std::optional<std::string> entry;
-  std::optional<std::string> format;
-  std::optional<std::string> artifact_path;
-  std::optional<std::string> module_name;
   std::vector<std::string> module_kernels;
   std::optional<uint32_t> arg_count;
   std::optional<uint32_t> required_shared_bytes;

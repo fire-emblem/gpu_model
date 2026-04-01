@@ -24,18 +24,12 @@ TEST(KernelMetadataTest, ParsesStructuredLaunchMetadata) {
   const auto parsed = ParseKernelLaunchMetadata(metadata);
   ASSERT_TRUE(parsed.arch.has_value());
   ASSERT_TRUE(parsed.entry.has_value());
-  ASSERT_TRUE(parsed.format.has_value());
-  ASSERT_TRUE(parsed.artifact_path.has_value());
-  ASSERT_TRUE(parsed.module_name.has_value());
   ASSERT_TRUE(parsed.arg_count.has_value());
   ASSERT_TRUE(parsed.required_shared_bytes.has_value());
   ASSERT_TRUE(parsed.block_dim_multiple.has_value());
   ASSERT_TRUE(parsed.max_block_dim.has_value());
   EXPECT_EQ(*parsed.arch, "c500");
   EXPECT_EQ(*parsed.entry, "meta_kernel");
-  EXPECT_EQ(*parsed.format, "bundle");
-  EXPECT_EQ(*parsed.artifact_path, "/tmp/demo.out");
-  EXPECT_EQ(*parsed.module_name, "module_a");
   ASSERT_EQ(parsed.module_kernels.size(), 2u);
   EXPECT_EQ(parsed.module_kernels[0], "meta_kernel");
   EXPECT_EQ(parsed.module_kernels[1], "other_kernel");
