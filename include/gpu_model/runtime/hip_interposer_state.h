@@ -74,7 +74,7 @@ class HipInterposerState {
   };
 
   std::vector<HipInterposerArgDesc> ParseArgLayout(const MetadataBlob& metadata) const;
-  KernelArgPack PackArgs(const ProgramObject& image, void** args) const;
+  KernelArgPack PackArgs(const MetadataBlob& metadata, void** args) const;
   Allocation* FindAllocation(const void* ptr);
   const Allocation* FindAllocation(const void* ptr) const;
 

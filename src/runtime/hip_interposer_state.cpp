@@ -7,8 +7,8 @@
 #include <unistd.h>
 
 #include "gpu_model/isa/kernel_metadata.h"
+#include "gpu_model/loader/device_segment_image.h"
 #include "gpu_model/program/object_reader.h"
-#include "gpu_model/program/program_object.h"
 
 namespace gpu_model {
 
@@ -203,20 +203,11 @@ std::vector<HipInterposerArgDesc> HipInterposerState::ParseArgLayout(const Metad
   return args;
 }
 
-KernelArgPack HipInterposerState::PackArgs(const ProgramObject& image, void** args) const {
+KernelArgPack HipInterposerState::PackArgs(const MetadataBlob& metadata, void** args) const {
   KernelArgPack packed;
-  MetadataBlob metadata = image.metadata();
   auto layout = ParseArgLayout(metadata);
   if (layout.empty()) {
-    const auto path_it = metadata.values.find("artifact_path");
-    if (path_it != metadata.values.end()) {
-      const auto entry_it = metadata.values.find("entry");
-      const std::optional<std::string> kernel_name =
-          entry_it != metadata.values.end() ? std::optional<std::string>(entry_it->second)
-                                            : std::nullopt;
-      metadata = ObjectReader{}.LoadEncodedObject(path_it->second, kernel_name).metadata;
-      layout = ParseArgLayout(metadata);
-    }
+    throw std::invalid_argument("missing kernel argument layout metadata");
   }
   for (size_t i = 0; i < layout.size(); ++i) {
     if (args == nullptr || args[i] == nullptr) {
@@ -257,10 +248,18 @@ LaunchResult HipInterposerState::LaunchExecutableKernel(const std::filesystem::p
     result.error_message = "unregistered HIP host function";
     return result;
   }
-  const ProgramObject image = ObjectReader{}.LoadFromObject(executable_path, *kernel_name);
+  const auto image = ObjectReader{}.LoadEncodedObject(executable_path, *kernel_name);
   SyncManagedHostToDevice();
-  auto result = model_runtime_.LaunchProgramImage(
-      image, std::move(config), PackArgs(image, args), mode, arch_name, trace);
+  auto device_load = model_runtime_.hooks().MaterializeLoadPlan(BuildDeviceLoadPlan(image));
+  LaunchRequest request;
+  request.arch_name = arch_name;
+  request.raw_code_object = &image;
+  request.device_load = &device_load;
+  request.config = std::move(config);
+  request.args = PackArgs(image.metadata, args);
+  request.mode = mode;
+  request.trace = trace;
+  auto result = model_runtime_.runtime().Launch(request);
   SyncManagedDeviceToHost();
   return result;
 }
