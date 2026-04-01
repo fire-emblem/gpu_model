@@ -7,9 +7,6 @@
 #include "gpu_model/instruction/encoded/decoded_instruction.h"
 #include "gpu_model/instruction/encoded/instruction_decoder.h"
 #include "gpu_model/instruction/encoded/instruction_object.h"
-#include "gpu_model/instruction/modeled/lowering.h"
-#include "gpu_model/program/executable_kernel.h"
-#include "gpu_model/program/program_object.h"
 
 namespace gpu_model {
 namespace {
@@ -51,15 +48,6 @@ TEST(InstructionNamingTest, InstructionHeadersDeclarePrimaryTypes) {
   static_assert(std::is_same_v<
                 decltype(static_cast<ParseDecodedSignature>(&InstructionArrayParser::Parse)),
                 ParseDecodedSignature>);
-
-  static_assert(std::is_abstract_v<ModeledInstructionLowerer>);
-
-  using RegistryGetSignature = const ModeledInstructionLowerer& (*)(TargetIsa);
-  using RegistryLowerSignature = ExecutableKernel (*)(const ProgramObject&);
-  static_assert(std::is_same_v<decltype(&ModeledInstructionLoweringRegistry::Get),
-                               RegistryGetSignature>);
-  static_assert(std::is_same_v<decltype(&ModeledInstructionLoweringRegistry::Lower),
-                               RegistryLowerSignature>);
 }
 
 }  // namespace

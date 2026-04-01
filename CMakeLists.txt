@@ -46,9 +46,7 @@ add_library(gpu_model STATIC
   src/loader/device_image_loader.cpp
   src/loader/device_segment_image.cpp
   src/loader/executable_image_io.cpp
-  src/loader/gcn_lowering_rules.cpp
   src/loader/gcn_text_parser.cpp
-  src/loader/program_lowering.cpp
   src/loader/program_bundle_io.cpp
   src/program/encoded_program_object.cpp
   src/program/object_reader.cpp
