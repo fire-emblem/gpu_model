@@ -37,13 +37,70 @@ TEST(ModelRuntimeTest, ExposesSingleC500DevicePropertiesAndAttributes) {
   EXPECT_EQ(props.shared_mem_per_block, 64u * 1024u);
   EXPECT_EQ(props.shared_mem_per_multiprocessor, 64u * 1024u);
   EXPECT_EQ(props.max_shared_mem_per_multiprocessor, 64u * 1024u);
+  EXPECT_EQ(props.max_threads_dim[0], 1024);
+  EXPECT_EQ(props.max_threads_dim[1], 1024);
+  EXPECT_EQ(props.max_threads_dim[2], 1024);
+  EXPECT_EQ(props.max_grid_size[0], 2147483647);
+  EXPECT_EQ(props.max_grid_size[1], 65535);
+  EXPECT_EQ(props.max_grid_size[2], 65535);
+  EXPECT_EQ(props.regs_per_block, 65536);
+  EXPECT_EQ(props.regs_per_multiprocessor, 65536);
+  EXPECT_EQ(props.total_const_mem, 64u * 1024u);
+  EXPECT_EQ(props.l2_cache_size, 8 * 1024 * 1024);
+  EXPECT_EQ(props.clock_rate_khz, 1500000);
+  EXPECT_EQ(props.memory_clock_rate_khz, 1200000);
+  EXPECT_EQ(props.memory_bus_width_bits, 4096);
+  EXPECT_EQ(props.integrated, 0);
+  EXPECT_EQ(props.concurrent_kernels, 1);
+  EXPECT_EQ(props.cooperative_launch, 1);
+  EXPECT_EQ(props.can_map_host_memory, 1);
+  EXPECT_EQ(props.managed_memory, 1);
+  EXPECT_EQ(props.concurrent_managed_access, 1);
+  EXPECT_EQ(props.host_register_supported, 1);
+  EXPECT_EQ(props.unified_addressing, 1);
+  EXPECT_EQ(props.compute_capability_major, 9);
+  EXPECT_EQ(props.compute_capability_minor, 0);
 
-  ASSERT_TRUE(api.GetDeviceAttribute(RuntimeDeviceAttribute::WarpSize).has_value());
-  EXPECT_EQ(*api.GetDeviceAttribute(RuntimeDeviceAttribute::WarpSize), 64);
-  EXPECT_EQ(*api.GetDeviceAttribute(RuntimeDeviceAttribute::MaxThreadsPerBlock), 1024);
-  EXPECT_EQ(*api.GetDeviceAttribute(RuntimeDeviceAttribute::MultiprocessorCount), 104);
-  EXPECT_EQ(*api.GetDeviceAttribute(RuntimeDeviceAttribute::UnifiedAddressing), 1);
-  EXPECT_EQ(*api.GetDeviceAttribute(RuntimeDeviceAttribute::CooperativeLaunch), 1);
+  const auto assert_attr = [&](RuntimeDeviceAttribute attr, int expected) {
+    const auto value = api.GetDeviceAttribute(attr);
+    ASSERT_TRUE(value.has_value());
+    EXPECT_EQ(*value, expected);
+  };
+
+  assert_attr(RuntimeDeviceAttribute::WarpSize, 64);
+  assert_attr(RuntimeDeviceAttribute::MaxThreadsPerBlock, 1024);
+  assert_attr(RuntimeDeviceAttribute::MaxBlockDimX, 1024);
+  assert_attr(RuntimeDeviceAttribute::MaxBlockDimY, 1024);
+  assert_attr(RuntimeDeviceAttribute::MaxBlockDimZ, 1024);
+  assert_attr(RuntimeDeviceAttribute::MaxGridDimX, 2147483647);
+  assert_attr(RuntimeDeviceAttribute::MaxGridDimY, 65535);
+  assert_attr(RuntimeDeviceAttribute::MaxGridDimZ, 65535);
+  assert_attr(RuntimeDeviceAttribute::MultiprocessorCount, 104);
+  assert_attr(RuntimeDeviceAttribute::MaxThreadsPerMultiprocessor, 1024);
+  assert_attr(RuntimeDeviceAttribute::SharedMemPerBlock, 64 * 1024);
+  assert_attr(RuntimeDeviceAttribute::SharedMemPerMultiprocessor, 64 * 1024);
+  assert_attr(RuntimeDeviceAttribute::MaxSharedMemPerMultiprocessor, 64 * 1024);
+  assert_attr(RuntimeDeviceAttribute::RegistersPerBlock, 65536);
+  assert_attr(RuntimeDeviceAttribute::RegistersPerMultiprocessor, 65536);
+  assert_attr(RuntimeDeviceAttribute::TotalConstantMemory, 64 * 1024);
+  assert_attr(RuntimeDeviceAttribute::L2CacheSize, 8 * 1024 * 1024);
+  assert_attr(RuntimeDeviceAttribute::ClockRateKHz, 1500000);
+  assert_attr(RuntimeDeviceAttribute::MemoryClockRateKHz, 1200000);
+  assert_attr(RuntimeDeviceAttribute::MemoryBusWidthBits, 4096);
+  assert_attr(RuntimeDeviceAttribute::Integrated, 0);
+  assert_attr(RuntimeDeviceAttribute::ConcurrentKernels, 1);
+  assert_attr(RuntimeDeviceAttribute::CooperativeLaunch, 1);
+  assert_attr(RuntimeDeviceAttribute::CanMapHostMemory, 1);
+  assert_attr(RuntimeDeviceAttribute::ManagedMemory, 1);
+  assert_attr(RuntimeDeviceAttribute::ConcurrentManagedAccess, 1);
+  assert_attr(RuntimeDeviceAttribute::HostRegisterSupported, 1);
+  assert_attr(RuntimeDeviceAttribute::UnifiedAddressing, 1);
+  assert_attr(RuntimeDeviceAttribute::ComputeCapabilityMajor, 9);
+  assert_attr(RuntimeDeviceAttribute::ComputeCapabilityMinor, 0);
+
+  EXPECT_THROW((void)api.GetDeviceProperties(1), std::out_of_range);
+  EXPECT_THROW((void)api.GetDeviceAttribute(RuntimeDeviceAttribute::WarpSize, 1),
+               std::out_of_range);
 }
 
 TEST(ModelRuntimeTest, LaunchesProgramObjectThroughNativeFacade) {

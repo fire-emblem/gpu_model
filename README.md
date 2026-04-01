@@ -188,45 +188,30 @@ GPU_MODEL_TEST_PROFILE=full ./build/tests/gpu_model_tests
 
 ## 常用入口
 
-### 内建 vecadd 示例
+### 统一 examples 入口
 
 ```bash
-./build/vecadd_main
+./examples/README.md
 ```
 
 ### cycle trace 示例
 
 ```bash
-./build/fma_loop_cycle_trace_main --mode cycle --grid 2 --block 65 --n 8 --iterations 2
+./examples/03-cycle-fma-trace/run.sh
 ```
 
 ### 真实 HIP `.out` 命令行路径
 
-先构建 interposer：
-
 ```bash
-cmake --build build --target gpu_model_hip_interposer -j
+./examples/01-hip-command-line-interposer/run.sh
 ```
 
-然后运行 usage：
+### cycle 计数对比例子
 
 ```bash
-./usages/hip-command-line-interposer/run.sh
+./examples/04-cycle-comparison-block-count/run.sh
+./examples/05-cycle-comparison-kernel-shape/run.sh
 ```
-
-### encoded code object decode / formatter
-
-新增示例会把 AMDGPU/HIP 产物里的 encoded instructions 打出来（legacy 文档中常写 raw instructions）：
-
-```bash
-./build/code_object_dump_main <path-to-amdgpu-object-or-hip-out> [kernel_name]
-```
-
-当前输出会同时展示：
-
-- 原始 decode 的 `fmt`
-- parser/工厂实例化后的 `op_type`
-- 具体指令对象 `class`
 
 ### 顶层执行检查脚本
 
@@ -236,21 +221,21 @@ cmake --build build --target gpu_model_hip_interposer -j
 ./scripts/run_exec_checks.sh
 ```
 
-它会串起来执行：
+它会串起来执行核心的可执行路径检查。
 
-- `raw-code-object-decode` usage
-- `hip-command-line-interposer` usage
-
-## usages
+## examples
 
 可复现脚本见：
 
-- [usages/README.md](/data/gpu_model/usages/README.md)
+- [examples/README.md](/data/gpu_model/examples/README.md)
 
-当前比较关键的 usage：
+当前比较关键的例子：
 
-- [usages/hip-fatbin-launch/README.md](/data/gpu_model/usages/hip-fatbin-launch/README.md)
-- [usages/hip-command-line-interposer/README.md](/data/gpu_model/usages/hip-command-line-interposer/README.md)
+- [examples/01-hip-command-line-interposer/README.md](/data/gpu_model/examples/01-hip-command-line-interposer/README.md)
+- [examples/02-hip-fma-loop-interposer/README.md](/data/gpu_model/examples/02-hip-fma-loop-interposer/README.md)
+- [examples/03-cycle-fma-trace/README.md](/data/gpu_model/examples/03-cycle-fma-trace/README.md)
+- [examples/04-cycle-comparison-block-count/README.md](/data/gpu_model/examples/04-cycle-comparison-block-count/README.md)
+- [examples/05-cycle-comparison-kernel-shape/README.md](/data/gpu_model/examples/05-cycle-comparison-kernel-shape/README.md)
 
 ## 顶层开发状态
 

@@ -340,6 +340,10 @@ cycle model 的目标不是 RTL 级精确，而是：
 - 资源冲突
 - 参数化与校准
 
+对于下一阶段轻量级 `VL1 / SL1 / L2`、访存合并与 hit/miss 的接口预留方案，详见：
+
+- [memory-hierarchy-interface-reservation.md](/data/gpu_model/docs/memory-hierarchy-interface-reservation.md)
+
 ## 9. 调试、Trace 与性能观测
 
 项目必须内建统一的调试和观测能力，而不是事后附加。

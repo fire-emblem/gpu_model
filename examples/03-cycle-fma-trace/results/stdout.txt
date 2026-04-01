@@ -1,0 +1,13 @@
+total_cycles=129
+text_trace=/data/gpu_model/examples/03-cycle-fma-trace/results/fma_loop_cycle_trace.txt
+json_trace=/data/gpu_model/examples/03-cycle-fma-trace/results/fma_loop_cycle_trace.jsonl
+timeline=/data/gpu_model/examples/03-cycle-fma-trace/results/fma_loop_cycle_timeline.txt
+google_trace=/data/gpu_model/examples/03-cycle-fma-trace/results/fma_loop_cycle_trace.google_trace.json
+out[0]=35
+out[1]=71
+out[2]=107
+out[3]=143
+out[4]=179
+out[5]=215
+out[6]=251
+out[7]=287

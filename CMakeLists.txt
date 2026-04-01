@@ -114,13 +114,6 @@ gpu_model_enable_warnings(gpu_model)
 
 add_subdirectory(tests)
 
-add_executable(vecadd_main
-  examples/vecadd_main.cpp
-)
-
-target_link_libraries(vecadd_main PRIVATE gpu_model)
-gpu_model_enable_warnings(vecadd_main)
-
 if(EXISTS "/opt/rocm/include/hip/hip_runtime_api.h")
   add_library(gpu_model_hip_interposer SHARED
     src/runtime/hip_interposer.cpp
@@ -137,15 +130,29 @@ if(EXISTS "/opt/rocm/include/hip/hip_runtime_api.h")
 endif()
 
 add_executable(fma_loop_cycle_trace_main
-  examples/fma_loop_cycle_trace_main.cpp
+  tools/fma_loop_cycle_trace_main.cpp
 )
 
 target_link_libraries(fma_loop_cycle_trace_main PRIVATE gpu_model)
 gpu_model_enable_warnings(fma_loop_cycle_trace_main)
 
 add_executable(code_object_dump_main
-  examples/code_object_dump_main.cpp
+  tools/code_object_dump_main.cpp
 )
 
 target_link_libraries(code_object_dump_main PRIVATE gpu_model)
 gpu_model_enable_warnings(code_object_dump_main)
+
+add_executable(cycle_block_count_compare_main
+  tools/cycle_block_count_compare_main.cpp
+)
+
+target_link_libraries(cycle_block_count_compare_main PRIVATE gpu_model)
+gpu_model_enable_warnings(cycle_block_count_compare_main)
+
+add_executable(cycle_kernel_shape_compare_main
+  tools/cycle_kernel_shape_compare_main.cpp
+)
+
+target_link_libraries(cycle_kernel_shape_compare_main PRIVATE gpu_model)
+gpu_model_enable_warnings(cycle_kernel_shape_compare_main)
