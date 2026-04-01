@@ -176,6 +176,7 @@ TEST(CycleApResidentBlocksTest, ResidentStandbyBlockDoesNotLaunchWavesUntilActiv
 
   const uint32_t block0 = WrappedBlockId(*spec, 0);
   const uint32_t block1 = WrappedBlockId(*spec, 1);
+  const uint32_t active_window_waves_per_ap = spec->peu_per_ap * spec->max_issuable_waves;
   const size_t block0_launch = FirstBlockLaunchIndex(trace.events(), block0);
   const size_t block1_launch = FirstBlockLaunchIndex(trace.events(), block1);
   ASSERT_NE(block0_launch, std::numeric_limits<size_t>::max());
@@ -183,7 +184,7 @@ TEST(CycleApResidentBlocksTest, ResidentStandbyBlockDoesNotLaunchWavesUntilActiv
 
   EXPECT_EQ(trace.events()[block0_launch].cycle, 0u);
   EXPECT_EQ(trace.events()[block1_launch].cycle, 0u);
-  EXPECT_EQ(CountWaveLaunchesForBlockAtCycle(trace.events(), block0, 0u), 16u);
+  EXPECT_EQ(CountWaveLaunchesForBlockAtCycle(trace.events(), block0, 0u), active_window_waves_per_ap);
   EXPECT_EQ(CountWaveLaunchesForBlockAtCycle(trace.events(), block1, 0u), 0u);
 }
 
@@ -215,11 +216,20 @@ TEST(CycleApResidentBlocksTest, StandbyWavePromotesAfterActiveWaveExits) {
 
   const uint32_t block0 = WrappedBlockId(*spec, 0);
   const uint32_t block1 = WrappedBlockId(*spec, 1);
+  const size_t block0_block_launch = FirstBlockLaunchIndex(trace.events(), block0);
+  const size_t block1_block_launch = FirstBlockLaunchIndex(trace.events(), block1);
   const size_t block0_exit = FirstWaveExitIndex(trace.events(), block0);
   const size_t block1_launch = FirstWaveLaunchIndexForBlock(trace.events(), block1);
+  ASSERT_NE(block0_block_launch, std::numeric_limits<size_t>::max());
+  ASSERT_NE(block1_block_launch, std::numeric_limits<size_t>::max());
   ASSERT_NE(block0_exit, std::numeric_limits<size_t>::max());
   ASSERT_NE(block1_launch, std::numeric_limits<size_t>::max());
 
+  EXPECT_EQ(trace.events()[block0_block_launch].cycle, 0u);
+  EXPECT_EQ(trace.events()[block1_block_launch].cycle, 0u);
+  EXPECT_EQ(CountWaveLaunchesForBlockAtCycle(trace.events(), block1, 0u), 0u);
+  // Event-index ordering is the oracle here because promotion can happen in the same cycle as an
+  // exit, but the promoting launch must still be emitted after the exit event in the trace.
   EXPECT_LT(block0_exit, block1_launch);
 }
 
