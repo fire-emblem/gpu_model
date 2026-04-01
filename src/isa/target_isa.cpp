@@ -9,8 +9,6 @@ std::string_view ToString(TargetIsa isa) {
   switch (isa) {
     case TargetIsa::CanonicalAsm:
       return "canonical_asm";
-    case TargetIsa::GcnAsm:
-      return "gcn_asm";
     case TargetIsa::GcnRawAsm:
       return "gcn_raw_asm";
   }
@@ -18,11 +16,8 @@ std::string_view ToString(TargetIsa isa) {
 }
 
 TargetIsa ParseTargetIsa(std::string_view text) {
-  if (text.empty() || text == "canonical_asm") {
+  if (text.empty() || text == "canonical_asm" || text == "gcn_asm") {
     return TargetIsa::CanonicalAsm;
-  }
-  if (text == "gcn_asm") {
-    return TargetIsa::GcnAsm;
   }
   if (text == "gcn_raw_asm") {
     return TargetIsa::GcnRawAsm;

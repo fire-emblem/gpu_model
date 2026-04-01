@@ -8,7 +8,6 @@ namespace gpu_model {
 
 enum class TargetIsa {
   CanonicalAsm,
-  GcnAsm,
   GcnRawAsm,
 };
 
