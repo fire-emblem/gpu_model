@@ -14,7 +14,6 @@
 #include "gpu_model/loader/device_segment_image.h"
 #include "gpu_model/program/encoded_program_object.h"
 #include "gpu_model/program/executable_kernel.h"
-#include "gpu_model/program/execution_route.h"
 #include "gpu_model/program/object_reader.h"
 #include "gpu_model/program/program_object.h"
 #include "gpu_model/runtime/device_properties.h"

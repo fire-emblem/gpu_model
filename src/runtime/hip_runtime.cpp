@@ -11,10 +11,8 @@
 #include <vector>
 
 #include "gpu_model/arch/arch_registry.h"
-#include "gpu_model/isa/target_isa.h"
 #include "gpu_model/loader/executable_image_io.h"
 #include "gpu_model/loader/program_bundle_io.h"
-#include "gpu_model/program/execution_route.h"
 #include "gpu_model/program/object_reader.h"
 
 namespace gpu_model {
@@ -255,18 +253,11 @@ LaunchResult HipRuntime::LaunchProgramImage(const ProgramObject& image,
                                             ExecutionMode mode,
                                             std::string arch_name,
                                             TraceSink* trace) {
-  const auto prepared = PrepareExecutionRoute(image);
-
-  if (prepared.raw_code_object != nullptr) {
-    last_load_result_ = MaterializeLoadPlan(BuildDeviceLoadPlan(*prepared.raw_code_object));
-  } else {
-    last_load_result_ = LoadProgramImageToDevice(*prepared.execution_image);
-  }
+  last_load_result_ = LoadProgramImageToDevice(image);
 
   LaunchRequest request;
   request.arch_name = std::move(arch_name);
-  request.program_image = prepared.execution_image;
-  request.raw_code_object = prepared.raw_code_object;
+  request.program_image = &image;
   request.device_load = last_load_result_.has_value() ? &*last_load_result_ : nullptr;
   request.config = config;
   request.args = std::move(args);
@@ -276,12 +267,6 @@ LaunchResult HipRuntime::LaunchProgramImage(const ProgramObject& image,
 }
 
 DeviceLoadPlan HipRuntime::BuildLoadPlan(const ProgramObject& image) const {
-  if (ResolveTargetIsa(image.metadata()) == TargetIsa::GcnRawAsm) {
-    const auto artifact_path = MetadataValue(image.metadata(), "artifact_path");
-    if (artifact_path.has_value()) {
-      return BuildLoadPlanFromAmdgpuObject(*artifact_path, image.kernel_name());
-    }
-  }
   return BuildDeviceLoadPlan(image);
 }
 

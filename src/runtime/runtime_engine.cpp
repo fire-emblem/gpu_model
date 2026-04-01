@@ -17,7 +17,6 @@
 #include "gpu_model/loader/device_image_loader.h"
 #include "gpu_model/loader/asm_parser.h"
 #include "gpu_model/program/encoded_program_object.h"
-#include "gpu_model/program/execution_route.h"
 
 namespace gpu_model {
 
@@ -203,24 +202,12 @@ LaunchResult RuntimeEngineImpl::Launch(const LaunchRequest& request) {
 
   ExecutableKernel parsed_kernel;
   const ExecutableKernel* kernel = request.kernel;
-  std::optional<PreparedExecutionRoute> prepared_program_execution;
   const EncodedProgramObject* raw_code_object = request.raw_code_object;
   const EncodedProgramObject* encoded_program_object = raw_code_object;
   bool use_encoded_exec_engine = raw_code_object != nullptr;
   if (raw_code_object == nullptr && kernel == nullptr && request.program_image != nullptr) {
-    try {
-      prepared_program_execution.emplace(PrepareExecutionRoute(*request.program_image));
-    } catch (const std::exception& ex) {
-      result.error_message = ex.what();
-      return result;
-    }
-    raw_code_object = prepared_program_execution->raw_code_object;
-    encoded_program_object = raw_code_object;
-    use_encoded_exec_engine = raw_code_object != nullptr;
-    if (!use_encoded_exec_engine) {
-      parsed_kernel = AsmParser{}.Parse(*prepared_program_execution->execution_image);
-      kernel = &parsed_kernel;
-    }
+    parsed_kernel = AsmParser{}.Parse(*request.program_image);
+    kernel = &parsed_kernel;
   }
   if (kernel == nullptr && !use_encoded_exec_engine) {
     result.error_message = "launch request missing kernel or program image";
