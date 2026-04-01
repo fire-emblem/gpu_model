@@ -75,6 +75,8 @@ class HipInterposerState {
 
   std::vector<HipInterposerArgDesc> ParseArgLayout(const MetadataBlob& metadata) const;
   KernelArgPack PackArgs(const MetadataBlob& metadata, void** args) const;
+  EncodedProgramObject LoadExecutableImage(const std::filesystem::path& executable_path,
+                                           const void* host_function) const;
   Allocation* FindAllocation(const void* ptr);
   const Allocation* FindAllocation(const void* ptr) const;
 

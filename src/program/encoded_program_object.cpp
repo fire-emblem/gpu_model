@@ -121,7 +121,10 @@ struct MaterializedCodeObject {
 MaterializedCodeObject MaterializeDeviceCodeObject(const std::filesystem::path& path,
                                                    const ScopedTempDir& temp_dir) {
   if (IsAmdgpuElf(path)) {
-    return MaterializedCodeObject{.path = path};
+    return MaterializedCodeObject{
+        .path = path,
+        .metadata = MetadataBlob{},
+    };
   }
   if (!HasHipFatbin(path)) {
     throw std::runtime_error("ELF is neither AMDGPU code object nor HIP fatbin host artifact: " +
@@ -148,17 +151,10 @@ MaterializedCodeObject MaterializeDeviceCodeObject(const std::filesystem::path& 
   }
   RunCommand("clang-offload-bundler --unbundle --type=o --input=" + ShellQuote(fatbin_path.string()) +
              " --targets=" + ShellQuote(target) + " --output=" + ShellQuote(device_path.string()));
-  MaterializedCodeObject materialized{
+  return MaterializedCodeObject{
       .path = device_path,
-      .metadata = MetadataBlob{
-          .values =
-              {
-                  {"loader_source", "hip_fatbin"},
-                  {"bundle_target", target},
-              },
-      },
+      .metadata = MetadataBlob{},
   };
-  return materialized;
 }
 
 struct SectionInfo {
@@ -434,11 +430,9 @@ std::vector<NoteKernelMetadata> ParseKernelMetadataNotes(const std::string& note
 }
 
 MetadataBlob BuildMetadataFromNotes(const std::filesystem::path& note_source_path,
-                                    const std::filesystem::path& artifact_path,
                                     const std::string& kernel_name,
                                     MetadataBlob metadata = {}) {
   metadata.values["entry"] = kernel_name;
-  metadata.values["artifact_path"] = artifact_path.string();
 
   const std::string notes =
       RunCommand("llvm-readelf --notes " + ShellQuote(note_source_path.string()));
@@ -568,7 +562,7 @@ EncodedProgramObject ObjectReader::LoadEncodedObject(
   const auto selected_symbol = SelectKernelSymbol(symbols, kernel_name);
   code_object.kernel_name = selected_symbol.name;
   code_object.metadata =
-      BuildMetadataFromNotes(device_path, path, code_object.kernel_name, materialized.metadata);
+      BuildMetadataFromNotes(device_path, code_object.kernel_name, materialized.metadata);
 
   const auto descriptor_symbol_name_it = code_object.metadata.values.find("descriptor_symbol");
   if (descriptor_symbol_name_it != code_object.metadata.values.end() &&

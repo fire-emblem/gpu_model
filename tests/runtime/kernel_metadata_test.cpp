@@ -11,9 +11,6 @@ TEST(KernelMetadataTest, ParsesStructuredLaunchMetadata) {
   MetadataBlob metadata{.values = {
                             {"arch", "c500"},
                             {"entry", "meta_kernel"},
-                            {"format", "bundle"},
-                            {"artifact_path", "/tmp/demo.out"},
-                            {"module_name", "module_a"},
                             {"module_kernels", "meta_kernel,other_kernel"},
                             {"arg_count", "2"},
                             {"required_shared_bytes", "256"},

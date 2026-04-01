@@ -234,6 +234,16 @@ KernelArgPack HipInterposerState::PackArgs(const MetadataBlob& metadata, void** 
   return packed;
 }
 
+EncodedProgramObject HipInterposerState::LoadExecutableImage(
+    const std::filesystem::path& executable_path,
+    const void* host_function) const {
+  const auto kernel_name = ResolveKernelName(host_function);
+  if (!kernel_name.has_value()) {
+    throw std::invalid_argument("unregistered HIP host function");
+  }
+  return ObjectReader{}.LoadEncodedObject(executable_path, *kernel_name);
+}
+
 LaunchResult HipInterposerState::LaunchExecutableKernel(const std::filesystem::path& executable_path,
                                                         const void* host_function,
                                                         LaunchConfig config,
@@ -241,14 +251,15 @@ LaunchResult HipInterposerState::LaunchExecutableKernel(const std::filesystem::p
                                                         ExecutionMode mode,
                                                         const std::string& arch_name,
                                                         TraceSink* trace) {
-  const auto kernel_name = ResolveKernelName(host_function);
-  if (!kernel_name.has_value()) {
+  EncodedProgramObject image;
+  try {
+    image = LoadExecutableImage(executable_path, host_function);
+  } catch (const std::invalid_argument&) {
     LaunchResult result;
     result.ok = false;
     result.error_message = "unregistered HIP host function";
     return result;
   }
-  const auto image = ObjectReader{}.LoadEncodedObject(executable_path, *kernel_name);
   SyncManagedHostToDevice();
   auto device_load = model_runtime_.hooks().MaterializeLoadPlan(BuildDeviceLoadPlan(image));
   LaunchRequest request;
@@ -267,12 +278,12 @@ LaunchResult HipInterposerState::LaunchExecutableKernel(const std::filesystem::p
 DeviceLoadPlan HipInterposerState::BuildExecutableLoadPlan(
     const std::filesystem::path& executable_path,
     const void* host_function) const {
-  const auto kernel_name = ResolveKernelName(host_function);
-  if (!kernel_name.has_value()) {
+  try {
+    const auto image = LoadExecutableImage(executable_path, host_function);
+    return BuildDeviceLoadPlan(image);
+  } catch (const std::invalid_argument&) {
     throw std::invalid_argument("unregistered HIP host function");
   }
-  const auto image = ObjectReader{}.LoadEncodedObject(executable_path, *kernel_name);
-  return BuildDeviceLoadPlan(image);
 }
 
 void HipInterposerState::PushLaunchConfiguration(LaunchConfig config, uint64_t shared_memory_bytes) {
