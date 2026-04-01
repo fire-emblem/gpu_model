@@ -513,14 +513,16 @@ void AdmitResidentBlocks(ApResidentState& ap_state,
   }
 }
 
-void RetireResidentBlock(ApResidentState& ap_state, ExecutableBlock* block) {
+bool RetireResidentBlock(ApResidentState& ap_state, ExecutableBlock* block) {
   if (block == nullptr) {
-    return;
+    return false;
   }
   auto it = std::find(ap_state.resident_blocks.begin(), ap_state.resident_blocks.end(), block);
   if (it != ap_state.resident_blocks.end()) {
     ap_state.resident_blocks.erase(it);
+    return true;
   }
+  return false;
 }
 
 void FillDispatchWindow(PeuSlot& slot,
@@ -1122,24 +1124,27 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                     const uint32_t global_ap_id = candidate->block->global_ap_id;
                     auto ap_state_it = ap_states.find(global_ap_id);
                     if (ap_state_it != ap_states.end()) {
-                      RetireResidentBlock(ap_state_it->second, candidate->block);
-                      events.Schedule(TimedEvent{
-                          .cycle = commit_cycle + timing_config_.launch_timing.block_launch_cycles,
-                          .action =
-                              [&, global_ap_id, commit_cycle]() {
-                                auto state_it = ap_states.find(global_ap_id);
-                                if (state_it == ap_states.end()) {
-                                  return;
-                                }
-                                AdmitResidentBlocks(
-                                    state_it->second,
-                                    commit_cycle + timing_config_.launch_timing.block_launch_cycles,
-                                    context.spec.max_issuable_waves,
-                                    timing_config_.launch_timing.wave_launch_cycles,
-                                    events,
-                                    context.trace);
-                              },
-                      });
+                      const bool removed =
+                          RetireResidentBlock(ap_state_it->second, candidate->block);
+                      if (removed) {
+                        events.Schedule(TimedEvent{
+                            .cycle = commit_cycle + timing_config_.launch_timing.block_launch_cycles,
+                            .action =
+                                [&, global_ap_id, commit_cycle]() {
+                                  auto state_it = ap_states.find(global_ap_id);
+                                  if (state_it == ap_states.end()) {
+                                    return;
+                                  }
+                                  AdmitResidentBlocks(
+                                      state_it->second,
+                                      commit_cycle + timing_config_.launch_timing.block_launch_cycles,
+                                      context.spec.max_issuable_waves,
+                                      timing_config_.launch_timing.wave_launch_cycles,
+                                      events,
+                                      context.trace);
+                                },
+                        });
+                      }
                     }
                   }
                   return;
