@@ -47,8 +47,6 @@ class RuntimeEngine {
   LaunchResult Launch(const LaunchRequest& request);
 
  private:
-  friend class HipRuntime;
-
   std::unique_ptr<RuntimeEngineImpl> impl_;
 };
 
