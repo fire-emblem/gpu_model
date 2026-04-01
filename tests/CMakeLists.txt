@@ -90,7 +90,7 @@ add_executable(gpu_model_tests
   runtime/kernel_metadata_test.cpp
   runtime/kernarg_packer_test.cpp
   runtime/hipcc_parallel_execution_test.cpp
-  runtime/raw_code_object_launch_test.cpp
+  runtime/encoded_program_object_launch_test.cpp
   runtime/model_runtime_test.cpp
   runtime/runtime_naming_test.cpp
   runtime/compatibility_alias_test.cpp

@@ -45,7 +45,7 @@ struct LaunchRequest {
   std::string arch_name = "c500";
   const ExecutableKernel* kernel = nullptr;
   const ProgramObject* program_image = nullptr;
-  const EncodedProgramObject* raw_code_object = nullptr;
+  const EncodedProgramObject* encoded_program_object = nullptr;
   const DeviceLoadResult* device_load = nullptr;
   LaunchConfig config;
   KernelArgPack args;

@@ -264,7 +264,7 @@ LaunchResult HipInterposerState::LaunchExecutableKernel(const std::filesystem::p
   auto device_load = model_runtime_.hooks().MaterializeLoadPlan(BuildDeviceLoadPlan(image));
   LaunchRequest request;
   request.arch_name = arch_name;
-  request.raw_code_object = &image;
+  request.encoded_program_object = &image;
   request.device_load = &device_load;
   request.config = std::move(config);
   request.args = PackArgs(image.metadata, args);

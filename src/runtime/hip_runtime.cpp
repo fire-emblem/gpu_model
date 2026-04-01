@@ -360,7 +360,7 @@ LaunchResult HipRuntime::LaunchEncodedProgramObject(const EncodedProgramObject& 
   last_load_result_ = MaterializeLoadPlan(BuildDeviceLoadPlan(image));
   LaunchRequest request;
   request.arch_name = std::move(arch_name);
-  request.raw_code_object = &image;
+  request.encoded_program_object = &image;
   request.device_load = last_load_result_.has_value() ? &*last_load_result_ : nullptr;
   request.config = config;
   request.args = std::move(args);

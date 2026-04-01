@@ -67,13 +67,13 @@ std::filesystem::path AssembleLlvmMcFixture(const std::string& stem,
   return obj_path;
 }
 
-TEST(RawCodeObjectLaunchTest, RuntimeEngineLaunchesExplicitEncodedRawInput) {
+TEST(EncodedProgramObjectLaunchTest, RuntimeEngineLaunchesExplicitEncodedProgramObjectInput) {
   if (!HasLlvmMcAmdgpuToolchain()) {
     GTEST_SKIP() << "required llvm-mc/LLVM/binutils tools not available";
   }
 
   const auto obj_path = AssembleLlvmMcFixture(
-      "gpu_model_runtime_raw_code_object",
+      "gpu_model_runtime_encoded_program_object",
       std::filesystem::path("tests/asm_cases/loader/kernarg_aggregate_by_value.s"));
   const auto image = ObjectReader{}.LoadEncodedObject(obj_path, "asm_kernarg_aggregate_by_value");
 
@@ -89,7 +89,7 @@ TEST(RawCodeObjectLaunchTest, RuntimeEngineLaunchesExplicitEncodedRawInput) {
 
   LaunchRequest request;
   request.arch_name = "c500";
-  request.raw_code_object = &image;
+  request.encoded_program_object = &image;
   request.config = LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64};
   request.args.PushU64(out_addr);
   request.args.PushBytes(&aggregate, sizeof(aggregate));

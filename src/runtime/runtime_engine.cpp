@@ -201,14 +201,13 @@ LaunchResult RuntimeEngineImpl::Launch(const LaunchRequest& request) {
 
   ExecutableKernel parsed_kernel;
   const ExecutableKernel* kernel = request.kernel;
-  const EncodedProgramObject* raw_code_object = request.raw_code_object;
-  const EncodedProgramObject* encoded_program_object = raw_code_object;
-  bool use_encoded_exec_engine = raw_code_object != nullptr;
-  if (raw_code_object == nullptr && kernel == nullptr && request.program_image != nullptr) {
+  const EncodedProgramObject* encoded_program_object = request.encoded_program_object;
+  const bool use_encoded_program_object = encoded_program_object != nullptr;
+  if (encoded_program_object == nullptr && kernel == nullptr && request.program_image != nullptr) {
     parsed_kernel = AsmParser{}.Parse(*request.program_image);
     kernel = &parsed_kernel;
   }
-  if (kernel == nullptr && !use_encoded_exec_engine) {
+  if (kernel == nullptr && !use_encoded_program_object) {
     result.error_message = "launch request missing kernel or program image";
     return result;
   }
@@ -220,10 +219,10 @@ LaunchResult RuntimeEngineImpl::Launch(const LaunchRequest& request) {
   }
 
   const MetadataBlob& launch_metadata_source =
-      use_encoded_exec_engine ? encoded_program_object->metadata
-                           : (request.program_image != nullptr && kernel == nullptr
-                                  ? request.program_image->metadata()
-                                  : kernel->metadata());
+      use_encoded_program_object ? encoded_program_object->metadata
+                                 : (request.program_image != nullptr && kernel == nullptr
+                                        ? request.program_image->metadata()
+                                        : kernel->metadata());
 
   try {
     const auto launch_metadata = ParseKernelLaunchMetadata(launch_metadata_source);
@@ -233,7 +232,7 @@ LaunchResult RuntimeEngineImpl::Launch(const LaunchRequest& request) {
       return result;
     }
     const std::string kernel_name =
-        use_encoded_exec_engine ? encoded_program_object->kernel_name : kernel->name();
+        use_encoded_program_object ? encoded_program_object->kernel_name : kernel->name();
     if (launch_metadata.entry.has_value() && *launch_metadata.entry != kernel_name) {
       result.error_message = "kernel metadata entry does not match kernel name";
       return result;
@@ -290,7 +289,8 @@ LaunchResult RuntimeEngineImpl::Launch(const LaunchRequest& request) {
         .kind = TraceEventKind::Launch,
         .cycle = result.submit_cycle,
         .message = "kernel=" +
-                   (use_encoded_exec_engine ? encoded_program_object->kernel_name : kernel->name()) +
+                   (use_encoded_program_object ? encoded_program_object->kernel_name
+                                               : kernel->name()) +
                    " arch=" + spec->name,
     });
 
@@ -309,7 +309,7 @@ LaunchResult RuntimeEngineImpl::Launch(const LaunchRequest& request) {
       });
     }
     if (request.mode == ExecutionMode::Functional) {
-        if (use_encoded_exec_engine) {
+        if (use_encoded_program_object) {
           const auto raw_result =
             EncodedExecEngine{}.Run(*encoded_program_object, *spec, request.config, request.args,
                                     request.device_load, memory_, trace);
@@ -349,7 +349,7 @@ LaunchResult RuntimeEngineImpl::Launch(const LaunchRequest& request) {
         result.end_cycle = result.begin_cycle + result.total_cycles;
       }
     } else if (request.mode == ExecutionMode::Cycle) {
-      if (use_encoded_exec_engine) {
+      if (use_encoded_program_object) {
         const auto raw_result =
             EncodedExecEngine{}.Run(*encoded_program_object, *spec, request.config, request.args,
                                     request.device_load, memory_, trace);
@@ -386,7 +386,7 @@ LaunchResult RuntimeEngineImpl::Launch(const LaunchRequest& request) {
       return result;
     }
 
-    if (!use_encoded_exec_engine || result.error_message.empty()) {
+    if (!use_encoded_program_object || result.error_message.empty()) {
       result.ok = true;
     }
   } catch (const std::exception& ex) {
