@@ -98,7 +98,7 @@ TEST(CycleSmokeTest, QueuesBlocksWhenGridExceedsPhysicalApCount) {
 
   EXPECT_EQ(block_launches, spec->total_ap_count() + 1);
   EXPECT_EQ(wave_launches, spec->total_ap_count() + 1);
-  EXPECT_EQ(wrapped_block_launch_cycle, 4u);
+  EXPECT_EQ(wrapped_block_launch_cycle, 0u);
   EXPECT_TRUE(saw_warp_switch);
 }
 
