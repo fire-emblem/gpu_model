@@ -111,17 +111,6 @@ uint64_t FirstInstructionPcWithOpcode(const ExecutableKernel& kernel, Opcode opc
   return std::numeric_limits<uint64_t>::max();
 }
 
-bool ContainsStallTrace(const std::vector<TraceEvent>& events,
-                        uint64_t pc,
-                        std::string_view message) {
-  for (const auto& event : events) {
-    if (event.kind == TraceEventKind::Stall && event.pc == pc && event.message == message) {
-      return true;
-    }
-  }
-  return false;
-}
-
 bool ContainsStallMessage(const std::vector<TraceEvent>& events,
                           std::string_view message) {
   for (const auto& event : events) {

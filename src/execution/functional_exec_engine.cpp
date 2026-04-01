@@ -4,8 +4,6 @@
 #include <atomic>
 #include <condition_variable>
 #include <cstddef>
-#include <cstdio>
-#include <cstdarg>
 #include <cstdint>
 #include <cstring>
 #include <deque>
@@ -21,11 +19,6 @@
 #include <thread>
 #include <unordered_map>
 #include <vector>
-
-#ifdef GPU_MODEL_HAS_MARL
-#include "marl/scheduler.h"
-#include "marl/waitgroup.h"
-#endif
 
 #include "gpu_model/debug/instruction_trace.h"
 #include "gpu_model/debug/trace_event.h"
@@ -49,22 +42,6 @@ constexpr uint8_t kFunctionalPendingMemoryCompletionTurns = 5;
 uint32_t DefaultFunctionalParallelWorkerCount() {
   const uint32_t cpu_count = std::max(1u, std::thread::hardware_concurrency());
   return std::max(1u, (cpu_count * 9u) / 10u);
-}
-
-bool FunctionalMtDebugEnabled() {
-  return std::getenv("GPU_MODEL_FUNCTIONAL_MT_DEBUG") != nullptr;
-}
-
-void FunctionalMtDebugLog(const char* fmt, ...) {
-  if (!FunctionalMtDebugEnabled()) {
-    return;
-  }
-  va_list args;
-  va_start(args, fmt);
-  std::fputs("[gpu_model_functional_mt] ", stderr);
-  std::vfprintf(stderr, fmt, args);
-  std::fputc('\n', stderr);
-  va_end(args);
 }
 
 class GlobalFunctionalWorkerPool {
@@ -490,7 +467,6 @@ struct ExecutableBlock {
   std::vector<size_t> next_wave_rr_per_peu;
   std::vector<bool> wave_busy;
   std::unique_ptr<std::mutex> control_mutex;
-  std::unique_ptr<std::condition_variable> control_cv;
   std::unique_ptr<std::mutex> wave_state_mutex;
   std::unique_ptr<std::mutex> shared_mutex;
   std::shared_ptr<struct BlockBarrierState> barrier_state;
@@ -505,7 +481,6 @@ struct WaveTaskRef {
 struct ApSchedulerState {
   std::deque<WaveTaskRef> runnable;
   std::vector<size_t> block_indices;
-  std::unordered_map<uint32_t, std::shared_ptr<struct BlockBarrierState>> barrier_states;
 };
 
 struct BlockBarrierState {
@@ -557,7 +532,6 @@ std::vector<ExecutableBlock> MaterializeBlocks(const PlacementMap& placement,
         .next_wave_rr_per_peu = {},
         .wave_busy = {},
         .control_mutex = std::make_unique<std::mutex>(),
-        .control_cv = std::make_unique<std::condition_variable>(),
         .wave_state_mutex = std::make_unique<std::mutex>(),
         .shared_mutex = std::make_unique<std::mutex>(),
         .barrier_state = std::make_shared<BlockBarrierState>(
@@ -808,7 +782,6 @@ class FunctionalExecutionCoreImpl {
     for (size_t block_index = 0; block_index < blocks_.size(); ++block_index) {
       auto& block = blocks_[block_index];
       ap_schedulers_[block.global_ap_id].block_indices.push_back(block_index);
-      ap_schedulers_[block.global_ap_id].barrier_states[block.block_id] = block.barrier_state;
       std::lock_guard<std::mutex> state_lock(*block.wave_state_mutex);
       for (size_t wave_index = 0; wave_index < block.waves.size(); ++wave_index) {
         auto& wave = block.waves[wave_index];
@@ -927,22 +900,15 @@ class FunctionalExecutionCoreImpl {
           }
           if (PopRunnableWaveLocked(task)) {
             ++active_wave_tasks_;
-            FunctionalMtDebugLog("pop block=%zu wave=%zu active=%zu",
-                                 task.block_index,
-                                 task.wave_index,
-                                 active_wave_tasks_);
             break;
           }
           if (active_wave_tasks_ > 0) {
-            FunctionalMtDebugLog("idle_wait active=%zu", active_wave_tasks_);
             scheduler_cv_.wait(lock);
             continue;
           }
           if (AdvanceWaitingWavesLocked()) {
-            FunctionalMtDebugLog("advanced_waiting");
             continue;
           }
-          FunctionalMtDebugLog("sleep_no_work");
           scheduler_cv_.wait(lock);
         }
       }
@@ -954,10 +920,6 @@ class FunctionalExecutionCoreImpl {
         if (active_wave_tasks_ > 0) {
           --active_wave_tasks_;
         }
-        FunctionalMtDebugLog("finish block=%zu wave=%zu active=%zu",
-                             task.block_index,
-                             task.wave_index,
-                             active_wave_tasks_);
         ReconcileWaveTaskLocked(task);
         (void)AdvanceWaitingWavesForBlockLocked(task.block_index);
       }
@@ -1103,11 +1065,6 @@ class FunctionalExecutionCoreImpl {
         ++waiting_in_generation;
       }
     }
-    FunctionalMtDebugLog("barrier_check block=%u gen=%llu arrived=%u expected=%u",
-                         block.block_id,
-                         static_cast<unsigned long long>(generation),
-                         arrived,
-                         block.barrier_state->expected_wave_count);
     if (waiting_in_generation == 0 ||
         arrived + completed != block.barrier_state->expected_wave_count) {
       return false;
@@ -1120,9 +1077,6 @@ class FunctionalExecutionCoreImpl {
     }
     block.barrier_state->arrived_wave_count.store(0);
     block.barrier_state->generation.store(generation + 1);
-    FunctionalMtDebugLog("barrier_release block=%u gen=%llu",
-                         block.block_id,
-                         static_cast<unsigned long long>(generation));
     return true;
   }
 
@@ -1410,13 +1364,7 @@ class FunctionalExecutionCoreImpl {
         std::lock_guard<std::mutex> state_lock(*block.wave_state_mutex);
         const uint64_t barrier_generation = block.barrier_state->generation.load();
         MarkWaveWaitingAtBarrier(wave, barrier_generation);
-        const uint32_t arrived = block.barrier_state->arrived_wave_count.fetch_add(1) + 1;
-        FunctionalMtDebugLog("barrier_arrive block=%u wave=%u gen=%llu arrived=%u/%u",
-                             block.block_id,
-                             wave.wave_id,
-                             static_cast<unsigned long long>(barrier_generation),
-                             arrived,
-                             block.barrier_state->expected_wave_count);
+        block.barrier_state->arrived_wave_count.fetch_add(1);
       }
       TraceEventLocked(TraceEvent{
           .kind = TraceEventKind::Barrier,
