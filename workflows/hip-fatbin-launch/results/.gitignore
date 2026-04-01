@@ -1,7 +1,0 @@
-*
-!.gitignore
-!bundles.txt
-!device_objdump.txt
-!device_readelf_header.txt
-!hip_empty_kernel.cpp
-!stdout.txt

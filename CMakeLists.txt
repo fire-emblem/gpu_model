@@ -128,31 +128,3 @@ if(EXISTS "/opt/rocm/include/hip/hip_runtime_api.h")
     add_dependencies(gpu_model_tests gpu_model_hip_interposer)
   endif()
 endif()
-
-add_executable(fma_loop_cycle_trace_main
-  tools/fma_loop_cycle_trace_main.cpp
-)
-
-target_link_libraries(fma_loop_cycle_trace_main PRIVATE gpu_model)
-gpu_model_enable_warnings(fma_loop_cycle_trace_main)
-
-add_executable(code_object_dump_main
-  tools/code_object_dump_main.cpp
-)
-
-target_link_libraries(code_object_dump_main PRIVATE gpu_model)
-gpu_model_enable_warnings(code_object_dump_main)
-
-add_executable(cycle_block_count_compare_main
-  tools/cycle_block_count_compare_main.cpp
-)
-
-target_link_libraries(cycle_block_count_compare_main PRIVATE gpu_model)
-gpu_model_enable_warnings(cycle_block_count_compare_main)
-
-add_executable(cycle_kernel_shape_compare_main
-  tools/cycle_kernel_shape_compare_main.cpp
-)
-
-target_link_libraries(cycle_kernel_shape_compare_main PRIVATE gpu_model)
-gpu_model_enable_warnings(cycle_kernel_shape_compare_main)

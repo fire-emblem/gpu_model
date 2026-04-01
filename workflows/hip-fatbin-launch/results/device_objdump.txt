@@ -1,7 +1,0 @@
-
-/data/gpu_model/usages/hip-fatbin-launch/results/hip_empty_kernel.gfx.co:	file format elf64-amdgpu
-
-Disassembly of section .text:
-
-0000000000001600 <empty_kernel>:
-	s_endpgm                                                   // 000000001600: BF810000
