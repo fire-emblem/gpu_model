@@ -22,19 +22,11 @@ std::optional<std::filesystem::path> ArtifactPathForProgramImage(const ProgramOb
 
 }  // namespace
 
-PreparedExecutionRoute PrepareExecutionRoute(const ProgramObject& image,
-                                             ExecutionRoute requested_route) {
+PreparedExecutionRoute PrepareExecutionRoute(const ProgramObject& image) {
   PreparedExecutionRoute prepared;
   const bool is_raw_program = ResolveTargetIsa(image.metadata()) == TargetIsa::GcnRawAsm;
 
-  if (requested_route == ExecutionRoute::AutoSelect) {
-    prepared.resolved_route = is_raw_program ? ExecutionRoute::EncodedRaw
-                                            : ExecutionRoute::AutoSelect;
-  } else {
-    prepared.resolved_route = requested_route;
-  }
-
-  if (prepared.resolved_route == ExecutionRoute::EncodedRaw) {
+  if (is_raw_program) {
     const auto artifact_path = ArtifactPathForProgramImage(image);
     if (!artifact_path.has_value()) {
       throw std::invalid_argument("raw code object execution requires artifact_path metadata");

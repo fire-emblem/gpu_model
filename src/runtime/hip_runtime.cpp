@@ -254,11 +254,10 @@ LaunchResult HipRuntime::LaunchProgramImage(const ProgramObject& image,
                                             KernelArgPack args,
                                             ExecutionMode mode,
                                             std::string arch_name,
-                                            TraceSink* trace,
-                                            ExecutionRoute route) {
-  const auto prepared = PrepareExecutionRoute(image, route);
+                                            TraceSink* trace) {
+  const auto prepared = PrepareExecutionRoute(image);
 
-  if (prepared.resolved_route == ExecutionRoute::EncodedRaw) {
+  if (prepared.raw_code_object != nullptr) {
     last_load_result_ = MaterializeLoadPlan(BuildDeviceLoadPlan(*prepared.raw_code_object));
   } else {
     last_load_result_ = LoadProgramImageToDevice(*prepared.execution_image);
@@ -442,8 +441,7 @@ LaunchResult HipRuntime::LaunchRegisteredKernel(const std::string& module_name,
                                                 KernelArgPack args,
                                                 ExecutionMode mode,
                                                 std::string arch_name,
-                                                TraceSink* trace,
-                                                ExecutionRoute route) {
+                                                TraceSink* trace) {
   const auto module_it = modules_.find(module_name);
   if (module_it == modules_.end()) {
     LaunchResult result;
@@ -459,7 +457,7 @@ LaunchResult HipRuntime::LaunchRegisteredKernel(const std::string& module_name,
     return result;
   }
   return LaunchProgramImage(kernel_it->second, std::move(config), std::move(args), mode,
-                            std::move(arch_name), trace, route);
+                            std::move(arch_name), trace);
 }
 
 LaunchResult HipRuntime::LaunchAmdgpuObject(const std::filesystem::path& path,

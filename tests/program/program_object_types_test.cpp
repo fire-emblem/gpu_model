@@ -8,7 +8,6 @@
 
 #include "gpu_model/program/encoded_program_object.h"
 #include "gpu_model/program/executable_kernel.h"
-#include "gpu_model/program/execution_route.h"
 #include "gpu_model/program/object_reader.h"
 #include "gpu_model/program/program_object.h"
 
@@ -37,13 +36,6 @@ TEST(ProgramNamingTest, NewProgramTypesExposeConcreteInterfaces) {
                     std::declval<const std::filesystem::path&>(),
                     std::declval<std::optional<std::string>>())),
                 EncodedProgramObject>);
-}
-
-TEST(ProgramNamingTest, ExecutionRouteRemainsLightweightEnum) {
-  static_assert(std::is_enum_v<ExecutionRoute>);
-  static_assert(!std::is_class_v<ExecutionRoute>);
-  static_assert(static_cast<int>(ExecutionRoute::AutoSelect) == 0);
-  static_assert(static_cast<int>(ExecutionRoute::EncodedRaw) == 1);
 }
 
 TEST(ProgramNamingTest, EncodedProgramObjectHeaderProvidesDataObject) {

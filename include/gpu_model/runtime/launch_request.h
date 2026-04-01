@@ -4,7 +4,6 @@
 #include <optional>
 #include <string>
 
-#include "gpu_model/program/execution_route.h"
 #include "gpu_model/runtime/kernel_arg_pack.h"
 #include "gpu_model/runtime/launch_config.h"
 #include "gpu_model/runtime/mapper.h"

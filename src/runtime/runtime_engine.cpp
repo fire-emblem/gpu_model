@@ -209,8 +209,7 @@ LaunchResult RuntimeEngineImpl::Launch(const LaunchRequest& request) {
   bool use_encoded_exec_engine = raw_code_object != nullptr;
   if (raw_code_object == nullptr && kernel == nullptr && request.program_image != nullptr) {
     try {
-      prepared_program_execution.emplace(
-          PrepareExecutionRoute(*request.program_image, ExecutionRoute::AutoSelect));
+      prepared_program_execution.emplace(PrepareExecutionRoute(*request.program_image));
     } catch (const std::exception& ex) {
       result.error_message = ex.what();
       return result;

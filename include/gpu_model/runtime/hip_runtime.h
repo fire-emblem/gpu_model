@@ -62,8 +62,7 @@ class HipRuntime {
                                   KernelArgPack args,
                                   ExecutionMode mode = ExecutionMode::Functional,
                                   std::string arch_name = "",
-                                  TraceSink* trace = nullptr,
-                                  ExecutionRoute route = ExecutionRoute::AutoSelect);
+                                  TraceSink* trace = nullptr);
   DeviceLoadPlan BuildLoadPlan(const ProgramObject& image) const;
   DeviceLoadPlan BuildLoadPlanFromAmdgpuObject(
       const std::filesystem::path& path,
@@ -97,8 +96,7 @@ class HipRuntime {
                                       KernelArgPack args,
                                       ExecutionMode mode = ExecutionMode::Functional,
                                       std::string arch_name = "",
-                                      TraceSink* trace = nullptr,
-                                      ExecutionRoute route = ExecutionRoute::AutoSelect);
+                                      TraceSink* trace = nullptr);
   LaunchResult LaunchAmdgpuObject(const std::filesystem::path& path,
                                   LaunchConfig config,
                                   KernelArgPack args,
