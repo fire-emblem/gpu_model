@@ -286,7 +286,7 @@ TEST(HipRuntimeTest, BuildsLoadPlanForProgramObject) {
                      std::move(const_segment));
 
   HipRuntime hooks;
-  const auto plan = hooks.BuildLoadPlan(image);
+  const auto plan = BuildDeviceLoadPlan(image);
   ASSERT_EQ(plan.segments.size(), 3u);
   EXPECT_EQ(plan.segments[0].pool, MemoryPoolKind::Code);
   EXPECT_EQ(plan.segments[1].pool, MemoryPoolKind::Constant);
@@ -304,7 +304,7 @@ TEST(HipRuntimeTest, MaterializesProgramObjectLoadPlanIntoDeviceMemory) {
                      std::move(const_segment));
 
   HipRuntime hooks;
-  const auto result = hooks.LoadProgramImageToDevice(image);
+  const auto result = hooks.MaterializeLoadPlan(BuildDeviceLoadPlan(image));
   ASSERT_EQ(result.segments.size(), 3u);
   EXPECT_EQ(result.required_shared_bytes, 128u);
   EXPECT_EQ(result.preferred_kernarg_bytes, 128u);
@@ -412,7 +412,7 @@ TEST(HipRuntimeTest, LaunchKernelCanReadMaterializedRawDataPool) {
   ProgramObject image("raw_data_holder", "s_endpgm\n", MetadataBlob{}, {}, std::move(raw_data));
 
   HipRuntime hooks;
-  const auto loaded = hooks.LoadProgramImageToDevice(image);
+  const auto loaded = hooks.MaterializeLoadPlan(BuildDeviceLoadPlan(image));
   const auto* raw_segment = loaded.FindByKind(DeviceSegmentKind::RawData);
   ASSERT_NE(raw_segment, nullptr);
 

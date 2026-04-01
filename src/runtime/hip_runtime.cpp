@@ -245,7 +245,7 @@ LaunchResult HipRuntime::LaunchProgramImage(const ProgramObject& image,
                                             ExecutionMode mode,
                                             std::string arch_name,
                                             TraceSink* trace) {
-  last_load_result_ = LoadProgramImageToDevice(image);
+  last_load_result_ = MaterializeLoadPlan(BuildDeviceLoadPlan(image));
 
   LaunchRequest request;
   request.arch_name = std::move(arch_name);
@@ -258,10 +258,6 @@ LaunchResult HipRuntime::LaunchProgramImage(const ProgramObject& image,
   return runtime_engine_->Launch(request);
 }
 
-DeviceLoadPlan HipRuntime::BuildLoadPlan(const ProgramObject& image) const {
-  return BuildDeviceLoadPlan(image);
-}
-
 EncodedProgramObject HipRuntime::DescribeAmdgpuObject(
     const std::filesystem::path& path,
     std::optional<std::string> kernel_name) const {
@@ -270,10 +266,6 @@ EncodedProgramObject HipRuntime::DescribeAmdgpuObject(
 
 DeviceLoadResult HipRuntime::MaterializeLoadPlan(const DeviceLoadPlan& plan) {
   return DeviceImageLoader{}.Materialize(plan, runtime_engine_->memory());
-}
-
-DeviceLoadResult HipRuntime::LoadProgramImageToDevice(const ProgramObject& image) {
-  return MaterializeLoadPlan(BuildLoadPlan(image));
 }
 
 void HipRuntime::LoadModule(const ModuleLoadRequest& request) {

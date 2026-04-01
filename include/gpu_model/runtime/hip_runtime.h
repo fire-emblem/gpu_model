@@ -63,12 +63,10 @@ class HipRuntime {
                                   ExecutionMode mode = ExecutionMode::Functional,
                                   std::string arch_name = "",
                                   TraceSink* trace = nullptr);
-  DeviceLoadPlan BuildLoadPlan(const ProgramObject& image) const;
   EncodedProgramObject DescribeAmdgpuObject(
       const std::filesystem::path& path,
       std::optional<std::string> kernel_name = std::nullopt) const;
   DeviceLoadResult MaterializeLoadPlan(const DeviceLoadPlan& plan);
-  DeviceLoadResult LoadProgramImageToDevice(const ProgramObject& image);
   void LoadModule(const ModuleLoadRequest& request);
   const std::optional<DeviceLoadResult>& last_load_result() const { return last_load_result_; }
   void RegisterProgramImage(std::string module_name, ProgramObject image);
