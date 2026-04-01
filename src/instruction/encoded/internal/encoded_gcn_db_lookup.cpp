@@ -2,6 +2,24 @@
 
 namespace gpu_model {
 
+namespace {
+
+bool SupportsLiteral32Extension(EncodedGcnInstFormatClass format_class) {
+  switch (format_class) {
+    case EncodedGcnInstFormatClass::Sop1:
+    case EncodedGcnInstFormatClass::Sop2:
+    case EncodedGcnInstFormatClass::Sopc:
+    case EncodedGcnInstFormatClass::Vop1:
+    case EncodedGcnInstFormatClass::Vop2:
+    case EncodedGcnInstFormatClass::Vopc:
+      return true;
+    default:
+      return false;
+  }
+}
+
+}  // namespace
+
 const GcnGeneratedInstDef* FindGeneratedGcnInstDefById(uint32_t id) {
   const auto& defs = GeneratedGcnInstDefs();
   for (size_t i = 0; i < defs.size(); ++i) {
@@ -30,6 +48,14 @@ const GcnGeneratedInstDef* FindGeneratedGcnInstDef(EncodedGcnInstFormatClass for
     if (defs[i].format_class == format_class && defs[i].opcode == opcode &&
         defs[i].size_bytes == size_bytes) {
       return &defs[i];
+    }
+  }
+  if (size_bytes == 8u && SupportsLiteral32Extension(format_class)) {
+    for (size_t i = 0; i < defs.size(); ++i) {
+      if (defs[i].format_class == format_class && defs[i].opcode == opcode &&
+          defs[i].size_bytes == 4u) {
+        return &defs[i];
+      }
     }
   }
   return nullptr;

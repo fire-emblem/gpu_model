@@ -17,11 +17,16 @@ SRC="$CASE_DIR/mma_gemm.hip"
 EXE="$OUT_DIR/mma_gemm.out"
 
 if ! hipcc --offload-arch=gfx90a "$SRC" -o "$EXE"; then
-  echo "STATUS: unsupported_yet (gfx90a mfma compile unavailable)" | tee "$OUT_DIR/stdout.txt"
+  for mode in st mt cycle; do
+    mode_dir="$(gpu_model_mode_dir "$OUT_DIR" "$mode")"
+    mkdir -p "$mode_dir"
+    echo "STATUS: unsupported_yet (gfx90a mfma compile unavailable)" | tee "$mode_dir/stdout.txt"
+  done
   exit 0
 fi
 
-GPU_MODEL_HIP_INTERPOSER_DEBUG=1 LD_PRELOAD="$SO_PATH" \
-  "$EXE" 2>&1 | tee "$OUT_DIR/stdout.txt"
-
-grep -q "mma_gemm out=4.000000 expected=4.000000" "$OUT_DIR/stdout.txt"
+for mode in st mt cycle; do
+  mode_dir="$(gpu_model_mode_dir "$OUT_DIR" "$mode")"
+  gpu_model_run_interposed_mode "$SO_PATH" "$EXE" "$mode_dir" "$mode"
+  gpu_model_assert_mode_success "$mode_dir" "mma_gemm out=4.000000 expected=4.000000"
+done

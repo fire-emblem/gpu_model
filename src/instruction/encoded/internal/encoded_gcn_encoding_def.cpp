@@ -11,6 +11,20 @@ namespace gpu_model {
 
 namespace {
 
+bool SupportsLiteral32Extension(EncodedGcnInstFormatClass format_class) {
+  switch (format_class) {
+    case EncodedGcnInstFormatClass::Sop1:
+    case EncodedGcnInstFormatClass::Sop2:
+    case EncodedGcnInstFormatClass::Sopc:
+    case EncodedGcnInstFormatClass::Vop1:
+    case EncodedGcnInstFormatClass::Vop2:
+    case EncodedGcnInstFormatClass::Vopc:
+      return true;
+    default:
+      return false;
+  }
+}
+
 struct WaitCntInfo {
   uint8_t vmcnt = 0;
   uint8_t expcnt = 0;
@@ -703,7 +717,12 @@ bool TryDecodeGeneratedOperands(EncodedGcnInstruction& instruction, const GcnGen
     } else if (std::string_view(spec.kind) == "flat_offset13") {
       instruction.decoded_operands.push_back(DecodeFlatOffset13Operand(instruction.words));
     } else if (std::string_view(spec.kind) == "scalar_src8") {
-      instruction.decoded_operands.push_back(DecodeSrc8(raw_value));
+      if (raw_value == 255u && instruction.words.size() > 1) {
+        instruction.decoded_operands.push_back(
+            MakeImmediateOperand(FormatImmediate(instruction.words[1]), instruction.words[1]));
+      } else {
+        instruction.decoded_operands.push_back(DecodeSrc8(raw_value));
+      }
     } else if (std::string_view(spec.kind) == "scalar_src8_pair") {
       instruction.decoded_operands.push_back(DecodeScalarPairSrc8(raw_value));
     } else if (std::string_view(spec.kind) == "vop3_sdst_pair") {
@@ -781,6 +800,14 @@ const EncodedGcnEncodingDef* FindEncodedGcnEncodingDef(const std::vector<uint32_
     if (defs[i].format_class == format_class && defs[i].op == op &&
         defs[i].size_bytes == static_cast<uint32_t>(words.size() * sizeof(uint32_t))) {
       return &defs[i];
+    }
+  }
+  if (words.size() == 2 && SupportsLiteral32Extension(format_class)) {
+    for (size_t i = 0; i < defs.size(); ++i) {
+      if (defs[i].format_class == format_class && defs[i].op == op &&
+          defs[i].size_bytes == 4u) {
+        return &defs[i];
+      }
     }
   }
   return nullptr;

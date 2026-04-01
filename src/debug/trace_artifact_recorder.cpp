@@ -1,0 +1,41 @@
+#include "gpu_model/debug/trace_artifact_recorder.h"
+
+#include <fstream>
+#include <stdexcept>
+#include <utility>
+
+namespace gpu_model {
+
+namespace {
+
+std::filesystem::path PrepareTraceOutputDir(std::filesystem::path path) {
+  std::filesystem::create_directories(path);
+  return path;
+}
+
+}  // namespace
+
+TraceArtifactRecorder::TraceArtifactRecorder(std::filesystem::path output_dir,
+                                             CycleTimelineOptions timeline_options)
+    : output_dir_(PrepareTraceOutputDir(std::move(output_dir))),
+      timeline_path_(output_dir_ / "timeline.perfetto.json"),
+      timeline_options_(timeline_options),
+      collector_(),
+      text_trace_(output_dir_ / "trace.txt"),
+      json_trace_(output_dir_ / "trace.jsonl") {}
+
+void TraceArtifactRecorder::OnEvent(const TraceEvent& event) {
+  collector_.OnEvent(event);
+  text_trace_.OnEvent(event);
+  json_trace_.OnEvent(event);
+}
+
+void TraceArtifactRecorder::FlushTimeline() {
+  std::ofstream out(timeline_path_);
+  if (!out) {
+    throw std::runtime_error("failed to open timeline artifact");
+  }
+  out << CycleTimelineRenderer::RenderGoogleTrace(collector_.events(), timeline_options_);
+}
+
+}  // namespace gpu_model

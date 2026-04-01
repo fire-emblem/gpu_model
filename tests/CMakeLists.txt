@@ -78,7 +78,6 @@ add_executable(gpu_model_tests
   loader/device_image_loader_test.cpp
   loader/device_segment_image_test.cpp
   loader/gcn_text_parser_test.cpp
-  loader/program_lowering_test.cpp
   loader/amdgpu_code_object_decoder_test.cpp
   loader/executable_image_io_test.cpp
   loader/program_bundle_io_test.cpp

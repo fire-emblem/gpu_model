@@ -6,6 +6,7 @@
 #include <sstream>
 #include <string>
 
+#include "gpu_model/debug/trace_artifact_recorder.h"
 #include "gpu_model/debug/trace_sink.h"
 #include "gpu_model/isa/instruction_builder.h"
 #include "gpu_model/runtime/runtime_engine.h"
@@ -276,6 +277,75 @@ TEST(TraceTest, WritesWaveStatsEventsToTraceSinks) {
   EXPECT_NE(json_line.find("\"message\":\"launch=2 init=2 active=2 end=0\""), std::string::npos);
   std::filesystem::remove(text_path);
   std::filesystem::remove(json_path);
+}
+
+TEST(TraceTest, TraceArtifactRecorderWritesTraceAndPerfettoFiles) {
+  const auto out_dir =
+      std::filesystem::temp_directory_path() / "gpu_model_trace_artifact_recorder";
+  std::filesystem::remove_all(out_dir);
+  std::filesystem::create_directories(out_dir);
+
+  {
+    TraceArtifactRecorder trace(out_dir);
+    trace.OnEvent(TraceEvent{
+        .kind = TraceEventKind::Launch,
+        .cycle = 0,
+        .message = "kernel=artifact_trace arch=c500",
+    });
+    trace.OnEvent(TraceEvent{
+        .kind = TraceEventKind::WaveLaunch,
+        .cycle = 0,
+        .block_id = 0,
+        .wave_id = 0,
+        .message = "lanes=0x40 exec=0xffffffffffffffff",
+    });
+    trace.OnEvent(TraceEvent{
+        .kind = TraceEventKind::WaveStep,
+        .cycle = 1,
+        .block_id = 0,
+        .wave_id = 0,
+        .message = "op=v_add_i32",
+    });
+    trace.OnEvent(TraceEvent{
+        .kind = TraceEventKind::Commit,
+        .cycle = 4,
+        .block_id = 0,
+        .wave_id = 0,
+        .message = "op=v_add_i32",
+    });
+    trace.OnEvent(TraceEvent{
+        .kind = TraceEventKind::WaveExit,
+        .cycle = 5,
+        .block_id = 0,
+        .wave_id = 0,
+        .message = "done",
+    });
+    trace.FlushTimeline();
+  }
+
+  const auto text_path = out_dir / "trace.txt";
+  const auto json_path = out_dir / "trace.jsonl";
+  const auto timeline_path = out_dir / "timeline.perfetto.json";
+
+  std::ifstream text_in(text_path);
+  std::ifstream json_in(json_path);
+  std::ifstream timeline_in(timeline_path);
+  ASSERT_TRUE(static_cast<bool>(text_in));
+  ASSERT_TRUE(static_cast<bool>(json_in));
+  ASSERT_TRUE(static_cast<bool>(timeline_in));
+
+  std::ostringstream text_buffer;
+  std::ostringstream json_buffer;
+  std::ostringstream timeline_buffer;
+  text_buffer << text_in.rdbuf();
+  json_buffer << json_in.rdbuf();
+  timeline_buffer << timeline_in.rdbuf();
+
+  EXPECT_NE(text_buffer.str().find("kind=Launch"), std::string::npos);
+  EXPECT_NE(json_buffer.str().find("\"kind\":\"Launch\""), std::string::npos);
+  EXPECT_NE(timeline_buffer.str().find("\"traceEvents\""), std::string::npos);
+
+  std::filesystem::remove_all(out_dir);
 }
 
 }  // namespace

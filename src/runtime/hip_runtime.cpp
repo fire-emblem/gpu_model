@@ -472,12 +472,7 @@ LaunchResult HipRuntime::LaunchAmdgpuObject(const std::filesystem::path& path,
                                             TraceSink* trace,
                                             std::optional<std::string> kernel_name,
                                             ExecutionRoute route) {
-  if (route == ExecutionRoute::LoweredModeled) {
-    const auto image = ObjectReader{}.LoadFromObject(path, std::move(kernel_name));
-    return LaunchProgramImage(image, std::move(config), std::move(args), mode,
-                              std::move(arch_name), trace, ExecutionRoute::LoweredModeled);
-  }
-
+  (void)route;
   const auto raw_code_object = DescribeAmdgpuObject(path, kernel_name);
   last_load_result_ = MaterializeLoadPlan(BuildDeviceLoadPlan(raw_code_object));
   LaunchRequest request;

@@ -84,6 +84,7 @@ add_library(gpu_model STATIC
   src/runtime/hip_interposer_state.cpp
   src/runtime/hip_runtime.cpp
   src/debug/instruction_trace.cpp
+  src/debug/trace_artifact_recorder.cpp
   src/debug/cycle_timeline.cpp
   src/debug/debug_info_io.cpp
   src/debug/trace_sink.cpp

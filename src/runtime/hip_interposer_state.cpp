@@ -248,7 +248,8 @@ LaunchResult HipInterposerState::LaunchExecutableKernel(const std::filesystem::p
                                                         LaunchConfig config,
                                                         void** args,
                                                         ExecutionMode mode,
-                                                        const std::string& arch_name) {
+                                                        const std::string& arch_name,
+                                                        TraceSink* trace) {
   const auto kernel_name = ResolveKernelName(host_function);
   if (!kernel_name.has_value()) {
     LaunchResult result;
@@ -258,8 +259,8 @@ LaunchResult HipInterposerState::LaunchExecutableKernel(const std::filesystem::p
   }
   const ProgramObject image = ObjectReader{}.LoadFromObject(executable_path, *kernel_name);
   SyncManagedHostToDevice();
-  auto result = model_runtime_.LaunchProgramImage(image, std::move(config), PackArgs(image, args),
-                                                  mode, arch_name);
+  auto result = model_runtime_.LaunchProgramImage(
+      image, std::move(config), PackArgs(image, args), mode, arch_name, trace);
   SyncManagedDeviceToHost();
   return result;
 }

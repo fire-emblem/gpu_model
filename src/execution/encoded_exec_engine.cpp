@@ -515,7 +515,13 @@ LaunchResult EncodedExecEngine::Run(const EncodedProgramObject& image,
           }
           made_progress = true;
         } catch (const std::exception& ex) {
-          throw std::runtime_error(inst.mnemonic + ": " + ex.what());
+          std::ostringstream detail;
+          detail << inst.mnemonic
+                 << ": " << ex.what()
+                 << " decoded_operands=" << decoded.operands.size()
+                 << " raw_operands=" << inst.decoded_operands.size()
+                 << " object=" << (object != nullptr ? object->class_name() : "<handler>");
+          throw std::runtime_error(detail.str());
         }
       }
       if (!made_progress) {

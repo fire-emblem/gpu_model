@@ -10,7 +10,6 @@ struct EncodedProgramObject;
 enum class ExecutionRoute {
   AutoSelect,
   EncodedRaw,
-  LoweredModeled,
 };
 
 struct PreparedExecutionRoute {

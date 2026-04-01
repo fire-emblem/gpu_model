@@ -44,7 +44,6 @@ TEST(ProgramNamingTest, ExecutionRouteRemainsLightweightEnum) {
   static_assert(!std::is_class_v<ExecutionRoute>);
   static_assert(static_cast<int>(ExecutionRoute::AutoSelect) == 0);
   static_assert(static_cast<int>(ExecutionRoute::EncodedRaw) == 1);
-  static_assert(static_cast<int>(ExecutionRoute::LoweredModeled) == 2);
 }
 
 TEST(ProgramNamingTest, EncodedProgramObjectHeaderProvidesDataObject) {

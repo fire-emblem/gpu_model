@@ -6,8 +6,9 @@
 
 - 已提供 3 个不同写法的真实 HIP 程序
 - 每个程序都可以独立用 `hipcc` 生成 `.out`
-- 当前脚本先完成编译与 host 校验路径骨架
-- cycle 对比接口后续接入时，这个目录就是统一入口
+- 当前脚本会对同一个 `.out` 分别跑 `st` / `mt` / `cycle`
+- 每个模式默认落盘 `stdout.txt`、`trace.txt`、`trace.jsonl`、`timeline.perfetto.json`、`launch_summary.txt`
+- `cycle` 模式会对三个程序做真实 cycle 对比并生成 `cycle_comparison.txt`
 
 程序列表：
 

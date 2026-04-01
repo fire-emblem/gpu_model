@@ -5,15 +5,22 @@
 #include <cstdlib>
 #include <cstdint>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
 #include <limits>
+#include <memory>
 #include <optional>
+#include <string>
+#include <string_view>
 #include <unordered_map>
 
+#include "gpu_model/debug/trace_artifact_recorder.h"
 #include "gpu_model/runtime/hip_interposer_state.h"
 
 using gpu_model::HipInterposerState;
 using gpu_model::KernelArgPack;
 using gpu_model::LaunchConfig;
+using gpu_model::TraceArtifactRecorder;
 
 namespace {
 
@@ -28,9 +35,79 @@ struct EventState {
 };
 
 std::unordered_map<uintptr_t, EventState> g_events;
+std::unique_ptr<TraceArtifactRecorder> g_trace_artifacts;
+std::string g_trace_artifacts_dir;
+uint64_t g_launch_index = 0;
 
 bool DebugEnabled() {
   return std::getenv("GPU_MODEL_HIP_INTERPOSER_DEBUG") != nullptr;
+}
+
+const char* ToFunctionalModeName(gpu_model::FunctionalExecutionMode mode) {
+  switch (mode) {
+    case gpu_model::FunctionalExecutionMode::SingleThreaded:
+      return "st";
+    case gpu_model::FunctionalExecutionMode::MarlParallel:
+      return "mt";
+  }
+  return "unknown";
+}
+
+gpu_model::ExecutionMode ResolveExecutionModeFromEnv() {
+  const char* env = std::getenv("GPU_MODEL_EXECUTION_MODE");
+  if (env == nullptr || env[0] == '\0') {
+    return gpu_model::ExecutionMode::Functional;
+  }
+
+  const std::string_view mode(env);
+  if (mode == "cycle") {
+    return gpu_model::ExecutionMode::Cycle;
+  }
+  return gpu_model::ExecutionMode::Functional;
+}
+
+TraceArtifactRecorder* ResolveTraceArtifactRecorder() {
+  const char* env = std::getenv("GPU_MODEL_TRACE_DIR");
+  if (env == nullptr || env[0] == '\0') {
+    g_trace_artifacts.reset();
+    g_trace_artifacts_dir.clear();
+    return nullptr;
+  }
+
+  if (!g_trace_artifacts || g_trace_artifacts_dir != env) {
+    g_trace_artifacts_dir = env;
+    g_trace_artifacts = std::make_unique<TraceArtifactRecorder>(g_trace_artifacts_dir);
+  }
+  return g_trace_artifacts.get();
+}
+
+void AppendLaunchSummary(const std::filesystem::path& output_dir,
+                         const std::string& kernel_name,
+                         gpu_model::ExecutionMode execution_mode,
+                         gpu_model::FunctionalExecutionMode functional_mode,
+                         const gpu_model::LaunchResult& result) {
+  std::ofstream out(output_dir / "launch_summary.txt", std::ios::app);
+  if (!out) {
+    throw std::runtime_error("failed to open launch summary file");
+  }
+
+  out << "launch_index=" << g_launch_index++
+      << " kernel=" << kernel_name
+      << " execution_mode="
+      << (execution_mode == gpu_model::ExecutionMode::Cycle ? "cycle" : "functional")
+      << " functional_mode=" << ToFunctionalModeName(functional_mode)
+      << " ok=" << (result.ok ? 1 : 0)
+      << " submit_cycle=" << result.submit_cycle
+      << " begin_cycle=" << result.begin_cycle
+      << " end_cycle=" << result.end_cycle
+      << " total_cycles=" << result.total_cycles
+      << " program_total_cycles=";
+  if (result.program_cycle_stats.has_value()) {
+    out << result.program_cycle_stats->total_cycles;
+  } else {
+    out << "na";
+  }
+  out << '\n';
 }
 
 void DebugLog(const char* fmt, ...) {
@@ -536,8 +613,25 @@ hipError_t hipLaunchKernel(const void* function_address,
       .block_dim_z = dimBlocks.z,
       .shared_memory_bytes = static_cast<uint32_t>(sharedMemBytes),
   };
-  const auto result = HipInterposerState::Instance().LaunchExecutableKernel(
-      HipInterposerState::CurrentExecutablePath(), function_address, config, args);
+  const auto execution_mode = ResolveExecutionModeFromEnv();
+  auto* trace = ResolveTraceArtifactRecorder();
+  auto& state = HipInterposerState::Instance();
+  const auto kernel_name = state.ResolveKernelName(function_address);
+  const auto result = state.LaunchExecutableKernel(HipInterposerState::CurrentExecutablePath(),
+                                                   function_address,
+                                                   config,
+                                                   args,
+                                                   execution_mode,
+                                                   "c500",
+                                                   trace);
+  if (trace != nullptr) {
+    trace->FlushTimeline();
+    AppendLaunchSummary(trace->output_dir(),
+                        kernel_name.value_or("<unregistered>"),
+                        execution_mode,
+                        state.model_runtime().runtime().functional_execution_config().mode,
+                        result);
+  }
   DebugLog("hipLaunchKernel result ok=%d err=%s", result.ok ? 1 : 0,
            result.error_message.c_str());
   return Remember(result.ok ? hipSuccess : hipErrorLaunchFailure);

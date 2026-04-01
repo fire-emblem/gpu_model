@@ -17,7 +17,9 @@ SRC="$CASE_DIR/softmax_reduction.hip"
 EXE="$OUT_DIR/softmax_reduction.out"
 
 hipcc "$SRC" -o "$EXE"
-GPU_MODEL_HIP_INTERPOSER_DEBUG=1 LD_PRELOAD="$SO_PATH" \
-  "$EXE" 2>&1 | tee "$OUT_DIR/stdout.txt"
 
-grep -q "softmax_reduction mismatches=0" "$OUT_DIR/stdout.txt"
+for mode in st mt cycle; do
+  mode_dir="$(gpu_model_mode_dir "$OUT_DIR" "$mode")"
+  gpu_model_run_interposed_mode "$SO_PATH" "$EXE" "$mode_dir" "$mode"
+  gpu_model_assert_mode_success "$mode_dir" "softmax_reduction mismatches=0"
+done

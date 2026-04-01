@@ -15,7 +15,7 @@
 #include "gpu_model/isa/kernel_metadata.h"
 #include "gpu_model/isa/target_isa.h"
 #include "gpu_model/loader/device_image_loader.h"
-#include "gpu_model/loader/program_lowering.h"
+#include "gpu_model/loader/asm_parser.h"
 #include "gpu_model/program/encoded_program_object.h"
 #include "gpu_model/program/execution_route.h"
 
@@ -219,7 +219,7 @@ LaunchResult RuntimeEngineImpl::Launch(const LaunchRequest& request) {
     encoded_program_object = raw_code_object;
     use_encoded_exec_engine = raw_code_object != nullptr;
     if (!use_encoded_exec_engine) {
-      parsed_kernel = ProgramLoweringRegistry::Lower(*prepared_program_execution->execution_image);
+      parsed_kernel = AsmParser{}.Parse(*prepared_program_execution->execution_image);
       kernel = &parsed_kernel;
     }
   }
@@ -323,22 +323,6 @@ LaunchResult RuntimeEngineImpl::Launch(const LaunchRequest& request) {
           .message = message.str(),
       });
     }
-
-    ExecutionContext context{
-        .spec = *spec,
-        .kernel = *kernel,
-        .launch_config = request.config,
-        .args = request.args,
-        .placement = result.placement,
-        .device_load = request.device_load,
-        .memory = memory_,
-        .trace = trace,
-        .stats = &result.stats,
-        .arg_load_cycles = spec->launch_timing.arg_load_cycles,
-        .issue_cycle_class_overrides = ResolveCycleTimingConfig(*spec).issue_cycle_class_overrides,
-        .issue_cycle_op_overrides = ResolveCycleTimingConfig(*spec).issue_cycle_op_overrides,
-    };
-
     if (request.mode == ExecutionMode::Functional) {
         if (use_encoded_exec_engine) {
           const auto raw_result =
@@ -350,6 +334,20 @@ LaunchResult RuntimeEngineImpl::Launch(const LaunchRequest& request) {
         result.end_cycle = raw_result.end_cycle;
         result.stats = raw_result.stats;
       } else {
+        ExecutionContext context{
+            .spec = *spec,
+            .kernel = *kernel,
+            .launch_config = request.config,
+            .args = request.args,
+            .placement = result.placement,
+            .device_load = request.device_load,
+            .memory = memory_,
+            .trace = trace,
+            .stats = &result.stats,
+            .arg_load_cycles = spec->launch_timing.arg_load_cycles,
+            .issue_cycle_class_overrides = ResolveCycleTimingConfig(*spec).issue_cycle_class_overrides,
+            .issue_cycle_op_overrides = ResolveCycleTimingConfig(*spec).issue_cycle_op_overrides,
+        };
         if (functional_execution_config_.mode == FunctionalExecutionMode::MarlParallel) {
           FunctionalExecEngine executor(context);
           const uint32_t workers =
@@ -366,10 +364,36 @@ LaunchResult RuntimeEngineImpl::Launch(const LaunchRequest& request) {
         result.end_cycle = result.begin_cycle + result.total_cycles;
       }
     } else if (request.mode == ExecutionMode::Cycle) {
-      context.cycle = result.begin_cycle;
-      CycleExecEngine executor(ResolveCycleTimingConfig(*spec));
-      result.end_cycle = executor.Run(context);
-      result.total_cycles = result.end_cycle - result.begin_cycle;
+      if (use_encoded_exec_engine) {
+        const auto raw_result =
+            EncodedExecEngine{}.Run(*encoded_program_object, *spec, request.config, request.args,
+                                    request.device_load, memory_, trace);
+        result.ok = raw_result.ok;
+        result.error_message = raw_result.error_message;
+        result.stats = raw_result.stats;
+        const uint64_t issued = std::max<uint64_t>(1u, raw_result.stats.instructions_issued);
+        result.total_cycles = issued * spec->default_issue_cycles;
+        result.end_cycle = result.begin_cycle + result.total_cycles;
+      } else {
+        ExecutionContext context{
+            .spec = *spec,
+            .kernel = *kernel,
+            .launch_config = request.config,
+            .args = request.args,
+            .placement = result.placement,
+            .device_load = request.device_load,
+            .memory = memory_,
+            .trace = trace,
+            .stats = &result.stats,
+            .arg_load_cycles = spec->launch_timing.arg_load_cycles,
+            .issue_cycle_class_overrides = ResolveCycleTimingConfig(*spec).issue_cycle_class_overrides,
+            .issue_cycle_op_overrides = ResolveCycleTimingConfig(*spec).issue_cycle_op_overrides,
+        };
+        context.cycle = result.begin_cycle;
+        CycleExecEngine executor(ResolveCycleTimingConfig(*spec));
+        result.end_cycle = executor.Run(context);
+        result.total_cycles = result.end_cycle - result.begin_cycle;
+      }
       device_cycle_ = result.end_cycle;
       has_cycle_launch_history_ = true;
     } else {

@@ -18,20 +18,8 @@ EXE="$OUT_DIR/vecadd.out"
 
 hipcc "$SRC" -o "$EXE"
 
-ROCM_LIB=""
-if [[ -d /opt/rocm/lib ]]; then
-  ROCM_LIB="/opt/rocm/lib"
-elif [[ -d /opt/rocm/lib64 ]]; then
-  ROCM_LIB="/opt/rocm/lib64"
-fi
-
-if [[ -n "$ROCM_LIB" ]]; then
-  LD_LIBRARY_PATH="$ROCM_LIB:${LD_LIBRARY_PATH:-}" \
-  GPU_MODEL_HIP_INTERPOSER_DEBUG=1 \
-  LD_PRELOAD="$SO_PATH" \
-    "$EXE" | tee "$OUT_DIR/stdout.txt"
-else
-  GPU_MODEL_HIP_INTERPOSER_DEBUG=1 \
-  LD_PRELOAD="$SO_PATH" \
-    "$EXE" | tee "$OUT_DIR/stdout.txt"
-fi
+for mode in st mt cycle; do
+  mode_dir="$(gpu_model_mode_dir "$OUT_DIR" "$mode")"
+  gpu_model_run_interposed_mode "$SO_PATH" "$EXE" "$mode_dir" "$mode"
+  gpu_model_assert_mode_success "$mode_dir" "vecadd validation ok"
+done

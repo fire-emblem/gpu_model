@@ -805,7 +805,7 @@ TEST(HipRuntimeTest, MaterializesHipSharedReverseCodeIntoDeviceMemory) {
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipRuntimeTest, LaunchesRegisteredRawModuleThroughLoweredModeledRoute) {
+TEST(HipRuntimeTest, LaunchesRegisteredRawModuleThroughEncodedRawRoute) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
@@ -878,9 +878,7 @@ TEST(HipRuntimeTest, LaunchesRegisteredRawModuleThroughLoweredModeledRoute) {
       },
       std::move(args),
       ExecutionMode::Functional,
-      "c500",
-      nullptr,
-      ExecutionRoute::LoweredModeled);
+      "c500");
   ASSERT_TRUE(result.ok) << result.error_message;
 
   hooks.MemcpyDtoH<float>(c_addr, std::span<float>(c));

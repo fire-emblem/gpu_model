@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "gpu_model/debug/trace_sink.h"
 #include "gpu_model/runtime/model_runtime.h"
 
 namespace gpu_model {
@@ -49,7 +50,8 @@ class HipInterposerState {
                                       LaunchConfig config,
                                       void** args,
                                       ExecutionMode mode = ExecutionMode::Functional,
-                                      const std::string& arch_name = "c500");
+                                      const std::string& arch_name = "c500",
+                                      TraceSink* trace = nullptr);
   DeviceLoadPlan BuildExecutableLoadPlan(
       const std::filesystem::path& executable_path,
       const void* host_function) const;
