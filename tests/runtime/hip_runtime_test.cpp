@@ -671,7 +671,7 @@ TEST(HipRuntimeTest, SupportsDeviceToDeviceCopyAndMemsetOperations) {
   }
 }
 
-TEST(HipRuntimeTest, LaunchesAmdgpuObjectFileThroughObjLoaderPath) {
+TEST(HipRuntimeTest, LaunchesAmdgpuObjectFileThroughObjectReaderPath) {
   if (std::system("command -v llc >/dev/null 2>&1") != 0 ||
       std::system("command -v llvm-objdump >/dev/null 2>&1") != 0 ||
       std::system("command -v readelf >/dev/null 2>&1") != 0) {
@@ -826,7 +826,7 @@ TEST(HipRuntimeTest, MaterializesHipSharedReverseCodeIntoDeviceMemory) {
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipRuntimeTest, LaunchesRegisteredRawModuleThroughEncodedRawRoute) {
+TEST(HipRuntimeTest, LaunchesRegisteredEncodedObjectModule) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }

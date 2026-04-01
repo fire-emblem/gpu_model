@@ -285,7 +285,7 @@ TEST(ModelRuntimeTest, DescribesHipMfmaExecutableWithTypedTensorAbi) {
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(ModelRuntimeTest, LaunchesAmdgpuObjectThroughEncodedRawRoute) {
+TEST(ModelRuntimeTest, LaunchesEncodedProgramObjectFromAmdgpuObject) {
   const auto temp_dir = MakeUniqueTempDir("gpu_model_model_runtime_lowered_object");
   const auto src_path = temp_dir / "hip_vecadd_3d_adds.cpp";
   const auto exe_path = temp_dir / "hip_vecadd_3d_adds.out";
@@ -364,7 +364,7 @@ TEST(ModelRuntimeTest, LaunchesAmdgpuObjectThroughEncodedRawRoute) {
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(ModelRuntimeTest, LaunchesRegisteredRawModuleThroughEncodedRawRoute) {
+TEST(ModelRuntimeTest, LaunchesRegisteredEncodedObjectModule) {
   const auto temp_dir = MakeUniqueTempDir("gpu_model_model_runtime_registered_lowered");
   const auto src_path = temp_dir / "hip_vecadd_3d_adds_registered.cpp";
   const auto exe_path = temp_dir / "hip_vecadd_3d_adds_registered.out";
