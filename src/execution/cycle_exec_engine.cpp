@@ -72,6 +72,7 @@ struct ApResidentState {
   std::deque<ExecutableBlock*> pending_blocks;
   std::vector<ExecutableBlock*> resident_blocks;
   uint32_t resident_block_limit = 2;
+  uint32_t scheduled_readmit_count = 0;
 };
 
 struct L1Key {
@@ -540,6 +541,11 @@ bool RetireResidentBlock(ApResidentState& ap_state, ExecutableBlock* block) {
     return true;
   }
   return false;
+}
+
+bool CanScheduleDelayedReadmit(const ApResidentState& ap_state) {
+  return ap_state.pending_blocks.size() >
+         static_cast<size_t>(ap_state.scheduled_readmit_count);
 }
 
 void FillDispatchWindow(PeuSlot& slot,
@@ -1143,7 +1149,8 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                     if (ap_state_it != ap_states.end()) {
                       const bool removed =
                           RetireResidentBlock(ap_state_it->second, candidate->block);
-                      if (removed && !ap_state_it->second.pending_blocks.empty()) {
+                      if (removed && CanScheduleDelayedReadmit(ap_state_it->second)) {
+                        ++ap_state_it->second.scheduled_readmit_count;
                         events.Schedule(TimedEvent{
                             .cycle = commit_cycle + timing_config_.launch_timing.block_launch_cycles,
                             .action =
@@ -1151,6 +1158,9 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                                   auto state_it = ap_states.find(global_ap_id);
                                   if (state_it == ap_states.end()) {
                                     return;
+                                  }
+                                  if (state_it->second.scheduled_readmit_count > 0) {
+                                    --state_it->second.scheduled_readmit_count;
                                   }
                                   AdmitOneResidentBlock(
                                       state_it->second,
