@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <deque>
 #include <limits>
 #include <map>
 #include <optional>
@@ -64,6 +65,13 @@ struct PeuSlot {
   uint64_t last_wave_tag = std::numeric_limits<uint64_t>::max();
   size_t last_issue_index = std::numeric_limits<size_t>::max();
   std::vector<ScheduledWave*> waves;
+};
+
+struct ApResidentState {
+  uint32_t global_ap_id = 0;
+  std::deque<ExecutableBlock*> pending_blocks;
+  std::vector<ExecutableBlock*> resident_blocks;
+  uint32_t resident_block_limit = 2;
 };
 
 struct L1Key {
@@ -487,6 +495,34 @@ void ActivateBlock(ExecutableBlock& block,
   }
 }
 
+void AdmitResidentBlocks(ApResidentState& ap_state,
+                         uint64_t cycle,
+                         uint32_t max_issuable_waves,
+                         uint64_t wave_launch_cycles,
+                         EventQueue& events,
+                         TraceSink& trace) {
+  while (ap_state.resident_blocks.size() < ap_state.resident_block_limit &&
+         !ap_state.pending_blocks.empty()) {
+    ExecutableBlock* next_block = ap_state.pending_blocks.front();
+    ap_state.pending_blocks.pop_front();
+    if (next_block == nullptr || next_block->active || next_block->completed) {
+      continue;
+    }
+    ap_state.resident_blocks.push_back(next_block);
+    ActivateBlock(*next_block, cycle, max_issuable_waves, wave_launch_cycles, events, trace);
+  }
+}
+
+void RetireResidentBlock(ApResidentState& ap_state, ExecutableBlock* block) {
+  if (block == nullptr) {
+    return;
+  }
+  auto it = std::find(ap_state.resident_blocks.begin(), ap_state.resident_blocks.end(), block);
+  if (it != ap_state.resident_blocks.end()) {
+    ap_state.resident_blocks.erase(it);
+  }
+}
+
 void FillDispatchWindow(PeuSlot& slot,
                         uint64_t cycle,
                         uint32_t max_issuable_waves,
@@ -585,7 +621,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
   std::map<L1Key, CacheModel> l1_caches;
   CacheModel l2_cache(timing_config_.cache_model);
   SharedBankModel shared_bank_model(timing_config_.shared_bank_model);
-  std::map<uint32_t, std::vector<ExecutableBlock*>> ap_queues;
+  std::map<uint32_t, ApResidentState> ap_states;
 
   for (auto& slot : slots) {
     slot.busy_until = 0;
@@ -594,16 +630,18 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
   }
 
   for (auto& block : blocks) {
-    auto& queue = ap_queues[block.global_ap_id];
-    block.ap_queue_index = static_cast<uint32_t>(queue.size());
-    queue.push_back(&block);
+    auto& ap_state = ap_states[block.global_ap_id];
+    ap_state.global_ap_id = block.global_ap_id;
+    ap_state.pending_blocks.push_back(&block);
   }
-  for (auto& [global_ap_id, queue] : ap_queues) {
+  for (auto& [global_ap_id, ap_state] : ap_states) {
     (void)global_ap_id;
-    if (!queue.empty()) {
-      ActivateBlock(*queue.front(), context.cycle, context.spec.max_issuable_waves,
-                    timing_config_.launch_timing.wave_launch_cycles, events, context.trace);
-    }
+    AdmitResidentBlocks(ap_state,
+                        context.cycle,
+                        context.spec.max_issuable_waves,
+                        timing_config_.launch_timing.wave_launch_cycles,
+                        events,
+                        context.trace);
   }
 
   uint64_t cycle = context.cycle;
@@ -1081,25 +1119,27 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                       AllWavesExited(*candidate->block)) {
                     candidate->block->active = false;
                     candidate->block->completed = true;
-                    const auto queue_it = ap_queues.find(candidate->block->global_ap_id);
-                    if (queue_it != ap_queues.end()) {
-                      const uint32_t next_index = candidate->block->ap_queue_index + 1;
-                      if (next_index < queue_it->second.size()) {
-                        ExecutableBlock* next_block = queue_it->second[next_index];
-                        events.Schedule(TimedEvent{
-                            .cycle = commit_cycle + timing_config_.launch_timing.block_launch_cycles,
-                            .action =
-                                [next_block, &context, &events, commit_cycle, this]() {
-                                  ActivateBlock(
-                                      *next_block,
-                                      commit_cycle + timing_config_.launch_timing.block_launch_cycles,
-                                      context.spec.max_issuable_waves,
-                                      timing_config_.launch_timing.wave_launch_cycles,
-                                      events,
-                                      context.trace);
-                                },
-                        });
-                      }
+                    const uint32_t global_ap_id = candidate->block->global_ap_id;
+                    auto ap_state_it = ap_states.find(global_ap_id);
+                    if (ap_state_it != ap_states.end()) {
+                      RetireResidentBlock(ap_state_it->second, candidate->block);
+                      events.Schedule(TimedEvent{
+                          .cycle = commit_cycle + timing_config_.launch_timing.block_launch_cycles,
+                          .action =
+                              [&, global_ap_id, commit_cycle]() {
+                                auto state_it = ap_states.find(global_ap_id);
+                                if (state_it == ap_states.end()) {
+                                  return;
+                                }
+                                AdmitResidentBlocks(
+                                    state_it->second,
+                                    commit_cycle + timing_config_.launch_timing.block_launch_cycles,
+                                    context.spec.max_issuable_waves,
+                                    timing_config_.launch_timing.wave_launch_cycles,
+                                    events,
+                                    context.trace);
+                              },
+                      });
                     }
                   }
                   return;
