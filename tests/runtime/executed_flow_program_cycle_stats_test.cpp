@@ -233,6 +233,66 @@ ExecutableKernel BuildLargeCompositeWaitKernel(ConstSegment const_segment) {
   return builder.Build("cycle_stats_large_composite_wait", {}, std::move(const_segment));
 }
 
+ExecutableKernel BuildSamePeuWaitcntSiblingCycleStatsKernel() {
+  InstructionBuilder builder;
+  builder.SLoadArg("s0", 0);
+  builder.SLoadArg("s1", 1);
+  builder.SysGlobalIdX("v0");
+
+  builder.SMov("s2", 64);
+  builder.VCmpLtCmask("v0", "s2");
+  builder.MaskSaveExec("s10");
+  builder.MaskAndExecCmask();
+  builder.BIfNoexec("after_wait_wave");
+  builder.MLoadGlobal("v1", "s0", "v0", 4);
+  builder.SWaitCnt(/*global_count=*/0, /*shared_count=*/UINT32_MAX,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
+  builder.Label("after_wait_wave");
+  builder.MaskRestoreExec("s10");
+
+  builder.VMov("v2", 21);
+  builder.VAdd("v3", "v2", "v2");
+  builder.VAdd("v4", "v3", "v2");
+  builder.MStoreGlobal("s1", "v0", "v4", 4);
+  builder.BExit();
+  return builder.Build("cycle_stats_same_peu_waitcnt_sibling");
+}
+
+ExecutableKernel BuildSamePeuBarrierResumeCycleStatsKernel() {
+  InstructionBuilder builder;
+  builder.SLoadArg("s0", 0);
+  builder.SysGlobalIdX("v0");
+
+  builder.SMov("s1", 64);
+  builder.VCmpLtCmask("v0", "s1");
+  builder.MaskSaveExec("s10");
+  builder.MaskAndExecCmask();
+  builder.BIfNoexec("after_early_wave");
+  builder.SyncBarrier();
+  builder.VMov("v1", 31);
+  builder.MStoreGlobal("s0", "v0", "v1", 4);
+  builder.Label("after_early_wave");
+  builder.MaskRestoreExec("s10");
+
+  builder.SMov("s2", 256);
+  builder.VCmpGeCmask("v0", "s2");
+  builder.MaskSaveExec("s11");
+  builder.MaskAndExecCmask();
+  builder.SMov("s3", 320);
+  builder.VCmpLtCmask("v0", "s3");
+  builder.MaskAndExecCmask();
+  builder.BIfNoexec("done");
+  builder.VMov("v2", 7);
+  builder.VAdd("v3", "v2", "v2");
+  builder.SyncBarrier();
+  builder.VMov("v4", 47);
+  builder.MStoreGlobal("s0", "v0", "v4", 4);
+  builder.Label("done");
+  builder.MaskRestoreExec("s11");
+  builder.BExit();
+  return builder.Build("cycle_stats_same_peu_barrier_resume");
+}
+
 ExecutableKernel BuildSharedReverseCycleStatsKernel() {
   InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
@@ -440,6 +500,58 @@ LaunchResult LaunchScalarBufferWaitcntCycleStats(FunctionalExecutionMode mode) {
   request.config.grid_dim_x = 1;
   request.config.block_dim_x = 64;
   request.args.PushU32(0);
+  return runtime.Launch(request);
+}
+
+LaunchResult LaunchSamePeuWaitcntSiblingCycleStats(FunctionalExecutionMode mode) {
+  RuntimeEngine runtime;
+  if (mode == FunctionalExecutionMode::MarlParallel) {
+    runtime.SetFunctionalExecutionConfig(
+        FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MarlParallel, .worker_threads = 4});
+  } else {
+    runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
+  }
+
+  constexpr uint32_t block_dim = 320;
+  const uint64_t in_addr = runtime.memory().AllocateGlobal(block_dim * sizeof(int32_t));
+  const uint64_t out_addr = runtime.memory().AllocateGlobal(block_dim * sizeof(int32_t));
+  for (uint32_t i = 0; i < block_dim; ++i) {
+    runtime.memory().StoreGlobalValue<int32_t>(in_addr + i * sizeof(int32_t),
+                                               static_cast<int32_t>(100 + i));
+    runtime.memory().StoreGlobalValue<int32_t>(out_addr + i * sizeof(int32_t), -1);
+  }
+
+  const auto kernel = BuildSamePeuWaitcntSiblingCycleStatsKernel();
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = block_dim;
+  request.args.PushU64(in_addr);
+  request.args.PushU64(out_addr);
+  return runtime.Launch(request);
+}
+
+LaunchResult LaunchSamePeuBarrierResumeCycleStats(FunctionalExecutionMode mode) {
+  RuntimeEngine runtime;
+  if (mode == FunctionalExecutionMode::MarlParallel) {
+    runtime.SetFunctionalExecutionConfig(
+        FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MarlParallel, .worker_threads = 4});
+  } else {
+    runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
+  }
+
+  constexpr uint32_t block_dim = 320;
+  const uint64_t out_addr = runtime.memory().AllocateGlobal(block_dim * sizeof(int32_t));
+  for (uint32_t i = 0; i < block_dim; ++i) {
+    runtime.memory().StoreGlobalValue<int32_t>(out_addr + i * sizeof(int32_t), -1);
+  }
+
+  const auto kernel = BuildSamePeuBarrierResumeCycleStatsKernel();
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = block_dim;
+  request.args.PushU64(out_addr);
   return runtime.Launch(request);
 }
 
@@ -786,6 +898,64 @@ TEST(ExecutedFlowProgramCycleStatsTest,
             single_st.program_cycle_stats->total_cycles);
   EXPECT_GT(double_mt.program_cycle_stats->total_cycles,
             single_mt.program_cycle_stats->total_cycles);
+}
+
+TEST(ExecutedFlowProgramCycleStatsTest,
+     SamePeuWaitcntSiblingMaintainsModeAgreementAndOverlap) {
+  const auto st = LaunchSamePeuWaitcntSiblingCycleStats(FunctionalExecutionMode::SingleThreaded);
+  const auto mt = LaunchSamePeuWaitcntSiblingCycleStats(FunctionalExecutionMode::MarlParallel);
+
+  ASSERT_TRUE(st.ok) << st.error_message;
+  ASSERT_TRUE(mt.ok) << mt.error_message;
+  ASSERT_TRUE(st.program_cycle_stats.has_value());
+  ASSERT_TRUE(mt.program_cycle_stats.has_value());
+
+  EXPECT_EQ(AccountedWorkCycles(*st.program_cycle_stats),
+            st.program_cycle_stats->total_issued_work_cycles);
+  EXPECT_EQ(AccountedWorkCycles(*mt.program_cycle_stats),
+            mt.program_cycle_stats->total_issued_work_cycles);
+  EXPECT_EQ(st.program_cycle_stats->total_cycles, mt.program_cycle_stats->total_cycles);
+  EXPECT_EQ(st.program_cycle_stats->total_issued_work_cycles,
+            mt.program_cycle_stats->total_issued_work_cycles);
+  EXPECT_GT(st.program_cycle_stats->wait_cycles, 0u);
+  EXPECT_GT(mt.program_cycle_stats->wait_cycles, 0u);
+  EXPECT_GT(st.program_cycle_stats->global_mem_cycles, 0u);
+  EXPECT_GT(mt.program_cycle_stats->global_mem_cycles, 0u);
+  EXPECT_GT(st.program_cycle_stats->vector_alu_cycles, 0u);
+  EXPECT_GT(mt.program_cycle_stats->vector_alu_cycles, 0u);
+  EXPECT_LT(st.program_cycle_stats->total_cycles,
+            st.program_cycle_stats->total_issued_work_cycles);
+  EXPECT_LT(mt.program_cycle_stats->total_cycles,
+            mt.program_cycle_stats->total_issued_work_cycles);
+}
+
+TEST(ExecutedFlowProgramCycleStatsTest,
+     SamePeuBarrierResumeMaintainsModeAgreementAndBarrierAccounting) {
+  const auto st = LaunchSamePeuBarrierResumeCycleStats(FunctionalExecutionMode::SingleThreaded);
+  const auto mt = LaunchSamePeuBarrierResumeCycleStats(FunctionalExecutionMode::MarlParallel);
+
+  ASSERT_TRUE(st.ok) << st.error_message;
+  ASSERT_TRUE(mt.ok) << mt.error_message;
+  ASSERT_TRUE(st.program_cycle_stats.has_value());
+  ASSERT_TRUE(mt.program_cycle_stats.has_value());
+
+  EXPECT_EQ(AccountedWorkCycles(*st.program_cycle_stats),
+            st.program_cycle_stats->total_issued_work_cycles);
+  EXPECT_EQ(AccountedWorkCycles(*mt.program_cycle_stats),
+            mt.program_cycle_stats->total_issued_work_cycles);
+  EXPECT_EQ(st.program_cycle_stats->total_cycles, mt.program_cycle_stats->total_cycles);
+  EXPECT_EQ(st.program_cycle_stats->total_issued_work_cycles,
+            mt.program_cycle_stats->total_issued_work_cycles);
+  EXPECT_GT(st.program_cycle_stats->barrier_cycles, 0u);
+  EXPECT_GT(mt.program_cycle_stats->barrier_cycles, 0u);
+  EXPECT_GT(st.program_cycle_stats->global_mem_cycles, 0u);
+  EXPECT_GT(mt.program_cycle_stats->global_mem_cycles, 0u);
+  EXPECT_GT(st.program_cycle_stats->vector_alu_cycles, 0u);
+  EXPECT_GT(mt.program_cycle_stats->vector_alu_cycles, 0u);
+  EXPECT_LT(st.program_cycle_stats->total_cycles,
+            st.program_cycle_stats->total_issued_work_cycles);
+  EXPECT_LT(mt.program_cycle_stats->total_cycles,
+            mt.program_cycle_stats->total_issued_work_cycles);
 }
 
 TEST(ExecutedFlowProgramCycleStatsTest,
