@@ -12,8 +12,6 @@ namespace gpu_model {
 class ObjectReader {
  public:
   ProgramObject LoadFromStem(const std::filesystem::path& stem) const;
-  ProgramObject LoadFromObject(const std::filesystem::path& path,
-                               std::optional<std::string> kernel_name = std::nullopt) const;
   EncodedProgramObject LoadEncodedObject(
       const std::filesystem::path& path,
       std::optional<std::string> kernel_name = std::nullopt) const;

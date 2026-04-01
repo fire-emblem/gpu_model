@@ -114,10 +114,15 @@ bool HasHipFatbin(const std::filesystem::path& path) {
   return sections.find(".hip_fatbin") != std::string::npos;
 }
 
-std::filesystem::path MaterializeDeviceCodeObject(const std::filesystem::path& path,
-                                                  const ScopedTempDir& temp_dir) {
+struct MaterializedCodeObject {
+  std::filesystem::path path;
+  MetadataBlob metadata;
+};
+
+MaterializedCodeObject MaterializeDeviceCodeObject(const std::filesystem::path& path,
+                                                   const ScopedTempDir& temp_dir) {
   if (IsAmdgpuElf(path)) {
-    return path;
+    return MaterializedCodeObject{.path = path};
   }
   if (!HasHipFatbin(path)) {
     throw std::runtime_error("ELF is neither AMDGPU code object nor HIP fatbin host artifact: " +
@@ -144,7 +149,17 @@ std::filesystem::path MaterializeDeviceCodeObject(const std::filesystem::path& p
   }
   RunCommand("clang-offload-bundler --unbundle --type=o --input=" + ShellQuote(fatbin_path.string()) +
              " --targets=" + ShellQuote(target) + " --output=" + ShellQuote(device_path.string()));
-  return device_path;
+  MaterializedCodeObject materialized{
+      .path = device_path,
+      .metadata = MetadataBlob{
+          .values =
+              {
+                  {"loader_source", "hip_fatbin"},
+                  {"bundle_target", target},
+              },
+      },
+  };
+  return materialized;
 }
 
 struct SectionInfo {
@@ -421,8 +436,8 @@ std::vector<NoteKernelMetadata> ParseKernelMetadataNotes(const std::string& note
 
 MetadataBlob BuildMetadataFromNotes(const std::filesystem::path& note_source_path,
                                     const std::filesystem::path& artifact_path,
-                                    const std::string& kernel_name) {
-  MetadataBlob metadata;
+                                    const std::string& kernel_name,
+                                    MetadataBlob metadata = {}) {
   metadata.values["entry"] = kernel_name;
   metadata.values["artifact_path"] = artifact_path.string();
   SetTargetIsa(metadata, TargetIsa::GcnRawAsm);
@@ -547,13 +562,15 @@ EncodedProgramObject ObjectReader::LoadEncodedObject(
     const std::filesystem::path& path,
     std::optional<std::string> kernel_name) const {
   ScopedTempDir temp_dir;
-  const auto device_path = MaterializeDeviceCodeObject(path, temp_dir);
+  const auto materialized = MaterializeDeviceCodeObject(path, temp_dir);
+  const auto& device_path = materialized.path;
   EncodedProgramObject code_object;
   const auto symbols =
       ParseSymbols(RunCommand("readelf -Ws " + ShellQuote(device_path.string())));
   const auto selected_symbol = SelectKernelSymbol(symbols, kernel_name);
   code_object.kernel_name = selected_symbol.name;
-  code_object.metadata = BuildMetadataFromNotes(device_path, path, code_object.kernel_name);
+  code_object.metadata =
+      BuildMetadataFromNotes(device_path, path, code_object.kernel_name, materialized.metadata);
 
   const auto descriptor_symbol_name_it = code_object.metadata.values.find("descriptor_symbol");
   if (descriptor_symbol_name_it != code_object.metadata.values.end() &&

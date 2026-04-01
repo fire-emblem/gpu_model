@@ -50,7 +50,6 @@ add_library(gpu_model STATIC
   src/loader/program_bundle_io.cpp
   src/program/encoded_program_object.cpp
   src/program/object_reader.cpp
-  src/program/object_reader_object.cpp
   src/memory/memory_system.cpp
   src/memory/cache_model.cpp
   src/memory/shared_bank_model.cpp

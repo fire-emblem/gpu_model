@@ -54,10 +54,10 @@ TEST(AmdgpuObjLoaderTest, LoadsExecutableKernelFromAmdgpuObjectFile) {
       "llc -march=amdgcn -mcpu=gfx900 -filetype=obj " + ir_path.string() + " -o " + obj_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  const auto image = ObjectReader{}.LoadFromObject(obj_path);
-  EXPECT_EQ(image.kernel_name(), "empty_kernel");
-  EXPECT_NE(image.assembly_text().find("s_endpgm"), std::string::npos);
-  EXPECT_EQ(image.metadata().values.at("target_isa"), "gcn_raw_asm");
+  const auto image = ObjectReader{}.LoadEncodedObject(obj_path);
+  EXPECT_EQ(image.kernel_name, "empty_kernel");
+  EXPECT_FALSE(image.instructions.empty());
+  EXPECT_EQ(image.metadata.values.at("target_isa"), "gcn_raw_asm");
 
   std::filesystem::remove_all(temp_dir);
 }
@@ -85,17 +85,17 @@ TEST(AmdgpuObjLoaderTest, LoadsExecutableKernelFromHipHostObjectWithFatbin) {
       "hipcc -c " + src_path.string() + " -o " + obj_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  const auto image = ObjectReader{}.LoadFromObject(obj_path, "empty_kernel");
-  EXPECT_EQ(image.kernel_name(), "empty_kernel");
-  EXPECT_NE(image.assembly_text().find("s_endpgm"), std::string::npos);
-  EXPECT_EQ(image.metadata().values.at("target_isa"), "gcn_raw_asm");
+  const auto image = ObjectReader{}.LoadEncodedObject(obj_path, "empty_kernel");
+  EXPECT_EQ(image.kernel_name, "empty_kernel");
+  EXPECT_FALSE(image.instructions.empty());
+  EXPECT_EQ(image.metadata.values.at("target_isa"), "gcn_raw_asm");
 
-  const auto source_it = image.metadata().values.find("loader_source");
-  ASSERT_NE(source_it, image.metadata().values.end());
+  const auto source_it = image.metadata.values.find("loader_source");
+  ASSERT_NE(source_it, image.metadata.values.end());
   EXPECT_EQ(source_it->second, "hip_fatbin");
 
-  const auto target_it = image.metadata().values.find("bundle_target");
-  ASSERT_NE(target_it, image.metadata().values.end());
+  const auto target_it = image.metadata.values.find("bundle_target");
+  ASSERT_NE(target_it, image.metadata.values.end());
   EXPECT_NE(target_it->second.find("amdgcn-amd-amdhsa"), std::string::npos);
 
   std::filesystem::remove_all(temp_dir);

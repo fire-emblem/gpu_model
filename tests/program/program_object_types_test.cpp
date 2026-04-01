@@ -27,11 +27,6 @@ TEST(ProgramNamingTest, NewProgramTypesExposeConcreteInterfaces) {
                     std::declval<const std::filesystem::path&>())),
                 ProgramObject>);
   static_assert(std::is_same_v<
-                decltype(std::declval<const ObjectReader&>().LoadFromObject(
-                    std::declval<const std::filesystem::path&>(),
-                    std::declval<std::optional<std::string>>())),
-                ProgramObject>);
-  static_assert(std::is_same_v<
                 decltype(std::declval<const ObjectReader&>().LoadEncodedObject(
                     std::declval<const std::filesystem::path&>(),
                     std::declval<std::optional<std::string>>())),
