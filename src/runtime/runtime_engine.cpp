@@ -544,12 +544,4 @@ LaunchResult RuntimeEngine::Launch(const LaunchRequest& request) {
   return impl_->Launch(request);
 }
 
-RuntimeEngineImpl& RuntimeEngine::legacy_runtime() {
-  return *impl_;
-}
-
-const RuntimeEngineImpl& RuntimeEngine::legacy_runtime() const {
-  return *impl_;
-}
-
 }  // namespace gpu_model
