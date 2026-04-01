@@ -1021,7 +1021,7 @@ TEST(ExecutedFlowProgramCycleStatsTest,
 }
 
 TEST(ExecutedFlowProgramCycleStatsTest,
-     RepresentativeCasesOrderByExpectedProgramCost) {
+     RepresentativeCasesPreserveRunCostOrdering) {
   const auto pure =
       LaunchProgramCycleStatsKernel(BuildPureVectorAluKernel(), FunctionalExecutionMode::SingleThreaded, 64);
   const auto asym =
@@ -1135,7 +1135,7 @@ TEST(ExecutedFlowProgramCycleStatsTest,
 }
 
 TEST(ExecutedFlowProgramCycleStatsTest,
-     RealisticSharedKernelsRemainModeStableAndReasonableForCycleEvaluation) {
+     RealisticSharedKernelsRemainModeStableAndSelfConsistent) {
   const auto reverse_st = LaunchSharedReverseCycleStats(FunctionalExecutionMode::SingleThreaded);
   const auto reverse_mt = LaunchSharedReverseCycleStats(FunctionalExecutionMode::MarlParallel);
   const auto transpose_st = LaunchSharedTransposeCycleStats(FunctionalExecutionMode::SingleThreaded);
@@ -1199,7 +1199,7 @@ TEST(ExecutedFlowProgramCycleStatsTest,
 }
 
 TEST(ExecutedFlowProgramCycleStatsTest,
-     ProgramCycleStatsOrderingAgreesWithNaiveCycleModelOnRepresentativeCases) {
+     ProgramCycleStatsOrderingMatchesCycleModeOnRepresentativeCases) {
   const auto pure_est =
       LaunchProgramCycleStatsKernel(BuildPureVectorAluKernel(), FunctionalExecutionMode::SingleThreaded, 64);
   const auto const_est =
