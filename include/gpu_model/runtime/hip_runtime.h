@@ -14,7 +14,6 @@
 #include "gpu_model/loader/device_segment_image.h"
 #include "gpu_model/program/encoded_program_object.h"
 #include "gpu_model/program/executable_kernel.h"
-#include "gpu_model/program/object_reader.h"
 #include "gpu_model/program/program_object.h"
 #include "gpu_model/runtime/device_properties.h"
 #include "gpu_model/runtime/module_load.h"
@@ -63,9 +62,12 @@ class HipRuntime {
                                   ExecutionMode mode = ExecutionMode::Functional,
                                   std::string arch_name = "",
                                   TraceSink* trace = nullptr);
-  EncodedProgramObject DescribeAmdgpuObject(
-      const std::filesystem::path& path,
-      std::optional<std::string> kernel_name = std::nullopt) const;
+  LaunchResult LaunchEncodedProgramObject(const EncodedProgramObject& image,
+                                          LaunchConfig config,
+                                          KernelArgPack args,
+                                          ExecutionMode mode = ExecutionMode::Functional,
+                                          std::string arch_name = "",
+                                          TraceSink* trace = nullptr);
   DeviceLoadResult MaterializeLoadPlan(const DeviceLoadPlan& plan);
   void LoadModule(const ModuleLoadRequest& request);
   const std::optional<DeviceLoadResult>& last_load_result() const { return last_load_result_; }
@@ -83,26 +85,12 @@ class HipRuntime {
                                       ExecutionMode mode = ExecutionMode::Functional,
                                       std::string arch_name = "",
                                       TraceSink* trace = nullptr);
-  LaunchResult LaunchAmdgpuObject(const std::filesystem::path& path,
-                                  LaunchConfig config,
-                                  KernelArgPack args,
-                                  ExecutionMode mode = ExecutionMode::Functional,
-                                  std::string arch_name = "",
-                                  TraceSink* trace = nullptr,
-                                  std::optional<std::string> kernel_name = std::nullopt);
 
  RuntimeEngine& runtime() { return *runtime_engine_; }
   const RuntimeEngine& runtime() const { return *runtime_engine_; }
 
  private:
   using ModuleImage = std::variant<ProgramObject, EncodedProgramObject>;
-
-  LaunchResult LaunchEncodedProgramObject(const EncodedProgramObject& image,
-                                          LaunchConfig config,
-                                          KernelArgPack args,
-                                          ExecutionMode mode,
-                                          std::string arch_name,
-                                          TraceSink* trace);
 
   RuntimeEngine owned_runtime_;
   RuntimeEngine* runtime_engine_ = &owned_runtime_;

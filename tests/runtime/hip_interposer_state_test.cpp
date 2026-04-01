@@ -376,7 +376,7 @@ TEST(HipInterposerStateTest, LaunchesHipByValueAggregateExecutableThroughRegiste
   static int host_symbol = 0;
   state.RegisterFunction(&host_symbol, "by_value_aggregate");
 
-  const auto image = state.model_runtime().DescribeAmdgpuObject(exe_path, "by_value_aggregate");
+  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "by_value_aggregate");
   ASSERT_TRUE(image.metadata.values.contains("arg_layout"));
   EXPECT_NE(image.metadata.values.at("arg_layout").find("by_value:"), std::string::npos);
 

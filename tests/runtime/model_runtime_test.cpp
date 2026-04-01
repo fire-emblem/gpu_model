@@ -7,6 +7,7 @@
 
 #include "gpu_model/loader/executable_image_io.h"
 #include "gpu_model/loader/program_bundle_io.h"
+#include "gpu_model/program/object_reader.h"
 #include "gpu_model/runtime/model_runtime.h"
 
 namespace gpu_model {
@@ -275,7 +276,7 @@ TEST(ModelRuntimeTest, DescribesHipMfmaExecutableWithTypedTensorAbi) {
   }
 
   ModelRuntime api;
-  const auto image = api.DescribeAmdgpuObject(exe_path, "mfma_describe_probe");
+  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "mfma_describe_probe");
   EXPECT_EQ(image.kernel_name, "mfma_describe_probe");
   EXPECT_GE(image.kernel_descriptor.accum_offset, 4u);
   EXPECT_TRUE(image.metadata.values.contains("agpr_count"));
@@ -339,8 +340,8 @@ TEST(ModelRuntimeTest, LaunchesAmdgpuObjectThroughEncodedRawRoute) {
   args.PushU32(height);
   args.PushU32(depth);
 
-  const auto result = api.LaunchAmdgpuObject(
-      exe_path,
+  const auto result = api.LaunchEncodedProgramObject(
+      ObjectReader{}.LoadEncodedObject(exe_path, "vecadd_3d_adds"),
       LaunchConfig{
           .grid_dim_x = (width + 3) / 4,
           .grid_dim_y = (height + 3) / 4,
@@ -352,8 +353,7 @@ TEST(ModelRuntimeTest, LaunchesAmdgpuObjectThroughEncodedRawRoute) {
       std::move(args),
       ExecutionMode::Functional,
       "c500",
-      nullptr,
-      "vecadd_3d_adds");
+      nullptr);
   ASSERT_TRUE(result.ok) << result.error_message;
 
   api.MemcpyDtoH<float>(c_addr, std::span<float>(c));

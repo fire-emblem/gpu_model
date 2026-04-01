@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "gpu_model/program/object_reader.h"
 #include "gpu_model/runtime/hip_runtime.h"
 #include "gpu_model/runtime/runtime_engine.h"
 
@@ -103,8 +104,8 @@ TEST(HipccParallelExecutionTest, ThreeDimensionalVecaddAddsMatchesBetweenStAndMt
     args.PushU32(depth);
 
     const auto begin = std::chrono::steady_clock::now();
-    const auto launch = hooks.LaunchAmdgpuObject(
-        exe_path,
+    const auto launch = hooks.LaunchEncodedProgramObject(
+        ObjectReader{}.LoadEncodedObject(exe_path, "vecadd_3d_adds"),
         LaunchConfig{
             .grid_dim_x = (width + 3) / 4,
             .grid_dim_y = (height + 3) / 4,
@@ -116,8 +117,7 @@ TEST(HipccParallelExecutionTest, ThreeDimensionalVecaddAddsMatchesBetweenStAndMt
         std::move(args),
         ExecutionMode::Functional,
         "c500",
-        nullptr,
-        "vecadd_3d_adds");
+        nullptr);
     const auto end = std::chrono::steady_clock::now();
     EXPECT_TRUE(launch.ok) << launch.error_message;
 

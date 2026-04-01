@@ -258,12 +258,6 @@ LaunchResult HipRuntime::LaunchProgramImage(const ProgramObject& image,
   return runtime_engine_->Launch(request);
 }
 
-EncodedProgramObject HipRuntime::DescribeAmdgpuObject(
-    const std::filesystem::path& path,
-    std::optional<std::string> kernel_name) const {
-  return ObjectReader{}.LoadEncodedObject(path, std::move(kernel_name));
-}
-
 DeviceLoadResult HipRuntime::MaterializeLoadPlan(const DeviceLoadPlan& plan) {
   return DeviceImageLoader{}.Materialize(plan, runtime_engine_->memory());
 }
@@ -406,18 +400,6 @@ LaunchResult HipRuntime::LaunchRegisteredKernel(const std::string& module_name,
                                     mode,
                                     std::move(arch_name),
                                     trace);
-}
-
-LaunchResult HipRuntime::LaunchAmdgpuObject(const std::filesystem::path& path,
-                                            LaunchConfig config,
-                                            KernelArgPack args,
-                                            ExecutionMode mode,
-                                            std::string arch_name,
-                                            TraceSink* trace,
-                                            std::optional<std::string> kernel_name) {
-  const auto raw_code_object = DescribeAmdgpuObject(path, kernel_name);
-  return LaunchEncodedProgramObject(raw_code_object, std::move(config), std::move(args), mode,
-                                    std::move(arch_name), trace);
 }
 
 }  // namespace gpu_model

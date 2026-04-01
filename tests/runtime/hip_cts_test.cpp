@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+#include "gpu_model/program/object_reader.h"
 #include "gpu_model/runtime/hip_interposer_state.h"
 #include "gpu_model/runtime/hip_runtime.h"
 #include "test_matrix_profile.h"
@@ -529,9 +530,13 @@ TEST_P(HipCtsHipRuntimeTest, ExecutesHipOutAndValidatesResults) {
       args.PushU64(b_addr);
       args.PushU64(out_addr);
       args.PushU32(c.n);
-      const auto result = hooks.LaunchAmdgpuObject(
-          ArtifactPath(c.artifact), LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x},
-          std::move(args), ExecutionMode::Functional, "c500", nullptr, KernelName(c.kernel));
+      const auto result = hooks.LaunchEncodedProgramObject(
+          ObjectReader{}.LoadEncodedObject(ArtifactPath(c.artifact), KernelName(c.kernel)),
+          LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x},
+          std::move(args),
+          ExecutionMode::Functional,
+          "c500",
+          nullptr);
       ASSERT_TRUE(result.ok) << result.error_message;
       hooks.MemcpyDtoH<float>(out_addr, std::span<float>(out));
       ExpectNearVector(out, expected);
@@ -553,9 +558,13 @@ TEST_P(HipCtsHipRuntimeTest, ExecutesHipOutAndValidatesResults) {
       args.PushU64(out_addr);
       args.PushU32(c.n);
       args.PushU32(c.iters);
-      const auto result = hooks.LaunchAmdgpuObject(
-          ArtifactPath(c.artifact), LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x},
-          std::move(args), ExecutionMode::Functional, "c500", nullptr, KernelName(c.kernel));
+      const auto result = hooks.LaunchEncodedProgramObject(
+          ObjectReader{}.LoadEncodedObject(ArtifactPath(c.artifact), KernelName(c.kernel)),
+          LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x},
+          std::move(args),
+          ExecutionMode::Functional,
+          "c500",
+          nullptr);
       ASSERT_TRUE(result.ok) << result.error_message;
       hooks.MemcpyDtoH<float>(out_addr, std::span<float>(out));
       ExpectNearVector(out, expected, 1.0e-3f);
@@ -579,9 +588,13 @@ TEST_P(HipCtsHipRuntimeTest, ExecutesHipOutAndValidatesResults) {
       args.PushF32(c.f0);
       args.PushF32(c.f1);
       args.PushF32(c.f2);
-      const auto result = hooks.LaunchAmdgpuObject(
-          ArtifactPath(c.artifact), LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x},
-          std::move(args), ExecutionMode::Functional, "c500", nullptr, KernelName(c.kernel));
+      const auto result = hooks.LaunchEncodedProgramObject(
+          ObjectReader{}.LoadEncodedObject(ArtifactPath(c.artifact), KernelName(c.kernel)),
+          LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x},
+          std::move(args),
+          ExecutionMode::Functional,
+          "c500",
+          nullptr);
       ASSERT_TRUE(result.ok) << result.error_message;
       hooks.MemcpyDtoH<float>(out_addr, std::span<float>(out));
       ExpectNearVector(out, expected, 1.0e-4f);
@@ -605,9 +618,13 @@ TEST_P(HipCtsHipRuntimeTest, ExecutesHipOutAndValidatesResults) {
       args.PushU64(in_addr);
       args.PushU64(out_addr);
       args.PushU32(c.n);
-      const auto result = hooks.LaunchAmdgpuObject(
-          ArtifactPath(c.artifact), LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x},
-          std::move(args), ExecutionMode::Functional, "c500", nullptr, KernelName(c.kernel));
+      const auto result = hooks.LaunchEncodedProgramObject(
+          ObjectReader{}.LoadEncodedObject(ArtifactPath(c.artifact), KernelName(c.kernel)),
+          LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x},
+          std::move(args),
+          ExecutionMode::Functional,
+          "c500",
+          nullptr);
       ASSERT_TRUE(result.ok) << result.error_message;
       hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(out));
       EXPECT_EQ(out, expected);
@@ -625,9 +642,13 @@ TEST_P(HipCtsHipRuntimeTest, ExecutesHipOutAndValidatesResults) {
       args.PushU64(in_addr);
       args.PushU64(out_addr);
       args.PushU32(c.n);
-      const auto result = hooks.LaunchAmdgpuObject(
-          ArtifactPath(c.artifact), LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x},
-          std::move(args), ExecutionMode::Functional, "c500", nullptr, KernelName(c.kernel));
+      const auto result = hooks.LaunchEncodedProgramObject(
+          ObjectReader{}.LoadEncodedObject(ArtifactPath(c.artifact), KernelName(c.kernel)),
+          LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x},
+          std::move(args),
+          ExecutionMode::Functional,
+          "c500",
+          nullptr);
       ASSERT_TRUE(result.ok) << result.error_message;
       hooks.MemcpyDtoH<float>(out_addr, std::span<float>(out));
       ExpectNearVector(out, expected, 1.0e-4f);
@@ -639,9 +660,13 @@ TEST_P(HipCtsHipRuntimeTest, ExecutesHipOutAndValidatesResults) {
       hooks.MemcpyHtoD<float>(out_addr, std::span<const float>(&out, 1));
       KernelArgPack args;
       args.PushU64(out_addr);
-      const auto result = hooks.LaunchAmdgpuObject(
-          ArtifactPath(c.artifact), LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
-          std::move(args), ExecutionMode::Functional, "c500", nullptr, KernelName(c.kernel));
+      const auto result = hooks.LaunchEncodedProgramObject(
+          ObjectReader{}.LoadEncodedObject(ArtifactPath(c.artifact), KernelName(c.kernel)),
+          LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
+          std::move(args),
+          ExecutionMode::Functional,
+          "c500",
+          nullptr);
       ASSERT_TRUE(result.ok) << result.error_message;
       hooks.MemcpyDtoH<float>(out_addr, std::span<float>(&out, 1));
       EXPECT_NEAR(out, 4.0f, 1.0e-5f);
