@@ -1,7 +1,8 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cstdint>
-#include <optional>
+#include <limits>
 #include <vector>
 
 #include "gpu_model/arch/arch_registry.h"
@@ -12,87 +13,104 @@
 namespace gpu_model {
 namespace {
 
-std::optional<uint64_t> BlockLaunchCycle(const std::vector<TraceEvent>& events,
-                                          uint32_t block_id) {
-  for (const auto& event : events) {
-    if (event.kind == TraceEventKind::BlockLaunch && event.block_id == block_id) {
-      return event.cycle;
-    }
-  }
-  return std::nullopt;
+uint32_t WrappedBlockId(const GpuArchSpec& spec, uint32_t ordinal) {
+  return ordinal * spec.total_ap_count();
 }
 
-std::optional<uint64_t> FirstWaveExitCycle(const std::vector<TraceEvent>& events,
-                                            uint32_t block_id) {
-  for (const auto& event : events) {
-    if (event.kind == TraceEventKind::WaveExit && event.block_id == block_id) {
-      return event.cycle;
-    }
-  }
-  return std::nullopt;
+ExecutableKernel BuildCycleResidentExitKernel() {
+  InstructionBuilder builder;
+  builder.VMov("v0", 1);
+  builder.BExit();
+  return builder.Build("cycle_resident_exit_kernel");
 }
 
-LaunchRequest BuildSingleCycleLaunch(const ExecutableKernel& kernel, uint32_t grid_blocks) {
+size_t FirstBlockLaunchIndex(const std::vector<TraceEvent>& events, uint32_t block_id) {
+  for (size_t i = 0; i < events.size(); ++i) {
+    if (events[i].kind == TraceEventKind::BlockLaunch && events[i].block_id == block_id) {
+      return i;
+    }
+  }
+  return std::numeric_limits<size_t>::max();
+}
+
+size_t FirstWaveExitIndex(const std::vector<TraceEvent>& events, uint32_t block_id) {
+  for (size_t i = 0; i < events.size(); ++i) {
+    if (events[i].kind == TraceEventKind::WaveExit && events[i].block_id == block_id) {
+      return i;
+    }
+  }
+  return std::numeric_limits<size_t>::max();
+}
+
+LaunchRequest BuildCycleResidentLaunchRequest(const ExecutableKernel& kernel, const GpuArchSpec& spec) {
   LaunchRequest request;
   request.kernel = &kernel;
   request.mode = ExecutionMode::Cycle;
-  request.config.grid_dim_x = grid_blocks;
+  request.config.grid_dim_x = 2 * spec.total_ap_count() + 1;
   request.config.block_dim_x = 64;
   return request;
 }
 
-InstructionBuilder BuildResidentBlocksKernel() {
-  InstructionBuilder builder;
-  builder.BExit();
-  return builder;
+void ConfigureLaunchTiming(RuntimeEngine& runtime) {
+  runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
+                                 /*kernel_launch_cycles=*/0,
+                                 /*block_launch_cycles=*/0,
+                                 /*wave_launch_cycles=*/0,
+                                 /*warp_switch_cycles=*/1,
+                                 /*arg_load_cycles=*/4);
 }
 
 TEST(CycleApResidentBlocksTest, SingleApAdmitsTwoResidentBlocksBeforeBackfillingThird) {
-  const auto spec = ArchRegistry::Get("c500");
-  ASSERT_NE(spec, nullptr);
-
   CollectingTraceSink trace;
   RuntimeEngine runtime(&trace);
+  ConfigureLaunchTiming(runtime);
 
-  InstructionBuilder builder = BuildResidentBlocksKernel();
-  const auto kernel = builder.Build("resident_blocks_kernel");
+  const auto spec = ArchRegistry::Get("c500");
+  ASSERT_NE(spec, nullptr);
+  const auto kernel = BuildCycleResidentExitKernel();
 
-  const uint32_t total_ap = spec->total_ap_count();
-  const uint32_t grid_blocks = total_ap * 2 + 1;
-  const auto request = BuildSingleCycleLaunch(kernel, grid_blocks);
-
+  const auto request = BuildCycleResidentLaunchRequest(kernel, *spec);
   const auto result = runtime.Launch(request);
   ASSERT_TRUE(result.ok) << result.error_message;
 
-  const auto second_block_cycle = BlockLaunchCycle(trace.events(), total_ap);
-  ASSERT_TRUE(second_block_cycle.has_value()) << "missing wrapped block launch";
-  EXPECT_EQ(*second_block_cycle, 0u);
+  const uint32_t block0 = WrappedBlockId(*spec, 0);
+  const uint32_t block1 = WrappedBlockId(*spec, 1);
+  const uint32_t block2 = WrappedBlockId(*spec, 2);
+
+  const size_t block0_launch = FirstBlockLaunchIndex(trace.events(), block0);
+  const size_t block1_launch = FirstBlockLaunchIndex(trace.events(), block1);
+  const size_t block2_launch = FirstBlockLaunchIndex(trace.events(), block2);
+  ASSERT_NE(block0_launch, std::numeric_limits<size_t>::max());
+  ASSERT_NE(block1_launch, std::numeric_limits<size_t>::max());
+  ASSERT_NE(block2_launch, std::numeric_limits<size_t>::max());
+
+  EXPECT_EQ(trace.events()[block0_launch].cycle, 0u);
+  EXPECT_EQ(trace.events()[block1_launch].cycle, 0u);
+  EXPECT_GT(trace.events()[block2_launch].cycle, 0u);
 }
 
 TEST(CycleApResidentBlocksTest, RetiredBlockBackfillsPendingBlockOnSameAp) {
-  const auto spec = ArchRegistry::Get("c500");
-  ASSERT_NE(spec, nullptr);
-
   CollectingTraceSink trace;
   RuntimeEngine runtime(&trace);
+  ConfigureLaunchTiming(runtime);
 
-  InstructionBuilder builder = BuildResidentBlocksKernel();
-  const auto kernel = builder.Build("resident_blocks_backfill_kernel");
+  const auto spec = ArchRegistry::Get("c500");
+  ASSERT_NE(spec, nullptr);
+  const auto kernel = BuildCycleResidentExitKernel();
 
-  const uint32_t total_ap = spec->total_ap_count();
-  const uint32_t grid_blocks = total_ap * 2 + 1;
-  const auto request = BuildSingleCycleLaunch(kernel, grid_blocks);
-
+  const auto request = BuildCycleResidentLaunchRequest(kernel, *spec);
   const auto result = runtime.Launch(request);
   ASSERT_TRUE(result.ok) << result.error_message;
 
-  const auto third_block_cycle = BlockLaunchCycle(trace.events(), total_ap * 2);
-  ASSERT_TRUE(third_block_cycle.has_value()) << "missing third block launch";
+  const uint32_t block0 = WrappedBlockId(*spec, 0);
+  const uint32_t block2 = WrappedBlockId(*spec, 2);
 
-  const auto second_block_exit_cycle =
-      FirstWaveExitCycle(trace.events(), total_ap);
-  ASSERT_TRUE(second_block_exit_cycle.has_value()) << "missing second block exit";
-  EXPECT_LT(*third_block_cycle, *second_block_exit_cycle);
+  const size_t block0_exit = FirstWaveExitIndex(trace.events(), block0);
+  const size_t block2_launch = FirstBlockLaunchIndex(trace.events(), block2);
+  ASSERT_NE(block0_exit, std::numeric_limits<size_t>::max());
+  ASSERT_NE(block2_launch, std::numeric_limits<size_t>::max());
+
+  EXPECT_LT(block0_exit, block2_launch);
 }
 
 }  // namespace
