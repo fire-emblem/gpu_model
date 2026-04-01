@@ -13,7 +13,7 @@ echo "[exec-check] build targets"
 cmake --build "$BUILD_DIR" --target gpu_model_tests gpu_model_hip_interposer -j "$JOBS"
 
 echo "[exec-check] hip command line interposer usage"
-"$ROOT/examples/01-hip-command-line-interposer/run.sh" 2>&1 | tee "$OUT_DIR/hip_command_line_interposer.log"
+"$ROOT/examples/01-vecadd-basic/run.sh" 2>&1 | tee "$OUT_DIR/hip_command_line_interposer.log"
 
 echo "[exec-check] validate combined outputs"
 grep -q "vecadd validation ok" "$OUT_DIR/hip_command_line_interposer.log"

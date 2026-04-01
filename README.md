@@ -194,23 +194,26 @@ GPU_MODEL_TEST_PROFILE=full ./build/tests/gpu_model_tests
 ./examples/README.md
 ```
 
-### cycle trace 示例
-
-```bash
-./examples/03-cycle-fma-trace/run.sh
-```
-
 ### 真实 HIP `.out` 命令行路径
 
 ```bash
-./examples/01-hip-command-line-interposer/run.sh
+./examples/01-vecadd-basic/run.sh
+./examples/02-fma-loop/run.sh
 ```
 
-### cycle 计数对比例子
+### 代表性 HIP 程序例子
 
 ```bash
-./examples/04-cycle-comparison-block-count/run.sh
-./examples/05-cycle-comparison-kernel-shape/run.sh
+./examples/03-shared-reverse/run.sh
+./examples/04-atomic-reduction/run.sh
+./examples/05-softmax-reduction/run.sh
+./examples/06-mma-gemm/run.sh
+```
+
+### cycle 相关目标例子
+
+```bash
+./examples/07-vecadd-cycle-splitting/run.sh
 ```
 
 ### 顶层执行检查脚本
@@ -231,11 +234,13 @@ GPU_MODEL_TEST_PROFILE=full ./build/tests/gpu_model_tests
 
 当前比较关键的例子：
 
-- [examples/01-hip-command-line-interposer/README.md](/data/gpu_model/examples/01-hip-command-line-interposer/README.md)
-- [examples/02-hip-fma-loop-interposer/README.md](/data/gpu_model/examples/02-hip-fma-loop-interposer/README.md)
-- [examples/03-cycle-fma-trace/README.md](/data/gpu_model/examples/03-cycle-fma-trace/README.md)
-- [examples/04-cycle-comparison-block-count/README.md](/data/gpu_model/examples/04-cycle-comparison-block-count/README.md)
-- [examples/05-cycle-comparison-kernel-shape/README.md](/data/gpu_model/examples/05-cycle-comparison-kernel-shape/README.md)
+- [examples/01-vecadd-basic/README.md](/data/gpu_model/examples/01-vecadd-basic/README.md)
+- [examples/02-fma-loop/README.md](/data/gpu_model/examples/02-fma-loop/README.md)
+- [examples/03-shared-reverse/README.md](/data/gpu_model/examples/03-shared-reverse/README.md)
+- [examples/04-atomic-reduction/README.md](/data/gpu_model/examples/04-atomic-reduction/README.md)
+- [examples/05-softmax-reduction/README.md](/data/gpu_model/examples/05-softmax-reduction/README.md)
+- [examples/06-mma-gemm/README.md](/data/gpu_model/examples/06-mma-gemm/README.md)
+- [examples/07-vecadd-cycle-splitting/README.md](/data/gpu_model/examples/07-vecadd-cycle-splitting/README.md)
 
 ## 顶层开发状态
 

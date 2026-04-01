@@ -1,32 +1,22 @@
 # Examples
 
-这里统一放对用户可见、可直接运行的例子。
+这里放面向客户的可执行例子。
 
-规则：
+约束：
 
-- 每个 case 一个目录
-- 每个 case 一个独立 `run.sh`
-- 目录按“由简到难”编号
-- 内部 API 级示例不再放这里，改由单测和工具代码维护
+- 每个例子一个目录
+- 每个例子都是真实 HIP 源码
+- 每个例子都能先通过 `hipcc` 生成 `.out`
+- 每个目录都有独立 `run.sh`
+- 目录按由简到难编号
+- 当前特性尚未完全接通的部分，在目录 `README.md` 里明确标记
 
-当前保留的高价值例子：
+当前目标例子：
 
-1. [01-hip-command-line-interposer](./01-hip-command-line-interposer)
-   最直接的端到端例子。编译真实 HIP vecadd，可通过 `LD_PRELOAD` 把 kernel 执行重定向到模型。
-2. [02-hip-fma-loop-interposer](./02-hip-fma-loop-interposer)
-   真实 HIP host+device 路径，包含循环和浮点运算。
-3. [03-cycle-fma-trace](./03-cycle-fma-trace)
-   展示 cycle trace、jsonl trace、timeline 的可观测输出。
-4. [04-cycle-comparison-block-count](./04-cycle-comparison-block-count)
-   展示不同 block 数量下的 cycle 计数差异。
-5. [05-cycle-comparison-kernel-shape](./05-cycle-comparison-kernel-shape)
-   展示不同 kernel 写法下的 cycle 计数差异。
-
-常用命令：
-
-```bash
-./examples/01-hip-command-line-interposer/run.sh
-./examples/03-cycle-fma-trace/run.sh
-./examples/04-cycle-comparison-block-count/run.sh
-./examples/05-cycle-comparison-kernel-shape/run.sh
-```
+1. [01-vecadd-basic](./01-vecadd-basic)
+2. [02-fma-loop](./02-fma-loop)
+3. [03-shared-reverse](./03-shared-reverse)
+4. [04-atomic-reduction](./04-atomic-reduction)
+5. [05-softmax-reduction](./05-softmax-reduction)
+6. [06-mma-gemm](./06-mma-gemm)
+7. [07-vecadd-cycle-splitting](./07-vecadd-cycle-splitting)
