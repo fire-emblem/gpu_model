@@ -33,14 +33,17 @@ namespace gpu_model {
 
 namespace {
 
+struct ExecutableBlock;
+
 struct ScheduledWave {
   uint32_t dpc_id = 0;
-  struct ExecutableBlock* block = nullptr;
+  ExecutableBlock* block = nullptr;
   WaveContext wave;
   Scoreboard scoreboard;
   uint64_t launch_cycle = 0;
   bool dispatch_enabled = false;
   bool launch_scheduled = false;
+  size_t peu_slot_index = std::numeric_limits<size_t>::max();
 };
 
 struct ExecutableBlock {
@@ -65,6 +68,9 @@ struct PeuSlot {
   uint64_t last_wave_tag = std::numeric_limits<uint64_t>::max();
   size_t last_issue_index = std::numeric_limits<size_t>::max();
   std::vector<ScheduledWave*> waves;
+  std::vector<ScheduledWave*> resident_waves;
+  std::vector<ScheduledWave*> active_window;
+  std::vector<ScheduledWave*> standby_waves;
 };
 
 struct ApResidentState {
@@ -388,9 +394,13 @@ std::vector<PeuSlot> BuildPeuSlots(std::vector<ExecutableBlock>& blocks) {
             .ap_id = block.ap_id,
             .peu_id = scheduled_wave.wave.peu_id,
             .waves = {},
+            .resident_waves = {},
+            .active_window = {},
+            .standby_waves = {},
         });
         it->second = slots.size() - 1;
       }
+      scheduled_wave.peu_slot_index = it->second;
       slots[it->second].waves.push_back(&scheduled_wave);
     }
   }
@@ -467,8 +477,51 @@ void ScheduleWaveLaunch(ScheduledWave& scheduled_wave,
   });
 }
 
+void RemoveWaveFromList(std::vector<ScheduledWave*>& waves, const ScheduledWave* target) {
+  waves.erase(std::remove(waves.begin(), waves.end(), target), waves.end());
+}
+
+void RegisterResidentWave(PeuSlot& slot, ScheduledWave& scheduled_wave) {
+  RemoveWaveFromList(slot.resident_waves, &scheduled_wave);
+  RemoveWaveFromList(slot.active_window, &scheduled_wave);
+  RemoveWaveFromList(slot.standby_waves, &scheduled_wave);
+  scheduled_wave.dispatch_enabled = false;
+  slot.resident_waves.push_back(&scheduled_wave);
+  slot.standby_waves.push_back(&scheduled_wave);
+}
+
+void RemoveResidentWave(PeuSlot& slot, ScheduledWave& scheduled_wave) {
+  RemoveWaveFromList(slot.resident_waves, &scheduled_wave);
+  RemoveWaveFromList(slot.active_window, &scheduled_wave);
+  RemoveWaveFromList(slot.standby_waves, &scheduled_wave);
+  scheduled_wave.dispatch_enabled = false;
+  slot.last_issue_index = std::numeric_limits<size_t>::max();
+}
+
+void RefillActiveWindow(PeuSlot& slot,
+                        uint64_t cycle,
+                        uint32_t max_issuable_waves,
+                        uint64_t wave_launch_cycles,
+                        EventQueue& events,
+                        TraceSink& trace) {
+  uint32_t launch_order = 0;
+  while (slot.active_window.size() < max_issuable_waves && !slot.standby_waves.empty()) {
+    ScheduledWave* scheduled_wave = slot.standby_waves.front();
+    slot.standby_waves.erase(slot.standby_waves.begin());
+    if (scheduled_wave == nullptr || scheduled_wave->wave.status == WaveStatus::Exited) {
+      continue;
+    }
+    slot.active_window.push_back(scheduled_wave);
+    const uint64_t launch_cycle =
+        cycle + static_cast<uint64_t>(launch_order) * wave_launch_cycles;
+    ScheduleWaveLaunch(*scheduled_wave, launch_cycle, events, trace);
+    ++launch_order;
+  }
+}
+
 void ActivateBlock(ExecutableBlock& block,
                    uint64_t cycle,
+                   std::vector<PeuSlot>& slots,
                    uint32_t max_issuable_waves,
                    uint64_t wave_launch_cycles,
                    EventQueue& events,
@@ -482,22 +535,31 @@ void ActivateBlock(ExecutableBlock& block,
       .block_id = block.block_id,
       .message = "ap=" + std::to_string(block.ap_id),
   });
-  std::map<uint32_t, uint32_t> peu_launch_order;
+  std::vector<size_t> touched_slots;
   for (auto& scheduled_wave : block.waves) {
     scheduled_wave.wave.status = WaveStatus::Stalled;
     scheduled_wave.dispatch_enabled = false;
     scheduled_wave.launch_scheduled = false;
-    const uint32_t launch_order = peu_launch_order[scheduled_wave.wave.peu_id]++;
-    if (launch_order < max_issuable_waves) {
-      const uint64_t launch_cycle =
-          cycle + static_cast<uint64_t>(launch_order) * wave_launch_cycles;
-      ScheduleWaveLaunch(scheduled_wave, launch_cycle, events, trace);
+    PeuSlot& slot = slots.at(scheduled_wave.peu_slot_index);
+    RegisterResidentWave(slot, scheduled_wave);
+    if (std::find(touched_slots.begin(), touched_slots.end(), scheduled_wave.peu_slot_index) ==
+        touched_slots.end()) {
+      touched_slots.push_back(scheduled_wave.peu_slot_index);
     }
+  }
+  for (size_t slot_index : touched_slots) {
+    RefillActiveWindow(slots.at(slot_index),
+                       cycle,
+                       max_issuable_waves,
+                       wave_launch_cycles,
+                       events,
+                       trace);
   }
 }
 
 bool AdmitOneResidentBlock(ApResidentState& ap_state,
                            uint64_t cycle,
+                           std::vector<PeuSlot>& slots,
                            uint32_t max_issuable_waves,
                            uint64_t wave_launch_cycles,
                            EventQueue& events,
@@ -510,7 +572,13 @@ bool AdmitOneResidentBlock(ApResidentState& ap_state,
       continue;
     }
     ap_state.resident_blocks.push_back(next_block);
-    ActivateBlock(*next_block, cycle, max_issuable_waves, wave_launch_cycles, events, trace);
+    ActivateBlock(*next_block,
+                  cycle,
+                  slots,
+                  max_issuable_waves,
+                  wave_launch_cycles,
+                  events,
+                  trace);
     return true;
   }
   return false;
@@ -518,12 +586,14 @@ bool AdmitOneResidentBlock(ApResidentState& ap_state,
 
 void AdmitResidentBlocks(ApResidentState& ap_state,
                          uint64_t cycle,
+                         std::vector<PeuSlot>& slots,
                          uint32_t max_issuable_waves,
                          uint64_t wave_launch_cycles,
                          EventQueue& events,
                          TraceSink& trace) {
   while (AdmitOneResidentBlock(ap_state,
                                cycle,
+                               slots,
                                max_issuable_waves,
                                wave_launch_cycles,
                                events,
@@ -551,48 +621,27 @@ bool CanScheduleDelayedReadmit(const ApResidentState& ap_state) {
 void FillDispatchWindow(PeuSlot& slot,
                         uint64_t cycle,
                         uint32_t max_issuable_waves,
+                        uint64_t wave_launch_cycles,
                         EventQueue& events,
                         TraceSink& trace) {
-  uint32_t active_count = 0;
-  for (auto* scheduled_wave : slot.waves) {
-    if (!scheduled_wave->block->active || !scheduled_wave->dispatch_enabled) {
-      continue;
-    }
-    if ((scheduled_wave->wave.status == WaveStatus::Active && scheduled_wave->wave.valid_entry) ||
-        scheduled_wave->launch_scheduled) {
-      ++active_count;
-    }
-  }
-  if (active_count >= max_issuable_waves) {
-    return;
-  }
-
-  for (auto* scheduled_wave : slot.waves) {
-    if (active_count >= max_issuable_waves) {
-      break;
-    }
-    if (!scheduled_wave->block->active || scheduled_wave->dispatch_enabled ||
-        scheduled_wave->wave.status == WaveStatus::Exited) {
-      continue;
-    }
-    ScheduleWaveLaunch(*scheduled_wave, cycle, events, trace);
-    ++active_count;
-  }
+  RefillActiveWindow(slot, cycle, max_issuable_waves, wave_launch_cycles, events, trace);
 }
 
 ScheduledWave* PickNextReadyWave(PeuSlot& slot,
                                  const ExecutableKernel& kernel,
                                  uint64_t cycle) {
-  if (slot.waves.empty()) {
+  if (slot.active_window.empty()) {
     return nullptr;
   }
 
-  const size_t count = slot.waves.size();
+  const size_t count = slot.active_window.size();
   const size_t start =
-      slot.last_issue_index == std::numeric_limits<size_t>::max() ? 0 : (slot.last_issue_index + 1) % count;
+      slot.last_issue_index == std::numeric_limits<size_t>::max() || slot.last_issue_index >= count
+          ? 0
+          : (slot.last_issue_index + 1) % count;
   for (size_t offset = 0; offset < count; ++offset) {
     const size_t index = (start + offset) % count;
-    ScheduledWave* scheduled_wave = slot.waves[index];
+    ScheduledWave* scheduled_wave = slot.active_window[index];
     if (scheduled_wave->wave.pc >= kernel.instructions().size()) {
       throw std::out_of_range("wave pc out of range");
     }
@@ -611,16 +660,18 @@ ScheduledWave* PickNextReadyWave(PeuSlot& slot,
 std::optional<std::pair<ScheduledWave*, std::string>> PickFirstBlockedWave(PeuSlot& slot,
                                                                            const ExecutableKernel& kernel,
                                                                            uint64_t cycle) {
-  if (slot.waves.empty()) {
+  if (slot.active_window.empty()) {
     return std::nullopt;
   }
 
-  const size_t count = slot.waves.size();
+  const size_t count = slot.active_window.size();
   const size_t start =
-      slot.last_issue_index == std::numeric_limits<size_t>::max() ? 0 : (slot.last_issue_index + 1) % count;
+      slot.last_issue_index == std::numeric_limits<size_t>::max() || slot.last_issue_index >= count
+          ? 0
+          : (slot.last_issue_index + 1) % count;
   for (size_t offset = 0; offset < count; ++offset) {
     const size_t index = (start + offset) % count;
-    ScheduledWave* scheduled_wave = slot.waves[index];
+    ScheduledWave* scheduled_wave = slot.active_window[index];
     if (!scheduled_wave->dispatch_enabled || scheduled_wave->wave.status != WaveStatus::Active) {
       continue;
     }
@@ -663,6 +714,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
     (void)global_ap_id;
     AdmitResidentBlocks(ap_state,
                         context.cycle,
+                        slots,
                         context.spec.max_issuable_waves,
                         timing_config_.launch_timing.wave_launch_cycles,
                         events,
@@ -674,7 +726,12 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
     context.cycle = cycle;
     events.RunReady(cycle);
     for (auto& slot : slots) {
-      FillDispatchWindow(slot, cycle, context.spec.max_issuable_waves, events, context.trace);
+      FillDispatchWindow(slot,
+                         cycle,
+                         context.spec.max_issuable_waves,
+                         timing_config_.launch_timing.wave_launch_cycles,
+                         events,
+                         context.trace);
     }
     events.RunReady(cycle);
 
@@ -1129,6 +1186,8 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                     ++context.stats->wave_exits;
                   }
                   ApplyExecutionPlanControlFlow(plan, candidate->wave, false, false);
+                  PeuSlot& slot = slots.at(candidate->peu_slot_index);
+                  RemoveResidentWave(slot, *candidate);
                   context.trace.OnEvent(TraceEvent{
                       .kind = TraceEventKind::WaveExit,
                       .cycle = commit_cycle,
@@ -1165,6 +1224,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                                   AdmitOneResidentBlock(
                                       state_it->second,
                                       commit_cycle + timing_config_.launch_timing.block_launch_cycles,
+                                      slots,
                                       context.spec.max_issuable_waves,
                                       timing_config_.launch_timing.wave_launch_cycles,
                                       events,
@@ -1174,6 +1234,12 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                       }
                     }
                   }
+                  RefillActiveWindow(slot,
+                                     commit_cycle,
+                                     context.spec.max_issuable_waves,
+                                     timing_config_.launch_timing.wave_launch_cycles,
+                                     events,
+                                     context.trace);
                   return;
                 }
 
