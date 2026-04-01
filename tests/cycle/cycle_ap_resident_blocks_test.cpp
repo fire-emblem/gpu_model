@@ -1,6 +1,5 @@
 #include <gtest/gtest.h>
 
-#include <algorithm>
 #include <cstdint>
 #include <limits>
 #include <vector>
@@ -104,14 +103,18 @@ TEST(CycleApResidentBlocksTest, RetiredBlockBackfillsPendingBlockOnSameAp) {
   ASSERT_TRUE(result.ok) << result.error_message;
 
   const uint32_t block0 = WrappedBlockId(*spec, 0);
+  const uint32_t block1 = WrappedBlockId(*spec, 1);
   const uint32_t block2 = WrappedBlockId(*spec, 2);
 
   const size_t block0_exit = FirstWaveExitIndex(trace.events(), block0);
+  const size_t block1_exit = FirstWaveExitIndex(trace.events(), block1);
   const size_t block2_launch = FirstBlockLaunchIndex(trace.events(), block2);
   ASSERT_NE(block0_exit, std::numeric_limits<size_t>::max());
+  ASSERT_NE(block1_exit, std::numeric_limits<size_t>::max());
   ASSERT_NE(block2_launch, std::numeric_limits<size_t>::max());
 
   EXPECT_LT(block0_exit, block2_launch);
+  EXPECT_LT(block2_launch, block1_exit);
 }
 
 }  // namespace
