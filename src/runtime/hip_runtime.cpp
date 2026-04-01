@@ -262,13 +262,6 @@ DeviceLoadPlan HipRuntime::BuildLoadPlan(const ProgramObject& image) const {
   return BuildDeviceLoadPlan(image);
 }
 
-DeviceLoadPlan HipRuntime::BuildLoadPlanFromAmdgpuObject(
-    const std::filesystem::path& path,
-    std::optional<std::string> kernel_name) const {
-  const auto decoded = ObjectReader{}.LoadEncodedObject(path, std::move(kernel_name));
-  return BuildDeviceLoadPlan(decoded);
-}
-
 EncodedProgramObject HipRuntime::DescribeAmdgpuObject(
     const std::filesystem::path& path,
     std::optional<std::string> kernel_name) const {
@@ -281,12 +274,6 @@ DeviceLoadResult HipRuntime::MaterializeLoadPlan(const DeviceLoadPlan& plan) {
 
 DeviceLoadResult HipRuntime::LoadProgramImageToDevice(const ProgramObject& image) {
   return MaterializeLoadPlan(BuildLoadPlan(image));
-}
-
-DeviceLoadResult HipRuntime::LoadAmdgpuObjectToDevice(
-    const std::filesystem::path& path,
-    std::optional<std::string> kernel_name) {
-  return MaterializeLoadPlan(BuildLoadPlanFromAmdgpuObject(path, std::move(kernel_name)));
 }
 
 void HipRuntime::LoadModule(const ModuleLoadRequest& request) {

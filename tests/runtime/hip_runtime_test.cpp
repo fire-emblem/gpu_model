@@ -752,7 +752,8 @@ TEST(HipRuntimeTest, BuildsLoadPlanFromHipSharedReverseExecutable) {
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   HipRuntime hooks;
-  const auto plan = hooks.BuildLoadPlanFromAmdgpuObject(exe_path, "shared_reverse");
+  const auto image = hooks.DescribeAmdgpuObject(exe_path, "shared_reverse");
+  const auto plan = BuildDeviceLoadPlan(image);
   ASSERT_EQ(plan.segments.size(), 2u);
   EXPECT_EQ(plan.segments[0].pool, MemoryPoolKind::Code);
   EXPECT_EQ(plan.segments[1].pool, MemoryPoolKind::Kernarg);
@@ -792,7 +793,8 @@ TEST(HipRuntimeTest, MaterializesHipSharedReverseCodeIntoDeviceMemory) {
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   HipRuntime hooks;
-  const auto result = hooks.LoadAmdgpuObjectToDevice(exe_path, "shared_reverse");
+  const auto image = hooks.DescribeAmdgpuObject(exe_path, "shared_reverse");
+  const auto result = hooks.MaterializeLoadPlan(BuildDeviceLoadPlan(image));
   ASSERT_EQ(result.segments.size(), 2u);
   EXPECT_EQ(result.required_shared_bytes, 256u);
   EXPECT_EQ(result.preferred_kernarg_bytes, 280u);
