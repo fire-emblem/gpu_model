@@ -92,5 +92,49 @@ TEST(IssueEligibilityTest, IssueBlockReasonReportsWaitcntAndDependencyReasons) {
   EXPECT_EQ(*dep_reason, "dependency_wait");
 }
 
+TEST(IssueEligibilityTest, WaitingWaveCannotIssueEvenWhenInstructionDependenciesAreOtherwiseReady) {
+  WaveContext wave;
+  wave.status = WaveStatus::Active;
+  wave.valid_entry = true;
+  wave.run_state = WaveRunState::Waiting;
+  wave.wait_reason = WaveWaitReason::PendingGlobalMemory;
+
+  Instruction vector_instr;
+  vector_instr.opcode = Opcode::VAdd;
+
+  EXPECT_FALSE(CanIssueInstruction(true, wave, vector_instr, true));
+}
+
+TEST(IssueEligibilityTest, WaitingWaveReportsExplicitWaitReasonBeforeOtherChecks) {
+  WaveContext wave;
+  wave.status = WaveStatus::Active;
+  wave.valid_entry = true;
+  wave.run_state = WaveRunState::Waiting;
+  wave.wait_reason = WaveWaitReason::PendingGlobalMemory;
+
+  Instruction vector_instr;
+  vector_instr.opcode = Opcode::VAdd;
+
+  const auto reason = IssueBlockReason(true, wave, vector_instr, true);
+  ASSERT_TRUE(reason.has_value());
+  EXPECT_EQ(*reason, "waitcnt_global");
+}
+
+TEST(IssueEligibilityTest, BarrierWaitingWaveReportsBarrierWait) {
+  WaveContext wave;
+  wave.status = WaveStatus::Active;
+  wave.valid_entry = true;
+  wave.run_state = WaveRunState::Waiting;
+  wave.wait_reason = WaveWaitReason::BlockBarrier;
+  wave.waiting_at_barrier = true;
+
+  Instruction vector_instr;
+  vector_instr.opcode = Opcode::VAdd;
+
+  const auto reason = IssueBlockReason(true, wave, vector_instr, true);
+  ASSERT_TRUE(reason.has_value());
+  EXPECT_EQ(*reason, "barrier_wait");
+}
+
 }  // namespace
 }  // namespace gpu_model

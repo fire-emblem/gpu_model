@@ -47,6 +47,27 @@ std::optional<std::string> DetermineWaitCntBlockReason(const WaveContext& wave,
   return std::nullopt;
 }
 
+std::optional<std::string> WaitingStateBlockReason(const WaveContext& wave) {
+  if (wave.run_state != WaveRunState::Waiting) {
+    return std::nullopt;
+  }
+  switch (wave.wait_reason) {
+    case WaveWaitReason::BlockBarrier:
+      return std::string("barrier_wait");
+    case WaveWaitReason::PendingGlobalMemory:
+      return std::string("waitcnt_global");
+    case WaveWaitReason::PendingSharedMemory:
+      return std::string("waitcnt_shared");
+    case WaveWaitReason::PendingPrivateMemory:
+      return std::string("waitcnt_private");
+    case WaveWaitReason::PendingScalarBufferMemory:
+      return std::string("waitcnt_scalar_buffer");
+    case WaveWaitReason::None:
+      return std::string("wave_wait");
+  }
+  return std::nullopt;
+}
+
 }  // namespace
 
 MemoryWaitDomain MemoryDomainForOpcode(Opcode opcode) {
@@ -180,7 +201,8 @@ bool CanIssueInstruction(bool dispatch_enabled,
                          const Instruction& instruction,
                          bool dependencies_ready) {
   const auto memory_domain = MemoryDomainForOpcode(instruction.opcode);
-  return dispatch_enabled && wave.status == WaveStatus::Active && wave.valid_entry &&
+  return dispatch_enabled && wave.status == WaveStatus::Active &&
+         wave.run_state == WaveRunState::Runnable && wave.valid_entry &&
          (memory_domain == MemoryWaitDomain::None ||
           PendingMemoryOpsForDomain(wave, memory_domain) == 0) &&
          WaitCntSatisfied(wave, instruction) &&
@@ -195,6 +217,9 @@ std::optional<std::string> IssueBlockReason(bool dispatch_enabled,
                                             bool dependencies_ready) {
   if (!dispatch_enabled || wave.status != WaveStatus::Active) {
     return std::nullopt;
+  }
+  if (const auto waiting_reason = WaitingStateBlockReason(wave)) {
+    return waiting_reason;
   }
   if (!wave.valid_entry) {
     return std::string("front_end_wait");
