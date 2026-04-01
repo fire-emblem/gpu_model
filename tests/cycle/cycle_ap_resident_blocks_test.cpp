@@ -51,19 +51,15 @@ LaunchRequest BuildCycleResidentLaunchRequest(const ExecutableKernel& kernel, co
   return request;
 }
 
-void ConfigureLaunchTiming(RuntimeEngine& runtime) {
+TEST(CycleApResidentBlocksTest, SingleApAdmitsTwoResidentBlocksBeforeBackfillingThird) {
+  CollectingTraceSink trace;
+  RuntimeEngine runtime(&trace);
   runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
                                  /*kernel_launch_cycles=*/0,
                                  /*block_launch_cycles=*/0,
                                  /*wave_launch_cycles=*/0,
                                  /*warp_switch_cycles=*/1,
                                  /*arg_load_cycles=*/4);
-}
-
-TEST(CycleApResidentBlocksTest, SingleApAdmitsTwoResidentBlocksBeforeBackfillingThird) {
-  CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
-  ConfigureLaunchTiming(runtime);
 
   const auto spec = ArchRegistry::Get("c500");
   ASSERT_NE(spec, nullptr);
@@ -92,7 +88,12 @@ TEST(CycleApResidentBlocksTest, SingleApAdmitsTwoResidentBlocksBeforeBackfilling
 TEST(CycleApResidentBlocksTest, RetiredBlockBackfillsPendingBlockOnSameAp) {
   CollectingTraceSink trace;
   RuntimeEngine runtime(&trace);
-  ConfigureLaunchTiming(runtime);
+  runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
+                                 /*kernel_launch_cycles=*/0,
+                                 /*block_launch_cycles=*/0,
+                                 /*wave_launch_cycles=*/0,
+                                 /*warp_switch_cycles=*/1,
+                                 /*arg_load_cycles=*/4);
 
   const auto spec = ArchRegistry::Get("c500");
   ASSERT_NE(spec, nullptr);
