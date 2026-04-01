@@ -102,7 +102,7 @@ TEST(CycleSmokeTest, QueuesBlocksWhenGridExceedsPhysicalApCount) {
   EXPECT_TRUE(saw_warp_switch);
 }
 
-TEST(CycleSmokeTest, AsyncLoadPromotesOverflowResidentWavesPerPeu) {
+TEST(CycleSmokeTest, AsyncLoadDoesNotPromoteOverflowResidentWavesPerPeu) {
   CollectingTraceSink trace;
   RuntimeEngine runtime(&trace);
   runtime.SetFixedGlobalMemoryLatency(40);
@@ -146,7 +146,7 @@ TEST(CycleSmokeTest, AsyncLoadPromotesOverflowResidentWavesPerPeu) {
   }
 
   EXPECT_EQ(wave_launches_at_0, 16u);
-  EXPECT_EQ(wave_launches_at_1, 4u);
+  EXPECT_EQ(wave_launches_at_1, 0u);
   EXPECT_GT(result.total_cycles, 0u);
 }
 
