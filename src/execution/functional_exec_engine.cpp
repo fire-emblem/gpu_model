@@ -13,6 +13,7 @@
 #include <stdexcept>
 #include <string_view>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 
 #ifdef GPU_MODEL_HAS_MARL
@@ -24,12 +25,14 @@
 #include "gpu_model/debug/trace_event.h"
 #include "gpu_model/debug/wave_launch_trace.h"
 #include "gpu_model/execution/internal/issue_eligibility.h"
+#include "gpu_model/execution/internal/opcode_execution_info.h"
 #include "gpu_model/execution/memory_ops.h"
 #include "gpu_model/execution/plan_apply.h"
 #include "gpu_model/execution/sync_ops.h"
 #include "gpu_model/execution/wave_context_builder.h"
 #include "gpu_model/isa/opcode.h"
 #include "gpu_model/loader/device_image_loader.h"
+#include "gpu_model/runtime/program_cycle_tracker.h"
 
 namespace gpu_model {
 
@@ -40,6 +43,13 @@ constexpr uint8_t kFunctionalPendingMemoryCompletionTurns = 5;
 struct PendingMemoryOp {
   MemoryWaitDomain domain = MemoryWaitDomain::None;
   uint8_t turns_until_complete = kFunctionalPendingMemoryCompletionTurns;
+};
+
+struct ExecutedWaveStep {
+  uint32_t block_id = 0;
+  uint32_t wave_id = 0;
+  ExecutedStepClass step_class = ExecutedStepClass::ScalarAlu;
+  uint64_t cost_cycles = 0;
 };
 
 struct FunctionalWaveState {
@@ -205,6 +215,160 @@ bool AdvancePendingMemoryOps(FunctionalWaveState& state, WaveContext& wave) {
   return advanced;
 }
 
+uint64_t StableWaveKey(const WaveContext& wave) {
+  return (static_cast<uint64_t>(wave.block_id) << 32u) | wave.wave_id;
+}
+
+std::optional<ExecutedStepClass> ClassifyExecutedInstruction(const Instruction& instruction,
+                                                             const OpPlan& plan) {
+  if (plan.sync_barrier || plan.sync_wave_barrier) {
+    return ExecutedStepClass::Barrier;
+  }
+  if (plan.wait_cnt) {
+    return ExecutedStepClass::Wait;
+  }
+  if (plan.memory.has_value()) {
+    switch (plan.memory->space) {
+      case MemorySpace::Global:
+        return ExecutedStepClass::GlobalMem;
+      case MemorySpace::Shared:
+        return ExecutedStepClass::SharedMem;
+      case MemorySpace::Private:
+        return ExecutedStepClass::PrivateMem;
+      case MemorySpace::Constant:
+        return ExecutedStepClass::ScalarMem;
+    }
+  }
+
+  switch (GetOpcodeExecutionInfo(instruction.opcode).family) {
+    case SemanticFamily::ScalarAlu:
+    case SemanticFamily::ScalarCompare:
+      return ExecutedStepClass::ScalarAlu;
+    case SemanticFamily::VectorAluInt:
+    case SemanticFamily::VectorAluFloat:
+    case SemanticFamily::VectorCompare:
+      return ExecutedStepClass::VectorAlu;
+    case SemanticFamily::ScalarMemory:
+      return ExecutedStepClass::ScalarMem;
+    case SemanticFamily::VectorMemory:
+      return ExecutedStepClass::GlobalMem;
+    case SemanticFamily::LocalDataShare:
+      return ExecutedStepClass::SharedMem;
+    case SemanticFamily::Builtin:
+    case SemanticFamily::Mask:
+    case SemanticFamily::Branch:
+    case SemanticFamily::Sync:
+    case SemanticFamily::Special:
+      return std::nullopt;
+  }
+  return std::nullopt;
+}
+
+uint64_t CostForExecutedStep(const OpPlan& plan,
+                             ExecutedStepClass step_class,
+                             const ProgramCycleStatsConfig& config) {
+  switch (step_class) {
+    case ExecutedStepClass::ScalarAlu:
+    case ExecutedStepClass::VectorAlu:
+      return plan.issue_cycles;
+    case ExecutedStepClass::Tensor:
+      return config.tensor_cycles;
+    case ExecutedStepClass::SharedMem:
+      return config.shared_mem_cycles;
+    case ExecutedStepClass::ScalarMem:
+      return config.scalar_mem_cycles;
+    case ExecutedStepClass::GlobalMem:
+      return config.global_mem_cycles;
+    case ExecutedStepClass::PrivateMem:
+      return config.private_mem_cycles;
+    case ExecutedStepClass::Barrier:
+    case ExecutedStepClass::Wait:
+      return plan.issue_cycles == 0 ? config.default_issue_cycles : plan.issue_cycles;
+  }
+  return config.default_issue_cycles;
+}
+
+class ExecutedFlowEventSource final : public ProgramCycleTickSource {
+ public:
+  explicit ExecutedFlowEventSource(
+      const std::unordered_map<uint64_t, std::deque<ExecutedWaveStep>>& recorded_steps) {
+    uint32_t agg_wave_id = 0;
+    wave_states_.reserve(recorded_steps.size());
+    for (const auto& [stable_wave_id, steps] : recorded_steps) {
+      (void)stable_wave_id;
+      wave_states_.push_back(WaveQueueState{
+          .agg_wave_id = agg_wave_id++,
+          .steps = steps,
+      });
+    }
+  }
+
+  bool Done() const override {
+    for (const auto& wave : wave_states_) {
+      if (!wave.completed) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  void AdvanceOneTick(ProgramCycleTracker& agg) override {
+    for (auto& wave : wave_states_) {
+      if (!wave.active) {
+        continue;
+      }
+      ++wave.ticks_consumed;
+      if (wave.ticks_consumed >= wave.current_cost_cycles) {
+        wave.active = false;
+        wave.ticks_consumed = 0;
+        wave.current_cost_cycles = 0;
+        agg.MarkWaveRunnable(wave.agg_wave_id);
+      }
+    }
+
+    for (auto& wave : wave_states_) {
+      if (wave.completed || wave.active) {
+        continue;
+      }
+      if (!wave.steps.empty()) {
+        const auto step = wave.steps.front();
+        wave.steps.pop_front();
+        wave.active = true;
+        wave.current_cost_cycles = step.cost_cycles;
+        wave.ticks_consumed = 0;
+        agg.BeginWaveWork(wave.agg_wave_id, step.step_class, step.cost_cycles);
+        continue;
+      }
+      wave.completed = true;
+      agg.MarkWaveCompleted(wave.agg_wave_id);
+    }
+  }
+
+ private:
+  struct WaveQueueState {
+    uint32_t agg_wave_id = 0;
+    std::deque<ExecutedWaveStep> steps;
+    bool active = false;
+    bool completed = false;
+    uint64_t current_cost_cycles = 0;
+    uint64_t ticks_consumed = 0;
+  };
+
+  std::vector<WaveQueueState> wave_states_;
+};
+
+ProgramCycleStats CollectProgramCycleStatsFromExecutedFlow(
+    const std::unordered_map<uint64_t, std::deque<ExecutedWaveStep>>& recorded_steps,
+    const ProgramCycleStatsConfig& config) {
+  ProgramCycleTracker agg(config);
+  ExecutedFlowEventSource source(recorded_steps);
+  while (!source.Done()) {
+    source.AdvanceOneTick(agg);
+    agg.AdvanceOneTick();
+  }
+  return agg.Finish();
+}
+
 void RecordPendingMemoryOp(FunctionalWaveState& state,
                            WaveContext& wave,
                            MemoryWaitDomain domain) {
@@ -355,7 +519,9 @@ class FunctionalExecutionCoreImpl {
       CommitStats(block_stats);
     }
     EmitWaveStatsSnapshot();
-    return 0;
+    program_cycle_stats_ =
+        CollectProgramCycleStatsFromExecutedFlow(executed_flow_steps_, cycle_stats_config_);
+    return program_cycle_stats_->total_cycles;
   }
 
   uint64_t RunParallelBlocks(uint32_t worker_threads) {
@@ -377,56 +543,19 @@ class FunctionalExecutionCoreImpl {
     std::mutex failure_mutex;
 
     for (size_t i = 0; i < blocks_.size(); ++i) {
-      const size_t peu_count = std::max<size_t>(1, blocks_[i].wave_indices_per_peu.size());
-      marl::schedule([&, i, peu_count] {
-        marl::WaitGroup block_done(static_cast<int>(peu_count));
-        for (size_t peu_index = 0; peu_index < peu_count; ++peu_index) {
-          marl::schedule([&, i, peu_index] {
-            ExecutionStats peu_stats;
-            try {
-              while (true) {
-                std::optional<size_t> wave_index;
-                {
-                  std::unique_lock<std::mutex> lock(*blocks_[i].control_mutex);
-                  while (true) {
-                    if (IsBlockComplete(blocks_[i])) {
-                      break;
-                    }
-                    const bool progressed = ProcessWaitingWaves(blocks_[i]);
-                    wave_index = SelectNextWaveIndexForPeu(blocks_[i], peu_index);
-                    if (wave_index.has_value()) {
-                      blocks_[i].wave_busy[*wave_index] = true;
-                      break;
-                    }
-                    if (progressed) {
-                      continue;
-                    }
-                    blocks_[i].control_cv->wait(lock);
-                  }
-                }
-                if (!wave_index.has_value()) {
-                  break;
-                }
-                ExecuteWave(blocks_[i], *wave_index, peu_stats);
-                {
-                  std::lock_guard<std::mutex> lock(*blocks_[i].control_mutex);
-                  blocks_[i].wave_busy[*wave_index] = false;
-                }
-                blocks_[i].control_cv->notify_all();
-              }
-            } catch (...) {
-              std::lock_guard<std::mutex> lock(failure_mutex);
-              if (failure == nullptr) {
-                failure = std::current_exception();
-              }
+      marl::schedule([&, i] {
+          ExecutionStats block_stats;
+          try {
+            ExecuteBlock(blocks_[i], block_stats);
+          } catch (...) {
+            std::lock_guard<std::mutex> lock(failure_mutex);
+            if (failure == nullptr) {
+              failure = std::current_exception();
             }
-            CommitStats(peu_stats);
-            block_done.done();
-          });
-        }
-        block_done.wait();
-        done.done();
-      });
+          }
+          CommitStats(block_stats);
+          done.done();
+        });
     }
 
     done.wait();
@@ -435,11 +564,17 @@ class FunctionalExecutionCoreImpl {
       std::rethrow_exception(failure);
     }
     EmitWaveStatsSnapshot();
-    return 0;
+    program_cycle_stats_ =
+        CollectProgramCycleStatsFromExecutedFlow(executed_flow_steps_, cycle_stats_config_);
+    return program_cycle_stats_->total_cycles;
 #else
     (void)worker_threads;
     return RunSequential();
 #endif
+  }
+
+  std::optional<ProgramCycleStats> TakeProgramCycleStats() const {
+    return program_cycle_stats_;
   }
 
  private:
@@ -449,6 +584,10 @@ class FunctionalExecutionCoreImpl {
   std::mutex trace_mutex_;
   std::mutex stats_mutex_;
   std::mutex global_memory_mutex_;
+  std::mutex executed_flow_mutex_;
+  ProgramCycleStatsConfig cycle_stats_config_{};
+  std::unordered_map<uint64_t, std::deque<ExecutedWaveStep>> executed_flow_steps_;
+  std::optional<ProgramCycleStats> program_cycle_stats_;
 
   void TraceEventLocked(TraceEvent event) {
     std::lock_guard<std::mutex> lock(trace_mutex_);
@@ -461,6 +600,21 @@ class FunctionalExecutionCoreImpl {
     }
     std::lock_guard<std::mutex> lock(stats_mutex_);
     MergeStats(*context_.stats, block_stats);
+  }
+
+  void RecordExecutedStep(const WaveContext& wave,
+                          ExecutedStepClass step_class,
+                          uint64_t cost_cycles) {
+    if (cost_cycles == 0) {
+      return;
+    }
+    std::lock_guard<std::mutex> lock(executed_flow_mutex_);
+    executed_flow_steps_[StableWaveKey(wave)].push_back(ExecutedWaveStep{
+        .block_id = wave.block_id,
+        .wave_id = wave.wave_id,
+        .step_class = step_class,
+        .cost_cycles = cost_cycles,
+    });
   }
 
   void EmitWaveLaunchEvents() {
@@ -653,8 +807,23 @@ class FunctionalExecutionCoreImpl {
     return true;
   }
 
+  void RecordWaitingWaveTicks(const ExecutableBlock& block) {
+    std::lock_guard<std::mutex> state_lock(*block.wave_state_mutex);
+    for (const auto& wave : block.waves) {
+      if (wave.run_state != WaveRunState::Waiting) {
+        continue;
+      }
+      if (wave.wait_reason == WaveWaitReason::BlockBarrier) {
+        RecordExecutedStep(wave, ExecutedStepClass::Barrier, 1);
+      } else if (IsMemoryWaitReason(wave.wait_reason)) {
+        RecordExecutedStep(wave, ExecutedStepClass::Wait, 1);
+      }
+    }
+  }
+
   bool ProcessWaitingWaves(ExecutableBlock& block) {
     bool progressed = false;
+    RecordWaitingWaveTicks(block);
     progressed = AdvancePendingMemoryOps(block) || progressed;
     progressed = ResumeMemoryWaitingWaves(block) || progressed;
     progressed = ReleaseBlockBarrierIfReady(block) || progressed;
@@ -750,6 +919,9 @@ class FunctionalExecutionCoreImpl {
     ExecutionContext block_context = context_;
     block_context.stats = nullptr;
     const OpPlan plan = semantics_.BuildPlan(instruction, wave, block_context);
+    if (const auto step_class = ClassifyExecutedInstruction(instruction, plan); step_class.has_value()) {
+      RecordExecutedStep(wave, *step_class, CostForExecutedStep(plan, *step_class, cycle_stats_config_));
+    }
 
     ApplyExecutionPlanRegisterWrites(plan, wave);
     if (const auto mask_text = MaybeFormatExecutionMaskUpdate(plan, wave); mask_text.has_value()) {
@@ -996,12 +1168,16 @@ class FunctionalExecutionCoreImpl {
 
 uint64_t FunctionalExecEngine::RunSequential() {
   FunctionalExecutionCoreImpl core(context_);
-  return core.RunSequential();
+  const uint64_t total_cycles = core.RunSequential();
+  program_cycle_stats_ = core.TakeProgramCycleStats();
+  return total_cycles;
 }
 
 uint64_t FunctionalExecEngine::RunParallelBlocks(uint32_t worker_threads) {
   FunctionalExecutionCoreImpl core(context_);
-  return core.RunParallelBlocks(worker_threads);
+  const uint64_t total_cycles = core.RunParallelBlocks(worker_threads);
+  program_cycle_stats_ = core.TakeProgramCycleStats();
+  return total_cycles;
 }
 
 }  // namespace gpu_model

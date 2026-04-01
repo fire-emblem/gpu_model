@@ -79,6 +79,7 @@ add_library(gpu_model STATIC
   src/runtime/mapper.cpp
   src/program/execution_route.cpp
   src/runtime/kernarg_packer.cpp
+  src/runtime/program_cycle_tracker.cpp
   src/runtime/runtime_engine.cpp
   src/runtime/hip_interposer_state.cpp
   src/runtime/hip_runtime.cpp

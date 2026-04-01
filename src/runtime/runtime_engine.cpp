@@ -357,11 +357,13 @@ LaunchResult RuntimeEngineImpl::Launch(const LaunchRequest& request) {
                   ? DefaultMarlWorkerThreadCount()
                   : functional_execution_config_.worker_threads;
           result.total_cycles = executor.RunParallelBlocks(workers);
+          result.program_cycle_stats = executor.TakeProgramCycleStats();
         } else {
           FunctionalExecEngine executor(context);
           result.total_cycles = executor.RunSequential();
+          result.program_cycle_stats = executor.TakeProgramCycleStats();
         }
-        result.end_cycle = result.total_cycles;
+        result.end_cycle = result.begin_cycle + result.total_cycles;
       }
     } else if (request.mode == ExecutionMode::Cycle) {
       context.cycle = result.begin_cycle;

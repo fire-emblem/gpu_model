@@ -1,4 +1,4 @@
-# Executed Flow Program Cycle Estimator Design
+# Executed Flow Program Cycle Stats Design
 
 ## 背景
 
@@ -8,33 +8,33 @@
 - 独立的 naive `CycleExecEngine`
 - `ExecutionStats`、trace、timeline 和 wave lifecycle 观察能力
 
-但目前缺少一层“基于 `st/mt functional` 实际执行流”的程序级 cycle 近似统计。
+但目前缺少一层“基于 `st/mt functional` 实际执行流”的程序级 cycle 运行统计。
 
 这层能力的目标不是替代真正的 cycle model，而是提供：
 
-1. 一个对 `st/mt` 实际执行流敏感的程序级 cycle 近似值
+1. 一个对 `st/mt` 实际执行流敏感的程序级 cycle 运行结果
 2. 一个与后续 `CycleExecEngine` 兼容的统一程序级 cycle 结果接口
-3. 一组可验证“统计量与理论值近似准确”的程序级用例
+3. 一组可验证“统计量与默认理论值一致且合理”的程序级用例
 
 ## 本轮目标
 
 本轮要做的是：
 
-基于 `st/mt functional` 的实际 wave 执行流，构建一个按 cycle tick 推进的 `ExecutedFlowProgramCycleEstimator`，输出统一的程序级 cycle 统计结果，并用若干代表性程序验证统计量与理论值近似一致；若不一致，则据此校准近似 cost policy。
+基于 `st/mt functional` 的实际 wave 执行流，构建一个按 cycle tick 推进的 `ExecutedFlowProgramCycleStats`，输出统一的程序级 cycle 统计结果，并用若干代表性程序验证统计量与默认理论值一致；若不一致，则据此校准默认 cost policy。
 
 ## 非目标
 
 本轮明确不做：
 
 - 重写现有 `CycleExecEngine`
-- 把 estimator 直接当成新的 cycle mode
+- 把这套程序 cycle 统计直接当成新的 cycle mode
 - 引入完整的 PEU / issue-slot / scoreboard 硬约束模型
 - 追求硬件精确 latency
 - 把全部统计直接绑定到 trace sink 文本格式
 
 ## 理论口径
 
-本轮的“理论值”不是硬件真值，而是项目级近似常数：
+本轮的“理论值”不是硬件真值，而是项目级默认统计常数：
 
 - 普通指令：`4 cycle`
 - `MFMA/MMA`：`16 cycle`
@@ -42,7 +42,7 @@
 - scalar / constant memory：`128 cycle`
 - global / private memory：`1024 cycle`
 
-这些值在本轮视为 `ProgramCycleEstimatorConfig` 的默认参数，而不是不可变的硬编码硬件事实。
+这些值在本轮视为 `ProgramCycleStatsConfig` 的默认参数，而不是不可变的硬编码硬件事实。
 
 ## 用户修正后的关键约束
 
@@ -53,7 +53,7 @@
 
 因为这两者都不能正确表达 `st/mt` 下按 wave 执行、按 cycle 推进、存在重叠与等待的程序整体历时。
 
-因此本轮 estimator 必须：
+因此本轮这套程序 cycle 统计必须：
 
 1. 显式按 cycle tick 推进
 2. 显式建模每个 wave 的剩余执行 / 等待状态
@@ -95,7 +95,7 @@
 - 无法稳定表达 barrier / wait / 部分并发重叠
 - 用户已明确否定这种口径
 
-### 方案 C：按 cycle tick 推进的 executed-flow estimator
+### 方案 C：按 cycle tick 推进的 executed-flow 程序 cycle 统计
 
 做法：
 
@@ -120,7 +120,7 @@
 
 ## 第一版并发规则
 
-用户要求 `st/mt` 的全局 cycle 应近似，而不是完全不同口径。
+用户要求 `st/mt` 的全局 cycle 应一致，而不是完全不同口径。
 
 因此第一版并发规则采用轻量模型：
 
@@ -141,7 +141,7 @@ struct IssueCapacityModel;
 本轮引入统一程序级 cycle 结果结构：
 
 ```cpp
-struct ProgramCycleEstimate {
+struct ProgramCycleStats {
   uint64_t total_cycles = 0;
   uint64_t total_issued_work_cycles = 0;
 
@@ -164,14 +164,14 @@ struct ProgramCycleEstimate {
 - `total_issued_work_cycles`
   - 所有已执行工作按 cost policy 统计的总 work 量
 - 分类字段
-  - 用于解释理论值与程序 total cycle 的来源
+  - 用于解释程序 total cycle 的来源
 
 ## 配置接口
 
 本轮默认 cost policy 通过配置对象暴露：
 
 ```cpp
-struct ProgramCycleEstimatorConfig {
+struct ProgramCycleStatsConfig {
   uint32_t default_issue_cycles = 4;
   uint32_t tensor_cycles = 16;
   uint32_t shared_mem_cycles = 32;
@@ -183,9 +183,31 @@ struct ProgramCycleEstimatorConfig {
 
 要求：
 
-- estimator 不直接硬编码常数到所有调用点
+- 程序 cycle 统计不直接硬编码常数到所有调用点
 - 用例可以显式引用默认参数
 - 未来 cycle model 可复用同一 config 或投影到同一参数集
+
+## 兼容性抽象原则
+
+本轮必须显式区分：
+
+- **共享程序级 cycle 语义层**
+- **各自不同的事件来源层**
+
+也就是说，这套 executed-flow 程序 cycle 统计和真正 cycle model 的相同点，不应该体现在“都复用 functional 内部细节”，而应该体现在它们都投影到同一个程序级聚合接口。
+
+本轮要求以下对象视为共享抽象：
+
+- `ProgramCycleStats`
+- `ProgramCycleStatsConfig`
+- `WaveCycleState`
+- `ProgramCycleTracker`
+- step class / cost policy 抽象
+
+本轮要求以下对象视为事件源实现：
+
+- `ExecutedFlowEventSource`
+- 后续的 `CycleModelEventSource`
 
 ## 架构分层
 
@@ -196,7 +218,15 @@ struct ProgramCycleEstimatorConfig {
 - 从 `SingleThreaded / MarlParallel` functional 执行收集 wave 级事件
 - 记录“某 wave 在何时执行了什么类别的工作”
 
-输出建议是结构化事件，而不是依赖 trace 字符串解析：
+输出建议是结构化事件，而不是依赖 trace 字符串解析。
+
+由于用户已选择 `B + 1` 组合，本轮结构化事件：
+
+- 只在 `FunctionalExecEngine` 内部存在
+- 不挂到 `LaunchResult`
+- 不作为公开调试接口
+
+结构化事件建议抽象为内部事件源输入：
 
 ```cpp
 struct ExecutedWaveStep {
@@ -207,11 +237,20 @@ struct ExecutedWaveStep {
 };
 ```
 
+对应的内部事件源形状应接近：
+
+```cpp
+struct ExecutedFlowEventSource {
+  bool Done() const;
+  void AdvanceOneTick(ProgramCycleTracker& agg);
+};
+```
+
 ### 2. Cost policy 层
 
 职责：
 
-- 把某个 executed step 映射成近似 cycle 成本
+  - 把某个 executed step 映射成默认 cycle 成本
 - 决定它属于哪个统计分类
 
 例如：
@@ -222,15 +261,59 @@ struct ExecutedWaveStep {
 - scalar/constant access -> `128`
 - global/private access -> `1024`
 
-### 3. Program aggregator 层
+### 3. Program tracker 层
 
 职责：
 
 - 为每个 wave 维护剩余工作 / 等待状态
 - 每个 tick 推进全部 wave
-- 最终输出 `ProgramCycleEstimate`
+- 最终输出 `ProgramCycleStats`
 
 这层是后续与 `CycleExecEngine` 对齐的关键接口。
+
+建议显式抽成共享聚合器，而不是写成 executed-flow 专属逻辑：
+
+```cpp
+class ProgramCycleTracker {
+ public:
+  explicit ProgramCycleTracker(ProgramCycleStatsConfig config);
+
+  void BeginWaveWork(uint32_t wave_id, ExecutedStepClass step_class, uint64_t cost_cycles);
+  void MarkWaveWaiting(uint32_t wave_id, ExecutedStepClass wait_class, uint64_t cost_cycles);
+  void MarkWaveRunnable(uint32_t wave_id);
+  void MarkWaveCompleted(uint32_t wave_id);
+  void AdvanceOneTick();
+
+  bool Done() const;
+  ProgramCycleStats Finish() const;
+};
+```
+
+其中：
+
+- executed-flow 程序 cycle 统计通过 `ExecutedFlowEventSource` 驱动它
+- 后续 true cycle model 通过 `CycleModelEventSource` 驱动它
+
+### 4. Event-source compatibility layer
+
+后续真正的 cycle model 不应复用 functional 的执行流采样层，但应复用相同的聚合目标。
+
+因此需要在设计上预留：
+
+```cpp
+struct ProgramCycleTickSource {
+  virtual bool Done() const = 0;
+  virtual void AdvanceOneTick(ProgramCycleTracker& agg) = 0;
+  virtual ~ProgramCycleTickSource() = default;
+};
+```
+
+然后由两类来源实现它：
+
+- `ExecutedFlowEventSource`
+- `CycleModelEventSource`
+
+本轮只实现第一类。
 
 ## Wave 级状态模型
 
@@ -274,13 +357,19 @@ struct WaveCycleState {
 
 后续 `CycleExecEngine` 不需要复用 functional 的执行流采样层，但应复用：
 
-- `ProgramCycleEstimate`
-- `ProgramCycleEstimatorConfig`
+- `ProgramCycleStats`
+- `ProgramCycleStatsConfig`
+- `ProgramCycleTracker`
 - program-level aggregation output contract
+
+也就是说：
+
+- **共享的是程序级聚合语义**
+- **不共享的是输入事件如何产生**
 
 这样可以直接比较：
 
-- `ExecutedFlowProgramCycleEstimator`
+- `ExecutedFlowProgramCycleStats`
 - `CycleExecEngine` 的统计结果
 
 并保持上层接口统一。
@@ -294,7 +383,7 @@ struct WaveCycleState {
 目标：
 
 - 验证 `4 cycle` 主口径
-- 验证 `st/mt` 全局 cycle 近似一致
+- 验证 `st/mt` 全局 cycle 一致
 
 ### 2. 含 `MFMA`
 
@@ -315,7 +404,7 @@ struct WaveCycleState {
 目标：
 
 - 验证各 memory cost 分类
-- 验证 `total_issued_work_cycles` 的组成与理论值一致
+- 验证 `total_issued_work_cycles` 的组成与默认理论值一致
 
 ### 4. barrier + multi-wave
 
@@ -323,13 +412,13 @@ struct WaveCycleState {
 
 - 验证全局 cycle 是按 wave 和每 cycle 推进得出
 - 不是简单求和或简单取最大值
-- `st/mt` 程序 total cycle 在可接受误差内近似
+- `st/mt` 程序 total cycle 一致，或仅存在明确建模差异
 
 ## 验收标准
 
 1. 新增统一程序级 cycle 结果接口
-2. 新增 executed-flow estimator 配置接口
-3. estimator 的全局 cycle 显式按 wave / tick 推进
+2. 新增 executed-flow 程序 cycle 统计配置接口
+3. 程序总 cycle 显式按 wave / tick 推进
 4. `st/mt` 的程序 cycle 采用同一口径
 5. 至少 4 类代表性程序覆盖 ALU / tensor / mixed memory / barrier
 6. 若当前 cost 常数导致误差明显，测试应能指出并驱动校准
@@ -346,7 +435,7 @@ struct WaveCycleState {
 
 - 面向 `st/mt functional`
 - 按 wave / tick 推进
-- 使用项目级默认近似常数
-- 输出统一 `ProgramCycleEstimate`
+- 使用项目级默认统计常数
+- 输出统一 `ProgramCycleStats`
 
-的 estimator，并把接口设计成未来可与 `CycleExecEngine` 对齐。
+的程序 cycle 统计结果，并把接口设计成未来可与 `CycleExecEngine` 对齐。

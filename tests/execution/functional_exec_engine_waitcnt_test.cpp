@@ -211,7 +211,7 @@ FunctionalExecHarness MakeWaitcntHarness(ExecutableKernel kernel,
 
 std::vector<TraceEvent> RunHarnessAndCollectTrace(FunctionalExecHarness& harness) {
   FunctionalExecEngine engine(harness.context);
-  EXPECT_EQ(engine.RunSequential(), 0u);
+  EXPECT_GT(engine.RunSequential(), 0u);
   return harness.trace.events();
 }
 
@@ -291,7 +291,7 @@ TEST(FunctionalExecEngineWaitcntTest, PendingMemoryDoesNotStallBeforeExplicitWai
   ASSERT_NE(waitcnt_pc, std::numeric_limits<uint64_t>::max());
 
   FunctionalExecEngine engine(harness.context);
-  EXPECT_EQ(engine.RunSequential(), 0u);
+  EXPECT_GT(engine.RunSequential(), 0u);
 
   const auto& events = harness.trace.events();
   const size_t load_index = FirstEventIndex(events, TraceEventKind::WaveStep, load_pc);
@@ -331,7 +331,7 @@ TEST(FunctionalExecEngineWaitcntTest, ResumesWhenStoredThresholdBecomesSatisfied
   ASSERT_NE(marker_after_zero_pc, std::numeric_limits<uint64_t>::max());
 
   FunctionalExecEngine engine(harness.context);
-  EXPECT_EQ(engine.RunSequential(), 0u);
+  EXPECT_GT(engine.RunSequential(), 0u);
 
   const auto& events = harness.trace.events();
   const size_t first_waitcnt_index =

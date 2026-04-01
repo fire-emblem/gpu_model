@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <unordered_map>
 
-#include "gpu_model/runtime/program_cycle_estimate.h"
+#include "gpu_model/runtime/program_cycle_stats.h"
 
 namespace gpu_model {
 
@@ -19,9 +19,9 @@ enum class ExecutedStepClass {
   Wait,
 };
 
-class ProgramCycleAggregator {
+class ProgramCycleTracker {
  public:
-  explicit ProgramCycleAggregator(ProgramCycleEstimatorConfig config);
+  explicit ProgramCycleTracker(ProgramCycleStatsConfig config);
 
   void BeginWaveWork(uint32_t wave_id, ExecutedStepClass step_class, uint64_t cost_cycles);
   void MarkWaveWaiting(uint32_t wave_id, ExecutedStepClass wait_class, uint64_t cost_cycles);
@@ -30,7 +30,7 @@ class ProgramCycleAggregator {
   void AdvanceOneTick();
 
   bool Done() const;
-  ProgramCycleEstimate Finish() const;
+  ProgramCycleStats Finish() const;
 
  private:
   enum class WaveLifecycle {
@@ -46,15 +46,15 @@ class ProgramCycleAggregator {
 
   void AssignWaveWork(uint32_t wave_id, ExecutedStepClass step_class, uint64_t cost_cycles);
 
-  ProgramCycleEstimatorConfig config_;
-  ProgramCycleEstimate estimate_;
+  ProgramCycleStatsConfig config_;
+  ProgramCycleStats stats_;
   std::unordered_map<uint32_t, WaveState> waves_;
 };
 
-struct ProgramCycleEventSource {
+struct ProgramCycleTickSource {
   virtual bool Done() const = 0;
-  virtual void AdvanceOneTick(ProgramCycleAggregator& agg) = 0;
-  virtual ~ProgramCycleEventSource() = default;
+  virtual void AdvanceOneTick(ProgramCycleTracker& agg) = 0;
+  virtual ~ProgramCycleTickSource() = default;
 };
 
 }  // namespace gpu_model

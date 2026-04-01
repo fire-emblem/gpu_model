@@ -8,7 +8,7 @@
 #include "gpu_model/runtime/kernel_arg_pack.h"
 #include "gpu_model/runtime/launch_config.h"
 #include "gpu_model/runtime/mapper.h"
-#include "gpu_model/runtime/program_cycle_estimate.h"
+#include "gpu_model/runtime/program_cycle_stats.h"
 
 namespace gpu_model {
 
@@ -64,7 +64,7 @@ struct LaunchResult {
   uint64_t total_cycles = 0;
   PlacementMap placement;
   ExecutionStats stats;
-  std::optional<ProgramCycleEstimate> program_cycle_estimate;
+  std::optional<ProgramCycleStats> program_cycle_stats;
 };
 
 }  // namespace gpu_model

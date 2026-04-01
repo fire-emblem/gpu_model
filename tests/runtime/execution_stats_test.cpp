@@ -69,7 +69,7 @@ TEST(ExecutionStatsTest, FunctionalLaunchReportsMemoryAndBarrierCounts) {
   EXPECT_EQ(result.stats.wave_exits, 2u);
 }
 
-TEST(ExecutionStatsTest, FunctionalLaunchReportsProgramCycleEstimate) {
+TEST(ExecutionStatsTest, FunctionalLaunchReportsProgramCycleStats) {
   RuntimeEngine runtime;
   runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
 
@@ -90,10 +90,11 @@ TEST(ExecutionStatsTest, FunctionalLaunchReportsProgramCycleEstimate) {
 
   const auto result = runtime.Launch(request);
   ASSERT_TRUE(result.ok) << result.error_message;
-  ASSERT_TRUE(result.program_cycle_estimate.has_value());
-  EXPECT_GT(result.program_cycle_estimate->total_cycles, 0u);
-  EXPECT_GE(result.program_cycle_estimate->total_issued_work_cycles,
-            result.program_cycle_estimate->total_cycles);
+  ASSERT_TRUE(result.program_cycle_stats.has_value());
+  EXPECT_GT(result.program_cycle_stats->total_cycles, 0u);
+  EXPECT_EQ(result.total_cycles, result.program_cycle_stats->total_cycles);
+  EXPECT_GE(result.program_cycle_stats->total_issued_work_cycles,
+            result.program_cycle_stats->total_cycles);
 }
 
 TEST(ExecutionStatsTest, CycleLaunchReportsCacheAndBankPenaltyCounts) {

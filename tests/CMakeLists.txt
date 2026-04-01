@@ -104,6 +104,7 @@ add_executable(gpu_model_tests
   runtime/trace_test.cpp
   runtime/hip_runtime_test.cpp
   runtime/execution_stats_test.cpp
+  runtime/executed_flow_program_cycle_stats_test.cpp
   instruction/instruction_naming_test.cpp
 )
 

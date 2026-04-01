@@ -4,7 +4,7 @@
 
 namespace gpu_model {
 
-struct ProgramCycleEstimatorConfig {
+struct ProgramCycleStatsConfig {
   uint32_t default_issue_cycles = 4;
   uint32_t tensor_cycles = 16;
   uint32_t shared_mem_cycles = 32;
@@ -13,7 +13,7 @@ struct ProgramCycleEstimatorConfig {
   uint32_t private_mem_cycles = 1024;
 };
 
-struct ProgramCycleEstimate {
+struct ProgramCycleStats {
   uint64_t total_cycles = 0;
   uint64_t total_issued_work_cycles = 0;
 
