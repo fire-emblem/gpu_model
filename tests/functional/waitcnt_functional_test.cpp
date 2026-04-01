@@ -59,6 +59,31 @@ ExecutableKernel BuildParallelWaitcntZeroResumeKernel() {
   return builder.Build("parallel_waitcnt_zero_resume");
 }
 
+ExecutableKernel BuildSamePeuWaitcntSiblingKernel() {
+  InstructionBuilder builder;
+  builder.SLoadArg("s0", 0);
+  builder.SLoadArg("s1", 1);
+  builder.SysGlobalIdX("v0");
+
+  builder.SMov("s2", 64);
+  builder.VCmpLtCmask("v0", "s2");
+  builder.MaskSaveExec("s10");
+  builder.MaskAndExecCmask();
+  builder.BIfNoexec("after_wave0");
+  builder.MLoadGlobal("v1", "s0", "v0", 4);
+  builder.SWaitCnt(/*global_count=*/0, /*shared_count=*/UINT32_MAX,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
+  builder.Label("after_wave0");
+  builder.MaskRestoreExec("s10");
+
+  builder.VMov("v4", 21);
+  builder.VAdd("v5", "v4", "v4");
+  builder.VAdd("v6", "v5", "v4");
+  builder.MStoreGlobal("s1", "v0", "v6", 4);
+  builder.BExit();
+  return builder.Build("same_peu_waitcnt_sibling");
+}
+
 uint64_t NthInstructionPcWithOpcode(const ExecutableKernel& kernel, Opcode opcode, size_t ordinal) {
   size_t seen = 0;
   for (uint64_t pc = 0; pc < kernel.instructions().size(); ++pc) {
@@ -322,6 +347,57 @@ TEST(WaitcntFunctionalTest, MarlParallelWaitcntResumeIsConsistentAcrossTwoBlocks
       EXPECT_LT(waitcnt_stall_index, resume_marker_index);
     }
   }
+}
+
+TEST(WaitcntFunctionalTest, WaitingWaveDoesNotBlockReadySiblingOnSamePeu) {
+  CollectingTraceSink trace;
+  RuntimeEngine runtime(&trace);
+  runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
+
+  constexpr uint32_t kBlockDim = 320;
+  constexpr uint32_t kElementCount = kBlockDim;
+  const auto kernel = BuildSamePeuWaitcntSiblingKernel();
+  const uint64_t waitcnt_pc = NthInstructionPcWithOpcode(kernel, Opcode::SWaitCnt, 0);
+  const uint64_t resume_marker_pc = NthInstructionPcWithOpcode(kernel, Opcode::VMov, 0);
+  const uint64_t sibling_second_add_pc = NthInstructionPcWithOpcode(kernel, Opcode::VAdd, 1);
+  ASSERT_NE(waitcnt_pc, std::numeric_limits<uint64_t>::max());
+  ASSERT_NE(resume_marker_pc, std::numeric_limits<uint64_t>::max());
+  ASSERT_NE(sibling_second_add_pc, std::numeric_limits<uint64_t>::max());
+
+  const uint64_t in_addr = runtime.memory().AllocateGlobal(kElementCount * sizeof(int32_t));
+  const uint64_t out_addr = runtime.memory().AllocateGlobal(kElementCount * sizeof(int32_t));
+  for (uint32_t i = 0; i < kElementCount; ++i) {
+    runtime.memory().StoreGlobalValue<int32_t>(in_addr + i * sizeof(int32_t),
+                                               static_cast<int32_t>(100 + i));
+    runtime.memory().StoreGlobalValue<int32_t>(out_addr + i * sizeof(int32_t), -1);
+  }
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = kBlockDim;
+  request.args.PushU64(in_addr);
+  request.args.PushU64(out_addr);
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  for (uint32_t i = 0; i < kElementCount; ++i) {
+    EXPECT_EQ(runtime.memory().LoadGlobalValue<int32_t>(out_addr + i * sizeof(int32_t)), 63);
+  }
+
+  const size_t waitcnt_stall_index = FirstEventIndexForBlockWave(
+      trace.events(), 0, 0, TraceEventKind::Stall, waitcnt_pc, "waitcnt_global");
+  const size_t resume_marker_index =
+      FirstEventIndexForBlockWave(trace.events(), 0, 0, TraceEventKind::WaveStep, resume_marker_pc);
+  const size_t sibling_second_add_index = FirstEventIndexForBlockWave(
+      trace.events(), 0, 4, TraceEventKind::WaveStep, sibling_second_add_pc);
+
+  ASSERT_NE(waitcnt_stall_index, std::numeric_limits<size_t>::max());
+  ASSERT_NE(resume_marker_index, std::numeric_limits<size_t>::max());
+  ASSERT_NE(sibling_second_add_index, std::numeric_limits<size_t>::max());
+  EXPECT_LT(waitcnt_stall_index, sibling_second_add_index);
+  EXPECT_LT(sibling_second_add_index, resume_marker_index);
 }
 
 }  // namespace

@@ -66,6 +66,41 @@ ExecutableKernel BuildExplicitWaitcntDependentStoreKernel() {
   return builder.Build("explicit_waitcnt_dependent_store");
 }
 
+ExecutableKernel BuildSamePeuBarrierResumeKernel() {
+  InstructionBuilder builder;
+  builder.SLoadArg("s0", 0);
+  builder.SysGlobalIdX("v0");
+
+  builder.SMov("s1", 64);
+  builder.VCmpLtCmask("v0", "s1");
+  builder.MaskSaveExec("s10");
+  builder.MaskAndExecCmask();
+  builder.BIfNoexec("after_early_wave");
+  builder.SyncBarrier();
+  builder.VMov("v1", 31);
+  builder.MStoreGlobal("s0", "v0", "v1", 4);
+  builder.Label("after_early_wave");
+  builder.MaskRestoreExec("s10");
+
+  builder.SMov("s2", 256);
+  builder.VCmpGeCmask("v0", "s2");
+  builder.MaskSaveExec("s11");
+  builder.MaskAndExecCmask();
+  builder.SMov("s3", 320);
+  builder.VCmpLtCmask("v0", "s3");
+  builder.MaskAndExecCmask();
+  builder.BIfNoexec("done");
+  builder.VMov("v2", 7);
+  builder.VAdd("v3", "v2", "v2");
+  builder.SyncBarrier();
+  builder.VMov("v4", 47);
+  builder.MStoreGlobal("s0", "v0", "v4", 4);
+  builder.Label("done");
+  builder.MaskRestoreExec("s11");
+  builder.BExit();
+  return builder.Build("same_peu_barrier_resume");
+}
+
 uint64_t FirstInstructionPcWithOpcode(const ExecutableKernel& kernel, Opcode opcode) {
   for (uint64_t pc = 0; pc < kernel.instructions().size(); ++pc) {
     if (kernel.instructions()[pc].opcode == opcode) {
@@ -84,6 +119,43 @@ bool ContainsStallTrace(const std::vector<TraceEvent>& events,
     }
   }
   return false;
+}
+
+uint64_t NthInstructionPcWithOpcode(const ExecutableKernel& kernel, Opcode opcode, size_t ordinal) {
+  size_t seen = 0;
+  for (uint64_t pc = 0; pc < kernel.instructions().size(); ++pc) {
+    if (kernel.instructions()[pc].opcode != opcode) {
+      continue;
+    }
+    if (seen == ordinal) {
+      return pc;
+    }
+    ++seen;
+  }
+  return std::numeric_limits<uint64_t>::max();
+}
+
+size_t FirstEventIndexForBlockWave(const std::vector<TraceEvent>& events,
+                                   uint32_t block_id,
+                                   uint32_t wave_id,
+                                   TraceEventKind kind,
+                                   uint64_t pc) {
+  for (size_t i = 0; i < events.size(); ++i) {
+    if (events[i].block_id == block_id && events[i].wave_id == wave_id &&
+        events[i].kind == kind && events[i].pc == pc) {
+      return i;
+    }
+  }
+  return std::numeric_limits<size_t>::max();
+}
+
+size_t FirstBarrierReleaseIndex(const std::vector<TraceEvent>& events) {
+  for (size_t i = 0; i < events.size(); ++i) {
+    if (events[i].kind == TraceEventKind::Barrier && events[i].message == "release") {
+      return i;
+    }
+  }
+  return std::numeric_limits<size_t>::max();
 }
 
 TEST(SharedSyncFunctionalTest, SharedAtomicReductionAcrossTwoWavesIsCorrect) {
@@ -157,6 +229,51 @@ TEST(SharedSyncFunctionalTest,
   EXPECT_EQ(st, expected);
   EXPECT_EQ(mt, expected);
   EXPECT_EQ(st, mt);
+}
+
+TEST(SharedSyncFunctionalTest, BarrierReleaseReturnsEarlyWaveToDispatch) {
+  CollectingTraceSink trace;
+  RuntimeEngine runtime(&trace);
+  runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::MarlParallel);
+
+  constexpr uint32_t kBlockDim = 320;
+  constexpr uint32_t kElementCount = kBlockDim;
+  const auto kernel = BuildSamePeuBarrierResumeKernel();
+  const uint64_t late_pre_barrier_pc = NthInstructionPcWithOpcode(kernel, Opcode::VAdd, 0);
+  const uint64_t early_post_barrier_store_pc =
+      NthInstructionPcWithOpcode(kernel, Opcode::MStoreGlobal, 0);
+  ASSERT_NE(late_pre_barrier_pc, std::numeric_limits<uint64_t>::max());
+  ASSERT_NE(early_post_barrier_store_pc, std::numeric_limits<uint64_t>::max());
+
+  const uint64_t out_addr = runtime.memory().AllocateGlobal(kElementCount * sizeof(int32_t));
+  for (uint32_t i = 0; i < kElementCount; ++i) {
+    runtime.memory().StoreGlobalValue<int32_t>(out_addr + i * sizeof(int32_t), -1);
+  }
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = kBlockDim;
+  request.args.PushU64(out_addr);
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  for (uint32_t i = 0; i < 64; ++i) {
+    EXPECT_EQ(runtime.memory().LoadGlobalValue<int32_t>(out_addr + i * sizeof(int32_t)), 31);
+  }
+  for (uint32_t i = 256; i < 320; ++i) {
+    EXPECT_EQ(runtime.memory().LoadGlobalValue<int32_t>(out_addr + i * sizeof(int32_t)), 47);
+  }
+
+  const size_t release_index = FirstBarrierReleaseIndex(trace.events());
+  ASSERT_NE(release_index, std::numeric_limits<size_t>::max());
+  EXPECT_LT(FirstEventIndexForBlockWave(trace.events(), 0, 4, TraceEventKind::WaveStep,
+                                        late_pre_barrier_pc),
+            release_index);
+  EXPECT_LT(release_index,
+            FirstEventIndexForBlockWave(trace.events(), 0, 0, TraceEventKind::WaveStep,
+                                        early_post_barrier_store_pc));
 }
 
 }  // namespace
