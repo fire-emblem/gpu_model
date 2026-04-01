@@ -4,7 +4,7 @@
 
 **Goal:** Add cycle-path AP multi-block residency so one `AP` can hold `2` resident blocks, making `>4 resident waves / PEU` reachable and enabling a real `active-window / standby-window` front-end model.
 
-**Architecture:** Keep `Mapper` unchanged and treat `block -> global_ap_id` / `wave -> peu_id` as static placement only. Implement all new runtime residency in `CycleExecEngine`: first add `ApResidentState` for `pending -> resident -> retired` block lifecycle, then add `PEU`-local `resident_waves / active_window / standby_waves` so `dispatch_enabled` means “currently in the active window”, not merely “belongs to an active block”.
+**Architecture:** Keep `Mapper` unchanged and treat `block -> global_ap_id` / `wave -> peu_id` as static placement only. Implement all new runtime residency in `CycleExecEngine`: first add `ApResidentState` for `pending -> resident -> retired` block lifecycle, then add `PEU`-local `resident_waves / active_window / standby_waves` so `dispatch_enabled` means “currently in the active window”, not merely “belongs to an active block”. `waitcnt/dependency/front_end_wait` blocked waves stay in-window; `block barrier` waiting waves stay resident but must yield the active slot so overflow waves can continue toward the barrier.
 
 **Tech Stack:** C++20, gtest, existing `CycleExecEngine`, trace events, `RuntimeEngine`, cycle smoke tests
 
@@ -419,7 +419,7 @@ git add tests/cycle/cycle_ap_resident_blocks_test.cpp
 git commit -m "test: add cycle active window regressions"
 ```
 
-## Task 4: Implement PEU resident wave pools, active windows, and standby promotion
+## Task 4: Implement PEU resident wave pools, active windows, barrier slot-yield, and standby promotion
 
 **Files:**
 - Modify: `src/execution/cycle_exec_engine.cpp`
@@ -466,12 +466,12 @@ void RefillPeuActiveWindow(PeuSlot& slot,
 
 And update `ActivateBlock()` so resident waves are inserted into either `active_window` or `standby_waves`, instead of scheduling up to `max_issuable_waves` per block.
 
-- [ ] **Step 3: Keep blocked waves resident, remove only exited waves**
+- [ ] **Step 3: Keep non-barrier blocked waves resident/in-window, but let barrier waiting waves yield active slots**
 
 Adjust `FillDispatchWindow()`, `PickNextReadyWave()`, and the `exit_wave` path so:
 
 ```cpp
-// blocked waves stay in active_window; only exited or retired waves are removed
+// exited or retired waves leave the resident/active sets
 if (plan.exit_wave) {
   RemoveWaveFromActiveWindow(slot, candidate);
   RefillPeuActiveWindow(slot, commit_cycle, /*active_wave_limit=*/4, events, context.trace);
@@ -479,9 +479,47 @@ if (plan.exit_wave) {
 ```
 
 Do not remove a wave from `active_window` merely because `IssueBlockReason()` reports
-`waitcnt`, `barrier`, `dependency`, or `front_end_wait`.
+`waitcnt`, `dependency`, or `front_end_wait`.
 
-- [ ] **Step 4: Re-run the focused cycle resident-block test suite and make it pass**
+For `block barrier`, use a separate path:
+
+```cpp
+if (plan.sync_barrier) {
+  RemoveWaveFromActiveWindow(slot, candidate);
+  candidate->dispatch_enabled = false;
+  RefillPeuActiveWindow(slot, commit_cycle, /*active_wave_limit=*/4, events, context.trace);
+}
+```
+
+The barrier-waiting wave must remain resident, and after barrier release it must be able to re-enter
+the active window through the normal refill path.
+
+- [ ] **Step 4: Add and pass the overflow-barrier focused regression**
+
+Before claiming Task 4 complete, add one focused regression to
+`tests/cycle/cycle_ap_resident_blocks_test.cpp`:
+
+```cpp
+TEST(CycleApResidentBlocksTest, BarrierWaitingResidentWaveYieldsActiveSlotUntilRelease) {
+  // Build an overflow block where the first active waves reach SyncBarrier early.
+  // Assert that:
+  // - overflow resident waves are still able to launch before any active wave exits
+  // - barrier release eventually occurs
+  // - early barrier-waiting waves can continue after release
+}
+```
+
+Then run:
+
+```bash
+./build-ninja/tests/gpu_model_tests --gtest_filter='CycleApResidentBlocksTest.*'
+```
+
+Expected:
+
+- PASS, including the new barrier-overflow regression
+
+- [ ] **Step 5: Re-run the focused cycle resident-block test suite and make it pass**
 
 Run:
 
@@ -494,8 +532,9 @@ Expected:
 - PASS for admission/backfill
 - PASS for resident standby behavior
 - PASS for active-window promotion after an exit
+- PASS for barrier-wait slot yielding and post-release refill
 
-- [ ] **Step 5: Commit the cycle active-window implementation**
+- [ ] **Step 6: Commit the cycle active-window implementation**
 
 ```bash
 git add src/execution/cycle_exec_engine.cpp
@@ -515,7 +554,8 @@ In `docs/module-development-status.md`, extend the `M13` narrative with the new 
 - cycle front-end 现已支持同一 `AP` 最多 `2` 个 resident blocks
 - 同一 `PEU` 上 `>4 resident waves` 现已在 cycle 路径可达
 - `active_window = 4` / `standby` promotion 现已由 focused cycle regression 锁定
-- blocked active wave 在 cycle 路径保持 resident，不会被错误逐出窗口
+- `waitcnt/dependency/front_end_wait` blocked active wave 在 cycle 路径保持 resident，不会被错误逐出窗口
+- `barrier` waiting resident wave 会让出 active slot，并在 release 后重新参与 refill
 ```
 
 - [ ] **Step 2: Run the complete related verification set**
@@ -557,5 +597,6 @@ Report:
 - cycle front-end now admits 2 resident blocks per AP
 - >4 resident waves per PEU is reachable in cycle mode
 - active-window/standby promotion is covered by focused regressions
+- barrier-wait resident waves yield active slots and re-enter after release
 - functional path is still intentionally deferred for this sub-project
 ```

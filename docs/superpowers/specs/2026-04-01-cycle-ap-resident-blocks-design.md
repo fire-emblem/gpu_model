@@ -65,22 +65,35 @@
 这两个数本轮先写成 cycle front-end 常量或局部 config，
 不做 architecture-wide 参数化。
 
-### 3. active-window 表示 front-end resident，不等于 ready queue
+### 3. active-window 表示 front-end dispatch window，不等于整个 resident set
 
 一个 wave 进入 `active_window` 后：
 
-- 即使它因 `waitcnt` / `barrier` / `dependency` blocked
-- 也仍然留在 `active_window`
+- 若它因 `waitcnt` / `dependency` / `front_end_wait` blocked
+  仍然留在 `active_window`
+- 若它因 `block barrier` blocked
+  则仍然 resident，但必须让出 `active_window` 槽位
 
 只有下面几种情况才离开 active window：
 
 - wave `Exited`
+- wave 进入 `block barrier` waiting
 - 所属 block retire
 - 尚未进入 active window，仅在 standby 中等待补位
 
 这条约束非常关键。
 
-否则 `active_window` 会退化成普通 ready queue，无法表达真实 front-end resident 语义。
+否则大 block 的 overflow waves 会在 barrier 前永久饿死：
+
+- 先进入 active window 的 waves 到达 barrier 后如果继续占住槽位
+- standby waves 永远无法推进到 barrier
+- 整个 block 也就永远无法 release barrier
+
+因此本轮真正要表达的是：
+
+- `active_window` 不是 ready queue
+- 但它也不是“任何 blocked 原因都永不让位”的永久占位集合
+- `block barrier` 是例外：wave 保持 resident，但必须释放 active slot
 
 ## 方案对比
 
@@ -282,12 +295,11 @@
 - promotion 到 active window
 - `dispatch_enabled = true`
 
-#### `active_window` 保持 resident
+#### `active_window` 对不同 blocked 原因的规则不同
 
-wave 在下列 blocked 原因下，不离开 active window：
+wave 在下列 blocked 原因下，继续留在 active window：
 
 - `waitcnt`
-- `barrier`
 - `dependency`
 - `front_end_wait`
 
@@ -296,6 +308,24 @@ wave 在下列 blocked 原因下，不离开 active window：
 - active window 是 front-end resident 概念
 - `PickNextReadyWave()` 在 active window 内找 ready wave
 - 若 active window 内都 blocked，`PEU` 才 idle
+
+#### `barrier` waiting wave 释放 active slot，但不 de-resident
+
+当 wave 因 `block barrier` 进入 waiting 时：
+
+- 它仍然保留在 `resident_waves`
+- 但必须从 `active_window` 暂时移除
+- 立刻从 `standby_waves` 补位一个新 wave 进入 active window
+
+当 barrier release 后：
+
+- 原 barrier-waiting waves 重新回到 resident-ready 集合
+- 通过正常 `active_window` refill 重新获得 active slot
+
+这样才能保证：
+
+- overflow waves 最终都能推进到 barrier
+- barrier release 不会因为 front-end 槽位被早到 waves 永久占住而死锁
 
 ## 测试设计
 
@@ -326,11 +356,23 @@ wave 在下列 blocked 原因下，不离开 active window：
 
 断言：
 
-- blocked wave 仍留在 active window
+- 对 `waitcnt` / `dependency` / `front_end_wait`：
+  blocked wave 仍留在 active window
 - ready sibling 仍可 issue
 - 不会错误地从 standby 再补出第 `5` 个 active wave
 
-### 4. `RetiredBlockBackfillsPendingBlockOnSameAp`
+### 4. `BarrierBlockedResidentWaveYieldsSlotAndReentersAfterRelease`
+
+构造 overflow 大 block，使前面的 active waves 先到 block barrier。
+
+断言：
+
+- barrier-waiting wave 仍保持 resident
+- 但会让出 active slot
+- standby wave 能继续推进到 barrier
+- barrier release 后，原先 barrier-waiting 的 resident waves 能重新参与 active-window refill
+
+### 5. `RetiredBlockBackfillsPendingBlockOnSameAp`
 
 构造一个 `AP` 上 `3+` blocks。
 
@@ -349,11 +391,13 @@ wave 在下列 blocked 原因下，不离开 active window：
 - 新 resident state 先包在 cycle front-end 内部
 - 不急于抽 shared abstraction
 
-### 风险 2：把 blocked active wave 错误踢出 window
+### 风险 2：把 `barrier` 和其他 blocked 原因混为一类
 
 缓解：
 
-- 用 focused test 明确锁定：blocked 不等于 de-resident
+- 用 focused test 明确锁定：
+  - `waitcnt/dependency/front_end_wait` blocked 不等于 de-resident
+  - `barrier` waiting 必须让出 active slot，但不能 de-resident
 
 ### 风险 3：block retire/backfill 破坏现有 issue 顺序
 
@@ -370,7 +414,8 @@ wave 在下列 blocked 原因下，不离开 active window：
 - 同一 `PEU` 可真实出现 `>4 resident waves`
 - `active_window = 4`、超出进 `standby`
 - standby promotion 正确
-- blocked active wave 不被错误逐出窗口
+- `waitcnt/dependency/front_end_wait` blocked wave 不被错误逐出窗口
+- `barrier` waiting wave 让出 active slot，但在 release 后重新参与 refill
 - retired block 会触发 pending block backfill
 - 新 cycle focused regressions 全过
 
