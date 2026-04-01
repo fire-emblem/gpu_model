@@ -512,7 +512,11 @@ TEST(HipRuntimeTest, LoadsSectionedExecutableImageAndLaunchesRegisteredKernel) {
   ExecutableImageIO::Write(path, image);
 
   HipRuntime hooks;
-  hooks.LoadExecutableImage("file_module", path);
+  hooks.LoadModule(ModuleLoadRequest{
+      .module_name = "file_module",
+      .path = path,
+      .format = ModuleLoadFormat::ExecutableImage,
+  });
 
   constexpr uint32_t n = 20;
   const uint64_t out_addr = hooks.Malloc(n * sizeof(int32_t));
@@ -588,8 +592,16 @@ TEST(HipRuntimeTest, LoadsBundleAndLooseFilesByModuleAndCanUnload) {
   }
 
   HipRuntime hooks;
-  hooks.LoadProgramBundle("bundle_module", bundle_path);
-  hooks.LoadProgramFileStem("stem_module", temp_dir / "stem_kernel.gasm");
+  hooks.LoadModule(ModuleLoadRequest{
+      .module_name = "bundle_module",
+      .path = bundle_path,
+      .format = ModuleLoadFormat::ProgramBundle,
+  });
+  hooks.LoadModule(ModuleLoadRequest{
+      .module_name = "stem_module",
+      .path = temp_dir / "stem_kernel.gasm",
+      .format = ModuleLoadFormat::ProgramFileStem,
+  });
 
   constexpr uint32_t n = 8;
   const uint64_t out_bundle = hooks.Malloc(n * sizeof(int32_t));
@@ -851,7 +863,12 @@ TEST(HipRuntimeTest, LaunchesRegisteredRawModuleThroughEncodedRawRoute) {
   }
 
   HipRuntime hooks;
-  hooks.LoadAmdgpuObject("raw_mod", exe_path, "vecadd_3d_adds_registered");
+  hooks.LoadModule(ModuleLoadRequest{
+      .module_name = "raw_mod",
+      .path = exe_path,
+      .format = ModuleLoadFormat::AmdgpuObject,
+      .kernel_name = "vecadd_3d_adds_registered",
+  });
   const uint64_t a_addr = hooks.Malloc(total * sizeof(float));
   const uint64_t b_addr = hooks.Malloc(total * sizeof(float));
   const uint64_t c_addr = hooks.Malloc(total * sizeof(float));

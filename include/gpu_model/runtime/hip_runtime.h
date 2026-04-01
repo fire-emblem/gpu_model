@@ -70,12 +70,6 @@ class HipRuntime {
   void LoadModule(const ModuleLoadRequest& request);
   const std::optional<DeviceLoadResult>& last_load_result() const { return last_load_result_; }
   void RegisterProgramImage(std::string module_name, ProgramObject image);
-  void LoadAmdgpuObject(std::string module_name,
-                        const std::filesystem::path& path,
-                        std::optional<std::string> kernel_name = std::nullopt);
-  void LoadProgramBundle(std::string module_name, const std::filesystem::path& path);
-  void LoadExecutableImage(std::string module_name, const std::filesystem::path& path);
-  void LoadProgramFileStem(std::string module_name, const std::filesystem::path& path);
   void UnloadModule(const std::string& module_name);
   void Reset();
   bool HasModule(const std::string& module_name) const;

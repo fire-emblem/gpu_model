@@ -302,41 +302,6 @@ void HipRuntime::RegisterProgramImage(std::string module_name, ProgramObject ima
   modules_[module_name][image.kernel_name()] = std::move(image);
 }
 
-void HipRuntime::LoadAmdgpuObject(std::string module_name,
-                                  const std::filesystem::path& path,
-                                  std::optional<std::string> kernel_name) {
-  LoadModule(ModuleLoadRequest{
-      .module_name = std::move(module_name),
-      .path = path,
-      .format = ModuleLoadFormat::AmdgpuObject,
-      .kernel_name = std::move(kernel_name),
-  });
-}
-
-void HipRuntime::LoadProgramBundle(std::string module_name, const std::filesystem::path& path) {
-  LoadModule(ModuleLoadRequest{
-      .module_name = std::move(module_name),
-      .path = path,
-      .format = ModuleLoadFormat::ProgramBundle,
-  });
-}
-
-void HipRuntime::LoadExecutableImage(std::string module_name, const std::filesystem::path& path) {
-  LoadModule(ModuleLoadRequest{
-      .module_name = std::move(module_name),
-      .path = path,
-      .format = ModuleLoadFormat::ExecutableImage,
-  });
-}
-
-void HipRuntime::LoadProgramFileStem(std::string module_name, const std::filesystem::path& path) {
-  LoadModule(ModuleLoadRequest{
-      .module_name = std::move(module_name),
-      .path = path,
-      .format = ModuleLoadFormat::ProgramFileStem,
-  });
-}
-
 void HipRuntime::UnloadModule(const std::string& module_name) {
   modules_.erase(module_name);
 }

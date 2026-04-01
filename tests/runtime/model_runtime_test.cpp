@@ -404,7 +404,12 @@ TEST(ModelRuntimeTest, LaunchesRegisteredRawModuleThroughEncodedRawRoute) {
   }
 
   ModelRuntime api;
-  api.LoadAmdgpuObject("raw_mod", exe_path, "vecadd_3d_adds_registered");
+  api.LoadModule(ModuleLoadRequest{
+      .module_name = "raw_mod",
+      .path = exe_path,
+      .format = ModuleLoadFormat::AmdgpuObject,
+      .kernel_name = "vecadd_3d_adds_registered",
+  });
   const uint64_t a_addr = api.Malloc(total * sizeof(float));
   const uint64_t b_addr = api.Malloc(total * sizeof(float));
   const uint64_t c_addr = api.Malloc(total * sizeof(float));
