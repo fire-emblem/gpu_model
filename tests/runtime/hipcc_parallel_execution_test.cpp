@@ -1391,6 +1391,130 @@ TEST(HipccParallelExecutionTest,
 }
 
 TEST(HipccParallelExecutionTest,
+     EncodedWaitcntGlobalLoadKernelMatchesAcrossDifferentBlockCounts) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hipcc_parallel_waitcnt_global_blocks");
+  const auto src_path = temp_dir / "waitcnt_global_blocks.cpp";
+  const auto exe_path = temp_dir / "waitcnt_global_blocks.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n"
+           "extern \"C\" __global__ void waitcnt_global_pair_sum(const int* in, int* out, int n) {\n"
+           "  int tid = blockIdx.x * blockDim.x + threadIdx.x;\n"
+           "  if (tid >= n) return;\n"
+           "  int a = in[tid];\n"
+           "  int b = in[(tid + 1) % n];\n"
+           "  out[tid] = a + b;\n"
+           "}\n"
+           "int main() { return 0; }\n";
+  }
+
+  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "waitcnt_global_pair_sum");
+  bool saw_waitcnt = false;
+  for (const auto& inst : image.instructions) {
+    if (inst.mnemonic == "s_waitcnt") {
+      saw_waitcnt = true;
+      break;
+    }
+  }
+  ASSERT_TRUE(saw_waitcnt);
+
+  struct Case {
+    const char* name = nullptr;
+    uint32_t grid_dim_x = 1;
+    uint32_t block_dim_x = 128;
+    uint32_t n = 1;
+  };
+
+  const std::vector<Case> cases = {
+      {.name = "single_block", .grid_dim_x = 1, .block_dim_x = 128, .n = 64},
+      {.name = "three_block_tail", .grid_dim_x = 3, .block_dim_x = 128, .n = 257},
+      {.name = "eight_block", .grid_dim_x = 8, .block_dim_x = 128, .n = 8 * 128},
+  };
+
+  for (const auto& test_case : cases) {
+    SCOPED_TRACE(test_case.name);
+
+    std::vector<int32_t> input(test_case.n), expect(test_case.n);
+    for (uint32_t i = 0; i < test_case.n; ++i) {
+      input[i] = static_cast<int32_t>((i * 7) - 13);
+    }
+    for (uint32_t i = 0; i < test_case.n; ++i) {
+      expect[i] = input[i] + input[(i + 1) % test_case.n];
+    }
+
+    const auto run_mode = [&](ExecutionMode mode,
+                              FunctionalExecutionMode functional_mode,
+                              uint32_t worker_threads) -> IntLaunchRunResult {
+      RuntimeEngine runtime;
+      runtime.SetFunctionalExecutionConfig(
+          FunctionalExecutionConfig{.mode = functional_mode, .worker_threads = worker_threads});
+      HipRuntime hooks(&runtime);
+
+      std::vector<int32_t> output(test_case.n, -1);
+      const uint64_t in_addr = hooks.Malloc(test_case.n * sizeof(int32_t));
+      const uint64_t out_addr = hooks.Malloc(test_case.n * sizeof(int32_t));
+      hooks.MemcpyHtoD<int32_t>(in_addr, std::span<const int32_t>(input));
+      hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(output));
+
+      KernelArgPack args;
+      args.PushU64(in_addr);
+      args.PushU64(out_addr);
+      args.PushU32(test_case.n);
+
+      auto launch = hooks.LaunchEncodedProgramObject(
+          image,
+          LaunchConfig{.grid_dim_x = test_case.grid_dim_x, .block_dim_x = test_case.block_dim_x},
+          std::move(args),
+          mode,
+          "c500",
+          nullptr);
+      EXPECT_TRUE(launch.ok) << launch.error_message;
+      hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(output));
+      return IntLaunchRunResult{.launch = std::move(launch), .output = std::move(output)};
+    };
+
+    const auto st = run_mode(ExecutionMode::Functional, FunctionalExecutionMode::SingleThreaded, 0);
+    const auto mt = run_mode(ExecutionMode::Functional, FunctionalExecutionMode::MultiThreaded, 2);
+    const auto cycle = run_mode(ExecutionMode::Cycle, FunctionalExecutionMode::SingleThreaded, 0);
+
+    for (uint32_t i = 0; i < test_case.n; ++i) {
+      EXPECT_EQ(st.output[i], expect[i]);
+      EXPECT_EQ(mt.output[i], expect[i]);
+      EXPECT_EQ(cycle.output[i], expect[i]);
+    }
+
+    ASSERT_TRUE(st.launch.program_cycle_stats.has_value());
+    ASSERT_TRUE(mt.launch.program_cycle_stats.has_value());
+    ASSERT_TRUE(cycle.launch.program_cycle_stats.has_value());
+
+    EXPECT_EQ(st.launch.total_cycles, st.launch.program_cycle_stats->total_cycles);
+    EXPECT_EQ(mt.launch.total_cycles, mt.launch.program_cycle_stats->total_cycles);
+    EXPECT_EQ(cycle.launch.total_cycles, cycle.launch.program_cycle_stats->total_cycles);
+
+    EXPECT_EQ(st.launch.stats.global_loads, mt.launch.stats.global_loads);
+    EXPECT_EQ(st.launch.stats.global_loads, cycle.launch.stats.global_loads);
+    EXPECT_EQ(st.launch.stats.global_stores, mt.launch.stats.global_stores);
+    EXPECT_EQ(st.launch.stats.global_stores, cycle.launch.stats.global_stores);
+    EXPECT_EQ(st.launch.stats.wave_exits, mt.launch.stats.wave_exits);
+    EXPECT_EQ(st.launch.stats.wave_exits, cycle.launch.stats.wave_exits);
+    EXPECT_GT(st.launch.stats.global_loads, 0u);
+    EXPECT_GT(st.launch.stats.global_stores, 0u);
+    EXPECT_GT(st.launch.stats.wave_exits, 0u);
+  }
+
+  std::filesystem::remove_all(temp_dir);
+}
+
+TEST(HipccParallelExecutionTest,
      EncodedBarrierStageVariantsMatchAcrossModesAndReflectBarrierCounts) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
