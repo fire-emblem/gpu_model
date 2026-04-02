@@ -279,6 +279,7 @@ void HipRuntime::LoadModule(const ModuleLoadRequest& request) {
   if (request.path.empty()) {
     throw std::invalid_argument("module path must not be empty");
   }
+  (void)request.context_id;
 
   const ModuleLoadFormat format =
       request.format == ModuleLoadFormat::Auto ? DetectModuleLoadFormat(request.path) : request.format;
@@ -306,7 +307,8 @@ void HipRuntime::RegisterProgramImage(std::string module_name, ProgramObject ima
   modules_[module_name][image.kernel_name()] = std::move(image);
 }
 
-void HipRuntime::UnloadModule(const std::string& module_name) {
+void HipRuntime::UnloadModule(const std::string& module_name, uint64_t context_id) {
+  (void)context_id;
   modules_.erase(module_name);
 }
 
@@ -323,11 +325,15 @@ void HipRuntime::Reset() {
   last_load_result_.reset();
 }
 
-bool HipRuntime::HasModule(const std::string& module_name) const {
+bool HipRuntime::HasModule(const std::string& module_name, uint64_t context_id) const {
+  (void)context_id;
   return modules_.find(module_name) != modules_.end();
 }
 
-bool HipRuntime::HasKernel(const std::string& module_name, const std::string& kernel_name) const {
+bool HipRuntime::HasKernel(const std::string& module_name,
+                           const std::string& kernel_name,
+                           uint64_t context_id) const {
+  (void)context_id;
   const auto module_it = modules_.find(module_name);
   if (module_it == modules_.end()) {
     return false;
@@ -335,7 +341,8 @@ bool HipRuntime::HasKernel(const std::string& module_name, const std::string& ke
   return module_it->second.find(kernel_name) != module_it->second.end();
 }
 
-std::vector<std::string> HipRuntime::ListModules() const {
+std::vector<std::string> HipRuntime::ListModules(uint64_t context_id) const {
+  (void)context_id;
   std::vector<std::string> names;
   names.reserve(modules_.size());
   for (const auto& [name, kernels] : modules_) {
@@ -346,7 +353,9 @@ std::vector<std::string> HipRuntime::ListModules() const {
   return names;
 }
 
-std::vector<std::string> HipRuntime::ListKernels(const std::string& module_name) const {
+std::vector<std::string> HipRuntime::ListKernels(const std::string& module_name,
+                                                 uint64_t context_id) const {
+  (void)context_id;
   std::vector<std::string> names;
   const auto module_it = modules_.find(module_name);
   if (module_it == modules_.end()) {

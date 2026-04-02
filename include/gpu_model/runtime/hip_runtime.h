@@ -76,12 +76,15 @@ class HipRuntime {
                                           RuntimeSubmissionContext submission_context = {});
   void LoadModule(const ModuleLoadRequest& request);
   const std::optional<DeviceLoadResult>& last_load_result() const { return last_load_result_; }
-  void UnloadModule(const std::string& module_name);
+  void UnloadModule(const std::string& module_name, uint64_t context_id = 0);
   void Reset();
-  bool HasModule(const std::string& module_name) const;
-  bool HasKernel(const std::string& module_name, const std::string& kernel_name) const;
-  std::vector<std::string> ListModules() const;
-  std::vector<std::string> ListKernels(const std::string& module_name) const;
+  bool HasModule(const std::string& module_name, uint64_t context_id = 0) const;
+  bool HasKernel(const std::string& module_name,
+                 const std::string& kernel_name,
+                 uint64_t context_id = 0) const;
+  std::vector<std::string> ListModules(uint64_t context_id = 0) const;
+  std::vector<std::string> ListKernels(const std::string& module_name,
+                                       uint64_t context_id = 0) const;
   LaunchResult LaunchRegisteredKernel(const std::string& module_name,
                                       const std::string& kernel_name,
                                       LaunchConfig config,

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <filesystem>
 #include <optional>
 #include <string>
@@ -17,6 +18,7 @@ enum class ModuleLoadFormat {
 struct ModuleLoadRequest {
   std::string module_name;
   std::filesystem::path path;
+  uint64_t context_id = 0;
   ModuleLoadFormat format = ModuleLoadFormat::Auto;
   std::optional<std::string> kernel_name = std::nullopt;
 };
