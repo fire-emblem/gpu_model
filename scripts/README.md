@@ -12,6 +12,9 @@
 - `run_real_hip_kernel_regression.sh`
   - 更上层真实 HIP kernel 回归
   - 先跑 shared-heavy ring，再补 atomic focused ring 和 example `04`
+- `run_abi_regression.sh`
+  - ABI-heavy 回归
+  - 覆盖 by-value aggregate、`3D hidden args / builtin ids` 和 llvm-mc ABI fixture
 - `run_scaling_regression.sh`
   - 形状/线程规模回归
 
