@@ -586,6 +586,41 @@ TEST_F(EncodedSemanticExecuteTest, ExecutesSaveexecBranchLoweringSequenceForWave
     EncodedSemanticHandlerRegistry::Get(restore).Execute(restore, harness.context);
     EXPECT_TRUE(harness.wave.exec.all());
   }
+
+  {
+    Harness harness;
+    harness.wave.exec.set();
+    harness.vcc = 0;
+    for (uint32_t lane = 32; lane < 64; ++lane) {
+      harness.vcc |= (1ull << lane);
+    }
+
+    harness.wave.pc = and_save.pc;
+    EncodedSemanticHandlerRegistry::Get(and_save).Execute(and_save, harness.context);
+    EXPECT_FALSE(harness.wave.exec.test(0));
+    EXPECT_TRUE(harness.wave.exec.test(40));
+
+    harness.wave.pc = xor_mask.pc;
+    EncodedSemanticHandlerRegistry::Get(xor_mask).Execute(xor_mask, harness.context);
+    EXPECT_TRUE(harness.wave.sgpr.Read(0) != 0u || harness.wave.sgpr.Read(1) != 0u);
+
+    harness.wave.pc = branch0.pc;
+    EncodedSemanticHandlerRegistry::Get(branch0).Execute(branch0, harness.context);
+    EXPECT_EQ(harness.wave.pc, 0x19bcu);
+
+    harness.wave.pc = andn2.pc;
+    EncodedSemanticHandlerRegistry::Get(andn2).Execute(andn2, harness.context);
+    EXPECT_TRUE(harness.wave.exec.test(0));
+    EXPECT_FALSE(harness.wave.exec.test(40));
+
+    harness.wave.pc = branch1.pc;
+    EncodedSemanticHandlerRegistry::Get(branch1).Execute(branch1, harness.context);
+    EXPECT_EQ(harness.wave.pc, 0x19e4u);
+
+    harness.wave.pc = restore.pc;
+    EncodedSemanticHandlerRegistry::Get(restore).Execute(restore, harness.context);
+    EXPECT_TRUE(harness.wave.exec.all());
+  }
 }
 
 TEST_F(EncodedSemanticExecuteTest, ExecutesAdditionalSop1ScalarAluInstructions) {
