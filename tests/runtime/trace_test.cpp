@@ -53,12 +53,26 @@ std::string_view ExtractTraceEventsPayload(std::string_view text) {
     return {};
   }
   const auto array_begin = text.find('[', key_pos);
-  const auto array_end = text.find(']', array_begin);
+  const auto array_end = text.rfind(']');
   if (array_begin == std::string_view::npos || array_end == std::string_view::npos ||
       array_end <= array_begin) {
     return {};
   }
   return text.substr(array_begin + 1, array_end - array_begin - 1);
+}
+
+size_t CountOccurrences(std::string_view text, std::string_view needle) {
+  size_t count = 0;
+  size_t pos = 0;
+  while ((pos = text.find(needle, pos)) != std::string_view::npos) {
+    ++count;
+    pos += needle.size();
+  }
+  return count;
+}
+
+size_t FindFirst(std::string_view text, std::string_view needle) {
+  return text.find(needle);
 }
 
 TEST(TraceTest, EmitsLaunchAndBlockPlacementEvents) {
@@ -348,6 +362,48 @@ TEST(TraceTest, PerfettoDumpContainsTraceEventsAndRequiredFields) {
   EXPECT_NE(trace_events.find("\"name\""), std::string::npos);
   EXPECT_NE(trace_events.find("\"ph\":"), std::string::npos);
   EXPECT_NE(trace_events.find("\"ts\":"), std::string::npos);
+}
+
+TEST(TraceTest, PerfettoDumpForMultiThreadedWaitKernelShowsWaitingAndResumeOrdering) {
+  const auto out_dir = MakeUniqueTempDir("gpu_model_perfetto_mt_wait");
+  const struct Cleanup {
+    std::filesystem::path path;
+    ~Cleanup() { std::filesystem::remove_all(path); }
+  } cleanup{out_dir};
+
+  TraceArtifactRecorder trace(out_dir);
+  RuntimeEngine runtime(&trace);
+  runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::MultiThreaded);
+
+  const auto kernel = BuildWaitcntTraceKernel();
+  const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
+  runtime.memory().StoreGlobalValue<int32_t>(base_addr, 11);
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.config.grid_dim_x = 2;
+  request.config.block_dim_x = 64;
+  request.args.PushU64(base_addr);
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+  trace.FlushTimeline();
+
+  const std::string timeline = ReadTextFile(out_dir / "timeline.perfetto.json");
+  const auto trace_events = ExtractTraceEventsPayload(timeline);
+  ASSERT_FALSE(trace_events.empty());
+
+  EXPECT_GE(CountOccurrences(trace_events, "\"name\":\"thread_name\""), 2u) << timeline;
+  EXPECT_NE(FindFirst(trace_events, "\"args\":{\"name\":\"B0W0\"}"), std::string::npos)
+      << timeline;
+  EXPECT_NE(FindFirst(trace_events, "\"args\":{\"name\":\"B1W0\"}"), std::string::npos)
+      << timeline;
+  EXPECT_NE(FindFirst(trace_events, "\"name\":\"stall_waitcnt_global\""), std::string::npos)
+      << timeline;
+  EXPECT_NE(FindFirst(trace_events, "\"name\":\"wave_exit\""), std::string::npos) << timeline;
+  EXPECT_LT(FindFirst(trace_events, "\"name\":\"stall_waitcnt_global\""),
+            FindFirst(trace_events, "\"name\":\"wave_exit\""))
+      << timeline;
 }
 
 TEST(TraceTest, TraceArtifactRecorderWritesTraceAndPerfettoFiles) {
