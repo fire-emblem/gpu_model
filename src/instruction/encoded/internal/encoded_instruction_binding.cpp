@@ -32,6 +32,56 @@ void DebugLog(const char* fmt, ...) {
   va_end(args);
 }
 
+std::pair<std::string_view, std::string_view> PlaceholderNamesForFormatClass(
+    EncodedGcnInstFormatClass format_class) {
+  const auto op_type_name = ToString(format_class);
+  switch (format_class) {
+    case EncodedGcnInstFormatClass::Mimg:
+      return {"mimg", "mimg_placeholder"};
+    case EncodedGcnInstFormatClass::Exp:
+      return {"exp", "exp_placeholder"};
+    case EncodedGcnInstFormatClass::Smrd:
+      return {"smrd", "smrd_placeholder"};
+    case EncodedGcnInstFormatClass::Smem:
+      return {"smem", "smem_placeholder"};
+    case EncodedGcnInstFormatClass::Sop1:
+      return {"sop1", "sop1_placeholder"};
+    case EncodedGcnInstFormatClass::Sop2:
+      return {"sop2", "sop2_placeholder"};
+    case EncodedGcnInstFormatClass::Sopc:
+      return {"sopc", "sopc_placeholder"};
+    case EncodedGcnInstFormatClass::Sopp:
+      return {"sopp", "sopp_placeholder"};
+    case EncodedGcnInstFormatClass::Sopk:
+      return {"sopk", "sopk_placeholder"};
+    case EncodedGcnInstFormatClass::Vop1:
+      return {"vop1", "vop1_placeholder"};
+    case EncodedGcnInstFormatClass::Vop2:
+      return {"vop2", "vop2_placeholder"};
+    case EncodedGcnInstFormatClass::Vop3a:
+      return {"vop3a", "vop3a_placeholder"};
+    case EncodedGcnInstFormatClass::Vop3b:
+      return {"vop3b", "vop3b_placeholder"};
+    case EncodedGcnInstFormatClass::Vop3p:
+      return {"vop3p", "vop3p_placeholder"};
+    case EncodedGcnInstFormatClass::Vopc:
+      return {"vopc", "vopc_placeholder"};
+    case EncodedGcnInstFormatClass::Vintrp:
+      return {"vintrp", "vintrp_placeholder"};
+    case EncodedGcnInstFormatClass::Ds:
+      return {"ds", "ds_placeholder"};
+    case EncodedGcnInstFormatClass::Flat:
+      return {"flat", "flat_placeholder"};
+    case EncodedGcnInstFormatClass::Mubuf:
+      return {"mubuf", "mubuf_placeholder"};
+    case EncodedGcnInstFormatClass::Mtbuf:
+      return {"mtbuf", "mtbuf_placeholder"};
+    case EncodedGcnInstFormatClass::Unknown:
+      return {"unknown", "unknown_placeholder"};
+  }
+  return {op_type_name, "unknown_placeholder"};
+}
+
 class UnsupportedInstructionHandler final : public IEncodedSemanticHandler {
  public:
   void Execute(const DecodedInstruction& instruction, EncodedWaveContext&) const override {
@@ -402,6 +452,7 @@ DEFINE_RAW_GCN_OPCODE_CLASS(SSubI32Instruction, Sop2InstructionBase, "s_sub_i32"
 DEFINE_RAW_GCN_OPCODE_CLASS(SAddI32Instruction, Sop2InstructionBase, "s_add_i32");
 DEFINE_RAW_GCN_OPCODE_CLASS(SAddU32Instruction, Sop2InstructionBase, "s_add_u32");
 DEFINE_RAW_GCN_OPCODE_CLASS(SAddcU32Instruction, Sop2InstructionBase, "s_addc_u32");
+DEFINE_RAW_GCN_OPCODE_CLASS(SLshlB32Instruction, Sop2InstructionBase, "s_lshl_b32");
 DEFINE_RAW_GCN_OPCODE_CLASS(SLshrB32Instruction, Sop2InstructionBase, "s_lshr_b32");
 DEFINE_RAW_GCN_OPCODE_CLASS(SAshrI32Instruction, Sop2InstructionBase, "s_ashr_i32");
 DEFINE_RAW_GCN_OPCODE_CLASS(SLshlB64Instruction, Sop2InstructionBase, "s_lshl_b64");
@@ -409,6 +460,7 @@ DEFINE_RAW_GCN_OPCODE_CLASS(SLshlB64Instruction, Sop2InstructionBase, "s_lshl_b6
 DEFINE_RAW_GCN_OPCODE_CLASS(SCmpLtI32Instruction, SopcInstructionBase, "s_cmp_lt_i32");
 DEFINE_RAW_GCN_OPCODE_CLASS(SCmpGtI32Instruction, SopcInstructionBase, "s_cmp_gt_i32");
 DEFINE_RAW_GCN_OPCODE_CLASS(SCmpEqU32Instruction, SopcInstructionBase, "s_cmp_eq_u32");
+DEFINE_RAW_GCN_OPCODE_CLASS(SCmpLgU32Instruction, SopcInstructionBase, "s_cmp_lg_u32");
 DEFINE_RAW_GCN_OPCODE_CLASS(SCmpGtU32Instruction, SopcInstructionBase, "s_cmp_gt_u32");
 DEFINE_RAW_GCN_OPCODE_CLASS(SCmpLtU32Instruction, SopcInstructionBase, "s_cmp_lt_u32");
 
@@ -468,6 +520,7 @@ DEFINE_RAW_GCN_OPCODE_CLASS(VMfmaI8Instruction, Vop3pInstructionBase, "v_mfma_i3
 DEFINE_RAW_GCN_OPCODE_CLASS(VMfmaBf16Instruction, Vop3pInstructionBase, "v_mfma_f32_16x16x2bf16");
 DEFINE_RAW_GCN_OPCODE_CLASS(VMfmaF32WideInstruction, Vop3pInstructionBase, "v_mfma_f32_32x32x2f32");
 DEFINE_RAW_GCN_OPCODE_CLASS(VMfmaI8WideInstruction, Vop3pInstructionBase, "v_mfma_i32_16x16x16i8");
+DEFINE_RAW_GCN_OPCODE_CLASS(VPkMovB32Instruction, Vop3pInstructionBase, "v_pk_mov_b32");
 DEFINE_RAW_GCN_OPCODE_CLASS(VAccvgprReadB32Instruction, Vop3pInstructionBase, "v_accvgpr_read_b32");
 DEFINE_RAW_GCN_OPCODE_CLASS(VAccvgprWriteB32Instruction, Vop3pInstructionBase, "v_accvgpr_write_b32");
 
@@ -536,12 +589,14 @@ constexpr InstructionFactoryEntry kInstructionFactories[] = {
     {"s_add_i32", &MakeInstruction<SAddI32Instruction>},
     {"s_add_u32", &MakeInstruction<SAddU32Instruction>},
     {"s_addc_u32", &MakeInstruction<SAddcU32Instruction>},
+    {"s_lshl_b32", &MakeInstruction<SLshlB32Instruction>},
     {"s_lshr_b32", &MakeInstruction<SLshrB32Instruction>},
     {"s_ashr_i32", &MakeInstruction<SAshrI32Instruction>},
     {"s_lshl_b64", &MakeInstruction<SLshlB64Instruction>},
     {"s_cmp_lt_i32", &MakeInstruction<SCmpLtI32Instruction>},
     {"s_cmp_gt_i32", &MakeInstruction<SCmpGtI32Instruction>},
     {"s_cmp_eq_u32", &MakeInstruction<SCmpEqU32Instruction>},
+    {"s_cmp_lg_u32", &MakeInstruction<SCmpLgU32Instruction>},
     {"s_cmp_gt_u32", &MakeInstruction<SCmpGtU32Instruction>},
     {"s_cmp_lt_u32", &MakeInstruction<SCmpLtU32Instruction>},
     {"s_nop", &MakeInstruction<SNopInstruction>},
@@ -606,6 +661,7 @@ constexpr InstructionFactoryEntry kInstructionFactories[] = {
     {"v_mfma_f32_16x16x2bf16", &MakeInstruction<VMfmaBf16Instruction>},
     {"v_mfma_f32_32x32x2f32", &MakeInstruction<VMfmaF32WideInstruction>},
     {"v_mfma_i32_16x16x16i8", &MakeInstruction<VMfmaI8WideInstruction>},
+    {"v_pk_mov_b32", &MakeInstruction<VPkMovB32Instruction>},
     {"v_accvgpr_read_b32", &MakeInstruction<VAccvgprReadB32Instruction>},
     {"v_accvgpr_write_b32", &MakeInstruction<VAccvgprWriteB32Instruction>},
     {"v_cmp_gt_i32_e32", &MakeInstruction<VCmpGtI32Instruction>},
@@ -639,14 +695,18 @@ const InstructionFactoryEntry* FindInstructionFactory(std::string_view mnemonic)
 InstructionObjectPtr BindEncodedInstructionObject(DecodedInstruction instruction) {
   const auto* match = FindEncodedGcnMatchRecord(instruction.words);
   if (match == nullptr || !match->known()) {
-    throw std::invalid_argument("missing encoded instruction match record: " + instruction.mnemonic);
+    const auto [op_type_name, class_name] =
+        PlaceholderNamesForFormatClass(instruction.format_class);
+    return MakePlaceholderInstruction(std::move(instruction), op_type_name, class_name);
   }
   if (const auto* factory = FindInstructionFactory(match->encoding_def->mnemonic); factory != nullptr) {
     instruction.mnemonic = std::string(match->encoding_def->mnemonic);
     return factory->factory(std::move(instruction));
   }
-  throw std::invalid_argument("missing encoded instruction factory: " +
-                              std::string(match->encoding_def->mnemonic));
+  const auto desc = DescribeEncodedInstruction(instruction);
+  return MakePlaceholderInstruction(std::move(instruction),
+                                    desc.placeholder_op_type_name,
+                                    desc.placeholder_class_name);
 }
 
 }  // namespace gpu_model

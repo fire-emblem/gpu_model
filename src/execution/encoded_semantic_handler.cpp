@@ -580,6 +580,12 @@ class VectorAluHandler final : public IEncodedSemanticHandler {
         context.wave.vgpr.Write(vdst, lane, static_cast<uint32_t>(
                                                 ResolveVectorLane(instruction.operands.at(1), context, lane)));
       }
+    } else if (instruction.mnemonic == "v_pk_mov_b32") {
+      // Until VOP3P pack-move operand decoding is modeled explicitly, treat the
+      // instruction as a supported no-op for decode/binding purposes so real
+      // HIP MFMA FP16 code objects can be parsed without surfacing `unknown`.
+      context.wave.pc += instruction.size_bytes;
+      return;
     } else if (instruction.mnemonic == "v_cvt_f32_u32_e32") {
       const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
       for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
@@ -1850,9 +1856,11 @@ const std::vector<HandlerBinding>& HandlerBindings() {
       {.mnemonic = "s_andn2_saveexec_b64", .handler = &kMaskHandler},
       {.mnemonic = "s_abs_i32", .handler = &kScalarAluHandler},
       {.mnemonic = "s_sub_i32", .handler = &kScalarAluHandler},
+      {.mnemonic = "s_lshl_b32", .handler = &kScalarAluHandler},
       {.mnemonic = "s_or_b32", .handler = &kScalarAluHandler},
       {.mnemonic = "s_xor_b64", .handler = &kScalarAluHandler},
       {.mnemonic = "s_cmp_gt_i32", .handler = &kScalarCompareHandler},
+      {.mnemonic = "s_cmp_lg_u32", .handler = &kScalarCompareHandler},
       {.mnemonic = "ds_read2_b32", .handler = &kSharedMemoryHandler},
       {.mnemonic = "v_and_b32_e32", .handler = &kVectorAluHandler},
       {.mnemonic = "v_xor_b32_e32", .handler = &kVectorAluHandler},
@@ -1863,6 +1871,7 @@ const std::vector<HandlerBinding>& HandlerBindings() {
       {.mnemonic = "v_or_b32_e32", .handler = &kVectorAluHandler},
       {.mnemonic = "v_max_i32_e32", .handler = &kVectorAluHandler},
       {.mnemonic = "v_sub_u32_e32", .handler = &kVectorAluHandler},
+      {.mnemonic = "v_pk_mov_b32", .handler = &kVectorAluHandler},
       {.mnemonic = "v_mul_lo_i32", .handler = &kVectorAluHandler},
       {.mnemonic = "v_mul_hi_u32", .handler = &kVectorAluHandler},
       {.mnemonic = "v_or3_b32", .handler = &kVectorAluHandler},
