@@ -20,3 +20,4 @@
 5. [05-softmax-reduction](./05-softmax-reduction)
 6. [06-mma-gemm](./06-mma-gemm)
 7. [07-vecadd-cycle-splitting](./07-vecadd-cycle-splitting)
+8. [08-conditional-multibarrier](./08-conditional-multibarrier)
