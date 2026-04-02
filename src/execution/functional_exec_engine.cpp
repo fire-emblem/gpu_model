@@ -121,11 +121,20 @@ struct PendingMemoryOp {
   uint8_t turns_until_complete = kFunctionalPendingMemoryCompletionTurns;
 };
 
-struct ExecutedWaveStep {
-  uint32_t block_id = 0;
-  uint32_t wave_id = 0;
+enum class ExecutedFlowEventKind {
+  BeginWaveWork,
+  CompleteWave,
+};
+
+struct ExecutedFlowWorkItem {
   ExecutedStepClass step_class = ExecutedStepClass::ScalarAlu;
   uint64_t cost_cycles = 0;
+};
+
+struct ExecutedFlowEvent {
+  ExecutedFlowEventKind kind = ExecutedFlowEventKind::BeginWaveWork;
+  uint64_t stable_wave_id = 0;
+  ExecutedFlowWorkItem work_item{};
 };
 
 struct FunctionalWaveState {
@@ -366,16 +375,15 @@ uint64_t CostForExecutedStep(const OpPlan& plan,
 
 class ExecutedFlowEventSource final : public ProgramCycleTickSource {
  public:
-  explicit ExecutedFlowEventSource(
-      const std::unordered_map<uint64_t, std::deque<ExecutedWaveStep>>& recorded_steps) {
-    uint32_t agg_wave_id = 0;
-    wave_states_.reserve(recorded_steps.size());
-    for (const auto& [stable_wave_id, steps] : recorded_steps) {
-      (void)stable_wave_id;
-      wave_states_.push_back(WaveQueueState{
-          .agg_wave_id = agg_wave_id++,
-          .steps = steps,
-      });
+  explicit ExecutedFlowEventSource(const std::vector<ExecutedFlowEvent>& events) {
+    wave_states_.reserve(events.size());
+    for (const auto& event : events) {
+      auto& wave = GetOrCreateWaveState(event.stable_wave_id);
+      if (event.kind == ExecutedFlowEventKind::BeginWaveWork) {
+        wave.work_items.push_back(event.work_item);
+      } else if (event.kind == ExecutedFlowEventKind::CompleteWave) {
+        wave.saw_completion = true;
+      }
     }
   }
 
@@ -406,38 +414,61 @@ class ExecutedFlowEventSource final : public ProgramCycleTickSource {
       if (wave.completed || wave.active) {
         continue;
       }
-      if (!wave.steps.empty()) {
-        const auto step = wave.steps.front();
-        wave.steps.pop_front();
+      if (!wave.work_items.empty()) {
+        const auto step = wave.work_items.front();
+        wave.work_items.pop_front();
         wave.active = true;
         wave.current_cost_cycles = step.cost_cycles;
         wave.ticks_consumed = 0;
         agg.BeginWaveWork(wave.agg_wave_id, step.step_class, step.cost_cycles);
         continue;
       }
-      wave.completed = true;
-      agg.MarkWaveCompleted(wave.agg_wave_id);
+      if (wave.saw_completion) {
+        wave.completed = true;
+        agg.MarkWaveCompleted(wave.agg_wave_id);
+      }
     }
   }
 
  private:
   struct WaveQueueState {
     uint32_t agg_wave_id = 0;
-    std::deque<ExecutedWaveStep> steps;
+    std::deque<ExecutedFlowWorkItem> work_items;
     bool active = false;
     bool completed = false;
+    bool saw_completion = false;
     uint64_t current_cost_cycles = 0;
     uint64_t ticks_consumed = 0;
   };
 
+  WaveQueueState& GetOrCreateWaveState(uint64_t stable_wave_id) {
+    const auto it = wave_state_indices_.find(stable_wave_id);
+    if (it != wave_state_indices_.end()) {
+      return wave_states_[it->second];
+    }
+    const uint32_t agg_wave_id = static_cast<uint32_t>(wave_states_.size());
+    wave_state_indices_.emplace(stable_wave_id, wave_states_.size());
+    wave_states_.push_back(WaveQueueState{
+        .agg_wave_id = agg_wave_id,
+        .work_items = {},
+        .active = false,
+        .completed = false,
+        .saw_completion = false,
+        .current_cost_cycles = 0,
+        .ticks_consumed = 0,
+    });
+    return wave_states_.back();
+  }
+
+  std::unordered_map<uint64_t, size_t> wave_state_indices_;
   std::vector<WaveQueueState> wave_states_;
 };
 
 ProgramCycleStats CollectProgramCycleStatsFromExecutedFlow(
-    const std::unordered_map<uint64_t, std::deque<ExecutedWaveStep>>& recorded_steps,
+    const std::vector<ExecutedFlowEvent>& events,
     const ProgramCycleStatsConfig& config) {
   ProgramCycleTracker agg(config);
-  ExecutedFlowEventSource source(recorded_steps);
+  ExecutedFlowEventSource source(events);
   while (!source.Done()) {
     source.AdvanceOneTick(agg);
     agg.AdvanceOneTick();
@@ -616,7 +647,7 @@ class FunctionalExecutionCoreImpl {
     }
     EmitWaveStatsSnapshot();
     program_cycle_stats_ =
-        CollectProgramCycleStatsFromExecutedFlow(executed_flow_steps_, cycle_stats_config_);
+        CollectProgramCycleStatsFromExecutedFlow(executed_flow_events_, cycle_stats_config_);
     return program_cycle_stats_->total_cycles;
   }
 
@@ -658,7 +689,7 @@ class FunctionalExecutionCoreImpl {
     }
     EmitWaveStatsSnapshot();
     program_cycle_stats_ =
-        CollectProgramCycleStatsFromExecutedFlow(executed_flow_steps_, cycle_stats_config_);
+        CollectProgramCycleStatsFromExecutedFlow(executed_flow_events_, cycle_stats_config_);
     return program_cycle_stats_->total_cycles;
   }
 
@@ -682,7 +713,7 @@ class FunctionalExecutionCoreImpl {
   size_t completed_waves_ = 0;
   size_t active_wave_tasks_ = 0;
   ProgramCycleStatsConfig cycle_stats_config_{};
-  std::unordered_map<uint64_t, std::deque<ExecutedWaveStep>> executed_flow_steps_;
+  std::vector<ExecutedFlowEvent> executed_flow_events_;
   std::optional<ProgramCycleStats> program_cycle_stats_;
 
   void TraceEventLocked(TraceEvent event) {
@@ -698,18 +729,29 @@ class FunctionalExecutionCoreImpl {
     MergeStats(*context_.stats, block_stats);
   }
 
-  void RecordExecutedStep(const WaveContext& wave,
-                          ExecutedStepClass step_class,
-                          uint64_t cost_cycles) {
+  void RecordExecutedWorkEvent(const WaveContext& wave,
+                               ExecutedStepClass step_class,
+                               uint64_t cost_cycles) {
     if (cost_cycles == 0) {
       return;
     }
     std::lock_guard<std::mutex> lock(executed_flow_mutex_);
-    executed_flow_steps_[StableWaveKey(wave)].push_back(ExecutedWaveStep{
-        .block_id = wave.block_id,
-        .wave_id = wave.wave_id,
-        .step_class = step_class,
-        .cost_cycles = cost_cycles,
+    executed_flow_events_.push_back(ExecutedFlowEvent{
+        .kind = ExecutedFlowEventKind::BeginWaveWork,
+        .stable_wave_id = StableWaveKey(wave),
+        .work_item =
+            ExecutedFlowWorkItem{
+                .step_class = step_class,
+                .cost_cycles = cost_cycles,
+            },
+    });
+  }
+
+  void RecordExecutedCompletionEvent(const WaveContext& wave) {
+    std::lock_guard<std::mutex> lock(executed_flow_mutex_);
+    executed_flow_events_.push_back(ExecutedFlowEvent{
+        .kind = ExecutedFlowEventKind::CompleteWave,
+        .stable_wave_id = StableWaveKey(wave),
     });
   }
 
@@ -1087,9 +1129,9 @@ class FunctionalExecutionCoreImpl {
         continue;
       }
       if (wave.wait_reason == WaveWaitReason::BlockBarrier) {
-        RecordExecutedStep(wave, ExecutedStepClass::Barrier, 1);
+        RecordExecutedWorkEvent(wave, ExecutedStepClass::Barrier, 1);
       } else if (IsMemoryWaitReason(wave.wait_reason)) {
-        RecordExecutedStep(wave, ExecutedStepClass::Wait, 1);
+        RecordExecutedWorkEvent(wave, ExecutedStepClass::Wait, 1);
       }
     }
   }
@@ -1203,7 +1245,8 @@ class FunctionalExecutionCoreImpl {
     block_context.stats = nullptr;
     const OpPlan plan = semantics_.BuildPlan(instruction, wave, block_context);
     if (const auto step_class = ClassifyExecutedInstruction(instruction, plan); step_class.has_value()) {
-      RecordExecutedStep(wave, *step_class, CostForExecutedStep(plan, *step_class, cycle_stats_config_));
+      RecordExecutedWorkEvent(wave, *step_class,
+                              CostForExecutedStep(plan, *step_class, cycle_stats_config_));
     }
 
     ApplyExecutionPlanRegisterWrites(plan, wave);
@@ -1399,6 +1442,7 @@ class FunctionalExecutionCoreImpl {
         wave_state.pending_memory_ops.clear();
         MarkWaveCompleted(wave);
         block.barrier_state->completed_wave_count.fetch_add(1);
+        RecordExecutedCompletionEvent(wave);
         wave_completed = true;
       }
       TraceEventLocked(TraceEvent{

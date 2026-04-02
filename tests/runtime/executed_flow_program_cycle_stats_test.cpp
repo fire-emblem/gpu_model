@@ -725,6 +725,35 @@ TEST(ExecutedFlowProgramCycleStatsTest,
 }
 
 TEST(ExecutedFlowProgramCycleStatsTest,
+     RuntimePureVectorAluKernelReportsAggregatedProgramCycleStatsOnly) {
+  RuntimeEngine runtime;
+  runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
+
+  InstructionBuilder builder;
+  builder.VMov("v1", 1);
+  builder.VAdd("v2", "v1", "v1");
+  builder.BExit();
+  const auto kernel = builder.Build("cycle_stats_runtime_pure_vector_alu");
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+
+  const auto result = runtime.Launch(request);
+  const ProgramCycleStatsConfig config;
+  ASSERT_TRUE(result.ok) << result.error_message;
+  ASSERT_TRUE(result.program_cycle_stats.has_value());
+  EXPECT_EQ(result.program_cycle_stats->vector_alu_cycles,
+            2u * config.default_issue_cycles);
+  EXPECT_EQ(result.program_cycle_stats->total_issued_work_cycles,
+            2u * config.default_issue_cycles);
+  EXPECT_EQ(result.program_cycle_stats->total_cycles,
+            2u * config.default_issue_cycles);
+  EXPECT_EQ(result.total_cycles, result.program_cycle_stats->total_cycles);
+}
+
+TEST(ExecutedFlowProgramCycleStatsTest,
      PureVectorAluKernelMatchesTheoryInSingleThreadedMode) {
   const ProgramCycleStatsConfig config;
   const auto kernel = BuildPureVectorAluKernel();
