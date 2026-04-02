@@ -71,7 +71,6 @@ class HipRuntime {
   DeviceLoadResult MaterializeLoadPlan(const DeviceLoadPlan& plan);
   void LoadModule(const ModuleLoadRequest& request);
   const std::optional<DeviceLoadResult>& last_load_result() const { return last_load_result_; }
-  void RegisterProgramImage(std::string module_name, ProgramObject image);
   void UnloadModule(const std::string& module_name);
   void Reset();
   bool HasModule(const std::string& module_name) const;
@@ -91,6 +90,7 @@ class HipRuntime {
 
  private:
   using ModuleImage = std::variant<ProgramObject, EncodedProgramObject>;
+  void RegisterProgramImage(std::string module_name, ProgramObject image);
 
   RuntimeEngine owned_runtime_;
   RuntimeEngine* runtime_engine_ = &owned_runtime_;

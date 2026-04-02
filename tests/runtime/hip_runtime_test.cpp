@@ -228,6 +228,8 @@ TEST(HipRuntimeTest, ExposesModelDevicePropertiesAndAttributes) {
 
 TEST(HipRuntimeTest, RegistersProgramObjectsAndLaunchesByModuleAndKernelName) {
   constexpr uint32_t n = 32;
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_register_program_objects");
+  const auto image_path = temp_dir / "const_from_registry.gpusec";
   ProgramObject image(
       "const_from_registry",
       R"(
@@ -256,9 +258,14 @@ TEST(HipRuntimeTest, RegistersProgramObjectsAndLaunchesByModuleAndKernelName) {
   ProgramObject image_with_const(image.kernel_name(), image.assembly_text(),
                                 MetadataBlob{.values = {{"arch", "c500"}}},
                                 std::move(const_segment));
+  ExecutableImageIO::Write(image_path, image_with_const);
 
   HipRuntime hooks;
-  hooks.RegisterProgramImage("demo_module", std::move(image_with_const));
+  hooks.LoadModule(ModuleLoadRequest{
+      .module_name = "demo_module",
+      .path = image_path,
+      .format = ModuleLoadFormat::ExecutableImage,
+  });
 
   const uint64_t out_addr = hooks.Malloc(n * sizeof(int32_t));
   std::vector<int32_t> out(n, -1);
@@ -276,6 +283,8 @@ TEST(HipRuntimeTest, RegistersProgramObjectsAndLaunchesByModuleAndKernelName) {
   for (uint32_t i = 0; i < n; ++i) {
     EXPECT_EQ(out[i], table[i]);
   }
+
+  std::filesystem::remove_all(temp_dir);
 }
 
 TEST(HipRuntimeTest, BuildsLoadPlanForProgramObject) {
@@ -2149,16 +2158,40 @@ TEST(HipRuntimeTest, LaunchesHipSharedReverseExecutableAndValidatesOutput) {
 }
 
 TEST(HipRuntimeTest, ListsModulesAndKernels) {
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_list_modules");
+  const auto mod_b_path = temp_dir / "mod_b_k2.gpusec";
+  const auto mod_a_k1_path = temp_dir / "mod_a_k1.gpusec";
+  const auto mod_a_k0_path = temp_dir / "mod_a_k0.gpusec";
+
+  ExecutableImageIO::Write(
+      mod_b_path,
+      ProgramObject("k2", "s_endpgm\n",
+                    MetadataBlob{.values = {{"module_name", "mod_b"}, {"module_kernels", "k2"}}}));
+  ExecutableImageIO::Write(
+      mod_a_k1_path,
+      ProgramObject("k1", "s_endpgm\n",
+                    MetadataBlob{.values = {{"module_name", "mod_a"}, {"module_kernels", "k0,k1"}}}));
+  ExecutableImageIO::Write(
+      mod_a_k0_path,
+      ProgramObject("k0", "s_endpgm\n",
+                    MetadataBlob{.values = {{"module_name", "mod_a"}, {"module_kernels", "k0,k1"}}}));
+
   HipRuntime hooks;
-  hooks.RegisterProgramImage(
-      "mod_b", ProgramObject("k2", "s_endpgm\n",
-                             MetadataBlob{.values = {{"module_name", "mod_b"}, {"module_kernels", "k2"}}}));
-  hooks.RegisterProgramImage(
-      "mod_a", ProgramObject("k1", "s_endpgm\n",
-                             MetadataBlob{.values = {{"module_name", "mod_a"}, {"module_kernels", "k0,k1"}}}));
-  hooks.RegisterProgramImage(
-      "mod_a", ProgramObject("k0", "s_endpgm\n",
-                             MetadataBlob{.values = {{"module_name", "mod_a"}, {"module_kernels", "k0,k1"}}}));
+  hooks.LoadModule(ModuleLoadRequest{
+      .module_name = "mod_b",
+      .path = mod_b_path,
+      .format = ModuleLoadFormat::ExecutableImage,
+  });
+  hooks.LoadModule(ModuleLoadRequest{
+      .module_name = "mod_a",
+      .path = mod_a_k1_path,
+      .format = ModuleLoadFormat::ExecutableImage,
+  });
+  hooks.LoadModule(ModuleLoadRequest{
+      .module_name = "mod_a",
+      .path = mod_a_k0_path,
+      .format = ModuleLoadFormat::ExecutableImage,
+  });
 
   EXPECT_TRUE(hooks.HasModule("mod_a"));
   EXPECT_TRUE(hooks.HasKernel("mod_a", "k1"));
@@ -2173,6 +2206,8 @@ TEST(HipRuntimeTest, ListsModulesAndKernels) {
   ASSERT_EQ(kernels.size(), 2u);
   EXPECT_EQ(kernels[0], "k0");
   EXPECT_EQ(kernels[1], "k1");
+
+  std::filesystem::remove_all(temp_dir);
 }
 
 }  // namespace
