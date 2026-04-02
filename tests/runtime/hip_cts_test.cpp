@@ -46,6 +46,7 @@ enum class KernelKind {
   FmaLoop,
   BiasChain,
   SharedReverse,
+  DynamicSharedSum,
   Softmax,
   Mfma,
 };
@@ -105,6 +106,17 @@ extern "C" __global__ void shared_reverse(const int* in, int* out, int n) {
   if (idx < n) scratch[tid] = in[idx];
   __syncthreads();
   if (idx < n) out[idx] = scratch[blockDim.x - 1 - tid];
+}
+extern "C" __global__ void dynamic_shared_sum(int* out) {
+  extern __shared__ int scratch[];
+  int tid = threadIdx.x;
+  scratch[tid] = tid + 1;
+  __syncthreads();
+  if (tid == 0) {
+    int acc = 0;
+    for (int i = 0; i < blockDim.x; ++i) acc += scratch[i];
+    out[blockIdx.x] = acc;
+  }
 }
 extern "C" __global__ void softmax_row(const float* in, float* out, int n) {
   __shared__ float scratch[64];
@@ -186,6 +198,8 @@ const char* KernelName(KernelKind kernel) {
       return "bias_chain";
     case KernelKind::SharedReverse:
       return "shared_reverse";
+    case KernelKind::DynamicSharedSum:
+      return "dynamic_shared_sum";
     case KernelKind::Softmax:
       return "softmax_row";
     case KernelKind::Mfma:
@@ -266,6 +280,11 @@ std::vector<float> ExpectedSoftmax(uint32_t n) {
   return std::vector<float>(n, 1.0f / 64.0f);
 }
 
+std::vector<int32_t> ExpectedDynamicSharedSum(uint32_t grid_x, uint32_t block_x) {
+  return std::vector<int32_t>(
+      grid_x, static_cast<int32_t>(block_x * (block_x + 1u) / 2u));
+}
+
 std::vector<HipCtsCase> MakeHipRuntimeCasesFull() {
   std::vector<HipCtsCase> cases;
   uint32_t id = 0;
@@ -342,6 +361,17 @@ std::vector<HipCtsCase> MakeHipRuntimeCasesFull() {
     });
   }
 
+  for (const auto blocks : std::vector<uint32_t>{1, 2, 4, 8, 16}) {
+    add(HipCtsCase{
+        .name = {},
+        .artifact = ArtifactKind::Common,
+        .kernel = KernelKind::DynamicSharedSum,
+        .grid_x = blocks,
+        .block_x = 64,
+        .n = blocks,
+    });
+  }
+
   for (const auto blocks : std::vector<uint32_t>{1, 2, 4, 8, 16, 3, 5, 6, 7, 10}) {
     add(HipCtsCase{
         .name = {},
@@ -365,13 +395,13 @@ std::vector<HipCtsCase> MakeHipRuntimeCasesFull() {
     });
   }
 
-  EXPECT_EQ(cases.size(), 80u);
+  EXPECT_EQ(cases.size(), 85u);
   return cases;
 }
 
 std::vector<HipCtsCase> MakeHipRuntimeCasesQuick() {
   return test::SelectIndexedCases(MakeHipRuntimeCasesFull(),
-                                  {0, 4, 10, 19, 20, 24, 34, 35, 44, 45, 54, 55, 64, 65});
+                                  {0, 4, 10, 19, 20, 24, 34, 35, 44, 45, 49, 59, 60, 69});
 }
 
 std::vector<HipCtsCase> MakeHipRuntimeCases() {
@@ -449,6 +479,16 @@ std::vector<HipCtsCase> MakeInterposerCasesFull() {
     add(HipCtsCase{
         .name = {},
         .artifact = ArtifactKind::Common,
+        .kernel = KernelKind::DynamicSharedSum,
+        .grid_x = blocks,
+        .block_x = 64,
+        .n = blocks,
+    });
+  }
+  for (const auto blocks : std::vector<uint32_t>{1, 4}) {
+    add(HipCtsCase{
+        .name = {},
+        .artifact = ArtifactKind::Common,
         .kernel = KernelKind::Softmax,
         .grid_x = blocks,
         .block_x = 64,
@@ -467,12 +507,12 @@ std::vector<HipCtsCase> MakeInterposerCasesFull() {
     });
   }
 
-  EXPECT_EQ(cases.size(), 20u);
+  EXPECT_EQ(cases.size(), 22u);
   return cases;
 }
 
 std::vector<HipCtsCase> MakeInterposerCasesQuick() {
-  return test::SelectIndexedCases(MakeInterposerCasesFull(), {0, 3, 6, 9, 13, 15, 18});
+  return test::SelectIndexedCases(MakeInterposerCasesFull(), {0, 3, 6, 9, 13, 15, 17, 20});
 }
 
 std::vector<HipCtsCase> MakeInterposerCases() {
@@ -630,6 +670,29 @@ TEST_P(HipCtsHipRuntimeTest, ExecutesHipOutAndValidatesResults) {
       EXPECT_EQ(out, expected);
       return;
     }
+    case KernelKind::DynamicSharedSum: {
+      std::vector<int32_t> out(c.grid_x, 0);
+      const auto expected = ExpectedDynamicSharedSum(c.grid_x, c.block_x);
+      const uint64_t out_addr = hooks.Malloc(c.grid_x * sizeof(int32_t));
+      hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(out));
+      KernelArgPack args;
+      args.PushU64(out_addr);
+      const auto result = hooks.LaunchEncodedProgramObject(
+          ObjectReader{}.LoadEncodedObject(ArtifactPath(c.artifact), KernelName(c.kernel)),
+          LaunchConfig{
+              .grid_dim_x = c.grid_x,
+              .block_dim_x = c.block_x,
+              .shared_memory_bytes = static_cast<uint32_t>(c.block_x * sizeof(int32_t)),
+          },
+          std::move(args),
+          ExecutionMode::Functional,
+          "c500",
+          nullptr);
+      ASSERT_TRUE(result.ok) << result.error_message;
+      hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(out));
+      EXPECT_EQ(out, expected);
+      return;
+    }
     case KernelKind::Softmax: {
       std::vector<float> input(c.n, static_cast<float>(c.pattern + 1u));
       std::vector<float> out(c.n, 0.0f);
@@ -676,7 +739,7 @@ TEST_P(HipCtsHipRuntimeTest, ExecutesHipOutAndValidatesResults) {
 }
 
 TEST(HipRuntimeTest, HipCtsFullCaseCountIsOneHundred) {
-  EXPECT_EQ(MakeHipRuntimeCasesFull().size() + MakeInterposerCasesFull().size(), 100u);
+  EXPECT_EQ(MakeHipRuntimeCasesFull().size() + MakeInterposerCasesFull().size(), 107u);
 }
 
 TEST_P(HipCtsInterposerStateTest, ExecutesHipOutThroughRegisteredHostFunctionAndValidatesResults) {
@@ -691,6 +754,7 @@ TEST_P(HipCtsInterposerStateTest, ExecutesHipOutThroughRegisteredHostFunctionAnd
   static int host_fma = 0;
   static int host_bias = 0;
   static int host_shared = 0;
+  static int host_dynamic_shared = 0;
   static int host_softmax = 0;
   static int host_mfma = 0;
   const void* host_symbol = nullptr;
@@ -706,6 +770,9 @@ TEST_P(HipCtsInterposerStateTest, ExecutesHipOutThroughRegisteredHostFunctionAnd
       break;
     case KernelKind::SharedReverse:
       host_symbol = &host_shared;
+      break;
+    case KernelKind::DynamicSharedSum:
+      host_symbol = &host_dynamic_shared;
       break;
     case KernelKind::Softmax:
       host_symbol = &host_softmax;
@@ -803,6 +870,26 @@ TEST_P(HipCtsInterposerStateTest, ExecutesHipOutThroughRegisteredHostFunctionAnd
       EXPECT_EQ(out, expected);
       return;
     }
+    case KernelKind::DynamicSharedSum: {
+      std::vector<int32_t> out(c.grid_x, 0);
+      const auto expected = ExpectedDynamicSharedSum(c.grid_x, c.block_x);
+      void* out_dev = state.AllocateDevice(c.grid_x * sizeof(int32_t));
+      state.MemcpyHostToDevice(out_dev, out.data(), c.grid_x * sizeof(int32_t));
+      void* args[] = {&out_dev};
+      const auto result = state.LaunchExecutableKernel(
+          ArtifactPath(c.artifact),
+          host_symbol,
+          LaunchConfig{
+              .grid_dim_x = c.grid_x,
+              .block_dim_x = c.block_x,
+              .shared_memory_bytes = static_cast<uint32_t>(c.block_x * sizeof(int32_t)),
+          },
+          args);
+      ASSERT_TRUE(result.ok) << result.error_message;
+      state.MemcpyDeviceToHost(out.data(), out_dev, c.grid_x * sizeof(int32_t));
+      EXPECT_EQ(out, expected);
+      return;
+    }
     case KernelKind::Softmax: {
       std::vector<float> input(c.n, static_cast<float>(c.pattern + 1u));
       std::vector<float> out(c.n, 0.0f);
@@ -843,7 +930,7 @@ INSTANTIATE_TEST_SUITE_P(InterposerCTS, HipCtsInterposerStateTest,
                          ::testing::ValuesIn(MakeInterposerCases()), CaseName);
 
 TEST(HipRuntimeTest, CtsCaseCountIsOneHundred) {
-  EXPECT_EQ(MakeHipRuntimeCasesFull().size() + MakeInterposerCasesFull().size(), 100u);
+  EXPECT_EQ(MakeHipRuntimeCasesFull().size() + MakeInterposerCasesFull().size(), 107u);
 }
 
 }  // namespace
