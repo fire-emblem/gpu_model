@@ -43,6 +43,7 @@ enum class FeatureKernelKind {
   ClampRelu,
   Stencil1D,
   BlockReduceSum,
+  DynamicSharedSum,
 };
 
 struct HipFeatureCase {
@@ -121,6 +122,18 @@ extern "C" __global__ void block_reduce_sum(const float* in, float* out, int n) 
   if (tid == 0) out[blockIdx.x] = scratch[0];
 }
 
+extern "C" __global__ void dynamic_shared_sum_feature(int* out) {
+  extern __shared__ int scratch[];
+  int tid = threadIdx.x;
+  scratch[tid] = tid + 1;
+  __syncthreads();
+  if (tid == 0) {
+    int acc = 0;
+    for (int i = 0; i < blockDim.x; ++i) acc += scratch[i];
+    out[blockIdx.x] = acc;
+  }
+}
+
 int main() { return 0; }
 )";
     }
@@ -144,6 +157,8 @@ const char* KernelName(FeatureKernelKind kernel) {
       return "stencil1d";
     case FeatureKernelKind::BlockReduceSum:
       return "block_reduce_sum";
+    case FeatureKernelKind::DynamicSharedSum:
+      return "dynamic_shared_sum_feature";
   }
   return "unknown";
 }
@@ -219,6 +234,11 @@ std::vector<float> ExpectedBlockReduceSum(uint32_t n,
     out[block] = block_sum;
   }
   return out;
+}
+
+std::vector<int32_t> ExpectedDynamicSharedSum(uint32_t grid_x, uint32_t block_x) {
+  return std::vector<int32_t>(
+      grid_x, static_cast<int32_t>(block_x * (block_x + 1u) / 2u));
 }
 
 std::vector<HipFeatureCase> MakeHipRuntimeFeatureCasesFull() {
@@ -317,13 +337,23 @@ std::vector<HipFeatureCase> MakeHipRuntimeFeatureCasesFull() {
     });
   }
 
-  EXPECT_EQ(cases.size(), 80u);
+  for (const auto blocks : std::vector<uint32_t>{1, 2, 4, 8}) {
+    add(HipFeatureCase{
+        .name = {},
+        .kernel = FeatureKernelKind::DynamicSharedSum,
+        .grid_x = blocks,
+        .block_x = 64,
+        .n = blocks,
+    });
+  }
+
+  EXPECT_EQ(cases.size(), 84u);
   return cases;
 }
 
 std::vector<HipFeatureCase> MakeHipRuntimeFeatureCasesQuick() {
   return test::SelectIndexedCases(MakeHipRuntimeFeatureCasesFull(),
-                                  {0, 8, 15, 16, 24, 31, 32, 40, 47, 48, 56, 63, 64, 72, 79});
+                                  {0, 8, 15, 16, 24, 31, 32, 40, 47, 48, 56, 63, 64, 72, 79, 83});
 }
 
 std::vector<HipFeatureCase> MakeHipRuntimeFeatureCases() {
@@ -487,13 +517,24 @@ std::vector<HipFeatureCase> MakeInterposerFeatureCasesFull() {
                      .n = 30720,
                      .pattern = 3});
 
-  EXPECT_EQ(cases.size(), 20u);
+  add(HipFeatureCase{.name = {},
+                     .kernel = FeatureKernelKind::DynamicSharedSum,
+                     .grid_x = 1,
+                     .block_x = 64,
+                     .n = 1});
+  add(HipFeatureCase{.name = {},
+                     .kernel = FeatureKernelKind::DynamicSharedSum,
+                     .grid_x = 4,
+                     .block_x = 64,
+                     .n = 4});
+
+  EXPECT_EQ(cases.size(), 22u);
   return cases;
 }
 
 std::vector<HipFeatureCase> MakeInterposerFeatureCasesQuick() {
   return test::SelectIndexedCases(MakeInterposerFeatureCasesFull(),
-                                  {0, 1, 4, 7, 8, 11, 12, 15, 16, 19});
+                                  {0, 1, 4, 7, 8, 11, 12, 15, 16, 19, 21});
 }
 
 std::vector<HipFeatureCase> MakeInterposerFeatureCases() {
@@ -532,7 +573,7 @@ std::string FeatureCaseName(const ::testing::TestParamInfo<HipFeatureCase>& info
 
 TEST(HipRuntimeTest, FeatureCtsCaseCountIsOneHundred) {
   EXPECT_EQ(MakeHipRuntimeFeatureCasesFull().size() + MakeInterposerFeatureCasesFull().size(),
-            100u);
+            106u);
 }
 
 TEST_P(HipFeatureHipRuntimeTest, ExecutesFeatureKernelAndValidatesResults) {
@@ -615,6 +656,32 @@ TEST_P(HipFeatureHipRuntimeTest, ExecutesFeatureKernelAndValidatesResults) {
       ExpectNearVector(out, expected, 1.0e-2f);
       return;
     }
+    case FeatureKernelKind::DynamicSharedSum: {
+      std::vector<int32_t> out(c.grid_x, 0);
+      const auto expected = ExpectedDynamicSharedSum(c.grid_x, c.block_x);
+
+      const uint64_t out_addr = hooks.Malloc(c.grid_x * sizeof(int32_t));
+      hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(out));
+
+      KernelArgPack args;
+      args.PushU64(out_addr);
+
+      const auto result = hooks.LaunchEncodedProgramObject(
+          ObjectReader{}.LoadEncodedObject(FeatureArtifact().exe_path, KernelName(c.kernel)),
+          LaunchConfig{
+              .grid_dim_x = c.grid_x,
+              .block_dim_x = c.block_x,
+              .shared_memory_bytes = static_cast<uint32_t>(c.block_x * sizeof(int32_t)),
+          },
+          std::move(args),
+          ExecutionMode::Functional,
+          "c500",
+          nullptr);
+      ASSERT_TRUE(result.ok) << result.error_message;
+      hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(out));
+      EXPECT_EQ(out, expected);
+      return;
+    }
   }
 }
 
@@ -632,6 +699,7 @@ TEST_P(HipFeatureInterposerStateTest, ExecutesFeatureKernelThroughRegisteredHost
   static int host_clamp = 0;
   static int host_stencil = 0;
   static int host_reduce = 0;
+  static int host_dynamic_shared = 0;
   const void* host_symbol = nullptr;
   switch (c.kernel) {
     case FeatureKernelKind::SaxpyAffine:
@@ -648,6 +716,9 @@ TEST_P(HipFeatureInterposerStateTest, ExecutesFeatureKernelThroughRegisteredHost
       break;
     case FeatureKernelKind::BlockReduceSum:
       host_symbol = &host_reduce;
+      break;
+    case FeatureKernelKind::DynamicSharedSum:
+      host_symbol = &host_dynamic_shared;
       break;
   }
   state.RegisterFunction(host_symbol, KernelName(c.kernel));
@@ -720,6 +791,29 @@ TEST_P(HipFeatureInterposerStateTest, ExecutesFeatureKernelThroughRegisteredHost
 
       state.MemcpyDeviceToHost(out.data(), out_dev, c.grid_x * sizeof(float));
       ExpectNearVector(out, expected, 1.0e-2f);
+      return;
+    }
+    case FeatureKernelKind::DynamicSharedSum: {
+      std::vector<int32_t> out(c.grid_x, 0);
+      const auto expected = ExpectedDynamicSharedSum(c.grid_x, c.block_x);
+
+      void* out_dev = state.AllocateDevice(c.grid_x * sizeof(int32_t));
+      state.MemcpyHostToDevice(out_dev, out.data(), c.grid_x * sizeof(int32_t));
+
+      void* args[] = {&out_dev};
+      const auto result = state.LaunchExecutableKernel(
+          FeatureArtifact().exe_path,
+          host_symbol,
+          LaunchConfig{
+              .grid_dim_x = c.grid_x,
+              .block_dim_x = c.block_x,
+              .shared_memory_bytes = static_cast<uint32_t>(c.block_x * sizeof(int32_t)),
+          },
+          args);
+      ASSERT_TRUE(result.ok) << result.error_message;
+
+      state.MemcpyDeviceToHost(out.data(), out_dev, c.grid_x * sizeof(int32_t));
+      EXPECT_EQ(out, expected);
       return;
     }
   }
