@@ -772,6 +772,79 @@ bool DecodeSop1Andn2SaveexecB64Operands(EncodedGcnInstruction& instruction) {
   return true;
 }
 
+bool DecodeGenericSop1Operands(EncodedGcnInstruction& instruction) {
+  if (instruction.words.empty()) {
+    return false;
+  }
+  const uint32_t word = instruction.words[0];
+  const uint32_t sdst = (word >> 16u) & 0x7fu;
+  const uint32_t ssrc0 = word & 0xffu;
+  if (instruction.mnemonic == "s_mov_b64" || instruction.mnemonic == "s_and_saveexec_b64" ||
+      instruction.mnemonic == "s_andn2_saveexec_b64") {
+    instruction.decoded_operands.push_back(DecodeScalarPairDest(sdst));
+    instruction.decoded_operands.push_back(DecodeScalarPairSrc8(ssrc0));
+    return true;
+  }
+  instruction.decoded_operands.push_back(MakeScalarRegOperand(sdst));
+  instruction.decoded_operands.push_back(DecodeSrc8(ssrc0));
+  return true;
+}
+
+bool DecodeGenericSop2Operands(EncodedGcnInstruction& instruction) {
+  if (instruction.words.empty()) {
+    return false;
+  }
+  const uint32_t word = instruction.words[0];
+  const uint32_t sdst = (word >> 16u) & 0x7fu;
+  const uint32_t ssrc1 = (word >> 8u) & 0xffu;
+  const uint32_t ssrc0 = word & 0xffu;
+  const bool is_b64 = instruction.mnemonic.ends_with("_b64");
+  if (is_b64) {
+    instruction.decoded_operands.push_back(DecodeScalarPairDest(sdst));
+    instruction.decoded_operands.push_back(DecodeScalarPairSrc8(ssrc0));
+    instruction.decoded_operands.push_back(DecodeScalarPairSrc8(ssrc1));
+    return true;
+  }
+  instruction.decoded_operands.push_back(MakeScalarRegOperand(sdst));
+  instruction.decoded_operands.push_back(DecodeSrc8(ssrc0));
+  instruction.decoded_operands.push_back(DecodeSrc8(ssrc1));
+  return true;
+}
+
+bool DecodeGenericVop1Operands(EncodedGcnInstruction& instruction) {
+  if (instruction.words.empty()) {
+    return false;
+  }
+  const uint32_t word = instruction.words[0];
+  const uint32_t vdst = (word >> 17u) & 0xffu;
+  const uint32_t src0 = word & 0x1ffu;
+  instruction.decoded_operands.push_back(MakeVectorRegOperand(vdst));
+  if (src0 == 255u && instruction.words.size() > 1) {
+    instruction.decoded_operands.push_back(
+        MakeImmediateOperand(FormatImmediate(instruction.words[1]), instruction.words[1]));
+  } else {
+    instruction.decoded_operands.push_back(DecodeSrc9(src0));
+  }
+  return true;
+}
+
+bool DecodeGenericVop3aOperands(EncodedGcnInstruction& instruction) {
+  if (instruction.words.size() < 2) {
+    return false;
+  }
+  const uint32_t low = instruction.words[0];
+  const uint32_t high = instruction.words[1];
+  const uint32_t vdst = low & 0xffu;
+  const uint32_t src0 = high & 0x1ffu;
+  const uint32_t src1 = (high >> 9u) & 0x1ffu;
+  const uint32_t src2 = (high >> 18u) & 0x1ffu;
+  instruction.decoded_operands.push_back(MakeVectorRegOperand(vdst));
+  instruction.decoded_operands.push_back(DecodeSrc9(src0));
+  instruction.decoded_operands.push_back(DecodeSrc9(src1));
+  instruction.decoded_operands.push_back(DecodeSrc9(src2));
+  return true;
+}
+
 bool DecodeGenericVop2Operands(EncodedGcnInstruction& instruction) {
   if (instruction.words.empty()) {
     return false;
@@ -944,10 +1017,22 @@ void DecodeEncodedGcnOperands(EncodedGcnInstruction& instruction) {
   const auto* def = FindEncodedGcnEncodingDef(instruction.words);
   if (def == nullptr) {
     if (const auto* fallback = FindEncodedGcnFallbackOpcodeDescriptor(instruction.words); fallback != nullptr) {
+      if (fallback->op_type == GcnIsaOpType::Sop1 && DecodeGenericSop1Operands(instruction)) {
+        return;
+      }
+      if (fallback->op_type == GcnIsaOpType::Sop2 && DecodeGenericSop2Operands(instruction)) {
+        return;
+      }
+      if (fallback->op_type == GcnIsaOpType::Vop1 && DecodeGenericVop1Operands(instruction)) {
+        return;
+      }
       if (fallback->op_type == GcnIsaOpType::Vop2 && DecodeGenericVop2Operands(instruction)) {
         return;
       }
       if (fallback->op_type == GcnIsaOpType::Vopc && DecodeGenericVopcOperands(instruction)) {
+        return;
+      }
+      if (fallback->op_type == GcnIsaOpType::Vop3a && DecodeGenericVop3aOperands(instruction)) {
         return;
       }
     }

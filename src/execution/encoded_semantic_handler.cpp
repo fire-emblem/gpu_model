@@ -322,6 +322,20 @@ class ScalarAluHandler final : public IEncodedSemanticHandler {
       const uint64_t value = ResolveScalarPair(instruction.operands.at(1), context);
       StoreScalarPair(instruction.operands.at(0), context, value);
     } else if (descriptor.op_type == GcnIsaOpType::Sop1 &&
+               descriptor.opcode == static_cast<uint16_t>(GcnIsaSop1Opcode::S_ABS_I32)) {
+      const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
+      const int32_t value =
+          static_cast<int32_t>(ResolveScalarLike(instruction.operands.at(1), context));
+      context.wave.sgpr.Write(sdst, static_cast<uint32_t>(value < 0 ? -value : value));
+    } else if (descriptor.op_type == GcnIsaOpType::Sop2 &&
+               descriptor.opcode == static_cast<uint16_t>(GcnIsaSop2Opcode::S_SUB_I32)) {
+      const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
+      const uint32_t lhs =
+          static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(1), context));
+      const uint32_t rhs =
+          static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(2), context));
+      context.wave.sgpr.Write(sdst, lhs - rhs);
+    } else if (descriptor.op_type == GcnIsaOpType::Sop1 &&
                descriptor.opcode == static_cast<uint16_t>(GcnIsaSop1Opcode::S_SEXT_I32_I16)) {
       const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
       const int16_t value = static_cast<int16_t>(
@@ -565,6 +579,36 @@ class VectorAluHandler final : public IEncodedSemanticHandler {
         context.wave.vgpr.Write(vdst, lane, static_cast<uint32_t>(
                                                 ResolveVectorLane(instruction.operands.at(1), context, lane)));
       }
+    } else if (instruction.mnemonic == "v_cvt_f32_u32_e32") {
+      const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
+      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        if (!context.wave.exec.test(lane)) {
+          continue;
+        }
+        const uint32_t value =
+            static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(1), context, lane));
+        context.wave.vgpr.Write(vdst, lane, FloatAsU32(static_cast<float>(value)));
+      }
+    } else if (instruction.mnemonic == "v_cvt_u32_f32_e32") {
+      const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
+      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        if (!context.wave.exec.test(lane)) {
+          continue;
+        }
+        const float value = U32AsFloat(static_cast<uint32_t>(
+            ResolveVectorLane(instruction.operands.at(1), context, lane)));
+        context.wave.vgpr.Write(vdst, lane, static_cast<uint32_t>(value));
+      }
+    } else if (instruction.mnemonic == "v_rcp_iflag_f32_e32") {
+      const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
+      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        if (!context.wave.exec.test(lane)) {
+          continue;
+        }
+        const float value = U32AsFloat(static_cast<uint32_t>(
+            ResolveVectorLane(instruction.operands.at(1), context, lane)));
+        context.wave.vgpr.Write(vdst, lane, FloatAsU32(1.0f / value));
+      }
     } else if (instruction.mnemonic == "v_lshlrev_b32_e32") {
       const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
       for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
@@ -588,6 +632,30 @@ class VectorAluHandler final : public IEncodedSemanticHandler {
         const uint32_t rhs =
             static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(2), context, lane));
         context.wave.vgpr.Write(vdst, lane, lhs & rhs);
+      }
+    } else if (instruction.mnemonic == "v_xor_b32_e32") {
+      const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
+      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        if (!context.wave.exec.test(lane)) {
+          continue;
+        }
+        const uint32_t lhs =
+            static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(1), context, lane));
+        const uint32_t rhs =
+            static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(2), context, lane));
+        context.wave.vgpr.Write(vdst, lane, lhs ^ rhs);
+      }
+    } else if (instruction.mnemonic == "v_subrev_u32_e32") {
+      const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
+      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        if (!context.wave.exec.test(lane)) {
+          continue;
+        }
+        const uint32_t lhs =
+            static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(1), context, lane));
+        const uint32_t rhs =
+            static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(2), context, lane));
+        context.wave.vgpr.Write(vdst, lane, rhs - lhs);
       }
     } else if (instruction.mnemonic == "v_lshl_add_u32") {
       const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
@@ -712,6 +780,18 @@ class VectorAluHandler final : public IEncodedSemanticHandler {
         const float rhs = U32AsFloat(static_cast<uint32_t>(
             ResolveVectorLane(instruction.operands.at(2), context, lane)));
         context.wave.vgpr.Write(vdst, lane, FloatAsU32(lhs * rhs));
+      }
+    } else if (instruction.mnemonic == "v_max_i32_e32") {
+      const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
+      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        if (!context.wave.exec.test(lane)) {
+          continue;
+        }
+        const int32_t lhs =
+            static_cast<int32_t>(ResolveVectorLane(instruction.operands.at(1), context, lane));
+        const int32_t rhs =
+            static_cast<int32_t>(ResolveVectorLane(instruction.operands.at(2), context, lane));
+        context.wave.vgpr.Write(vdst, lane, static_cast<uint32_t>(std::max(lhs, rhs)));
       }
     } else if (instruction.mnemonic == "v_max_f32_e32") {
       const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
@@ -1103,6 +1183,31 @@ class VectorAluHandler final : public IEncodedSemanticHandler {
         context.wave.vgpr.Write(vdst, lane, static_cast<uint32_t>(value & 0xffffffffu));
         context.wave.vgpr.Write(vdst + 1, lane, static_cast<uint32_t>(value >> 32u));
       }
+    } else if (instruction.mnemonic == "v_mul_lo_i32") {
+      const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
+      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        if (!context.wave.exec.test(lane)) {
+          continue;
+        }
+        const int32_t lhs =
+            static_cast<int32_t>(ResolveVectorLane(instruction.operands.at(1), context, lane));
+        const int32_t rhs =
+            static_cast<int32_t>(ResolveVectorLane(instruction.operands.at(2), context, lane));
+        const int64_t product = static_cast<int64_t>(lhs) * static_cast<int64_t>(rhs);
+        context.wave.vgpr.Write(vdst, lane, static_cast<uint32_t>(product & 0xffffffffu));
+      }
+    } else if (instruction.mnemonic == "v_mul_hi_u32") {
+      const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
+      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        if (!context.wave.exec.test(lane)) {
+          continue;
+        }
+        const uint64_t lhs =
+            static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(1), context, lane));
+        const uint64_t rhs =
+            static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(2), context, lane));
+        context.wave.vgpr.Write(vdst, lane, static_cast<uint32_t>((lhs * rhs) >> 32u));
+      }
     } else {
       throw std::invalid_argument("unsupported vector alu opcode: " + instruction.mnemonic);
     }
@@ -1168,6 +1273,23 @@ class VectorCompareHandler final : public IEncodedSemanticHandler {
           instruction.operands.at(0).kind == DecodedInstructionOperandKind::SpecialReg) {
         StoreScalarPair(instruction.operands.at(0), context, mask);
       }
+      context.wave.pc += instruction.size_bytes;
+      return;
+    }
+    if (instruction.mnemonic == "v_cmp_le_u32_e32") {
+      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        if (!context.wave.exec.test(lane)) {
+          continue;
+        }
+        const uint32_t lhs =
+            static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(1), context, lane));
+        const uint32_t rhs =
+            static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(2), context, lane));
+        if (lhs <= rhs) {
+          mask |= (1ull << lane);
+        }
+      }
+      context.vcc = mask;
       context.wave.pc += instruction.size_bytes;
       return;
     }
@@ -1248,6 +1370,21 @@ class VectorCompareHandler final : public IEncodedSemanticHandler {
         const uint32_t rhs =
             static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(2), context, lane));
         if (lhs == rhs) {
+          mask |= (1ull << lane);
+        }
+      }
+      break;
+      }
+      case 203: {  // v_cmp_le_u32_e32
+      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        if (!context.wave.exec.test(lane)) {
+          continue;
+        }
+        const uint32_t lhs =
+            static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(1), context, lane));
+        const uint32_t rhs =
+            static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(2), context, lane));
+        if (lhs <= rhs) {
           mask |= (1ull << lane);
         }
       }
@@ -1710,15 +1847,26 @@ const std::vector<HandlerBinding>& HandlerBindings() {
   static const std::vector<HandlerBinding> kBindings = {
       {.mnemonic = "s_and_saveexec_b64", .handler = &kMaskHandler},
       {.mnemonic = "s_andn2_saveexec_b64", .handler = &kMaskHandler},
+      {.mnemonic = "s_abs_i32", .handler = &kScalarAluHandler},
+      {.mnemonic = "s_sub_i32", .handler = &kScalarAluHandler},
       {.mnemonic = "s_or_b32", .handler = &kScalarAluHandler},
       {.mnemonic = "s_xor_b64", .handler = &kScalarAluHandler},
       {.mnemonic = "s_cmp_gt_i32", .handler = &kScalarCompareHandler},
       {.mnemonic = "ds_read2_b32", .handler = &kSharedMemoryHandler},
       {.mnemonic = "v_and_b32_e32", .handler = &kVectorAluHandler},
+      {.mnemonic = "v_xor_b32_e32", .handler = &kVectorAluHandler},
+      {.mnemonic = "v_subrev_u32_e32", .handler = &kVectorAluHandler},
+      {.mnemonic = "v_cvt_f32_u32_e32", .handler = &kVectorAluHandler},
+      {.mnemonic = "v_cvt_u32_f32_e32", .handler = &kVectorAluHandler},
+      {.mnemonic = "v_rcp_iflag_f32_e32", .handler = &kVectorAluHandler},
       {.mnemonic = "v_or_b32_e32", .handler = &kVectorAluHandler},
+      {.mnemonic = "v_max_i32_e32", .handler = &kVectorAluHandler},
       {.mnemonic = "v_sub_u32_e32", .handler = &kVectorAluHandler},
+      {.mnemonic = "v_mul_lo_i32", .handler = &kVectorAluHandler},
+      {.mnemonic = "v_mul_hi_u32", .handler = &kVectorAluHandler},
       {.mnemonic = "v_or3_b32", .handler = &kVectorAluHandler},
       {.mnemonic = "v_cmp_lt_u32_e32", .handler = &kVectorCompareHandler},
+      {.mnemonic = "v_cmp_le_u32_e32", .handler = &kVectorCompareHandler},
       {.mnemonic = "v_cmp_gt_i32_e64", .handler = &kVectorCompareHandler},
       {.mnemonic = "v_cmp_lt_u32_e64", .handler = &kVectorCompareHandler},
       {.mnemonic = "v_cmp_gt_u32_e64", .handler = &kVectorCompareHandler},

@@ -651,6 +651,15 @@ TEST_F(EncodedSemanticExecuteTest, ExecutesAdditionalSop1ScalarAluInstructions) 
 
   {
     Harness harness;
+    harness.wave.sgpr.Write(8, static_cast<uint32_t>(-37));
+    auto inst = Inst("s_abs_i32", 0, {SReg(9), SReg(8)}, 0x178a, 4, {EncodeSop1Word(/*opcode=*/48, /*sdst=*/9, /*ssrc0=*/8)});
+    harness.wave.pc = inst.pc;
+    EncodedSemanticHandlerRegistry::Get(inst).Execute(inst, harness.context);
+    EXPECT_EQ(harness.wave.sgpr.Read(9), 37u);
+  }
+
+  {
+    Harness harness;
     harness.wave.exec.reset();
     for (uint32_t lane = 0; lane < 16; ++lane) {
       harness.wave.exec.set(lane);
