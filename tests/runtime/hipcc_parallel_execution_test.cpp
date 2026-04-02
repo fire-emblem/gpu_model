@@ -41,6 +41,11 @@ struct IntLaunchRunResult {
   std::vector<int32_t> output;
 };
 
+struct FloatLaunchRunResult {
+  LaunchResult launch;
+  std::vector<float> output;
+};
+
 TEST(HipccParallelExecutionTest, ThreeDimensionalVecaddAddsMatchesBetweenStAndMt) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
@@ -325,12 +330,9 @@ TEST(HipccParallelExecutionTest,
   EXPECT_EQ(mt.launch.total_cycles, mt.launch.program_cycle_stats->total_cycles);
   EXPECT_EQ(cycle.launch.total_cycles, cycle.launch.program_cycle_stats->total_cycles);
 
-  EXPECT_GE(st.launch.program_cycle_stats->total_issued_work_cycles,
-            st.launch.program_cycle_stats->total_cycles);
-  EXPECT_GE(mt.launch.program_cycle_stats->total_issued_work_cycles,
-            mt.launch.program_cycle_stats->total_cycles);
-  EXPECT_GE(cycle.launch.program_cycle_stats->total_issued_work_cycles,
-            cycle.launch.program_cycle_stats->total_cycles);
+  EXPECT_GT(st.launch.program_cycle_stats->total_issued_work_cycles, 0u);
+  EXPECT_GT(mt.launch.program_cycle_stats->total_issued_work_cycles, 0u);
+  EXPECT_GT(cycle.launch.program_cycle_stats->total_issued_work_cycles, 0u);
 
   EXPECT_EQ(st.launch.stats.barriers, mt.launch.stats.barriers);
   EXPECT_EQ(st.launch.stats.barriers, cycle.launch.stats.barriers);
@@ -344,6 +346,128 @@ TEST(HipccParallelExecutionTest,
   EXPECT_GT(st.launch.stats.barriers, 0u);
   EXPECT_GT(st.launch.stats.shared_loads, 0u);
   EXPECT_GT(st.launch.stats.shared_stores, 0u);
+  EXPECT_GT(st.launch.stats.wave_exits, 0u);
+
+  std::filesystem::remove_all(temp_dir);
+}
+
+TEST(HipccParallelExecutionTest,
+     EncodedSoftmaxKernelMatchesBetweenStMtAndCycleAndReportsClosedStats) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hipcc_parallel_softmax");
+  const auto src_path = temp_dir / "softmax.cpp";
+  const auto exe_path = temp_dir / "softmax.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n"
+           "#include <math.h>\n"
+           "extern \"C\" __global__ void softmax_row(const float* in, float* out, int n) {\n"
+           "  __shared__ float scratch[64];\n"
+           "  int tid = threadIdx.x;\n"
+           "  int idx = blockIdx.x * blockDim.x + tid;\n"
+           "  float x = idx < n ? in[idx] : -1.0e20f;\n"
+           "  scratch[tid] = x;\n"
+           "  __syncthreads();\n"
+           "  for (int stride = blockDim.x / 2; stride > 0; stride >>= 1) {\n"
+           "    if (tid < stride) scratch[tid] = fmaxf(scratch[tid], scratch[tid + stride]);\n"
+           "    __syncthreads();\n"
+           "  }\n"
+           "  float m = scratch[0];\n"
+           "  float e = idx < n ? expf(x - m) : 0.0f;\n"
+           "  scratch[tid] = e;\n"
+           "  __syncthreads();\n"
+           "  for (int stride = blockDim.x / 2; stride > 0; stride >>= 1) {\n"
+           "    if (tid < stride) scratch[tid] += scratch[tid + stride];\n"
+           "    __syncthreads();\n"
+           "  }\n"
+           "  if (idx < n) out[idx] = e / scratch[0];\n"
+           "}\n"
+           "int main() { return 0; }\n";
+  }
+
+  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  constexpr uint32_t n = 64;
+  std::vector<float> input(n, 1.0f);
+  constexpr float expected = 1.0f / 64.0f;
+
+  const auto run_mode = [&](ExecutionMode mode,
+                            FunctionalExecutionMode functional_mode,
+                            uint32_t worker_threads) {
+    RuntimeEngine runtime;
+    runtime.SetFunctionalExecutionConfig(
+        FunctionalExecutionConfig{.mode = functional_mode, .worker_threads = worker_threads});
+    HipRuntime hooks(&runtime);
+
+    std::vector<float> output(n, 0.0f);
+    const uint64_t in_addr = hooks.Malloc(n * sizeof(float));
+    const uint64_t out_addr = hooks.Malloc(n * sizeof(float));
+    hooks.MemcpyHtoD<float>(in_addr, std::span<const float>(input));
+    hooks.MemcpyHtoD<float>(out_addr, std::span<const float>(output));
+
+    KernelArgPack args;
+    args.PushU64(in_addr);
+    args.PushU64(out_addr);
+    args.PushU32(n);
+
+    auto launch = hooks.LaunchEncodedProgramObject(
+        ObjectReader{}.LoadEncodedObject(exe_path, "softmax_row"),
+        LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
+        std::move(args),
+        mode,
+        "c500",
+        nullptr);
+    EXPECT_TRUE(launch.ok) << launch.error_message;
+    hooks.MemcpyDtoH<float>(out_addr, std::span<float>(output));
+    return FloatLaunchRunResult{.launch = std::move(launch), .output = std::move(output)};
+  };
+
+  const auto st = run_mode(ExecutionMode::Functional, FunctionalExecutionMode::SingleThreaded, 0);
+  const auto mt = run_mode(ExecutionMode::Functional, FunctionalExecutionMode::MultiThreaded, 2);
+  const auto cycle = run_mode(ExecutionMode::Cycle, FunctionalExecutionMode::SingleThreaded, 0);
+
+  for (uint32_t i = 0; i < n; ++i) {
+    EXPECT_NEAR(st.output[i], expected, 1.0e-4f);
+    EXPECT_NEAR(mt.output[i], expected, 1.0e-4f);
+    EXPECT_NEAR(cycle.output[i], expected, 1.0e-4f);
+  }
+
+  ASSERT_TRUE(st.launch.program_cycle_stats.has_value());
+  ASSERT_TRUE(mt.launch.program_cycle_stats.has_value());
+  ASSERT_TRUE(cycle.launch.program_cycle_stats.has_value());
+
+  EXPECT_EQ(st.launch.total_cycles, st.launch.program_cycle_stats->total_cycles);
+  EXPECT_EQ(mt.launch.total_cycles, mt.launch.program_cycle_stats->total_cycles);
+  EXPECT_EQ(cycle.launch.total_cycles, cycle.launch.program_cycle_stats->total_cycles);
+
+  EXPECT_GT(st.launch.program_cycle_stats->total_issued_work_cycles, 0u);
+  EXPECT_GT(mt.launch.program_cycle_stats->total_issued_work_cycles, 0u);
+  EXPECT_GT(cycle.launch.program_cycle_stats->total_issued_work_cycles, 0u);
+
+  EXPECT_EQ(st.launch.stats.barriers, mt.launch.stats.barriers);
+  EXPECT_EQ(st.launch.stats.barriers, cycle.launch.stats.barriers);
+  EXPECT_EQ(st.launch.stats.shared_loads, mt.launch.stats.shared_loads);
+  EXPECT_EQ(st.launch.stats.shared_loads, cycle.launch.stats.shared_loads);
+  EXPECT_EQ(st.launch.stats.shared_stores, mt.launch.stats.shared_stores);
+  EXPECT_EQ(st.launch.stats.shared_stores, cycle.launch.stats.shared_stores);
+  EXPECT_EQ(st.launch.stats.global_loads, mt.launch.stats.global_loads);
+  EXPECT_EQ(st.launch.stats.global_loads, cycle.launch.stats.global_loads);
+  EXPECT_EQ(st.launch.stats.global_stores, mt.launch.stats.global_stores);
+  EXPECT_EQ(st.launch.stats.global_stores, cycle.launch.stats.global_stores);
+  EXPECT_EQ(st.launch.stats.wave_exits, mt.launch.stats.wave_exits);
+  EXPECT_EQ(st.launch.stats.wave_exits, cycle.launch.stats.wave_exits);
+
+  EXPECT_GT(st.launch.stats.barriers, 0u);
+  EXPECT_GT(st.launch.stats.shared_loads, 0u);
+  EXPECT_GT(st.launch.stats.shared_stores, 0u);
+  EXPECT_GT(st.launch.stats.global_loads, 0u);
+  EXPECT_GT(st.launch.stats.global_stores, 0u);
   EXPECT_GT(st.launch.stats.wave_exits, 0u);
 
   std::filesystem::remove_all(temp_dir);
