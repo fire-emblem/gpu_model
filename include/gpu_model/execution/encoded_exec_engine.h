@@ -17,6 +17,7 @@ class EncodedExecEngine {
   LaunchResult Run(const EncodedProgramObject& image,
                    const GpuArchSpec& spec,
                    const LaunchConfig& config,
+                   ExecutionMode execution_mode,
                    FunctionalExecutionConfig functional_execution_config,
                    const KernelArgPack& args,
                    const DeviceLoadResult* device_load,

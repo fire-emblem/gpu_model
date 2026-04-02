@@ -998,6 +998,68 @@ TEST(HipRuntimeTest, LaunchEncodedProgramObjectPopulatesLastLoadResult) {
   std::filesystem::remove_all(temp_dir);
 }
 
+TEST(HipRuntimeTest, EncodedCycleLaunchEmitsAdvancingTraceCycles) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_runtime_cycle_trace_shared_reverse");
+  const auto src_path = temp_dir / "hip_shared_reverse.cpp";
+  const auto exe_path = temp_dir / "hip_shared_reverse.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n"
+           "extern \"C\" __global__ void shared_reverse(const int* in, int* out, int n) {\n"
+           "  __shared__ int scratch[64];\n"
+           "  int tid = threadIdx.x;\n"
+           "  int idx = blockIdx.x * blockDim.x + tid;\n"
+           "  if (idx < n) scratch[tid] = in[idx];\n"
+           "  __syncthreads();\n"
+           "  if (idx < n) out[idx] = scratch[blockDim.x - 1 - tid];\n"
+           "}\n"
+           "int main() { return 0; }\n";
+  }
+
+  const std::string command =
+      "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  constexpr uint32_t n = 128;
+  std::vector<int32_t> in(n, 1);
+  std::vector<int32_t> out(n, 0);
+
+  HipRuntime hooks;
+  const uint64_t in_addr = hooks.Malloc(n * sizeof(int32_t));
+  const uint64_t out_addr = hooks.Malloc(n * sizeof(int32_t));
+  hooks.MemcpyHtoD<int32_t>(in_addr, std::span<const int32_t>(in));
+  hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(out));
+
+  CollectingTraceSink trace;
+  KernelArgPack args;
+  args.PushU64(in_addr);
+  args.PushU64(out_addr);
+  args.PushU32(n);
+  const auto result = hooks.LaunchEncodedProgramObject(
+      ObjectReader{}.LoadEncodedObject(exe_path, "shared_reverse"),
+      LaunchConfig{.grid_dim_x = 2, .block_dim_x = 64},
+      std::move(args),
+      ExecutionMode::Cycle,
+      "c500",
+      &trace);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  uint64_t max_cycle = 0;
+  for (const auto& event : trace.events()) {
+    max_cycle = std::max(max_cycle, event.cycle);
+  }
+  EXPECT_GT(max_cycle, 0u);
+  EXPECT_GE(result.total_cycles, max_cycle);
+
+  std::filesystem::remove_all(temp_dir);
+}
+
 TEST(HipRuntimeTest, LaunchesHipVecAddExecutableAndValidatesOutput) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";

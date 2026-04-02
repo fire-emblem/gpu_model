@@ -312,6 +312,7 @@ LaunchResult RuntimeEngineImpl::Launch(const LaunchRequest& request) {
         if (use_encoded_program_object) {
           const auto raw_result =
             EncodedExecEngine{}.Run(*encoded_program_object, *spec, request.config,
+                                    ExecutionMode::Functional,
                                     functional_execution_config_,
                                     request.args,
                                     request.device_load, memory_, trace);
@@ -355,6 +356,7 @@ LaunchResult RuntimeEngineImpl::Launch(const LaunchRequest& request) {
       if (use_encoded_program_object) {
         const auto raw_result =
             EncodedExecEngine{}.Run(*encoded_program_object, *spec, request.config,
+                                    ExecutionMode::Cycle,
                                     FunctionalExecutionConfig{},
                                     request.args,
                                     request.device_load, memory_, trace);
