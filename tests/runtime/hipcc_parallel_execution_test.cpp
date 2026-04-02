@@ -47,6 +47,22 @@ struct FloatLaunchRunResult {
   std::vector<float> output;
 };
 
+struct BlockSummary {
+  int64_t sum = 0;
+  int32_t first = 0;
+  int32_t last = 0;
+};
+
+BlockSummary SummarizeBlock(std::span<const int32_t> values) {
+  BlockSummary summary;
+  summary.first = values.front();
+  summary.last = values.back();
+  for (const int32_t value : values) {
+    summary.sum += value;
+  }
+  return summary;
+}
+
 EncodedProgramObject LoadHipccImage(const std::filesystem::path& exe_path,
                                     const std::string& kernel_name) {
   auto image = ObjectReader{}.LoadEncodedObject(exe_path, kernel_name);
@@ -1910,6 +1926,30 @@ TEST(HipccParallelExecutionTest,
     EXPECT_EQ(st.output[i], expect[i]);
     EXPECT_EQ(mt.output[i], expect[i]);
     EXPECT_EQ(cycle.output[i], expect[i]);
+  }
+
+  for (uint32_t block = 0; block < grid_dim; ++block) {
+    SCOPED_TRACE("block=" + std::to_string(block));
+
+    const uint32_t block_offset = block * block_dim;
+    const auto expected_summary =
+        SummarizeBlock(std::span<const int32_t>(expect.data() + block_offset, block_dim));
+    const auto st_summary =
+        SummarizeBlock(std::span<const int32_t>(st.output.data() + block_offset, block_dim));
+    const auto mt_summary =
+        SummarizeBlock(std::span<const int32_t>(mt.output.data() + block_offset, block_dim));
+    const auto cycle_summary =
+        SummarizeBlock(std::span<const int32_t>(cycle.output.data() + block_offset, block_dim));
+
+    EXPECT_EQ(st_summary.sum, expected_summary.sum);
+    EXPECT_EQ(mt_summary.sum, expected_summary.sum);
+    EXPECT_EQ(cycle_summary.sum, expected_summary.sum);
+    EXPECT_EQ(st_summary.first, expected_summary.first);
+    EXPECT_EQ(mt_summary.first, expected_summary.first);
+    EXPECT_EQ(cycle_summary.first, expected_summary.first);
+    EXPECT_EQ(st_summary.last, expected_summary.last);
+    EXPECT_EQ(mt_summary.last, expected_summary.last);
+    EXPECT_EQ(cycle_summary.last, expected_summary.last);
   }
 
   ASSERT_TRUE(st.launch.program_cycle_stats.has_value());
