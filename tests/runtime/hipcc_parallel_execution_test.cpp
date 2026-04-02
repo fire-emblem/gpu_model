@@ -36,6 +36,11 @@ struct RunResult {
   double elapsed_ms = 0.0;
 };
 
+struct IntLaunchRunResult {
+  LaunchResult launch;
+  std::vector<int32_t> output;
+};
+
 TEST(HipccParallelExecutionTest, ThreeDimensionalVecaddAddsMatchesBetweenStAndMt) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
@@ -222,6 +227,124 @@ TEST(HipccParallelExecutionTest,
             st_result.program_cycle_stats->total_cycles);
   EXPECT_GE(mt_result.program_cycle_stats->total_issued_work_cycles,
             mt_result.program_cycle_stats->total_cycles);
+
+  std::filesystem::remove_all(temp_dir);
+}
+
+TEST(HipccParallelExecutionTest,
+     EncodedSharedReverseKernelMatchesBetweenStMtAndCycleAndReportsClosedStats) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hipcc_parallel_shared_reverse");
+  const auto src_path = temp_dir / "shared_reverse.cpp";
+  const auto exe_path = temp_dir / "shared_reverse.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n"
+           "extern \"C\" __global__ void shared_reverse(const int* in, int* out, int n) {\n"
+           "  __shared__ int tile[128];\n"
+           "  int tid = threadIdx.x;\n"
+           "  int gid = blockIdx.x * blockDim.x + tid;\n"
+           "  if (gid < n) tile[tid] = in[gid];\n"
+           "  __syncthreads();\n"
+           "  int rid = blockDim.x - 1 - tid;\n"
+           "  if (gid < n) out[gid] = tile[rid] + blockIdx.x;\n"
+           "}\n"
+           "int main() { return 0; }\n";
+  }
+
+  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  constexpr uint32_t block_dim = 128;
+  constexpr uint32_t grid_dim = 3;
+  constexpr uint32_t total = block_dim * grid_dim;
+
+  std::vector<int32_t> in(total), expect(total);
+  for (uint32_t i = 0; i < total; ++i) {
+    in[i] = static_cast<int32_t>((i * 7) % 97);
+  }
+  for (uint32_t block = 0; block < grid_dim; ++block) {
+    for (uint32_t tid = 0; tid < block_dim; ++tid) {
+      const uint32_t gid = block * block_dim + tid;
+      const uint32_t rid = block_dim - 1 - tid;
+      expect[gid] = in[block * block_dim + rid] + static_cast<int32_t>(block);
+    }
+  }
+
+  const auto run_mode = [&](ExecutionMode mode,
+                            FunctionalExecutionMode functional_mode,
+                            uint32_t worker_threads) {
+    RuntimeEngine runtime;
+    runtime.SetFunctionalExecutionConfig(
+        FunctionalExecutionConfig{.mode = functional_mode, .worker_threads = worker_threads});
+    HipRuntime hooks(&runtime);
+
+    std::vector<int32_t> out(total, -1);
+    const uint64_t in_addr = hooks.Malloc(total * sizeof(int32_t));
+    const uint64_t out_addr = hooks.Malloc(total * sizeof(int32_t));
+    hooks.MemcpyHtoD<int32_t>(in_addr, std::span<const int32_t>(in));
+    hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(out));
+
+    KernelArgPack args;
+    args.PushU64(in_addr);
+    args.PushU64(out_addr);
+    args.PushU32(total);
+
+    auto launch = hooks.LaunchEncodedProgramObject(
+        ObjectReader{}.LoadEncodedObject(exe_path, "shared_reverse"),
+        LaunchConfig{.grid_dim_x = grid_dim, .block_dim_x = block_dim},
+        std::move(args),
+        mode,
+        "c500",
+        nullptr);
+    EXPECT_TRUE(launch.ok) << launch.error_message;
+    hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(out));
+    return IntLaunchRunResult{.launch = std::move(launch), .output = std::move(out)};
+  };
+
+  const auto st = run_mode(ExecutionMode::Functional, FunctionalExecutionMode::SingleThreaded, 0);
+  const auto mt = run_mode(ExecutionMode::Functional, FunctionalExecutionMode::MultiThreaded, 2);
+  const auto cycle = run_mode(ExecutionMode::Cycle, FunctionalExecutionMode::SingleThreaded, 0);
+
+  for (uint32_t i = 0; i < total; ++i) {
+    EXPECT_EQ(st.output[i], expect[i]);
+    EXPECT_EQ(mt.output[i], expect[i]);
+    EXPECT_EQ(cycle.output[i], expect[i]);
+  }
+
+  ASSERT_TRUE(st.launch.program_cycle_stats.has_value());
+  ASSERT_TRUE(mt.launch.program_cycle_stats.has_value());
+  ASSERT_TRUE(cycle.launch.program_cycle_stats.has_value());
+
+  EXPECT_EQ(st.launch.total_cycles, st.launch.program_cycle_stats->total_cycles);
+  EXPECT_EQ(mt.launch.total_cycles, mt.launch.program_cycle_stats->total_cycles);
+  EXPECT_EQ(cycle.launch.total_cycles, cycle.launch.program_cycle_stats->total_cycles);
+
+  EXPECT_GE(st.launch.program_cycle_stats->total_issued_work_cycles,
+            st.launch.program_cycle_stats->total_cycles);
+  EXPECT_GE(mt.launch.program_cycle_stats->total_issued_work_cycles,
+            mt.launch.program_cycle_stats->total_cycles);
+  EXPECT_GE(cycle.launch.program_cycle_stats->total_issued_work_cycles,
+            cycle.launch.program_cycle_stats->total_cycles);
+
+  EXPECT_EQ(st.launch.stats.barriers, mt.launch.stats.barriers);
+  EXPECT_EQ(st.launch.stats.barriers, cycle.launch.stats.barriers);
+  EXPECT_EQ(st.launch.stats.shared_loads, mt.launch.stats.shared_loads);
+  EXPECT_EQ(st.launch.stats.shared_loads, cycle.launch.stats.shared_loads);
+  EXPECT_EQ(st.launch.stats.shared_stores, mt.launch.stats.shared_stores);
+  EXPECT_EQ(st.launch.stats.shared_stores, cycle.launch.stats.shared_stores);
+  EXPECT_EQ(st.launch.stats.wave_exits, mt.launch.stats.wave_exits);
+  EXPECT_EQ(st.launch.stats.wave_exits, cycle.launch.stats.wave_exits);
+
+  EXPECT_GT(st.launch.stats.barriers, 0u);
+  EXPECT_GT(st.launch.stats.shared_loads, 0u);
+  EXPECT_GT(st.launch.stats.shared_stores, 0u);
+  EXPECT_GT(st.launch.stats.wave_exits, 0u);
 
   std::filesystem::remove_all(temp_dir);
 }
