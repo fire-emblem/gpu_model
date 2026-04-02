@@ -563,5 +563,107 @@ TEST(HipccParallelExecutionTest,
   std::filesystem::remove_all(temp_dir);
 }
 
+TEST(HipccParallelExecutionTest,
+     EncodedLargeVecaddMatchesBetweenStMtAndCycleAndReportsClosedStats) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hipcc_parallel_vecadd_large");
+  const auto src_path = temp_dir / "vecadd_large.cpp";
+  const auto exe_path = temp_dir / "vecadd_large.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n"
+           "extern \"C\" __global__ void vecadd(const float* a, const float* b, float* c, int n) {\n"
+           "  int i = blockIdx.x * blockDim.x + threadIdx.x;\n"
+           "  if (i < n) c[i] = a[i] + b[i];\n"
+           "}\n"
+           "int main() { return 0; }\n";
+  }
+
+  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  constexpr uint32_t n = 30u * 1024u;
+  std::vector<float> a(n), b(n), expect(n);
+  for (uint32_t i = 0; i < n; ++i) {
+    a[i] = static_cast<float>(i) * 0.5f;
+    b[i] = static_cast<float>(100 + i) * 0.25f;
+    expect[i] = a[i] + b[i];
+  }
+
+  const auto run_mode = [&](ExecutionMode mode,
+                            FunctionalExecutionMode functional_mode,
+                            uint32_t worker_threads) {
+    RuntimeEngine runtime;
+    runtime.SetFunctionalExecutionConfig(
+        FunctionalExecutionConfig{.mode = functional_mode, .worker_threads = worker_threads});
+    HipRuntime hooks(&runtime);
+
+    std::vector<float> c(n, -1.0f);
+    const uint64_t a_addr = hooks.Malloc(n * sizeof(float));
+    const uint64_t b_addr = hooks.Malloc(n * sizeof(float));
+    const uint64_t c_addr = hooks.Malloc(n * sizeof(float));
+    hooks.MemcpyHtoD<float>(a_addr, std::span<const float>(a));
+    hooks.MemcpyHtoD<float>(b_addr, std::span<const float>(b));
+    hooks.MemcpyHtoD<float>(c_addr, std::span<const float>(c));
+
+    KernelArgPack args;
+    args.PushU64(a_addr);
+    args.PushU64(b_addr);
+    args.PushU64(c_addr);
+    args.PushU32(n);
+
+    auto launch = hooks.LaunchEncodedProgramObject(
+        ObjectReader{}.LoadEncodedObject(exe_path, "vecadd"),
+        LaunchConfig{.grid_dim_x = 30, .block_dim_x = 1024},
+        std::move(args),
+        mode,
+        "c500",
+        nullptr);
+    EXPECT_TRUE(launch.ok) << launch.error_message;
+    hooks.MemcpyDtoH<float>(c_addr, std::span<float>(c));
+    return FloatLaunchRunResult{.launch = std::move(launch), .output = std::move(c)};
+  };
+
+  const auto st = run_mode(ExecutionMode::Functional, FunctionalExecutionMode::SingleThreaded, 0);
+  const auto mt = run_mode(ExecutionMode::Functional, FunctionalExecutionMode::MultiThreaded, 2);
+  const auto cycle = run_mode(ExecutionMode::Cycle, FunctionalExecutionMode::SingleThreaded, 0);
+
+  for (uint32_t i = 0; i < n; ++i) {
+    EXPECT_FLOAT_EQ(st.output[i], expect[i]);
+    EXPECT_FLOAT_EQ(mt.output[i], expect[i]);
+    EXPECT_FLOAT_EQ(cycle.output[i], expect[i]);
+  }
+
+  ASSERT_TRUE(st.launch.program_cycle_stats.has_value());
+  ASSERT_TRUE(mt.launch.program_cycle_stats.has_value());
+  ASSERT_TRUE(cycle.launch.program_cycle_stats.has_value());
+
+  EXPECT_EQ(st.launch.total_cycles, st.launch.program_cycle_stats->total_cycles);
+  EXPECT_EQ(mt.launch.total_cycles, mt.launch.program_cycle_stats->total_cycles);
+  EXPECT_EQ(cycle.launch.total_cycles, cycle.launch.program_cycle_stats->total_cycles);
+
+  EXPECT_GT(st.launch.program_cycle_stats->total_issued_work_cycles, 0u);
+  EXPECT_GT(mt.launch.program_cycle_stats->total_issued_work_cycles, 0u);
+  EXPECT_GT(cycle.launch.program_cycle_stats->total_issued_work_cycles, 0u);
+
+  EXPECT_EQ(st.launch.stats.global_loads, mt.launch.stats.global_loads);
+  EXPECT_EQ(st.launch.stats.global_loads, cycle.launch.stats.global_loads);
+  EXPECT_EQ(st.launch.stats.global_stores, mt.launch.stats.global_stores);
+  EXPECT_EQ(st.launch.stats.global_stores, cycle.launch.stats.global_stores);
+  EXPECT_EQ(st.launch.stats.wave_exits, mt.launch.stats.wave_exits);
+  EXPECT_EQ(st.launch.stats.wave_exits, cycle.launch.stats.wave_exits);
+
+  EXPECT_GT(st.launch.stats.global_loads, 0u);
+  EXPECT_GT(st.launch.stats.global_stores, 0u);
+  EXPECT_GT(st.launch.stats.wave_exits, 0u);
+
+  std::filesystem::remove_all(temp_dir);
+}
+
 }  // namespace
 }  // namespace gpu_model
