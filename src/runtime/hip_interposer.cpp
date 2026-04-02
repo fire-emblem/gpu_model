@@ -144,6 +144,14 @@ gpu_model::RuntimeSubmissionContext CurrentSubmissionContext() {
   return submission_context;
 }
 
+gpu_model::RuntimeSubmissionContext SubmissionContextForStream(hipStream_t stream) {
+  auto submission_context = CurrentSubmissionContext();
+  if (stream != nullptr) {
+    submission_context.stream_id = reinterpret_cast<uintptr_t>(stream);
+  }
+  return submission_context;
+}
+
 }  // namespace
 
 extern "C" {
@@ -526,6 +534,7 @@ hipError_t hipStreamSynchronize(hipStream_t stream) {
   if (!IsValidStream(stream)) {
     return Remember(hipErrorInvalidHandle);
   }
+  HipInterposerState::Instance().hooks().StreamSynchronize(SubmissionContextForStream(stream));
   return Remember(hipSuccess);
 }
 

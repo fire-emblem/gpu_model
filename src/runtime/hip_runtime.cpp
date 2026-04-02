@@ -107,7 +107,13 @@ void HipRuntime::Free(uint64_t addr) {
   allocations_.erase(addr);
 }
 
-void HipRuntime::DeviceSynchronize() const {}
+void HipRuntime::DeviceSynchronize() const {
+  ContextSynchronize();
+}
+
+void HipRuntime::ContextSynchronize(uint64_t) const {}
+
+void HipRuntime::StreamSynchronize(RuntimeSubmissionContext) const {}
 
 void HipRuntime::MemcpyDeviceToDevice(uint64_t dst_addr, uint64_t src_addr, size_t bytes) {
   std::vector<std::byte> buffer(bytes);

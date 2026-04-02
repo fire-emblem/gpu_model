@@ -30,6 +30,8 @@ class HipRuntime {
   uint64_t MallocManaged(size_t bytes);
   void Free(uint64_t addr);
   void DeviceSynchronize() const;
+  void ContextSynchronize(uint64_t context_id = 0) const;
+  void StreamSynchronize(RuntimeSubmissionContext submission_context = {}) const;
   void MemcpyDeviceToDevice(uint64_t dst_addr, uint64_t src_addr, size_t bytes);
   void MemsetD8(uint64_t addr, uint8_t value, size_t bytes);
   void MemsetD32(uint64_t addr, uint32_t value, size_t count);
