@@ -311,7 +311,9 @@ LaunchResult RuntimeEngineImpl::Launch(const LaunchRequest& request) {
     if (request.mode == ExecutionMode::Functional) {
         if (use_encoded_program_object) {
           const auto raw_result =
-            EncodedExecEngine{}.Run(*encoded_program_object, *spec, request.config, request.args,
+            EncodedExecEngine{}.Run(*encoded_program_object, *spec, request.config,
+                                    functional_execution_config_,
+                                    request.args,
                                     request.device_load, memory_, trace);
         result.ok = raw_result.ok;
         result.error_message = raw_result.error_message;
@@ -352,7 +354,9 @@ LaunchResult RuntimeEngineImpl::Launch(const LaunchRequest& request) {
     } else if (request.mode == ExecutionMode::Cycle) {
       if (use_encoded_program_object) {
         const auto raw_result =
-            EncodedExecEngine{}.Run(*encoded_program_object, *spec, request.config, request.args,
+            EncodedExecEngine{}.Run(*encoded_program_object, *spec, request.config,
+                                    FunctionalExecutionConfig{},
+                                    request.args,
                                     request.device_load, memory_, trace);
         result.ok = raw_result.ok;
         result.error_message = raw_result.error_message;

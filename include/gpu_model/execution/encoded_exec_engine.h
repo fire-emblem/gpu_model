@@ -4,6 +4,7 @@
 #include "gpu_model/debug/trace_sink.h"
 #include "gpu_model/memory/memory_system.h"
 #include "gpu_model/program/encoded_program_object.h"
+#include "gpu_model/execution/functional_execution_mode.h"
 #include "gpu_model/runtime/kernel_arg_pack.h"
 #include "gpu_model/runtime/launch_config.h"
 #include "gpu_model/runtime/launch_request.h"
@@ -16,6 +17,7 @@ class EncodedExecEngine {
   LaunchResult Run(const EncodedProgramObject& image,
                    const GpuArchSpec& spec,
                    const LaunchConfig& config,
+                   FunctionalExecutionConfig functional_execution_config,
                    const KernelArgPack& args,
                    const DeviceLoadResult* device_load,
                    MemorySystem& memory,

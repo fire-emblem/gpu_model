@@ -147,5 +147,84 @@ TEST(HipccParallelExecutionTest, ThreeDimensionalVecaddAddsMatchesBetweenStAndMt
   std::filesystem::remove_all(temp_dir);
 }
 
+TEST(HipccParallelExecutionTest,
+     EncodedAsymmetricBarrierKernelMatchesBetweenStAndMtAndReportsProgramCycles) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hipcc_parallel_barrier_skew");
+  const auto src_path = temp_dir / "barrier_skew.cpp";
+  const auto exe_path = temp_dir / "barrier_skew.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n"
+           "extern \"C\" __global__ void barrier_skew(int* out) {\n"
+           "  int tid = threadIdx.x;\n"
+           "  int acc = 1;\n"
+           "  if (tid < 64) {\n"
+           "    #pragma unroll 1\n"
+           "    for (int i = 0; i < 64; ++i) acc += i;\n"
+           "  }\n"
+           "  __syncthreads();\n"
+           "  out[tid] = acc;\n"
+           "}\n"
+           "int main() { return 0; }\n";
+  }
+
+  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  auto run_mode = [&](FunctionalExecutionMode mode, uint32_t worker_threads) {
+    RuntimeEngine runtime;
+    runtime.SetFunctionalExecutionConfig(
+        FunctionalExecutionConfig{.mode = mode, .worker_threads = worker_threads});
+    HipRuntime hooks(&runtime);
+
+    std::vector<int32_t> out(128, -1);
+    const uint64_t out_addr = hooks.Malloc(out.size() * sizeof(int32_t));
+    hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(out));
+
+    KernelArgPack args;
+    args.PushU64(out_addr);
+
+    const auto launch = hooks.LaunchEncodedProgramObject(
+        ObjectReader{}.LoadEncodedObject(exe_path, "barrier_skew"),
+        LaunchConfig{.grid_dim_x = 1, .block_dim_x = 128},
+        std::move(args),
+        ExecutionMode::Functional,
+        "c500",
+        nullptr);
+    EXPECT_TRUE(launch.ok) << launch.error_message;
+
+    hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(out));
+    return std::pair<LaunchResult, std::vector<int32_t>>(launch, out);
+  };
+
+  const auto [st_result, st_out] = run_mode(FunctionalExecutionMode::SingleThreaded, 0);
+  const auto [mt_result, mt_out] = run_mode(FunctionalExecutionMode::MultiThreaded, 2);
+
+  for (int i = 0; i < 128; ++i) {
+    const int32_t expected = i < 64 ? (1 + ((63 * 64) / 2)) : 1;
+    EXPECT_EQ(st_out[i], expected);
+    EXPECT_EQ(mt_out[i], expected);
+  }
+
+  ASSERT_TRUE(st_result.program_cycle_stats.has_value());
+  ASSERT_TRUE(mt_result.program_cycle_stats.has_value());
+  EXPECT_GT(st_result.program_cycle_stats->total_cycles, 0u);
+  EXPECT_GT(mt_result.program_cycle_stats->total_cycles, 0u);
+  EXPECT_EQ(st_result.total_cycles, st_result.program_cycle_stats->total_cycles);
+  EXPECT_EQ(mt_result.total_cycles, mt_result.program_cycle_stats->total_cycles);
+  EXPECT_GE(st_result.program_cycle_stats->total_issued_work_cycles,
+            st_result.program_cycle_stats->total_cycles);
+  EXPECT_GE(mt_result.program_cycle_stats->total_issued_work_cycles,
+            mt_result.program_cycle_stats->total_cycles);
+
+  std::filesystem::remove_all(temp_dir);
+}
+
 }  // namespace
 }  // namespace gpu_model
