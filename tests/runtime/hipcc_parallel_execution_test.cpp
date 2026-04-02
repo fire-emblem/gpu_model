@@ -473,5 +473,95 @@ TEST(HipccParallelExecutionTest,
   std::filesystem::remove_all(temp_dir);
 }
 
+TEST(HipccParallelExecutionTest,
+     EncodedAtomicReductionMatchesBetweenStMtAndCycleAndReportsClosedStats) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hipcc_parallel_atomic");
+  const auto src_path = temp_dir / "atomic.cpp";
+  const auto exe_path = temp_dir / "atomic.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n"
+           "extern \"C\" __global__ void atomic_count(int* out, int n) {\n"
+           "  int i = blockIdx.x * blockDim.x + threadIdx.x;\n"
+           "  if (i < n) atomicAdd(out, 1);\n"
+           "}\n"
+           "int main() { return 0; }\n";
+  }
+
+  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  constexpr uint32_t n = 257;
+
+  const auto run_mode = [&](ExecutionMode mode,
+                            FunctionalExecutionMode functional_mode,
+                            uint32_t worker_threads) {
+    RuntimeEngine runtime;
+    runtime.SetFunctionalExecutionConfig(
+        FunctionalExecutionConfig{.mode = functional_mode, .worker_threads = worker_threads});
+    HipRuntime hooks(&runtime);
+
+    int32_t zero = 0;
+    const uint64_t out_addr = hooks.Malloc(sizeof(int32_t));
+    hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(&zero, 1));
+
+    KernelArgPack args;
+    args.PushU64(out_addr);
+    args.PushU32(n);
+
+    auto launch = hooks.LaunchEncodedProgramObject(
+        ObjectReader{}.LoadEncodedObject(exe_path, "atomic_count"),
+        LaunchConfig{.grid_dim_x = 3, .block_dim_x = 128},
+        std::move(args),
+        mode,
+        "c500",
+        nullptr);
+    EXPECT_TRUE(launch.ok) << launch.error_message;
+
+    int32_t value = -1;
+    hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(&value, 1));
+    return std::pair<LaunchResult, int32_t>(std::move(launch), value);
+  };
+
+  const auto [st_launch, st_value] =
+      run_mode(ExecutionMode::Functional, FunctionalExecutionMode::SingleThreaded, 0);
+  const auto [mt_launch, mt_value] =
+      run_mode(ExecutionMode::Functional, FunctionalExecutionMode::MultiThreaded, 2);
+  const auto [cycle_launch, cycle_value] =
+      run_mode(ExecutionMode::Cycle, FunctionalExecutionMode::SingleThreaded, 0);
+
+  EXPECT_EQ(st_value, static_cast<int32_t>(n));
+  EXPECT_EQ(mt_value, static_cast<int32_t>(n));
+  EXPECT_EQ(cycle_value, static_cast<int32_t>(n));
+
+  ASSERT_TRUE(st_launch.program_cycle_stats.has_value());
+  ASSERT_TRUE(mt_launch.program_cycle_stats.has_value());
+  ASSERT_TRUE(cycle_launch.program_cycle_stats.has_value());
+
+  EXPECT_EQ(st_launch.total_cycles, st_launch.program_cycle_stats->total_cycles);
+  EXPECT_EQ(mt_launch.total_cycles, mt_launch.program_cycle_stats->total_cycles);
+  EXPECT_EQ(cycle_launch.total_cycles, cycle_launch.program_cycle_stats->total_cycles);
+
+  EXPECT_GT(st_launch.program_cycle_stats->total_issued_work_cycles, 0u);
+  EXPECT_GT(mt_launch.program_cycle_stats->total_issued_work_cycles, 0u);
+  EXPECT_GT(cycle_launch.program_cycle_stats->total_issued_work_cycles, 0u);
+
+  EXPECT_EQ(st_launch.stats.global_stores, mt_launch.stats.global_stores);
+  EXPECT_EQ(st_launch.stats.global_stores, cycle_launch.stats.global_stores);
+  EXPECT_EQ(st_launch.stats.wave_exits, mt_launch.stats.wave_exits);
+  EXPECT_EQ(st_launch.stats.wave_exits, cycle_launch.stats.wave_exits);
+
+  EXPECT_GT(st_launch.stats.global_stores, 0u);
+  EXPECT_GT(st_launch.stats.wave_exits, 0u);
+
+  std::filesystem::remove_all(temp_dir);
+}
+
 }  // namespace
 }  // namespace gpu_model
