@@ -19,6 +19,33 @@ ExecutableKernel BuildTimelineKernel() {
   return builder.Build("timeline_kernel");
 }
 
+ExecutableKernel BuildCycleOrderingKernel() {
+  InstructionBuilder builder;
+  builder.SMov("s0", 0);
+  builder.SMov("s1", 0);
+  builder.MLoadGlobal("v1", "s0", "s1", 4);
+  builder.SWaitCnt(/*global_count=*/0, /*shared_count=*/UINT32_MAX,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
+  builder.SMov("s2", 7);
+  builder.BExit();
+  return builder.Build("cycle_ordering_kernel");
+}
+
+uint64_t FirstEventCycle(const std::vector<TraceEvent>& events,
+                         TraceEventKind kind,
+                         std::string_view message_substr) {
+  for (const auto& event : events) {
+    if (event.kind != kind) {
+      continue;
+    }
+    if (event.message.find(std::string(message_substr)) == std::string::npos) {
+      continue;
+    }
+    return event.cycle;
+  }
+  return std::numeric_limits<uint64_t>::max();
+}
+
 TEST(CycleTimelineTest, RendersAsciiTimelineForMultipleWaves) {
   CollectingTraceSink trace;
   RuntimeEngine runtime(&trace);
@@ -169,6 +196,45 @@ TEST(CycleTimelineTest, HighlightsTensorOpsInAsciiAndGoogleTrace) {
   const std::string trace = CycleTimelineRenderer::RenderGoogleTrace(events);
   EXPECT_NE(trace.find("\"cat\":\"tensor\""), std::string::npos);
   EXPECT_NE(trace.find("\"name\":\"v_mfma_f32_16x16x4f32\""), std::string::npos);
+}
+
+TEST(CycleTimelineTest, PerfettoDumpPreservesCycleIssueAndCommitOrdering) {
+  CollectingTraceSink trace;
+  RuntimeEngine runtime(&trace);
+  runtime.SetFixedGlobalMemoryLatency(20);
+
+  const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
+  runtime.memory().StoreGlobalValue<int32_t>(base_addr, 9);
+
+  const auto kernel = BuildCycleOrderingKernel();
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  const auto& events = trace.events();
+  const uint64_t issue_cycle = FirstEventCycle(events, TraceEventKind::WaveStep, "buffer_load_dword");
+  const uint64_t stall_cycle = FirstEventCycle(events, TraceEventKind::Stall, "waitcnt_global");
+  const uint64_t arrive_cycle = FirstEventCycle(events, TraceEventKind::Arrive, "load_arrive");
+  const uint64_t commit_cycle = FirstEventCycle(events, TraceEventKind::Commit, "s_waitcnt");
+
+  ASSERT_NE(issue_cycle, std::numeric_limits<uint64_t>::max());
+  ASSERT_NE(stall_cycle, std::numeric_limits<uint64_t>::max());
+  ASSERT_NE(arrive_cycle, std::numeric_limits<uint64_t>::max());
+  ASSERT_NE(commit_cycle, std::numeric_limits<uint64_t>::max());
+  EXPECT_LT(issue_cycle, arrive_cycle);
+  EXPECT_LT(stall_cycle, commit_cycle);
+
+  const std::string timeline = CycleTimelineRenderer::RenderGoogleTrace(events);
+  EXPECT_NE(timeline.find("\"name\":\"buffer_load_dword\""), std::string::npos);
+  EXPECT_NE(timeline.find("\"name\":\"load_arrive\""), std::string::npos);
+  EXPECT_NE(timeline.find("\"name\":\"stall_waitcnt_global\""), std::string::npos);
+  EXPECT_NE(timeline.find("\"issue_cycle\":\""), std::string::npos);
+  EXPECT_NE(timeline.find("\"commit_cycle\":\""), std::string::npos);
 }
 
 }  // namespace
