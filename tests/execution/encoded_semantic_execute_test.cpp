@@ -313,6 +313,22 @@ TEST_F(EncodedSemanticExecuteTest, ExecutesVectorFloatMathAndConvert) {
   EXPECT_EQ(harness.wave.vgpr.Read(8, 0), FloatBits(-3.0f));
 }
 
+TEST_F(EncodedSemanticExecuteTest, ExecutesVectorUnsignedAddAndSub) {
+  Harness harness;
+  harness.wave.vgpr.Write(1, 0, 17u);
+  harness.wave.vgpr.Write(2, 0, 5u);
+
+  auto add = Inst("v_add_u32_e32", 7, {VReg(3), VReg(1), VReg(2)}, 0x160c, 4);
+  harness.wave.pc = add.pc;
+  EncodedSemanticHandlerRegistry::Get(add).Execute(add, harness.context);
+  EXPECT_EQ(harness.wave.vgpr.Read(3, 0), 22u);
+
+  auto sub = Inst("v_sub_u32_e32", 0, {VReg(4), VReg(1), VReg(2)}, 0x1610, 4);
+  harness.wave.pc = sub.pc;
+  EncodedSemanticHandlerRegistry::Get(sub).Execute(sub, harness.context);
+  EXPECT_EQ(harness.wave.vgpr.Read(4, 0), 12u);
+}
+
 TEST_F(EncodedSemanticExecuteTest, ExecutesVectorCompareAndWritesVcc) {
   Harness harness;
   harness.wave.vgpr.Write(1, 0, 7u);
@@ -355,6 +371,16 @@ TEST_F(EncodedSemanticExecuteTest, ExecutesScalarCompareInstructionsAndWritesScc
     harness.wave.sgpr.Write(1, 1u);
     harness.wave.sgpr.Write(2, 7u);
     auto compare = Inst("s_cmp_lt_u32", 40, {SReg(1), SReg(2)}, 0x1728, 4, {0xbf0a0201u});
+    harness.wave.pc = compare.pc;
+    EncodedSemanticHandlerRegistry::Get(compare).Execute(compare, harness.context);
+    EXPECT_TRUE(harness.wave.ScalarMaskBit0());
+  }
+
+  {
+    Harness harness;
+    harness.wave.sgpr.Write(1, static_cast<uint32_t>(7));
+    harness.wave.sgpr.Write(2, static_cast<uint32_t>(-3));
+    auto compare = Inst("s_cmp_gt_i32", 0, {SReg(1), SReg(2)}, 0x172c, 4, {0xbf020201u});
     harness.wave.pc = compare.pc;
     EncodedSemanticHandlerRegistry::Get(compare).Execute(compare, harness.context);
     EXPECT_TRUE(harness.wave.ScalarMaskBit0());
@@ -478,6 +504,90 @@ TEST_F(EncodedSemanticExecuteTest, ExecutesRepresentativeSop2ScalarAluInstructio
   }
 }
 
+TEST_F(EncodedSemanticExecuteTest, ExecutesSaveexecBranchLoweringSequenceForWaveHalves) {
+  auto and_save =
+      Inst("s_and_saveexec_b64", 9, {SRange(0, 2), Special(GcnSpecialReg::Vcc)}, 0x19b0, 4);
+  auto xor_mask = Inst("s_xor_b64", 0, {SRange(0, 2), Special(GcnSpecialReg::Exec), SRange(0, 2)},
+                       0x19b4, 4, {EncodeSop2Word(/*opcode=*/17, /*sdst=*/0, /*ssrc0=*/126, /*ssrc1=*/0)});
+  auto branch0 = Inst("s_cbranch_execz", 10, {BranchTarget(8)}, 0x19b8, 4);
+  auto andn2 =
+      Inst("s_andn2_saveexec_b64", 0, {SRange(0, 2), SRange(0, 2)}, 0x19dc, 4,
+           {EncodeSop1Word(/*opcode=*/35, /*sdst=*/0, /*ssrc0=*/0)});
+  auto branch1 = Inst("s_cbranch_execz", 10, {BranchTarget(4)}, 0x19e0, 4);
+  auto restore = Inst("s_or_b64", 28, {Special(GcnSpecialReg::Exec), Special(GcnSpecialReg::Exec), SReg(0)},
+                      0x19f4, 4, {EncodeSop2Word(/*opcode=*/15, /*sdst=*/126, /*ssrc0=*/126, /*ssrc1=*/0)});
+
+  {
+    Harness harness;
+    harness.wave.exec.set();
+    harness.vcc = 0;
+
+    harness.wave.pc = and_save.pc;
+    EncodedSemanticHandlerRegistry::Get(and_save).Execute(and_save, harness.context);
+    EXPECT_TRUE(harness.wave.exec.none());
+    EXPECT_EQ(harness.wave.sgpr.Read(0), 0xffffffffu);
+    EXPECT_EQ(harness.wave.sgpr.Read(1), 0xffffffffu);
+
+    harness.wave.pc = xor_mask.pc;
+    EncodedSemanticHandlerRegistry::Get(xor_mask).Execute(xor_mask, harness.context);
+    EXPECT_EQ(harness.wave.sgpr.Read(0), 0xffffffffu);
+    EXPECT_EQ(harness.wave.sgpr.Read(1), 0xffffffffu);
+
+    harness.wave.pc = branch0.pc;
+    EncodedSemanticHandlerRegistry::Get(branch0).Execute(branch0, harness.context);
+    EXPECT_EQ(harness.wave.pc, 0x19dcu);
+
+    harness.wave.pc = andn2.pc;
+    EncodedSemanticHandlerRegistry::Get(andn2).Execute(andn2, harness.context);
+    EXPECT_TRUE(harness.wave.exec.all());
+    EXPECT_EQ(harness.wave.sgpr.Read(0), 0u);
+    EXPECT_EQ(harness.wave.sgpr.Read(1), 0u);
+
+    harness.wave.pc = branch1.pc;
+    EncodedSemanticHandlerRegistry::Get(branch1).Execute(branch1, harness.context);
+    EXPECT_EQ(harness.wave.pc, 0x19e4u);
+
+    harness.wave.pc = restore.pc;
+    EncodedSemanticHandlerRegistry::Get(restore).Execute(restore, harness.context);
+    EXPECT_TRUE(harness.wave.exec.all());
+  }
+
+  {
+    Harness harness;
+    harness.wave.exec.set();
+    harness.vcc = std::numeric_limits<uint64_t>::max();
+
+    harness.wave.pc = and_save.pc;
+    EncodedSemanticHandlerRegistry::Get(and_save).Execute(and_save, harness.context);
+    EXPECT_TRUE(harness.wave.exec.all());
+    EXPECT_EQ(harness.wave.sgpr.Read(0), 0xffffffffu);
+    EXPECT_EQ(harness.wave.sgpr.Read(1), 0xffffffffu);
+
+    harness.wave.pc = xor_mask.pc;
+    EncodedSemanticHandlerRegistry::Get(xor_mask).Execute(xor_mask, harness.context);
+    EXPECT_EQ(harness.wave.sgpr.Read(0), 0u);
+    EXPECT_EQ(harness.wave.sgpr.Read(1), 0u);
+
+    harness.wave.pc = branch0.pc;
+    EncodedSemanticHandlerRegistry::Get(branch0).Execute(branch0, harness.context);
+    EXPECT_EQ(harness.wave.pc, 0x19bcu);
+
+    harness.wave.pc = andn2.pc;
+    EncodedSemanticHandlerRegistry::Get(andn2).Execute(andn2, harness.context);
+    EXPECT_TRUE(harness.wave.exec.none());
+    EXPECT_EQ(harness.wave.sgpr.Read(0), 0xffffffffu);
+    EXPECT_EQ(harness.wave.sgpr.Read(1), 0xffffffffu);
+
+    harness.wave.pc = branch1.pc;
+    EncodedSemanticHandlerRegistry::Get(branch1).Execute(branch1, harness.context);
+    EXPECT_EQ(harness.wave.pc, 0x19f4u);
+
+    harness.wave.pc = restore.pc;
+    EncodedSemanticHandlerRegistry::Get(restore).Execute(restore, harness.context);
+    EXPECT_TRUE(harness.wave.exec.all());
+  }
+}
+
 TEST_F(EncodedSemanticExecuteTest, ExecutesAdditionalSop1ScalarAluInstructions) {
   {
     Harness harness;
@@ -502,6 +612,25 @@ TEST_F(EncodedSemanticExecuteTest, ExecutesAdditionalSop1ScalarAluInstructions) 
     EncodedSemanticHandlerRegistry::Get(inst).Execute(inst, harness.context);
     EXPECT_EQ(harness.wave.sgpr.Read(7), 28u);
     EXPECT_EQ(harness.wave.pc, 0x178cu);
+  }
+
+  {
+    Harness harness;
+    harness.wave.exec.reset();
+    for (uint32_t lane = 0; lane < 16; ++lane) {
+      harness.wave.exec.set(lane);
+    }
+    harness.wave.sgpr.Write(12, 0xffffffffu);
+    harness.wave.sgpr.Write(13, 0x0u);
+    auto inst = Inst("s_andn2_saveexec_b64", 0, {SRange(20, 2), SRange(12, 2)}, 0x178c, 4,
+                     {EncodeSop1Word(/*opcode=*/35, /*sdst=*/20, /*ssrc0=*/12)});
+    harness.wave.pc = inst.pc;
+    EncodedSemanticHandlerRegistry::Get(inst).Execute(inst, harness.context);
+    EXPECT_EQ(harness.wave.sgpr.Read(20), 0xffffu);
+    EXPECT_EQ(harness.wave.sgpr.Read(21), 0u);
+    EXPECT_FALSE(harness.wave.exec.test(0));
+    EXPECT_TRUE(harness.wave.exec.test(31));
+    EXPECT_EQ(harness.wave.pc, 0x1790u);
   }
 }
 
@@ -533,6 +662,17 @@ TEST_F(EncodedSemanticExecuteTest, ExecutesAdditionalVectorCompareInstructions) 
     harness.wave.vgpr.Write(6, 0, static_cast<uint32_t>(-1));
     auto compare =
         Inst("v_cmp_le_i32_e32", 75, {Special(GcnSpecialReg::Vcc), VReg(5), VReg(6)}, 0x1748, 4);
+    harness.wave.pc = compare.pc;
+    EncodedSemanticHandlerRegistry::Get(compare).Execute(compare, harness.context);
+    EXPECT_EQ(harness.vcc & 0x1ull, 0x1ull);
+  }
+
+  {
+    Harness harness;
+    harness.wave.vgpr.Write(7, 0, 3u);
+    harness.wave.vgpr.Write(8, 0, 9u);
+    auto compare =
+        Inst("v_cmp_lt_u32_e32", 0, {Special(GcnSpecialReg::Vcc), VReg(7), VReg(8)}, 0x174c, 4);
     harness.wave.pc = compare.pc;
     EncodedSemanticHandlerRegistry::Get(compare).Execute(compare, harness.context);
     EXPECT_EQ(harness.vcc & 0x1ull, 0x1ull);

@@ -656,6 +656,159 @@ bool DecodeDsRead2B32Operands(EncodedGcnInstruction& instruction) {
   return true;
 }
 
+bool DecodeDsReadWriteB32Operands(EncodedGcnInstruction& instruction) {
+  if (instruction.words.size() < 2) {
+    return false;
+  }
+  const uint32_t low = instruction.words[0];
+  const uint32_t high = instruction.words[1];
+  const uint32_t opcode = (low >> 17u) & 0xffu;
+  const uint32_t offset = low & 0xffffu;
+  if (instruction.mnemonic == "ds_read_b32") {
+    if (opcode != 54u) {
+      return false;
+    }
+    const uint32_t addr = high & 0xffu;
+    const uint32_t vdst = (high >> 24u) & 0xffu;
+    instruction.decoded_operands.push_back(MakeVectorRegOperand(vdst));
+    instruction.decoded_operands.push_back(MakeVectorRegOperand(addr));
+    if (offset != 0u) {
+      instruction.decoded_operands.push_back(MakeImmediateOperand(FormatImmediate(offset), offset));
+    }
+    return true;
+  }
+  if (instruction.mnemonic == "ds_write_b32") {
+    if (opcode != 13u) {
+      return false;
+    }
+    const uint32_t addr = high & 0xffu;
+    const uint32_t data0 = (high >> 8u) & 0xffu;
+    instruction.decoded_operands.push_back(MakeVectorRegOperand(addr));
+    instruction.decoded_operands.push_back(MakeVectorRegOperand(data0));
+    if (offset != 0u) {
+      instruction.decoded_operands.push_back(MakeImmediateOperand(FormatImmediate(offset), offset));
+    }
+    return true;
+  }
+  return false;
+}
+
+bool DecodeVopcLtU32Operands(EncodedGcnInstruction& instruction) {
+  if (instruction.words.empty()) {
+    return false;
+  }
+  const uint32_t word = instruction.words[0];
+  const uint32_t opcode = (word >> 17u) & 0xffu;
+  if (opcode != 0xc9u) {
+    return false;
+  }
+  const uint32_t src0 = word & 0x1ffu;
+  const uint32_t vsrc1 = (word >> 9u) & 0xffu;
+  instruction.decoded_operands.push_back(MakeSpecialRegOperand(GcnSpecialReg::Vcc, "vcc"));
+  if (src0 == 255u && instruction.words.size() > 1) {
+    instruction.decoded_operands.push_back(
+        MakeImmediateOperand(FormatImmediate(instruction.words[1]), instruction.words[1]));
+  } else {
+    instruction.decoded_operands.push_back(DecodeSrc9(src0));
+  }
+  instruction.decoded_operands.push_back(MakeVectorRegOperand(vsrc1));
+  return true;
+}
+
+bool DecodeVop3CmpGtU32Operands(EncodedGcnInstruction& instruction) {
+  if (instruction.words.size() < 2) {
+    return false;
+  }
+  const uint32_t high = instruction.words[1];
+  const uint32_t src0 = high & 0x1ffu;
+  const uint32_t src1 = (high >> 9u) & 0x1ffu;
+  instruction.decoded_operands.push_back(DecodeVop3SdstPair(instruction.words));
+  if (src0 == 255u && instruction.words.size() > 1) {
+    instruction.decoded_operands.push_back(
+        MakeImmediateOperand(FormatImmediate(instruction.words[1]), instruction.words[1]));
+  } else {
+    instruction.decoded_operands.push_back(DecodeSrc9(src0));
+  }
+  if (src1 == 255u && instruction.words.size() > 1) {
+    instruction.decoded_operands.push_back(
+        MakeImmediateOperand(FormatImmediate(instruction.words[1]), instruction.words[1]));
+  } else {
+    instruction.decoded_operands.push_back(DecodeSrc9(src1));
+  }
+  return true;
+}
+
+bool DecodeSop2XorB64Operands(EncodedGcnInstruction& instruction) {
+  if (instruction.words.empty()) {
+    return false;
+  }
+  const uint32_t word = instruction.words[0];
+  const uint32_t opcode = (word >> 23u) & 0x7fu;
+  if (opcode != 0x11u) {
+    return false;
+  }
+  const uint32_t sdst = (word >> 16u) & 0x7fu;
+  const uint32_t ssrc1 = (word >> 8u) & 0xffu;
+  const uint32_t ssrc0 = word & 0xffu;
+  instruction.decoded_operands.push_back(DecodeScalarPairDest(sdst));
+  instruction.decoded_operands.push_back(DecodeScalarPairSrc8(ssrc0));
+  instruction.decoded_operands.push_back(DecodeScalarPairSrc8(ssrc1));
+  return true;
+}
+
+bool DecodeSop1Andn2SaveexecB64Operands(EncodedGcnInstruction& instruction) {
+  if (instruction.words.empty()) {
+    return false;
+  }
+  const uint32_t word = instruction.words[0];
+  const uint32_t opcode = (word >> 8u) & 0xffu;
+  if (opcode != 0x23u) {
+    return false;
+  }
+  const uint32_t sdst = (word >> 16u) & 0x7fu;
+  const uint32_t ssrc0 = word & 0xffu;
+  instruction.decoded_operands.push_back(DecodeScalarPairDest(sdst));
+  instruction.decoded_operands.push_back(DecodeScalarPairSrc8(ssrc0));
+  return true;
+}
+
+bool DecodeGenericVop2Operands(EncodedGcnInstruction& instruction) {
+  if (instruction.words.empty()) {
+    return false;
+  }
+  const uint32_t word = instruction.words[0];
+  const uint32_t vdst = (word >> 17u) & 0xffu;
+  const uint32_t vsrc1 = (word >> 9u) & 0xffu;
+  const uint32_t src0 = word & 0x1ffu;
+  instruction.decoded_operands.push_back(MakeVectorRegOperand(vdst));
+  if (src0 == 255u && instruction.words.size() > 1) {
+    instruction.decoded_operands.push_back(
+        MakeImmediateOperand(FormatImmediate(instruction.words[1]), instruction.words[1]));
+  } else {
+    instruction.decoded_operands.push_back(DecodeSrc9(src0));
+  }
+  instruction.decoded_operands.push_back(MakeVectorRegOperand(vsrc1));
+  return true;
+}
+
+bool DecodeGenericVopcOperands(EncodedGcnInstruction& instruction) {
+  if (instruction.words.empty()) {
+    return false;
+  }
+  const uint32_t word = instruction.words[0];
+  const uint32_t vsrc1 = (word >> 9u) & 0xffu;
+  const uint32_t src0 = word & 0x1ffu;
+  instruction.decoded_operands.push_back(MakeSpecialRegOperand(GcnSpecialReg::Vcc, "vcc"));
+  if (src0 == 255u && instruction.words.size() > 1) {
+    instruction.decoded_operands.push_back(
+        MakeImmediateOperand(FormatImmediate(instruction.words[1]), instruction.words[1]));
+  } else {
+    instruction.decoded_operands.push_back(DecodeSrc9(src0));
+  }
+  instruction.decoded_operands.push_back(MakeVectorRegOperand(vsrc1));
+  return true;
+}
+
 bool NeedsScalarPairDest(std::string_view mnemonic) {
   return mnemonic == "s_mov_b64" || mnemonic == "s_cselect_b64" || mnemonic == "s_andn2_b64" ||
          mnemonic == "s_or_b64" || mnemonic == "s_and_b64" || mnemonic == "s_lshl_b64";
@@ -769,8 +922,35 @@ void DecodeEncodedGcnOperands(EncodedGcnInstruction& instruction) {
   if (instruction.mnemonic == "ds_read2_b32" && DecodeDsRead2B32Operands(instruction)) {
     return;
   }
+  if ((instruction.mnemonic == "ds_read_b32" || instruction.mnemonic == "ds_write_b32") &&
+      DecodeDsReadWriteB32Operands(instruction)) {
+    return;
+  }
+  if (instruction.mnemonic == "v_cmp_lt_u32_e32" && DecodeVopcLtU32Operands(instruction)) {
+    return;
+  }
+  if (instruction.format_class == EncodedGcnInstFormatClass::Vop3a &&
+      instruction.mnemonic.starts_with("v_cmp_") && instruction.mnemonic.ends_with("_e64") &&
+      DecodeVop3CmpGtU32Operands(instruction)) {
+    return;
+  }
+  if (instruction.mnemonic == "s_xor_b64" && DecodeSop2XorB64Operands(instruction)) {
+    return;
+  }
+  if (instruction.mnemonic == "s_andn2_saveexec_b64" &&
+      DecodeSop1Andn2SaveexecB64Operands(instruction)) {
+    return;
+  }
   const auto* def = FindEncodedGcnEncodingDef(instruction.words);
   if (def == nullptr) {
+    if (const auto* fallback = FindEncodedGcnFallbackOpcodeDescriptor(instruction.words); fallback != nullptr) {
+      if (fallback->op_type == GcnIsaOpType::Vop2 && DecodeGenericVop2Operands(instruction)) {
+        return;
+      }
+      if (fallback->op_type == GcnIsaOpType::Vopc && DecodeGenericVopcOperands(instruction)) {
+        return;
+      }
+    }
     return;
   }
   instruction.encoding_id = def->id;

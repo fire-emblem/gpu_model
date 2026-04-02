@@ -205,15 +205,33 @@ class SAndSaveexecB64Instruction final : public Sop1InstructionBase {
     const auto& instruction = decoded();
     const auto [sdst, _] = RequireScalarRange(instruction.operands.at(0));
     const uint64_t exec_before = context.wave.exec.to_ullong();
+    const uint64_t mask = ResolveScalarPair(instruction.operands.at(1), context);
     context.wave.sgpr.Write(sdst, static_cast<uint32_t>(exec_before & 0xffffffffu));
     context.wave.sgpr.Write(sdst + 1, static_cast<uint32_t>(exec_before >> 32u));
-    const uint64_t mask = ResolveScalarPair(instruction.operands.at(1), context);
     context.wave.exec = context.wave.exec & MaskFromU64(mask);
     DebugLog("pc=0x%llx s_and_saveexec_b64 before=0x%llx mask=0x%llx after=0x%llx",
              static_cast<unsigned long long>(instruction.pc),
              static_cast<unsigned long long>(exec_before),
              static_cast<unsigned long long>(mask),
              static_cast<unsigned long long>(context.wave.exec.to_ullong()));
+    context.wave.pc += instruction.size_bytes;
+  }
+};
+
+class SAndn2SaveexecB64Instruction final : public Sop1InstructionBase {
+ public:
+  using Sop1InstructionBase::Sop1InstructionBase;
+
+  std::string_view class_name() const override { return "s_andn2_saveexec_b64"; }
+
+  void Execute(EncodedWaveContext& context) const override {
+    const auto& instruction = decoded();
+    const auto [sdst, _] = RequireScalarRange(instruction.operands.at(0));
+    const uint64_t exec_before = context.wave.exec.to_ullong();
+    const uint64_t mask = ResolveScalarPair(instruction.operands.at(1), context);
+    context.wave.sgpr.Write(sdst, static_cast<uint32_t>(exec_before & 0xffffffffu));
+    context.wave.sgpr.Write(sdst + 1, static_cast<uint32_t>(exec_before >> 32u));
+    context.wave.exec = MaskFromU64(mask & ~exec_before);
     context.wave.pc += instruction.size_bytes;
   }
 };
@@ -374,6 +392,7 @@ DEFINE_RAW_GCN_OPCODE_CLASS(SMovkI32Instruction, SopkInstructionBase, "s_movk_i3
 DEFINE_RAW_GCN_OPCODE_CLASS(SCselectB64Instruction, Sop2InstructionBase, "s_cselect_b64");
 DEFINE_RAW_GCN_OPCODE_CLASS(SAndn2B64Instruction, Sop2InstructionBase, "s_andn2_b64");
 DEFINE_RAW_GCN_OPCODE_CLASS(SOrB64Instruction, Sop2InstructionBase, "s_or_b64");
+DEFINE_RAW_GCN_OPCODE_CLASS(SXorB64Instruction, Sop2InstructionBase, "s_xor_b64");
 DEFINE_RAW_GCN_OPCODE_CLASS(SOrB32Instruction, Sop2InstructionBase, "s_or_b32");
 DEFINE_RAW_GCN_OPCODE_CLASS(SAndB64Instruction, Sop2InstructionBase, "s_and_b64");
 DEFINE_RAW_GCN_OPCODE_CLASS(SAndB32Instruction, Sop2InstructionBase, "s_and_b32");
@@ -386,6 +405,7 @@ DEFINE_RAW_GCN_OPCODE_CLASS(SAshrI32Instruction, Sop2InstructionBase, "s_ashr_i3
 DEFINE_RAW_GCN_OPCODE_CLASS(SLshlB64Instruction, Sop2InstructionBase, "s_lshl_b64");
 
 DEFINE_RAW_GCN_OPCODE_CLASS(SCmpLtI32Instruction, SopcInstructionBase, "s_cmp_lt_i32");
+DEFINE_RAW_GCN_OPCODE_CLASS(SCmpGtI32Instruction, SopcInstructionBase, "s_cmp_gt_i32");
 DEFINE_RAW_GCN_OPCODE_CLASS(SCmpEqU32Instruction, SopcInstructionBase, "s_cmp_eq_u32");
 DEFINE_RAW_GCN_OPCODE_CLASS(SCmpGtU32Instruction, SopcInstructionBase, "s_cmp_gt_u32");
 DEFINE_RAW_GCN_OPCODE_CLASS(SCmpLtU32Instruction, SopcInstructionBase, "s_cmp_lt_u32");
@@ -399,8 +419,10 @@ DEFINE_RAW_GCN_OPCODE_CLASS(VExpF32Instruction, Vop1InstructionBase, "v_exp_f32_
 DEFINE_RAW_GCN_OPCODE_CLASS(VRcpF32Instruction, Vop1InstructionBase, "v_rcp_f32_e32");
 
 DEFINE_RAW_GCN_OPCODE_CLASS(VAddU32Instruction, Vop2InstructionBase, "v_add_u32_e32");
+DEFINE_RAW_GCN_OPCODE_CLASS(VSubU32Instruction, Vop2InstructionBase, "v_sub_u32_e32");
 DEFINE_RAW_GCN_OPCODE_CLASS(VAshrrevI32Instruction, Vop2InstructionBase, "v_ashrrev_i32_e32");
 DEFINE_RAW_GCN_OPCODE_CLASS(VLshlrevB32Instruction, Vop2InstructionBase, "v_lshlrev_b32_e32");
+DEFINE_RAW_GCN_OPCODE_CLASS(VAndB32Instruction, Vop2InstructionBase, "v_and_b32_e32");
 DEFINE_RAW_GCN_OPCODE_CLASS(VOrB32Instruction, Vop2InstructionBase, "v_or_b32_e32");
 DEFINE_RAW_GCN_OPCODE_CLASS(VAddCoU32E32Instruction, Vop2InstructionBase, "v_add_co_u32_e32");
 DEFINE_RAW_GCN_OPCODE_CLASS(VAddcCoU32E32Instruction, Vop2InstructionBase, "v_addc_co_u32_e32");
@@ -421,7 +443,9 @@ DEFINE_RAW_GCN_OPCODE_CLASS(VLdexpF32Instruction, Vop3aInstructionBase, "v_ldexp
 DEFINE_RAW_GCN_OPCODE_CLASS(VDivFmasF32Instruction, Vop3aInstructionBase, "v_div_fmas_f32");
 DEFINE_RAW_GCN_OPCODE_CLASS(VDivFixupF32Instruction, Vop3aInstructionBase, "v_div_fixup_f32");
 DEFINE_RAW_GCN_OPCODE_CLASS(VCndmaskB32E64Instruction, Vop3aInstructionBase, "v_cndmask_b32_e64");
+DEFINE_RAW_GCN_OPCODE_CLASS(VCmpLtU32E64Instruction, Vop3aInstructionBase, "v_cmp_lt_u32_e64");
 DEFINE_RAW_GCN_OPCODE_CLASS(VCmpGtI32E64Instruction, Vop3aInstructionBase, "v_cmp_gt_i32_e64");
+DEFINE_RAW_GCN_OPCODE_CLASS(VCmpGtU32E64Instruction, Vop3aInstructionBase, "v_cmp_gt_u32_e64");
 
 DEFINE_RAW_GCN_OPCODE_CLASS(VAddCoU32E64Instruction, Vop3bInstructionBase, "v_add_co_u32_e64");
 DEFINE_RAW_GCN_OPCODE_CLASS(VAddcCoU32E64Instruction, Vop3bInstructionBase, "v_addc_co_u32_e64");
@@ -440,6 +464,7 @@ DEFINE_RAW_GCN_OPCODE_CLASS(VAccvgprWriteB32Instruction, Vop3pInstructionBase, "
 DEFINE_RAW_GCN_OPCODE_CLASS(VCmpGtI32Instruction, VopcInstructionBase, "v_cmp_gt_i32");
 DEFINE_RAW_GCN_OPCODE_CLASS(VCmpLeI32Instruction, VopcInstructionBase, "v_cmp_le_i32_e32");
 DEFINE_RAW_GCN_OPCODE_CLASS(VCmpLtI32Instruction, VopcInstructionBase, "v_cmp_lt_i32_e32");
+DEFINE_RAW_GCN_OPCODE_CLASS(VCmpLtU32Instruction, VopcInstructionBase, "v_cmp_lt_u32_e32");
 DEFINE_RAW_GCN_OPCODE_CLASS(VCmpGtU32Instruction, VopcInstructionBase, "v_cmp_gt_u32_e32");
 DEFINE_RAW_GCN_OPCODE_CLASS(VCmpEqU32Instruction, VopcInstructionBase, "v_cmp_eq_u32_e32");
 DEFINE_RAW_GCN_OPCODE_CLASS(VCmpNgtF32Instruction, VopcInstructionBase, "v_cmp_ngt_f32_e32");
@@ -504,6 +529,9 @@ InstructionObjectPtr CreateScalarInstruction(const GcnIsaOpcodeDescriptor& descr
         case static_cast<uint16_t>(GcnIsaSop1Opcode::S_AND_SAVEEXEC_B64):
           return std::make_unique<SAndSaveexecB64Instruction>(
               std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
+        case static_cast<uint16_t>(GcnIsaSop1Opcode::S_ANDN2_SAVEEXEC_B64):
+          return std::make_unique<SAndn2SaveexecB64Instruction>(
+              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
         default:
           break;
       }
@@ -530,6 +558,9 @@ InstructionObjectPtr CreateScalarInstruction(const GcnIsaOpcodeDescriptor& descr
               std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
         case static_cast<uint16_t>(GcnIsaSop2Opcode::S_OR_B64):
           return std::make_unique<SOrB64Instruction>(
+              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
+        case static_cast<uint16_t>(GcnIsaSop2Opcode::S_XOR_B64):
+          return std::make_unique<SXorB64Instruction>(
               std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
         case static_cast<uint16_t>(GcnIsaSop2Opcode::S_OR_B32):
           return std::make_unique<SOrB32Instruction>(
@@ -561,6 +592,9 @@ InstructionObjectPtr CreateScalarInstruction(const GcnIsaOpcodeDescriptor& descr
       return MakePlaceholderInstruction(std::move(instruction), "sopk", "sopk_placeholder");
     case GcnIsaOpType::Sopc:
       switch (descriptor.opcode) {
+        case static_cast<uint16_t>(GcnIsaSopcOpcode::S_CMP_GT_I32):
+          return std::make_unique<SCmpGtI32Instruction>(
+              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
         case static_cast<uint16_t>(GcnIsaSopcOpcode::S_CMP_LT_I32):
           return std::make_unique<SCmpLtI32Instruction>(
               std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
@@ -672,6 +706,9 @@ InstructionObjectPtr CreateVectorInstruction(const GcnIsaOpcodeDescriptor& descr
         case static_cast<uint16_t>(GcnIsaVop2Opcode::V_LSHLREV_B32_E32):
           return std::make_unique<VLshlrevB32Instruction>(
               std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
+        case static_cast<uint16_t>(GcnIsaVop2Opcode::V_AND_B32_E32):
+          return std::make_unique<VAndB32Instruction>(
+              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
         case static_cast<uint16_t>(GcnIsaVop2Opcode::V_OR_B32_E32):
           return std::make_unique<VOrB32Instruction>(
               std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
@@ -683,6 +720,9 @@ InstructionObjectPtr CreateVectorInstruction(const GcnIsaOpcodeDescriptor& descr
               std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
         case static_cast<uint16_t>(GcnIsaVop2Opcode::V_ADD_U32_E32):
           return std::make_unique<VAddU32Instruction>(
+              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
+        case static_cast<uint16_t>(GcnIsaVop2Opcode::V_SUB_U32_E32):
+          return std::make_unique<VSubU32Instruction>(
               std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
         case static_cast<uint16_t>(GcnIsaVop2Opcode::V_FMAC_F32_E32):
           return std::make_unique<VFmacF32Instruction>(
@@ -696,8 +736,14 @@ InstructionObjectPtr CreateVectorInstruction(const GcnIsaOpcodeDescriptor& descr
         case static_cast<uint16_t>(GcnIsaVop3aOpcode::V_CNDMASK_B32_E64):
           return std::make_unique<VCndmaskB32E64Instruction>(
               std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
+        case static_cast<uint16_t>(GcnIsaVop3aOpcode::V_CMP_LT_U32_E64):
+          return std::make_unique<VCmpLtU32E64Instruction>(
+              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
         case static_cast<uint16_t>(GcnIsaVop3aOpcode::V_CMP_GT_I32_E64):
           return std::make_unique<VCmpGtI32E64Instruction>(
+              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
+        case static_cast<uint16_t>(GcnIsaVop3aOpcode::V_CMP_GT_U32_E64):
+          return std::make_unique<VCmpGtU32E64Instruction>(
               std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
         case static_cast<uint16_t>(GcnIsaVop3aOpcode::V_FMA_F32):
           return std::make_unique<VFmaF32Instruction>(
@@ -780,6 +826,9 @@ InstructionObjectPtr CreateVectorInstruction(const GcnIsaOpcodeDescriptor& descr
       return MakePlaceholderInstruction(std::move(instruction), "vop3p", "vop3p_placeholder");
     case GcnIsaOpType::Vopc:
       switch (descriptor.opcode) {
+        case static_cast<uint16_t>(GcnIsaVopcOpcode::V_CMP_LT_U32_E32):
+          return std::make_unique<VCmpLtU32Instruction>(
+              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
         case static_cast<uint16_t>(GcnIsaVopcOpcode::V_CMP_NGT_F32_E32):
           return std::make_unique<VCmpNgtF32Instruction>(
               std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));

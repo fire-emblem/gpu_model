@@ -715,6 +715,25 @@ TEST(InstructionDecoderTest, DecodesAdditionalVectorAndLdsInstructions) {
 
   {
     EncodedGcnInstruction raw{
+        .pc = 0x1a4e,
+        .size_bytes = 4,
+        .words = {EncodeVopcWord(/*opcode=*/201, /*src0=*/0x100u + 10u, /*vsrc1=*/11u)},
+        .format_class = EncodedGcnInstFormatClass::Vopc,
+        .mnemonic = "v_cmp_lt_u32_e32",
+        .operands = "",
+        .decoded_operands = {},
+    };
+
+    const auto decoded = InstructionDecoder{}.Decode(raw);
+    EXPECT_EQ(decoded.mnemonic, "v_cmp_lt_u32_e32");
+    ASSERT_EQ(decoded.operands.size(), 3u);
+    EXPECT_EQ(decoded.operands[0].text, "vcc");
+    EXPECT_EQ(decoded.operands[1].text, "v10");
+    EXPECT_EQ(decoded.operands[2].text, "v11");
+  }
+
+  {
+    EncodedGcnInstruction raw{
         .pc = 0x1a50,
         .size_bytes = 4,
         .words = {EncodeVopcWord(/*opcode=*/195, /*src0=*/0x100u + 6u, /*vsrc1=*/7u)},
@@ -1325,6 +1344,22 @@ TEST(InstructionDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats)
 
   {
     EncodedGcnInstruction raw{
+        .pc = 0x1a9a,
+        .size_bytes = 4,
+        .words = {EncodeSop2Word(/*opcode=*/17, /*sdst=*/18, /*ssrc0=*/4, /*ssrc1=*/6)},
+        .format_class = EncodedGcnInstFormatClass::Sop2,
+        .mnemonic = "s_xor_b64",
+        .operands = "",
+        .decoded_operands = {},
+    };
+    const auto decoded = InstructionDecoder{}.Decode(raw);
+    EXPECT_EQ(decoded.mnemonic, "s_xor_b64");
+    ASSERT_EQ(decoded.operands.size(), 3u);
+    EXPECT_EQ(decoded.operands[0].text, "s[18:19]");
+  }
+
+  {
+    EncodedGcnInstruction raw{
         .pc = 0x1a9c,
         .size_bytes = 4,
         .words = {EncodeSop2Word(/*opcode=*/11, /*sdst=*/16, /*ssrc0=*/4, /*ssrc1=*/6)},
@@ -1355,6 +1390,24 @@ TEST(InstructionDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats)
     EXPECT_EQ(decoded.mnemonic, "v_add_u32_e32");
     ASSERT_EQ(decoded.operands.size(), 3u);
     EXPECT_EQ(decoded.operands[0].text, "v2");
+  }
+
+  {
+    EncodedGcnInstruction raw{
+        .pc = 0x1aa2,
+        .size_bytes = 4,
+        .words = {EncodeVop2Word(/*opcode=*/53, /*vdst=*/5, /*src0=*/257, /*vsrc1=*/6)},
+        .format_class = EncodedGcnInstFormatClass::Vop2,
+        .mnemonic = "v_sub_u32_e32",
+        .operands = "",
+        .decoded_operands = {},
+    };
+    const auto decoded = InstructionDecoder{}.Decode(raw);
+    EXPECT_EQ(decoded.mnemonic, "v_sub_u32_e32");
+    ASSERT_EQ(decoded.operands.size(), 3u);
+    EXPECT_EQ(decoded.operands[0].text, "v5");
+    EXPECT_EQ(decoded.operands[1].text, "v1");
+    EXPECT_EQ(decoded.operands[2].text, "v6");
   }
 
   {
@@ -1578,6 +1631,22 @@ TEST(InstructionDecoderTest, DecodesRemainingSupportedInstructionsAcrossFormats)
     const auto decoded = InstructionDecoder{}.Decode(raw);
     EXPECT_EQ(decoded.encoding_id, 38u);
     EXPECT_EQ(decoded.mnemonic, "v_cmp_gt_i32_e64");
+    ASSERT_EQ(decoded.operands.size(), 3u);
+    EXPECT_EQ(decoded.operands[0].text, "s[0:1]");
+  }
+
+  {
+    EncodedGcnInstruction raw{
+        .pc = 0x1aec,
+        .size_bytes = 8,
+        .words = EncodeVop3aWords(/*opcode=*/204, /*vdst=*/0, /*src0=*/257, /*src1=*/258, /*src2=*/0),
+        .format_class = EncodedGcnInstFormatClass::Vop3a,
+        .mnemonic = "v_cmp_gt_u32_e64",
+        .operands = "",
+        .decoded_operands = {},
+    };
+    const auto decoded = InstructionDecoder{}.Decode(raw);
+    EXPECT_EQ(decoded.mnemonic, "v_cmp_gt_u32_e64");
     ASSERT_EQ(decoded.operands.size(), 3u);
     EXPECT_EQ(decoded.operands[0].text, "s[0:1]");
   }

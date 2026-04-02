@@ -217,10 +217,25 @@ uint64_t ResolveVectorLane(const DecodedInstructionOperand& operand,
   if (operand.kind == DecodedInstructionOperandKind::ScalarReg) {
     return context.wave.sgpr.Read(RequireScalarIndex(operand));
   }
+  if (operand.kind == DecodedInstructionOperandKind::ScalarRegRange) {
+    return ResolveScalarPair(operand, context);
+  }
+  if (operand.kind == DecodedInstructionOperandKind::SpecialReg) {
+    switch (operand.info.special_reg) {
+      case GcnSpecialReg::Vcc:
+        return ((context.vcc >> lane) & 1ull) != 0 ? 1ull : 0ull;
+      case GcnSpecialReg::Exec:
+        return context.wave.exec.test(lane) ? 1ull : 0ull;
+      default:
+        break;
+    }
+  }
   if (operand.kind == DecodedInstructionOperandKind::VectorReg) {
     return context.wave.vgpr.Read(RequireVectorIndex(operand), lane);
   }
-  throw std::invalid_argument("unsupported vector-lane raw operand");
+  throw std::invalid_argument("unsupported vector-lane raw operand kind=" +
+                              std::to_string(static_cast<int>(operand.kind)) +
+                              " text=" + operand.text);
 }
 
 const GcnIsaOpcodeDescriptor& RequireCanonicalOpcode(const DecodedInstruction& instruction) {
@@ -335,6 +350,11 @@ class ScalarAluHandler final : public IEncodedSemanticHandler {
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(2), context));
       context.wave.sgpr.Write(sdst, lhs | rhs);
     } else if (descriptor.op_type == GcnIsaOpType::Sop2 &&
+               descriptor.opcode == static_cast<uint16_t>(GcnIsaSop2Opcode::S_XOR_B64)) {
+      const uint64_t lhs = ResolveScalarPair(instruction.operands.at(1), context);
+      const uint64_t rhs = ResolveScalarPair(instruction.operands.at(2), context);
+      StoreScalarPair(instruction.operands.at(0), context, lhs ^ rhs);
+    } else if (descriptor.op_type == GcnIsaOpType::Sop2 &&
                descriptor.opcode == static_cast<uint16_t>(GcnIsaSop2Opcode::S_AND_B64)) {
       const uint64_t lhs = ResolveScalarPair(instruction.operands.at(1), context);
       const uint64_t rhs = ResolveScalarPair(instruction.operands.at(2), context);
@@ -436,6 +456,13 @@ class ScalarCompareHandler final : public IEncodedSemanticHandler {
           static_cast<int32_t>(ResolveScalarLike(instruction.operands.at(1), context));
       context.wave.SetScalarMaskBit0(lhs < rhs);
     } else if (descriptor.op_type == GcnIsaOpType::Sopc &&
+               descriptor.opcode == static_cast<uint16_t>(GcnIsaSopcOpcode::S_CMP_GT_I32)) {
+      const int32_t lhs =
+          static_cast<int32_t>(ResolveScalarLike(instruction.operands.at(0), context));
+      const int32_t rhs =
+          static_cast<int32_t>(ResolveScalarLike(instruction.operands.at(1), context));
+      context.wave.SetScalarMaskBit0(lhs > rhs);
+    } else if (descriptor.op_type == GcnIsaOpType::Sopc &&
                descriptor.opcode == static_cast<uint16_t>(GcnIsaSopcOpcode::S_CMP_EQ_U32)) {
       const uint32_t lhs =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(0), context));
@@ -488,6 +515,18 @@ class VectorAluHandler final : public IEncodedSemanticHandler {
             static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(2), context, lane));
         context.wave.vgpr.Write(vdst, lane, lhs + rhs);
       }
+    } else if (instruction.mnemonic == "v_sub_u32_e32") {
+      const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
+      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        if (!context.wave.exec.test(lane)) {
+          continue;
+        }
+        const uint32_t lhs =
+            static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(1), context, lane));
+        const uint32_t rhs =
+            static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(2), context, lane));
+        context.wave.vgpr.Write(vdst, lane, lhs - rhs);
+      }
     } else if (instruction.mnemonic == "v_ashrrev_i32_e32") {
       const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
       for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
@@ -537,6 +576,18 @@ class VectorAluHandler final : public IEncodedSemanticHandler {
         const uint32_t src =
             static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(2), context, lane));
         context.wave.vgpr.Write(vdst, lane, src << (shift & 31u));
+      }
+    } else if (instruction.mnemonic == "v_and_b32_e32") {
+      const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
+      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        if (!context.wave.exec.test(lane)) {
+          continue;
+        }
+        const uint32_t lhs =
+            static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(1), context, lane));
+        const uint32_t rhs =
+            static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(2), context, lane));
+        context.wave.vgpr.Write(vdst, lane, lhs & rhs);
       }
     } else if (instruction.mnemonic == "v_lshl_add_u32") {
       const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
@@ -1063,6 +1114,63 @@ class VectorCompareHandler final : public IEncodedSemanticHandler {
  public:
   void Execute(const DecodedInstruction& instruction, EncodedWaveContext& context) const override {
     uint64_t mask = 0;
+    if (instruction.mnemonic == "v_cmp_lt_u32_e32") {
+      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        if (!context.wave.exec.test(lane)) {
+          continue;
+        }
+        const uint32_t lhs =
+            static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(1), context, lane));
+        const uint32_t rhs =
+            static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(2), context, lane));
+        if (lhs < rhs) {
+          mask |= (1ull << lane);
+        }
+      }
+      context.vcc = mask;
+      context.wave.pc += instruction.size_bytes;
+      return;
+    }
+    if (instruction.mnemonic == "v_cmp_gt_u32_e64") {
+      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        if (!context.wave.exec.test(lane)) {
+          continue;
+        }
+        const uint32_t lhs =
+            static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(1), context, lane));
+        const uint32_t rhs =
+            static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(2), context, lane));
+        if (lhs > rhs) {
+          mask |= (1ull << lane);
+        }
+      }
+      if (instruction.operands.at(0).kind == DecodedInstructionOperandKind::ScalarRegRange ||
+          instruction.operands.at(0).kind == DecodedInstructionOperandKind::SpecialReg) {
+        StoreScalarPair(instruction.operands.at(0), context, mask);
+      }
+      context.wave.pc += instruction.size_bytes;
+      return;
+    }
+    if (instruction.mnemonic == "v_cmp_lt_u32_e64") {
+      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        if (!context.wave.exec.test(lane)) {
+          continue;
+        }
+        const uint32_t lhs =
+            static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(1), context, lane));
+        const uint32_t rhs =
+            static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(2), context, lane));
+        if (lhs < rhs) {
+          mask |= (1ull << lane);
+        }
+      }
+      if (instruction.operands.at(0).kind == DecodedInstructionOperandKind::ScalarRegRange ||
+          instruction.operands.at(0).kind == DecodedInstructionOperandKind::SpecialReg) {
+        StoreScalarPair(instruction.operands.at(0), context, mask);
+      }
+      context.wave.pc += instruction.size_bytes;
+      return;
+    }
     switch (instruction.encoding_id) {
       case 8:
       case 38: {  // v_cmp_gt_i32
@@ -1110,7 +1218,9 @@ class VectorCompareHandler final : public IEncodedSemanticHandler {
       }
       break;
       }
-      case 56: {  // v_cmp_gt_u32_e32
+      case 9:    // v_cmp_lt_u32_e32
+      case 56:
+      case 204: {  // v_cmp_gt_u32_e32 / v_cmp_lt_u32_e32 / v_cmp_gt_u32_e64
       for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
         if (!context.wave.exec.test(lane)) {
           continue;
@@ -1119,7 +1229,10 @@ class VectorCompareHandler final : public IEncodedSemanticHandler {
             static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(1), context, lane));
         const uint32_t rhs =
             static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(2), context, lane));
-        if (lhs > rhs) {
+        const bool is_lt_u32 =
+            instruction.mnemonic == "v_cmp_lt_u32_e32" || instruction.encoding_id == 9;
+        const bool match = is_lt_u32 ? (lhs < rhs) : (lhs > rhs);
+        if (match) {
           mask |= (1ull << lane);
         }
       }
@@ -1173,7 +1286,10 @@ class VectorCompareHandler final : public IEncodedSemanticHandler {
       default:
         throw std::invalid_argument("unsupported vector compare opcode: " + instruction.mnemonic);
     }
-    context.vcc = mask;
+    if (instruction.operands.at(0).kind == DecodedInstructionOperandKind::SpecialReg &&
+        instruction.operands.at(0).info.special_reg == GcnSpecialReg::Vcc) {
+      context.vcc = mask;
+    }
     if (instruction.operands.at(0).kind == DecodedInstructionOperandKind::ScalarRegRange ||
         instruction.operands.at(0).kind == DecodedInstructionOperandKind::SpecialReg) {
       StoreScalarPair(instruction.operands.at(0), context, mask);
@@ -1189,17 +1305,23 @@ class VectorCompareHandler final : public IEncodedSemanticHandler {
 class MaskHandler final : public IEncodedSemanticHandler {
  public:
   void Execute(const DecodedInstruction& instruction, EncodedWaveContext& context) const override {
-    if (instruction.mnemonic != "s_and_saveexec_b64") {
+    if (instruction.mnemonic != "s_and_saveexec_b64" &&
+        instruction.mnemonic != "s_andn2_saveexec_b64") {
       throw std::invalid_argument("unsupported mask opcode: " + instruction.mnemonic);
     }
     const auto [sdst, _] = RequireScalarRange(instruction.operands.at(0));
     const uint64_t exec_before = context.wave.exec.to_ullong();
+    const uint64_t mask = ResolveScalarPair(instruction.operands.at(1), context);
     context.wave.sgpr.Write(sdst, static_cast<uint32_t>(exec_before & 0xffffffffu));
     context.wave.sgpr.Write(sdst + 1, static_cast<uint32_t>(exec_before >> 32u));
-    const uint64_t mask = ResolveScalarPair(instruction.operands.at(1), context);
-    context.wave.exec = context.wave.exec & MaskFromU64(mask);
-    DebugLog("pc=0x%llx s_and_saveexec_b64 exec=0x%llx",
+    if (instruction.mnemonic == "s_and_saveexec_b64") {
+      context.wave.exec = context.wave.exec & MaskFromU64(mask);
+    } else {
+      context.wave.exec = MaskFromU64(mask & ~exec_before);
+    }
+    DebugLog("pc=0x%llx %s exec=0x%llx",
              static_cast<unsigned long long>(instruction.pc),
+             instruction.mnemonic.c_str(),
              static_cast<unsigned long long>(context.wave.exec.to_ullong()));
     context.wave.pc += instruction.size_bytes;
   }
@@ -1402,11 +1524,17 @@ class SharedMemoryHandler final : public IEncodedSemanticHandler {
       request.kind = AccessKind::Store;
       const uint32_t addr_vgpr = RequireVectorIndex(instruction.operands.at(0));
       const uint32_t data_vgpr = RequireVectorIndex(instruction.operands.at(1));
+      const uint32_t offset = instruction.operands.size() >= 3 && instruction.operands.back().info.has_immediate
+                                  ? static_cast<uint32_t>(instruction.operands.back().info.immediate)
+                                  : 0u;
       for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
-        const uint32_t byte_offset =
-            static_cast<uint32_t>(context.wave.vgpr.Read(addr_vgpr, lane));
-        if (!context.wave.exec.test(lane) ||
-            static_cast<size_t>(byte_offset) + sizeof(uint32_t) > context.block.shared_memory.size()) {
+        uint32_t byte_offset = static_cast<uint32_t>(context.wave.vgpr.Read(addr_vgpr, lane));
+        if (!context.wave.exec.test(lane) || context.block.shared_memory.empty()) {
+          continue;
+        }
+        byte_offset += offset;
+        byte_offset %= static_cast<uint32_t>(context.block.shared_memory.size());
+        if (static_cast<size_t>(byte_offset) + sizeof(uint32_t) > context.block.shared_memory.size()) {
           continue;
         }
         const uint32_t value =
@@ -1435,12 +1563,18 @@ class SharedMemoryHandler final : public IEncodedSemanticHandler {
       request.kind = AccessKind::Load;
       const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
       const uint32_t addr_vgpr = RequireVectorIndex(instruction.operands.at(1));
+      const uint32_t offset = instruction.operands.size() >= 3 && instruction.operands.back().info.has_immediate
+                                  ? static_cast<uint32_t>(instruction.operands.back().info.immediate)
+                                  : 0u;
       request.dst = RegRef{.file = RegisterFile::Vector, .index = vdst};
       for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
-        const uint32_t byte_offset =
-            static_cast<uint32_t>(context.wave.vgpr.Read(addr_vgpr, lane));
-        if (!context.wave.exec.test(lane) ||
-            static_cast<size_t>(byte_offset) + sizeof(uint32_t) > context.block.shared_memory.size()) {
+        uint32_t byte_offset = static_cast<uint32_t>(context.wave.vgpr.Read(addr_vgpr, lane));
+        if (!context.wave.exec.test(lane) || context.block.shared_memory.empty()) {
+          continue;
+        }
+        byte_offset += offset;
+        byte_offset %= static_cast<uint32_t>(context.block.shared_memory.size());
+        if (static_cast<size_t>(byte_offset) + sizeof(uint32_t) > context.block.shared_memory.size()) {
           continue;
         }
         request.exec_snapshot.set(lane);
@@ -1569,16 +1703,25 @@ const IEncodedSemanticHandler* HandlerForSemanticFamily(std::string_view semanti
 const std::vector<HandlerBinding>& HandlerBindings() {
   static const MaskHandler kMaskHandler;
   static const ScalarAluHandler kScalarAluHandler;
+  static const ScalarCompareHandler kScalarCompareHandler;
   static const SharedMemoryHandler kSharedMemoryHandler;
   static const VectorAluHandler kVectorAluHandler;
   static const VectorCompareHandler kVectorCompareHandler;
   static const std::vector<HandlerBinding> kBindings = {
       {.mnemonic = "s_and_saveexec_b64", .handler = &kMaskHandler},
+      {.mnemonic = "s_andn2_saveexec_b64", .handler = &kMaskHandler},
       {.mnemonic = "s_or_b32", .handler = &kScalarAluHandler},
+      {.mnemonic = "s_xor_b64", .handler = &kScalarAluHandler},
+      {.mnemonic = "s_cmp_gt_i32", .handler = &kScalarCompareHandler},
       {.mnemonic = "ds_read2_b32", .handler = &kSharedMemoryHandler},
+      {.mnemonic = "v_and_b32_e32", .handler = &kVectorAluHandler},
       {.mnemonic = "v_or_b32_e32", .handler = &kVectorAluHandler},
+      {.mnemonic = "v_sub_u32_e32", .handler = &kVectorAluHandler},
       {.mnemonic = "v_or3_b32", .handler = &kVectorAluHandler},
+      {.mnemonic = "v_cmp_lt_u32_e32", .handler = &kVectorCompareHandler},
       {.mnemonic = "v_cmp_gt_i32_e64", .handler = &kVectorCompareHandler},
+      {.mnemonic = "v_cmp_lt_u32_e64", .handler = &kVectorCompareHandler},
+      {.mnemonic = "v_cmp_gt_u32_e64", .handler = &kVectorCompareHandler},
   };
   return kBindings;
 }
