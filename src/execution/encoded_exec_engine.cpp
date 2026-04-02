@@ -83,6 +83,7 @@ struct EncodedPeuSlot {
   std::deque<RawWave*> standby_waves;
   uint64_t busy_until = 0;
   size_t next_rr = 0;
+  uint64_t last_wave_tag = std::numeric_limits<uint64_t>::max();
 };
 
 struct EncodedApResidentState {
@@ -1489,10 +1490,32 @@ class EncodedExecutionCore {
         if (raw_wave == nullptr) {
           continue;
         }
+        const uint64_t wave_tag =
+            (static_cast<uint64_t>(raw_wave->wave.block_id) << 32u) |
+            static_cast<uint64_t>(raw_wave->wave.wave_id);
+        const uint64_t switch_penalty =
+            slot.last_wave_tag != std::numeric_limits<uint64_t>::max() &&
+                    slot.last_wave_tag != wave_tag
+                ? timing_config_.launch_timing.warp_switch_cycles
+                : 0;
+        if (switch_penalty > 0) {
+          TraceEventLocked(TraceEvent{
+              .kind = TraceEventKind::Stall,
+              .cycle = cycle,
+              .dpc_id = raw_wave->wave.dpc_id,
+              .ap_id = raw_wave->wave.ap_id,
+              .peu_id = raw_wave->wave.peu_id,
+              .block_id = raw_wave->wave.block_id,
+              .wave_id = raw_wave->wave.wave_id,
+              .pc = raw_wave->wave.pc,
+              .message = "warp_switch",
+          });
+        }
         const uint64_t issue_cycles = ExecuteWaveCycle(raw_blocks_[raw_wave->block_index],
                                                        raw_wave->wave_index,
                                                        cycle);
-        slot.busy_until = cycle + std::max<uint64_t>(1u, issue_cycles);
+        slot.busy_until = cycle + switch_penalty + std::max<uint64_t>(1u, issue_cycles);
+        slot.last_wave_tag = wave_tag;
         issued = true;
       }
 

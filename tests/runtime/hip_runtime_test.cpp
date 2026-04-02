@@ -1264,6 +1264,122 @@ TEST(HipRuntimeTest, EncodedCycleRespectsApResidentBlockLimit) {
   std::filesystem::remove_all(temp_dir);
 }
 
+TEST(HipRuntimeTest, EncodedCycleDelaysBackfillByBlockLaunchTiming) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto spec = ArchRegistry::Get("c500");
+  ASSERT_NE(spec, nullptr);
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_runtime_cycle_block_launch_delay");
+  const auto src_path = temp_dir / "hip_resident_probe.cpp";
+  const auto exe_path = temp_dir / "hip_resident_probe.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n"
+           "extern \"C\" __global__ void resident_probe() {\n"
+           "  int x = threadIdx.x;\n"
+           "  if (x == 0) {\n"
+           "    asm volatile(\"s_nop 0\");\n"
+           "  }\n"
+           "}\n"
+           "int main() { return 0; }\n";
+  }
+
+  const std::string command =
+      "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  HipRuntime hooks;
+  hooks.runtime().SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
+                                         /*kernel_launch_cycles=*/0,
+                                         /*block_launch_cycles=*/7,
+                                         /*wave_launch_cycles=*/0,
+                                         /*warp_switch_cycles=*/1,
+                                         /*arg_load_cycles=*/4);
+  CollectingTraceSink trace;
+  const auto result = hooks.LaunchEncodedProgramObject(
+      ObjectReader{}.LoadEncodedObject(exe_path, "resident_probe"),
+      LaunchConfig{
+          .grid_dim_x = 2 * spec->total_ap_count() + 1,
+          .block_dim_x = 64,
+      },
+      {},
+      ExecutionMode::Cycle,
+      "c500",
+      &trace);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  const uint32_t block2 = WrappedBlockId(*spec, 2);
+  const size_t launch2 = FirstBlockLaunchIndex(trace.events(), block2);
+  ASSERT_NE(launch2, std::numeric_limits<size_t>::max());
+  EXPECT_GE(trace.events()[launch2].cycle, 7u);
+
+  std::filesystem::remove_all(temp_dir);
+}
+
+TEST(HipRuntimeTest, EncodedCycleEmitsWarpSwitchStallBetweenTwoWaves) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_runtime_cycle_warp_switch");
+  const auto src_path = temp_dir / "hip_warp_switch.cpp";
+  const auto exe_path = temp_dir / "hip_warp_switch.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n"
+           "extern \"C\" __global__ void warp_switch_probe(int* out) {\n"
+           "  int tid = threadIdx.x;\n"
+           "  out[tid] = tid + 1;\n"
+           "}\n"
+           "int main() { return 0; }\n";
+  }
+
+  const std::string command =
+      "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  HipRuntime hooks;
+  hooks.runtime().SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
+                                         /*kernel_launch_cycles=*/0,
+                                         /*block_launch_cycles=*/0,
+                                         /*wave_launch_cycles=*/0,
+                                         /*warp_switch_cycles=*/5,
+                                         /*arg_load_cycles=*/4);
+  std::vector<int32_t> out(320, 0);
+  const uint64_t out_addr = hooks.Malloc(out.size() * sizeof(int32_t));
+  hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(out));
+
+  CollectingTraceSink trace;
+  KernelArgPack args;
+  args.PushU64(out_addr);
+  const auto result = hooks.LaunchEncodedProgramObject(
+      ObjectReader{}.LoadEncodedObject(exe_path, "warp_switch_probe"),
+      LaunchConfig{.grid_dim_x = 1, .block_dim_x = 320},
+      std::move(args),
+      ExecutionMode::Cycle,
+      "c500",
+      &trace);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  bool saw_warp_switch = false;
+  for (const auto& event : trace.events()) {
+    if (event.kind == TraceEventKind::Stall && event.message == "warp_switch") {
+      saw_warp_switch = true;
+      break;
+    }
+  }
+  EXPECT_TRUE(saw_warp_switch);
+
+  std::filesystem::remove_all(temp_dir);
+}
+
 TEST(HipRuntimeTest, LaunchesHipVecAddExecutableAndValidatesOutput) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
