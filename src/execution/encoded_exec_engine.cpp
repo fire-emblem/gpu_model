@@ -57,6 +57,7 @@ struct EncodedPendingMemoryOp {
 struct EncodedWaveState {
   std::deque<EncodedPendingMemoryOp> pending_memory_ops;
   std::optional<WaitCntThresholds> waiting_waitcnt_thresholds;
+  uint64_t waiting_resume_pc_increment = 0;
 };
 
 struct WaveTaskRef {
@@ -873,18 +874,44 @@ bool AdvancePendingMemoryOps(EncodedWaveState& state,
 }
 
 bool ResumeWaveIfWaitSatisfied(EncodedWaveState& state,
-                               WaveContext& wave,
-                               const DecodedInstruction& instruction) {
+                               WaveContext& wave) {
   if (wave.run_state != WaveRunState::Waiting || !state.waiting_waitcnt_thresholds.has_value()) {
     return false;
   }
-  if (!IsMemoryWaitReason(wave.wait_reason) ||
-      !WaitCntSatisfiedForDecodedInstruction(wave, instruction)) {
+  const auto& thresholds = *state.waiting_waitcnt_thresholds;
+  const bool satisfied =
+      wave.pending_global_mem_ops <= thresholds.global &&
+      wave.pending_shared_mem_ops <= thresholds.shared &&
+      wave.pending_private_mem_ops <= thresholds.private_mem &&
+      wave.pending_scalar_buffer_mem_ops <= thresholds.scalar_buffer;
+  if (!IsMemoryWaitReason(wave.wait_reason) || !satisfied) {
     return false;
   }
   state.waiting_waitcnt_thresholds.reset();
-  ResumeWaveToRunnable(wave, instruction.size_bytes);
+  ResumeWaveToRunnable(wave, state.waiting_resume_pc_increment);
+  state.waiting_resume_pc_increment = 0;
   return true;
+}
+
+WaitCntThresholds ZeroThresholdForDomain(MemoryWaitDomain domain) {
+  WaitCntThresholds thresholds;
+  switch (domain) {
+    case MemoryWaitDomain::Global:
+      thresholds.global = 0;
+      break;
+    case MemoryWaitDomain::Shared:
+      thresholds.shared = 0;
+      break;
+    case MemoryWaitDomain::Private:
+      thresholds.private_mem = 0;
+      break;
+    case MemoryWaitDomain::ScalarBuffer:
+      thresholds.scalar_buffer = 0;
+      break;
+    case MemoryWaitDomain::None:
+      break;
+  }
+  return thresholds;
 }
 
 class GlobalEncodedWorkerPool {
@@ -1505,9 +1532,7 @@ class EncodedExecutionCore {
         if (pc_it == pc_to_index_.end()) {
           continue;
         }
-        progressed = ResumeWaveIfWaitSatisfied(block.wave_states[i],
-                                               wave,
-                                               image_.decoded_instructions[pc_it->second]) ||
+        progressed = ResumeWaveIfWaitSatisfied(block.wave_states[i], wave) ||
                      progressed;
       }
     }
@@ -1564,9 +1589,7 @@ class EncodedExecutionCore {
         if (pc_it == pc_to_index_.end()) {
           continue;
         }
-        progressed = ResumeWaveIfWaitSatisfied(block.wave_states[i],
-                                               wave,
-                                               image_.decoded_instructions[pc_it->second]) ||
+        progressed = ResumeWaveIfWaitSatisfied(block.wave_states[i], wave) ||
                      progressed;
       }
     }
@@ -1678,6 +1701,7 @@ class EncodedExecutionCore {
       if (const auto wait_reason = WaitCntBlockReasonForDecodedInstruction(wave, decoded);
           wait_reason.has_value()) {
         wave_state.waiting_waitcnt_thresholds = WaitCntThresholdsForDecodedInstruction(decoded);
+        wave_state.waiting_resume_pc_increment = decoded.size_bytes;
         MarkWaveWaiting(wave, *wait_reason);
         TraceEventLocked(TraceEvent{
             .kind = TraceEventKind::Stall,
@@ -1804,6 +1828,7 @@ class EncodedExecutionCore {
       if (const auto wait_reason = WaitCntBlockReasonForDecodedInstruction(wave, decoded);
           wait_reason.has_value()) {
         wave_state.waiting_waitcnt_thresholds = WaitCntThresholdsForDecodedInstruction(decoded);
+        wave_state.waiting_resume_pc_increment = decoded.size_bytes;
         MarkWaveWaiting(wave, *wait_reason);
         TraceEventLocked(TraceEvent{
             .kind = TraceEventKind::Stall,
@@ -1853,6 +1878,14 @@ class EncodedExecutionCore {
                 ? "load_arrive"
                 : "store_arrive";
         RecordPendingMemoryOp(wave_state, wave, *maybe_domain, ready_cycle, arrive_message);
+        if (captured_memory_request.has_value() &&
+            captured_memory_request->kind == AccessKind::Load) {
+          wave_state.waiting_waitcnt_thresholds = ZeroThresholdForDomain(*maybe_domain);
+          wave_state.waiting_resume_pc_increment = 0;
+          if (const auto wait_reason = WaitReasonForDomain(*maybe_domain); wait_reason.has_value()) {
+            MarkWaveWaiting(wave, *wait_reason);
+          }
+        }
       }
       if (wave.waiting_at_barrier) {
         TraceEventLocked(TraceEvent{
