@@ -311,7 +311,9 @@ LaunchResult RuntimeEngineImpl::Launch(const LaunchRequest& request) {
     if (request.mode == ExecutionMode::Functional) {
         if (use_encoded_program_object) {
           const auto raw_result =
-            EncodedExecEngine{}.Run(*encoded_program_object, *spec, request.config,
+            EncodedExecEngine{}.Run(*encoded_program_object, *spec,
+                                    ResolveCycleTimingConfig(*spec),
+                                    request.config,
                                     ExecutionMode::Functional,
                                     functional_execution_config_,
                                     request.args,
@@ -355,7 +357,9 @@ LaunchResult RuntimeEngineImpl::Launch(const LaunchRequest& request) {
     } else if (request.mode == ExecutionMode::Cycle) {
       if (use_encoded_program_object) {
         const auto raw_result =
-            EncodedExecEngine{}.Run(*encoded_program_object, *spec, request.config,
+            EncodedExecEngine{}.Run(*encoded_program_object, *spec,
+                                    ResolveCycleTimingConfig(*spec),
+                                    request.config,
                                     ExecutionMode::Cycle,
                                     FunctionalExecutionConfig{},
                                     request.args,

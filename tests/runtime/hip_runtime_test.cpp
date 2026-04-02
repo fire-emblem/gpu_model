@@ -1065,6 +1065,68 @@ TEST(HipRuntimeTest, EncodedCycleLaunchEmitsAdvancingTraceCycles) {
   std::filesystem::remove_all(temp_dir);
 }
 
+TEST(HipRuntimeTest, EncodedCycleLaunchReportsCacheAndSharedBankStats) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_runtime_cycle_stats_shared_reverse");
+  const auto src_path = temp_dir / "hip_shared_reverse.cpp";
+  const auto exe_path = temp_dir / "hip_shared_reverse.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n"
+           "extern \"C\" __global__ void shared_reverse(const int* in, int* out, int n) {\n"
+           "  __shared__ int scratch[64];\n"
+           "  int tid = threadIdx.x;\n"
+           "  int idx = blockIdx.x * blockDim.x + tid;\n"
+           "  if (idx < n) scratch[tid] = in[idx];\n"
+           "  __syncthreads();\n"
+           "  if (idx < n) out[idx] = scratch[blockDim.x - 1 - tid];\n"
+           "}\n"
+           "int main() { return 0; }\n";
+  }
+
+  const std::string command =
+      "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  constexpr uint32_t n = 128;
+  std::vector<int32_t> in(n, 1);
+  std::vector<int32_t> out(n, 0);
+
+  HipRuntime hooks;
+  hooks.runtime().SetGlobalMemoryLatencyProfile(/*dram=*/40, /*l2=*/20, /*l1=*/8);
+  hooks.runtime().SetSharedBankConflictModel(/*bank_count=*/32, /*bank_width_bytes=*/4);
+
+  const uint64_t in_addr = hooks.Malloc(n * sizeof(int32_t));
+  const uint64_t out_addr = hooks.Malloc(n * sizeof(int32_t));
+  hooks.MemcpyHtoD<int32_t>(in_addr, std::span<const int32_t>(in));
+  hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(out));
+
+  KernelArgPack args;
+  args.PushU64(in_addr);
+  args.PushU64(out_addr);
+  args.PushU32(n);
+  const auto result = hooks.LaunchEncodedProgramObject(
+      ObjectReader{}.LoadEncodedObject(exe_path, "shared_reverse"),
+      LaunchConfig{.grid_dim_x = 2, .block_dim_x = 64},
+      std::move(args),
+      ExecutionMode::Cycle,
+      "c500",
+      nullptr);
+  ASSERT_TRUE(result.ok) << result.error_message;
+  EXPECT_GT(result.stats.global_loads, 0u);
+  EXPECT_GT(result.stats.shared_loads, 0u);
+  EXPECT_GT(result.stats.global_stores, 0u);
+  EXPECT_GT(result.stats.cache_misses + result.stats.l1_hits + result.stats.l2_hits, 0u);
+  EXPECT_GT(result.stats.shared_bank_conflict_penalty_cycles, 0u);
+
+  std::filesystem::remove_all(temp_dir);
+}
+
 TEST(HipRuntimeTest, LaunchesHipVecAddExecutableAndValidatesOutput) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";

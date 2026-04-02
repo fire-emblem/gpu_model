@@ -237,11 +237,17 @@ const GcnIsaOpcodeDescriptor& RequireCanonicalOpcode(const DecodedInstruction& i
 class ScalarMemoryHandler final : public IEncodedSemanticHandler {
  public:
   void Execute(const DecodedInstruction& instruction, EncodedWaveContext& context) const override {
+    MemoryRequest request;
+    request.space = MemorySpace::Constant;
+    request.kind = AccessKind::Load;
+    request.exec_snapshot.set(0);
     if (instruction.mnemonic == "s_load_dword") {
       const uint32_t offset =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(2), context));
       const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
       const uint64_t base = ResolveScalarPair(instruction.operands.at(1), context);
+      request.lanes[0] = LaneAccess{.active = true, .addr = base + offset, .bytes = 4, .value = 0};
+      request.dst = RegRef{.file = RegisterFile::Scalar, .index = sdst};
       context.wave.sgpr.Write(
           sdst, context.memory.LoadGlobalValue<uint32_t>(base + offset));
     } else if (instruction.mnemonic == "s_load_dwordx2") {
@@ -249,6 +255,8 @@ class ScalarMemoryHandler final : public IEncodedSemanticHandler {
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(2), context));
       const auto [sdst, _] = RequireScalarRange(instruction.operands.at(0));
       const uint64_t base = ResolveScalarPair(instruction.operands.at(1), context);
+      request.lanes[0] = LaneAccess{.active = true, .addr = base + offset, .bytes = 8, .value = 0};
+      request.dst = RegRef{.file = RegisterFile::Scalar, .index = sdst};
       const uint64_t value = context.memory.LoadGlobalValue<uint64_t>(base + offset);
       context.wave.sgpr.Write(sdst, static_cast<uint32_t>(value & 0xffffffffu));
       context.wave.sgpr.Write(sdst + 1, static_cast<uint32_t>(value >> 32u));
@@ -257,12 +265,17 @@ class ScalarMemoryHandler final : public IEncodedSemanticHandler {
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(2), context));
       const auto [sdst, _] = RequireScalarRange(instruction.operands.at(0));
       const uint64_t base = ResolveScalarPair(instruction.operands.at(1), context);
+      request.lanes[0] = LaneAccess{.active = true, .addr = base + offset, .bytes = 16, .value = 0};
+      request.dst = RegRef{.file = RegisterFile::Scalar, .index = sdst};
       context.wave.sgpr.Write(sdst + 0, context.memory.LoadGlobalValue<uint32_t>(base + offset + 0));
       context.wave.sgpr.Write(sdst + 1, context.memory.LoadGlobalValue<uint32_t>(base + offset + 4));
       context.wave.sgpr.Write(sdst + 2, context.memory.LoadGlobalValue<uint32_t>(base + offset + 8));
       context.wave.sgpr.Write(sdst + 3, context.memory.LoadGlobalValue<uint32_t>(base + offset + 12));
     } else {
       throw std::invalid_argument("unsupported scalar memory opcode: " + instruction.mnemonic);
+    }
+    if (context.captured_memory_request != nullptr) {
+      *context.captured_memory_request = request;
     }
     context.wave.pc += instruction.size_bytes;
   }
@@ -1255,12 +1268,16 @@ class BranchHandler final : public IEncodedSemanticHandler {
 class FlatMemoryHandler final : public IEncodedSemanticHandler {
  public:
   void Execute(const DecodedInstruction& instruction, EncodedWaveContext& context) const override {
+    MemoryRequest request;
+    request.space = MemorySpace::Global;
     if (instruction.mnemonic == "global_load_dword") {
+      request.kind = AccessKind::Load;
       const int64_t offset = instruction.operands.size() >= 3 && instruction.operands.back().info.has_immediate
                                  ? instruction.operands.back().info.immediate
                                  : 0;
       const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
       const auto [addr, _] = RequireVectorRange(instruction.operands.at(1));
+      request.dst = RegRef{.file = RegisterFile::Vector, .index = vdst};
       for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
         if (!context.wave.exec.test(lane)) {
           continue;
@@ -1268,6 +1285,8 @@ class FlatMemoryHandler final : public IEncodedSemanticHandler {
         const uint64_t lo = static_cast<uint32_t>(context.wave.vgpr.Read(addr, lane));
         const uint64_t hi = static_cast<uint32_t>(context.wave.vgpr.Read(addr + 1, lane));
         const uint64_t address = static_cast<uint64_t>(static_cast<int64_t>((hi << 32u) | lo) + offset);
+        request.exec_snapshot.set(lane);
+        request.lanes[lane] = LaneAccess{.active = true, .addr = address, .bytes = 4, .value = 0};
         context.wave.vgpr.Write(vdst, lane, context.memory.LoadGlobalValue<uint32_t>(address));
         if (lane == 0) {
           DebugLog("pc=0x%llx global_load addr=0x%llx -> v%u=0x%llx",
@@ -1278,6 +1297,7 @@ class FlatMemoryHandler final : public IEncodedSemanticHandler {
       }
       ++context.stats.global_loads;
     } else if (instruction.mnemonic == "global_store_dword") {
+      request.kind = AccessKind::Store;
       const int64_t offset = instruction.operands.size() >= 4 && instruction.operands.back().info.has_immediate
                                  ? instruction.operands.back().info.immediate
                                  : 0;
@@ -1291,6 +1311,13 @@ class FlatMemoryHandler final : public IEncodedSemanticHandler {
           const uint64_t lo = static_cast<uint32_t>(context.wave.vgpr.Read(addr, lane));
           const uint64_t hi = static_cast<uint32_t>(context.wave.vgpr.Read(addr + 1, lane));
           const uint64_t address = static_cast<uint64_t>(static_cast<int64_t>((hi << 32u) | lo) + offset);
+          request.exec_snapshot.set(lane);
+          request.lanes[lane] = LaneAccess{
+              .active = true,
+              .addr = address,
+              .bytes = 4,
+              .value = static_cast<uint32_t>(context.wave.vgpr.Read(data, lane)),
+          };
           context.memory.StoreGlobalValue<uint32_t>(
               address, static_cast<uint32_t>(context.wave.vgpr.Read(data, lane)));
           if (lane == 0) {
@@ -1312,6 +1339,13 @@ class FlatMemoryHandler final : public IEncodedSemanticHandler {
           }
           const int32_t offset = static_cast<int32_t>(context.wave.vgpr.Read(vaddr, lane));
           const uint64_t address = static_cast<uint64_t>(static_cast<int64_t>(base) + offset);
+          request.exec_snapshot.set(lane);
+          request.lanes[lane] = LaneAccess{
+              .active = true,
+              .addr = address,
+              .bytes = 4,
+              .value = static_cast<uint32_t>(context.wave.vgpr.Read(data, lane)),
+          };
           context.memory.StoreGlobalValue<uint32_t>(
               address, static_cast<uint32_t>(context.wave.vgpr.Read(data, lane)));
           if (lane == 0) {
@@ -1324,15 +1358,24 @@ class FlatMemoryHandler final : public IEncodedSemanticHandler {
       }
       ++context.stats.global_stores;
     } else if (instruction.mnemonic == "global_atomic_add") {
+      request.kind = AccessKind::Atomic;
       const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
       const uint32_t data = RequireVectorIndex(instruction.operands.at(1));
       const uint32_t saddr = RequireScalarRange(instruction.operands.at(2)).first;
       const uint64_t base = static_cast<uint64_t>(context.wave.sgpr.Read(saddr)) |
                             (static_cast<uint64_t>(context.wave.sgpr.Read(saddr + 1)) << 32u);
+      request.dst = RegRef{.file = RegisterFile::Vector, .index = vdst};
       for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
         if (!context.wave.exec.test(lane)) {
           continue;
         }
+        request.exec_snapshot.set(lane);
+        request.lanes[lane] = LaneAccess{
+            .active = true,
+            .addr = base,
+            .bytes = 4,
+            .value = static_cast<uint32_t>(context.wave.vgpr.Read(data, lane)),
+        };
         const uint32_t old_value = context.memory.LoadGlobalValue<uint32_t>(base);
         const uint32_t add_value = static_cast<uint32_t>(context.wave.vgpr.Read(data, lane));
         context.memory.StoreGlobalValue<uint32_t>(base, old_value + add_value);
@@ -1343,6 +1386,9 @@ class FlatMemoryHandler final : public IEncodedSemanticHandler {
     } else {
       throw std::invalid_argument("unsupported flat memory opcode: " + instruction.mnemonic);
     }
+    if (context.captured_memory_request != nullptr) {
+      *context.captured_memory_request = request;
+    }
     context.wave.pc += instruction.size_bytes;
   }
 };
@@ -1350,7 +1396,10 @@ class FlatMemoryHandler final : public IEncodedSemanticHandler {
 class SharedMemoryHandler final : public IEncodedSemanticHandler {
  public:
   void Execute(const DecodedInstruction& instruction, EncodedWaveContext& context) const override {
+    MemoryRequest request;
+    request.space = MemorySpace::Shared;
     if (instruction.mnemonic == "ds_write_b32") {
+      request.kind = AccessKind::Store;
       const uint32_t addr_vgpr = RequireVectorIndex(instruction.operands.at(0));
       const uint32_t data_vgpr = RequireVectorIndex(instruction.operands.at(1));
       for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
@@ -1362,6 +1411,13 @@ class SharedMemoryHandler final : public IEncodedSemanticHandler {
         }
         const uint32_t value =
             static_cast<uint32_t>(context.wave.vgpr.Read(data_vgpr, lane));
+        request.exec_snapshot.set(lane);
+        request.lanes[lane] = LaneAccess{
+            .active = true,
+            .addr = byte_offset,
+            .bytes = 4,
+            .value = value,
+        };
         StoreU32(context.block.shared_memory, byte_offset, value);
         if (lane == 0) {
           DebugLog("pc=0x%llx ds_write_b32 addr=0x%x value=0x%x",
@@ -1369,12 +1425,17 @@ class SharedMemoryHandler final : public IEncodedSemanticHandler {
         }
       }
       ++context.stats.shared_stores;
+      if (context.captured_memory_request != nullptr) {
+        *context.captured_memory_request = request;
+      }
       context.wave.pc += instruction.size_bytes;
       return;
     }
     if (instruction.mnemonic == "ds_read_b32") {
+      request.kind = AccessKind::Load;
       const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
       const uint32_t addr_vgpr = RequireVectorIndex(instruction.operands.at(1));
+      request.dst = RegRef{.file = RegisterFile::Vector, .index = vdst};
       for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
         const uint32_t byte_offset =
             static_cast<uint32_t>(context.wave.vgpr.Read(addr_vgpr, lane));
@@ -1382,6 +1443,8 @@ class SharedMemoryHandler final : public IEncodedSemanticHandler {
             static_cast<size_t>(byte_offset) + sizeof(uint32_t) > context.block.shared_memory.size()) {
           continue;
         }
+        request.exec_snapshot.set(lane);
+        request.lanes[lane] = LaneAccess{.active = true, .addr = byte_offset, .bytes = 4, .value = 0};
         const uint32_t value = LoadU32(context.block.shared_memory, byte_offset);
         context.wave.vgpr.Write(vdst, lane, value);
         if (lane == 0) {
@@ -1390,6 +1453,9 @@ class SharedMemoryHandler final : public IEncodedSemanticHandler {
         }
       }
       ++context.stats.shared_loads;
+      if (context.captured_memory_request != nullptr) {
+        *context.captured_memory_request = request;
+      }
       context.wave.pc += instruction.size_bytes;
       return;
     }

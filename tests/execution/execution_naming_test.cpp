@@ -32,6 +32,7 @@ TEST(ExecutionNamingTest, ExecutionHeadersDeclarePrimaryTypes) {
 
   using EncodedRunSignature = LaunchResult (EncodedExecEngine::*)(const EncodedProgramObject&,
                                                                   const GpuArchSpec&,
+                                                                  const CycleTimingConfig&,
                                                                   const LaunchConfig&,
                                                                   ExecutionMode,
                                                                   FunctionalExecutionConfig,

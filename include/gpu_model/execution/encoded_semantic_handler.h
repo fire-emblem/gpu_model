@@ -1,11 +1,13 @@
 #pragma once
 
 #include <cstddef>
+#include <optional>
 #include <string_view>
 #include <vector>
 
 #include "gpu_model/instruction/encoded/decoded_instruction.h"
 #include "gpu_model/instruction/encoded/instruction_object.h"
+#include "gpu_model/memory/memory_request.h"
 #include "gpu_model/memory/memory_system.h"
 #include "gpu_model/runtime/launch_request.h"
 #include "gpu_model/execution/wave_context.h"
@@ -27,6 +29,7 @@ struct EncodedWaveContext : InstructionExecutionContext {
   MemorySystem& memory;
   ExecutionStats& stats;
   EncodedBlockContext& block;
+  std::optional<MemoryRequest>* captured_memory_request = nullptr;
 
   EncodedWaveContext(WaveContext& wave_ref,
                     uint64_t& vcc_ref,
@@ -34,14 +37,16 @@ struct EncodedWaveContext : InstructionExecutionContext {
                     uint64_t kernarg_base_value,
                     MemorySystem& memory_ref,
                     ExecutionStats& stats_ref,
-                    EncodedBlockContext& block_ref)
+                    EncodedBlockContext& block_ref,
+                    std::optional<MemoryRequest>* captured_memory_request_ref = nullptr)
       : wave(wave_ref),
         vcc(vcc_ref),
         kernarg(kernarg_ref),
         kernarg_base(kernarg_base_value),
         memory(memory_ref),
         stats(stats_ref),
-        block(block_ref) {}
+        block(block_ref),
+        captured_memory_request(captured_memory_request_ref) {}
 };
 
 class IEncodedSemanticHandler : public InstructionSemanticHandler {

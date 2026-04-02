@@ -29,6 +29,8 @@
 #include "gpu_model/execution/wave_context_builder.h"
 #include "gpu_model/isa/kernel_metadata.h"
 #include "gpu_model/loader/device_image_loader.h"
+#include "gpu_model/memory/cache_model.h"
+#include "gpu_model/memory/shared_bank_model.h"
 #include "gpu_model/runtime/kernarg_packer.h"
 #include "gpu_model/runtime/mapper.h"
 #include "gpu_model/runtime/program_cycle_tracker.h"
@@ -381,6 +383,17 @@ uint64_t StableWaveKey(const WaveContext& wave) {
   return (static_cast<uint64_t>(wave.block_id) << 32u) | static_cast<uint64_t>(wave.wave_id);
 }
 
+std::vector<uint64_t> ActiveAddresses(const MemoryRequest& request) {
+  std::vector<uint64_t> addrs;
+  addrs.reserve(kWaveSize);
+  for (const auto& lane : request.lanes) {
+    if (lane.active) {
+      addrs.push_back(lane.addr);
+    }
+  }
+  return addrs;
+}
+
 bool IsBranchMnemonic(std::string_view mnemonic) {
   return mnemonic == "s_branch" || mnemonic.starts_with("s_cbranch");
 }
@@ -396,8 +409,9 @@ bool IsLoadMnemonic(std::string_view mnemonic) {
 
 uint64_t ResolveEncodedIssueCycles(std::string_view mnemonic,
                                    const EncodedInstructionDescriptor& descriptor,
-                                   const GpuArchSpec& spec) {
-  const auto& op_overrides = spec.issue_cycle_op_overrides;
+                                   const GpuArchSpec& spec,
+                                   const CycleTimingConfig& timing_config) {
+  const auto& op_overrides = timing_config.issue_cycle_op_overrides;
   if (mnemonic == "s_waitcnt" && op_overrides.s_waitcnt.has_value()) {
     return *op_overrides.s_waitcnt;
   }
@@ -423,7 +437,7 @@ uint64_t ResolveEncodedIssueCycles(std::string_view mnemonic,
     return *op_overrides.ds_add_u32;
   }
 
-  const auto& class_overrides = spec.issue_cycle_class_overrides;
+  const auto& class_overrides = timing_config.issue_cycle_class_overrides;
   if (mnemonic == "s_waitcnt" || mnemonic == "s_barrier") {
     if (class_overrides.sync_wait.has_value()) {
       return *class_overrides.sync_wait;
@@ -468,8 +482,8 @@ uint64_t ResolveEncodedIssueCycles(std::string_view mnemonic,
 }
 
 std::optional<uint64_t> EncodedSpecificOpCycleOverride(std::string_view mnemonic,
-                                                       const GpuArchSpec& spec) {
-  const auto& op_overrides = spec.issue_cycle_op_overrides;
+                                                       const CycleTimingConfig& timing_config) {
+  const auto& op_overrides = timing_config.issue_cycle_op_overrides;
   if (mnemonic == "s_waitcnt" && op_overrides.s_waitcnt.has_value()) {
     return op_overrides.s_waitcnt;
   }
@@ -538,29 +552,30 @@ uint64_t CostForEncodedStep(const DecodedInstruction& instruction,
                             const EncodedInstructionDescriptor& descriptor,
                             ExecutedStepClass step_class,
                             const GpuArchSpec& spec,
+                            const CycleTimingConfig& timing_config,
                             const ProgramCycleStatsConfig& config) {
   switch (step_class) {
     case ExecutedStepClass::ScalarAlu:
     case ExecutedStepClass::VectorAlu:
     case ExecutedStepClass::Barrier:
     case ExecutedStepClass::Wait:
-      return ResolveEncodedIssueCycles(instruction.mnemonic, descriptor, spec);
+      return ResolveEncodedIssueCycles(instruction.mnemonic, descriptor, spec, timing_config);
     case ExecutedStepClass::Tensor:
       return config.tensor_cycles;
     case ExecutedStepClass::SharedMem:
-      if (const auto override = EncodedSpecificOpCycleOverride(instruction.mnemonic, spec);
+      if (const auto override = EncodedSpecificOpCycleOverride(instruction.mnemonic, timing_config);
           override.has_value()) {
         return *override;
       }
       return config.shared_mem_cycles;
     case ExecutedStepClass::ScalarMem:
-      if (const auto override = EncodedSpecificOpCycleOverride(instruction.mnemonic, spec);
+      if (const auto override = EncodedSpecificOpCycleOverride(instruction.mnemonic, timing_config);
           override.has_value()) {
         return *override;
       }
       return config.scalar_mem_cycles;
     case ExecutedStepClass::GlobalMem:
-      if (const auto override = EncodedSpecificOpCycleOverride(instruction.mnemonic, spec);
+      if (const auto override = EncodedSpecificOpCycleOverride(instruction.mnemonic, timing_config);
           override.has_value()) {
         return *override;
       }
@@ -997,6 +1012,7 @@ class EncodedExecutionCore {
  public:
   EncodedExecutionCore(const EncodedProgramObject& image,
                        const GpuArchSpec& spec,
+                       const CycleTimingConfig& timing_config,
                        const LaunchConfig& config,
                        ExecutionMode execution_mode,
                        const DeviceLoadResult* device_load,
@@ -1011,6 +1027,7 @@ class EncodedExecutionCore {
                        ProgramCycleStatsConfig cycle_stats_config)
       : image_(image),
         spec_(spec),
+        timing_config_(timing_config),
         config_(config),
         execution_mode_(execution_mode),
         device_load_(device_load),
@@ -1022,7 +1039,9 @@ class EncodedExecutionCore {
         kernarg_(std::move(kernarg)),
         kernarg_base_(kernarg_base),
         raw_blocks_(std::move(raw_blocks)),
-        cycle_stats_config_(cycle_stats_config) {}
+        cycle_stats_config_(cycle_stats_config),
+        l2_cache_(timing_config.cache_model),
+        shared_bank_model_(timing_config.shared_bank_model) {}
 
   void Run() {
     InitializeWaveLaunchState();
@@ -1051,6 +1070,7 @@ class EncodedExecutionCore {
  private:
   const EncodedProgramObject& image_;
   const GpuArchSpec& spec_;
+  const CycleTimingConfig& timing_config_;
   LaunchConfig config_;
   ExecutionMode execution_mode_ = ExecutionMode::Functional;
   const DeviceLoadResult* device_load_ = nullptr;
@@ -1064,6 +1084,9 @@ class EncodedExecutionCore {
   std::vector<RawBlock> raw_blocks_;
   ProgramCycleStatsConfig cycle_stats_config_{};
   std::unordered_map<uint64_t, std::deque<EncodedExecutedWaveStep>> executed_flow_steps_;
+  std::map<std::pair<uint32_t, uint32_t>, CacheModel> l1_caches_;
+  CacheModel l2_cache_;
+  SharedBankModel shared_bank_model_;
   std::mutex trace_mutex_;
   std::mutex stats_mutex_;
   std::mutex global_memory_mutex_;
@@ -1079,6 +1102,10 @@ class EncodedExecutionCore {
   uint64_t max_trace_cycle_ = 0;
 
   void InitializeWaveLaunchState() {
+    for (const auto& raw_block : raw_blocks_) {
+      l1_caches_.try_emplace(std::make_pair(raw_block.dpc_id, raw_block.ap_id),
+                             CacheModel(timing_config_.cache_model));
+    }
     for (auto& raw_block : raw_blocks_) {
       for (auto& raw_wave : raw_block.waves) {
         raw_wave.wave.pc = image_.instructions.front().pc;
@@ -1599,6 +1626,7 @@ class EncodedExecutionCore {
       RecordExecutedStep(wave,
                          *step_class,
                          CostForEncodedStep(decoded, descriptor, *step_class, spec_,
+                                            timing_config_,
                                             cycle_stats_config_));
     }
 
@@ -1645,13 +1673,15 @@ class EncodedExecutionCore {
         .barrier_arrivals = block.barrier_arrivals,
         .wave_count = static_cast<uint32_t>(block.waves.size()),
     };
+    std::optional<MemoryRequest> captured_memory_request;
     EncodedWaveContext context(wave,
                                raw_wave.vcc,
                                kernarg_,
                                kernarg_base_,
                                memory_,
                                step_stats,
-                               block_context);
+                               block_context,
+                               &captured_memory_request);
     const auto maybe_domain = MemoryDomainForEncodedInstruction(decoded, descriptor);
     const bool lock_global = maybe_domain.has_value() &&
                              (*maybe_domain == MemoryWaitDomain::Global ||
@@ -1698,7 +1728,8 @@ class EncodedExecutionCore {
             ? image_.instruction_objects[it->second].get()
             : nullptr;
     const auto descriptor = DescribeEncodedInstruction(decoded);
-    const uint64_t issue_cycles = ResolveEncodedIssueCycles(decoded.mnemonic, descriptor, spec_);
+    const uint64_t issue_cycles =
+        ResolveEncodedIssueCycles(decoded.mnemonic, descriptor, spec_, timing_config_);
     const uint64_t commit_cycle = cycle + std::max<uint64_t>(1u, issue_cycles);
 
     ExecutionStats step_stats;
@@ -1708,6 +1739,7 @@ class EncodedExecutionCore {
       RecordExecutedStep(wave,
                          *step_class,
                          CostForEncodedStep(decoded, descriptor, *step_class, spec_,
+                                            timing_config_,
                                             cycle_stats_config_));
     }
 
@@ -1765,19 +1797,17 @@ class EncodedExecutionCore {
         .barrier_arrivals = block.barrier_arrivals,
         .wave_count = static_cast<uint32_t>(block.waves.size()),
     };
+    std::optional<MemoryRequest> captured_memory_request;
     EncodedWaveContext context(wave,
                                raw_wave.vcc,
                                kernarg_,
                                kernarg_base_,
                                memory_,
                                step_stats,
-                               block_context);
-    if (object != nullptr) {
-      object->Execute(context);
-    } else {
-      const auto& handler = EncodedSemanticHandlerRegistry::Get(decoded);
-      handler.Execute(decoded, context);
-    }
+                               block_context,
+                               &captured_memory_request);
+    const auto& handler = EncodedSemanticHandlerRegistry::Get(decoded);
+    handler.Execute(decoded, context);
 
     {
       std::lock_guard<std::mutex> lock(*block.wave_state_mutex);
@@ -1787,6 +1817,7 @@ class EncodedExecutionCore {
         const uint64_t ready_cycle =
             cycle + (step_class.has_value()
                          ? CostForEncodedStep(decoded, descriptor, *step_class, spec_,
+                                              timing_config_,
                                               cycle_stats_config_)
                          : issue_cycles);
         RecordPendingMemoryOp(wave_state, wave, *maybe_domain, ready_cycle);
@@ -1813,6 +1844,28 @@ class EncodedExecutionCore {
       }
     }
 
+    if (captured_memory_request.has_value()) {
+      auto& request = *captured_memory_request;
+      if (request.space == MemorySpace::Global) {
+        const std::vector<uint64_t> addrs = ActiveAddresses(request);
+        auto& l1_cache = l1_caches_.at(std::make_pair(block.dpc_id, block.ap_id));
+        const CacheProbeResult l1_probe = l1_cache.Probe(addrs);
+        const CacheProbeResult l2_probe = l2_cache_.Probe(addrs);
+        if (l1_probe.l1_hits > 0) {
+          step_stats.l1_hits += l1_probe.l1_hits;
+        } else if (l2_probe.l2_hits > 0) {
+          step_stats.l2_hits += l2_probe.l2_hits;
+        } else {
+          step_stats.cache_misses += std::max<uint64_t>(1, l2_probe.misses);
+        }
+        l2_cache_.Promote(addrs);
+        l1_cache.Promote(addrs);
+      } else if (request.space == MemorySpace::Shared) {
+        step_stats.shared_bank_conflict_penalty_cycles +=
+            shared_bank_model_.ConflictPenalty(request);
+      }
+    }
+
     CommitStats(step_stats);
     return issue_cycles;
   }
@@ -1833,6 +1886,7 @@ class EncodedExecutionCore {
 
 LaunchResult EncodedExecEngine::Run(const EncodedProgramObject& image,
                                     const GpuArchSpec& spec,
+                                    const CycleTimingConfig& timing_config,
                                     const LaunchConfig& config,
                                     ExecutionMode execution_mode,
                                     FunctionalExecutionConfig functional_execution_config,
@@ -1883,6 +1937,7 @@ LaunchResult EncodedExecEngine::Run(const EncodedProgramObject& image,
   auto raw_blocks = MaterializeRawBlocks(result.placement, config, shared_bytes);
   EncodedExecutionCore core(image,
                             spec,
+                            timing_config,
                             config,
                             execution_mode,
                             device_load,
