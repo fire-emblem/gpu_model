@@ -1,10 +1,12 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <string_view>
 
 #include "gpu_model/debug/trace_artifact_recorder.h"
 #include "gpu_model/debug/trace_sink.h"
@@ -24,6 +26,39 @@ ExecutableKernel BuildWaitcntTraceKernel() {
   builder.SMov("s2", 7);
   builder.BExit();
   return builder.Build("trace_waitcnt_kernel");
+}
+
+std::filesystem::path MakeUniqueTempDir(const std::string& stem) {
+  const auto suffix =
+      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());
+  const auto path = std::filesystem::temp_directory_path() / (stem + "_" + suffix);
+  std::filesystem::remove_all(path);
+  std::filesystem::create_directories(path);
+  return path;
+}
+
+std::string ReadTextFile(const std::filesystem::path& path) {
+  std::ifstream input(path);
+  if (!input) {
+    throw std::runtime_error("failed to read text file: " + path.string());
+  }
+  std::ostringstream buffer;
+  buffer << input.rdbuf();
+  return buffer.str();
+}
+
+std::string_view ExtractTraceEventsPayload(std::string_view text) {
+  const auto key_pos = text.find("\"traceEvents\"");
+  if (key_pos == std::string_view::npos) {
+    return {};
+  }
+  const auto array_begin = text.find('[', key_pos);
+  const auto array_end = text.find(']', array_begin);
+  if (array_begin == std::string_view::npos || array_end == std::string_view::npos ||
+      array_end <= array_begin) {
+    return {};
+  }
+  return text.substr(array_begin + 1, array_end - array_begin - 1);
 }
 
 TEST(TraceTest, EmitsLaunchAndBlockPlacementEvents) {
@@ -277,6 +312,42 @@ TEST(TraceTest, WritesWaveStatsEventsToTraceSinks) {
   EXPECT_NE(json_line.find("\"message\":\"launch=2 init=2 active=2 end=0\""), std::string::npos);
   std::filesystem::remove(text_path);
   std::filesystem::remove(json_path);
+}
+
+TEST(TraceTest, PerfettoDumpContainsTraceEventsAndRequiredFields) {
+  const auto out_dir = MakeUniqueTempDir("gpu_model_perfetto_structure");
+  const struct Cleanup {
+    std::filesystem::path path;
+    ~Cleanup() { std::filesystem::remove_all(path); }
+  } cleanup{out_dir};
+
+  TraceArtifactRecorder trace(out_dir);
+  RuntimeEngine runtime(&trace);
+
+  InstructionBuilder builder;
+  builder.BExit();
+  const auto kernel = builder.Build("perfetto_structure_kernel");
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+  trace.FlushTimeline();
+
+  const auto timeline_path = out_dir / "timeline.perfetto.json";
+  ASSERT_TRUE(std::filesystem::exists(timeline_path));
+
+  const std::string text = ReadTextFile(timeline_path);
+  const auto trace_events = ExtractTraceEventsPayload(text);
+  ASSERT_FALSE(trace_events.empty());
+  EXPECT_NE(text.find("\"traceEvents\""), std::string::npos);
+  EXPECT_NE(trace_events.find('{'), std::string::npos);
+  EXPECT_NE(trace_events.find("\"name\""), std::string::npos);
+  EXPECT_NE(trace_events.find("\"ph\":"), std::string::npos);
+  EXPECT_NE(trace_events.find("\"ts\":"), std::string::npos);
 }
 
 TEST(TraceTest, TraceArtifactRecorderWritesTraceAndPerfettoFiles) {
