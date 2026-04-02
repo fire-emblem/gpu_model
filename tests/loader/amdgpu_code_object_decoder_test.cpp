@@ -232,6 +232,49 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesRawInstructionsFromHipBiasChainExecutab
   EXPECT_GE(load_scalar_count, 4);
 }
 
+TEST(AmdgpuCodeObjectDecoderTest, DecodesHipByValueAggregateExecutable) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_code_object_hip_by_value_aggregate");
+  const auto src_path = temp_dir / "hip_by_value_aggregate.cpp";
+  const auto exe_path = temp_dir / "hip_by_value_aggregate.out";
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n"
+           "struct Payload {\n"
+           "  int x;\n"
+           "  int y;\n"
+           "  int z;\n"
+           "};\n"
+           "extern \"C\" __global__ void by_value_aggregate(int* out, Payload payload) {\n"
+           "  if (threadIdx.x == 0) {\n"
+           "    out[0] = payload.x + payload.y + payload.z;\n"
+           "  }\n"
+           "}\n"
+           "int main() { return 0; }\n";
+  }
+  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "by_value_aggregate");
+  EXPECT_EQ(image.kernel_name, "by_value_aggregate");
+  ASSERT_TRUE(image.metadata.values.contains("arg_layout"));
+  EXPECT_NE(image.metadata.values.at("arg_layout").find("by_value:"), std::string::npos);
+  const auto scalar_load_count = std::count_if(
+      image.instructions.begin(), image.instructions.end(),
+      [](const EncodedGcnInstruction& inst) {
+        return inst.mnemonic == "s_load_dword" || inst.mnemonic == "s_load_dwordx2";
+      });
+  const auto scalar_add_count = std::count_if(
+      image.instructions.begin(), image.instructions.end(),
+      [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "s_add_i32"; });
+  EXPECT_GT(scalar_load_count, 0);
+  EXPECT_GT(scalar_add_count, 0);
+}
+
 TEST(AmdgpuCodeObjectDecoderTest, DecodesRawInstructionsFromHipAtomicCountExecutable) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";

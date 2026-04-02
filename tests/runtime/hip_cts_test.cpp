@@ -45,6 +45,7 @@ enum class KernelKind {
   VecAdd,
   FmaLoop,
   BiasChain,
+  ByValueAggregate,
   AtomicCount,
   SharedReverse,
   DynamicSharedSum,
@@ -100,6 +101,16 @@ extern "C" __global__ void fma_loop(const float* a, const float* b, float* c, in
 extern "C" __global__ void bias_chain(const float* a, const float* b, float* c, int n, float b0, float b1, float b2) {
   int i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < n) c[i] = a[i] + b[i] + b0 + b1 + b2;
+}
+struct Payload {
+  int x;
+  int y;
+  int z;
+};
+extern "C" __global__ void by_value_aggregate(int* out, Payload payload) {
+  if (threadIdx.x == 0) {
+    out[0] = payload.x + payload.y + payload.z;
+  }
 }
 extern "C" __global__ void atomic_count(int* out, int n) {
   int i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -219,6 +230,8 @@ const char* KernelName(KernelKind kernel) {
       return "fma_loop";
     case KernelKind::BiasChain:
       return "bias_chain";
+    case KernelKind::ByValueAggregate:
+      return "by_value_aggregate";
     case KernelKind::AtomicCount:
       return "atomic_count";
     case KernelKind::SharedReverse:
@@ -314,6 +327,8 @@ std::vector<int32_t> ExpectedDynamicSharedSum(uint32_t grid_x, uint32_t block_x)
 
 int32_t ExpectedAtomicCount(uint32_t n) { return static_cast<int32_t>(n); }
 
+int32_t ExpectedByValueAggregate() { return 5 + 9 + 17; }
+
 std::vector<float> ExpectedBlockReduceSum(uint32_t n,
                                           uint32_t pattern,
                                           uint32_t grid_x,
@@ -398,6 +413,15 @@ std::vector<HipCtsCase> MakeHipRuntimeCasesFull() {
     });
   }
 
+  add(HipCtsCase{
+      .name = {},
+      .artifact = ArtifactKind::Common,
+      .kernel = KernelKind::ByValueAggregate,
+      .grid_x = 1,
+      .block_x = 64,
+      .n = 1,
+  });
+
   for (const auto& [n, block] :
        std::vector<std::pair<uint32_t, uint32_t>>{{1, 1}, {64, 64}, {257, 128}, {1024, 256}}) {
     add(HipCtsCase{
@@ -470,13 +494,13 @@ std::vector<HipCtsCase> MakeHipRuntimeCasesFull() {
     });
   }
 
-  EXPECT_EQ(cases.size(), 93u);
+  EXPECT_EQ(cases.size(), 94u);
   return cases;
 }
 
 std::vector<HipCtsCase> MakeHipRuntimeCasesQuick() {
   return test::SelectIndexedCases(MakeHipRuntimeCasesFull(),
-                                  {0, 4, 10, 19, 20, 24, 34, 35, 39, 48, 52, 62, 66, 67, 76});
+                                  {0, 4, 10, 19, 20, 24, 34, 35, 39, 40, 49, 53, 63, 67, 68, 77});
 }
 
 std::vector<HipCtsCase> MakeHipRuntimeCases() {
@@ -539,6 +563,14 @@ std::vector<HipCtsCase> MakeInterposerCasesFull() {
         .pattern = id % 4u,
     });
   }
+  add(HipCtsCase{
+      .name = {},
+      .artifact = ArtifactKind::Common,
+      .kernel = KernelKind::ByValueAggregate,
+      .grid_x = 1,
+      .block_x = 64,
+      .n = 1,
+  });
   for (const auto& [n, block] :
        std::vector<std::pair<uint32_t, uint32_t>>{{1, 1}, {257, 128}}) {
     add(HipCtsCase{
@@ -605,12 +637,12 @@ std::vector<HipCtsCase> MakeInterposerCasesFull() {
     });
   }
 
-  EXPECT_EQ(cases.size(), 26u);
+  EXPECT_EQ(cases.size(), 27u);
   return cases;
 }
 
 std::vector<HipCtsCase> MakeInterposerCasesQuick() {
-  return test::SelectIndexedCases(MakeInterposerCasesFull(), {0, 3, 6, 9, 11, 15, 17, 19, 21, 24});
+  return test::SelectIndexedCases(MakeInterposerCasesFull(), {0, 3, 6, 9, 11, 12, 16, 18, 20, 22, 25});
 }
 
 std::vector<HipCtsCase> MakeInterposerCases() {
@@ -736,6 +768,31 @@ TEST_P(HipCtsHipRuntimeTest, ExecutesHipOutAndValidatesResults) {
       ASSERT_TRUE(result.ok) << result.error_message;
       hooks.MemcpyDtoH<float>(out_addr, std::span<float>(out));
       ExpectNearVector(out, expected, 1.0e-4f);
+      return;
+    }
+    case KernelKind::ByValueAggregate: {
+      int32_t out = 0;
+      const int32_t expected = ExpectedByValueAggregate();
+      const uint64_t out_addr = hooks.Malloc(sizeof(int32_t));
+      hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(&out, 1));
+      struct PayloadHost {
+        int32_t x;
+        int32_t y;
+        int32_t z;
+      } payload{5, 9, 17};
+      KernelArgPack args;
+      args.PushU64(out_addr);
+      args.PushBytes(&payload, sizeof(payload));
+      const auto result = hooks.LaunchEncodedProgramObject(
+          ObjectReader{}.LoadEncodedObject(ArtifactPath(c.artifact), KernelName(c.kernel)),
+          LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
+          std::move(args),
+          ExecutionMode::Functional,
+          "c500",
+          nullptr);
+      ASSERT_TRUE(result.ok) << result.error_message;
+      hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(&out, 1));
+      EXPECT_EQ(out, expected);
       return;
     }
     case KernelKind::AtomicCount: {
@@ -881,7 +938,7 @@ TEST_P(HipCtsHipRuntimeTest, ExecutesHipOutAndValidatesResults) {
 }
 
 TEST(HipRuntimeTest, HipCtsFullCaseCountIsOneHundred) {
-  EXPECT_EQ(MakeHipRuntimeCasesFull().size() + MakeInterposerCasesFull().size(), 119u);
+  EXPECT_EQ(MakeHipRuntimeCasesFull().size() + MakeInterposerCasesFull().size(), 121u);
 }
 
 TEST_P(HipCtsInterposerStateTest, ExecutesHipOutThroughRegisteredHostFunctionAndValidatesResults) {
@@ -895,6 +952,7 @@ TEST_P(HipCtsInterposerStateTest, ExecutesHipOutThroughRegisteredHostFunctionAnd
   static int host_vecadd = 0;
   static int host_fma = 0;
   static int host_bias = 0;
+  static int host_by_value = 0;
   static int host_atomic = 0;
   static int host_shared = 0;
   static int host_dynamic_shared = 0;
@@ -911,6 +969,9 @@ TEST_P(HipCtsInterposerStateTest, ExecutesHipOutThroughRegisteredHostFunctionAnd
       break;
     case KernelKind::BiasChain:
       host_symbol = &host_bias;
+      break;
+    case KernelKind::ByValueAggregate:
+      host_symbol = &host_by_value;
       break;
     case KernelKind::AtomicCount:
       host_symbol = &host_atomic;
@@ -994,6 +1055,27 @@ TEST_P(HipCtsInterposerStateTest, ExecutesHipOutThroughRegisteredHostFunctionAnd
       ASSERT_TRUE(result.ok) << result.error_message;
       state.MemcpyDeviceToHost(out.data(), out_dev, c.n * sizeof(float));
       ExpectNearVector(out, expected, 1.0e-4f);
+      return;
+    }
+    case KernelKind::ByValueAggregate: {
+      int32_t out = 0;
+      const int32_t expected = ExpectedByValueAggregate();
+      void* out_dev = state.AllocateDevice(sizeof(int32_t));
+      state.MemcpyHostToDevice(out_dev, &out, sizeof(out));
+      struct PayloadHost {
+        int32_t x;
+        int32_t y;
+        int32_t z;
+      } payload{5, 9, 17};
+      void* args[] = {&out_dev, &payload};
+      const auto result = state.LaunchExecutableKernel(
+          ArtifactPath(c.artifact),
+          host_symbol,
+          LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
+          args);
+      ASSERT_TRUE(result.ok) << result.error_message;
+      state.MemcpyDeviceToHost(&out, out_dev, sizeof(out));
+      EXPECT_EQ(out, expected);
       return;
     }
     case KernelKind::AtomicCount: {
@@ -1117,7 +1199,7 @@ INSTANTIATE_TEST_SUITE_P(InterposerCTS, HipCtsInterposerStateTest,
                          ::testing::ValuesIn(MakeInterposerCases()), CaseName);
 
 TEST(HipRuntimeTest, CtsCaseCountIsOneHundred) {
-  EXPECT_EQ(MakeHipRuntimeCasesFull().size() + MakeInterposerCasesFull().size(), 119u);
+  EXPECT_EQ(MakeHipRuntimeCasesFull().size() + MakeInterposerCasesFull().size(), 121u);
 }
 
 }  // namespace
