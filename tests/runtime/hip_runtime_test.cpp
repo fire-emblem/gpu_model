@@ -1051,11 +1051,16 @@ TEST(HipRuntimeTest, EncodedCycleLaunchEmitsAdvancingTraceCycles) {
   ASSERT_TRUE(result.ok) << result.error_message;
 
   uint64_t max_cycle = 0;
+  bool saw_commit = false;
   for (const auto& event : trace.events()) {
     max_cycle = std::max(max_cycle, event.cycle);
+    if (event.kind == TraceEventKind::Commit && event.cycle > 0) {
+      saw_commit = true;
+    }
   }
   EXPECT_GT(max_cycle, 0u);
   EXPECT_GE(result.total_cycles, max_cycle);
+  EXPECT_TRUE(saw_commit);
 
   std::filesystem::remove_all(temp_dir);
 }

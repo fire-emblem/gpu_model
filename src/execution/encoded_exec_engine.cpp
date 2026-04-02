@@ -389,6 +389,11 @@ bool IsMaskMnemonic(std::string_view mnemonic) {
   return mnemonic.find("exec") != std::string_view::npos;
 }
 
+bool IsLoadMnemonic(std::string_view mnemonic) {
+  return mnemonic.find("load") != std::string_view::npos ||
+         mnemonic.find("read") != std::string_view::npos;
+}
+
 uint64_t ResolveEncodedIssueCycles(std::string_view mnemonic,
                                    const EncodedInstructionDescriptor& descriptor,
                                    const GpuArchSpec& spec) {
@@ -1033,10 +1038,11 @@ class EncodedExecutionCore {
     result_.program_cycle_stats =
         CollectProgramCycleStatsFromEncodedFlow(executed_flow_steps_, cycle_stats_config_);
     if (execution_mode_ == ExecutionMode::Cycle) {
-      result_.total_cycles = cycle_total_cycles_;
-      result_.program_cycle_stats->total_cycles = cycle_total_cycles_;
+      result_.total_cycles = std::max(cycle_total_cycles_, max_trace_cycle_);
+      result_.program_cycle_stats->total_cycles = result_.total_cycles;
     } else {
-      result_.total_cycles = result_.program_cycle_stats->total_cycles;
+      result_.total_cycles = std::max(result_.program_cycle_stats->total_cycles, max_trace_cycle_);
+      result_.program_cycle_stats->total_cycles = result_.total_cycles;
     }
     result_.end_cycle = result_.total_cycles;
     result_.ok = true;
@@ -1070,6 +1076,7 @@ class EncodedExecutionCore {
   size_t completed_waves_ = 0;
   size_t active_wave_tasks_ = 0;
   uint64_t cycle_total_cycles_ = 0;
+  uint64_t max_trace_cycle_ = 0;
 
   void InitializeWaveLaunchState() {
     for (auto& raw_block : raw_blocks_) {
@@ -1548,6 +1555,7 @@ class EncodedExecutionCore {
 
   void TraceEventLocked(TraceEvent event) {
     std::lock_guard<std::mutex> lock(trace_mutex_);
+    max_trace_cycle_ = std::max(max_trace_cycle_, event.cycle);
     trace_.OnEvent(std::move(event));
   }
 
@@ -1691,6 +1699,7 @@ class EncodedExecutionCore {
             : nullptr;
     const auto descriptor = DescribeEncodedInstruction(decoded);
     const uint64_t issue_cycles = ResolveEncodedIssueCycles(decoded.mnemonic, descriptor, spec_);
+    const uint64_t commit_cycle = cycle + std::max<uint64_t>(1u, issue_cycles);
 
     ExecutionStats step_stats;
     ++step_stats.wave_steps;
@@ -1712,6 +1721,17 @@ class EncodedExecutionCore {
         .wave_id = wave.wave_id,
         .pc = wave.pc,
         .message = FormatRawWaveStepMessage(decoded, object, wave),
+    });
+    TraceEventLocked(TraceEvent{
+        .kind = TraceEventKind::Commit,
+        .cycle = commit_cycle,
+        .dpc_id = wave.dpc_id,
+        .ap_id = wave.ap_id,
+        .peu_id = wave.peu_id,
+        .block_id = wave.block_id,
+        .wave_id = wave.wave_id,
+        .pc = wave.pc,
+        .message = decoded.mnemonic,
     });
 
     if (decoded.mnemonic == "s_waitcnt") {
