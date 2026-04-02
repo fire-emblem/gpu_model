@@ -1964,6 +1964,9 @@ TEST(HipccParallelExecutionTest,
   EXPECT_EQ(st.launch.stats.barriers, expected_barriers);
   EXPECT_EQ(mt.launch.stats.barriers, expected_barriers);
   EXPECT_EQ(cycle.launch.stats.barriers, expected_barriers);
+
+  // ExecutionStats remains coarse-grained event accounting; ProgramCycleStats is the
+  // program-level work model and is calibrated separately.
   EXPECT_EQ(st.launch.stats.shared_loads, mt.launch.stats.shared_loads);
   EXPECT_EQ(st.launch.stats.shared_loads, cycle.launch.stats.shared_loads);
   EXPECT_EQ(st.launch.stats.shared_stores, mt.launch.stats.shared_stores);
@@ -1972,6 +1975,10 @@ TEST(HipccParallelExecutionTest,
   EXPECT_EQ(st.launch.stats.global_stores, cycle.launch.stats.global_stores);
   EXPECT_EQ(st.launch.stats.wave_exits, mt.launch.stats.wave_exits);
   EXPECT_EQ(st.launch.stats.wave_exits, cycle.launch.stats.wave_exits);
+
+  EXPECT_GT(st.launch.program_cycle_stats->total_issued_work_cycles, 0u);
+  EXPECT_GT(mt.launch.program_cycle_stats->total_issued_work_cycles, 0u);
+  EXPECT_GT(cycle.launch.program_cycle_stats->total_issued_work_cycles, 0u);
 
   EXPECT_GT(st.launch.stats.shared_loads, 0u);
   EXPECT_GT(st.launch.stats.shared_stores, 0u);
