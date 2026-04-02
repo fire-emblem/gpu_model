@@ -75,7 +75,10 @@ class HipRuntime {
                                           TraceSink* trace = nullptr,
                                           RuntimeSubmissionContext submission_context = {});
   void LoadModule(const ModuleLoadRequest& request);
-  const std::optional<DeviceLoadResult>& last_load_result() const { return last_load_result_; }
+  const std::optional<DeviceLoadResult>& last_load_result(uint64_t context_id = 0) const {
+    (void)context_id;
+    return last_load_result_;
+  }
   void UnloadModule(const std::string& module_name, uint64_t context_id = 0);
   void Reset();
   bool HasModule(const std::string& module_name, uint64_t context_id = 0) const;
