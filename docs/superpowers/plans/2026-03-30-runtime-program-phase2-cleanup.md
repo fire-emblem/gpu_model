@@ -1,6 +1,8 @@
 # Runtime/Program Phase 2 Cleanup Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+>
+> **Status (2026-04-01):** Historical cleanup plan. The runtime/program rename has already landed, `tests/runtime/compatibility_alias_test.cpp` now covers only non-runtime/program aliases, and the intermediate header name `include/gpu_model/program/program_execution_route.h` is not part of the live tree.
 
 **Goal:** Delete the legacy runtime/program framework surface and leave only the new `HipRuntime / ModelRuntime / RuntimeEngine / ProgramObject / ExecutableKernel / EncodedProgramObject / ObjectReader / ExecutionRoute` architecture.
 
@@ -20,7 +22,6 @@
 - `include/gpu_model/program/executable_kernel.h`
 - `include/gpu_model/program/encoded_program_object.h`
 - `include/gpu_model/program/object_reader.h`
-- `include/gpu_model/program/program_execution_route.h`
 - `include/gpu_model/program/execution_route.h`
 - `src/runtime/hip_runtime.cpp`
 - `src/runtime/runtime_engine.cpp`
@@ -57,7 +58,6 @@
 - Modify: `include/gpu_model/program/encoded_program_object.h`
 - Modify: `include/gpu_model/program/object_reader.h`
 - Modify: `include/gpu_model/program/execution_route.h`
-- Modify: `include/gpu_model/program/program_execution_route.h`
 - Modify: `tests/runtime/compatibility_alias_test.cpp`
 - Test: `tests/runtime/runtime_naming_test.cpp`
 - Test: `tests/program/program_object_types_test.cpp`

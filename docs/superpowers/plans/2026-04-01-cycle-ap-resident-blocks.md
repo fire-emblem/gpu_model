@@ -1,6 +1,8 @@
 # Cycle AP Resident Blocks Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+>
+> **Status (2026-04-01):** The focused `CycleApResidentBlocksTest` cases and their test file already exist in the tree. The checklist was not backfilled, so treat this plan as historical implementation notes unless you first reconcile it with current source/tests.
 
 **Goal:** Add cycle-path AP multi-block residency so one `AP` can hold `2` resident blocks, making `>4 resident waves / PEU` reachable and enabling a real `active-window / standby-window` front-end model.
 

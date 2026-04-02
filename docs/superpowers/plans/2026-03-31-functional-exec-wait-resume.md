@@ -1,6 +1,8 @@
 # Functional Exec Wait Resume Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+>
+> **Status (2026-04-01):** The main file/test slices described below already exist in the tree. The checklist was not backfilled, so treat this document as historical implementation notes unless you first reconcile it with current source/tests.
 
 **Goal:** Build a single wait/resume state-machine backbone for `FunctionalExecEngine` so `st` and `mt` share the same wave progress semantics for barrier-heavy kernels.
 

@@ -1,6 +1,8 @@
 # Instruction/Execution Phase 2 Cleanup Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+>
+> **Status (2026-04-01):** Historical cleanup plan. Most of this rename/delete work has already landed. The final grep below has been narrowed so it does not flag the unrelated internal `ProgramCycleTracker::WaveState` helper as if it were the old public `WaveState`.
 
 **Goal:** Delete the legacy instruction/execution framework surface and leave only the new `instruction/*` and `execution/*` architecture.
 
@@ -130,7 +132,7 @@ Expected: PASS.
 - [ ] Final verification:
 Run: `rg -n "PHASE2-DELETE\(instruction-execution\)" include src tests docs README.md examples CMakeLists.txt`
 Expected: 0 matches.
-Run: `rg -n "\b(GcnInstDecoder|DecodedGcnInstruction|EncodedGcnInstructionObject|FunctionalExecutionCore|FunctionalExecutor|ParallelWaveExecutor|CycleExecutor|RawGcnExecutor|WaveState|BuildExecutionBlockStates|execution_memory_ops|execution_sync_ops|ApplyPlanRegisterWrites|ApplyPlanControlFlow|MaybeFormatExecMaskUpdate)\b" include src tests examples`
+Run: `rg -n "\b(GcnInstDecoder|DecodedGcnInstruction|EncodedGcnInstructionObject|FunctionalExecutionCore|FunctionalExecutor|ParallelWaveExecutor|CycleExecutor|RawGcnExecutor|BuildExecutionBlockStates|execution_memory_ops|execution_sync_ops|ApplyPlanRegisterWrites|ApplyPlanControlFlow|MaybeFormatExecMaskUpdate)\b" include src tests examples`
 Expected: 0 matches.
 Run: `cmake --build build-ninja --target gpu_model_tests`
 Run: `./build-ninja/tests/gpu_model_tests --gtest_filter='*Instruction*:*Execution*'`

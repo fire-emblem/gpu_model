@@ -1,6 +1,8 @@
 # Functional Exec Waitcnt Wait Reasons Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+>
+> **Status (2026-04-01):** Several of the unit tests and wait-reason slices described below are already present in the tree. The checklist was not backfilled, so treat this plan as historical notes unless you first reconcile it with current source/tests.
 
 **Goal:** Extend `FunctionalExecEngine` wait-state handling so explicit `wait` / `waitcnt` semantics enter domain-specific `WaveWaitReason` states, and establish a clean confirmed worktree baseline before implementation.
 

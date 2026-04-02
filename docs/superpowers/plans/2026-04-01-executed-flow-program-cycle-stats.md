@@ -1,6 +1,8 @@
 # Executed Flow Program Cycle Stats Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+>
+> **Status (2026-04-01):** The early API/tracker slices from this plan are already present in the tree, including `program_cycle_stats.h`, `program_cycle_tracker.h/.cpp`, `tests/runtime/executed_flow_program_cycle_stats_test.cpp`, and the runtime API test mentioned below. The checklist was not backfilled, so reconcile this document with the live tree before reusing it as a TODO list.
 
 **Goal:** Add an internal executed-flow program cycle stats path that derives global program cycle from `SingleThreaded / MarlParallel` functional wave execution flow, while exposing only a unified `ProgramCycleStats` result to callers.
 

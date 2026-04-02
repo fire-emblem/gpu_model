@@ -1,6 +1,8 @@
 # Wave Wait State Machine Closure Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+>
+> **Status (2026-04-01):** Several of the wait-domain and barrier regressions called out below are already present in the tree. The checklist was not backfilled, so treat this document as historical implementation notes unless you first reconcile it with current source/tests.
 
 **Goal:** Close the `waitcnt/memory-domain + barrier` wave wait-state loop so `st` and `mt` share one verified `Waiting -> Runnable` path for `global/shared/private/scalar-buffer + barrier`.
 

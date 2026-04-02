@@ -1,6 +1,8 @@
 # Multi-Wave Dispatch Front-End Alignment Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+>
+> **Status (2026-04-01):** Most of the focused unit/functional regressions called out below are already present in the tree. The checklist was not backfilled, so treat this document as historical implementation notes unless you first reconcile it with current source/tests.
 
 **Goal:** Align the current reachable multi-wave dispatch behavior so `FunctionalExecEngine` and `CycleExecEngine` share the same dispatch-visible readiness contract for resident waves, while proving that a blocked wave does not stall a ready sibling wave on the same `PEU`.
 

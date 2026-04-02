@@ -1,6 +1,8 @@
 # My Design Mainline Restructure Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+>
+> **Status (2026-04-01):** Historical Phase 1 plan. The repository has already moved past this compatibility-wrapper stage, and later Phase 2 cleanup removed or renamed many files/tests referenced below. Do not execute this plan as-is without first reconciling it against the live tree.
 
 **Goal:** Build the first-phase repository restructure that aligns the mainline with `docs/my_design.md`, using the new `runtime / program / instruction / execution / arch` architecture while preserving compatibility shims.
 

@@ -1,6 +1,8 @@
 # Wave Stats Trace Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+>
+> **Status (2026-04-01):** The core `WaveStats` trace tests and sink support slices described below are already present in the tree. The checklist was not backfilled, so treat this as historical implementation context unless you first reconcile it with current source/tests.
 
 **Goal:** Add aggregated `WaveStats` trace snapshots to the functional execution path so trace/log output shows wave launch/init/active/end progress for occupancy and workload analysis.
 
