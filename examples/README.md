@@ -22,3 +22,4 @@
 7. [07-vecadd-cycle-splitting](./07-vecadd-cycle-splitting)
 8. [08-conditional-multibarrier](./08-conditional-multibarrier)
 9. [09-dynamic-shared-sum](./09-dynamic-shared-sum)
+10. [10-block-reduce-sum](./10-block-reduce-sum)
