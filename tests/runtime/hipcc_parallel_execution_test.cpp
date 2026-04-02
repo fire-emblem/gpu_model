@@ -787,5 +787,158 @@ TEST(HipccParallelExecutionTest,
   std::filesystem::remove_all(temp_dir);
 }
 
+TEST(HipccParallelExecutionTest,
+     EncodedVecaddCycleVariantsMatchAcrossModesAndPreserveCycleDifferences) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hipcc_parallel_vecadd_cycle_variants");
+
+  struct KernelCase {
+    const char* name = nullptr;
+    const char* source = nullptr;
+    LaunchConfig config;
+  };
+
+  const std::vector<KernelCase> cases = {
+      {
+          .name = "vecadd_direct",
+          .source =
+              "#include <hip/hip_runtime.h>\n"
+              "extern \"C\" __global__ void vecadd_direct(const float* a, const float* b, float* c, int n) {\n"
+              "  int i = blockIdx.x * blockDim.x + threadIdx.x;\n"
+              "  if (i < n) c[i] = a[i] + b[i];\n"
+              "}\n"
+              "int main() { return 0; }\n",
+          .config = LaunchConfig{.grid_dim_x = 4, .block_dim_x = 256},
+      },
+      {
+          .name = "vecadd_grid_stride",
+          .source =
+              "#include <hip/hip_runtime.h>\n"
+              "extern \"C\" __global__ void vecadd_grid_stride(const float* a, const float* b, float* c, int n) {\n"
+              "  int i = blockIdx.x * blockDim.x + threadIdx.x;\n"
+              "  int stride = blockDim.x * gridDim.x;\n"
+              "  for (; i < n; i += stride) c[i] = a[i] + b[i];\n"
+              "}\n"
+              "int main() { return 0; }\n",
+          .config = LaunchConfig{.grid_dim_x = 4, .block_dim_x = 64},
+      },
+      {
+          .name = "vecadd_chunk2",
+          .source =
+              "#include <hip/hip_runtime.h>\n"
+              "extern \"C\" __global__ void vecadd_chunk2(const float* a, const float* b, float* c, int n) {\n"
+              "  int tid = blockIdx.x * blockDim.x + threadIdx.x;\n"
+              "  int stride = blockDim.x * gridDim.x;\n"
+              "  int i0 = tid;\n"
+              "  int i1 = tid + stride;\n"
+              "  if (i0 < n) c[i0] = a[i0] + b[i0];\n"
+              "  if (i1 < n) c[i1] = a[i1] + b[i1];\n"
+              "}\n"
+              "int main() { return 0; }\n",
+          .config = LaunchConfig{.grid_dim_x = 2, .block_dim_x = 256},
+      },
+  };
+
+  constexpr uint32_t n = 1024;
+  std::vector<float> a(n), b(n), expect(n);
+  for (uint32_t i = 0; i < n; ++i) {
+    a[i] = 0.5f * static_cast<float>(i);
+    b[i] = 0.25f * static_cast<float>(100 + i);
+    expect[i] = a[i] + b[i];
+  }
+
+  std::vector<uint64_t> cycle_totals;
+  cycle_totals.reserve(cases.size());
+
+  for (const auto& test_case : cases) {
+    SCOPED_TRACE(test_case.name);
+
+    const auto src_path = temp_dir / (std::string(test_case.name) + ".cpp");
+    const auto exe_path = temp_dir / (std::string(test_case.name) + ".out");
+    {
+      std::ofstream out(src_path);
+      ASSERT_TRUE(static_cast<bool>(out));
+      out << test_case.source;
+    }
+
+    const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+    ASSERT_EQ(std::system(command.c_str()), 0);
+
+    const auto run_mode = [&](ExecutionMode mode,
+                              FunctionalExecutionMode functional_mode,
+                              uint32_t worker_threads) {
+      RuntimeEngine runtime;
+      runtime.SetFunctionalExecutionConfig(
+          FunctionalExecutionConfig{.mode = functional_mode, .worker_threads = worker_threads});
+      HipRuntime hooks(&runtime);
+
+      std::vector<float> c(n, -1.0f);
+      const uint64_t a_addr = hooks.Malloc(n * sizeof(float));
+      const uint64_t b_addr = hooks.Malloc(n * sizeof(float));
+      const uint64_t c_addr = hooks.Malloc(n * sizeof(float));
+      hooks.MemcpyHtoD<float>(a_addr, std::span<const float>(a));
+      hooks.MemcpyHtoD<float>(b_addr, std::span<const float>(b));
+      hooks.MemcpyHtoD<float>(c_addr, std::span<const float>(c));
+
+      KernelArgPack args;
+      args.PushU64(a_addr);
+      args.PushU64(b_addr);
+      args.PushU64(c_addr);
+      args.PushU32(n);
+
+      auto launch = hooks.LaunchEncodedProgramObject(
+          ObjectReader{}.LoadEncodedObject(exe_path, test_case.name),
+          test_case.config,
+          std::move(args),
+          mode,
+          "c500",
+          nullptr);
+      EXPECT_TRUE(launch.ok) << launch.error_message;
+      hooks.MemcpyDtoH<float>(c_addr, std::span<float>(c));
+      return FloatLaunchRunResult{.launch = std::move(launch), .output = std::move(c)};
+    };
+
+    const auto st = run_mode(ExecutionMode::Functional, FunctionalExecutionMode::SingleThreaded, 0);
+    const auto mt = run_mode(ExecutionMode::Functional, FunctionalExecutionMode::MultiThreaded, 2);
+    const auto cycle = run_mode(ExecutionMode::Cycle, FunctionalExecutionMode::SingleThreaded, 0);
+
+    for (uint32_t i = 0; i < n; ++i) {
+      EXPECT_FLOAT_EQ(st.output[i], expect[i]);
+      EXPECT_FLOAT_EQ(mt.output[i], expect[i]);
+      EXPECT_FLOAT_EQ(cycle.output[i], expect[i]);
+    }
+
+    ASSERT_TRUE(st.launch.program_cycle_stats.has_value());
+    ASSERT_TRUE(mt.launch.program_cycle_stats.has_value());
+    ASSERT_TRUE(cycle.launch.program_cycle_stats.has_value());
+
+    EXPECT_EQ(st.launch.total_cycles, st.launch.program_cycle_stats->total_cycles);
+    EXPECT_EQ(mt.launch.total_cycles, mt.launch.program_cycle_stats->total_cycles);
+    EXPECT_EQ(cycle.launch.total_cycles, cycle.launch.program_cycle_stats->total_cycles);
+
+    EXPECT_GT(cycle.launch.total_cycles, 0u);
+    EXPECT_GT(st.launch.program_cycle_stats->total_issued_work_cycles, 0u);
+    EXPECT_GT(mt.launch.program_cycle_stats->total_issued_work_cycles, 0u);
+    EXPECT_GT(cycle.launch.program_cycle_stats->total_issued_work_cycles, 0u);
+
+    EXPECT_EQ(st.launch.stats.global_loads, mt.launch.stats.global_loads);
+    EXPECT_EQ(st.launch.stats.global_loads, cycle.launch.stats.global_loads);
+    EXPECT_EQ(st.launch.stats.global_stores, mt.launch.stats.global_stores);
+    EXPECT_EQ(st.launch.stats.global_stores, cycle.launch.stats.global_stores);
+    EXPECT_EQ(st.launch.stats.wave_exits, mt.launch.stats.wave_exits);
+    EXPECT_EQ(st.launch.stats.wave_exits, cycle.launch.stats.wave_exits);
+
+    cycle_totals.push_back(cycle.launch.total_cycles);
+  }
+
+  ASSERT_EQ(cycle_totals.size(), 3u);
+  EXPECT_FALSE(cycle_totals[0] == cycle_totals[1] && cycle_totals[1] == cycle_totals[2]);
+
+  std::filesystem::remove_all(temp_dir);
+}
+
 }  // namespace
 }  // namespace gpu_model
