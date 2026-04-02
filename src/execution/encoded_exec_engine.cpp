@@ -677,8 +677,8 @@ class EncodedExecutedFlowEventSource final : public ProgramCycleTickSource {
 
 ProgramCycleStats CollectProgramCycleStatsFromEncodedFlow(
     const std::unordered_map<uint64_t, std::deque<EncodedExecutedWaveStep>>& recorded_steps,
-    const ProgramCycleStatsConfig& config) {
-  ProgramCycleTracker agg(config);
+    const ProgramCycleStatsConfig&) {
+  ProgramCycleTracker agg;
   EncodedExecutedFlowEventSource source(recorded_steps);
   while (!source.Done()) {
     source.AdvanceOneTick(agg);

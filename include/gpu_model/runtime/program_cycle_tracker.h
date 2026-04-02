@@ -21,10 +21,16 @@ enum class ExecutedStepClass {
 
 class ProgramCycleTracker {
  public:
-  explicit ProgramCycleTracker(ProgramCycleStatsConfig config);
+  ProgramCycleTracker() = default;
 
-  void BeginWaveWork(uint32_t wave_id, ExecutedStepClass step_class, uint64_t cost_cycles);
-  void MarkWaveWaiting(uint32_t wave_id, ExecutedStepClass wait_class, uint64_t cost_cycles);
+  void BeginWaveWork(uint32_t wave_id,
+                     ExecutedStepClass step_class,
+                     uint64_t cost_cycles,
+                     uint64_t work_weight = 1);
+  void MarkWaveWaiting(uint32_t wave_id,
+                       ExecutedStepClass wait_class,
+                       uint64_t cost_cycles,
+                       uint64_t work_weight = 1);
   void MarkWaveRunnable(uint32_t wave_id);
   void MarkWaveCompleted(uint32_t wave_id);
   void AdvanceOneTick();
@@ -42,11 +48,14 @@ class ProgramCycleTracker {
     WaveLifecycle lifecycle = WaveLifecycle::Runnable;
     ExecutedStepClass step_class = ExecutedStepClass::ScalarAlu;
     uint64_t remaining_cycles = 0;
+    uint64_t work_weight = 1;
   };
 
-  void AssignWaveWork(uint32_t wave_id, ExecutedStepClass step_class, uint64_t cost_cycles);
+  void AssignWaveWork(uint32_t wave_id,
+                      ExecutedStepClass step_class,
+                      uint64_t cost_cycles,
+                      uint64_t work_weight);
 
-  ProgramCycleStatsConfig config_;
   ProgramCycleStats stats_;
   std::unordered_map<uint32_t, WaveState> waves_;
 };

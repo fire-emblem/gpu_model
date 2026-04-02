@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstring>
 #include <initializer_list>
+#include <algorithm>
 #include <vector>
 
 #include "gpu_model/arch/arch_registry.h"
@@ -70,6 +71,61 @@ uint64_t AccountedWorkCycles(const ProgramCycleStats& stats) {
          stats.global_mem_cycles + stats.private_mem_cycles +
          stats.barrier_cycles + stats.wait_cycles;
 }
+
+struct SyntheticWeightedWorkStep {
+  enum class Kind {
+    BeginWork,
+    Wait,
+    Complete,
+  };
+
+  uint64_t start_tick = 0;
+  Kind kind = Kind::BeginWork;
+  uint32_t wave_id = 0;
+  ExecutedStepClass step_class = ExecutedStepClass::ScalarAlu;
+  uint64_t cost_cycles = 0;
+  uint64_t work_weight = 1;
+};
+
+class SyntheticWeightedTickSource final : public ProgramCycleTickSource {
+ public:
+  explicit SyntheticWeightedTickSource(std::initializer_list<SyntheticWeightedWorkStep> steps)
+      : steps_(steps) {
+    std::stable_sort(steps_.begin(), steps_.end(),
+                     [](const SyntheticWeightedWorkStep& lhs,
+                        const SyntheticWeightedWorkStep& rhs) {
+                       return lhs.start_tick < rhs.start_tick;
+                     });
+  }
+
+  bool Done() const override { return next_step_index_ >= steps_.size(); }
+
+  void AdvanceOneTick(ProgramCycleTracker& agg) override {
+    while (next_step_index_ < steps_.size() &&
+           steps_[next_step_index_].start_tick == tick_) {
+      const auto& step = steps_[next_step_index_++];
+      switch (step.kind) {
+        case SyntheticWeightedWorkStep::Kind::BeginWork:
+          agg.BeginWaveWork(step.wave_id, step.step_class, step.cost_cycles,
+                            step.work_weight);
+          break;
+        case SyntheticWeightedWorkStep::Kind::Wait:
+          agg.MarkWaveWaiting(step.wave_id, step.step_class, step.cost_cycles,
+                              step.work_weight);
+          break;
+        case SyntheticWeightedWorkStep::Kind::Complete:
+          agg.MarkWaveCompleted(step.wave_id);
+          break;
+      }
+    }
+    ++tick_;
+  }
+
+ private:
+  std::vector<SyntheticWeightedWorkStep> steps_;
+  size_t next_step_index_ = 0;
+  uint64_t tick_ = 0;
+};
 
 ExecutableKernel BuildPureVectorAluKernel() {
   InstructionBuilder builder;
@@ -710,7 +766,7 @@ LaunchResult LaunchSoftmaxStyleCase(ExecutionMode mode,
 
 TEST(ExecutedFlowProgramCycleStatsTest,
      ProgramCycleTrackerAccumulatesWaveWorkByTick) {
-  ProgramCycleTracker agg(ProgramCycleStatsConfig{});
+  ProgramCycleTracker agg;
   agg.BeginWaveWork(/*wave_id=*/0, ExecutedStepClass::VectorAlu, /*cost_cycles=*/4);
   agg.BeginWaveWork(/*wave_id=*/1, ExecutedStepClass::VectorAlu, /*cost_cycles=*/4);
 
@@ -722,6 +778,87 @@ TEST(ExecutedFlowProgramCycleStatsTest,
   EXPECT_EQ(stats.total_cycles, 4u);
   EXPECT_EQ(stats.total_issued_work_cycles, 8u);
   EXPECT_EQ(stats.vector_alu_cycles, 8u);
+}
+
+TEST(ExecutedFlowProgramCycleStatsTest,
+     WeightedProgramCycleTrackerKeepsBucketSumConsistent) {
+  ProgramCycleTracker agg;
+  agg.BeginWaveWork(/*wave_id=*/0, ExecutedStepClass::VectorAlu, /*cost_cycles=*/4,
+                    /*work_weight=*/64);
+  agg.BeginWaveWork(/*wave_id=*/1, ExecutedStepClass::SharedMem, /*cost_cycles=*/32,
+                    /*work_weight=*/128);
+  agg.MarkWaveWaiting(/*wave_id=*/2, ExecutedStepClass::Wait, /*cost_cycles=*/4,
+                      /*work_weight=*/64);
+
+  for (int i = 0; i < 32; ++i) {
+    agg.AdvanceOneTick();
+  }
+
+  agg.MarkWaveCompleted(0);
+  agg.MarkWaveCompleted(1);
+  agg.MarkWaveCompleted(2);
+
+  const auto stats = agg.Finish();
+  EXPECT_EQ(stats.total_issued_work_cycles,
+            stats.scalar_alu_cycles + stats.vector_alu_cycles + stats.tensor_cycles +
+                stats.shared_mem_cycles + stats.scalar_mem_cycles +
+                stats.global_mem_cycles + stats.private_mem_cycles +
+                stats.barrier_cycles + stats.wait_cycles);
+  EXPECT_EQ(stats.vector_alu_cycles, 4u * 64u);
+  EXPECT_EQ(stats.shared_mem_cycles, 32u * 128u);
+  EXPECT_EQ(stats.wait_cycles, 4u * 64u);
+}
+
+TEST(ExecutedFlowProgramCycleStatsTest,
+     SyntheticWeightedSourceAccumulatesSharedAndWaitWorkExactly) {
+  ProgramCycleTracker agg;
+  SyntheticWeightedTickSource source({
+      {.start_tick = 0,
+       .kind = SyntheticWeightedWorkStep::Kind::BeginWork,
+       .wave_id = 0,
+       .step_class = ExecutedStepClass::SharedMem,
+       .cost_cycles = 32,
+       .work_weight = 64},
+      {.start_tick = 0,
+       .kind = SyntheticWeightedWorkStep::Kind::Wait,
+       .wave_id = 1,
+       .step_class = ExecutedStepClass::Wait,
+       .cost_cycles = 4,
+       .work_weight = 64},
+      {.start_tick = 32,
+       .kind = SyntheticWeightedWorkStep::Kind::Complete,
+       .wave_id = 0},
+      {.start_tick = 4,
+       .kind = SyntheticWeightedWorkStep::Kind::Complete,
+       .wave_id = 1},
+  });
+
+  while (!source.Done() || !agg.Done()) {
+    if (!source.Done()) {
+      source.AdvanceOneTick(agg);
+    }
+    agg.AdvanceOneTick();
+  }
+
+  const auto stats = agg.Finish();
+  EXPECT_EQ(stats.shared_mem_cycles, 32u * 64u);
+  EXPECT_EQ(stats.wait_cycles, 4u * 64u);
+  EXPECT_EQ(stats.total_issued_work_cycles, stats.shared_mem_cycles + stats.wait_cycles);
+}
+
+TEST(ExecutedFlowProgramCycleStatsTest,
+     ZeroCostRunnableTransitionDoesNotCreatePhantomWaveState) {
+  ProgramCycleTracker agg;
+  agg.BeginWaveWork(/*wave_id=*/7, ExecutedStepClass::VectorAlu, /*cost_cycles=*/0,
+                    /*work_weight=*/64);
+  agg.MarkWaveRunnable(/*wave_id=*/11);
+  agg.MarkWaveWaiting(/*wave_id=*/13, ExecutedStepClass::Wait, /*cost_cycles=*/0,
+                      /*work_weight=*/64);
+  EXPECT_TRUE(agg.Done());
+  const auto stats = agg.Finish();
+  EXPECT_EQ(stats.total_cycles, 0u);
+  EXPECT_EQ(stats.total_issued_work_cycles, 0u);
+  EXPECT_EQ(stats.wait_cycles, 0u);
 }
 
 TEST(ExecutedFlowProgramCycleStatsTest,

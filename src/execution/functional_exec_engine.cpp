@@ -466,8 +466,8 @@ class ExecutedFlowEventSource final : public ProgramCycleTickSource {
 
 ProgramCycleStats CollectProgramCycleStatsFromExecutedFlow(
     const std::vector<ExecutedFlowEvent>& events,
-    const ProgramCycleStatsConfig& config) {
-  ProgramCycleTracker agg(config);
+    const ProgramCycleStatsConfig&) {
+  ProgramCycleTracker agg;
   ExecutedFlowEventSource source(events);
   while (!source.Done()) {
     source.AdvanceOneTick(agg);
