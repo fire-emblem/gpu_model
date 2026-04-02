@@ -11,6 +11,158 @@ namespace gpu_model {
 
 namespace {
 
+struct InternalEncodedGcnMatchRecord {
+  EncodedGcnMatchRecord record;
+  uint32_t key_opcode = 0;
+  uint32_t variant_bits = 0;
+};
+
+struct DecoderOverrideEntry {
+  std::string_view mnemonic;
+  EncodedOperandDecoderKind decoder_kind;
+};
+
+constexpr EncodedGcnEncodingDef kManualEncodedGcnEncodingDefs[] = {
+    EncodedGcnEncodingDef{.id = 96,
+                          .format_class = EncodedGcnInstFormatClass::Sop1,
+                          .op = 0x30,
+                          .size_bytes = 4,
+                          .mnemonic = "s_abs_i32"},
+    EncodedGcnEncodingDef{.id = 97,
+                          .format_class = EncodedGcnInstFormatClass::Sop2,
+                          .op = 0x03,
+                          .size_bytes = 4,
+                          .mnemonic = "s_sub_i32"},
+    EncodedGcnEncodingDef{.id = 98,
+                          .format_class = EncodedGcnInstFormatClass::Sopc,
+                          .op = 0x02,
+                          .size_bytes = 4,
+                          .mnemonic = "s_cmp_gt_i32"},
+    EncodedGcnEncodingDef{.id = 99,
+                          .format_class = EncodedGcnInstFormatClass::Sop2,
+                          .op = 0x11,
+                          .size_bytes = 4,
+                          .mnemonic = "s_xor_b64"},
+    EncodedGcnEncodingDef{.id = 100,
+                          .format_class = EncodedGcnInstFormatClass::Sop1,
+                          .op = 0x23,
+                          .size_bytes = 4,
+                          .mnemonic = "s_andn2_saveexec_b64"},
+    EncodedGcnEncodingDef{.id = 101,
+                          .format_class = EncodedGcnInstFormatClass::Vopc,
+                          .op = 0xc9,
+                          .size_bytes = 4,
+                          .mnemonic = "v_cmp_lt_u32_e32"},
+    EncodedGcnEncodingDef{.id = 102,
+                          .format_class = EncodedGcnInstFormatClass::Vopc,
+                          .op = 0xcb,
+                          .size_bytes = 4,
+                          .mnemonic = "v_cmp_le_u32_e32"},
+    EncodedGcnEncodingDef{.id = 103,
+                          .format_class = EncodedGcnInstFormatClass::Vop3a,
+                          .op = 0x64,
+                          .size_bytes = 8,
+                          .mnemonic = "v_cmp_lt_u32_e64"},
+    EncodedGcnEncodingDef{.id = 104,
+                          .format_class = EncodedGcnInstFormatClass::Vop3a,
+                          .op = 0x66,
+                          .size_bytes = 8,
+                          .mnemonic = "v_cmp_gt_u32_e64"},
+    EncodedGcnEncodingDef{.id = 105,
+                          .format_class = EncodedGcnInstFormatClass::Vop2,
+                          .op = 0x35,
+                          .size_bytes = 4,
+                          .mnemonic = "v_sub_u32_e32"},
+    EncodedGcnEncodingDef{.id = 106,
+                          .format_class = EncodedGcnInstFormatClass::Vop2,
+                          .op = 0x36,
+                          .size_bytes = 4,
+                          .mnemonic = "v_subrev_u32_e32"},
+    EncodedGcnEncodingDef{.id = 107,
+                          .format_class = EncodedGcnInstFormatClass::Vop2,
+                          .op = 0x13,
+                          .size_bytes = 4,
+                          .mnemonic = "v_and_b32_e32"},
+    EncodedGcnEncodingDef{.id = 108,
+                          .format_class = EncodedGcnInstFormatClass::Vop2,
+                          .op = 0x15,
+                          .size_bytes = 4,
+                          .mnemonic = "v_xor_b32_e32"},
+    EncodedGcnEncodingDef{.id = 109,
+                          .format_class = EncodedGcnInstFormatClass::Vop2,
+                          .op = 0x0d,
+                          .size_bytes = 4,
+                          .mnemonic = "v_max_i32_e32"},
+    EncodedGcnEncodingDef{.id = 110,
+                          .format_class = EncodedGcnInstFormatClass::Vop1,
+                          .op = 0x06,
+                          .size_bytes = 4,
+                          .mnemonic = "v_cvt_f32_u32_e32"},
+    EncodedGcnEncodingDef{.id = 111,
+                          .format_class = EncodedGcnInstFormatClass::Vop1,
+                          .op = 0x07,
+                          .size_bytes = 4,
+                          .mnemonic = "v_cvt_u32_f32_e32"},
+    EncodedGcnEncodingDef{.id = 112,
+                          .format_class = EncodedGcnInstFormatClass::Vop1,
+                          .op = 0x23,
+                          .size_bytes = 4,
+                          .mnemonic = "v_rcp_iflag_f32_e32"},
+    EncodedGcnEncodingDef{.id = 113,
+                          .format_class = EncodedGcnInstFormatClass::Vop3a,
+                          .op = 0x142,
+                          .size_bytes = 8,
+                          .mnemonic = "v_mul_lo_i32"},
+    EncodedGcnEncodingDef{.id = 114,
+                          .format_class = EncodedGcnInstFormatClass::Vop3a,
+                          .op = 0x143,
+                          .size_bytes = 8,
+                          .mnemonic = "v_mul_hi_u32"},
+};
+
+constexpr DecoderOverrideEntry kDecoderOverrides[] = {
+    {"s_mov_b64", EncodedOperandDecoderKind::Sop1ScalarPair},
+    {"s_and_saveexec_b64", EncodedOperandDecoderKind::Sop1ScalarPair},
+    {"s_andn2_saveexec_b64", EncodedOperandDecoderKind::Sop1ScalarPair},
+    {"s_abs_i32", EncodedOperandDecoderKind::Sop1Scalar},
+    {"s_cselect_b64", EncodedOperandDecoderKind::Sop2ScalarPair},
+    {"s_andn2_b64", EncodedOperandDecoderKind::Sop2ScalarPair},
+    {"s_or_b64", EncodedOperandDecoderKind::Sop2ScalarPair},
+    {"s_xor_b64", EncodedOperandDecoderKind::Sop2ScalarPair},
+    {"s_and_b64", EncodedOperandDecoderKind::Sop2ScalarPair},
+    {"s_lshl_b64", EncodedOperandDecoderKind::Sop2ScalarPair},
+    {"s_sub_i32", EncodedOperandDecoderKind::Sop2Scalar},
+    {"s_cmp_gt_i32", EncodedOperandDecoderKind::SopcScalar},
+    {"v_cvt_f32_u32_e32", EncodedOperandDecoderKind::Vop1Generic},
+    {"v_cvt_u32_f32_e32", EncodedOperandDecoderKind::Vop1Generic},
+    {"v_rcp_iflag_f32_e32", EncodedOperandDecoderKind::Vop1Generic},
+    {"v_sub_u32_e32", EncodedOperandDecoderKind::Vop2Generic},
+    {"v_subrev_u32_e32", EncodedOperandDecoderKind::Vop2Generic},
+    {"v_and_b32_e32", EncodedOperandDecoderKind::Vop2Generic},
+    {"v_xor_b32_e32", EncodedOperandDecoderKind::Vop2Generic},
+    {"v_max_i32_e32", EncodedOperandDecoderKind::Vop2Generic},
+    {"v_cmp_lt_u32_e32", EncodedOperandDecoderKind::VopcGeneric},
+    {"v_cmp_le_u32_e32", EncodedOperandDecoderKind::VopcGeneric},
+    {"v_cmp_lt_u32_e64", EncodedOperandDecoderKind::Vop3CmpE64},
+    {"v_cmp_gt_u32_e64", EncodedOperandDecoderKind::Vop3CmpE64},
+    {"v_mul_lo_i32", EncodedOperandDecoderKind::Vop3aGeneric},
+    {"v_mul_hi_u32", EncodedOperandDecoderKind::Vop3aGeneric},
+    {"s_load_dword", EncodedOperandDecoderKind::ViStyleScalarMemory},
+    {"s_load_dwordx2", EncodedOperandDecoderKind::ViStyleScalarMemory},
+    {"s_load_dwordx4", EncodedOperandDecoderKind::ViStyleScalarMemory},
+    {"ds_read2_b32", EncodedOperandDecoderKind::DsRead2B32},
+    {"ds_read_b32", EncodedOperandDecoderKind::DsReadB32},
+    {"ds_write_b32", EncodedOperandDecoderKind::DsWriteB32},
+    {"v_accvgpr_read_b32", EncodedOperandDecoderKind::Vop3pAccvgprRead},
+    {"v_accvgpr_write_b32", EncodedOperandDecoderKind::Vop3pAccvgprWrite},
+    {"v_mfma_f32_16x16x4f32", EncodedOperandDecoderKind::Vop3pMatrix},
+    {"v_mfma_f32_16x16x4f16", EncodedOperandDecoderKind::Vop3pMatrix},
+    {"v_mfma_i32_16x16x4i8", EncodedOperandDecoderKind::Vop3pMatrix},
+    {"v_mfma_f32_16x16x2bf16", EncodedOperandDecoderKind::Vop3pMatrix},
+    {"v_mfma_f32_32x32x2f32", EncodedOperandDecoderKind::Vop3pMatrix},
+    {"v_mfma_i32_16x16x16i8", EncodedOperandDecoderKind::Vop3pMatrix},
+};
+
 bool SupportsLiteral32Extension(EncodedGcnInstFormatClass format_class) {
   switch (format_class) {
     case EncodedGcnInstFormatClass::Sop1:
@@ -23,6 +175,55 @@ bool SupportsLiteral32Extension(EncodedGcnInstFormatClass format_class) {
     default:
       return false;
   }
+}
+
+const GcnIsaOpcodeDescriptor* FindDescriptorByMnemonic(std::string_view mnemonic) {
+  return FindGcnIsaOpcodeDescriptorByName(mnemonic);
+}
+
+EncodedInstructionCategory CategoryForOpType(GcnIsaOpType op_type) {
+  switch (op_type) {
+    case GcnIsaOpType::Smrd:
+    case GcnIsaOpType::Smem:
+      return EncodedInstructionCategory::ScalarMemory;
+    case GcnIsaOpType::Sop1:
+    case GcnIsaOpType::Sop2:
+    case GcnIsaOpType::Sopk:
+    case GcnIsaOpType::Sopc:
+    case GcnIsaOpType::Sopp:
+      return EncodedInstructionCategory::Scalar;
+    case GcnIsaOpType::Vop1:
+    case GcnIsaOpType::Vop2:
+    case GcnIsaOpType::Vop3a:
+    case GcnIsaOpType::Vop3b:
+    case GcnIsaOpType::Vop3p:
+    case GcnIsaOpType::Vopc:
+      return EncodedInstructionCategory::Vector;
+    case GcnIsaOpType::Flat:
+    case GcnIsaOpType::Ds:
+    case GcnIsaOpType::Mubuf:
+    case GcnIsaOpType::Mtbuf:
+    case GcnIsaOpType::Mimg:
+    case GcnIsaOpType::Vintrp:
+    case GcnIsaOpType::Exp:
+      return EncodedInstructionCategory::Memory;
+  }
+  return EncodedInstructionCategory::Unknown;
+}
+
+EncodedOperandDecoderKind DefaultDecoderKindForFormat(EncodedGcnInstFormatClass format_class) {
+  (void)format_class;
+  return EncodedOperandDecoderKind::Generated;
+}
+
+EncodedOperandDecoderKind DecoderKindForMnemonic(std::string_view mnemonic,
+                                                 EncodedGcnInstFormatClass format_class) {
+  for (const auto& entry : kDecoderOverrides) {
+    if (entry.mnemonic == mnemonic) {
+      return entry.decoder_kind;
+    }
+  }
+  return DefaultDecoderKindForFormat(format_class);
 }
 
 struct WaitCntInfo {
@@ -103,6 +304,53 @@ uint32_t ExtractCanonicalOpcode(const std::vector<uint32_t>& words,
   }
 }
 
+std::vector<InternalEncodedGcnMatchRecord> BuildMatchRecords() {
+  std::vector<InternalEncodedGcnMatchRecord> records;
+  const auto append_record = [&](const EncodedGcnEncodingDef& def) {
+    const auto* descriptor = FindDescriptorByMnemonic(def.mnemonic);
+    if (descriptor == nullptr) {
+      return;
+    }
+    records.push_back(InternalEncodedGcnMatchRecord{
+        .record =
+            EncodedGcnMatchRecord{
+                .encoding_def = &def,
+                .opcode_descriptor = descriptor,
+                .category = CategoryForOpType(descriptor->op_type),
+                .operand_decoder_kind = DecoderKindForMnemonic(def.mnemonic, def.format_class),
+            },
+        .key_opcode = def.op,
+        .variant_bits = (def.mnemonic == "v_mbcnt_hi_u32_b32") ? 1u : 0u,
+    });
+    if (descriptor->opcode != def.op) {
+      records.push_back(InternalEncodedGcnMatchRecord{
+          .record =
+              EncodedGcnMatchRecord{
+                  .encoding_def = &def,
+                  .opcode_descriptor = descriptor,
+                  .category = CategoryForOpType(descriptor->op_type),
+                  .operand_decoder_kind = DecoderKindForMnemonic(def.mnemonic, def.format_class),
+              },
+          .key_opcode = descriptor->opcode,
+          .variant_bits = 0u,
+      });
+    }
+  };
+
+  for (const auto& def : GeneratedGcnEncodingDefs()) {
+    append_record(def);
+  }
+  for (const auto& def : kManualEncodedGcnEncodingDefs) {
+    append_record(def);
+  }
+  return records;
+}
+
+const std::vector<InternalEncodedGcnMatchRecord>& AllMatchRecords() {
+  static const auto records = BuildMatchRecords();
+  return records;
+}
+
 EncodedGcnOperand MakeOperand(EncodedGcnOperandKind kind, std::string text) {
   return EncodedGcnOperand{
       .kind = kind,
@@ -110,6 +358,8 @@ EncodedGcnOperand MakeOperand(EncodedGcnOperandKind kind, std::string text) {
       .info = {},
   };
 }
+
+EncodedGcnOperand DecodeSrc8(uint32_t value);
 
 std::string FormatScalarReg(uint32_t reg) {
   return "s" + std::to_string(reg);
@@ -217,6 +467,13 @@ EncodedGcnOperand MakeImmediateOperand(std::string text, int64_t value) {
               .has_immediate = true,
           },
   };
+}
+
+EncodedGcnOperand DecodeSrc8OrLiteral(const EncodedGcnInstruction& instruction, uint32_t raw_value) {
+  if (raw_value == 255u && instruction.words.size() > 1) {
+    return MakeImmediateOperand(FormatImmediate(instruction.words[1]), instruction.words[1]);
+  }
+  return DecodeSrc8(raw_value);
 }
 
 WaitCntInfo DecodeWaitCntInfo(uint16_t imm16) {
@@ -548,15 +805,18 @@ uint32_t ScalarMemoryDestCount(std::string_view mnemonic) {
 }
 
 uint32_t MatrixDestCount(std::string_view mnemonic) {
-  if (mnemonic == "v_mfma_f32_16x16x4f32" ||
-      mnemonic == "v_mfma_f32_16x16x4f16" ||
-      mnemonic == "v_mfma_i32_16x16x4i8" ||
-      mnemonic == "v_mfma_f32_16x16x2bf16" ||
-      mnemonic == "v_mfma_i32_16x16x16i8") {
-    return 4;
-  }
-  if (mnemonic == "v_mfma_f32_32x32x2f32") {
-    return 16;
+  static constexpr std::pair<std::string_view, uint32_t> kMatrixDestCounts[] = {
+      {"v_mfma_f32_16x16x4f32", 4},
+      {"v_mfma_f32_16x16x4f16", 4},
+      {"v_mfma_i32_16x16x4i8", 4},
+      {"v_mfma_f32_16x16x2bf16", 4},
+      {"v_mfma_i32_16x16x16i8", 4},
+      {"v_mfma_f32_32x32x2f32", 16},
+  };
+  for (const auto& [name, count] : kMatrixDestCounts) {
+    if (name == mnemonic) {
+      return count;
+    }
   }
   return 1;
 }
@@ -601,28 +861,16 @@ bool DecodeViStyleScalarMemoryOperands(EncodedGcnInstruction& instruction) {
   return true;
 }
 
-bool DecodeVop3pOperands(EncodedGcnInstruction& instruction) {
+bool DecodeVop3pMatrixOperands(EncodedGcnInstruction& instruction) {
   if (instruction.words.size() != 2) {
     return false;
   }
   const uint32_t low = instruction.words[0];
   const uint32_t high = instruction.words[1];
-  const uint32_t opcode = (low >> 16u) & 0x7fu;
   const uint32_t vdst = low & 0xffu;
   const uint32_t src0 = high & 0x1ffu;
   const uint32_t src1 = (high >> 9u) & 0x1ffu;
   const uint32_t src2 = (high >> 18u) & 0x1ffu;
-
-  if (instruction.mnemonic == "v_accvgpr_read_b32" || opcode == 88u) {
-    instruction.decoded_operands.push_back(MakeVectorRegOperand(vdst));
-    instruction.decoded_operands.push_back(MakeAccumulatorRegOperand(src0));
-    return true;
-  }
-  if (instruction.mnemonic == "v_accvgpr_write_b32" || opcode == 89u) {
-    instruction.decoded_operands.push_back(MakeAccumulatorRegOperand(vdst));
-    instruction.decoded_operands.push_back(DecodeSrc9(src0));
-    return true;
-  }
 
   const uint32_t dest_count = MatrixDestCount(instruction.mnemonic);
 
@@ -634,6 +882,32 @@ bool DecodeVop3pOperands(EncodedGcnInstruction& instruction) {
   instruction.decoded_operands.push_back(DecodeSrc9(src0));
   instruction.decoded_operands.push_back(DecodeSrc9(src1));
   instruction.decoded_operands.push_back(DecodeSrc9(src2));
+  return true;
+}
+
+bool DecodeVop3pAccvgprReadOperands(EncodedGcnInstruction& instruction) {
+  if (instruction.words.size() != 2) {
+    return false;
+  }
+  const uint32_t low = instruction.words[0];
+  const uint32_t high = instruction.words[1];
+  const uint32_t vdst = low & 0xffu;
+  const uint32_t src0 = high & 0x1ffu;
+  instruction.decoded_operands.push_back(MakeVectorRegOperand(vdst));
+  instruction.decoded_operands.push_back(MakeAccumulatorRegOperand(src0));
+  return true;
+}
+
+bool DecodeVop3pAccvgprWriteOperands(EncodedGcnInstruction& instruction) {
+  if (instruction.words.size() != 2) {
+    return false;
+  }
+  const uint32_t low = instruction.words[0];
+  const uint32_t high = instruction.words[1];
+  const uint32_t vdst = low & 0xffu;
+  const uint32_t src0 = high & 0x1ffu;
+  instruction.decoded_operands.push_back(MakeAccumulatorRegOperand(vdst));
+  instruction.decoded_operands.push_back(DecodeSrc9(src0));
   return true;
 }
 
@@ -656,66 +930,41 @@ bool DecodeDsRead2B32Operands(EncodedGcnInstruction& instruction) {
   return true;
 }
 
-bool DecodeDsReadWriteB32Operands(EncodedGcnInstruction& instruction) {
+bool DecodeDsReadB32Operands(EncodedGcnInstruction& instruction) {
   if (instruction.words.size() < 2) {
     return false;
   }
   const uint32_t low = instruction.words[0];
   const uint32_t high = instruction.words[1];
-  const uint32_t opcode = (low >> 17u) & 0xffu;
   const uint32_t offset = low & 0xffffu;
-  if (instruction.mnemonic == "ds_read_b32") {
-    if (opcode != 54u) {
-      return false;
-    }
-    const uint32_t addr = high & 0xffu;
-    const uint32_t vdst = (high >> 24u) & 0xffu;
-    instruction.decoded_operands.push_back(MakeVectorRegOperand(vdst));
-    instruction.decoded_operands.push_back(MakeVectorRegOperand(addr));
-    if (offset != 0u) {
-      instruction.decoded_operands.push_back(MakeImmediateOperand(FormatImmediate(offset), offset));
-    }
-    return true;
+  const uint32_t addr = high & 0xffu;
+  const uint32_t vdst = (high >> 24u) & 0xffu;
+  instruction.decoded_operands.push_back(MakeVectorRegOperand(vdst));
+  instruction.decoded_operands.push_back(MakeVectorRegOperand(addr));
+  if (offset != 0u) {
+    instruction.decoded_operands.push_back(MakeImmediateOperand(FormatImmediate(offset), offset));
   }
-  if (instruction.mnemonic == "ds_write_b32") {
-    if (opcode != 13u) {
-      return false;
-    }
-    const uint32_t addr = high & 0xffu;
-    const uint32_t data0 = (high >> 8u) & 0xffu;
-    instruction.decoded_operands.push_back(MakeVectorRegOperand(addr));
-    instruction.decoded_operands.push_back(MakeVectorRegOperand(data0));
-    if (offset != 0u) {
-      instruction.decoded_operands.push_back(MakeImmediateOperand(FormatImmediate(offset), offset));
-    }
-    return true;
-  }
-  return false;
-}
-
-bool DecodeVopcLtU32Operands(EncodedGcnInstruction& instruction) {
-  if (instruction.words.empty()) {
-    return false;
-  }
-  const uint32_t word = instruction.words[0];
-  const uint32_t opcode = (word >> 17u) & 0xffu;
-  if (opcode != 0xc9u) {
-    return false;
-  }
-  const uint32_t src0 = word & 0x1ffu;
-  const uint32_t vsrc1 = (word >> 9u) & 0xffu;
-  instruction.decoded_operands.push_back(MakeSpecialRegOperand(GcnSpecialReg::Vcc, "vcc"));
-  if (src0 == 255u && instruction.words.size() > 1) {
-    instruction.decoded_operands.push_back(
-        MakeImmediateOperand(FormatImmediate(instruction.words[1]), instruction.words[1]));
-  } else {
-    instruction.decoded_operands.push_back(DecodeSrc9(src0));
-  }
-  instruction.decoded_operands.push_back(MakeVectorRegOperand(vsrc1));
   return true;
 }
 
-bool DecodeVop3CmpGtU32Operands(EncodedGcnInstruction& instruction) {
+bool DecodeDsWriteB32Operands(EncodedGcnInstruction& instruction) {
+  if (instruction.words.size() < 2) {
+    return false;
+  }
+  const uint32_t low = instruction.words[0];
+  const uint32_t high = instruction.words[1];
+  const uint32_t offset = low & 0xffffu;
+  const uint32_t addr = high & 0xffu;
+  const uint32_t data0 = (high >> 8u) & 0xffu;
+  instruction.decoded_operands.push_back(MakeVectorRegOperand(addr));
+  instruction.decoded_operands.push_back(MakeVectorRegOperand(data0));
+  if (offset != 0u) {
+    instruction.decoded_operands.push_back(MakeImmediateOperand(FormatImmediate(offset), offset));
+  }
+  return true;
+}
+
+bool DecodeVop3CompareOperands(EncodedGcnInstruction& instruction) {
   if (instruction.words.size() < 2) {
     return false;
   }
@@ -738,59 +987,48 @@ bool DecodeVop3CmpGtU32Operands(EncodedGcnInstruction& instruction) {
   return true;
 }
 
-bool DecodeSop2XorB64Operands(EncodedGcnInstruction& instruction) {
-  if (instruction.words.empty()) {
-    return false;
-  }
-  const uint32_t word = instruction.words[0];
-  const uint32_t opcode = (word >> 23u) & 0x7fu;
-  if (opcode != 0x11u) {
-    return false;
-  }
-  const uint32_t sdst = (word >> 16u) & 0x7fu;
-  const uint32_t ssrc1 = (word >> 8u) & 0xffu;
-  const uint32_t ssrc0 = word & 0xffu;
-  instruction.decoded_operands.push_back(DecodeScalarPairDest(sdst));
-  instruction.decoded_operands.push_back(DecodeScalarPairSrc8(ssrc0));
-  instruction.decoded_operands.push_back(DecodeScalarPairSrc8(ssrc1));
-  return true;
-}
-
-bool DecodeSop1Andn2SaveexecB64Operands(EncodedGcnInstruction& instruction) {
-  if (instruction.words.empty()) {
-    return false;
-  }
-  const uint32_t word = instruction.words[0];
-  const uint32_t opcode = (word >> 8u) & 0xffu;
-  if (opcode != 0x23u) {
-    return false;
-  }
-  const uint32_t sdst = (word >> 16u) & 0x7fu;
-  const uint32_t ssrc0 = word & 0xffu;
-  instruction.decoded_operands.push_back(DecodeScalarPairDest(sdst));
-  instruction.decoded_operands.push_back(DecodeScalarPairSrc8(ssrc0));
-  return true;
-}
-
-bool DecodeGenericSop1Operands(EncodedGcnInstruction& instruction) {
+bool DecodeSop1ScalarOperands(EncodedGcnInstruction& instruction) {
   if (instruction.words.empty()) {
     return false;
   }
   const uint32_t word = instruction.words[0];
   const uint32_t sdst = (word >> 16u) & 0x7fu;
   const uint32_t ssrc0 = word & 0xffu;
-  if (instruction.mnemonic == "s_mov_b64" || instruction.mnemonic == "s_and_saveexec_b64" ||
-      instruction.mnemonic == "s_andn2_saveexec_b64") {
-    instruction.decoded_operands.push_back(DecodeScalarPairDest(sdst));
-    instruction.decoded_operands.push_back(DecodeScalarPairSrc8(ssrc0));
-    return true;
-  }
   instruction.decoded_operands.push_back(MakeScalarRegOperand(sdst));
-  instruction.decoded_operands.push_back(DecodeSrc8(ssrc0));
+  instruction.decoded_operands.push_back(DecodeSrc8OrLiteral(instruction, ssrc0));
   return true;
 }
 
-bool DecodeGenericSop2Operands(EncodedGcnInstruction& instruction) {
+bool DecodeSop1ScalarPairOperands(EncodedGcnInstruction& instruction) {
+  if (instruction.words.empty()) {
+    return false;
+  }
+  const uint32_t word = instruction.words[0];
+  const uint32_t sdst = (word >> 16u) & 0x7fu;
+  const uint32_t ssrc0 = word & 0xffu;
+  instruction.decoded_operands.push_back(DecodeScalarPairDest(sdst));
+  if (ssrc0 == 255u && instruction.words.size() > 1) {
+    instruction.decoded_operands.push_back(
+        MakeImmediateOperand(FormatImmediate(instruction.words[1]), instruction.words[1]));
+  } else {
+    instruction.decoded_operands.push_back(DecodeScalarPairSrc8(ssrc0));
+  }
+  return true;
+}
+
+bool DecodeSopcScalarOperands(EncodedGcnInstruction& instruction) {
+  if (instruction.words.empty()) {
+    return false;
+  }
+  const uint32_t word = instruction.words[0];
+  const uint32_t ssrc0 = word & 0xffu;
+  const uint32_t ssrc1 = (word >> 8u) & 0xffu;
+  instruction.decoded_operands.push_back(DecodeSrc8OrLiteral(instruction, ssrc0));
+  instruction.decoded_operands.push_back(DecodeSrc8OrLiteral(instruction, ssrc1));
+  return true;
+}
+
+bool DecodeSop2ScalarOperands(EncodedGcnInstruction& instruction) {
   if (instruction.words.empty()) {
     return false;
   }
@@ -798,20 +1036,37 @@ bool DecodeGenericSop2Operands(EncodedGcnInstruction& instruction) {
   const uint32_t sdst = (word >> 16u) & 0x7fu;
   const uint32_t ssrc1 = (word >> 8u) & 0xffu;
   const uint32_t ssrc0 = word & 0xffu;
-  const bool is_b64 = instruction.mnemonic.ends_with("_b64");
-  if (is_b64) {
-    instruction.decoded_operands.push_back(DecodeScalarPairDest(sdst));
+  instruction.decoded_operands.push_back(MakeScalarRegOperand(sdst));
+  instruction.decoded_operands.push_back(DecodeSrc8OrLiteral(instruction, ssrc0));
+  instruction.decoded_operands.push_back(DecodeSrc8OrLiteral(instruction, ssrc1));
+  return true;
+}
+
+bool DecodeSop2ScalarPairOperands(EncodedGcnInstruction& instruction) {
+  if (instruction.words.empty()) {
+    return false;
+  }
+  const uint32_t word = instruction.words[0];
+  const uint32_t sdst = (word >> 16u) & 0x7fu;
+  const uint32_t ssrc1 = (word >> 8u) & 0xffu;
+  const uint32_t ssrc0 = word & 0xffu;
+  instruction.decoded_operands.push_back(DecodeScalarPairDest(sdst));
+  if (ssrc0 == 255u && instruction.words.size() > 1) {
+    instruction.decoded_operands.push_back(
+        MakeImmediateOperand(FormatImmediate(instruction.words[1]), instruction.words[1]));
+  } else {
     instruction.decoded_operands.push_back(DecodeScalarPairSrc8(ssrc0));
+  }
+  if (ssrc1 == 255u && instruction.words.size() > 1) {
+    instruction.decoded_operands.push_back(
+        MakeImmediateOperand(FormatImmediate(instruction.words[1]), instruction.words[1]));
+  } else {
     instruction.decoded_operands.push_back(DecodeScalarPairSrc8(ssrc1));
-    return true;
   }
-  instruction.decoded_operands.push_back(MakeScalarRegOperand(sdst));
-  instruction.decoded_operands.push_back(DecodeSrc8(ssrc0));
-  instruction.decoded_operands.push_back(DecodeSrc8(ssrc1));
   return true;
 }
 
-bool DecodeGenericVop1Operands(EncodedGcnInstruction& instruction) {
+bool DecodeVop1GenericOperands(EncodedGcnInstruction& instruction) {
   if (instruction.words.empty()) {
     return false;
   }
@@ -828,7 +1083,7 @@ bool DecodeGenericVop1Operands(EncodedGcnInstruction& instruction) {
   return true;
 }
 
-bool DecodeGenericVop3aOperands(EncodedGcnInstruction& instruction) {
+bool DecodeVop3aGenericOperands(EncodedGcnInstruction& instruction) {
   if (instruction.words.size() < 2) {
     return false;
   }
@@ -845,7 +1100,7 @@ bool DecodeGenericVop3aOperands(EncodedGcnInstruction& instruction) {
   return true;
 }
 
-bool DecodeGenericVop2Operands(EncodedGcnInstruction& instruction) {
+bool DecodeVop2GenericOperands(EncodedGcnInstruction& instruction) {
   if (instruction.words.empty()) {
     return false;
   }
@@ -864,7 +1119,7 @@ bool DecodeGenericVop2Operands(EncodedGcnInstruction& instruction) {
   return true;
 }
 
-bool DecodeGenericVopcOperands(EncodedGcnInstruction& instruction) {
+bool DecodeVopcGenericOperands(EncodedGcnInstruction& instruction) {
   if (instruction.words.empty()) {
     return false;
   }
@@ -882,20 +1137,7 @@ bool DecodeGenericVopcOperands(EncodedGcnInstruction& instruction) {
   return true;
 }
 
-bool NeedsScalarPairDest(std::string_view mnemonic) {
-  return mnemonic == "s_mov_b64" || mnemonic == "s_cselect_b64" || mnemonic == "s_andn2_b64" ||
-         mnemonic == "s_or_b64" || mnemonic == "s_and_b64" || mnemonic == "s_lshl_b64";
-}
-
 bool TryDecodeGeneratedOperands(EncodedGcnInstruction& instruction, const GcnGeneratedInstDef& inst_def) {
-  if (instruction.format_class == EncodedGcnInstFormatClass::Smrd &&
-      DecodeViStyleScalarMemoryOperands(instruction)) {
-    return true;
-  }
-  if (instruction.format_class == EncodedGcnInstFormatClass::Vop3p &&
-      DecodeVop3pOperands(instruction)) {
-    return true;
-  }
   const auto* format_def = FindGeneratedFormatDefByClass(inst_def.format_class);
   if (format_def == nullptr) {
     return false;
@@ -914,10 +1156,7 @@ bool TryDecodeGeneratedOperands(EncodedGcnInstruction& instruction, const GcnGen
       }
     }
     const uint32_t raw_value = field != nullptr ? ExtractGeneratedFieldValue(instruction.words, *field) : 0;
-    if (spec.field == std::string_view("sdst") && spec.role == std::string_view("def") &&
-        NeedsScalarPairDest(instruction.mnemonic)) {
-      instruction.decoded_operands.push_back(DecodeScalarPairDest(raw_value));
-    } else if (std::string_view(spec.kind) == "scalar_reg") {
+    if (std::string_view(spec.kind) == "scalar_reg") {
       instruction.decoded_operands.push_back(MakeScalarRegOperand(raw_value));
     } else if (std::string_view(spec.kind) == "scalar_reg_range") {
       instruction.decoded_operands.push_back(
@@ -988,151 +1227,131 @@ bool TryDecodeGeneratedOperands(EncodedGcnInstruction& instruction, const GcnGen
 
 void DecodeEncodedGcnOperands(EncodedGcnInstruction& instruction) {
   instruction.decoded_operands.clear();
-  if (instruction.format_class == EncodedGcnInstFormatClass::Vop3p &&
-      DecodeVop3pOperands(instruction)) {
+  const auto* match = FindEncodedGcnMatchRecord(instruction.words);
+  if (match == nullptr) {
     return;
   }
-  if (instruction.mnemonic == "ds_read2_b32" && DecodeDsRead2B32Operands(instruction)) {
-    return;
-  }
-  if ((instruction.mnemonic == "ds_read_b32" || instruction.mnemonic == "ds_write_b32") &&
-      DecodeDsReadWriteB32Operands(instruction)) {
-    return;
-  }
-  if (instruction.mnemonic == "v_cmp_lt_u32_e32" && DecodeVopcLtU32Operands(instruction)) {
-    return;
-  }
-  if (instruction.format_class == EncodedGcnInstFormatClass::Vop3a &&
-      instruction.mnemonic.starts_with("v_cmp_") && instruction.mnemonic.ends_with("_e64") &&
-      DecodeVop3CmpGtU32Operands(instruction)) {
-    return;
-  }
-  if (instruction.mnemonic == "s_xor_b64" && DecodeSop2XorB64Operands(instruction)) {
-    return;
-  }
-  if (instruction.mnemonic == "s_andn2_saveexec_b64" &&
-      DecodeSop1Andn2SaveexecB64Operands(instruction)) {
-    return;
-  }
-  const auto* def = FindEncodedGcnEncodingDef(instruction.words);
-  if (def == nullptr) {
-    if (const auto* fallback = FindEncodedGcnFallbackOpcodeDescriptor(instruction.words); fallback != nullptr) {
-      if (fallback->op_type == GcnIsaOpType::Sop1 && DecodeGenericSop1Operands(instruction)) {
-        return;
-      }
-      if (fallback->op_type == GcnIsaOpType::Sop2 && DecodeGenericSop2Operands(instruction)) {
-        return;
-      }
-      if (fallback->op_type == GcnIsaOpType::Vop1 && DecodeGenericVop1Operands(instruction)) {
-        return;
-      }
-      if (fallback->op_type == GcnIsaOpType::Vop2 && DecodeGenericVop2Operands(instruction)) {
-        return;
-      }
-      if (fallback->op_type == GcnIsaOpType::Vopc && DecodeGenericVopcOperands(instruction)) {
-        return;
-      }
-      if (fallback->op_type == GcnIsaOpType::Vop3a && DecodeGenericVop3aOperands(instruction)) {
-        return;
-      }
-    }
-    return;
-  }
-  instruction.encoding_id = def->id;
+  instruction.encoding_id = match->encoding_def->id;
+  instruction.mnemonic = std::string(match->encoding_def->mnemonic);
 
-  if (const auto* inst_def = FindGeneratedGcnInstDefById(def->id); inst_def != nullptr) {
-    (void)TryDecodeGeneratedOperands(instruction, *inst_def);
-    return;
+  switch (match->operand_decoder_kind) {
+    case EncodedOperandDecoderKind::Generated:
+      if (const auto* inst_def = FindGeneratedGcnInstDefById(match->encoding_def->id);
+          inst_def != nullptr) {
+        (void)TryDecodeGeneratedOperands(instruction, *inst_def);
+      }
+      return;
+    case EncodedOperandDecoderKind::ViStyleScalarMemory:
+      (void)DecodeViStyleScalarMemoryOperands(instruction);
+      return;
+    case EncodedOperandDecoderKind::Vop3pMatrix:
+      (void)DecodeVop3pMatrixOperands(instruction);
+      return;
+    case EncodedOperandDecoderKind::Vop3pAccvgprRead:
+      (void)DecodeVop3pAccvgprReadOperands(instruction);
+      return;
+    case EncodedOperandDecoderKind::Vop3pAccvgprWrite:
+      (void)DecodeVop3pAccvgprWriteOperands(instruction);
+      return;
+    case EncodedOperandDecoderKind::DsRead2B32:
+      (void)DecodeDsRead2B32Operands(instruction);
+      return;
+    case EncodedOperandDecoderKind::DsReadB32:
+      (void)DecodeDsReadB32Operands(instruction);
+      return;
+    case EncodedOperandDecoderKind::DsWriteB32:
+      (void)DecodeDsWriteB32Operands(instruction);
+      return;
+    case EncodedOperandDecoderKind::Sop1Scalar:
+      (void)DecodeSop1ScalarOperands(instruction);
+      return;
+    case EncodedOperandDecoderKind::Sop1ScalarPair:
+      (void)DecodeSop1ScalarPairOperands(instruction);
+      return;
+    case EncodedOperandDecoderKind::Sop2Scalar:
+      (void)DecodeSop2ScalarOperands(instruction);
+      return;
+    case EncodedOperandDecoderKind::Sop2ScalarPair:
+      (void)DecodeSop2ScalarPairOperands(instruction);
+      return;
+    case EncodedOperandDecoderKind::SopcScalar:
+      (void)DecodeSopcScalarOperands(instruction);
+      return;
+    case EncodedOperandDecoderKind::Vop1Generic:
+      (void)DecodeVop1GenericOperands(instruction);
+      return;
+    case EncodedOperandDecoderKind::Vop2Generic:
+      (void)DecodeVop2GenericOperands(instruction);
+      return;
+    case EncodedOperandDecoderKind::Vop3aGeneric:
+      (void)DecodeVop3aGenericOperands(instruction);
+      return;
+    case EncodedOperandDecoderKind::Vop3CmpE64:
+      (void)DecodeVop3CompareOperands(instruction);
+      return;
+    case EncodedOperandDecoderKind::VopcGeneric:
+      (void)DecodeVopcGenericOperands(instruction);
+      return;
+    case EncodedOperandDecoderKind::Unsupported:
+      return;
   }
 }
 
-const EncodedGcnEncodingDef* FindEncodedGcnEncodingDef(const std::vector<uint32_t>& words) {
+const EncodedGcnMatchRecord* FindEncodedGcnMatchRecord(const std::vector<uint32_t>& words) {
   const auto format_class = ClassifyGcnInstFormat(words);
-  const uint32_t op = ExtractOp(words, format_class);
-  const auto& defs = GeneratedGcnEncodingDefs();
-  if (format_class == EncodedGcnInstFormatClass::Vop3a &&
-      op == 326u &&
-      static_cast<uint32_t>(words.size() * sizeof(uint32_t)) == 8u) {
-    const bool is_hi = (words[0] & 0x00010000u) != 0;
-    const uint32_t target_id = is_hi ? 82u : 81u;
-    for (size_t i = 0; i < defs.size(); ++i) {
-      if (defs[i].id == target_id) {
-        return &defs[i];
-      }
+  const uint32_t opcode = ExtractOp(words, format_class);
+  const uint32_t canonical_opcode = ExtractCanonicalOpcode(words, format_class);
+  const uint32_t size_bytes = static_cast<uint32_t>(words.size() * sizeof(uint32_t));
+  const uint32_t variant_bits =
+      (format_class == EncodedGcnInstFormatClass::Vop3a && opcode == 326u && !words.empty())
+          ? ((words[0] >> 16u) & 0x1u)
+          : 0u;
+  const auto& records = AllMatchRecords();
+  for (const auto& entry : records) {
+    const auto& def = *entry.record.encoding_def;
+    if (def.format_class == format_class && entry.key_opcode == opcode && def.size_bytes == size_bytes &&
+        entry.variant_bits == variant_bits) {
+      return &entry.record;
     }
   }
-  for (size_t i = 0; i < defs.size(); ++i) {
-    if (defs[i].format_class == format_class && defs[i].op == op &&
-        defs[i].size_bytes == static_cast<uint32_t>(words.size() * sizeof(uint32_t))) {
-      return &defs[i];
+  if (canonical_opcode != opcode) {
+    for (const auto& entry : records) {
+      const auto& def = *entry.record.encoding_def;
+      if (def.format_class == format_class && entry.key_opcode == canonical_opcode &&
+          def.size_bytes == size_bytes) {
+        return &entry.record;
+      }
     }
   }
   if (words.size() == 2 && SupportsLiteral32Extension(format_class)) {
-    for (size_t i = 0; i < defs.size(); ++i) {
-      if (defs[i].format_class == format_class && defs[i].op == op &&
-          defs[i].size_bytes == 4u) {
-        return &defs[i];
+    for (const auto& entry : records) {
+      const auto& def = *entry.record.encoding_def;
+      if (def.format_class == format_class && entry.key_opcode == opcode && def.size_bytes == 4u &&
+          entry.variant_bits == variant_bits) {
+        return &entry.record;
+      }
+    }
+    if (canonical_opcode != opcode) {
+      for (const auto& entry : records) {
+        const auto& def = *entry.record.encoding_def;
+        if (def.format_class == format_class && entry.key_opcode == canonical_opcode &&
+            def.size_bytes == 4u) {
+          return &entry.record;
+        }
       }
     }
   }
   return nullptr;
 }
 
-const GcnIsaOpcodeDescriptor* FindEncodedGcnFallbackOpcodeDescriptor(const std::vector<uint32_t>& words) {
-  const auto format_class = ClassifyGcnInstFormat(words);
-  const uint32_t opcode = ExtractCanonicalOpcode(words, format_class);
-  switch (format_class) {
-    case EncodedGcnInstFormatClass::Sop2:
-      return FindDescriptorByPair(GcnIsaOpType::Sop2, opcode);
-    case EncodedGcnInstFormatClass::Sopk:
-      return FindDescriptorByPair(GcnIsaOpType::Sopk, opcode);
-    case EncodedGcnInstFormatClass::Sop1:
-      return FindDescriptorByPair(GcnIsaOpType::Sop1, opcode);
-    case EncodedGcnInstFormatClass::Sopc:
-      return FindDescriptorByPair(GcnIsaOpType::Sopc, opcode);
-    case EncodedGcnInstFormatClass::Sopp:
-      return FindDescriptorByPair(GcnIsaOpType::Sopp, opcode);
-    case EncodedGcnInstFormatClass::Smrd:
-      return FindSmrdDescriptor(opcode);
-    case EncodedGcnInstFormatClass::Smem:
-      return FindDescriptorByPair(GcnIsaOpType::Smem, opcode);
-    case EncodedGcnInstFormatClass::Vop2:
-      return FindDescriptorByPair(GcnIsaOpType::Vop2, opcode);
-    case EncodedGcnInstFormatClass::Vop1:
-      return FindDescriptorByPair(GcnIsaOpType::Vop1, opcode);
-    case EncodedGcnInstFormatClass::Vopc:
-      return FindDescriptorByPair(GcnIsaOpType::Vopc, opcode);
-    case EncodedGcnInstFormatClass::Vop3a:
-    case EncodedGcnInstFormatClass::Vop3b:
-      return FindVop3Descriptor(opcode);
-    case EncodedGcnInstFormatClass::Vop3p:
-      return FindDescriptorByPair(GcnIsaOpType::Vop3p, opcode);
-    case EncodedGcnInstFormatClass::Vintrp:
-      return FindDescriptorByPair(GcnIsaOpType::Vintrp, opcode);
-    case EncodedGcnInstFormatClass::Ds:
-      return FindDescriptorByPair(GcnIsaOpType::Ds, opcode);
-    case EncodedGcnInstFormatClass::Flat:
-      return FindFlatDescriptor(words, opcode);
-    case EncodedGcnInstFormatClass::Mubuf:
-      return FindDescriptorByPair(GcnIsaOpType::Mubuf, opcode);
-    case EncodedGcnInstFormatClass::Mtbuf:
-      return FindDescriptorByPair(GcnIsaOpType::Mtbuf, opcode);
-    case EncodedGcnInstFormatClass::Mimg:
-      return FindDescriptorByPair(GcnIsaOpType::Mimg, opcode);
-    case EncodedGcnInstFormatClass::Exp:
-      return FindDescriptorByPair(GcnIsaOpType::Exp, opcode);
-    case EncodedGcnInstFormatClass::Unknown:
-      return nullptr;
-  }
-  return nullptr;
+const EncodedGcnEncodingDef* FindEncodedGcnEncodingDef(const std::vector<uint32_t>& words) {
+  const auto* match = FindEncodedGcnMatchRecord(words);
+  return match != nullptr ? match->encoding_def : nullptr;
 }
 
 std::string_view LookupEncodedGcnOpcodeName(const std::vector<uint32_t>& words) {
-  if (const auto* def = FindEncodedGcnEncodingDef(words); def != nullptr) {
-    return def->mnemonic;
-  }
-  if (const auto* descriptor = FindEncodedGcnFallbackOpcodeDescriptor(words); descriptor != nullptr) {
-    return descriptor->opname;
+  if (const auto* match = FindEncodedGcnMatchRecord(words); match != nullptr) {
+    return match->encoding_def->mnemonic;
   }
   return "unknown";
 }

@@ -492,503 +492,161 @@ DEFINE_RAW_GCN_OPCODE_CLASS(DsRead2B32Instruction, DsInstructionBase, "ds_read2_
 #undef DEFINE_RAW_GCN_OPCODE_CLASS
 
 InstructionObjectPtr MakePlaceholderInstruction(DecodedInstruction instruction,
-                                                      std::string_view op_type_name,
-                                                      std::string_view class_name) {
+                                                std::string_view op_type_name,
+                                                std::string_view class_name) {
   static const UnsupportedInstructionHandler kUnsupportedHandler;
   return std::make_unique<PlaceholderInstructionBase>(std::move(instruction), kUnsupportedHandler,
                                                       op_type_name, class_name);
 }
 
-InstructionObjectPtr CreateScalarMemoryInstruction(const GcnIsaOpcodeDescriptor& descriptor,
-                                                         DecodedInstruction instruction) {
-  if (descriptor.op_type == GcnIsaOpType::Smrd || descriptor.op_type == GcnIsaOpType::Smem) {
-    switch (descriptor.opcode) {
-      case static_cast<uint16_t>(GcnIsaSmrdOpcode::S_LOAD_DWORD):
-        return std::make_unique<SLoadDwordInstruction>(
-            std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-      case static_cast<uint16_t>(GcnIsaSmrdOpcode::S_LOAD_DWORDX2):
-        return std::make_unique<SLoadDwordx2Instruction>(
-            std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-      case static_cast<uint16_t>(GcnIsaSmrdOpcode::S_LOAD_DWORDX4):
-        return std::make_unique<SLoadDwordx4Instruction>(
-            std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-      default:
-        break;
-    }
-  }
-  return MakePlaceholderInstruction(std::move(instruction), "scalar_memory",
-                                    "scalar_memory_placeholder");
+using InstructionFactoryFn = InstructionObjectPtr (*)(DecodedInstruction);
+
+template <typename T>
+InstructionObjectPtr MakeInstruction(DecodedInstruction instruction) {
+  const auto& handler = EncodedSemanticHandlerRegistry::Get(instruction);
+  return std::make_unique<T>(std::move(instruction), handler);
 }
 
-InstructionObjectPtr CreateScalarInstruction(const GcnIsaOpcodeDescriptor& descriptor,
-                                                   DecodedInstruction instruction) {
-  switch (descriptor.op_type) {
-    case GcnIsaOpType::Sop1:
-      switch (descriptor.opcode) {
-        case static_cast<uint16_t>(GcnIsaSop1Opcode::S_MOV_B32):
-          return std::make_unique<SMovB32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaSop1Opcode::S_MOV_B64):
-          return std::make_unique<SMovB64Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaSop1Opcode::S_ABS_I32):
-          return std::make_unique<SAbsI32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaSop1Opcode::S_SEXT_I32_I16):
-          return std::make_unique<SSextI32I16Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaSop1Opcode::S_BCNT1_I32_B64):
-          return std::make_unique<SBcnt1I32B64Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaSop1Opcode::S_AND_SAVEEXEC_B64):
-          return std::make_unique<SAndSaveexecB64Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaSop1Opcode::S_ANDN2_SAVEEXEC_B64):
-          return std::make_unique<SAndn2SaveexecB64Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        default:
-          break;
-      }
-      return MakePlaceholderInstruction(std::move(instruction), "sop1", "sop1_placeholder");
-    case GcnIsaOpType::Sop2:
-      switch (descriptor.opcode) {
-        case static_cast<uint16_t>(GcnIsaSop2Opcode::S_ADD_U32):
-          return std::make_unique<SAddU32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaSop2Opcode::S_SUB_I32):
-          return std::make_unique<SSubI32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaSop2Opcode::S_ADD_I32):
-          return std::make_unique<SAddI32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaSop2Opcode::S_ADDC_U32):
-          return std::make_unique<SAddcU32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaSop2Opcode::S_CSELECT_B64):
-          return std::make_unique<SCselectB64Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaSop2Opcode::S_AND_B32):
-          return std::make_unique<SAndB32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaSop2Opcode::S_AND_B64):
-          return std::make_unique<SAndB64Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaSop2Opcode::S_OR_B64):
-          return std::make_unique<SOrB64Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaSop2Opcode::S_XOR_B64):
-          return std::make_unique<SXorB64Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaSop2Opcode::S_OR_B32):
-          return std::make_unique<SOrB32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaSop2Opcode::S_ANDN2_B64):
-          return std::make_unique<SAndn2B64Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaSop2Opcode::S_LSHL_B64):
-          return std::make_unique<SLshlB64Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaSop2Opcode::S_LSHR_B32):
-          return std::make_unique<SLshrB32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaSop2Opcode::S_ASHR_I32):
-          return std::make_unique<SAshrI32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaSop2Opcode::S_MUL_I32):
-          return std::make_unique<SMulI32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        default:
-          break;
-      }
-      return MakePlaceholderInstruction(std::move(instruction), "sop2", "sop2_placeholder");
-    case GcnIsaOpType::Sopk:
-      if (descriptor.opcode == static_cast<uint16_t>(GcnIsaSopkOpcode::S_MOVK_I32)) {
-        return std::make_unique<SMovkI32Instruction>(
-            std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-      }
-      return MakePlaceholderInstruction(std::move(instruction), "sopk", "sopk_placeholder");
-    case GcnIsaOpType::Sopc:
-      switch (descriptor.opcode) {
-        case static_cast<uint16_t>(GcnIsaSopcOpcode::S_CMP_GT_I32):
-          return std::make_unique<SCmpGtI32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaSopcOpcode::S_CMP_LT_I32):
-          return std::make_unique<SCmpLtI32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaSopcOpcode::S_CMP_EQ_U32):
-          return std::make_unique<SCmpEqU32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaSopcOpcode::S_CMP_GT_U32):
-          return std::make_unique<SCmpGtU32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaSopcOpcode::S_CMP_LT_U32):
-          return std::make_unique<SCmpLtU32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        default:
-          break;
-      }
-      return MakePlaceholderInstruction(std::move(instruction), "sopc", "sopc_placeholder");
-    case GcnIsaOpType::Sopp:
-      switch (descriptor.opcode) {
-        case static_cast<uint16_t>(GcnIsaSoppOpcode::S_NOP):
-          return std::make_unique<SNopInstruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaSoppOpcode::S_ENDPGM):
-          return std::make_unique<SEndpgmInstruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaSoppOpcode::S_BRANCH):
-          return std::make_unique<SBranchInstruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaSoppOpcode::S_CBRANCH_SCC0):
-          return std::make_unique<SCbranchScc0Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaSoppOpcode::S_CBRANCH_SCC1):
-          return std::make_unique<SCbranchScc1Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaSoppOpcode::S_CBRANCH_VCCZ):
-          return std::make_unique<SCbranchVcczInstruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaSoppOpcode::S_CBRANCH_EXECZ):
-          return std::make_unique<SCbranchExeczInstruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaSoppOpcode::S_CBRANCH_EXECNZ):
-          return std::make_unique<SCbranchExecnzInstruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaSoppOpcode::S_BARRIER):
-          return std::make_unique<SBarrierInstruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaSoppOpcode::S_WAITCNT):
-          return std::make_unique<SWaitcntInstruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        default:
-          break;
-      }
-      return MakePlaceholderInstruction(std::move(instruction), "sopp", "sopp_placeholder");
-    default:
-      break;
-  }
-  return MakePlaceholderInstruction(std::move(instruction), "scalar", "scalar_placeholder");
-}
+struct InstructionFactoryEntry {
+  std::string_view mnemonic;
+  InstructionFactoryFn factory;
+};
 
-InstructionObjectPtr CreateVectorInstruction(const GcnIsaOpcodeDescriptor& descriptor,
-                                                   DecodedInstruction instruction) {
-  if (instruction.mnemonic == "v_max_i32_e32") {
-    return std::make_unique<VMaxI32Instruction>(
-        std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-  }
-  if (instruction.mnemonic == "v_cmp_le_u32_e32") {
-    return std::make_unique<VCmpLeU32Instruction>(
-        std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-  }
-  switch (descriptor.op_type) {
-    case GcnIsaOpType::Vop1:
-      switch (descriptor.opcode) {
-        case static_cast<uint16_t>(GcnIsaVop1Opcode::V_MOV_B32_E32):
-          return std::make_unique<VMovB32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop1Opcode::V_CVT_F32_I32_E32):
-          return std::make_unique<VCvtF32I32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop1Opcode::V_CVT_F32_U32_E32):
-          return std::make_unique<VCvtF32U32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop1Opcode::V_CVT_I32_F32_E32):
-          return std::make_unique<VCvtI32F32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop1Opcode::V_CVT_U32_F32_E32):
-          return std::make_unique<VCvtU32F32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop1Opcode::V_RNDNE_F32_E32):
-          return std::make_unique<VRndneF32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop1Opcode::V_EXP_F32_E32):
-          return std::make_unique<VExpF32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop1Opcode::V_RCP_F32_E32):
-          return std::make_unique<VRcpF32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop1Opcode::V_RCP_IFLAG_F32_E32):
-          return std::make_unique<VRcpIflagF32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop1Opcode::V_NOT_B32_E32):
-          return std::make_unique<VNotB32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        default:
-          break;
-      }
-      return MakePlaceholderInstruction(std::move(instruction), "vop1", "vop1_placeholder");
-    case GcnIsaOpType::Vop2:
-      switch (descriptor.opcode) {
-        case static_cast<uint16_t>(GcnIsaVop2Opcode::V_CNDMASK_B32_E32):
-          return std::make_unique<VCndmaskB32E32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop2Opcode::V_ADD_F32_E32):
-          return std::make_unique<VAddF32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop2Opcode::V_SUB_F32_E32):
-          return std::make_unique<VSubF32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop2Opcode::V_MUL_F32_E32):
-          return std::make_unique<VMulF32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop2Opcode::V_MAX_F32_E32):
-          return std::make_unique<VMaxF32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop2Opcode::V_MAX_I32_E32):
-          return std::make_unique<VMaxI32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop2Opcode::V_ASHRREV_I32_E32):
-          return std::make_unique<VAshrrevI32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop2Opcode::V_LSHLREV_B32_E32):
-          return std::make_unique<VLshlrevB32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop2Opcode::V_AND_B32_E32):
-          return std::make_unique<VAndB32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop2Opcode::V_OR_B32_E32):
-          return std::make_unique<VOrB32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop2Opcode::V_XOR_B32_E32):
-          return std::make_unique<VXorB32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop2Opcode::V_SUBREV_U32_E32):
-          return std::make_unique<VSubrevU32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop2Opcode::V_ADD_CO_U32_E32):
-          return std::make_unique<VAddCoU32E32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop2Opcode::V_ADDC_CO_U32_E32):
-          return std::make_unique<VAddcCoU32E32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop2Opcode::V_ADD_U32_E32):
-          return std::make_unique<VAddU32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop2Opcode::V_SUB_U32_E32):
-          return std::make_unique<VSubU32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop2Opcode::V_FMAC_F32_E32):
-          return std::make_unique<VFmacF32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        default:
-          break;
-      }
-      return MakePlaceholderInstruction(std::move(instruction), "vop2", "vop2_placeholder");
-    case GcnIsaOpType::Vop3a:
-      switch (descriptor.opcode) {
-        case static_cast<uint16_t>(GcnIsaVop3aOpcode::V_CNDMASK_B32_E64):
-          return std::make_unique<VCndmaskB32E64Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop3aOpcode::V_CMP_LT_U32_E64):
-          return std::make_unique<VCmpLtU32E64Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop3aOpcode::V_CMP_GT_I32_E64):
-          return std::make_unique<VCmpGtI32E64Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop3aOpcode::V_CMP_GT_U32_E64):
-          return std::make_unique<VCmpGtU32E64Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop3aOpcode::V_MUL_LO_I32):
-          return std::make_unique<VMulLoI32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop3aOpcode::V_MUL_HI_U32):
-          return std::make_unique<VMulHiU32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop3aOpcode::V_FMA_F32):
-          return std::make_unique<VFmaF32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop3aOpcode::V_DIV_FIXUP_F32):
-          return std::make_unique<VDivFixupF32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop3aOpcode::V_DIV_FMAS_F32):
-          return std::make_unique<VDivFmasF32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop3aOpcode::V_LSHL_ADD_U32):
-          return std::make_unique<VLshlAddU32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop3aOpcode::V_LDEXP_F32):
-          return std::make_unique<VLdexpF32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop3aOpcode::V_MBCNT_LO_U32_B32):
-          return std::make_unique<VMbcntLoInstruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop3aOpcode::V_MBCNT_HI_U32_B32):
-          return std::make_unique<VMbcntHiInstruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop3aOpcode::V_LSHLREV_B64):
-          return std::make_unique<VLshlrevB64Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop3aOpcode::V_OR3_B32):
-          return std::make_unique<VOr3B32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        default:
-          break;
-      }
-      return MakePlaceholderInstruction(std::move(instruction), "vop3a", "vop3a_placeholder");
-    case GcnIsaOpType::Vop3b:
-      switch (descriptor.opcode) {
-        case static_cast<uint16_t>(GcnIsaVop3bOpcode::V_ADD_CO_U32_E64):
-          return std::make_unique<VAddCoU32E64Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop3bOpcode::V_ADDC_CO_U32_E64):
-          return std::make_unique<VAddcCoU32E64Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop3bOpcode::V_DIV_SCALE_F32):
-          return std::make_unique<VDivScaleF32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop3bOpcode::V_MAD_U64_U32):
-          return std::make_unique<VMadU64U32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        default:
-          break;
-      }
-      return MakePlaceholderInstruction(std::move(instruction), "vop3b", "vop3b_placeholder");
-    case GcnIsaOpType::Vop3p:
-      switch (descriptor.opcode) {
-        case static_cast<uint16_t>(GcnIsaVop3pOpcode::V_MFMA_F32_16X16X4F32):
-          return std::make_unique<VMfmaF32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop3pOpcode::V_MFMA_F32_16X16X4F16):
-          return std::make_unique<VMfmaF16Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop3pOpcode::V_MFMA_I32_16X16X4I8):
-          return std::make_unique<VMfmaI8Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop3pOpcode::V_MFMA_F32_16X16X2BF16):
-          return std::make_unique<VMfmaBf16Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop3pOpcode::V_MFMA_F32_32X32X2F32):
-          return std::make_unique<VMfmaF32WideInstruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop3pOpcode::V_MFMA_I32_16X16X16I8):
-          return std::make_unique<VMfmaI8WideInstruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop3pOpcode::V_ACCVGPR_READ_B32):
-          return std::make_unique<VAccvgprReadB32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVop3pOpcode::V_ACCVGPR_WRITE_B32):
-          return std::make_unique<VAccvgprWriteB32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        default:
-          break;
-      }
-      return MakePlaceholderInstruction(std::move(instruction), "vop3p", "vop3p_placeholder");
-    case GcnIsaOpType::Vopc:
-      switch (descriptor.opcode) {
-        case static_cast<uint16_t>(GcnIsaVopcOpcode::V_CMP_LT_U32_E32):
-          return std::make_unique<VCmpLtU32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVopcOpcode::V_CMP_LE_U32_E32):
-          return std::make_unique<VCmpLeU32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVopcOpcode::V_CMP_NGT_F32_E32):
-          return std::make_unique<VCmpNgtF32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVopcOpcode::V_CMP_NLT_F32_E32):
-          return std::make_unique<VCmpNltF32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVopcOpcode::V_CMP_LT_I32_E32):
-          return std::make_unique<VCmpLtI32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVopcOpcode::V_CMP_LE_I32_E32):
-          return std::make_unique<VCmpLeI32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVopcOpcode::V_CMP_GT_I32_E32):
-          return std::make_unique<VCmpGtI32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVopcOpcode::V_CMP_EQ_U32_E32):
-          return std::make_unique<VCmpEqU32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        case static_cast<uint16_t>(GcnIsaVopcOpcode::V_CMP_GT_U32_E32):
-          return std::make_unique<VCmpGtU32Instruction>(
-              std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-        default:
-          break;
-      }
-      return MakePlaceholderInstruction(std::move(instruction), "vopc", "vopc_placeholder");
-    default:
-      break;
-  }
-  return MakePlaceholderInstruction(std::move(instruction), "vector", "vector_placeholder");
-}
+constexpr InstructionFactoryEntry kInstructionFactories[] = {
+    {"s_load_dword", &MakeInstruction<SLoadDwordInstruction>},
+    {"s_load_dwordx2", &MakeInstruction<SLoadDwordx2Instruction>},
+    {"s_load_dwordx4", &MakeInstruction<SLoadDwordx4Instruction>},
+    {"s_mov_b32", &MakeInstruction<SMovB32Instruction>},
+    {"s_mov_b64", &MakeInstruction<SMovB64Instruction>},
+    {"s_abs_i32", &MakeInstruction<SAbsI32Instruction>},
+    {"s_sext_i32_i16", &MakeInstruction<SSextI32I16Instruction>},
+    {"s_bcnt1_i32_b64", &MakeInstruction<SBcnt1I32B64Instruction>},
+    {"s_movk_i32", &MakeInstruction<SMovkI32Instruction>},
+    {"s_and_saveexec_b64", &MakeInstruction<SAndSaveexecB64Instruction>},
+    {"s_andn2_saveexec_b64", &MakeInstruction<SAndn2SaveexecB64Instruction>},
+    {"s_cselect_b64", &MakeInstruction<SCselectB64Instruction>},
+    {"s_andn2_b64", &MakeInstruction<SAndn2B64Instruction>},
+    {"s_or_b64", &MakeInstruction<SOrB64Instruction>},
+    {"s_xor_b64", &MakeInstruction<SXorB64Instruction>},
+    {"s_or_b32", &MakeInstruction<SOrB32Instruction>},
+    {"s_and_b64", &MakeInstruction<SAndB64Instruction>},
+    {"s_and_b32", &MakeInstruction<SAndB32Instruction>},
+    {"s_mul_i32", &MakeInstruction<SMulI32Instruction>},
+    {"s_sub_i32", &MakeInstruction<SSubI32Instruction>},
+    {"s_add_i32", &MakeInstruction<SAddI32Instruction>},
+    {"s_add_u32", &MakeInstruction<SAddU32Instruction>},
+    {"s_addc_u32", &MakeInstruction<SAddcU32Instruction>},
+    {"s_lshr_b32", &MakeInstruction<SLshrB32Instruction>},
+    {"s_ashr_i32", &MakeInstruction<SAshrI32Instruction>},
+    {"s_lshl_b64", &MakeInstruction<SLshlB64Instruction>},
+    {"s_cmp_lt_i32", &MakeInstruction<SCmpLtI32Instruction>},
+    {"s_cmp_gt_i32", &MakeInstruction<SCmpGtI32Instruction>},
+    {"s_cmp_eq_u32", &MakeInstruction<SCmpEqU32Instruction>},
+    {"s_cmp_gt_u32", &MakeInstruction<SCmpGtU32Instruction>},
+    {"s_cmp_lt_u32", &MakeInstruction<SCmpLtU32Instruction>},
+    {"s_nop", &MakeInstruction<SNopInstruction>},
+    {"s_endpgm", &MakeInstruction<SEndpgmInstruction>},
+    {"s_branch", &MakeInstruction<SBranchInstruction>},
+    {"s_cbranch_scc0", &MakeInstruction<SCbranchScc0Instruction>},
+    {"s_cbranch_scc1", &MakeInstruction<SCbranchScc1Instruction>},
+    {"s_cbranch_vccz", &MakeInstruction<SCbranchVcczInstruction>},
+    {"s_cbranch_execz", &MakeInstruction<SCbranchExeczInstruction>},
+    {"s_cbranch_execnz", &MakeInstruction<SCbranchExecnzInstruction>},
+    {"s_barrier", &MakeInstruction<SBarrierInstruction>},
+    {"s_waitcnt", &MakeInstruction<SWaitcntInstruction>},
+    {"v_not_b32_e32", &MakeInstruction<VNotB32Instruction>},
+    {"v_mov_b32_e32", &MakeInstruction<VMovB32Instruction>},
+    {"v_rndne_f32_e32", &MakeInstruction<VRndneF32Instruction>},
+    {"v_cvt_i32_f32_e32", &MakeInstruction<VCvtI32F32Instruction>},
+    {"v_cvt_f32_i32_e32", &MakeInstruction<VCvtF32I32Instruction>},
+    {"v_cvt_f32_u32_e32", &MakeInstruction<VCvtF32U32Instruction>},
+    {"v_cvt_u32_f32_e32", &MakeInstruction<VCvtU32F32Instruction>},
+    {"v_exp_f32_e32", &MakeInstruction<VExpF32Instruction>},
+    {"v_rcp_f32_e32", &MakeInstruction<VRcpF32Instruction>},
+    {"v_rcp_iflag_f32_e32", &MakeInstruction<VRcpIflagF32Instruction>},
+    {"v_add_u32_e32", &MakeInstruction<VAddU32Instruction>},
+    {"v_sub_u32_e32", &MakeInstruction<VSubU32Instruction>},
+    {"v_ashrrev_i32_e32", &MakeInstruction<VAshrrevI32Instruction>},
+    {"v_lshlrev_b32_e32", &MakeInstruction<VLshlrevB32Instruction>},
+    {"v_and_b32_e32", &MakeInstruction<VAndB32Instruction>},
+    {"v_or_b32_e32", &MakeInstruction<VOrB32Instruction>},
+    {"v_xor_b32_e32", &MakeInstruction<VXorB32Instruction>},
+    {"v_subrev_u32_e32", &MakeInstruction<VSubrevU32Instruction>},
+    {"v_add_co_u32_e32", &MakeInstruction<VAddCoU32E32Instruction>},
+    {"v_addc_co_u32_e32", &MakeInstruction<VAddcCoU32E32Instruction>},
+    {"v_add_f32_e32", &MakeInstruction<VAddF32Instruction>},
+    {"v_sub_f32_e32", &MakeInstruction<VSubF32Instruction>},
+    {"v_mul_f32_e32", &MakeInstruction<VMulF32Instruction>},
+    {"v_max_f32_e32", &MakeInstruction<VMaxF32Instruction>},
+    {"v_max_i32_e32", &MakeInstruction<VMaxI32Instruction>},
+    {"v_fmac_f32_e32", &MakeInstruction<VFmacF32Instruction>},
+    {"v_cndmask_b32_e32", &MakeInstruction<VCndmaskB32E32Instruction>},
+    {"v_lshlrev_b64", &MakeInstruction<VLshlrevB64Instruction>},
+    {"v_or3_b32", &MakeInstruction<VOr3B32Instruction>},
+    {"v_lshl_add_u32", &MakeInstruction<VLshlAddU32Instruction>},
+    {"v_fma_f32", &MakeInstruction<VFmaF32Instruction>},
+    {"v_mbcnt_lo_u32_b32", &MakeInstruction<VMbcntLoInstruction>},
+    {"v_mbcnt_hi_u32_b32", &MakeInstruction<VMbcntHiInstruction>},
+    {"v_ldexp_f32", &MakeInstruction<VLdexpF32Instruction>},
+    {"v_div_fmas_f32", &MakeInstruction<VDivFmasF32Instruction>},
+    {"v_div_fixup_f32", &MakeInstruction<VDivFixupF32Instruction>},
+    {"v_cndmask_b32_e64", &MakeInstruction<VCndmaskB32E64Instruction>},
+    {"v_cmp_lt_u32_e64", &MakeInstruction<VCmpLtU32E64Instruction>},
+    {"v_cmp_gt_i32_e64", &MakeInstruction<VCmpGtI32E64Instruction>},
+    {"v_cmp_gt_u32_e64", &MakeInstruction<VCmpGtU32E64Instruction>},
+    {"v_mul_lo_i32", &MakeInstruction<VMulLoI32Instruction>},
+    {"v_mul_hi_u32", &MakeInstruction<VMulHiU32Instruction>},
+    {"v_add_co_u32_e64", &MakeInstruction<VAddCoU32E64Instruction>},
+    {"v_addc_co_u32_e64", &MakeInstruction<VAddcCoU32E64Instruction>},
+    {"v_div_scale_f32", &MakeInstruction<VDivScaleF32Instruction>},
+    {"v_mad_u64_u32", &MakeInstruction<VMadU64U32Instruction>},
+    {"v_mfma_f32_16x16x4f32", &MakeInstruction<VMfmaF32Instruction>},
+    {"v_mfma_f32_16x16x4f16", &MakeInstruction<VMfmaF16Instruction>},
+    {"v_mfma_i32_16x16x4i8", &MakeInstruction<VMfmaI8Instruction>},
+    {"v_mfma_f32_16x16x2bf16", &MakeInstruction<VMfmaBf16Instruction>},
+    {"v_mfma_f32_32x32x2f32", &MakeInstruction<VMfmaF32WideInstruction>},
+    {"v_mfma_i32_16x16x16i8", &MakeInstruction<VMfmaI8WideInstruction>},
+    {"v_accvgpr_read_b32", &MakeInstruction<VAccvgprReadB32Instruction>},
+    {"v_accvgpr_write_b32", &MakeInstruction<VAccvgprWriteB32Instruction>},
+    {"v_cmp_gt_i32_e32", &MakeInstruction<VCmpGtI32Instruction>},
+    {"v_cmp_le_i32_e32", &MakeInstruction<VCmpLeI32Instruction>},
+    {"v_cmp_lt_i32_e32", &MakeInstruction<VCmpLtI32Instruction>},
+    {"v_cmp_lt_u32_e32", &MakeInstruction<VCmpLtU32Instruction>},
+    {"v_cmp_le_u32_e32", &MakeInstruction<VCmpLeU32Instruction>},
+    {"v_cmp_gt_u32_e32", &MakeInstruction<VCmpGtU32Instruction>},
+    {"v_cmp_eq_u32_e32", &MakeInstruction<VCmpEqU32Instruction>},
+    {"v_cmp_ngt_f32_e32", &MakeInstruction<VCmpNgtF32Instruction>},
+    {"v_cmp_nlt_f32_e32", &MakeInstruction<VCmpNltF32Instruction>},
+    {"global_load_dword", &MakeInstruction<GlobalLoadDwordInstruction>},
+    {"global_store_dword", &MakeInstruction<GlobalStoreDwordInstruction>},
+    {"global_atomic_add", &MakeInstruction<GlobalAtomicAddInstruction>},
+    {"ds_write_b32", &MakeInstruction<DsWriteB32Instruction>},
+    {"ds_read_b32", &MakeInstruction<DsReadB32Instruction>},
+    {"ds_read2_b32", &MakeInstruction<DsRead2B32Instruction>},
+};
 
-InstructionObjectPtr CreateMemoryInstruction(const GcnIsaOpcodeDescriptor& descriptor,
-                                                   DecodedInstruction instruction) {
-  if (descriptor.op_type == GcnIsaOpType::Flat) {
-    if (descriptor.opname == std::string_view("global_load_dword") ||
-        descriptor.opname == std::string_view("flat_load_dword")) {
-      return std::make_unique<GlobalLoadDwordInstruction>(
-          std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
+const InstructionFactoryEntry* FindInstructionFactory(std::string_view mnemonic) {
+  for (const auto& entry : kInstructionFactories) {
+    if (entry.mnemonic == mnemonic) {
+      return &entry;
     }
-    if (descriptor.opname == std::string_view("global_store_dword") ||
-        descriptor.opname == std::string_view("flat_store_dword")) {
-      return std::make_unique<GlobalStoreDwordInstruction>(
-          std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-    }
-    if (descriptor.opname == std::string_view("global_atomic_add") ||
-        descriptor.opname == std::string_view("flat_atomic_add")) {
-      return std::make_unique<GlobalAtomicAddInstruction>(
-          std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-    }
-    return MakePlaceholderInstruction(std::move(instruction), "flat", "flat_placeholder");
   }
-  if (descriptor.op_type == GcnIsaOpType::Ds) {
-    switch (descriptor.opcode) {
-      case static_cast<uint16_t>(GcnIsaDsOpcode::DS_WRITE_B32):
-        return std::make_unique<DsWriteB32Instruction>(
-            std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-      case static_cast<uint16_t>(GcnIsaDsOpcode::DS_READ_B32):
-        return std::make_unique<DsReadB32Instruction>(
-            std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-      case static_cast<uint16_t>(GcnIsaDsOpcode::DS_READ2_B32):
-        return std::make_unique<DsRead2B32Instruction>(
-            std::move(instruction), EncodedSemanticHandlerRegistry::Get(instruction));
-      default:
-        break;
-    }
-    return MakePlaceholderInstruction(std::move(instruction), "ds", "ds_placeholder");
-  }
-  if (descriptor.op_type == GcnIsaOpType::Mubuf) {
-    return MakePlaceholderInstruction(std::move(instruction), "mubuf", "mubuf_placeholder");
-  }
-  if (descriptor.op_type == GcnIsaOpType::Mtbuf) {
-    return MakePlaceholderInstruction(std::move(instruction), "mtbuf", "mtbuf_placeholder");
-  }
-  if (descriptor.op_type == GcnIsaOpType::Mimg) {
-    return MakePlaceholderInstruction(std::move(instruction), "mimg", "mimg_placeholder");
-  }
-  if (descriptor.op_type == GcnIsaOpType::Vintrp) {
-    return MakePlaceholderInstruction(std::move(instruction), "vintrp", "vintrp_placeholder");
-  }
-  if (descriptor.op_type == GcnIsaOpType::Exp) {
-    return MakePlaceholderInstruction(std::move(instruction), "exp", "exp_placeholder");
-  }
-  return MakePlaceholderInstruction(std::move(instruction), "memory", "memory_placeholder");
+  return nullptr;
 }
 
 }  // namespace
 
 InstructionObjectPtr BindEncodedInstructionObject(DecodedInstruction instruction) {
-  const EncodedInstructionDescriptor descriptor = DescribeEncodedInstruction(instruction);
-  if (!descriptor.known()) {
-    return MakePlaceholderInstruction(std::move(instruction), descriptor.placeholder_op_type_name,
-                                      descriptor.placeholder_class_name);
+  const auto* match = FindEncodedGcnMatchRecord(instruction.words);
+  if (match == nullptr || !match->known()) {
+    throw std::invalid_argument("missing encoded instruction match record: " + instruction.mnemonic);
   }
-
-  switch (descriptor.category) {
-    case EncodedInstructionCategory::ScalarMemory:
-      return CreateScalarMemoryInstruction(*descriptor.opcode_descriptor, std::move(instruction));
-    case EncodedInstructionCategory::Scalar:
-      return CreateScalarInstruction(*descriptor.opcode_descriptor, std::move(instruction));
-    case EncodedInstructionCategory::Vector:
-      return CreateVectorInstruction(*descriptor.opcode_descriptor, std::move(instruction));
-    case EncodedInstructionCategory::Memory:
-      return CreateMemoryInstruction(*descriptor.opcode_descriptor, std::move(instruction));
-    case EncodedInstructionCategory::Unknown:
-      break;
+  if (const auto* factory = FindInstructionFactory(match->encoding_def->mnemonic); factory != nullptr) {
+    instruction.mnemonic = std::string(match->encoding_def->mnemonic);
+    return factory->factory(std::move(instruction));
   }
-  return MakePlaceholderInstruction(std::move(instruction), descriptor.placeholder_op_type_name,
-                                    descriptor.placeholder_class_name);
+  throw std::invalid_argument("missing encoded instruction factory: " +
+                              std::string(match->encoding_def->mnemonic));
 }
 
 }  // namespace gpu_model

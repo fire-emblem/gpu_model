@@ -2,18 +2,10 @@
 
 #include <string_view>
 
-#include "gpu_model/instruction/encoded/internal/generated_encoded_gcn_full_opcode_table.h"
+#include "gpu_model/instruction/encoded/internal/encoded_gcn_encoding_def.h"
 #include "gpu_model/instruction/encoded/decoded_instruction.h"
 
 namespace gpu_model {
-
-enum class EncodedInstructionCategory {
-  Unknown,
-  ScalarMemory,
-  Scalar,
-  Vector,
-  Memory,
-};
 
 struct EncodedInstructionDescriptor {
   const GcnIsaOpcodeDescriptor* opcode_descriptor = nullptr;

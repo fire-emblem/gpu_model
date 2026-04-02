@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -45,6 +46,28 @@ struct FloatLaunchRunResult {
   LaunchResult launch;
   std::vector<float> output;
 };
+
+EncodedProgramObject LoadHipccImage(const std::filesystem::path& exe_path,
+                                    const std::string& kernel_name) {
+  auto image = ObjectReader{}.LoadEncodedObject(exe_path, kernel_name);
+  for (size_t i = 0; i < image.decoded_instructions.size(); ++i) {
+    if (image.decoded_instructions[i].encoding_id == 0) {
+      std::ostringstream words;
+      words << std::hex << "0x"
+            << (image.decoded_instructions[i].words.empty() ? 0u
+                                                             : image.decoded_instructions[i].words[0]);
+      if (image.decoded_instructions[i].words.size() > 1) {
+        words << ",0x" << image.decoded_instructions[i].words[1];
+      }
+      ADD_FAILURE() << "kernel " << kernel_name << " decoded instruction at pc=0x" << std::hex
+                    << image.decoded_instructions[i].pc << std::dec << " mnemonic="
+                    << image.decoded_instructions[i].mnemonic << " format="
+                    << static_cast<int>(image.decoded_instructions[i].format_class) << " words=["
+                    << words.str() << "] without explicit encoding support";
+    }
+  }
+  return image;
+}
 
 TEST(HipccParallelExecutionTest, ThreeDimensionalVecaddAddsMatchesBetweenStAndMt) {
   if (!HasHipHostToolchain()) {
@@ -115,7 +138,7 @@ TEST(HipccParallelExecutionTest, ThreeDimensionalVecaddAddsMatchesBetweenStAndMt
 
     const auto begin = std::chrono::steady_clock::now();
     const auto launch = hooks.LaunchEncodedProgramObject(
-        ObjectReader{}.LoadEncodedObject(exe_path, "vecadd_3d_adds"),
+        LoadHipccImage(exe_path, "vecadd_3d_adds"),
         LaunchConfig{
             .grid_dim_x = (width + 3) / 4,
             .grid_dim_y = (height + 3) / 4,
@@ -201,7 +224,7 @@ TEST(HipccParallelExecutionTest,
     args.PushU64(out_addr);
 
     const auto launch = hooks.LaunchEncodedProgramObject(
-        ObjectReader{}.LoadEncodedObject(exe_path, "barrier_skew"),
+        LoadHipccImage(exe_path, "barrier_skew"),
         LaunchConfig{.grid_dim_x = 1, .block_dim_x = 128},
         std::move(args),
         ExecutionMode::Functional,
@@ -301,7 +324,7 @@ TEST(HipccParallelExecutionTest,
     args.PushU32(total);
 
     auto launch = hooks.LaunchEncodedProgramObject(
-        ObjectReader{}.LoadEncodedObject(exe_path, "shared_reverse"),
+        LoadHipccImage(exe_path, "shared_reverse"),
         LaunchConfig{.grid_dim_x = grid_dim, .block_dim_x = block_dim},
         std::move(args),
         mode,
@@ -417,7 +440,7 @@ TEST(HipccParallelExecutionTest,
     args.PushU32(n);
 
     auto launch = hooks.LaunchEncodedProgramObject(
-        ObjectReader{}.LoadEncodedObject(exe_path, "softmax_row"),
+        LoadHipccImage(exe_path, "softmax_row"),
         LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
         std::move(args),
         mode,
@@ -516,7 +539,7 @@ TEST(HipccParallelExecutionTest,
     args.PushU32(n);
 
     auto launch = hooks.LaunchEncodedProgramObject(
-        ObjectReader{}.LoadEncodedObject(exe_path, "atomic_count"),
+        LoadHipccImage(exe_path, "atomic_count"),
         LaunchConfig{.grid_dim_x = 3, .block_dim_x = 128},
         std::move(args),
         mode,
@@ -618,7 +641,7 @@ TEST(HipccParallelExecutionTest,
     args.PushU32(n);
 
     auto launch = hooks.LaunchEncodedProgramObject(
-        ObjectReader{}.LoadEncodedObject(exe_path, "vecadd"),
+        LoadHipccImage(exe_path, "vecadd"),
         LaunchConfig{.grid_dim_x = 30, .block_dim_x = 1024},
         std::move(args),
         mode,
@@ -739,7 +762,7 @@ TEST(HipccParallelExecutionTest,
       args.PushU32(test_case.n);
 
       auto launch = hooks.LaunchEncodedProgramObject(
-          ObjectReader{}.LoadEncodedObject(exe_path, "vecadd"),
+          LoadHipccImage(exe_path, "vecadd"),
           LaunchConfig{.grid_dim_x = test_case.grid_dim_x, .block_dim_x = test_case.block_dim_x},
           std::move(args),
           mode,
@@ -890,7 +913,7 @@ TEST(HipccParallelExecutionTest,
       args.PushU32(n);
 
       auto launch = hooks.LaunchEncodedProgramObject(
-          ObjectReader{}.LoadEncodedObject(exe_path, test_case.name),
+          LoadHipccImage(exe_path, test_case.name),
           test_case.config,
           std::move(args),
           mode,
@@ -1006,7 +1029,7 @@ TEST(HipccParallelExecutionTest,
     args.PushU32(iters);
 
     auto launch = hooks.LaunchEncodedProgramObject(
-        ObjectReader{}.LoadEncodedObject(exe_path, "fma_loop"),
+        LoadHipccImage(exe_path, "fma_loop"),
         LaunchConfig{.grid_dim_x = 3, .block_dim_x = 128},
         std::move(args),
         mode,
@@ -1103,7 +1126,7 @@ TEST(HipccParallelExecutionTest,
     args.PushU64(out_addr);
 
     auto launch = hooks.LaunchEncodedProgramObject(
-        ObjectReader{}.LoadEncodedObject(exe_path, "mma_gemm_probe"),
+        LoadHipccImage(exe_path, "mma_gemm_probe"),
         LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
         std::move(args),
         mode,
@@ -1175,7 +1198,7 @@ TEST(HipccParallelExecutionTest,
   const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "waitcnt_global_pair_sum");
+  const auto image = LoadHipccImage(exe_path, "waitcnt_global_pair_sum");
   bool saw_waitcnt = false;
   for (const auto& inst : image.instructions) {
     if (inst.mnemonic == "s_waitcnt") {
@@ -1290,7 +1313,7 @@ TEST(HipccParallelExecutionTest,
   const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "waitcnt_shared_rotate");
+  const auto image = LoadHipccImage(exe_path, "waitcnt_shared_rotate");
   bool saw_waitcnt = false;
   for (const auto& inst : image.instructions) {
     if (inst.mnemonic == "s_waitcnt") {
@@ -1417,7 +1440,7 @@ TEST(HipccParallelExecutionTest,
   const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "waitcnt_global_pair_sum");
+  const auto image = LoadHipccImage(exe_path, "waitcnt_global_pair_sum");
   bool saw_waitcnt = false;
   for (const auto& inst : image.instructions) {
     if (inst.mnemonic == "s_waitcnt") {
@@ -1607,7 +1630,7 @@ TEST(HipccParallelExecutionTest,
       args.PushU64(out_addr);
 
       auto launch = hooks.LaunchEncodedProgramObject(
-          ObjectReader{}.LoadEncodedObject(exe_path, test_case.name),
+          LoadHipccImage(exe_path, test_case.name),
           LaunchConfig{.grid_dim_x = grid_dim, .block_dim_x = block_dim},
           std::move(args),
           mode,
@@ -1719,7 +1742,7 @@ TEST(HipccParallelExecutionTest,
       args.PushU64(out_addr);
 
       auto launch = hooks.LaunchEncodedProgramObject(
-          ObjectReader{}.LoadEncodedObject(exe_path, "barrier_blocks"),
+          LoadHipccImage(exe_path, "barrier_blocks"),
           LaunchConfig{.grid_dim_x = test_case.grid_dim_x, .block_dim_x = block_dim},
           std::move(args),
           mode,
@@ -1865,7 +1888,7 @@ TEST(HipccParallelExecutionTest,
     args.PushU64(out_addr);
 
     auto launch = hooks.LaunchEncodedProgramObject(
-        ObjectReader{}.LoadEncodedObject(exe_path, "conditional_multibarrier"),
+        LoadHipccImage(exe_path, "conditional_multibarrier"),
         LaunchConfig{.grid_dim_x = grid_dim, .block_dim_x = block_dim},
         std::move(args),
         mode,

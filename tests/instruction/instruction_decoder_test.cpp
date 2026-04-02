@@ -771,7 +771,7 @@ TEST(InstructionDecoderTest, DecodesAdditionalVectorAndLdsInstructions) {
   }
 }
 
-TEST(InstructionDecoderTest, FallsBackToGeneratedNameForReservedPlaceholderFamilies) {
+TEST(InstructionDecoderTest, LeavesReservedPlaceholderFamiliesUnknownWhenNotInMatchTable) {
   {
     EncodedGcnInstruction raw{
         .pc = 0x1b00,
@@ -783,7 +783,7 @@ TEST(InstructionDecoderTest, FallsBackToGeneratedNameForReservedPlaceholderFamil
         .decoded_operands = {},
     };
     const auto decoded = InstructionDecoder{}.Decode(raw);
-    EXPECT_EQ(decoded.mnemonic, "buffer_load_dword");
+    EXPECT_EQ(decoded.mnemonic, "unknown");
   }
 
   {
@@ -797,7 +797,7 @@ TEST(InstructionDecoderTest, FallsBackToGeneratedNameForReservedPlaceholderFamil
         .decoded_operands = {},
     };
     const auto decoded = InstructionDecoder{}.Decode(raw);
-    EXPECT_EQ(decoded.mnemonic, "tbuffer_load_format_x");
+    EXPECT_EQ(decoded.mnemonic, "unknown");
   }
 
   {
@@ -811,7 +811,7 @@ TEST(InstructionDecoderTest, FallsBackToGeneratedNameForReservedPlaceholderFamil
         .decoded_operands = {},
     };
     const auto decoded = InstructionDecoder{}.Decode(raw);
-    EXPECT_EQ(decoded.mnemonic, "image_load");
+    EXPECT_EQ(decoded.mnemonic, "unknown");
   }
 
   {
@@ -825,7 +825,7 @@ TEST(InstructionDecoderTest, FallsBackToGeneratedNameForReservedPlaceholderFamil
         .decoded_operands = {},
     };
     const auto decoded = InstructionDecoder{}.Decode(raw);
-    EXPECT_EQ(decoded.mnemonic, "exp");
+    EXPECT_EQ(decoded.mnemonic, "unknown");
   }
 
   {
@@ -839,7 +839,7 @@ TEST(InstructionDecoderTest, FallsBackToGeneratedNameForReservedPlaceholderFamil
         .decoded_operands = {},
     };
     const auto decoded = InstructionDecoder{}.Decode(raw);
-    EXPECT_EQ(decoded.mnemonic, "v_interp_p1_f32");
+    EXPECT_EQ(decoded.mnemonic, "unknown");
   }
 }
 

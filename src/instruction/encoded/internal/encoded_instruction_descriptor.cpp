@@ -41,69 +41,68 @@ std::string_view ToString(EncodedInstructionCategory category) {
 }
 
 EncodedInstructionDescriptor DescribeEncodedInstruction(const DecodedInstruction& instruction) {
-  const auto* descriptor = FindEncodedGcnFallbackOpcodeDescriptor(instruction.words);
-  if (descriptor == nullptr) {
+  const auto* match = FindEncodedGcnMatchRecord(instruction.words);
+  if (match == nullptr) {
     return MakeUnknownDescriptor();
   }
-
-  switch (descriptor->op_type) {
+  switch (match->opcode_descriptor->op_type) {
     case GcnIsaOpType::Smrd:
     case GcnIsaOpType::Smem:
-      return MakeDescriptor(descriptor, EncodedInstructionCategory::ScalarMemory,
-                            "scalar_memory", "scalar_memory_placeholder");
+      return MakeDescriptor(match->opcode_descriptor, match->category, "scalar_memory",
+                            "scalar_memory_placeholder");
     case GcnIsaOpType::Sop1:
-      return MakeDescriptor(descriptor, EncodedInstructionCategory::Scalar, "sop1",
+      return MakeDescriptor(match->opcode_descriptor, match->category, "sop1",
                             "sop1_placeholder");
     case GcnIsaOpType::Sop2:
-      return MakeDescriptor(descriptor, EncodedInstructionCategory::Scalar, "sop2",
+      return MakeDescriptor(match->opcode_descriptor, match->category, "sop2",
                             "sop2_placeholder");
     case GcnIsaOpType::Sopk:
-      return MakeDescriptor(descriptor, EncodedInstructionCategory::Scalar, "sopk",
+      return MakeDescriptor(match->opcode_descriptor, match->category, "sopk",
                             "sopk_placeholder");
     case GcnIsaOpType::Sopc:
-      return MakeDescriptor(descriptor, EncodedInstructionCategory::Scalar, "sopc",
+      return MakeDescriptor(match->opcode_descriptor, match->category, "sopc",
                             "sopc_placeholder");
     case GcnIsaOpType::Sopp:
-      return MakeDescriptor(descriptor, EncodedInstructionCategory::Scalar, "sopp",
+      return MakeDescriptor(match->opcode_descriptor, match->category, "sopp",
                             "sopp_placeholder");
     case GcnIsaOpType::Vop1:
-      return MakeDescriptor(descriptor, EncodedInstructionCategory::Vector, "vop1",
+      return MakeDescriptor(match->opcode_descriptor, match->category, "vop1",
                             "vop1_placeholder");
     case GcnIsaOpType::Vop2:
-      return MakeDescriptor(descriptor, EncodedInstructionCategory::Vector, "vop2",
+      return MakeDescriptor(match->opcode_descriptor, match->category, "vop2",
                             "vop2_placeholder");
     case GcnIsaOpType::Vop3a:
-      return MakeDescriptor(descriptor, EncodedInstructionCategory::Vector, "vop3a",
+      return MakeDescriptor(match->opcode_descriptor, match->category, "vop3a",
                             "vop3a_placeholder");
     case GcnIsaOpType::Vop3b:
-      return MakeDescriptor(descriptor, EncodedInstructionCategory::Vector, "vop3b",
+      return MakeDescriptor(match->opcode_descriptor, match->category, "vop3b",
                             "vop3b_placeholder");
     case GcnIsaOpType::Vop3p:
-      return MakeDescriptor(descriptor, EncodedInstructionCategory::Vector, "vop3p",
+      return MakeDescriptor(match->opcode_descriptor, match->category, "vop3p",
                             "vop3p_placeholder");
     case GcnIsaOpType::Vopc:
-      return MakeDescriptor(descriptor, EncodedInstructionCategory::Vector, "vopc",
+      return MakeDescriptor(match->opcode_descriptor, match->category, "vopc",
                             "vopc_placeholder");
     case GcnIsaOpType::Flat:
-      return MakeDescriptor(descriptor, EncodedInstructionCategory::Memory, "flat",
+      return MakeDescriptor(match->opcode_descriptor, match->category, "flat",
                             "flat_placeholder");
     case GcnIsaOpType::Ds:
-      return MakeDescriptor(descriptor, EncodedInstructionCategory::Memory, "ds",
+      return MakeDescriptor(match->opcode_descriptor, match->category, "ds",
                             "ds_placeholder");
     case GcnIsaOpType::Mubuf:
-      return MakeDescriptor(descriptor, EncodedInstructionCategory::Memory, "mubuf",
+      return MakeDescriptor(match->opcode_descriptor, match->category, "mubuf",
                             "mubuf_placeholder");
     case GcnIsaOpType::Mtbuf:
-      return MakeDescriptor(descriptor, EncodedInstructionCategory::Memory, "mtbuf",
+      return MakeDescriptor(match->opcode_descriptor, match->category, "mtbuf",
                             "mtbuf_placeholder");
     case GcnIsaOpType::Mimg:
-      return MakeDescriptor(descriptor, EncodedInstructionCategory::Memory, "mimg",
+      return MakeDescriptor(match->opcode_descriptor, match->category, "mimg",
                             "mimg_placeholder");
     case GcnIsaOpType::Vintrp:
-      return MakeDescriptor(descriptor, EncodedInstructionCategory::Memory, "vintrp",
+      return MakeDescriptor(match->opcode_descriptor, match->category, "vintrp",
                             "vintrp_placeholder");
     case GcnIsaOpType::Exp:
-      return MakeDescriptor(descriptor, EncodedInstructionCategory::Memory, "exp",
+      return MakeDescriptor(match->opcode_descriptor, match->category, "exp",
                             "exp_placeholder");
   }
   return MakeUnknownDescriptor();

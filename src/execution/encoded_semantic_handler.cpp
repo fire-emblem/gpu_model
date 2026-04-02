@@ -239,8 +239,9 @@ uint64_t ResolveVectorLane(const DecodedInstructionOperand& operand,
 }
 
 const GcnIsaOpcodeDescriptor& RequireCanonicalOpcode(const DecodedInstruction& instruction) {
-  if (const auto* descriptor = FindEncodedGcnFallbackOpcodeDescriptor(instruction.words); descriptor != nullptr) {
-    return *descriptor;
+  if (const auto* match = FindEncodedGcnMatchRecord(instruction.words); match != nullptr &&
+      match->opcode_descriptor != nullptr) {
+    return *match->opcode_descriptor;
   }
   if (const auto* descriptor = FindGcnIsaOpcodeDescriptorByName(instruction.mnemonic);
       descriptor != nullptr) {

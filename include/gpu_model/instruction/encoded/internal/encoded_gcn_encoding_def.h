@@ -10,6 +10,14 @@
 
 namespace gpu_model {
 
+enum class EncodedInstructionCategory {
+  Unknown,
+  ScalarMemory,
+  Scalar,
+  Vector,
+  Memory,
+};
+
 struct EncodedGcnEncodingDef {
   uint32_t id = 0;
   EncodedGcnInstFormatClass format_class = EncodedGcnInstFormatClass::Unknown;
@@ -18,9 +26,40 @@ struct EncodedGcnEncodingDef {
   std::string_view mnemonic;
 };
 
+enum class EncodedOperandDecoderKind {
+  Unsupported,
+  Generated,
+  ViStyleScalarMemory,
+  Vop3pMatrix,
+  Vop3pAccvgprRead,
+  Vop3pAccvgprWrite,
+  DsRead2B32,
+  DsReadB32,
+  DsWriteB32,
+  Sop1Scalar,
+  Sop1ScalarPair,
+  Sop2Scalar,
+  Sop2ScalarPair,
+  SopcScalar,
+  Vop1Generic,
+  Vop2Generic,
+  Vop3aGeneric,
+  Vop3CmpE64,
+  VopcGeneric,
+};
+
+struct EncodedGcnMatchRecord {
+  const EncodedGcnEncodingDef* encoding_def = nullptr;
+  const GcnIsaOpcodeDescriptor* opcode_descriptor = nullptr;
+  EncodedInstructionCategory category = EncodedInstructionCategory::Unknown;
+  EncodedOperandDecoderKind operand_decoder_kind = EncodedOperandDecoderKind::Unsupported;
+
+  bool known() const { return encoding_def != nullptr && opcode_descriptor != nullptr; }
+};
+
 void DecodeEncodedGcnOperands(EncodedGcnInstruction& instruction);
+const EncodedGcnMatchRecord* FindEncodedGcnMatchRecord(const std::vector<uint32_t>& words);
 const EncodedGcnEncodingDef* FindEncodedGcnEncodingDef(const std::vector<uint32_t>& words);
-const GcnIsaOpcodeDescriptor* FindEncodedGcnFallbackOpcodeDescriptor(const std::vector<uint32_t>& words);
 std::string_view LookupEncodedGcnOpcodeName(const std::vector<uint32_t>& words);
 
 }  // namespace gpu_model
