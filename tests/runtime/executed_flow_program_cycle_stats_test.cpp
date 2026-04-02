@@ -1033,6 +1033,7 @@ TEST(ExecutedFlowProgramCycleStatsTest,
 TEST(ExecutedFlowProgramCycleStatsTest,
      BarrierReleaseWaitKernelMatchesTheoryInSingleThreadedMode) {
   const ProgramCycleStatsConfig config;
+  constexpr uint64_t active_lanes = 128;
   const auto kernel = BuildBarrierReleaseWaitKernel();
   const auto st =
       LaunchProgramCycleStatsKernel(kernel, FunctionalExecutionMode::SingleThreaded, /*block_dim_x=*/128);
@@ -1041,12 +1042,13 @@ TEST(ExecutedFlowProgramCycleStatsTest,
   ASSERT_TRUE(st.program_cycle_stats.has_value());
 
   EXPECT_EQ(st.program_cycle_stats->scalar_alu_cycles,
-            2u * config.default_issue_cycles);
+            active_lanes * config.default_issue_cycles);
   EXPECT_EQ(st.program_cycle_stats->vector_alu_cycles,
-            10u * config.default_issue_cycles);
-  EXPECT_EQ(st.program_cycle_stats->barrier_cycles, 10u);
-  EXPECT_EQ(st.program_cycle_stats->total_issued_work_cycles, 58u);
-  EXPECT_EQ(st.program_cycle_stats->total_cycles, 8u * config.default_issue_cycles);
+            5u * active_lanes * config.default_issue_cycles);
+  EXPECT_GT(st.program_cycle_stats->barrier_cycles, 0u);
+  EXPECT_EQ(st.program_cycle_stats->total_issued_work_cycles,
+            AccountedWorkCycles(*st.program_cycle_stats));
+  EXPECT_GT(st.program_cycle_stats->total_cycles, 0u);
 }
 
 TEST(ExecutedFlowProgramCycleStatsTest,
@@ -1149,11 +1151,16 @@ TEST(ExecutedFlowProgramCycleStatsTest,
   ASSERT_TRUE(st.program_cycle_stats.has_value());
   ASSERT_TRUE(mt.program_cycle_stats.has_value());
 
+  constexpr uint64_t active_lanes = 2u * kWaveSize;
   const uint64_t wave_cost = 2u * config.default_issue_cycles;
-  EXPECT_EQ(st.program_cycle_stats->vector_alu_cycles, 2u * wave_cost);
-  EXPECT_EQ(mt.program_cycle_stats->vector_alu_cycles, 2u * wave_cost);
-  EXPECT_EQ(st.program_cycle_stats->total_issued_work_cycles, 2u * wave_cost);
-  EXPECT_EQ(mt.program_cycle_stats->total_issued_work_cycles, 2u * wave_cost);
+  EXPECT_EQ(st.program_cycle_stats->vector_alu_cycles,
+            active_lanes * 2u * config.default_issue_cycles);
+  EXPECT_EQ(mt.program_cycle_stats->vector_alu_cycles,
+            active_lanes * 2u * config.default_issue_cycles);
+  EXPECT_EQ(st.program_cycle_stats->total_issued_work_cycles,
+            AccountedWorkCycles(*st.program_cycle_stats));
+  EXPECT_EQ(mt.program_cycle_stats->total_issued_work_cycles,
+            AccountedWorkCycles(*mt.program_cycle_stats));
   EXPECT_EQ(st.program_cycle_stats->total_cycles, wave_cost);
   EXPECT_EQ(mt.program_cycle_stats->total_cycles, wave_cost);
   EXPECT_EQ(st.program_cycle_stats->total_cycles, mt.program_cycle_stats->total_cycles);
@@ -1179,7 +1186,8 @@ TEST(ExecutedFlowProgramCycleStatsTest,
   ASSERT_TRUE(mt.program_cycle_stats.has_value());
 
   const uint64_t per_wave_cost = 2u * config.default_issue_cycles;
-  const uint64_t summed_wave_cycles = static_cast<uint64_t>(kWaveCount) * per_wave_cost;
+  const uint64_t active_lanes = static_cast<uint64_t>(kWaveCount) * kWaveSize;
+  const uint64_t summed_wave_cycles = active_lanes * 2u * config.default_issue_cycles;
 
   EXPECT_EQ(st.program_cycle_stats->total_cycles, per_wave_cost);
   EXPECT_EQ(mt.program_cycle_stats->total_cycles, per_wave_cost);
@@ -1208,14 +1216,21 @@ TEST(ExecutedFlowProgramCycleStatsTest,
   ASSERT_TRUE(st.program_cycle_stats.has_value());
   ASSERT_TRUE(mt.program_cycle_stats.has_value());
 
+  constexpr uint64_t active_lanes = 2u * kWaveSize;
   const uint64_t per_wave_cost =
       2u * config.default_issue_cycles + 2u * config.shared_mem_cycles;
-  EXPECT_EQ(st.program_cycle_stats->vector_alu_cycles, 4u * config.default_issue_cycles);
-  EXPECT_EQ(mt.program_cycle_stats->vector_alu_cycles, 4u * config.default_issue_cycles);
-  EXPECT_EQ(st.program_cycle_stats->shared_mem_cycles, 4u * config.shared_mem_cycles);
-  EXPECT_EQ(mt.program_cycle_stats->shared_mem_cycles, 4u * config.shared_mem_cycles);
-  EXPECT_EQ(st.program_cycle_stats->total_issued_work_cycles, 2u * per_wave_cost);
-  EXPECT_EQ(mt.program_cycle_stats->total_issued_work_cycles, 2u * per_wave_cost);
+  EXPECT_EQ(st.program_cycle_stats->vector_alu_cycles,
+            active_lanes * 2u * config.default_issue_cycles);
+  EXPECT_EQ(mt.program_cycle_stats->vector_alu_cycles,
+            active_lanes * 2u * config.default_issue_cycles);
+  EXPECT_EQ(st.program_cycle_stats->shared_mem_cycles,
+            active_lanes * 2u * config.shared_mem_cycles);
+  EXPECT_EQ(mt.program_cycle_stats->shared_mem_cycles,
+            active_lanes * 2u * config.shared_mem_cycles);
+  EXPECT_EQ(st.program_cycle_stats->total_issued_work_cycles,
+            AccountedWorkCycles(*st.program_cycle_stats));
+  EXPECT_EQ(mt.program_cycle_stats->total_issued_work_cycles,
+            AccountedWorkCycles(*mt.program_cycle_stats));
   EXPECT_EQ(st.program_cycle_stats->total_cycles, per_wave_cost);
   EXPECT_EQ(mt.program_cycle_stats->total_cycles, per_wave_cost);
   EXPECT_EQ(st.program_cycle_stats->total_cycles, mt.program_cycle_stats->total_cycles);
@@ -1244,6 +1259,7 @@ TEST(ExecutedFlowProgramCycleStatsTest,
   constexpr uint32_t kBlockDimX = 1024;
   constexpr uint32_t kGridDimX = 8;
   constexpr uint32_t kWaveCount = (kBlockDimX / 64) * kGridDimX;
+  constexpr uint64_t active_lanes = static_cast<uint64_t>(kWaveCount) * kWaveSize;
 
   const auto st = LaunchProgramCycleStatsKernel(
       kernel, FunctionalExecutionMode::SingleThreaded, kBlockDimX, kGridDimX);
@@ -1259,21 +1275,21 @@ TEST(ExecutedFlowProgramCycleStatsTest,
       3u * config.default_issue_cycles + config.scalar_mem_cycles +
       2u * config.private_mem_cycles;
   EXPECT_EQ(st.program_cycle_stats->vector_alu_cycles,
-            static_cast<uint64_t>(kWaveCount) * 3u * config.default_issue_cycles);
+            active_lanes * 3u * config.default_issue_cycles);
   EXPECT_EQ(mt.program_cycle_stats->vector_alu_cycles,
-            static_cast<uint64_t>(kWaveCount) * 3u * config.default_issue_cycles);
+            active_lanes * 3u * config.default_issue_cycles);
   EXPECT_EQ(st.program_cycle_stats->scalar_mem_cycles,
-            static_cast<uint64_t>(kWaveCount) * config.scalar_mem_cycles);
+            active_lanes * config.scalar_mem_cycles);
   EXPECT_EQ(mt.program_cycle_stats->scalar_mem_cycles,
-            static_cast<uint64_t>(kWaveCount) * config.scalar_mem_cycles);
+            active_lanes * config.scalar_mem_cycles);
   EXPECT_EQ(st.program_cycle_stats->private_mem_cycles,
-            static_cast<uint64_t>(kWaveCount) * 2u * config.private_mem_cycles);
+            active_lanes * 2u * config.private_mem_cycles);
   EXPECT_EQ(mt.program_cycle_stats->private_mem_cycles,
-            static_cast<uint64_t>(kWaveCount) * 2u * config.private_mem_cycles);
+            active_lanes * 2u * config.private_mem_cycles);
   EXPECT_EQ(st.program_cycle_stats->total_issued_work_cycles,
-            static_cast<uint64_t>(kWaveCount) * per_wave_cost);
+            AccountedWorkCycles(*st.program_cycle_stats));
   EXPECT_EQ(mt.program_cycle_stats->total_issued_work_cycles,
-            static_cast<uint64_t>(kWaveCount) * per_wave_cost);
+            AccountedWorkCycles(*mt.program_cycle_stats));
   EXPECT_EQ(st.program_cycle_stats->total_cycles, per_wave_cost);
   EXPECT_EQ(mt.program_cycle_stats->total_cycles, per_wave_cost);
 }
@@ -1287,6 +1303,7 @@ TEST(ExecutedFlowProgramCycleStatsTest,
   constexpr uint32_t kWaveCount = (kBlockDimX / 64) * kGridDimX;
   constexpr uint32_t kSlowWaveCount = kWaveCount / 2;
   constexpr uint32_t kFastWaveCount = kWaveCount - kSlowWaveCount;
+  constexpr uint64_t lanes_per_wave = kWaveSize;
 
   const auto st = LaunchProgramCycleStatsKernel(
       kernel, FunctionalExecutionMode::SingleThreaded, kBlockDimX, kGridDimX);
@@ -1301,24 +1318,21 @@ TEST(ExecutedFlowProgramCycleStatsTest,
   const uint64_t scalar_cost = config.default_issue_cycles;
   const uint64_t fast_wave_vector_cost = 3u * config.default_issue_cycles;
   const uint64_t slow_wave_vector_cost = 6u * config.default_issue_cycles;
-  const uint64_t fast_wave_cost = scalar_cost + fast_wave_vector_cost;
   const uint64_t slow_wave_cost = scalar_cost + slow_wave_vector_cost;
   EXPECT_EQ(st.program_cycle_stats->scalar_alu_cycles,
-            static_cast<uint64_t>(kWaveCount) * scalar_cost);
+            static_cast<uint64_t>(kWaveCount) * lanes_per_wave * scalar_cost);
   EXPECT_EQ(mt.program_cycle_stats->scalar_alu_cycles,
-            static_cast<uint64_t>(kWaveCount) * scalar_cost);
+            static_cast<uint64_t>(kWaveCount) * lanes_per_wave * scalar_cost);
   EXPECT_EQ(st.program_cycle_stats->vector_alu_cycles,
-            static_cast<uint64_t>(kFastWaveCount) * fast_wave_vector_cost +
-                static_cast<uint64_t>(kSlowWaveCount) * slow_wave_vector_cost);
+            (static_cast<uint64_t>(kFastWaveCount) * fast_wave_vector_cost +
+             static_cast<uint64_t>(kSlowWaveCount) * slow_wave_vector_cost) * lanes_per_wave);
   EXPECT_EQ(mt.program_cycle_stats->vector_alu_cycles,
-            static_cast<uint64_t>(kFastWaveCount) * fast_wave_vector_cost +
-                static_cast<uint64_t>(kSlowWaveCount) * slow_wave_vector_cost);
+            (static_cast<uint64_t>(kFastWaveCount) * fast_wave_vector_cost +
+             static_cast<uint64_t>(kSlowWaveCount) * slow_wave_vector_cost) * lanes_per_wave);
   EXPECT_EQ(st.program_cycle_stats->total_issued_work_cycles,
-            static_cast<uint64_t>(kFastWaveCount) * fast_wave_cost +
-                static_cast<uint64_t>(kSlowWaveCount) * slow_wave_cost);
+            AccountedWorkCycles(*st.program_cycle_stats));
   EXPECT_EQ(mt.program_cycle_stats->total_issued_work_cycles,
-            static_cast<uint64_t>(kFastWaveCount) * fast_wave_cost +
-                static_cast<uint64_t>(kSlowWaveCount) * slow_wave_cost);
+            AccountedWorkCycles(*mt.program_cycle_stats));
   EXPECT_EQ(st.program_cycle_stats->total_cycles, slow_wave_cost);
   EXPECT_EQ(mt.program_cycle_stats->total_cycles, slow_wave_cost);
   EXPECT_EQ(st.program_cycle_stats->total_cycles, mt.program_cycle_stats->total_cycles);

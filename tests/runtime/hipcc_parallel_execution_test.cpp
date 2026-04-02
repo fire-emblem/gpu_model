@@ -1956,11 +1956,28 @@ TEST(HipccParallelExecutionTest,
   ASSERT_TRUE(mt.launch.program_cycle_stats.has_value());
   ASSERT_TRUE(cycle.launch.program_cycle_stats.has_value());
 
+  const auto accounted_work_cycles = [](const ProgramCycleStats& stats) {
+    return stats.scalar_alu_cycles + stats.vector_alu_cycles + stats.tensor_cycles +
+           stats.shared_mem_cycles + stats.scalar_mem_cycles +
+           stats.global_mem_cycles + stats.private_mem_cycles +
+           stats.barrier_cycles + stats.wait_cycles;
+  };
+
   EXPECT_EQ(st.launch.total_cycles, st.launch.program_cycle_stats->total_cycles);
   EXPECT_EQ(mt.launch.total_cycles, mt.launch.program_cycle_stats->total_cycles);
   EXPECT_EQ(cycle.launch.total_cycles, cycle.launch.program_cycle_stats->total_cycles);
 
   const uint64_t expected_barriers = 3u * 2u * grid_dim;
+  const uint64_t active_lanes = static_cast<uint64_t>(grid_dim) * block_dim;
+  const ProgramCycleStatsConfig cycle_stats_config{};
+  // Calibrated st/mt vector work for this exact hipcc lowering shape. Keep this
+  // explicit because the value reflects the current emitted vector-work mix rather
+  // than a simple `active_lanes * constant` formula.
+  const uint64_t expected_st_mt_vector_cycles = 22016u;
+  const uint64_t expected_st_mt_shared_cycles = active_lanes * 4u;
+  // Global store work is still tracked at the current emitted store-event granularity
+  // for this kernel: 2 stores per block across 128 blocks.
+  const uint64_t expected_st_mt_global_cycles = 256u * cycle_stats_config.global_mem_cycles;
   EXPECT_EQ(st.launch.stats.barriers, expected_barriers);
   EXPECT_EQ(mt.launch.stats.barriers, expected_barriers);
   EXPECT_EQ(cycle.launch.stats.barriers, expected_barriers);
@@ -1976,9 +1993,58 @@ TEST(HipccParallelExecutionTest,
   EXPECT_EQ(st.launch.stats.wave_exits, mt.launch.stats.wave_exits);
   EXPECT_EQ(st.launch.stats.wave_exits, cycle.launch.stats.wave_exits);
 
-  EXPECT_GT(st.launch.program_cycle_stats->total_issued_work_cycles, 0u);
-  EXPECT_GT(mt.launch.program_cycle_stats->total_issued_work_cycles, 0u);
-  EXPECT_GT(cycle.launch.program_cycle_stats->total_issued_work_cycles, 0u);
+  EXPECT_EQ(st.launch.program_cycle_stats->total_issued_work_cycles,
+            accounted_work_cycles(*st.launch.program_cycle_stats));
+  EXPECT_EQ(mt.launch.program_cycle_stats->total_issued_work_cycles,
+            accounted_work_cycles(*mt.launch.program_cycle_stats));
+  EXPECT_EQ(cycle.launch.program_cycle_stats->total_issued_work_cycles,
+            accounted_work_cycles(*cycle.launch.program_cycle_stats));
+
+  EXPECT_EQ(st.launch.program_cycle_stats->vector_alu_cycles,
+            expected_st_mt_vector_cycles);
+  EXPECT_EQ(mt.launch.program_cycle_stats->vector_alu_cycles,
+            expected_st_mt_vector_cycles);
+  EXPECT_EQ(st.launch.program_cycle_stats->shared_mem_cycles,
+            expected_st_mt_shared_cycles);
+  EXPECT_EQ(mt.launch.program_cycle_stats->shared_mem_cycles,
+            expected_st_mt_shared_cycles);
+  EXPECT_EQ(st.launch.program_cycle_stats->global_mem_cycles,
+            expected_st_mt_global_cycles);
+  EXPECT_EQ(mt.launch.program_cycle_stats->global_mem_cycles,
+            expected_st_mt_global_cycles);
+  EXPECT_GT(st.launch.program_cycle_stats->barrier_cycles, expected_barriers);
+  EXPECT_GT(mt.launch.program_cycle_stats->barrier_cycles, expected_barriers);
+  EXPECT_GT(st.launch.program_cycle_stats->wait_cycles, 0u);
+  EXPECT_GT(mt.launch.program_cycle_stats->wait_cycles, 0u);
+  EXPECT_LE(mt.launch.program_cycle_stats->wait_cycles,
+            st.launch.program_cycle_stats->wait_cycles);
+
+  EXPECT_GT(st.launch.program_cycle_stats->total_issued_work_cycles,
+            st.launch.stats.barriers);
+  EXPECT_GT(mt.launch.program_cycle_stats->total_issued_work_cycles,
+            mt.launch.stats.barriers);
+  EXPECT_GT(cycle.launch.program_cycle_stats->total_issued_work_cycles,
+            cycle.launch.stats.barriers);
+
+  EXPECT_GT(cycle.launch.program_cycle_stats->vector_alu_cycles, 0u);
+  EXPECT_GT(cycle.launch.program_cycle_stats->shared_mem_cycles, 0u);
+  EXPECT_GT(cycle.launch.program_cycle_stats->global_mem_cycles, 0u);
+  EXPECT_GT(cycle.launch.program_cycle_stats->barrier_cycles, 0u);
+  EXPECT_GT(cycle.launch.program_cycle_stats->wait_cycles, 0u);
+  EXPECT_LE(cycle.launch.program_cycle_stats->vector_alu_cycles,
+            st.launch.program_cycle_stats->vector_alu_cycles);
+  EXPECT_LE(cycle.launch.program_cycle_stats->shared_mem_cycles,
+            st.launch.program_cycle_stats->shared_mem_cycles);
+  EXPECT_LE(cycle.launch.program_cycle_stats->global_mem_cycles,
+            st.launch.program_cycle_stats->global_mem_cycles);
+  EXPECT_LE(cycle.launch.program_cycle_stats->total_issued_work_cycles,
+            st.launch.program_cycle_stats->total_issued_work_cycles);
+  EXPECT_LE(cycle.launch.program_cycle_stats->total_issued_work_cycles,
+            mt.launch.program_cycle_stats->total_issued_work_cycles);
+  EXPECT_LE(cycle.launch.program_cycle_stats->total_cycles,
+            st.launch.program_cycle_stats->total_cycles);
+  EXPECT_LE(cycle.launch.program_cycle_stats->total_cycles,
+            mt.launch.program_cycle_stats->total_cycles);
 
   EXPECT_GT(st.launch.stats.shared_loads, 0u);
   EXPECT_GT(st.launch.stats.shared_stores, 0u);
