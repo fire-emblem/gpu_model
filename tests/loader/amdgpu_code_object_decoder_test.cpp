@@ -275,6 +275,62 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipByValueAggregateExecutable) {
   EXPECT_GT(scalar_add_count, 0);
 }
 
+TEST(AmdgpuCodeObjectDecoderTest, DecodesHipThreeDimensionalHiddenArgsExecutable) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_code_object_hip_hidden_args_3d");
+  const auto src_path = temp_dir / "hip_three_dimensional_hidden_args.cpp";
+  const auto exe_path = temp_dir / "hip_three_dimensional_hidden_args.out";
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n"
+           "extern \"C\" __global__ void three_dimensional_hidden_args(int* out) {\n"
+           "  out[0] = static_cast<int>(gridDim.z) + static_cast<int>(blockDim.z);\n"
+           "}\n"
+           "int main() { return 0; }\n";
+  }
+  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "three_dimensional_hidden_args");
+  EXPECT_EQ(image.kernel_name, "three_dimensional_hidden_args");
+  ASSERT_TRUE(image.metadata.values.contains("hidden_arg_layout"));
+  EXPECT_NE(image.metadata.values.at("hidden_arg_layout").find("hidden_block_count_z"),
+            std::string::npos);
+  EXPECT_NE(image.metadata.values.at("hidden_arg_layout").find("hidden_group_size_z"),
+            std::string::npos);
+}
+
+TEST(AmdgpuCodeObjectDecoderTest, DecodesHipThreeDimensionalBuiltinIdsExecutable) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_code_object_hip_builtin_ids_3d");
+  const auto src_path = temp_dir / "hip_three_dimensional_builtin_ids.cpp";
+  const auto exe_path = temp_dir / "hip_three_dimensional_builtin_ids.out";
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n"
+           "extern \"C\" __global__ void three_dimensional_builtin_ids(int* out) {\n"
+           "  int z = threadIdx.z;\n"
+           "  out[z] = static_cast<int>(blockIdx.z) + z;\n"
+           "}\n"
+           "int main() { return 0; }\n";
+  }
+  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "three_dimensional_builtin_ids");
+  EXPECT_EQ(image.kernel_name, "three_dimensional_builtin_ids");
+  EXPECT_TRUE(image.kernel_descriptor.enable_sgpr_workgroup_id_z);
+  EXPECT_GE(image.kernel_descriptor.enable_vgpr_workitem_id, 2u);
+}
+
 TEST(AmdgpuCodeObjectDecoderTest, DecodesRawInstructionsFromHipAtomicCountExecutable) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
