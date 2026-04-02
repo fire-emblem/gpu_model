@@ -1,0 +1,1 @@
+launch_index=0 kernel=dynamic_shared_sum execution_mode=functional functional_mode=mt ok=1 submit_cycle=0 begin_cycle=0 end_cycle=2933 total_cycles=2933 program_total_cycles=2933

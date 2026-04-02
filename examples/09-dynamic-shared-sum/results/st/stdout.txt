@@ -1,0 +1,12 @@
+[gpu_model_hip_interposer] __hipRegisterFatBinary
+[gpu_model] functional_mode=st workers=0
+[gpu_model_hip_interposer] __hipRegisterFunction host=0x200a30 device=dynamic_shared_sum
+[gpu_model_hip_interposer] hipMalloc size=16 -> 0x100000000
+[gpu_model_hip_interposer] hipMemcpy kind=1 bytes=16 dst=0x100000000 src=0x5a3170
+[gpu_model_hip_interposer] __hipPushCallConfiguration grid=(4,1,1) block=(64,1,1) shared=256
+[gpu_model_hip_interposer] __hipPopCallConfiguration
+[gpu_model_hip_interposer] hipLaunchKernel host=0x200a30 grid=(4,1,1) block=(64,1,1) shared=256
+[gpu_model_hip_interposer] hipLaunchKernel result ok=1 err=
+[gpu_model_hip_interposer] hipDeviceSynchronize
+[gpu_model_hip_interposer] hipMemcpy kind=2 bytes=16 dst=0x5a3170 src=0x100000000
+dynamic_shared_sum mismatches=0 blocks=4 block_dim=64 expected=2080
