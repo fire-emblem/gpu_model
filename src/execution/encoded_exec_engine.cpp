@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <deque>
 #include <sstream>
 #include <stdexcept>
 #include <unordered_map>
@@ -15,12 +16,14 @@
 #include "gpu_model/execution/encoded_semantic_handler.h"
 #include "gpu_model/execution/internal/tensor_op_utils.h"
 #include "gpu_model/debug/wave_launch_trace.h"
+#include "gpu_model/instruction/encoded/internal/encoded_instruction_descriptor.h"
 #include "gpu_model/execution/sync_ops.h"
 #include "gpu_model/execution/wave_context_builder.h"
 #include "gpu_model/isa/kernel_metadata.h"
 #include "gpu_model/loader/device_image_loader.h"
 #include "gpu_model/runtime/kernarg_packer.h"
 #include "gpu_model/runtime/mapper.h"
+#include "gpu_model/runtime/program_cycle_tracker.h"
 
 namespace gpu_model {
 
@@ -36,6 +39,11 @@ struct RawBlock {
   std::vector<std::byte> shared_memory;
   uint64_t barrier_generation = 0;
   uint32_t barrier_arrivals = 0;
+};
+
+struct EncodedExecutedWaveStep {
+  ExecutedStepClass step_class = ExecutedStepClass::ScalarAlu;
+  uint64_t cost_cycles = 0;
 };
 
 bool DebugEnabled();
@@ -320,6 +328,276 @@ std::string HexU64(uint64_t value) {
   return out.str();
 }
 
+uint64_t StableWaveKey(const WaveContext& wave) {
+  return (static_cast<uint64_t>(wave.block_id) << 32u) | static_cast<uint64_t>(wave.wave_id);
+}
+
+bool IsBranchMnemonic(std::string_view mnemonic) {
+  return mnemonic == "s_branch" || mnemonic.starts_with("s_cbranch");
+}
+
+bool IsMaskMnemonic(std::string_view mnemonic) {
+  return mnemonic.find("exec") != std::string_view::npos;
+}
+
+uint64_t ResolveEncodedIssueCycles(std::string_view mnemonic,
+                                   const EncodedInstructionDescriptor& descriptor,
+                                   const GpuArchSpec& spec) {
+  const auto& op_overrides = spec.issue_cycle_op_overrides;
+  if (mnemonic == "s_waitcnt" && op_overrides.s_waitcnt.has_value()) {
+    return *op_overrides.s_waitcnt;
+  }
+  if (mnemonic == "s_buffer_load_dword" && op_overrides.s_buffer_load_dword.has_value()) {
+    return *op_overrides.s_buffer_load_dword;
+  }
+  if (mnemonic == "buffer_load_dword" && op_overrides.buffer_load_dword.has_value()) {
+    return *op_overrides.buffer_load_dword;
+  }
+  if (mnemonic == "buffer_store_dword" && op_overrides.buffer_store_dword.has_value()) {
+    return *op_overrides.buffer_store_dword;
+  }
+  if (mnemonic == "buffer_atomic_add_u32" && op_overrides.buffer_atomic_add_u32.has_value()) {
+    return *op_overrides.buffer_atomic_add_u32;
+  }
+  if (mnemonic == "ds_read_b32" && op_overrides.ds_read_b32.has_value()) {
+    return *op_overrides.ds_read_b32;
+  }
+  if (mnemonic == "ds_write_b32" && op_overrides.ds_write_b32.has_value()) {
+    return *op_overrides.ds_write_b32;
+  }
+  if (mnemonic == "ds_add_u32" && op_overrides.ds_add_u32.has_value()) {
+    return *op_overrides.ds_add_u32;
+  }
+
+  const auto& class_overrides = spec.issue_cycle_class_overrides;
+  if (mnemonic == "s_waitcnt" || mnemonic == "s_barrier") {
+    if (class_overrides.sync_wait.has_value()) {
+      return *class_overrides.sync_wait;
+    }
+  }
+  if (IsBranchMnemonic(mnemonic)) {
+    if (class_overrides.branch.has_value()) {
+      return *class_overrides.branch;
+    }
+  }
+  if (IsMaskMnemonic(mnemonic)) {
+    if (class_overrides.mask.has_value()) {
+      return *class_overrides.mask;
+    }
+  }
+
+  switch (descriptor.category) {
+    case EncodedInstructionCategory::ScalarMemory:
+      if (class_overrides.scalar_memory.has_value()) {
+        return *class_overrides.scalar_memory;
+      }
+      break;
+    case EncodedInstructionCategory::Scalar:
+      if (class_overrides.scalar_alu.has_value()) {
+        return *class_overrides.scalar_alu;
+      }
+      break;
+    case EncodedInstructionCategory::Vector:
+      if (class_overrides.vector_alu.has_value()) {
+        return *class_overrides.vector_alu;
+      }
+      break;
+    case EncodedInstructionCategory::Memory:
+      if (class_overrides.vector_memory.has_value()) {
+        return *class_overrides.vector_memory;
+      }
+      break;
+    case EncodedInstructionCategory::Unknown:
+      break;
+  }
+  return spec.default_issue_cycles;
+}
+
+std::optional<uint64_t> EncodedSpecificOpCycleOverride(std::string_view mnemonic,
+                                                       const GpuArchSpec& spec) {
+  const auto& op_overrides = spec.issue_cycle_op_overrides;
+  if (mnemonic == "s_waitcnt" && op_overrides.s_waitcnt.has_value()) {
+    return op_overrides.s_waitcnt;
+  }
+  if (mnemonic == "s_buffer_load_dword" && op_overrides.s_buffer_load_dword.has_value()) {
+    return op_overrides.s_buffer_load_dword;
+  }
+  if (mnemonic == "buffer_load_dword" && op_overrides.buffer_load_dword.has_value()) {
+    return op_overrides.buffer_load_dword;
+  }
+  if (mnemonic == "buffer_store_dword" && op_overrides.buffer_store_dword.has_value()) {
+    return op_overrides.buffer_store_dword;
+  }
+  if (mnemonic == "buffer_atomic_add_u32" && op_overrides.buffer_atomic_add_u32.has_value()) {
+    return op_overrides.buffer_atomic_add_u32;
+  }
+  if (mnemonic == "ds_read_b32" && op_overrides.ds_read_b32.has_value()) {
+    return op_overrides.ds_read_b32;
+  }
+  if (mnemonic == "ds_write_b32" && op_overrides.ds_write_b32.has_value()) {
+    return op_overrides.ds_write_b32;
+  }
+  if (mnemonic == "ds_add_u32" && op_overrides.ds_add_u32.has_value()) {
+    return op_overrides.ds_add_u32;
+  }
+  return std::nullopt;
+}
+
+std::optional<ExecutedStepClass> ClassifyEncodedInstructionStep(
+    const DecodedInstruction& instruction,
+    const EncodedInstructionDescriptor& descriptor) {
+  const std::string_view mnemonic(instruction.mnemonic);
+  if (mnemonic == "s_endpgm" || mnemonic == "s_nop" || IsBranchMnemonic(mnemonic) ||
+      IsMaskMnemonic(mnemonic)) {
+    return std::nullopt;
+  }
+  if (mnemonic == "s_barrier") {
+    return ExecutedStepClass::Barrier;
+  }
+  if (mnemonic == "s_waitcnt") {
+    return ExecutedStepClass::Wait;
+  }
+  if (IsTensorMnemonic(mnemonic)) {
+    return ExecutedStepClass::Tensor;
+  }
+
+  switch (descriptor.category) {
+    case EncodedInstructionCategory::ScalarMemory:
+      return ExecutedStepClass::ScalarMem;
+    case EncodedInstructionCategory::Scalar:
+      return ExecutedStepClass::ScalarAlu;
+    case EncodedInstructionCategory::Vector:
+      return ExecutedStepClass::VectorAlu;
+    case EncodedInstructionCategory::Memory:
+      if (instruction.format_class == EncodedGcnInstFormatClass::Ds ||
+          mnemonic.starts_with("ds_")) {
+        return ExecutedStepClass::SharedMem;
+      }
+      return ExecutedStepClass::GlobalMem;
+    case EncodedInstructionCategory::Unknown:
+      return std::nullopt;
+  }
+  return std::nullopt;
+}
+
+uint64_t CostForEncodedStep(const DecodedInstruction& instruction,
+                            const EncodedInstructionDescriptor& descriptor,
+                            ExecutedStepClass step_class,
+                            const GpuArchSpec& spec,
+                            const ProgramCycleStatsConfig& config) {
+  switch (step_class) {
+    case ExecutedStepClass::ScalarAlu:
+    case ExecutedStepClass::VectorAlu:
+    case ExecutedStepClass::Barrier:
+    case ExecutedStepClass::Wait:
+      return ResolveEncodedIssueCycles(instruction.mnemonic, descriptor, spec);
+    case ExecutedStepClass::Tensor:
+      return config.tensor_cycles;
+    case ExecutedStepClass::SharedMem:
+      if (const auto override = EncodedSpecificOpCycleOverride(instruction.mnemonic, spec);
+          override.has_value()) {
+        return *override;
+      }
+      return config.shared_mem_cycles;
+    case ExecutedStepClass::ScalarMem:
+      if (const auto override = EncodedSpecificOpCycleOverride(instruction.mnemonic, spec);
+          override.has_value()) {
+        return *override;
+      }
+      return config.scalar_mem_cycles;
+    case ExecutedStepClass::GlobalMem:
+      if (const auto override = EncodedSpecificOpCycleOverride(instruction.mnemonic, spec);
+          override.has_value()) {
+        return *override;
+      }
+      return config.global_mem_cycles;
+    case ExecutedStepClass::PrivateMem:
+      return config.private_mem_cycles;
+  }
+  return config.default_issue_cycles;
+}
+
+class EncodedExecutedFlowEventSource final : public ProgramCycleTickSource {
+ public:
+  explicit EncodedExecutedFlowEventSource(
+      const std::unordered_map<uint64_t, std::deque<EncodedExecutedWaveStep>>& recorded_steps) {
+    uint32_t agg_wave_id = 0;
+    wave_states_.reserve(recorded_steps.size());
+    for (const auto& [stable_wave_id, steps] : recorded_steps) {
+      (void)stable_wave_id;
+      wave_states_.push_back(WaveQueueState{
+          .agg_wave_id = agg_wave_id++,
+          .steps = steps,
+      });
+    }
+  }
+
+  bool Done() const override {
+    for (const auto& wave : wave_states_) {
+      if (!wave.completed) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  void AdvanceOneTick(ProgramCycleTracker& agg) override {
+    for (auto& wave : wave_states_) {
+      if (!wave.active) {
+        continue;
+      }
+      ++wave.ticks_consumed;
+      if (wave.ticks_consumed >= wave.current_cost_cycles) {
+        wave.active = false;
+        wave.ticks_consumed = 0;
+        wave.current_cost_cycles = 0;
+        agg.MarkWaveRunnable(wave.agg_wave_id);
+      }
+    }
+
+    for (auto& wave : wave_states_) {
+      if (wave.completed || wave.active) {
+        continue;
+      }
+      if (!wave.steps.empty()) {
+        const auto step = wave.steps.front();
+        wave.steps.pop_front();
+        wave.active = true;
+        wave.current_cost_cycles = step.cost_cycles;
+        wave.ticks_consumed = 0;
+        agg.BeginWaveWork(wave.agg_wave_id, step.step_class, step.cost_cycles);
+        continue;
+      }
+      wave.completed = true;
+      agg.MarkWaveCompleted(wave.agg_wave_id);
+    }
+  }
+
+ private:
+  struct WaveQueueState {
+    uint32_t agg_wave_id = 0;
+    std::deque<EncodedExecutedWaveStep> steps;
+    bool active = false;
+    bool completed = false;
+    uint64_t current_cost_cycles = 0;
+    uint64_t ticks_consumed = 0;
+  };
+
+  std::vector<WaveQueueState> wave_states_;
+};
+
+ProgramCycleStats CollectProgramCycleStatsFromEncodedFlow(
+    const std::unordered_map<uint64_t, std::deque<EncodedExecutedWaveStep>>& recorded_steps,
+    const ProgramCycleStatsConfig& config) {
+  ProgramCycleTracker agg(config);
+  EncodedExecutedFlowEventSource source(recorded_steps);
+  while (!source.Done()) {
+    source.AdvanceOneTick(agg);
+    agg.AdvanceOneTick();
+  }
+  return agg.Finish();
+}
+
 std::string FormatRawWaveStepMessage(const DecodedInstruction& instruction,
                                      const InstructionObject* object,
                                      const WaveContext& wave) {
@@ -377,6 +655,20 @@ LaunchResult EncodedExecEngine::Run(const EncodedProgramObject& image,
   LaunchResult result;
   result.ok = false;
   result.placement = Mapper::Place(spec, config);
+  ProgramCycleStatsConfig cycle_stats_config;
+  cycle_stats_config.default_issue_cycles = spec.default_issue_cycles;
+  std::unordered_map<uint64_t, std::deque<EncodedExecutedWaveStep>> executed_flow_steps;
+  const auto record_executed_step = [&](const WaveContext& wave,
+                                        ExecutedStepClass step_class,
+                                        uint64_t cost_cycles) {
+    if (cost_cycles == 0) {
+      return;
+    }
+    executed_flow_steps[StableWaveKey(wave)].push_back(EncodedExecutedWaveStep{
+        .step_class = step_class,
+        .cost_cycles = cost_cycles,
+    });
+  };
   std::ostringstream launch_message;
   launch_message << "raw_kernel=" << image.kernel_name << " arch=" << spec.name;
   if (image.kernel_descriptor.agpr_count != 0 || image.kernel_descriptor.accum_offset != 0) {
@@ -455,6 +747,11 @@ LaunchResult EncodedExecEngine::Run(const EncodedProgramObject& image,
       wave_ptrs.reserve(raw_block.waves.size());
       for (auto& raw_wave : raw_block.waves) {
         wave_ptrs.push_back(&raw_wave.wave);
+        if (raw_wave.wave.waiting_at_barrier &&
+            raw_wave.wave.run_state == WaveRunState::Waiting &&
+            raw_wave.wave.wait_reason == WaveWaitReason::BlockBarrier) {
+          record_executed_step(raw_wave.wave, ExecutedStepClass::Barrier, 1);
+        }
       }
       sync_ops::ReleaseBarrierIfReady(wave_ptrs,
                                       raw_block.barrier_generation,
@@ -482,6 +779,14 @@ LaunchResult EncodedExecEngine::Run(const EncodedProgramObject& image,
                  inst.operands.c_str());
         ++result.stats.wave_steps;
         ++result.stats.instructions_issued;
+        const auto descriptor = DescribeEncodedInstruction(decoded);
+        if (const auto step_class = ClassifyEncodedInstructionStep(decoded, descriptor);
+            step_class.has_value()) {
+          record_executed_step(raw_wave.wave,
+                               *step_class,
+                               CostForEncodedStep(decoded, descriptor, *step_class, spec,
+                                                  cycle_stats_config));
+        }
         trace.OnEvent(TraceEvent{
             .kind = TraceEventKind::WaveStep,
             .cycle = 0,
@@ -530,6 +835,10 @@ LaunchResult EncodedExecEngine::Run(const EncodedProgramObject& image,
     }
   }
 
+  result.program_cycle_stats =
+      CollectProgramCycleStatsFromEncodedFlow(executed_flow_steps, cycle_stats_config);
+  result.total_cycles = result.program_cycle_stats->total_cycles;
+  result.end_cycle = result.total_cycles;
   result.ok = true;
   return result;
 }

@@ -974,6 +974,9 @@ TEST(HipRuntimeTest, LaunchEncodedProgramObjectPopulatesLastLoadResult) {
       "c500",
       nullptr);
   ASSERT_TRUE(result.ok) << result.error_message;
+  ASSERT_TRUE(result.program_cycle_stats.has_value());
+  EXPECT_EQ(result.total_cycles, result.program_cycle_stats->total_cycles);
+  EXPECT_GT(result.program_cycle_stats->total_issued_work_cycles, 0u);
   ASSERT_TRUE(hooks.last_load_result().has_value());
   EXPECT_EQ(hooks.last_load_result()->required_shared_bytes, 256u);
   EXPECT_EQ(hooks.last_load_result()->preferred_kernarg_bytes, 280u);

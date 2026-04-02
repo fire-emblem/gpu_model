@@ -355,6 +355,9 @@ TEST(ModelRuntimeTest, LaunchesEncodedProgramObjectFromAmdgpuObject) {
       "c500",
       nullptr);
   ASSERT_TRUE(result.ok) << result.error_message;
+  ASSERT_TRUE(result.program_cycle_stats.has_value());
+  EXPECT_EQ(result.total_cycles, result.program_cycle_stats->total_cycles);
+  EXPECT_GT(result.program_cycle_stats->total_issued_work_cycles, 0u);
 
   api.MemcpyDtoH<float>(c_addr, std::span<float>(c));
   for (uint32_t i = 0; i < total; ++i) {

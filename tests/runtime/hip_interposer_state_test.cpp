@@ -155,6 +155,9 @@ TEST(HipInterposerStateTest, LaunchesHipVecAddExecutableInCycleModeThroughRegist
       ExecutionMode::Cycle);
   ASSERT_TRUE(result.ok) << result.error_message;
   EXPECT_GT(result.total_cycles, 0u);
+  ASSERT_TRUE(result.program_cycle_stats.has_value());
+  EXPECT_EQ(result.total_cycles, result.program_cycle_stats->total_cycles);
+  EXPECT_GT(result.program_cycle_stats->total_issued_work_cycles, 0u);
 
   state.MemcpyDeviceToHost(c.data(), c_dev, n * sizeof(float));
   for (uint32_t i = 0; i < n; ++i) {

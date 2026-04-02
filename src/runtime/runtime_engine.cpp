@@ -318,6 +318,7 @@ LaunchResult RuntimeEngineImpl::Launch(const LaunchRequest& request) {
         result.total_cycles = raw_result.total_cycles;
         result.end_cycle = raw_result.end_cycle;
         result.stats = raw_result.stats;
+        result.program_cycle_stats = raw_result.program_cycle_stats;
       } else {
         ExecutionContext context{
             .spec = *spec,
@@ -356,8 +357,10 @@ LaunchResult RuntimeEngineImpl::Launch(const LaunchRequest& request) {
         result.ok = raw_result.ok;
         result.error_message = raw_result.error_message;
         result.stats = raw_result.stats;
-        const uint64_t issued = std::max<uint64_t>(1u, raw_result.stats.instructions_issued);
-        result.total_cycles = issued * spec->default_issue_cycles;
+        result.program_cycle_stats = raw_result.program_cycle_stats;
+        result.total_cycles = raw_result.program_cycle_stats.has_value()
+                                  ? raw_result.program_cycle_stats->total_cycles
+                                  : raw_result.total_cycles;
         result.end_cycle = result.begin_cycle + result.total_cycles;
       } else {
         ExecutionContext context{
