@@ -1148,5 +1148,254 @@ TEST(HipccParallelExecutionTest,
   std::filesystem::remove_all(temp_dir);
 }
 
+TEST(HipccParallelExecutionTest,
+     EncodedBarrierStageVariantsMatchAcrossModesAndReflectBarrierCounts) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hipcc_parallel_barrier_stages");
+
+  struct KernelCase {
+    const char* name = nullptr;
+    const char* source = nullptr;
+    uint64_t expected_barriers = 0;
+  };
+
+  const std::vector<KernelCase> cases = {
+      {
+          .name = "single_barrier",
+          .source =
+              "#include <hip/hip_runtime.h>\n"
+              "extern \"C\" __global__ void single_barrier(int* out) {\n"
+              "  __shared__ int tile[128];\n"
+              "  int tid = threadIdx.x;\n"
+              "  tile[tid] = tid + blockIdx.x;\n"
+              "  __syncthreads();\n"
+              "  out[blockIdx.x * blockDim.x + tid] = tile[blockDim.x - 1 - tid];\n"
+              "}\n"
+              "int main() { return 0; }\n",
+          .expected_barriers = 6,
+      },
+      {
+          .name = "double_barrier",
+          .source =
+              "#include <hip/hip_runtime.h>\n"
+              "extern \"C\" __global__ void double_barrier(int* out) {\n"
+              "  __shared__ int tile[128];\n"
+              "  int tid = threadIdx.x;\n"
+              "  tile[tid] = tid + blockIdx.x;\n"
+              "  __syncthreads();\n"
+              "  tile[tid] = tile[blockDim.x - 1 - tid] + 1;\n"
+              "  __syncthreads();\n"
+              "  out[blockIdx.x * blockDim.x + tid] = tile[tid];\n"
+              "}\n"
+              "int main() { return 0; }\n",
+          .expected_barriers = 12,
+      },
+  };
+
+  constexpr uint32_t grid_dim = 3;
+  constexpr uint32_t block_dim = 128;
+  constexpr uint32_t n = grid_dim * block_dim;
+
+  for (const auto& test_case : cases) {
+    SCOPED_TRACE(test_case.name);
+
+    const auto src_path = temp_dir / (std::string(test_case.name) + ".cpp");
+    const auto exe_path = temp_dir / (std::string(test_case.name) + ".out");
+    {
+      std::ofstream out(src_path);
+      ASSERT_TRUE(static_cast<bool>(out));
+      out << test_case.source;
+    }
+
+    const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+    ASSERT_EQ(std::system(command.c_str()), 0);
+
+    std::vector<int32_t> expect(n);
+    for (uint32_t block = 0; block < grid_dim; ++block) {
+      for (uint32_t tid = 0; tid < block_dim; ++tid) {
+        const uint32_t idx = block * block_dim + tid;
+        if (std::string_view(test_case.name) == "single_barrier") {
+          expect[idx] = static_cast<int32_t>((block_dim - 1 - tid) + block);
+        } else {
+          expect[idx] = static_cast<int32_t>((block_dim - 1 - tid) + block + 1);
+        }
+      }
+    }
+
+    const auto run_mode = [&](ExecutionMode mode,
+                              FunctionalExecutionMode functional_mode,
+                              uint32_t worker_threads) {
+      RuntimeEngine runtime;
+      runtime.SetFunctionalExecutionConfig(
+          FunctionalExecutionConfig{.mode = functional_mode, .worker_threads = worker_threads});
+      HipRuntime hooks(&runtime);
+
+      std::vector<int32_t> out(n, -1);
+      const uint64_t out_addr = hooks.Malloc(n * sizeof(int32_t));
+      hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(out));
+
+      KernelArgPack args;
+      args.PushU64(out_addr);
+
+      auto launch = hooks.LaunchEncodedProgramObject(
+          ObjectReader{}.LoadEncodedObject(exe_path, test_case.name),
+          LaunchConfig{.grid_dim_x = grid_dim, .block_dim_x = block_dim},
+          std::move(args),
+          mode,
+          "c500",
+          nullptr);
+      EXPECT_TRUE(launch.ok) << launch.error_message;
+      hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(out));
+      return IntLaunchRunResult{.launch = std::move(launch), .output = std::move(out)};
+    };
+
+    const auto st = run_mode(ExecutionMode::Functional, FunctionalExecutionMode::SingleThreaded, 0);
+    const auto mt = run_mode(ExecutionMode::Functional, FunctionalExecutionMode::MultiThreaded, 2);
+    const auto cycle = run_mode(ExecutionMode::Cycle, FunctionalExecutionMode::SingleThreaded, 0);
+
+    for (uint32_t i = 0; i < n; ++i) {
+      EXPECT_EQ(st.output[i], expect[i]);
+      EXPECT_EQ(mt.output[i], expect[i]);
+      EXPECT_EQ(cycle.output[i], expect[i]);
+    }
+
+    ASSERT_TRUE(st.launch.program_cycle_stats.has_value());
+    ASSERT_TRUE(mt.launch.program_cycle_stats.has_value());
+    ASSERT_TRUE(cycle.launch.program_cycle_stats.has_value());
+
+    EXPECT_EQ(st.launch.total_cycles, st.launch.program_cycle_stats->total_cycles);
+    EXPECT_EQ(mt.launch.total_cycles, mt.launch.program_cycle_stats->total_cycles);
+    EXPECT_EQ(cycle.launch.total_cycles, cycle.launch.program_cycle_stats->total_cycles);
+
+    EXPECT_EQ(st.launch.stats.barriers, test_case.expected_barriers);
+    EXPECT_EQ(mt.launch.stats.barriers, test_case.expected_barriers);
+    EXPECT_EQ(cycle.launch.stats.barriers, test_case.expected_barriers);
+    EXPECT_EQ(st.launch.stats.shared_loads, mt.launch.stats.shared_loads);
+    EXPECT_EQ(st.launch.stats.shared_loads, cycle.launch.stats.shared_loads);
+    EXPECT_EQ(st.launch.stats.shared_stores, mt.launch.stats.shared_stores);
+    EXPECT_EQ(st.launch.stats.shared_stores, cycle.launch.stats.shared_stores);
+    EXPECT_EQ(st.launch.stats.wave_exits, mt.launch.stats.wave_exits);
+    EXPECT_EQ(st.launch.stats.wave_exits, cycle.launch.stats.wave_exits);
+  }
+
+  std::filesystem::remove_all(temp_dir);
+}
+
+TEST(HipccParallelExecutionTest,
+     EncodedBarrierKernelMatchesAcrossModesForDifferentBlockCounts) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hipcc_parallel_barrier_block_counts");
+  const auto src_path = temp_dir / "barrier_block_counts.cpp";
+  const auto exe_path = temp_dir / "barrier_block_counts.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n"
+           "extern \"C\" __global__ void barrier_blocks(int* out) {\n"
+           "  __shared__ int tile[128];\n"
+           "  int tid = threadIdx.x;\n"
+           "  int base = blockIdx.x * blockDim.x;\n"
+           "  tile[tid] = base + tid;\n"
+           "  __syncthreads();\n"
+           "  out[base + tid] = tile[blockDim.x - 1 - tid];\n"
+           "}\n"
+           "int main() { return 0; }\n";
+  }
+
+  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  struct BlockCase {
+    const char* name = nullptr;
+    uint32_t grid_dim_x = 1;
+  };
+
+  const std::vector<BlockCase> cases = {
+      {.name = "single_block", .grid_dim_x = 1},
+      {.name = "two_block", .grid_dim_x = 2},
+      {.name = "three_block", .grid_dim_x = 3},
+      {.name = "four_block", .grid_dim_x = 4},
+  };
+
+  constexpr uint32_t block_dim = 128;
+
+  for (const auto& test_case : cases) {
+    SCOPED_TRACE(test_case.name);
+    const uint32_t n = test_case.grid_dim_x * block_dim;
+    std::vector<int32_t> expect(n);
+    for (uint32_t block = 0; block < test_case.grid_dim_x; ++block) {
+      const uint32_t base = block * block_dim;
+      for (uint32_t tid = 0; tid < block_dim; ++tid) {
+        expect[base + tid] = static_cast<int32_t>(base + (block_dim - 1 - tid));
+      }
+    }
+
+    const auto run_mode = [&](ExecutionMode mode,
+                              FunctionalExecutionMode functional_mode,
+                              uint32_t worker_threads) {
+      RuntimeEngine runtime;
+      runtime.SetFunctionalExecutionConfig(
+          FunctionalExecutionConfig{.mode = functional_mode, .worker_threads = worker_threads});
+      HipRuntime hooks(&runtime);
+
+      std::vector<int32_t> out(n, -1);
+      const uint64_t out_addr = hooks.Malloc(n * sizeof(int32_t));
+      hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(out));
+
+      KernelArgPack args;
+      args.PushU64(out_addr);
+
+      auto launch = hooks.LaunchEncodedProgramObject(
+          ObjectReader{}.LoadEncodedObject(exe_path, "barrier_blocks"),
+          LaunchConfig{.grid_dim_x = test_case.grid_dim_x, .block_dim_x = block_dim},
+          std::move(args),
+          mode,
+          "c500",
+          nullptr);
+      EXPECT_TRUE(launch.ok) << launch.error_message;
+      hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(out));
+      return IntLaunchRunResult{.launch = std::move(launch), .output = std::move(out)};
+    };
+
+    const auto st = run_mode(ExecutionMode::Functional, FunctionalExecutionMode::SingleThreaded, 0);
+    const auto mt = run_mode(ExecutionMode::Functional, FunctionalExecutionMode::MultiThreaded, 2);
+    const auto cycle = run_mode(ExecutionMode::Cycle, FunctionalExecutionMode::SingleThreaded, 0);
+
+    for (uint32_t i = 0; i < n; ++i) {
+      EXPECT_EQ(st.output[i], expect[i]);
+      EXPECT_EQ(mt.output[i], expect[i]);
+      EXPECT_EQ(cycle.output[i], expect[i]);
+    }
+
+    ASSERT_TRUE(st.launch.program_cycle_stats.has_value());
+    ASSERT_TRUE(mt.launch.program_cycle_stats.has_value());
+    ASSERT_TRUE(cycle.launch.program_cycle_stats.has_value());
+
+    EXPECT_EQ(st.launch.total_cycles, st.launch.program_cycle_stats->total_cycles);
+    EXPECT_EQ(mt.launch.total_cycles, mt.launch.program_cycle_stats->total_cycles);
+    EXPECT_EQ(cycle.launch.total_cycles, cycle.launch.program_cycle_stats->total_cycles);
+
+    const uint64_t expected_barriers = 2u * test_case.grid_dim_x;
+    EXPECT_EQ(st.launch.stats.barriers, expected_barriers);
+    EXPECT_EQ(mt.launch.stats.barriers, expected_barriers);
+    EXPECT_EQ(cycle.launch.stats.barriers, expected_barriers);
+    EXPECT_EQ(st.launch.stats.shared_loads, mt.launch.stats.shared_loads);
+    EXPECT_EQ(st.launch.stats.shared_loads, cycle.launch.stats.shared_loads);
+    EXPECT_EQ(st.launch.stats.shared_stores, mt.launch.stats.shared_stores);
+    EXPECT_EQ(st.launch.stats.shared_stores, cycle.launch.stats.shared_stores);
+    EXPECT_EQ(st.launch.stats.wave_exits, mt.launch.stats.wave_exits);
+    EXPECT_EQ(st.launch.stats.wave_exits, cycle.launch.stats.wave_exits);
+  }
+
+  std::filesystem::remove_all(temp_dir);
+}
+
 }  // namespace
 }  // namespace gpu_model
