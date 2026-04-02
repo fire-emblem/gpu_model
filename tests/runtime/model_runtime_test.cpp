@@ -148,7 +148,7 @@ TEST(ModelRuntimeTest, LaunchesProgramObjectThroughNativeFacade) {
   args.PushU64(c_addr);
   args.PushU32(n);
 
-  const auto result = api.LaunchProgramImage(
+  const auto result = api.LaunchProgramObject(
       image, LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64}, std::move(args));
   ASSERT_TRUE(result.ok) << result.error_message;
 

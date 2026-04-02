@@ -62,7 +62,7 @@ TEST(ExecutableImageIOTest, RoundTripsSectionedImageAndLaunchesIt) {
   const uint64_t out_addr = runtime.memory().AllocateGlobal(table.size() * sizeof(int32_t));
   LaunchRequest request;
   request.arch_name.clear();
-  request.program_image = &loaded;
+  request.program_object = &loaded;
   request.config.grid_dim_x = 1;
   request.config.block_dim_x = 64;
   request.args.PushU64(out_addr);

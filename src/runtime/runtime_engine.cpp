@@ -183,9 +183,9 @@ LaunchResult RuntimeEngineImpl::Launch(const LaunchRequest& request) {
   LaunchResult result;
 
   std::string arch_name = request.arch_name;
-  if (arch_name.empty() && request.program_image != nullptr) {
-    const auto it = request.program_image->metadata().values.find("arch");
-    if (it != request.program_image->metadata().values.end()) {
+  if (arch_name.empty() && request.program_object != nullptr) {
+    const auto it = request.program_object->metadata().values.find("arch");
+    if (it != request.program_object->metadata().values.end()) {
       arch_name = it->second;
     }
   }
@@ -203,12 +203,12 @@ LaunchResult RuntimeEngineImpl::Launch(const LaunchRequest& request) {
   const ExecutableKernel* kernel = request.kernel;
   const EncodedProgramObject* encoded_program_object = request.encoded_program_object;
   const bool use_encoded_program_object = encoded_program_object != nullptr;
-  if (encoded_program_object == nullptr && kernel == nullptr && request.program_image != nullptr) {
-    parsed_kernel = AsmParser{}.Parse(*request.program_image);
+  if (encoded_program_object == nullptr && kernel == nullptr && request.program_object != nullptr) {
+    parsed_kernel = AsmParser{}.Parse(*request.program_object);
     kernel = &parsed_kernel;
   }
   if (kernel == nullptr && !use_encoded_program_object) {
-    result.error_message = "launch request missing kernel or program image";
+    result.error_message = "launch request missing kernel or program object";
     return result;
   }
   if (request.config.grid_dim_x == 0 || request.config.grid_dim_y == 0 ||
@@ -220,8 +220,8 @@ LaunchResult RuntimeEngineImpl::Launch(const LaunchRequest& request) {
 
   const MetadataBlob& launch_metadata_source =
       use_encoded_program_object ? encoded_program_object->metadata
-                                 : (request.program_image != nullptr && kernel == nullptr
-                                        ? request.program_image->metadata()
+                                 : (request.program_object != nullptr && kernel == nullptr
+                                        ? request.program_object->metadata()
                                         : kernel->metadata());
 
   try {

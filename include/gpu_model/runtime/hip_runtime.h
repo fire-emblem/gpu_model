@@ -56,12 +56,12 @@ class HipRuntime {
                             const std::string& arch_name = "c500",
                             TraceSink* trace = nullptr);
 
-  LaunchResult LaunchProgramImage(const ProgramObject& image,
-                                  LaunchConfig config,
-                                  KernelArgPack args,
-                                  ExecutionMode mode = ExecutionMode::Functional,
-                                  std::string arch_name = "",
-                                  TraceSink* trace = nullptr);
+  LaunchResult LaunchProgramObject(const ProgramObject& image,
+                                   LaunchConfig config,
+                                   KernelArgPack args,
+                                   ExecutionMode mode = ExecutionMode::Functional,
+                                   std::string arch_name = "",
+                                   TraceSink* trace = nullptr);
   LaunchResult LaunchEncodedProgramObject(const EncodedProgramObject& image,
                                           LaunchConfig config,
                                           KernelArgPack args,

@@ -239,7 +239,7 @@ LaunchResult HipRuntime::LaunchKernel(const ExecutableKernel& kernel,
   return runtime_engine_->Launch(request);
 }
 
-LaunchResult HipRuntime::LaunchProgramImage(const ProgramObject& image,
+LaunchResult HipRuntime::LaunchProgramObject(const ProgramObject& image,
                                             LaunchConfig config,
                                             KernelArgPack args,
                                             ExecutionMode mode,
@@ -249,7 +249,7 @@ LaunchResult HipRuntime::LaunchProgramImage(const ProgramObject& image,
 
   LaunchRequest request;
   request.arch_name = std::move(arch_name);
-  request.program_image = &image;
+  request.program_object = &image;
   request.device_load = last_load_result_.has_value() ? &*last_load_result_ : nullptr;
   request.config = config;
   request.args = std::move(args);
@@ -391,7 +391,7 @@ LaunchResult HipRuntime::LaunchRegisteredKernel(const std::string& module_name,
     return result;
   }
   if (const auto* image = std::get_if<ProgramObject>(&kernel_it->second)) {
-    return LaunchProgramImage(*image, std::move(config), std::move(args), mode,
+    return LaunchProgramObject(*image, std::move(config), std::move(args), mode,
                               std::move(arch_name), trace);
   }
   return LaunchEncodedProgramObject(std::get<EncodedProgramObject>(kernel_it->second),

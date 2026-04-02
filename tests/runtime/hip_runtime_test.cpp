@@ -128,7 +128,7 @@ TEST(HipRuntimeTest, SimulatesMallocMemcpyLaunchAndSynchronizeFlow) {
   args.PushU32(n);
 
   const auto result =
-      hooks.LaunchProgramImage(image, LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64}, args);
+      hooks.LaunchProgramObject(image, LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64}, args);
   ASSERT_TRUE(result.ok) << result.error_message;
   hooks.DeviceSynchronize();
 
@@ -343,7 +343,7 @@ TEST(HipRuntimeTest, LaunchProgramObjectPopulatesLastLoadResult) {
 
   HipRuntime hooks;
   const auto result =
-      hooks.LaunchProgramImage(
+      hooks.LaunchProgramObject(
           image,
           LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64, .shared_memory_bytes = 128},
           {});
@@ -397,14 +397,14 @@ TEST(HipRuntimeTest, LaunchProgramObjectUsesLatestConstantPoolResidency) {
   KernelArgPack args_a;
   args_a.PushU64(out_addr);
   args_a.PushU32(4);
-  const auto result_a = hooks.LaunchProgramImage(
+  const auto result_a = hooks.LaunchProgramObject(
       first, LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64}, std::move(args_a));
   ASSERT_TRUE(result_a.ok) << result_a.error_message;
 
   KernelArgPack args_b;
   args_b.PushU64(out_addr);
   args_b.PushU32(4);
-  const auto result_b = hooks.LaunchProgramImage(
+  const auto result_b = hooks.LaunchProgramObject(
       second, LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64}, std::move(args_b));
   ASSERT_TRUE(result_b.ok) << result_b.error_message;
 

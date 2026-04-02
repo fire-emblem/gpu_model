@@ -52,7 +52,7 @@ TEST(ProgramObjectLaunchTest, LaunchesProgramObjectDirectlyWithConstSegment) {
 
   LaunchRequest request;
   request.arch_name.clear();
-  request.program_image = &image;
+  request.program_object = &image;
   request.config.grid_dim_x = 2;
   request.config.block_dim_x = 64;
   request.args.PushU64(out_addr);
