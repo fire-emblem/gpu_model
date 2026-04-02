@@ -129,6 +129,7 @@ enum class ExecutedFlowEventKind {
 struct ExecutedFlowWorkItem {
   ExecutedStepClass step_class = ExecutedStepClass::ScalarAlu;
   uint64_t cost_cycles = 0;
+  uint64_t work_weight = 1;
 };
 
 struct ExecutedFlowEvent {
@@ -420,7 +421,10 @@ class ExecutedFlowEventSource final : public ProgramCycleTickSource {
         wave.active = true;
         wave.current_cost_cycles = step.cost_cycles;
         wave.ticks_consumed = 0;
-        agg.BeginWaveWork(wave.agg_wave_id, step.step_class, step.cost_cycles);
+        agg.BeginWaveWork(wave.agg_wave_id,
+                          step.step_class,
+                          step.cost_cycles,
+                          step.work_weight);
         continue;
       }
       if (wave.saw_completion) {
@@ -735,6 +739,7 @@ class FunctionalExecutionCoreImpl {
     if (cost_cycles == 0) {
       return;
     }
+    const uint64_t work_weight = wave.exec.count();
     std::lock_guard<std::mutex> lock(executed_flow_mutex_);
     executed_flow_events_.push_back(ExecutedFlowEvent{
         .kind = ExecutedFlowEventKind::BeginWaveWork,
@@ -743,6 +748,7 @@ class FunctionalExecutionCoreImpl {
             ExecutedFlowWorkItem{
                 .step_class = step_class,
                 .cost_cycles = cost_cycles,
+                .work_weight = work_weight,
             },
     });
   }
