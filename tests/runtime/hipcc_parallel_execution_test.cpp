@@ -1511,8 +1511,15 @@ TEST(HipccParallelExecutionTest,
 
     const auto run_mode = [&](ExecutionMode mode,
                               FunctionalExecutionMode functional_mode,
-                              uint32_t worker_threads) -> IntLaunchRunResult {
-      RuntimeEngine runtime;
+                              uint32_t worker_threads,
+                              const std::filesystem::path* artifact_dir = nullptr)
+        -> IntLaunchRunResult {
+      std::optional<TraceArtifactRecorder> trace;
+      if (artifact_dir != nullptr) {
+        trace.emplace(*artifact_dir);
+      }
+
+      RuntimeEngine runtime(trace ? static_cast<TraceSink*>(&*trace) : nullptr);
       runtime.SetFunctionalExecutionConfig(
           FunctionalExecutionConfig{.mode = functional_mode, .worker_threads = worker_threads});
       HipRuntime hooks(&runtime);
@@ -1651,8 +1658,15 @@ TEST(HipccParallelExecutionTest,
 
     const auto run_mode = [&](ExecutionMode mode,
                               FunctionalExecutionMode functional_mode,
-                              uint32_t worker_threads) -> IntLaunchRunResult {
-      RuntimeEngine runtime;
+                              uint32_t worker_threads,
+                              const std::filesystem::path* artifact_dir = nullptr)
+        -> IntLaunchRunResult {
+      std::optional<TraceArtifactRecorder> trace;
+      if (artifact_dir != nullptr) {
+        trace.emplace(*artifact_dir);
+      }
+
+      RuntimeEngine runtime(trace ? static_cast<TraceSink*>(&*trace) : nullptr);
       runtime.SetFunctionalExecutionConfig(
           FunctionalExecutionConfig{.mode = functional_mode, .worker_threads = worker_threads});
       HipRuntime hooks(&runtime);
@@ -1706,26 +1720,29 @@ TEST(HipccParallelExecutionTest,
     EXPECT_EQ(st.launch.stats.shared_stores, cycle.launch.stats.shared_stores);
     EXPECT_EQ(st.launch.stats.wave_exits, mt.launch.stats.wave_exits);
     EXPECT_EQ(st.launch.stats.wave_exits, cycle.launch.stats.wave_exits);
+    if (std::string_view(test_case.name) == "double_barrier") {
+      const auto artifact_dir =
+          MakeUniqueTempDir("gpu_model_hipcc_parallel_barrier_stages_perfetto");
+      const auto cycle_with_artifacts =
+          run_mode(ExecutionMode::Cycle,
+                   FunctionalExecutionMode::SingleThreaded,
+                   0,
+                   &artifact_dir);
+      ASSERT_TRUE(cycle_with_artifacts.launch.ok) << cycle_with_artifacts.launch.error_message;
+
+      const auto timeline_path = artifact_dir / "timeline.perfetto.json";
+      ASSERT_TRUE(std::filesystem::exists(timeline_path));
+      const std::string timeline = ReadTextFile(timeline_path);
+      EXPECT_NE(timeline.find("\"traceEvents\""), std::string::npos);
+      EXPECT_NE(timeline.find("sync/barrier"), std::string::npos);
+      EXPECT_NE(timeline.find("barrier_"), std::string::npos);
+      EXPECT_NE(timeline.find("\"thread_name\""), std::string::npos);
+      EXPECT_NE(timeline.find("\"ph\":\"X\""), std::string::npos);
+
+      std::filesystem::remove_all(artifact_dir);
+    }
   }
 
-  const auto artifact_dir =
-      MakeUniqueTempDir("gpu_model_hipcc_parallel_conditional_multibarrier_perfetto");
-  const auto cycle_with_artifacts =
-      run_mode(ExecutionMode::Cycle,
-               FunctionalExecutionMode::SingleThreaded,
-               0,
-               &artifact_dir);
-  ASSERT_TRUE(cycle_with_artifacts.launch.ok) << cycle_with_artifacts.launch.error_message;
-
-  const auto timeline_path = artifact_dir / "timeline.perfetto.json";
-  ASSERT_TRUE(std::filesystem::exists(timeline_path));
-  const std::string timeline = ReadTextFile(timeline_path);
-  EXPECT_NE(timeline.find("\"traceEvents\""), std::string::npos);
-  EXPECT_NE(timeline.find("Barrier"), std::string::npos);
-  EXPECT_NE(timeline.find("\"thread_name\""), std::string::npos);
-  EXPECT_NE(timeline.find("\"ph\":\"X\""), std::string::npos);
-
-  std::filesystem::remove_all(artifact_dir);
   std::filesystem::remove_all(temp_dir);
 }
 

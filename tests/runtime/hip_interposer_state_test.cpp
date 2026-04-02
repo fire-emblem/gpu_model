@@ -966,6 +966,64 @@ TEST(HipInterposerStateTest, LaunchesHipSharedReverseExecutableThroughRegistered
   std::filesystem::remove_all(temp_dir);
 }
 
+TEST(HipInterposerStateTest, LaunchesHipDynamicSharedExecutableThroughRegisteredHostFunction) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_interposer_dynamic_shared");
+  const auto src_path = temp_dir / "hip_dynamic_shared.cpp";
+  const auto exe_path = temp_dir / "hip_dynamic_shared.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n\n"
+           "extern \"C\" __global__ void dynamic_shared_sum(int* out) {\n"
+           "  extern __shared__ int scratch[];\n"
+           "  int tid = threadIdx.x;\n"
+           "  scratch[tid] = tid + 1;\n"
+           "  __syncthreads();\n"
+           "  if (tid == 0) {\n"
+           "    int acc = 0;\n"
+           "    for (int i = 0; i < blockDim.x; ++i) acc += scratch[i];\n"
+           "    out[0] = acc;\n"
+           "  }\n"
+           "}\n\n"
+           "int main() { return 0; }\n";
+  }
+
+  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  auto& state = HipInterposerState::Instance();
+  state.ResetForTest();
+  static int host_symbol = 0;
+  state.RegisterFunction(&host_symbol, "dynamic_shared_sum");
+
+  int32_t output = 0;
+  void* out_dev = state.AllocateDevice(sizeof(int32_t));
+  state.MemcpyHostToDevice(out_dev, &output, sizeof(output));
+
+  void* args[] = {&out_dev};
+  constexpr uint32_t block_dim = 64;
+  const auto result = state.LaunchExecutableKernel(
+      exe_path,
+      &host_symbol,
+      LaunchConfig{
+          .grid_dim_x = 1,
+          .block_dim_x = block_dim,
+          .shared_memory_bytes = block_dim * sizeof(int32_t),
+      },
+      args);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  state.MemcpyDeviceToHost(&output, out_dev, sizeof(output));
+  EXPECT_EQ(output, static_cast<int32_t>(block_dim * (block_dim + 1) / 2));
+
+  std::filesystem::remove_all(temp_dir);
+}
+
 TEST(HipInterposerStateTest, LaunchesHipAtomicCountExecutableThroughRegisteredHostFunction) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
