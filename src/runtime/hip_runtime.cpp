@@ -228,10 +228,12 @@ LaunchResult HipRuntime::LaunchKernel(const ExecutableKernel& kernel,
                                       KernelArgPack args,
                                       ExecutionMode mode,
                                       const std::string& arch_name,
-                                      TraceSink* trace) {
+                                      TraceSink* trace,
+                                      RuntimeSubmissionContext submission_context) {
   LaunchRequest request;
   request.arch_name = arch_name;
   request.kernel = &kernel;
+  request.submission_context = submission_context;
   request.config = config;
   request.args = std::move(args);
   request.mode = mode;
@@ -240,17 +242,19 @@ LaunchResult HipRuntime::LaunchKernel(const ExecutableKernel& kernel,
 }
 
 LaunchResult HipRuntime::LaunchProgramObject(const ProgramObject& image,
-                                            LaunchConfig config,
-                                            KernelArgPack args,
-                                            ExecutionMode mode,
-                                            std::string arch_name,
-                                            TraceSink* trace) {
+                                             LaunchConfig config,
+                                             KernelArgPack args,
+                                             ExecutionMode mode,
+                                             std::string arch_name,
+                                             TraceSink* trace,
+                                             RuntimeSubmissionContext submission_context) {
   last_load_result_ = MaterializeLoadPlan(BuildDeviceLoadPlan(image));
 
   LaunchRequest request;
   request.arch_name = std::move(arch_name);
   request.program_object = &image;
   request.device_load = last_load_result_.has_value() ? &*last_load_result_ : nullptr;
+  request.submission_context = submission_context;
   request.config = config;
   request.args = std::move(args);
   request.mode = mode;
@@ -356,12 +360,14 @@ LaunchResult HipRuntime::LaunchEncodedProgramObject(const EncodedProgramObject& 
                                                     KernelArgPack args,
                                                     ExecutionMode mode,
                                                     std::string arch_name,
-                                                    TraceSink* trace) {
+                                                    TraceSink* trace,
+                                                    RuntimeSubmissionContext submission_context) {
   last_load_result_ = MaterializeLoadPlan(BuildDeviceLoadPlan(image));
   LaunchRequest request;
   request.arch_name = std::move(arch_name);
   request.encoded_program_object = &image;
   request.device_load = last_load_result_.has_value() ? &*last_load_result_ : nullptr;
+  request.submission_context = submission_context;
   request.config = config;
   request.args = std::move(args);
   request.mode = mode;
@@ -375,7 +381,8 @@ LaunchResult HipRuntime::LaunchRegisteredKernel(const std::string& module_name,
                                                 KernelArgPack args,
                                                 ExecutionMode mode,
                                                 std::string arch_name,
-                                                TraceSink* trace) {
+                                                TraceSink* trace,
+                                                RuntimeSubmissionContext submission_context) {
   const auto module_it = modules_.find(module_name);
   if (module_it == modules_.end()) {
     LaunchResult result;
@@ -392,14 +399,15 @@ LaunchResult HipRuntime::LaunchRegisteredKernel(const std::string& module_name,
   }
   if (const auto* image = std::get_if<ProgramObject>(&kernel_it->second)) {
     return LaunchProgramObject(*image, std::move(config), std::move(args), mode,
-                              std::move(arch_name), trace);
+                               std::move(arch_name), trace, submission_context);
   }
   return LaunchEncodedProgramObject(std::get<EncodedProgramObject>(kernel_it->second),
                                     std::move(config),
                                     std::move(args),
                                     mode,
                                     std::move(arch_name),
-                                    trace);
+                                    trace,
+                                    submission_context);
 }
 
 }  // namespace gpu_model

@@ -17,6 +17,7 @@
 #include "gpu_model/program/program_object.h"
 #include "gpu_model/runtime/device_properties.h"
 #include "gpu_model/runtime/module_load.h"
+#include "gpu_model/runtime/runtime_submission_context.h"
 #include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
@@ -54,20 +55,23 @@ class HipRuntime {
                             KernelArgPack args,
                             ExecutionMode mode = ExecutionMode::Functional,
                             const std::string& arch_name = "c500",
-                            TraceSink* trace = nullptr);
+                            TraceSink* trace = nullptr,
+                            RuntimeSubmissionContext submission_context = {});
 
   LaunchResult LaunchProgramObject(const ProgramObject& image,
                                    LaunchConfig config,
                                    KernelArgPack args,
                                    ExecutionMode mode = ExecutionMode::Functional,
                                    std::string arch_name = "",
-                                   TraceSink* trace = nullptr);
+                                   TraceSink* trace = nullptr,
+                                   RuntimeSubmissionContext submission_context = {});
   LaunchResult LaunchEncodedProgramObject(const EncodedProgramObject& image,
                                           LaunchConfig config,
                                           KernelArgPack args,
                                           ExecutionMode mode = ExecutionMode::Functional,
                                           std::string arch_name = "",
-                                          TraceSink* trace = nullptr);
+                                          TraceSink* trace = nullptr,
+                                          RuntimeSubmissionContext submission_context = {});
   void LoadModule(const ModuleLoadRequest& request);
   const std::optional<DeviceLoadResult>& last_load_result() const { return last_load_result_; }
   void UnloadModule(const std::string& module_name);
@@ -82,7 +86,8 @@ class HipRuntime {
                                       KernelArgPack args,
                                       ExecutionMode mode = ExecutionMode::Functional,
                                       std::string arch_name = "",
-                                      TraceSink* trace = nullptr);
+                                      TraceSink* trace = nullptr,
+                                      RuntimeSubmissionContext submission_context = {});
 
  RuntimeEngine& runtime() { return *runtime_engine_; }
   const RuntimeEngine& runtime() const { return *runtime_engine_; }

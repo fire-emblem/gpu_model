@@ -251,7 +251,8 @@ LaunchResult HipInterposerState::LaunchExecutableKernel(const std::filesystem::p
                                                         void** args,
                                                         ExecutionMode mode,
                                                         const std::string& arch_name,
-                                                        TraceSink* trace) {
+                                                        TraceSink* trace,
+                                                        RuntimeSubmissionContext submission_context) {
   EncodedProgramObject image;
   try {
     image = LoadExecutableImage(executable_path, host_function);
@@ -268,6 +269,7 @@ LaunchResult HipInterposerState::LaunchExecutableKernel(const std::filesystem::p
   request.arch_name = arch_name;
   request.encoded_program_object = &image;
   request.device_load = &device_load;
+  request.submission_context = submission_context;
   request.config = std::move(config);
   request.args = PackArgs(image.metadata, args);
   request.mode = mode;

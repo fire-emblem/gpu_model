@@ -8,6 +8,7 @@
 #include "gpu_model/runtime/launch_config.h"
 #include "gpu_model/runtime/mapper.h"
 #include "gpu_model/runtime/program_cycle_stats.h"
+#include "gpu_model/runtime/runtime_submission_context.h"
 
 namespace gpu_model {
 
@@ -47,6 +48,7 @@ struct LaunchRequest {
   const ProgramObject* program_object = nullptr;
   const EncodedProgramObject* encoded_program_object = nullptr;
   const DeviceLoadResult* device_load = nullptr;
+  RuntimeSubmissionContext submission_context;
   LaunchConfig config;
   KernelArgPack args;
   ExecutionMode mode = ExecutionMode::Functional;

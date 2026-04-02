@@ -135,6 +135,15 @@ bool IsValidStream(hipStream_t stream) {
          reinterpret_cast<uintptr_t>(stream) == *g_active_stream_id;
 }
 
+gpu_model::RuntimeSubmissionContext CurrentSubmissionContext() {
+  gpu_model::RuntimeSubmissionContext submission_context;
+  submission_context.device_id = g_current_device;
+  if (g_active_stream_id.has_value()) {
+    submission_context.stream_id = *g_active_stream_id;
+  }
+  return submission_context;
+}
+
 }  // namespace
 
 extern "C" {
@@ -623,7 +632,8 @@ hipError_t hipLaunchKernel(const void* function_address,
                                                    args,
                                                    execution_mode,
                                                    "c500",
-                                                   trace);
+                                                   trace,
+                                                   CurrentSubmissionContext());
   if (trace != nullptr) {
     trace->FlushTimeline();
     AppendLaunchSummary(trace->output_dir(),

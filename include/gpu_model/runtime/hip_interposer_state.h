@@ -11,6 +11,7 @@
 
 #include "gpu_model/debug/trace_sink.h"
 #include "gpu_model/runtime/model_runtime.h"
+#include "gpu_model/runtime/runtime_submission_context.h"
 
 namespace gpu_model {
 
@@ -51,7 +52,8 @@ class HipInterposerState {
                                       void** args,
                                       ExecutionMode mode = ExecutionMode::Functional,
                                       const std::string& arch_name = "c500",
-                                      TraceSink* trace = nullptr);
+                                      TraceSink* trace = nullptr,
+                                      RuntimeSubmissionContext submission_context = {});
   DeviceLoadPlan BuildExecutableLoadPlan(
       const std::filesystem::path& executable_path,
       const void* host_function) const;
