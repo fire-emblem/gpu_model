@@ -42,8 +42,14 @@ namespace {
 constexpr uint8_t kEncodedPendingMemoryCompletionTurns = 5;
 
 struct RawWave {
+  size_t block_index = 0;
+  size_t wave_index = 0;
   WaveContext wave;
   uint64_t vcc = 0;
+  bool dispatch_enabled = false;
+  bool launch_scheduled = false;
+  uint64_t launch_cycle = 0;
+  size_t peu_slot_index = std::numeric_limits<size_t>::max();
 };
 
 struct EncodedPendingMemoryOp {
@@ -72,9 +78,18 @@ struct ApSchedulerState {
 };
 
 struct EncodedPeuSlot {
-  std::vector<WaveTaskRef> waves;
+  std::vector<RawWave*> resident_waves;
+  std::vector<RawWave*> active_window;
+  std::deque<RawWave*> standby_waves;
   uint64_t busy_until = 0;
   size_t next_rr = 0;
+};
+
+struct EncodedApResidentState {
+  uint32_t global_ap_id = 0;
+  std::deque<size_t> pending_blocks;
+  std::vector<size_t> resident_blocks;
+  uint32_t resident_block_limit = 2;
 };
 
 struct RawBlock {
@@ -82,6 +97,8 @@ struct RawBlock {
   uint32_t dpc_id = 0;
   uint32_t ap_id = 0;
   uint32_t global_ap_id = 0;
+  bool active = false;
+  bool completed = false;
   std::vector<RawWave> waves;
   std::vector<EncodedWaveState> wave_states;
   std::vector<std::byte> shared_memory;
@@ -1031,8 +1048,13 @@ std::vector<RawBlock> MaterializeRawBlocks(const PlacementMap& placement,
     block.waves.reserve(shared_block.waves.size());
     block.wave_states.resize(shared_block.waves.size());
     block.wave_busy.resize(shared_block.waves.size(), false);
-    for (const auto& wave : shared_block.waves) {
-      block.waves.push_back(RawWave{.wave = wave});
+    const size_t block_index = blocks.size();
+    for (size_t wave_index = 0; wave_index < shared_block.waves.size(); ++wave_index) {
+      block.waves.push_back(RawWave{
+          .block_index = block_index,
+          .wave_index = wave_index,
+          .wave = shared_block.waves[wave_index],
+      });
     }
     for (size_t wave_index = 0; wave_index < block.waves.size(); ++wave_index) {
       const auto peu_id = block.waves[wave_index].wave.peu_id;
@@ -1133,6 +1155,7 @@ class EncodedExecutionCore {
   std::condition_variable scheduler_cv_;
   std::vector<ApSchedulerState> ap_schedulers_;
   std::vector<EncodedPeuSlot> cycle_peu_slots_;
+  std::unordered_map<uint32_t, EncodedApResidentState> cycle_ap_states_;
   size_t next_ap_rr_ = 0;
   size_t total_waves_ = 0;
   size_t completed_waves_ = 0;
@@ -1152,6 +1175,9 @@ class EncodedExecutionCore {
         raw_wave.wave.tensor_accum_offset = image_.kernel_descriptor.accum_offset;
         InitializeWaveAbiState(raw_wave.wave, image_, config_, kernarg_base_,
                                static_cast<uint32_t>(raw_block.waves.size()));
+        if (execution_mode_ == ExecutionMode::Cycle) {
+          continue;
+        }
         const auto launch_summary = BuildWaveLaunchAbiSummary(raw_wave.wave, image_.kernel_descriptor);
         TraceEventLocked(TraceEvent{
             .kind = TraceEventKind::WaveLaunch,
@@ -1230,8 +1256,12 @@ class EncodedExecutionCore {
   void BuildCyclePeuSlots() {
     std::map<std::pair<uint32_t, uint32_t>, size_t> slot_indices;
     cycle_peu_slots_.clear();
+    cycle_ap_states_.clear();
     for (size_t block_index = 0; block_index < raw_blocks_.size(); ++block_index) {
       auto& block = raw_blocks_[block_index];
+      auto& ap_state = cycle_ap_states_[block.global_ap_id];
+      ap_state.global_ap_id = block.global_ap_id;
+      ap_state.pending_blocks.push_back(block_index);
       for (size_t wave_index = 0; wave_index < block.waves.size(); ++wave_index) {
         const auto key = std::make_pair(block.global_ap_id, block.waves[wave_index].wave.peu_id);
         auto [it, inserted] = slot_indices.emplace(key, cycle_peu_slots_.size());
@@ -1239,33 +1269,177 @@ class EncodedExecutionCore {
           cycle_peu_slots_.push_back(EncodedPeuSlot{});
           it->second = cycle_peu_slots_.size() - 1;
         }
-        cycle_peu_slots_[it->second].waves.push_back(WaveTaskRef{
-            .block_index = block_index,
-            .wave_index = wave_index,
-            .global_ap_id = block.global_ap_id,
+        block.waves[wave_index].peu_slot_index = it->second;
+      }
+    }
+  }
+
+  void ScheduleWaveLaunch(RawWave& raw_wave,
+                          uint64_t cycle) {
+    raw_wave.launch_scheduled = true;
+    raw_wave.launch_cycle = cycle;
+  }
+
+  void RegisterResidentWave(EncodedPeuSlot& slot, RawWave& raw_wave) {
+    auto remove_if_present = [&](auto& container) {
+      container.erase(std::remove(container.begin(), container.end(), &raw_wave), container.end());
+    };
+    remove_if_present(slot.resident_waves);
+    remove_if_present(slot.active_window);
+    remove_if_present(slot.standby_waves);
+    raw_wave.dispatch_enabled = false;
+    raw_wave.wave.status = WaveStatus::Stalled;
+    slot.resident_waves.push_back(&raw_wave);
+    slot.standby_waves.push_back(&raw_wave);
+  }
+
+  void RemoveWaveFromActiveWindow(EncodedPeuSlot& slot, RawWave& raw_wave) {
+    slot.active_window.erase(std::remove(slot.active_window.begin(),
+                                         slot.active_window.end(),
+                                         &raw_wave),
+                             slot.active_window.end());
+    raw_wave.dispatch_enabled = false;
+  }
+
+  void RemoveResidentWave(EncodedPeuSlot& slot, RawWave& raw_wave) {
+    slot.resident_waves.erase(std::remove(slot.resident_waves.begin(),
+                                          slot.resident_waves.end(),
+                                          &raw_wave),
+                              slot.resident_waves.end());
+    RemoveWaveFromActiveWindow(slot, raw_wave);
+    slot.standby_waves.erase(std::remove(slot.standby_waves.begin(),
+                                         slot.standby_waves.end(),
+                                         &raw_wave),
+                             slot.standby_waves.end());
+  }
+
+  void QueueResidentWaveForRefill(EncodedPeuSlot& slot, RawWave& raw_wave) {
+    if (std::find(slot.resident_waves.begin(), slot.resident_waves.end(), &raw_wave) ==
+            slot.resident_waves.end() ||
+        std::find(slot.active_window.begin(), slot.active_window.end(), &raw_wave) !=
+            slot.active_window.end() ||
+        std::find(slot.standby_waves.begin(), slot.standby_waves.end(), &raw_wave) !=
+            slot.standby_waves.end() ||
+        raw_wave.wave.status == WaveStatus::Exited ||
+        raw_wave.wave.waiting_at_barrier) {
+      return;
+    }
+    raw_wave.dispatch_enabled = false;
+    slot.standby_waves.push_back(&raw_wave);
+  }
+
+  void RefillActiveWindow(EncodedPeuSlot& slot, uint64_t cycle) {
+    uint32_t launch_order = 0;
+    while (slot.active_window.size() < spec_.max_issuable_waves && !slot.standby_waves.empty()) {
+      RawWave* raw_wave = slot.standby_waves.front();
+      slot.standby_waves.pop_front();
+      if (raw_wave == nullptr || raw_wave->wave.status == WaveStatus::Exited) {
+        continue;
+      }
+      slot.active_window.push_back(raw_wave);
+      const uint64_t launch_cycle =
+          cycle + static_cast<uint64_t>(launch_order) * timing_config_.launch_timing.wave_launch_cycles;
+      ScheduleWaveLaunch(*raw_wave, launch_cycle);
+      ++launch_order;
+    }
+  }
+
+  void ActivateScheduledWaves(uint64_t cycle) {
+    for (auto& slot : cycle_peu_slots_) {
+      for (RawWave* raw_wave : slot.active_window) {
+        if (raw_wave == nullptr || !raw_wave->launch_scheduled || raw_wave->launch_cycle > cycle) {
+          continue;
+        }
+        raw_wave->launch_scheduled = false;
+        raw_wave->dispatch_enabled = true;
+        raw_wave->wave.status = WaveStatus::Active;
+        raw_wave->wave.valid_entry = true;
+        const auto launch_summary = BuildWaveLaunchAbiSummary(raw_wave->wave, image_.kernel_descriptor);
+        TraceEventLocked(TraceEvent{
+            .kind = TraceEventKind::WaveLaunch,
+            .cycle = cycle,
+            .dpc_id = raw_wave->wave.dpc_id,
+            .ap_id = raw_wave->wave.ap_id,
+            .peu_id = raw_wave->wave.peu_id,
+            .block_id = raw_wave->wave.block_id,
+            .wave_id = raw_wave->wave.wave_id,
+            .pc = raw_wave->wave.pc,
+            .message = FormatWaveLaunchTraceMessage(
+                raw_wave->wave,
+                &launch_summary,
+                WaveLaunchTraceScalarRegs(image_.kernel_descriptor),
+                WaveLaunchTraceVectorRegs(image_.kernel_descriptor)),
         });
       }
     }
   }
 
-  std::optional<WaveTaskRef> SelectNextWaveForCycleSlot(EncodedPeuSlot& slot) {
-    if (slot.waves.empty()) {
-      return std::nullopt;
+  void ActivateBlock(size_t block_index, uint64_t cycle) {
+    auto& block = raw_blocks_[block_index];
+    block.active = true;
+    TraceEventLocked(TraceEvent{
+        .kind = TraceEventKind::BlockLaunch,
+        .cycle = cycle,
+        .dpc_id = block.dpc_id,
+        .ap_id = block.ap_id,
+        .block_id = block.block_id,
+        .message = "ap=" + std::to_string(block.ap_id),
+    });
+    std::vector<size_t> touched_slots;
+    for (auto& raw_wave : block.waves) {
+      raw_wave.wave.status = WaveStatus::Stalled;
+      raw_wave.dispatch_enabled = false;
+      raw_wave.launch_scheduled = false;
+      auto& slot = cycle_peu_slots_.at(raw_wave.peu_slot_index);
+      RegisterResidentWave(slot, raw_wave);
+      if (std::find(touched_slots.begin(), touched_slots.end(), raw_wave.peu_slot_index) ==
+          touched_slots.end()) {
+        touched_slots.push_back(raw_wave.peu_slot_index);
+      }
     }
-    const size_t start = slot.next_rr % slot.waves.size();
-    for (size_t offset = 0; offset < slot.waves.size(); ++offset) {
-      const size_t index = (start + offset) % slot.waves.size();
-      const auto task = slot.waves[index];
-      auto& wave = raw_blocks_[task.block_index].waves[task.wave_index].wave;
-      if (wave.status != WaveStatus::Active ||
+    for (size_t slot_index : touched_slots) {
+      RefillActiveWindow(cycle_peu_slots_.at(slot_index), cycle);
+    }
+  }
+
+  void AdmitResidentBlocks(uint64_t cycle) {
+    for (auto& [global_ap_id, ap_state] : cycle_ap_states_) {
+      (void)global_ap_id;
+      while (ap_state.resident_blocks.size() < ap_state.resident_block_limit &&
+             !ap_state.pending_blocks.empty()) {
+        const size_t block_index = ap_state.pending_blocks.front();
+        ap_state.pending_blocks.pop_front();
+        if (raw_blocks_[block_index].active || raw_blocks_[block_index].completed) {
+          continue;
+        }
+        ap_state.resident_blocks.push_back(block_index);
+        ActivateBlock(block_index, cycle);
+      }
+    }
+  }
+
+  RawWave* SelectNextWaveForCycleSlot(EncodedPeuSlot& slot) {
+    if (slot.active_window.empty()) {
+      return nullptr;
+    }
+    const size_t start = slot.next_rr % slot.active_window.size();
+    for (size_t offset = 0; offset < slot.active_window.size(); ++offset) {
+      const size_t index = (start + offset) % slot.active_window.size();
+      RawWave* raw_wave = slot.active_window[index];
+      if (raw_wave == nullptr) {
+        continue;
+      }
+      auto& wave = raw_wave->wave;
+      if (!raw_wave->dispatch_enabled ||
+          wave.status != WaveStatus::Active ||
           wave.run_state != WaveRunState::Runnable ||
           wave.waiting_at_barrier) {
         continue;
       }
-      slot.next_rr = (index + 1) % slot.waves.size();
-      return task;
+      slot.next_rr = (index + 1) % slot.active_window.size();
+      return raw_wave;
     }
-    return std::nullopt;
+    return nullptr;
   }
 
   bool HasFutureProgress(uint64_t cycle) const {
@@ -1290,8 +1464,13 @@ class EncodedExecutionCore {
 
   uint64_t RunCycle() {
     BuildCyclePeuSlots();
+    AdmitResidentBlocks(0);
     uint64_t cycle = 0;
     while (true) {
+      for (auto& slot : cycle_peu_slots_) {
+        RefillActiveWindow(slot, cycle);
+      }
+      ActivateScheduledWaves(cycle);
       bool all_done = true;
       for (auto& block : raw_blocks_) {
         all_done = !HasUncompletedWave(block) && all_done;
@@ -1306,12 +1485,12 @@ class EncodedExecutionCore {
         if (slot.busy_until > cycle) {
           continue;
         }
-        const auto task = SelectNextWaveForCycleSlot(slot);
-        if (!task.has_value()) {
+        RawWave* raw_wave = SelectNextWaveForCycleSlot(slot);
+        if (raw_wave == nullptr) {
           continue;
         }
-        const uint64_t issue_cycles = ExecuteWaveCycle(raw_blocks_[task->block_index],
-                                                       task->wave_index,
+        const uint64_t issue_cycles = ExecuteWaveCycle(raw_blocks_[raw_wave->block_index],
+                                                       raw_wave->wave_index,
                                                        cycle);
         slot.busy_until = cycle + std::max<uint64_t>(1u, issue_cycles);
         issued = true;
@@ -1320,6 +1499,7 @@ class EncodedExecutionCore {
       if (!issued && !HasFutureProgress(cycle)) {
         throw std::runtime_error("encoded cycle execution stalled without pending progress");
       }
+      AdmitResidentBlocks(cycle + 1);
       ++cycle;
     }
   }
@@ -1600,11 +1780,12 @@ class EncodedExecutionCore {
       for (auto& wave : block.waves) {
         wave_ptrs.push_back(&wave.wave);
       }
-      const bool released = sync_ops::ReleaseBarrierIfReady(wave_ptrs,
-                                                            block.barrier_generation,
-                                                            block.barrier_arrivals,
-                                                            4,
-                                                            false);
+      const bool released = sync_ops::ReleaseBarrierIfReady(
+          wave_ptrs,
+          block.barrier_generation,
+          block.barrier_arrivals,
+          4,
+          false);
       if (released) {
         TraceEventLocked(TraceEvent{
             .kind = TraceEventKind::Barrier,
@@ -1614,6 +1795,21 @@ class EncodedExecutionCore {
             .block_id = block.block_id,
             .message = "release",
         });
+        std::vector<size_t> refill_slots;
+        for (auto& raw_wave : block.waves) {
+          if (raw_wave.wave.waiting_at_barrier || raw_wave.wave.status == WaveStatus::Exited) {
+            continue;
+          }
+          auto& slot = cycle_peu_slots_.at(raw_wave.peu_slot_index);
+          QueueResidentWaveForRefill(slot, raw_wave);
+          if (std::find(refill_slots.begin(), refill_slots.end(), raw_wave.peu_slot_index) ==
+              refill_slots.end()) {
+            refill_slots.push_back(raw_wave.peu_slot_index);
+          }
+        }
+        for (size_t slot_index : refill_slots) {
+          RefillActiveWindow(cycle_peu_slots_.at(slot_index), cycle);
+        }
       }
       progressed = released || progressed;
     }
@@ -1899,10 +2095,33 @@ class EncodedExecutionCore {
             .pc = wave.pc,
             .message = "arrive",
         });
+        auto& slot = cycle_peu_slots_.at(raw_wave.peu_slot_index);
+        RemoveWaveFromActiveWindow(slot, raw_wave);
+        RefillActiveWindow(slot, cycle);
       }
       if (wave.status == WaveStatus::Exited) {
         wave.run_state = WaveRunState::Completed;
         wave.wait_reason = WaveWaitReason::None;
+        auto& slot = cycle_peu_slots_.at(raw_wave.peu_slot_index);
+        RemoveResidentWave(slot, raw_wave);
+        RefillActiveWindow(slot, cycle);
+        bool block_done = true;
+        for (const auto& other_wave : block.waves) {
+          if (other_wave.wave.run_state != WaveRunState::Completed) {
+            block_done = false;
+            break;
+          }
+        }
+        if (block.active && !block.completed && block_done) {
+          block.active = false;
+          block.completed = true;
+          auto ap_it = cycle_ap_states_.find(block.global_ap_id);
+          if (ap_it != cycle_ap_states_.end()) {
+            auto& resident = ap_it->second.resident_blocks;
+            resident.erase(std::remove(resident.begin(), resident.end(), raw_wave.block_index),
+                           resident.end());
+          }
+        }
       } else if (wave.run_state != WaveRunState::Waiting) {
         wave.run_state = WaveRunState::Runnable;
         wave.status = WaveStatus::Active;

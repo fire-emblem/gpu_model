@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 
+#include "gpu_model/arch/arch_registry.h"
 #include "gpu_model/isa/instruction_builder.h"
 #include "gpu_model/loader/executable_image_io.h"
 #include "gpu_model/loader/program_bundle_io.h"
@@ -80,6 +81,19 @@ std::filesystem::path AssembleLlvmMcFixture(const std::string& stem,
     throw std::runtime_error("llvm-mc failed for fixture: " + fixture_path.string());
   }
   return obj_path;
+}
+
+uint32_t WrappedBlockId(const GpuArchSpec& spec, uint32_t ordinal) {
+  return ordinal * spec.total_ap_count();
+}
+
+size_t FirstBlockLaunchIndex(const std::vector<TraceEvent>& events, uint32_t block_id) {
+  for (size_t i = 0; i < events.size(); ++i) {
+    if (events[i].kind == TraceEventKind::BlockLaunch && events[i].block_id == block_id) {
+      return i;
+    }
+  }
+  return std::numeric_limits<size_t>::max();
 }
 
 TEST(HipRuntimeTest, SimulatesMallocMemcpyLaunchAndSynchronizeFlow) {
@@ -1187,6 +1201,65 @@ TEST(HipRuntimeTest, EncodedCycleLaunchEmitsArriveTraceForMemoryOps) {
     }
   }
   EXPECT_TRUE(saw_arrive);
+
+  std::filesystem::remove_all(temp_dir);
+}
+
+TEST(HipRuntimeTest, EncodedCycleRespectsApResidentBlockLimit) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto spec = ArchRegistry::Get("c500");
+  ASSERT_NE(spec, nullptr);
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_runtime_cycle_resident_blocks");
+  const auto src_path = temp_dir / "hip_resident_probe.cpp";
+  const auto exe_path = temp_dir / "hip_resident_probe.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n"
+           "extern \"C\" __global__ void resident_probe() {\n"
+           "  int x = threadIdx.x;\n"
+           "  if (x == 0) {\n"
+           "    asm volatile(\"s_nop 0\");\n"
+           "  }\n"
+           "}\n"
+           "int main() { return 0; }\n";
+  }
+
+  const std::string command =
+      "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  HipRuntime hooks;
+  CollectingTraceSink trace;
+  const auto result = hooks.LaunchEncodedProgramObject(
+      ObjectReader{}.LoadEncodedObject(exe_path, "resident_probe"),
+      LaunchConfig{
+          .grid_dim_x = 2 * spec->total_ap_count() + 1,
+          .block_dim_x = 64,
+      },
+      {},
+      ExecutionMode::Cycle,
+      "c500",
+      &trace);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  const uint32_t block0 = WrappedBlockId(*spec, 0);
+  const uint32_t block1 = WrappedBlockId(*spec, 1);
+  const uint32_t block2 = WrappedBlockId(*spec, 2);
+  const size_t launch0 = FirstBlockLaunchIndex(trace.events(), block0);
+  const size_t launch1 = FirstBlockLaunchIndex(trace.events(), block1);
+  const size_t launch2 = FirstBlockLaunchIndex(trace.events(), block2);
+  ASSERT_NE(launch0, std::numeric_limits<size_t>::max());
+  ASSERT_NE(launch1, std::numeric_limits<size_t>::max());
+  ASSERT_NE(launch2, std::numeric_limits<size_t>::max());
+  EXPECT_EQ(trace.events()[launch0].cycle, 0u);
+  EXPECT_EQ(trace.events()[launch1].cycle, 0u);
+  EXPECT_GT(trace.events()[launch2].cycle, 0u);
 
   std::filesystem::remove_all(temp_dir);
 }
