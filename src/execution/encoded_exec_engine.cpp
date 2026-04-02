@@ -2125,6 +2125,17 @@ class EncodedExecutionCore {
       if (wave.status == WaveStatus::Exited) {
         wave.run_state = WaveRunState::Completed;
         wave.wait_reason = WaveWaitReason::None;
+        TraceEventLocked(TraceEvent{
+            .kind = TraceEventKind::WaveExit,
+            .cycle = cycle,
+            .dpc_id = wave.dpc_id,
+            .ap_id = wave.ap_id,
+            .peu_id = wave.peu_id,
+            .block_id = wave.block_id,
+            .wave_id = wave.wave_id,
+            .pc = wave.pc,
+            .message = "exit",
+        });
         auto& slot = cycle_peu_slots_.at(raw_wave.peu_slot_index);
         RemoveResidentWave(slot, raw_wave);
         RefillActiveWindow(slot, cycle);

@@ -96,6 +96,76 @@ size_t FirstBlockLaunchIndex(const std::vector<TraceEvent>& events, uint32_t blo
   return std::numeric_limits<size_t>::max();
 }
 
+size_t FirstWaveExitIndex(const std::vector<TraceEvent>& events, uint32_t block_id) {
+  for (size_t i = 0; i < events.size(); ++i) {
+    if (events[i].kind == TraceEventKind::WaveExit && events[i].block_id == block_id) {
+      return i;
+    }
+  }
+  return std::numeric_limits<size_t>::max();
+}
+
+uint32_t CountWaveLaunchesForBlockAtCycle(const std::vector<TraceEvent>& events,
+                                          uint32_t block_id,
+                                          uint64_t cycle) {
+  uint32_t count = 0;
+  for (const auto& event : events) {
+    if (event.kind == TraceEventKind::WaveLaunch && event.block_id == block_id &&
+        event.cycle == cycle) {
+      ++count;
+    }
+  }
+  return count;
+}
+
+size_t FirstWaveLaunchIndexForBlock(const std::vector<TraceEvent>& events, uint32_t block_id) {
+  for (size_t i = 0; i < events.size(); ++i) {
+    if (events[i].kind == TraceEventKind::WaveLaunch && events[i].block_id == block_id) {
+      return i;
+    }
+  }
+  return std::numeric_limits<size_t>::max();
+}
+
+size_t FirstBarrierEventIndex(const std::vector<TraceEvent>& events,
+                              uint32_t block_id,
+                              std::string_view message) {
+  for (size_t i = 0; i < events.size(); ++i) {
+    if (events[i].kind == TraceEventKind::Barrier && events[i].block_id == block_id &&
+        events[i].message == message) {
+      return i;
+    }
+  }
+  return std::numeric_limits<size_t>::max();
+}
+
+uint32_t CountWaveLaunchesForBlockBeforeIndex(const std::vector<TraceEvent>& events,
+                                              uint32_t block_id,
+                                              size_t limit) {
+  uint32_t count = 0;
+  for (size_t i = 0; i < events.size() && i < limit; ++i) {
+    if (events[i].kind == TraceEventKind::WaveLaunch && events[i].block_id == block_id) {
+      ++count;
+    }
+  }
+  return count;
+}
+
+size_t FirstPostIndexWaveProgressEvent(const std::vector<TraceEvent>& events,
+                                       uint32_t block_id,
+                                       uint32_t wave_id,
+                                       size_t start_index) {
+  for (size_t i = start_index + 1; i < events.size(); ++i) {
+    if (events[i].block_id != block_id || events[i].wave_id != wave_id) {
+      continue;
+    }
+    if (events[i].kind == TraceEventKind::WaveStep || events[i].kind == TraceEventKind::WaveExit) {
+      return i;
+    }
+  }
+  return std::numeric_limits<size_t>::max();
+}
+
 TEST(HipRuntimeTest, SimulatesMallocMemcpyLaunchAndSynchronizeFlow) {
   constexpr uint32_t n = 64;
   ProgramObject image(
@@ -1376,6 +1446,185 @@ TEST(HipRuntimeTest, EncodedCycleEmitsWarpSwitchStallBetweenTwoWaves) {
     }
   }
   EXPECT_TRUE(saw_warp_switch);
+
+  std::filesystem::remove_all(temp_dir);
+}
+
+TEST(HipRuntimeTest, EncodedCycleStandbyBlockDoesNotLaunchUntilActiveSlotOpens) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto spec = ArchRegistry::Get("c500");
+  ASSERT_NE(spec, nullptr);
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_runtime_cycle_standby_launch");
+  const auto src_path = temp_dir / "hip_standby_probe.cpp";
+  const auto exe_path = temp_dir / "hip_standby_probe.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n"
+           "extern \"C\" __global__ void standby_probe(int* out) {\n"
+           "  int tid = threadIdx.x;\n"
+           "  if (tid == 0) out[blockIdx.x] = 1;\n"
+           "}\n"
+           "int main() { return 0; }\n";
+  }
+
+  const std::string command =
+      "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  std::vector<int32_t> out(2 * spec->total_ap_count() + 1, 0);
+  HipRuntime hooks;
+  const uint64_t out_addr = hooks.Malloc(out.size() * sizeof(int32_t));
+  hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(out));
+
+  CollectingTraceSink trace;
+  KernelArgPack args;
+  args.PushU64(out_addr);
+  const auto result = hooks.LaunchEncodedProgramObject(
+      ObjectReader{}.LoadEncodedObject(exe_path, "standby_probe"),
+      LaunchConfig{.grid_dim_x = 1 + spec->total_ap_count(), .block_dim_x = 1024},
+      std::move(args),
+      ExecutionMode::Cycle,
+      "c500",
+      &trace);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  const uint32_t block0 = WrappedBlockId(*spec, 0);
+  const uint32_t block1 = WrappedBlockId(*spec, 1);
+  const uint32_t active_window_waves_per_ap = spec->peu_per_ap * spec->max_issuable_waves;
+  const size_t block0_launch = FirstBlockLaunchIndex(trace.events(), block0);
+  const size_t block1_launch = FirstBlockLaunchIndex(trace.events(), block1);
+  ASSERT_NE(block0_launch, std::numeric_limits<size_t>::max());
+  ASSERT_NE(block1_launch, std::numeric_limits<size_t>::max());
+
+  EXPECT_EQ(trace.events()[block0_launch].cycle, 0u);
+  EXPECT_EQ(trace.events()[block1_launch].cycle, 0u);
+  EXPECT_EQ(CountWaveLaunchesForBlockAtCycle(trace.events(), block0, 0u), active_window_waves_per_ap);
+  EXPECT_EQ(CountWaveLaunchesForBlockAtCycle(trace.events(), block1, 0u), 0u);
+
+  std::filesystem::remove_all(temp_dir);
+}
+
+TEST(HipRuntimeTest, EncodedCycleStandbyWavePromotesAfterActiveWaveExits) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto spec = ArchRegistry::Get("c500");
+  ASSERT_NE(spec, nullptr);
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_runtime_cycle_standby_promote");
+  const auto src_path = temp_dir / "hip_standby_promote.cpp";
+  const auto exe_path = temp_dir / "hip_standby_promote.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n"
+           "extern \"C\" __global__ void standby_promote(int* out) {\n"
+           "  int tid = threadIdx.x;\n"
+           "  if (tid == 0) out[blockIdx.x] = 1;\n"
+           "}\n"
+           "int main() { return 0; }\n";
+  }
+
+  const std::string command =
+      "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  std::vector<int32_t> out(spec->total_ap_count() + 1, 0);
+  HipRuntime hooks;
+  const uint64_t out_addr = hooks.Malloc(out.size() * sizeof(int32_t));
+  hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(out));
+
+  CollectingTraceSink trace;
+  KernelArgPack args;
+  args.PushU64(out_addr);
+  const auto result = hooks.LaunchEncodedProgramObject(
+      ObjectReader{}.LoadEncodedObject(exe_path, "standby_promote"),
+      LaunchConfig{.grid_dim_x = spec->total_ap_count() + 1, .block_dim_x = 1024},
+      std::move(args),
+      ExecutionMode::Cycle,
+      "c500",
+      &trace);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  const uint32_t block0 = WrappedBlockId(*spec, 0);
+  const uint32_t block1 = WrappedBlockId(*spec, 1);
+  const size_t block0_exit = FirstWaveExitIndex(trace.events(), block0);
+  const size_t block1_launch = FirstWaveLaunchIndexForBlock(trace.events(), block1);
+  ASSERT_NE(block0_exit, std::numeric_limits<size_t>::max());
+  ASSERT_NE(block1_launch, std::numeric_limits<size_t>::max());
+  EXPECT_LT(block0_exit, block1_launch);
+
+  std::filesystem::remove_all(temp_dir);
+}
+
+TEST(HipRuntimeTest, EncodedCycleBarrierWaitingWaveYieldsActiveSlotUntilRelease) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto spec = ArchRegistry::Get("c500");
+  ASSERT_NE(spec, nullptr);
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_runtime_cycle_barrier_yield");
+  const auto src_path = temp_dir / "hip_barrier_yield.cpp";
+  const auto exe_path = temp_dir / "hip_barrier_yield.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n"
+           "extern \"C\" __global__ void barrier_yield(int* out) {\n"
+           "  __syncthreads();\n"
+           "  out[threadIdx.x] = 1;\n"
+           "}\n"
+           "int main() { return 0; }\n";
+  }
+
+  const std::string command =
+      "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  std::vector<int32_t> out(spec->peu_per_ap * (spec->max_issuable_waves + 1) * 64, 0);
+  HipRuntime hooks;
+  const uint64_t out_addr = hooks.Malloc(out.size() * sizeof(int32_t));
+  hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(out));
+
+  CollectingTraceSink trace;
+  KernelArgPack args;
+  args.PushU64(out_addr);
+  const auto result = hooks.LaunchEncodedProgramObject(
+      ObjectReader{}.LoadEncodedObject(exe_path, "barrier_yield"),
+      LaunchConfig{
+          .grid_dim_x = 1,
+          .block_dim_x = spec->peu_per_ap * (spec->max_issuable_waves + 1) * 64,
+      },
+      std::move(args),
+      ExecutionMode::Cycle,
+      "c500",
+      &trace);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  const uint32_t block0 = 0;
+  const uint32_t active_window_waves_per_ap = spec->peu_per_ap * spec->max_issuable_waves;
+  const size_t first_exit = FirstWaveExitIndex(trace.events(), block0);
+  const size_t release = FirstBarrierEventIndex(trace.events(), block0, "release");
+  const size_t wave0_progress = FirstPostIndexWaveProgressEvent(trace.events(), block0, 0, release);
+  ASSERT_NE(first_exit, std::numeric_limits<size_t>::max());
+  ASSERT_NE(release, std::numeric_limits<size_t>::max());
+  ASSERT_NE(wave0_progress, std::numeric_limits<size_t>::max());
+
+  EXPECT_GT(CountWaveLaunchesForBlockBeforeIndex(trace.events(), block0, first_exit),
+            active_window_waves_per_ap);
+  EXPECT_LT(release, first_exit);
+  EXPECT_LT(release, wave0_progress);
 
   std::filesystem::remove_all(temp_dir);
 }
