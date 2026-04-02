@@ -4,10 +4,12 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <vector>
 
+#include "gpu_model/debug/trace_artifact_recorder.h"
 #include "gpu_model/program/object_reader.h"
 #include "gpu_model/runtime/hip_runtime.h"
 #include "gpu_model/runtime/runtime_engine.h"
@@ -30,6 +32,16 @@ std::filesystem::path MakeUniqueTempDir(const std::string& stem) {
   std::filesystem::remove_all(path);
   std::filesystem::create_directories(path);
   return path;
+}
+
+std::string ReadTextFile(const std::filesystem::path& path) {
+  std::ifstream input(path);
+  if (!input) {
+    throw std::runtime_error("failed to read text file: " + path.string());
+  }
+  std::ostringstream buffer;
+  buffer << input.rdbuf();
+  return buffer.str();
 }
 
 struct RunResult {
@@ -322,8 +334,15 @@ TEST(HipccParallelExecutionTest,
 
   const auto run_mode = [&](ExecutionMode mode,
                             FunctionalExecutionMode functional_mode,
-                            uint32_t worker_threads) -> IntLaunchRunResult {
-    RuntimeEngine runtime;
+                            uint32_t worker_threads,
+                            const std::filesystem::path* artifact_dir = nullptr)
+      -> IntLaunchRunResult {
+    std::optional<TraceArtifactRecorder> trace;
+    if (artifact_dir != nullptr) {
+      trace.emplace(*artifact_dir);
+    }
+
+    RuntimeEngine runtime(trace ? static_cast<TraceSink*>(&*trace) : nullptr);
     runtime.SetFunctionalExecutionConfig(
         FunctionalExecutionConfig{.mode = functional_mode, .worker_threads = worker_threads});
     HipRuntime hooks(&runtime);
@@ -1654,6 +1673,9 @@ TEST(HipccParallelExecutionTest,
           nullptr);
       EXPECT_TRUE(launch.ok) << launch.error_message;
       hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(out));
+      if (trace.has_value()) {
+        trace->FlushTimeline();
+      }
       return IntLaunchRunResult{.launch = std::move(launch), .output = std::move(out)};
     };
 
@@ -1686,6 +1708,24 @@ TEST(HipccParallelExecutionTest,
     EXPECT_EQ(st.launch.stats.wave_exits, cycle.launch.stats.wave_exits);
   }
 
+  const auto artifact_dir =
+      MakeUniqueTempDir("gpu_model_hipcc_parallel_conditional_multibarrier_perfetto");
+  const auto cycle_with_artifacts =
+      run_mode(ExecutionMode::Cycle,
+               FunctionalExecutionMode::SingleThreaded,
+               0,
+               &artifact_dir);
+  ASSERT_TRUE(cycle_with_artifacts.launch.ok) << cycle_with_artifacts.launch.error_message;
+
+  const auto timeline_path = artifact_dir / "timeline.perfetto.json";
+  ASSERT_TRUE(std::filesystem::exists(timeline_path));
+  const std::string timeline = ReadTextFile(timeline_path);
+  EXPECT_NE(timeline.find("\"traceEvents\""), std::string::npos);
+  EXPECT_NE(timeline.find("Barrier"), std::string::npos);
+  EXPECT_NE(timeline.find("\"thread_name\""), std::string::npos);
+  EXPECT_NE(timeline.find("\"ph\":\"X\""), std::string::npos);
+
+  std::filesystem::remove_all(artifact_dir);
   std::filesystem::remove_all(temp_dir);
 }
 
