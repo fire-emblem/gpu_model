@@ -55,8 +55,11 @@
 - 真实 HIP `.out` 功能主线已验证通过的代表性 kernel
   - `vecadd`
   - `fma_loop`
-  - `bias_chain`
+- `bias_chain`
+  - `atomic_count`
   - `shared_reverse`
+  - `dynamic_shared_sum`
+  - `block_reduce_sum`
   - `softmax_row`
   - `mfma_probe`
 - 大规模 gtest / CTS / usage regression 已打通
@@ -208,6 +211,8 @@ GPU_MODEL_TEST_PROFILE=full ./build/tests/gpu_model_tests
 ./examples/04-atomic-reduction/run.sh
 ./examples/05-softmax-reduction/run.sh
 ./examples/06-mma-gemm/run.sh
+./examples/09-dynamic-shared-sum/run.sh
+./examples/10-block-reduce-sum/run.sh
 ```
 
 ### cycle 相关目标例子
@@ -222,9 +227,15 @@ GPU_MODEL_TEST_PROFILE=full ./build/tests/gpu_model_tests
 
 ```bash
 ./scripts/run_exec_checks.sh
+./scripts/run_shared_heavy_regression.sh
+./scripts/run_real_hip_kernel_regression.sh
 ```
 
-它会串起来执行核心的可执行路径检查。
+它们分别覆盖：
+
+- 基础执行检查
+- shared-heavy 四锚点回归
+- 更上层的真实 HIP kernel 回归
 
 ## examples
 
@@ -241,6 +252,15 @@ GPU_MODEL_TEST_PROFILE=full ./build/tests/gpu_model_tests
 - [examples/05-softmax-reduction/README.md](/data/gpu_model/examples/05-softmax-reduction/README.md)
 - [examples/06-mma-gemm/README.md](/data/gpu_model/examples/06-mma-gemm/README.md)
 - [examples/07-vecadd-cycle-splitting/README.md](/data/gpu_model/examples/07-vecadd-cycle-splitting/README.md)
+- [examples/08-conditional-multibarrier/README.md](/data/gpu_model/examples/08-conditional-multibarrier/README.md)
+- [examples/09-dynamic-shared-sum/README.md](/data/gpu_model/examples/09-dynamic-shared-sum/README.md)
+- [examples/10-block-reduce-sum/README.md](/data/gpu_model/examples/10-block-reduce-sum/README.md)
+
+## scripts
+
+脚本入口见：
+
+- [scripts/README.md](/data/gpu_model/scripts/README.md)
 
 ## 顶层开发状态
 
