@@ -1153,6 +1153,72 @@ TEST(HipInterposerStateTest, LaunchesHipSoftmaxExecutableThroughRegisteredHostFu
   std::filesystem::remove_all(temp_dir);
 }
 
+TEST(HipInterposerStateTest, LaunchesHipBlockReduceExecutableThroughRegisteredHostFunction) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_interposer_block_reduce");
+  const auto src_path = temp_dir / "hip_block_reduce.cpp";
+  const auto exe_path = temp_dir / "hip_block_reduce.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n"
+           "extern \"C\" __global__ void block_reduce_sum(const float* in, float* out, int n) {\n"
+           "  __shared__ float scratch[256];\n"
+           "  int tid = threadIdx.x;\n"
+           "  int stride = blockDim.x * gridDim.x;\n"
+           "  int idx = blockIdx.x * blockDim.x + tid;\n"
+           "  float sum = 0.0f;\n"
+           "  for (int i = idx; i < n; i += stride) {\n"
+           "    sum += in[i];\n"
+           "  }\n"
+           "  scratch[tid] = sum;\n"
+           "  __syncthreads();\n"
+           "  for (int step = blockDim.x / 2; step > 0; step >>= 1) {\n"
+           "    if (tid < step) scratch[tid] += scratch[tid + step];\n"
+           "    __syncthreads();\n"
+           "  }\n"
+           "  if (tid == 0) out[blockIdx.x] = scratch[0];\n"
+           "}\n"
+           "int main() { return 0; }\n";
+  }
+
+  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  auto& state = HipInterposerState::Instance();
+  state.ResetForTest();
+  static int host_symbol = 0;
+  state.RegisterFunction(&host_symbol, "block_reduce_sum");
+
+  constexpr uint32_t n = 1024;
+  constexpr uint32_t grid_dim = 4;
+  constexpr uint32_t block_dim = 256;
+  std::vector<float> input(n, 1.0f);
+  std::vector<float> output(grid_dim, -1.0f);
+  std::vector<float> expect(grid_dim, static_cast<float>(n / grid_dim));
+  void* in_dev = state.AllocateDevice(n * sizeof(float));
+  void* out_dev = state.AllocateDevice(grid_dim * sizeof(float));
+  state.MemcpyHostToDevice(in_dev, input.data(), n * sizeof(float));
+  state.MemcpyHostToDevice(out_dev, output.data(), grid_dim * sizeof(float));
+
+  uint32_t n_arg = n;
+  void* args[] = {&in_dev, &out_dev, &n_arg};
+  const auto result = state.LaunchExecutableKernel(
+      exe_path, &host_symbol, LaunchConfig{.grid_dim_x = grid_dim, .block_dim_x = block_dim}, args);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  state.MemcpyDeviceToHost(output.data(), out_dev, grid_dim * sizeof(float));
+  for (uint32_t i = 0; i < grid_dim; ++i) {
+    EXPECT_NEAR(output[i], expect[i], 1.0e-4f);
+  }
+
+  std::filesystem::remove_all(temp_dir);
+}
+
 TEST(HipInterposerStateTest, LaunchesHipMfmaExecutableThroughRegisteredHostFunction) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";

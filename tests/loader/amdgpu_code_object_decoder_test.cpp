@@ -623,5 +623,61 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipDynamicSharedExecutableWithoutUnknow
   EXPECT_EQ(unknown_count, 0);
 }
 
+TEST(AmdgpuCodeObjectDecoderTest, DecodesHipBlockReduceExecutableWithoutUnknownInstructions) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_code_object_hip_block_reduce");
+  const auto src_path = temp_dir / "hip_block_reduce.cpp";
+  const auto exe_path = temp_dir / "hip_block_reduce.out";
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n"
+           "extern \"C\" __global__ void block_reduce_sum(const float* in, float* out, int n) {\n"
+           "  __shared__ float scratch[256];\n"
+           "  int tid = threadIdx.x;\n"
+           "  int stride = blockDim.x * gridDim.x;\n"
+           "  int idx = blockIdx.x * blockDim.x + tid;\n"
+           "  float sum = 0.0f;\n"
+           "  for (int i = idx; i < n; i += stride) {\n"
+           "    sum += in[i];\n"
+           "  }\n"
+           "  scratch[tid] = sum;\n"
+           "  __syncthreads();\n"
+           "  for (int step = blockDim.x / 2; step > 0; step >>= 1) {\n"
+           "    if (tid < step) scratch[tid] += scratch[tid + step];\n"
+           "    __syncthreads();\n"
+           "  }\n"
+           "  if (tid == 0) out[blockIdx.x] = scratch[0];\n"
+           "}\n"
+           "int main() { return 0; }\n";
+  }
+  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "block_reduce_sum");
+  EXPECT_EQ(image.kernel_name, "block_reduce_sum");
+  const auto barrier_count = std::count_if(
+      image.instructions.begin(), image.instructions.end(),
+      [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "s_barrier"; });
+  const auto ds_write_count = std::count_if(
+      image.instructions.begin(), image.instructions.end(),
+      [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "ds_write_b32"; });
+  const auto ds_read_count = std::count_if(
+      image.instructions.begin(), image.instructions.end(),
+      [](const EncodedGcnInstruction& inst) {
+        return inst.mnemonic == "ds_read_b32" || inst.mnemonic == "ds_read2_b32";
+      });
+  const auto unknown_count = std::count_if(
+      image.instructions.begin(), image.instructions.end(),
+      [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "unknown"; });
+  EXPECT_GT(barrier_count, 0);
+  EXPECT_GT(ds_write_count, 0);
+  EXPECT_GT(ds_read_count, 0);
+  EXPECT_EQ(unknown_count, 0);
+}
+
 }  // namespace
 }  // namespace gpu_model

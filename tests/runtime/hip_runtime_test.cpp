@@ -2600,6 +2600,76 @@ TEST(HipRuntimeTest, LaunchesHipSoftmaxExecutableInRawGcnPath) {
   std::filesystem::remove_all(temp_dir);
 }
 
+TEST(HipRuntimeTest, LaunchesHipBlockReduceExecutableInRawGcnPath) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_block_reduce_executable");
+  const auto src_path = temp_dir / "hip_block_reduce.cpp";
+  const auto exe_path = temp_dir / "hip_block_reduce.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n"
+           "extern \"C\" __global__ void block_reduce_sum(const float* in, float* out, int n) {\n"
+           "  __shared__ float scratch[256];\n"
+           "  int tid = threadIdx.x;\n"
+           "  int stride = blockDim.x * gridDim.x;\n"
+           "  int idx = blockIdx.x * blockDim.x + tid;\n"
+           "  float sum = 0.0f;\n"
+           "  for (int i = idx; i < n; i += stride) {\n"
+           "    sum += in[i];\n"
+           "  }\n"
+           "  scratch[tid] = sum;\n"
+           "  __syncthreads();\n"
+           "  for (int step = blockDim.x / 2; step > 0; step >>= 1) {\n"
+           "    if (tid < step) scratch[tid] += scratch[tid + step];\n"
+           "    __syncthreads();\n"
+           "  }\n"
+           "  if (tid == 0) out[blockIdx.x] = scratch[0];\n"
+           "}\n"
+           "int main() { return 0; }\n";
+  }
+
+  const std::string command =
+      "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  constexpr uint32_t n = 1024;
+  constexpr uint32_t grid_dim = 4;
+  constexpr uint32_t block_dim = 256;
+  HipRuntime hooks;
+  const uint64_t in_addr = hooks.Malloc(n * sizeof(float));
+  const uint64_t out_addr = hooks.Malloc(grid_dim * sizeof(float));
+  std::vector<float> input(n, 1.0f);
+  std::vector<float> output(grid_dim, 0.0f);
+  hooks.MemcpyHtoD<float>(in_addr, std::span<const float>(input));
+  hooks.MemcpyHtoD<float>(out_addr, std::span<const float>(output));
+
+  KernelArgPack args;
+  args.PushU64(in_addr);
+  args.PushU64(out_addr);
+  args.PushU32(n);
+
+  const auto result = hooks.LaunchEncodedProgramObject(
+      ObjectReader{}.LoadEncodedObject(exe_path, "block_reduce_sum"),
+      LaunchConfig{.grid_dim_x = grid_dim, .block_dim_x = block_dim},
+      std::move(args),
+      ExecutionMode::Functional,
+      "c500",
+      nullptr);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  hooks.MemcpyDtoH<float>(out_addr, std::span<float>(output));
+  for (uint32_t i = 0; i < grid_dim; ++i) {
+    EXPECT_NEAR(output[i], 256.0f, 1.0e-4f);
+  }
+
+  std::filesystem::remove_all(temp_dir);
+}
+
 TEST(HipRuntimeTest, LaunchesHipMfmaExecutableInRawGcnPath) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
