@@ -51,6 +51,7 @@ struct EncodedPendingMemoryOp {
   uint8_t turns_until_complete = kEncodedPendingMemoryCompletionTurns;
   uint64_t ready_cycle = 0;
   bool uses_ready_cycle = false;
+  const char* arrive_message = nullptr;
 };
 
 struct EncodedWaveState {
@@ -800,7 +801,8 @@ void RecordPendingMemoryOp(EncodedWaveState& state,
 void RecordPendingMemoryOp(EncodedWaveState& state,
                            WaveContext& wave,
                            MemoryWaitDomain domain,
-                           uint64_t ready_cycle) {
+                           uint64_t ready_cycle,
+                           const char* arrive_message) {
   if (domain == MemoryWaitDomain::None) {
     return;
   }
@@ -810,6 +812,7 @@ void RecordPendingMemoryOp(EncodedWaveState& state,
       .turns_until_complete = 0,
       .ready_cycle = ready_cycle,
       .uses_ready_cycle = true,
+      .arrive_message = arrive_message,
   });
 }
 
@@ -834,7 +837,10 @@ bool AdvancePendingMemoryOps(EncodedWaveState& state, WaveContext& wave) {
   return advanced;
 }
 
-bool AdvancePendingMemoryOps(EncodedWaveState& state, WaveContext& wave, uint64_t cycle) {
+bool AdvancePendingMemoryOps(EncodedWaveState& state,
+                             WaveContext& wave,
+                             uint64_t cycle,
+                             std::vector<EncodedPendingMemoryOp>* completed_ops) {
   bool advanced = false;
   for (auto it = state.pending_memory_ops.begin(); it != state.pending_memory_ops.end();) {
     advanced = true;
@@ -843,6 +849,9 @@ bool AdvancePendingMemoryOps(EncodedWaveState& state, WaveContext& wave, uint64_
         --it->turns_until_complete;
       }
       if (it->turns_until_complete == 0) {
+        if (completed_ops != nullptr) {
+          completed_ops->push_back(*it);
+        }
         DecrementPendingMemoryOps(wave, it->domain);
         it = state.pending_memory_ops.erase(it);
         continue;
@@ -851,6 +860,9 @@ bool AdvancePendingMemoryOps(EncodedWaveState& state, WaveContext& wave, uint64_
       continue;
     }
     if (cycle >= it->ready_cycle) {
+      if (completed_ops != nullptr) {
+        completed_ops->push_back(*it);
+      }
       DecrementPendingMemoryOps(wave, it->domain);
       it = state.pending_memory_ops.erase(it);
       continue;
@@ -1521,8 +1533,27 @@ class EncodedExecutionCore {
     {
       std::lock_guard<std::mutex> lock(*block.wave_state_mutex);
       for (size_t i = 0; i < block.waves.size(); ++i) {
-        progressed =
-            AdvancePendingMemoryOps(block.wave_states[i], block.waves[i].wave, cycle) || progressed;
+        std::vector<EncodedPendingMemoryOp> completed_ops;
+        progressed = AdvancePendingMemoryOps(block.wave_states[i],
+                                            block.waves[i].wave,
+                                            cycle,
+                                            &completed_ops) || progressed;
+        for (const auto& op : completed_ops) {
+          if (op.arrive_message == nullptr) {
+            continue;
+          }
+          TraceEventLocked(TraceEvent{
+              .kind = TraceEventKind::Arrive,
+              .cycle = cycle,
+              .dpc_id = block.waves[i].wave.dpc_id,
+              .ap_id = block.waves[i].wave.ap_id,
+              .peu_id = block.waves[i].wave.peu_id,
+              .block_id = block.waves[i].wave.block_id,
+              .wave_id = block.waves[i].wave.wave_id,
+              .pc = block.waves[i].wave.pc,
+              .message = op.arrive_message,
+          });
+        }
       }
       for (size_t i = 0; i < block.waves.size(); ++i) {
         auto& wave = block.waves[i].wave;
@@ -1731,11 +1762,13 @@ class EncodedExecutionCore {
     const uint64_t issue_cycles =
         ResolveEncodedIssueCycles(decoded.mnemonic, descriptor, spec_, timing_config_);
     const uint64_t commit_cycle = cycle + std::max<uint64_t>(1u, issue_cycles);
+    const auto maybe_domain = MemoryDomainForEncodedInstruction(decoded, descriptor);
+    const auto step_class = ClassifyEncodedInstructionStep(decoded, descriptor);
 
     ExecutionStats step_stats;
     ++step_stats.wave_steps;
     ++step_stats.instructions_issued;
-    if (const auto step_class = ClassifyEncodedInstructionStep(decoded, descriptor); step_class.has_value()) {
+    if (step_class.has_value() && !maybe_domain.has_value()) {
       RecordExecutedStep(wave,
                          *step_class,
                          CostForEncodedStep(decoded, descriptor, *step_class, spec_,
@@ -1809,18 +1842,17 @@ class EncodedExecutionCore {
     const auto& handler = EncodedSemanticHandlerRegistry::Get(decoded);
     handler.Execute(decoded, context);
 
+    uint64_t ready_cycle = commit_cycle;
+
     {
       std::lock_guard<std::mutex> lock(*block.wave_state_mutex);
-      if (const auto maybe_domain = MemoryDomainForEncodedInstruction(decoded, descriptor);
-          maybe_domain.has_value()) {
-        const auto step_class = ClassifyEncodedInstructionStep(decoded, descriptor);
-        const uint64_t ready_cycle =
-            cycle + (step_class.has_value()
-                         ? CostForEncodedStep(decoded, descriptor, *step_class, spec_,
-                                              timing_config_,
-                                              cycle_stats_config_)
-                         : issue_cycles);
-        RecordPendingMemoryOp(wave_state, wave, *maybe_domain, ready_cycle);
+      if (maybe_domain.has_value()) {
+        const char* arrive_message =
+            captured_memory_request.has_value() &&
+                    captured_memory_request->kind == AccessKind::Load
+                ? "load_arrive"
+                : "store_arrive";
+        RecordPendingMemoryOp(wave_state, wave, *maybe_domain, ready_cycle, arrive_message);
       }
       if (wave.waiting_at_barrier) {
         TraceEventLocked(TraceEvent{
@@ -1851,6 +1883,7 @@ class EncodedExecutionCore {
         auto& l1_cache = l1_caches_.at(std::make_pair(block.dpc_id, block.ap_id));
         const CacheProbeResult l1_probe = l1_cache.Probe(addrs);
         const CacheProbeResult l2_probe = l2_cache_.Probe(addrs);
+        const uint64_t arrive_latency = std::min(l1_probe.latency, l2_probe.latency);
         if (l1_probe.l1_hits > 0) {
           step_stats.l1_hits += l1_probe.l1_hits;
         } else if (l2_probe.l2_hits > 0) {
@@ -1860,9 +1893,23 @@ class EncodedExecutionCore {
         }
         l2_cache_.Promote(addrs);
         l1_cache.Promote(addrs);
+        ready_cycle = commit_cycle + arrive_latency;
       } else if (request.space == MemorySpace::Shared) {
-        step_stats.shared_bank_conflict_penalty_cycles +=
-            shared_bank_model_.ConflictPenalty(request);
+        const uint64_t penalty = shared_bank_model_.ConflictPenalty(request);
+        step_stats.shared_bank_conflict_penalty_cycles += penalty;
+        ready_cycle = commit_cycle + penalty;
+      }
+    }
+
+    if (maybe_domain.has_value()) {
+      {
+        std::lock_guard<std::mutex> lock(*block.wave_state_mutex);
+        if (!wave_state.pending_memory_ops.empty()) {
+          wave_state.pending_memory_ops.back().ready_cycle = ready_cycle;
+        }
+      }
+      if (step_class.has_value()) {
+        RecordExecutedStep(wave, *step_class, ready_cycle - cycle);
       }
     }
 
