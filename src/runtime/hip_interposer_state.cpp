@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include "gpu_model/isa/kernel_metadata.h"
+#include "gpu_model/loader/device_image_loader.h"
 #include "gpu_model/loader/device_segment_image.h"
 #include "gpu_model/program/object_reader.h"
 
@@ -261,7 +262,8 @@ LaunchResult HipInterposerState::LaunchExecutableKernel(const std::filesystem::p
     return result;
   }
   SyncManagedHostToDevice();
-  auto device_load = model_runtime_.hooks().MaterializeLoadPlan(BuildDeviceLoadPlan(image));
+  auto device_load = DeviceImageLoader{}.Materialize(BuildDeviceLoadPlan(image),
+                                                     model_runtime_.runtime().memory());
   LaunchRequest request;
   request.arch_name = arch_name;
   request.encoded_program_object = &image;

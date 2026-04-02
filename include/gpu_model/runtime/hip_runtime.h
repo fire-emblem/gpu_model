@@ -68,7 +68,6 @@ class HipRuntime {
                                           ExecutionMode mode = ExecutionMode::Functional,
                                           std::string arch_name = "",
                                           TraceSink* trace = nullptr);
-  DeviceLoadResult MaterializeLoadPlan(const DeviceLoadPlan& plan);
   void LoadModule(const ModuleLoadRequest& request);
   const std::optional<DeviceLoadResult>& last_load_result() const { return last_load_result_; }
   void UnloadModule(const std::string& module_name);
@@ -90,6 +89,7 @@ class HipRuntime {
 
  private:
   using ModuleImage = std::variant<ProgramObject, EncodedProgramObject>;
+  DeviceLoadResult MaterializeLoadPlan(const DeviceLoadPlan& plan);
   void RegisterProgramImage(std::string module_name, ProgramObject image);
 
   RuntimeEngine owned_runtime_;

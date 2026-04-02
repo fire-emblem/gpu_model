@@ -314,7 +314,8 @@ TEST(HipRuntimeTest, MaterializesProgramObjectLoadPlanIntoDeviceMemory) {
                      std::move(const_segment));
 
   HipRuntime hooks;
-  const auto result = hooks.MaterializeLoadPlan(BuildDeviceLoadPlan(image));
+  const auto result = DeviceImageLoader{}.Materialize(BuildDeviceLoadPlan(image),
+                                                      hooks.runtime().memory());
   ASSERT_EQ(result.segments.size(), 3u);
   EXPECT_EQ(result.required_shared_bytes, 128u);
   EXPECT_EQ(result.preferred_kernarg_bytes, 128u);
@@ -422,7 +423,8 @@ TEST(HipRuntimeTest, LaunchKernelCanReadMaterializedRawDataPool) {
   ProgramObject image("raw_data_holder", "s_endpgm\n", MetadataBlob{}, {}, std::move(raw_data));
 
   HipRuntime hooks;
-  const auto loaded = hooks.MaterializeLoadPlan(BuildDeviceLoadPlan(image));
+  const auto loaded = DeviceImageLoader{}.Materialize(BuildDeviceLoadPlan(image),
+                                                      hooks.runtime().memory());
   const auto* raw_segment = loaded.FindByKind(DeviceSegmentKind::RawData);
   ASSERT_NE(raw_segment, nullptr);
 
@@ -822,7 +824,8 @@ TEST(HipRuntimeTest, MaterializesHipSharedReverseCodeIntoDeviceMemory) {
 
   HipRuntime hooks;
   const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "shared_reverse");
-  const auto result = hooks.MaterializeLoadPlan(BuildDeviceLoadPlan(image));
+  const auto result = DeviceImageLoader{}.Materialize(BuildDeviceLoadPlan(image),
+                                                      hooks.runtime().memory());
   ASSERT_EQ(result.segments.size(), 2u);
   EXPECT_EQ(result.required_shared_bytes, 256u);
   EXPECT_EQ(result.preferred_kernarg_bytes, 280u);
