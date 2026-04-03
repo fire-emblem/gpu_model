@@ -22,6 +22,7 @@
 
 #include "gpu_model/execution/encoded_semantic_handler.h"
 #include "gpu_model/execution/internal/barrier_resource_pool.h"
+#include "gpu_model/execution/internal/encoded_issue_candidate.h"
 #include "gpu_model/execution/internal/tensor_op_utils.h"
 #include "gpu_model/execution/internal/issue_eligibility.h"
 #include "gpu_model/debug/wave_launch_trace.h"
@@ -1531,37 +1532,82 @@ class EncodedExecutionCore {
         if (slot.busy_until > cycle) {
           continue;
         }
-        RawWave* raw_wave = SelectNextWaveForCycleSlot(slot);
-        if (raw_wave == nullptr) {
-          continue;
-        }
-        const uint64_t wave_tag =
-            (static_cast<uint64_t>(raw_wave->wave.block_id) << 32u) |
-            static_cast<uint64_t>(raw_wave->wave.wave_id);
-        const uint64_t switch_penalty =
-            slot.last_wave_tag != std::numeric_limits<uint64_t>::max() &&
-                    slot.last_wave_tag != wave_tag
-                ? timing_config_.launch_timing.warp_switch_cycles
-                : 0;
-        if (switch_penalty > 0) {
-          TraceEventLocked(TraceEvent{
-              .kind = TraceEventKind::Stall,
-              .cycle = cycle,
-              .dpc_id = raw_wave->wave.dpc_id,
-              .ap_id = raw_wave->wave.ap_id,
-              .peu_id = raw_wave->wave.peu_id,
-              .block_id = raw_wave->wave.block_id,
-              .wave_id = raw_wave->wave.wave_id,
-              .pc = raw_wave->wave.pc,
-              .message = "warp_switch",
+        std::vector<RawWave*> ordered_waves;
+        std::vector<EncodedIssueCandidateInput> issue_inputs;
+        const size_t count = slot.active_window.size();
+        const size_t start = count == 0 ? 0 : (slot.next_rr % count);
+        for (size_t offset = 0; offset < count; ++offset) {
+          const size_t index = (start + offset) % count;
+          RawWave* raw_wave = slot.active_window[index];
+          if (raw_wave == nullptr) {
+            continue;
+          }
+          const auto& wave = raw_wave->wave;
+          const auto pc_it = pc_to_index_.find(wave.pc);
+          if (pc_it == pc_to_index_.end()) {
+            continue;
+          }
+          const auto& decoded = image_.decoded_instructions[pc_it->second];
+          const auto descriptor = DescribeEncodedInstruction(decoded);
+          const auto ap_state_it = cycle_ap_states_.find(raw_blocks_[raw_wave->block_index].global_ap_id);
+          ordered_waves.push_back(raw_wave);
+          issue_inputs.push_back(EncodedIssueCandidateInput{
+              .candidate_index = ordered_waves.size() - 1,
+              .wave_id = wave.wave_id,
+              .dispatch_enabled = raw_wave->dispatch_enabled,
+              .wave = &wave,
+              .instruction = &decoded,
+              .descriptor = &descriptor,
+              .barrier_slots_in_use = ap_state_it == cycle_ap_states_.end()
+                                           ? 0u
+                                           : ap_state_it->second.barrier_slots_in_use,
+              .barrier_slot_capacity = ap_state_it == cycle_ap_states_.end()
+                                           ? 0u
+                                           : ap_state_it->second.barrier_slot_capacity,
+              .barrier_slot_acquired = raw_blocks_[raw_wave->block_index].barrier_slot_acquired,
           });
         }
-        const uint64_t issue_cycles = ExecuteWaveCycle(raw_blocks_[raw_wave->block_index],
-                                                       raw_wave->wave_index,
-                                                       cycle);
-        slot.busy_until = cycle + switch_penalty + std::max<uint64_t>(1u, issue_cycles);
-        slot.last_wave_tag = wave_tag;
-        issued = true;
+        const auto bundle =
+            IssueScheduler::SelectIssueBundle(BuildEncodedIssueCandidates(issue_inputs), slot.next_rr);
+        if (bundle.selected_candidate_indices.empty()) {
+          continue;
+        }
+        uint64_t slot_commit_cycle = cycle;
+        uint64_t slot_last_wave_tag = slot.last_wave_tag;
+        for (size_t selected_index : bundle.selected_candidate_indices) {
+          RawWave* raw_wave = ordered_waves.at(selected_index);
+          const uint64_t wave_tag =
+              (static_cast<uint64_t>(raw_wave->wave.block_id) << 32u) |
+              static_cast<uint64_t>(raw_wave->wave.wave_id);
+          const uint64_t switch_penalty =
+              slot_last_wave_tag != std::numeric_limits<uint64_t>::max() &&
+                      slot_last_wave_tag != wave_tag
+                  ? timing_config_.launch_timing.warp_switch_cycles
+                  : 0;
+          if (switch_penalty > 0) {
+            TraceEventLocked(TraceEvent{
+                .kind = TraceEventKind::Stall,
+                .cycle = cycle,
+                .dpc_id = raw_wave->wave.dpc_id,
+                .ap_id = raw_wave->wave.ap_id,
+                .peu_id = raw_wave->wave.peu_id,
+                .block_id = raw_wave->wave.block_id,
+                .wave_id = raw_wave->wave.wave_id,
+                .pc = raw_wave->wave.pc,
+                .message = "warp_switch",
+            });
+          }
+          const uint64_t issue_cycles = ExecuteWaveCycle(raw_blocks_[raw_wave->block_index],
+                                                         raw_wave->wave_index,
+                                                         cycle);
+          slot_commit_cycle =
+              std::max(slot_commit_cycle, cycle + switch_penalty + std::max<uint64_t>(1u, issue_cycles));
+          slot_last_wave_tag = wave_tag;
+          issued = true;
+        }
+        slot.busy_until = slot_commit_cycle;
+        slot.last_wave_tag = slot_last_wave_tag;
+        slot.next_rr = bundle.next_round_robin_index;
       }
 
       if (!issued && !HasFutureProgress(cycle)) {
