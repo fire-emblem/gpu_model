@@ -5,9 +5,11 @@
 #include <cstdint>
 #include <limits>
 #include <optional>
+#include <set>
 #include <string_view>
 #include <vector>
 
+#include "gpu_model/debug/cycle_timeline.h"
 #include "gpu_model/debug/trace_sink.h"
 #include "gpu_model/isa/instruction_builder.h"
 #include "gpu_model/isa/opcode.h"
@@ -82,6 +84,18 @@ ExecutableKernel BuildSamePeuWaitcntSiblingKernel() {
   builder.MStoreGlobal("s1", "v0", "v6", 4);
   builder.BExit();
   return builder.Build("same_peu_waitcnt_sibling");
+}
+
+ExecutableKernel BuildTimelineWaitcntBubbleKernel() {
+  InstructionBuilder builder;
+  builder.SLoadArg("s0", 0);
+  builder.SMov("s1", 0);
+  builder.MLoadGlobal("v1", "s0", "s1", 4);
+  builder.SWaitCnt(/*global_count=*/0, /*shared_count=*/UINT32_MAX,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
+  builder.SMov("s2", 7);
+  builder.BExit();
+  return builder.Build("timeline_waitcnt_bubble");
 }
 
 uint64_t NthInstructionPcWithOpcode(const ExecutableKernel& kernel, Opcode opcode, size_t ordinal) {
@@ -162,6 +176,16 @@ const TraceEvent* FirstEventForBlockWave(const std::vector<TraceEvent>& events,
     }
   }
   return nullptr;
+}
+
+size_t CountOccurrences(std::string_view text, std::string_view needle) {
+  size_t count = 0;
+  size_t pos = 0;
+  while ((pos = text.find(needle, pos)) != std::string_view::npos) {
+    ++count;
+    pos += needle.size();
+  }
+  return count;
 }
 
 TEST(WaitcntFunctionalTest, PendingMemoryDoesNotStallBeforeExplicitWaitcnt) {
@@ -404,6 +428,116 @@ TEST(WaitcntFunctionalTest, WaitingWaveDoesNotBlockReadySiblingOnSamePeu) {
   ASSERT_NE(sibling_second_add_index, std::numeric_limits<size_t>::max());
   EXPECT_LT(waitcnt_stall_index, sibling_second_add_index);
   EXPECT_LT(sibling_second_add_index, resume_marker_index);
+}
+
+TEST(WaitcntFunctionalTest, SingleAndMultiThreadedTraceUseUnboundedLogicalLaneIdsPerPeu) {
+  constexpr uint32_t kBlockDim = 64 * 33;
+  constexpr uint32_t kExpectedLogicalSlotsOnPeu0 = 9;
+  constexpr uint32_t kElementCount = kBlockDim;
+  const auto kernel = BuildSamePeuWaitcntSiblingKernel();
+
+  const auto collect_slots = [&](FunctionalExecutionConfig config) {
+    CollectingTraceSink trace;
+    RuntimeEngine runtime(&trace);
+    runtime.SetFunctionalExecutionConfig(config);
+
+    const uint64_t in_addr = runtime.memory().AllocateGlobal(kElementCount * sizeof(int32_t));
+    const uint64_t out_addr = runtime.memory().AllocateGlobal(kElementCount * sizeof(int32_t));
+    for (uint32_t i = 0; i < kElementCount; ++i) {
+      runtime.memory().StoreGlobalValue<int32_t>(in_addr + i * sizeof(int32_t),
+                                                 static_cast<int32_t>(100 + i));
+      runtime.memory().StoreGlobalValue<int32_t>(out_addr + i * sizeof(int32_t), -1);
+    }
+
+    LaunchRequest request;
+    request.kernel = &kernel;
+    request.config.grid_dim_x = 1;
+    request.config.block_dim_x = kBlockDim;
+    request.args.PushU64(in_addr);
+    request.args.PushU64(out_addr);
+
+    const auto result = runtime.Launch(request);
+    EXPECT_TRUE(result.ok) << result.error_message;
+
+    std::set<uint32_t> seen_slots;
+    for (const auto& event : trace.events()) {
+      if (event.block_id != 0 || event.peu_id != 0) {
+        continue;
+      }
+      if (event.kind != TraceEventKind::WaveLaunch &&
+          event.kind != TraceEventKind::WaveStep &&
+          event.kind != TraceEventKind::Stall &&
+          event.kind != TraceEventKind::WaveExit) {
+        continue;
+      }
+      seen_slots.insert(event.slot_id);
+    }
+    return seen_slots;
+  };
+
+  const auto st_slots = collect_slots(FunctionalExecutionConfig{
+      .mode = FunctionalExecutionMode::SingleThreaded,
+  });
+  const auto mt_slots = collect_slots(FunctionalExecutionConfig{
+      .mode = FunctionalExecutionMode::MultiThreaded,
+      .worker_threads = 2,
+  });
+
+  ASSERT_EQ(st_slots.size(), kExpectedLogicalSlotsOnPeu0);
+  ASSERT_EQ(mt_slots.size(), kExpectedLogicalSlotsOnPeu0);
+  EXPECT_EQ(*st_slots.begin(), 0u);
+  EXPECT_EQ(*mt_slots.begin(), 0u);
+  EXPECT_GE(*st_slots.rbegin(), kExpectedLogicalSlotsOnPeu0 - 1);
+  EXPECT_GE(*mt_slots.rbegin(), kExpectedLogicalSlotsOnPeu0 - 1);
+}
+
+TEST(WaitcntFunctionalTest, PerfettoTimelineShowsInstructionGapArriveAndResumeWithoutBubbleSlices) {
+  CollectingTraceSink trace;
+  RuntimeEngine runtime(&trace);
+  runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
+  runtime.SetFixedGlobalMemoryLatency(20);
+
+  const auto kernel = BuildTimelineWaitcntBubbleKernel();
+  const uint64_t load_pc = NthInstructionPcWithOpcode(kernel, Opcode::MLoadGlobal, 0);
+  const uint64_t waitcnt_pc = NthInstructionPcWithOpcode(kernel, Opcode::SWaitCnt, 0);
+  const uint64_t resume_pc = NthInstructionPcWithOpcode(kernel, Opcode::SMov, 1);
+  ASSERT_NE(load_pc, std::numeric_limits<uint64_t>::max());
+  ASSERT_NE(waitcnt_pc, std::numeric_limits<uint64_t>::max());
+  ASSERT_NE(resume_pc, std::numeric_limits<uint64_t>::max());
+  const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
+  runtime.memory().StoreGlobalValue<int32_t>(base_addr, 11);
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+  request.args.PushU64(base_addr);
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  const auto& events = trace.events();
+  const size_t load_step_index = FirstEventIndex(events, TraceEventKind::WaveStep, load_pc);
+  const size_t waitcnt_stall_index =
+      FirstEventIndex(events, TraceEventKind::Stall, waitcnt_pc, "waitcnt_global");
+  const size_t arrive_index =
+      FirstEventIndex(events, TraceEventKind::Arrive, waitcnt_pc, "load_arrive");
+  const size_t resume_step_index = FirstEventIndex(events, TraceEventKind::WaveStep, resume_pc);
+  ASSERT_NE(load_step_index, std::numeric_limits<size_t>::max());
+  ASSERT_NE(waitcnt_stall_index, std::numeric_limits<size_t>::max());
+  ASSERT_NE(arrive_index, std::numeric_limits<size_t>::max());
+  ASSERT_NE(resume_step_index, std::numeric_limits<size_t>::max());
+  EXPECT_LT(events[load_step_index].cycle, events[arrive_index].cycle);
+  EXPECT_LT(events[waitcnt_stall_index].cycle, events[arrive_index].cycle);
+  EXPECT_LT(events[arrive_index].cycle, events[resume_step_index].cycle);
+
+  const std::string timeline = CycleTimelineRenderer::RenderGoogleTrace(trace.events());
+  EXPECT_NE(timeline.find("\"name\":\"buffer_load_dword\""), std::string::npos) << timeline;
+  EXPECT_NE(timeline.find("\"name\":\"load_arrive\""), std::string::npos) << timeline;
+  EXPECT_NE(timeline.find("\"name\":\"s_mov_b32\""), std::string::npos) << timeline;
+  EXPECT_NE(timeline.find("\"name\":\"stall_waitcnt_global\""), std::string::npos) << timeline;
+  EXPECT_GE(CountOccurrences(timeline, "\"ph\":\"X\""), 2u) << timeline;
+  EXPECT_EQ(CountOccurrences(timeline, "\"name\":\"bubble\""), 0u) << timeline;
 }
 
 }  // namespace

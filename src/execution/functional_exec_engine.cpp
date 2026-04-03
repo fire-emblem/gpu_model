@@ -10,6 +10,7 @@
 #include <exception>
 #include <functional>
 #include <future>
+#include <map>
 #include <mutex>
 #include <optional>
 #include <queue>
@@ -303,6 +304,23 @@ bool AdvancePendingMemoryOps(FunctionalWaveState& state, WaveContext& wave) {
 
 uint64_t StableWaveKey(const WaveContext& wave) {
   return (static_cast<uint64_t>(wave.block_id) << 32u) | wave.wave_id;
+}
+
+std::string_view ArriveTraceMessage(WaveWaitReason reason) {
+  switch (reason) {
+    case WaveWaitReason::PendingGlobalMemory:
+      return "load_arrive";
+    case WaveWaitReason::PendingSharedMemory:
+      return "shared_arrive";
+    case WaveWaitReason::PendingPrivateMemory:
+      return "private_arrive";
+    case WaveWaitReason::PendingScalarBufferMemory:
+      return "scalar_buffer_arrive";
+    case WaveWaitReason::None:
+    case WaveWaitReason::BlockBarrier:
+      return "";
+  }
+  return "";
 }
 
 std::optional<ExecutedStepClass> ClassifyExecutedInstruction(const Instruction& instruction,
@@ -639,7 +657,9 @@ void MarkWaveCompleted(WaveContext& wave) {
 class FunctionalExecutionCoreImpl {
  public:
   explicit FunctionalExecutionCoreImpl(ExecutionContext& context)
-      : context_(context), semantics_(), blocks_(MaterializeBlocks(context.placement, context.launch_config)) {}
+      : context_(context), semantics_(), blocks_(MaterializeBlocks(context.placement, context.launch_config)) {
+    AssignLogicalSlotIds();
+  }
 
   uint64_t RunSequential() {
     EmitWaveLaunchEvents();
@@ -719,6 +739,44 @@ class FunctionalExecutionCoreImpl {
   ProgramCycleStatsConfig cycle_stats_config_{};
   std::vector<ExecutedFlowEvent> executed_flow_events_;
   std::optional<ProgramCycleStats> program_cycle_stats_;
+  std::atomic<uint64_t> trace_cycle_{0};
+  std::unordered_map<uint64_t, uint32_t> logical_slot_ids_;
+
+  uint64_t NextTraceCycle() { return trace_cycle_.fetch_add(1, std::memory_order_relaxed); }
+
+  void AssignLogicalSlotIds() {
+    std::map<std::tuple<uint32_t, uint32_t, uint32_t>, uint32_t> next_slot_per_peu;
+    for (const auto& block : blocks_) {
+      for (const auto& wave : block.waves) {
+        auto& next_slot = next_slot_per_peu[std::make_tuple(wave.dpc_id, wave.ap_id, wave.peu_id)];
+        logical_slot_ids_.emplace(StableWaveKey(wave), next_slot++);
+      }
+    }
+  }
+
+  uint32_t TraceSlotId(const WaveContext& wave) const {
+    const auto it = logical_slot_ids_.find(StableWaveKey(wave));
+    return it == logical_slot_ids_.end() ? 0u : it->second;
+  }
+
+  TraceEvent MakeWaveTraceEvent(const WaveContext& wave,
+                                TraceEventKind kind,
+                                uint64_t cycle,
+                                std::string message,
+                                uint64_t pc = std::numeric_limits<uint64_t>::max()) const {
+    return TraceEvent{
+        .kind = kind,
+        .cycle = cycle,
+        .dpc_id = wave.dpc_id,
+        .ap_id = wave.ap_id,
+        .peu_id = wave.peu_id,
+        .slot_id = TraceSlotId(wave),
+        .block_id = wave.block_id,
+        .wave_id = wave.wave_id,
+        .pc = pc == std::numeric_limits<uint64_t>::max() ? wave.pc : pc,
+        .message = std::move(message),
+    };
+  }
 
   void TraceEventLocked(TraceEvent event) {
     std::lock_guard<std::mutex> lock(trace_mutex_);
@@ -764,17 +822,10 @@ class FunctionalExecutionCoreImpl {
   void EmitWaveLaunchEvents() {
     for (const auto& block : blocks_) {
       for (const auto& wave : block.waves) {
-        TraceEventLocked(TraceEvent{
-            .kind = TraceEventKind::WaveLaunch,
-            .cycle = context_.cycle,
-            .dpc_id = wave.dpc_id,
-            .ap_id = wave.ap_id,
-            .peu_id = wave.peu_id,
-            .block_id = wave.block_id,
-            .wave_id = wave.wave_id,
-            .pc = wave.pc,
-            .message = FormatWaveLaunchTraceMessage(wave),
-        });
+        TraceEventLocked(MakeWaveTraceEvent(wave,
+                                            TraceEventKind::WaveLaunch,
+                                            NextTraceCycle(),
+                                            FormatWaveLaunchTraceMessage(wave)));
       }
     }
   }
@@ -807,7 +858,7 @@ class FunctionalExecutionCoreImpl {
   void EmitWaveStatsSnapshot() {
     TraceEventLocked(TraceEvent{
         .kind = TraceEventKind::WaveStats,
-        .cycle = context_.cycle,
+        .cycle = NextTraceCycle(),
         .message = FormatWaveStatsMessage(CaptureWaveStatsSnapshot()),
     });
   }
@@ -1152,7 +1203,7 @@ class FunctionalExecutionCoreImpl {
     if (released_barrier) {
       TraceEventLocked(TraceEvent{
           .kind = TraceEventKind::Barrier,
-          .cycle = context_.cycle,
+          .cycle = NextTraceCycle(),
           .block_id = block.block_id,
           .message = "release",
       });
@@ -1176,7 +1227,18 @@ class FunctionalExecutionCoreImpl {
     {
       std::lock_guard<std::mutex> state_lock(*block.wave_state_mutex);
       for (size_t i = 0; i < block.waves.size(); ++i) {
-        resumed = ResumeWaveIfWaitSatisfied(block.wave_states[i], block.waves[i]) || resumed;
+        WaveContext& wave = block.waves[i];
+        const WaveWaitReason prior_wait_reason = wave.wait_reason;
+        const uint64_t prior_pc = wave.pc;
+        if (!ResumeWaveIfWaitSatisfied(block.wave_states[i], wave)) {
+          continue;
+        }
+        const std::string_view arrive_message = ArriveTraceMessage(prior_wait_reason);
+        if (!arrive_message.empty()) {
+          TraceEventLocked(MakeWaveTraceEvent(
+              wave, TraceEventKind::Arrive, NextTraceCycle(), std::string(arrive_message), prior_pc));
+        }
+        resumed = true;
       }
     }
     if (resumed) {
@@ -1191,17 +1253,10 @@ class FunctionalExecutionCoreImpl {
       if (wave.run_state != WaveRunState::Waiting || !IsMemoryWaitReason(wave.wait_reason)) {
         continue;
       }
-      TraceEventLocked(TraceEvent{
-          .kind = TraceEventKind::Stall,
-          .cycle = context_.cycle,
-          .dpc_id = wave.dpc_id,
-          .ap_id = wave.ap_id,
-          .peu_id = wave.peu_id,
-          .block_id = wave.block_id,
-          .wave_id = wave.wave_id,
-          .pc = wave.pc,
-          .message = std::string(WaitReasonTraceMessage(wave.wait_reason)),
-      });
+      TraceEventLocked(MakeWaveTraceEvent(wave,
+                                          TraceEventKind::Stall,
+                                          NextTraceCycle(),
+                                          std::string(WaitReasonTraceMessage(wave.wait_reason))));
     }
   }
 
@@ -1238,14 +1293,10 @@ class FunctionalExecutionCoreImpl {
     const Instruction& instruction = context_.kernel.instructions().at(wave.pc);
     ++stats.wave_steps;
     ++stats.instructions_issued;
-    TraceEventLocked(TraceEvent{
-        .kind = TraceEventKind::WaveStep,
-        .cycle = context_.cycle,
-        .block_id = wave.block_id,
-        .wave_id = wave.wave_id,
-        .pc = wave.pc,
-        .message = FormatWaveStepMessage(instruction, wave),
-    });
+    const uint64_t issue_cycle = NextTraceCycle();
+    const uint64_t issue_pc = wave.pc;
+    TraceEventLocked(MakeWaveTraceEvent(
+        wave, TraceEventKind::WaveStep, issue_cycle, FormatWaveStepMessage(instruction, wave), issue_pc));
 
     ExecutionContext block_context = context_;
     block_context.stats = nullptr;
@@ -1257,14 +1308,8 @@ class FunctionalExecutionCoreImpl {
 
     ApplyExecutionPlanRegisterWrites(plan, wave);
     if (const auto mask_text = MaybeFormatExecutionMaskUpdate(plan, wave); mask_text.has_value()) {
-      TraceEventLocked(TraceEvent{
-          .kind = TraceEventKind::ExecMaskUpdate,
-          .cycle = context_.cycle,
-          .block_id = wave.block_id,
-          .wave_id = wave.wave_id,
-          .pc = wave.pc,
-          .message = *mask_text,
-      });
+      TraceEventLocked(
+          MakeWaveTraceEvent(wave, TraceEventKind::ExecMaskUpdate, NextTraceCycle(), *mask_text, issue_pc));
     }
     if (plan.memory.has_value()) {
       {
@@ -1295,14 +1340,11 @@ class FunctionalExecutionCoreImpl {
         ++stats.constant_loads;
       }
 
-      TraceEventLocked(TraceEvent{
-          .kind = TraceEventKind::MemoryAccess,
-          .cycle = context_.cycle,
-          .block_id = wave.block_id,
-          .wave_id = wave.wave_id,
-          .pc = wave.pc,
-          .message = request.kind == AccessKind::Load ? "load" : "store",
-      });
+      TraceEventLocked(MakeWaveTraceEvent(wave,
+                                          TraceEventKind::MemoryAccess,
+                                          NextTraceCycle(),
+                                          request.kind == AccessKind::Load ? "load" : "store",
+                                          issue_pc));
 
       if (request.kind == AccessKind::Load) {
         if (!request.dst.has_value()) {
@@ -1393,14 +1435,10 @@ class FunctionalExecutionCoreImpl {
 
     if (plan.sync_wave_barrier) {
       ++stats.barriers;
-      TraceEventLocked(TraceEvent{
-          .kind = TraceEventKind::Barrier,
-          .cycle = context_.cycle,
-          .block_id = wave.block_id,
-          .wave_id = wave.wave_id,
-          .pc = wave.pc,
-          .message = "wave",
-      });
+      TraceEventLocked(
+          MakeWaveTraceEvent(wave, TraceEventKind::Commit, NextTraceCycle(), "commit", issue_pc));
+      TraceEventLocked(
+          MakeWaveTraceEvent(wave, TraceEventKind::Barrier, NextTraceCycle(), "wave", issue_pc));
       {
         std::lock_guard<std::mutex> state_lock(*block.wave_state_mutex);
         ResumeWaveToRunnable(wave, /*pc_increment=*/1);
@@ -1415,14 +1453,10 @@ class FunctionalExecutionCoreImpl {
         MarkWaveWaitingAtBarrier(wave, barrier_generation);
         block.barrier_state->arrived_wave_count.fetch_add(1);
       }
-      TraceEventLocked(TraceEvent{
-          .kind = TraceEventKind::Barrier,
-          .cycle = context_.cycle,
-          .block_id = wave.block_id,
-          .wave_id = wave.wave_id,
-          .pc = wave.pc,
-          .message = "arrive",
-      });
+      TraceEventLocked(
+          MakeWaveTraceEvent(wave, TraceEventKind::Commit, NextTraceCycle(), "commit", issue_pc));
+      TraceEventLocked(
+          MakeWaveTraceEvent(wave, TraceEventKind::Barrier, NextTraceCycle(), "arrive", issue_pc));
       EmitWaveStatsSnapshot();
       {
         std::lock_guard<std::mutex> lock(*block.control_mutex);
@@ -1431,7 +1465,7 @@ class FunctionalExecutionCoreImpl {
       if (released_barrier) {
         TraceEventLocked(TraceEvent{
             .kind = TraceEventKind::Barrier,
-            .cycle = context_.cycle,
+            .cycle = NextTraceCycle(),
             .block_id = wave.block_id,
             .message = "release",
         });
@@ -1451,14 +1485,10 @@ class FunctionalExecutionCoreImpl {
         RecordExecutedCompletionEvent(wave);
         wave_completed = true;
       }
-      TraceEventLocked(TraceEvent{
-          .kind = TraceEventKind::WaveExit,
-          .cycle = context_.cycle,
-          .block_id = wave.block_id,
-          .wave_id = wave.wave_id,
-          .pc = wave.pc,
-          .message = "exit",
-      });
+      TraceEventLocked(
+          MakeWaveTraceEvent(wave, TraceEventKind::Commit, NextTraceCycle(), "commit", issue_pc));
+      TraceEventLocked(
+          MakeWaveTraceEvent(wave, TraceEventKind::WaveExit, NextTraceCycle(), "exit", issue_pc));
       if (wave_completed) {
         EmitWaveStatsSnapshot();
       }
@@ -1467,17 +1497,13 @@ class FunctionalExecutionCoreImpl {
       {
         std::lock_guard<std::mutex> state_lock(*block.wave_state_mutex);
         if (EnterWaitStateFromWaitcnt(instruction, wave_state, wave)) {
-          TraceEventLocked(TraceEvent{
-              .kind = TraceEventKind::Stall,
-              .cycle = context_.cycle,
-              .dpc_id = wave.dpc_id,
-              .ap_id = wave.ap_id,
-              .peu_id = wave.peu_id,
-              .block_id = wave.block_id,
-              .wave_id = wave.wave_id,
-              .pc = wave.pc,
-              .message = std::string(WaitReasonTraceMessage(wave.wait_reason)),
-          });
+          TraceEventLocked(
+              MakeWaveTraceEvent(wave, TraceEventKind::Commit, NextTraceCycle(), "commit", issue_pc));
+          TraceEventLocked(MakeWaveTraceEvent(wave,
+                                              TraceEventKind::Stall,
+                                              NextTraceCycle(),
+                                              std::string(WaitReasonTraceMessage(wave.wait_reason)),
+                                              issue_pc));
           emit_waitcnt_wave_stats = true;
         } else {
           ApplyExecutionPlanControlFlow(plan, wave, false, false);
@@ -1491,6 +1517,8 @@ class FunctionalExecutionCoreImpl {
         EmitWaveStatsSnapshot();
         return;
       }
+      TraceEventLocked(
+          MakeWaveTraceEvent(wave, TraceEventKind::Commit, NextTraceCycle(), "commit", issue_pc));
     }
   }
 

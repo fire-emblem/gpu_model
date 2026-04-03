@@ -430,6 +430,40 @@ TEST(TraceTest, PerfettoDumpForMultiThreadedWaitKernelShowsWaitingAndResumeOrder
       << timeline;
 }
 
+TEST(TraceTest, PerfettoDumpForSingleThreadedWaitKernelUsesSharedSlotSchema) {
+  const auto out_dir = MakeUniqueTempDir("gpu_model_perfetto_st_wait");
+  const struct Cleanup {
+    std::filesystem::path path;
+    ~Cleanup() { std::filesystem::remove_all(path); }
+  } cleanup{out_dir};
+
+  TraceArtifactRecorder trace(out_dir);
+  RuntimeEngine runtime(&trace);
+  runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
+
+  const auto kernel = BuildWaitcntTraceKernel();
+  const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
+  runtime.memory().StoreGlobalValue<int32_t>(base_addr, 11);
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+  request.args.PushU64(base_addr);
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+  trace.FlushTimeline();
+
+  const std::string timeline = ReadTextFile(out_dir / "timeline.perfetto.json");
+  const auto trace_events = ExtractTraceEventsPayload(timeline);
+  ASSERT_FALSE(trace_events.empty());
+  EXPECT_NE(trace_events.find("\"args\":{\"name\":\"S"), std::string::npos) << timeline;
+  EXPECT_NE(trace_events.find("\"slot\":"), std::string::npos) << timeline;
+  EXPECT_NE(trace_events.find("\"cycle\":"), std::string::npos) << timeline;
+  EXPECT_EQ(trace_events.find("\"args\":{\"name\":\"B0W0\"}"), std::string::npos) << timeline;
+}
+
 TEST(TraceTest, TraceArtifactRecorderWritesTraceAndPerfettoFiles) {
   const auto out_dir =
       std::filesystem::temp_directory_path() / "gpu_model_trace_artifact_recorder";

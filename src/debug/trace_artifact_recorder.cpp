@@ -35,6 +35,7 @@ void TraceArtifactRecorder::FlushTimeline() {
   if (!out) {
     throw std::runtime_error("failed to open timeline artifact");
   }
+  // Keep every execution mode on the shared slot-centric Perfetto export path.
   out << CycleTimelineRenderer::RenderGoogleTrace(collector_.events(), timeline_options_);
 }
 
