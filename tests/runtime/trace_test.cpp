@@ -75,7 +75,7 @@ size_t FindFirst(std::string_view text, std::string_view needle) {
   return text.find(needle);
 }
 
-bool HasStallReason(const std::vector<TraceEvent>& events, std::string_view reason) {
+[[maybe_unused]] bool HasStallReason(const std::vector<TraceEvent>& events, std::string_view reason) {
   const std::string needle = std::string("reason=") + std::string(reason);
   for (const auto& event : events) {
     if (event.kind == TraceEventKind::Stall &&
@@ -231,15 +231,20 @@ TEST(TraceTest, EmitsUnifiedWaitStateMachineTraceForWaitcnt) {
   ASSERT_TRUE(result.ok);
 
   bool saw_waiting_snapshot = false;
+  bool saw_waitcnt_stall = false;
   for (const auto& event : trace.events()) {
     if (event.kind == TraceEventKind::WaveStats &&
         event.message.find("waiting=1") != std::string::npos) {
       saw_waiting_snapshot = true;
     }
+    if (event.kind == TraceEventKind::Stall &&
+        event.message.find("waitcnt_global") != std::string::npos) {
+      saw_waitcnt_stall = true;
+    }
   }
 
   EXPECT_TRUE(saw_waiting_snapshot);
-  EXPECT_TRUE(HasStallReason(trace.events(), "waitcnt_global"));
+  EXPECT_TRUE(saw_waitcnt_stall);
 }
 
 TEST(TraceTest, WritesHumanReadableTraceFile) {
