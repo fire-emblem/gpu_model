@@ -50,6 +50,24 @@ std::set<uint32_t> WaveStepSlotIdsForPeu(const std::vector<TraceEvent>& events,
   return slot_ids;
 }
 
+std::set<uint32_t> WaveStepSlotIdsForCycleAndPeu(const std::vector<TraceEvent>& events,
+                                                 std::string_view opcode,
+                                                 uint64_t cycle,
+                                                 uint32_t peu_id) {
+  std::set<uint32_t> slot_ids;
+  for (const auto& event : events) {
+    if (event.kind != TraceEventKind::WaveStep || event.cycle != cycle ||
+        event.peu_id != peu_id) {
+      continue;
+    }
+    if (event.message.find(std::string(opcode)) == std::string::npos) {
+      continue;
+    }
+    slot_ids.insert(event.slot_id);
+  }
+  return slot_ids;
+}
+
 TEST(AsyncMemoryCycleTest, LoadUsesIssuePlusArriveLatency) {
   CollectingTraceSink trace;
   RuntimeEngine runtime(&trace);
@@ -76,6 +94,31 @@ TEST(AsyncMemoryCycleTest, LoadUsesIssuePlusArriveLatency) {
   ASSERT_TRUE(result.ok) << result.error_message;
   EXPECT_EQ(result.total_cycles, 40u);
   EXPECT_EQ(FirstWaveStepCycle(trace.events(), "v_add_i32"), 32u);
+}
+
+TEST(AsyncMemoryCycleTest, ResidentSlotsIssueIndependentlyWithinSamePeu) {
+  CollectingTraceSink trace;
+  RuntimeEngine runtime(&trace);
+
+  InstructionBuilder builder;
+  builder.SMov("s0", 1);
+  builder.SMov("s1", 2);
+  builder.BExit();
+  const auto kernel = builder.Build("resident_slot_independent_issue");
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 320;
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  const auto cycle0_slots = WaveStepSlotIdsForCycleAndPeu(trace.events(), "s_mov_b32", 0, 0);
+  EXPECT_GE(cycle0_slots.size(), 2u);
+  EXPECT_EQ(cycle0_slots.count(0u), 1u);
+  EXPECT_EQ(cycle0_slots.count(1u), 1u);
 }
 
 TEST(AsyncMemoryCycleTest, LoadAllowsIndependentScalarIssueBeforeArrive) {
