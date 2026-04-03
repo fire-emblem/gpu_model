@@ -20,6 +20,7 @@ add_executable(gpu_model_tests
   execution/internal/issue_model_test.cpp
   execution/internal/issue_eligibility_test.cpp
   execution/internal/issue_scheduler_test.cpp
+  execution/internal/barrier_resource_pool_test.cpp
   instruction/instruction_array_parser_test.cpp
   instruction/encoded_instruction_binding_test.cpp
   instruction/encoded_instruction_descriptor_test.cpp

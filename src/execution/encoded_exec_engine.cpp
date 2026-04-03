@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "gpu_model/execution/encoded_semantic_handler.h"
+#include "gpu_model/execution/internal/barrier_resource_pool.h"
 #include "gpu_model/execution/internal/tensor_op_utils.h"
 #include "gpu_model/execution/internal/issue_eligibility.h"
 #include "gpu_model/debug/wave_launch_trace.h"
@@ -110,6 +111,7 @@ struct RawBlock {
   std::vector<size_t> next_wave_rr_per_peu;
   uint64_t barrier_generation = 0;
   uint32_t barrier_arrivals = 0;
+  bool barrier_slot_acquired = false;
   std::unique_ptr<std::mutex> control_mutex;
   std::unique_ptr<std::mutex> wave_state_mutex;
 };
@@ -1466,6 +1468,20 @@ class EncodedExecutionCore {
           wave.waiting_at_barrier) {
         continue;
       }
+      const auto ap_state_it =
+          cycle_ap_states_.find(raw_blocks_[raw_wave->block_index].global_ap_id);
+      const auto pc_it = pc_to_index_.find(wave.pc);
+      if (pc_it != pc_to_index_.end() &&
+          image_.decoded_instructions[pc_it->second].mnemonic == "s_barrier" &&
+          ap_state_it != cycle_ap_states_.end()) {
+        uint32_t slots_in_use = ap_state_it->second.barrier_slots_in_use;
+        bool acquired = raw_blocks_[raw_wave->block_index].barrier_slot_acquired;
+        if (!TryAcquireBarrierSlot(ap_state_it->second.barrier_slot_capacity,
+                                   slots_in_use,
+                                   acquired)) {
+          continue;
+        }
+      }
       slot.next_rr = (index + 1) % slot.active_window.size();
       return raw_wave;
     }
@@ -1839,6 +1855,8 @@ class EncodedExecutionCore {
           4,
           false);
       if (released) {
+        auto& ap_state = cycle_ap_states_.at(block.global_ap_id);
+        ReleaseBarrierSlot(ap_state.barrier_slots_in_use, block.barrier_slot_acquired);
         TraceEventLocked(TraceEvent{
             .kind = TraceEventKind::Barrier,
             .cycle = cycle,
@@ -2136,6 +2154,13 @@ class EncodedExecutionCore {
         }
       }
       if (wave.waiting_at_barrier) {
+        auto& ap_state = cycle_ap_states_.at(block.global_ap_id);
+        const bool acquired = TryAcquireBarrierSlot(ap_state.barrier_slot_capacity,
+                                                    ap_state.barrier_slots_in_use,
+                                                    block.barrier_slot_acquired);
+        if (!acquired) {
+          return issue_cycles;
+        }
         TraceEventLocked(TraceEvent{
             .kind = TraceEventKind::Barrier,
             .cycle = cycle,

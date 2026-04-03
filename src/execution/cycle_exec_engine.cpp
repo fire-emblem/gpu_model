@@ -17,6 +17,7 @@
 #include "gpu_model/debug/instruction_trace.h"
 #include "gpu_model/debug/trace_event.h"
 #include "gpu_model/debug/wave_launch_trace.h"
+#include "gpu_model/execution/internal/barrier_resource_pool.h"
 #include "gpu_model/execution/internal/event_queue.h"
 #include "gpu_model/execution/memory_ops.h"
 #include "gpu_model/execution/plan_apply.h"
@@ -54,6 +55,7 @@ struct ExecutableBlock {
   uint32_t ap_queue_index = 0;
   uint64_t barrier_generation = 0;
   uint32_t barrier_arrivals = 0;
+  bool barrier_slot_acquired = false;
   bool active = false;
   bool completed = false;
   std::vector<std::byte> shared_memory;
@@ -683,7 +685,8 @@ void FillDispatchWindow(PeuSlot& slot,
 
 ScheduledWave* PickNextReadyWave(PeuSlot& slot,
                                  const ExecutableKernel& kernel,
-                                 uint64_t cycle) {
+                                 uint64_t cycle,
+                                 const std::map<uint32_t, ApResidentState>& ap_states) {
   if (slot.active_window.empty()) {
     return nullptr;
   }
@@ -700,6 +703,18 @@ ScheduledWave* PickNextReadyWave(PeuSlot& slot,
       throw std::out_of_range("wave pc out of range");
     }
     const auto& instruction = kernel.instructions().at(scheduled_wave->wave.pc);
+    if (instruction.opcode == Opcode::SyncBarrier) {
+      const auto ap_state_it = ap_states.find(scheduled_wave->block->global_ap_id);
+      if (ap_state_it != ap_states.end()) {
+        uint32_t slots_in_use = ap_state_it->second.barrier_slots_in_use;
+        bool acquired = scheduled_wave->block->barrier_slot_acquired;
+        if (!TryAcquireBarrierSlot(ap_state_it->second.barrier_slot_capacity,
+                                   slots_in_use,
+                                   acquired)) {
+          continue;
+        }
+      }
+    }
     if (!CanIssueInstruction(scheduled_wave->dispatch_enabled, scheduled_wave->wave, instruction,
                              DependenciesReady(instruction, scheduled_wave->scoreboard, cycle))) {
       continue;
@@ -713,7 +728,8 @@ ScheduledWave* PickNextReadyWave(PeuSlot& slot,
 
 std::optional<std::pair<ScheduledWave*, std::string>> PickFirstBlockedWave(PeuSlot& slot,
                                                                            const ExecutableKernel& kernel,
-                                                                           uint64_t cycle) {
+                                                                           uint64_t cycle,
+                                                                           const std::map<uint32_t, ApResidentState>& ap_states) {
   if (slot.active_window.empty()) {
     return std::nullopt;
   }
@@ -733,6 +749,18 @@ std::optional<std::pair<ScheduledWave*, std::string>> PickFirstBlockedWave(PeuSl
       continue;
     }
     const auto& instruction = kernel.instructions().at(scheduled_wave->wave.pc);
+    if (instruction.opcode == Opcode::SyncBarrier) {
+      const auto ap_state_it = ap_states.find(scheduled_wave->block->global_ap_id);
+      if (ap_state_it != ap_states.end()) {
+        uint32_t slots_in_use = ap_state_it->second.barrier_slots_in_use;
+        bool acquired = scheduled_wave->block->barrier_slot_acquired;
+        if (!TryAcquireBarrierSlot(ap_state_it->second.barrier_slot_capacity,
+                                   slots_in_use,
+                                   acquired)) {
+          return std::make_pair(scheduled_wave, std::string("barrier_slots_full"));
+        }
+      }
+    }
     if (const auto reason =
             IssueBlockReason(scheduled_wave->dispatch_enabled, scheduled_wave->wave, instruction,
                              DependenciesReady(instruction, scheduled_wave->scoreboard, cycle))) {
@@ -801,10 +829,10 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
         continue;
       }
 
-      ScheduledWave* candidate = PickNextReadyWave(slot, context.kernel, cycle);
+      ScheduledWave* candidate = PickNextReadyWave(slot, context.kernel, cycle, ap_states);
 
       if (candidate == nullptr) {
-        if (const auto blocked = PickFirstBlockedWave(slot, context.kernel, cycle)) {
+        if (const auto blocked = PickFirstBlockedWave(slot, context.kernel, cycle, ap_states)) {
           context.trace.OnEvent(TraceEvent{
               .kind = TraceEventKind::Stall,
               .cycle = cycle,
@@ -1199,6 +1227,15 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                   if (context.stats != nullptr) {
                     ++context.stats->barriers;
                   }
+                  auto& ap_state = ap_states[candidate->block->global_ap_id];
+                  const bool acquired = TryAcquireBarrierSlot(ap_state.barrier_slot_capacity,
+                                                              ap_state.barrier_slots_in_use,
+                                                              candidate->block->barrier_slot_acquired);
+                  if (!acquired) {
+                    candidate->wave.status = WaveStatus::Active;
+                    candidate->wave.valid_entry = true;
+                    return;
+                  }
                   sync_ops::MarkWaveAtBarrier(candidate->wave,
                                               candidate->block->barrier_generation,
                                               candidate->block->barrier_arrivals,
@@ -1241,6 +1278,8 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                                                       candidate->block->barrier_arrivals,
                                                       1,
                                                       true)) {
+                    ReleaseBarrierSlot(ap_state.barrier_slots_in_use,
+                                       candidate->block->barrier_slot_acquired);
                     context.trace.OnEvent(TraceEvent{
                         .kind = TraceEventKind::Barrier,
                         .cycle = commit_cycle,
