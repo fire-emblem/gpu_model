@@ -167,6 +167,35 @@ TEST(AsyncMemoryCycleTest, ResidentSlotsStillHonorIssueLimitsPerPeu) {
   EXPECT_EQ(cycle0_slots.size(), 2u);
 }
 
+TEST(AsyncMemoryCycleTest, ResidentSlotsDoNotBypassPeuIssueTiming) {
+  CollectingTraceSink trace;
+  RuntimeEngine runtime(&trace);
+
+  InstructionBuilder builder;
+  builder.SMov("s0", 1);
+  builder.BExit();
+  const auto kernel = builder.Build("resident_slot_peu_timing");
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 320;
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  const uint64_t slot0_step_cycle =
+      FirstCycleForSlotEvent(trace.events(), TraceEventKind::WaveStep, 0u, "s_mov_b32");
+  const uint64_t slot1_step_cycle =
+      FirstCycleForSlotEvent(trace.events(), TraceEventKind::WaveStep, 1u, "s_mov_b32");
+
+  ASSERT_NE(slot0_step_cycle, std::numeric_limits<uint64_t>::max());
+  ASSERT_NE(slot1_step_cycle, std::numeric_limits<uint64_t>::max());
+  EXPECT_EQ(slot0_step_cycle, 0u);
+  EXPECT_EQ(slot1_step_cycle, 4u);
+}
+
 TEST(AsyncMemoryCycleTest, ResidentSlotDoesNotIssueBeforeDelayedWaveLaunch) {
   CollectingTraceSink trace;
   RuntimeEngine runtime(&trace);

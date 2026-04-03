@@ -73,8 +73,6 @@ struct ResidentIssueSlot {
   uint32_t ap_id = 0;
   uint32_t peu_id = 0;
   uint32_t slot_id = 0;
-  uint64_t busy_until = 0;
-  uint64_t last_wave_tag = std::numeric_limits<uint64_t>::max();
   ScheduledWave* resident_wave = nullptr;
   bool active = false;
 };
@@ -83,6 +81,8 @@ struct PeuSlot {
   uint32_t dpc_id = 0;
   uint32_t ap_id = 0;
   uint32_t peu_id = 0;
+  uint64_t busy_until = 0;
+  uint64_t last_wave_tag = std::numeric_limits<uint64_t>::max();
   size_t issue_round_robin_index = 0;
   std::vector<ScheduledWave*> waves;
   std::vector<ScheduledWave*> resident_waves;
@@ -888,7 +888,6 @@ std::optional<std::pair<ScheduledWave*, std::string>> PickFirstBlockedResidentWa
   for (size_t offset = 0; offset < count; ++offset) {
     ResidentIssueSlot& resident_slot = slot.resident_slots[(start + offset) % count];
     if (!resident_slot.active || resident_slot.resident_wave == nullptr ||
-        resident_slot.busy_until > cycle ||
         !ResidentSlotReadyToIssue(resident_slot, cycle)) {
       continue;
     }
@@ -917,7 +916,7 @@ std::vector<IssueSchedulerCandidate> BuildResidentIssueCandidates(
   for (size_t offset = 0; offset < count; ++offset) {
     ResidentIssueSlot& resident_slot = slot.resident_slots[(start + offset) % count];
     ScheduledWave* scheduled_wave = resident_slot.resident_wave;
-    if (!resident_slot.active || scheduled_wave == nullptr || resident_slot.busy_until > cycle ||
+    if (!resident_slot.active || scheduled_wave == nullptr ||
         !ResidentSlotReadyToIssue(resident_slot, cycle)) {
       continue;
     }
@@ -977,9 +976,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
   std::map<uint32_t, ApResidentState> ap_states;
 
   for (auto& slot : slots) {
-    for (auto& resident_slot : slot.resident_slots) {
-      resident_slot.busy_until = 0;
-    }
+    slot.busy_until = 0;
     l1_caches.emplace(L1Key{.dpc_id = slot.dpc_id, .ap_id = slot.ap_id},
                       CacheModel(timing_config_.cache_model));
   }
@@ -1022,6 +1019,10 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
 
     bool issued_any = false;
     for (auto& slot : slots) {
+      if (slot.busy_until > cycle) {
+        continue;
+      }
+
       std::vector<ResidentIssueSlot*> ordered_resident_slots;
       const auto candidates =
           BuildResidentIssueCandidates(slot, context.kernel, cycle, ap_states, ordered_resident_slots);
@@ -1080,8 +1081,8 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
         const OpPlan plan = semantics_.BuildPlan(instruction, wave, context);
         const uint64_t wave_tag = WaveTag(wave);
         const uint64_t switch_penalty =
-            resident_slot.last_wave_tag != std::numeric_limits<uint64_t>::max() &&
-                    resident_slot.last_wave_tag != wave_tag
+            slot.last_wave_tag != std::numeric_limits<uint64_t>::max() &&
+                    slot.last_wave_tag != wave_tag
                 ? timing_config_.launch_timing.warp_switch_cycles
                 : 0;
         if (switch_penalty > 0) {
@@ -1099,8 +1100,8 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
           });
         }
         const uint64_t commit_cycle = cycle + switch_penalty + plan.issue_cycles;
-        resident_slot.busy_until = commit_cycle;
-        resident_slot.last_wave_tag = wave_tag;
+        slot.busy_until = commit_cycle;
+        slot.last_wave_tag = wave_tag;
         wave.status = WaveStatus::Stalled;
         wave.valid_entry = false;
         if (plan.memory.has_value()) {
