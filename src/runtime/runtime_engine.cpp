@@ -38,6 +38,9 @@ class RuntimeEngineImpl {
                               uint64_t arg_load_cycles);
   void SetIssueCycleClassOverrides(const IssueCycleClassOverridesSpec& overrides);
   void SetIssueCycleOpOverrides(const IssueCycleOpOverridesSpec& overrides);
+  void SetCycleIssueLimits(const ArchitecturalIssueLimits& limits) {
+    issue_limits_override_ = limits;
+  }
   void SetFunctionalExecutionConfig(FunctionalExecutionConfig config) {
     functional_execution_config_ = config;
   }
@@ -73,6 +76,7 @@ class RuntimeEngineImpl {
   std::optional<uint64_t> arg_load_cycles_override_;
   std::optional<IssueCycleClassOverridesSpec> issue_cycle_class_overrides_;
   std::optional<IssueCycleOpOverridesSpec> issue_cycle_op_overrides_;
+  std::optional<ArchitecturalIssueLimits> issue_limits_override_;
   FunctionalExecutionConfig functional_execution_config_{};
   uint64_t device_cycle_ = 0;
   bool has_cycle_launch_history_ = false;
@@ -177,6 +181,10 @@ void RuntimeEngineImpl::SetIssueCycleClassOverrides(const IssueCycleClassOverrid
 
 void RuntimeEngineImpl::SetIssueCycleOpOverrides(const IssueCycleOpOverridesSpec& overrides) {
   issue_cycle_op_overrides_ = overrides;
+}
+
+void RuntimeEngine::SetCycleIssueLimits(const ArchitecturalIssueLimits& limits) {
+  impl_->SetCycleIssueLimits(limits);
 }
 
 LaunchResult RuntimeEngineImpl::Launch(const LaunchRequest& request) {
@@ -417,6 +425,7 @@ CycleTimingConfig RuntimeEngineImpl::ResolveCycleTimingConfig(const GpuArchSpec&
   config.launch_timing = spec.launch_timing;
   config.issue_cycle_class_overrides = spec.issue_cycle_class_overrides;
   config.issue_cycle_op_overrides = spec.issue_cycle_op_overrides;
+  config.issue_limits = spec.cycle_resources.issue_limits;
 
   if (flat_global_latency_override_.has_value()) {
     config.cache_model.enabled = false;
@@ -467,6 +476,9 @@ CycleTimingConfig RuntimeEngineImpl::ResolveCycleTimingConfig(const GpuArchSpec&
   }
   if (issue_cycle_op_overrides_.has_value()) {
     config.issue_cycle_op_overrides = *issue_cycle_op_overrides_;
+  }
+  if (issue_limits_override_.has_value()) {
+    config.issue_limits = *issue_limits_override_;
   }
 
   return config;

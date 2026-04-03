@@ -192,6 +192,67 @@ TEST(CycleSmokeTest, ReadyWavesIssueRoundRobinWithinPeu) {
   EXPECT_EQ(issued_waves[5], 1u);
 }
 
+TEST(CycleSmokeTest, VectorIssueLimitOverrideAllowsTwoWaveBundleIssue) {
+  const auto spec = ArchRegistry::Get("c500");
+  ASSERT_NE(spec, nullptr);
+
+  CollectingTraceSink baseline_trace;
+  RuntimeEngine runtime(&baseline_trace);
+  runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
+                                 /*kernel_launch_cycles=*/0,
+                                 /*block_launch_cycles=*/0,
+                                 /*wave_launch_cycles=*/0,
+                                 /*warp_switch_cycles=*/1,
+                                 /*arg_load_cycles=*/4);
+
+  InstructionBuilder builder;
+  builder.VMov("v0", 1);
+  builder.BExit();
+  const auto kernel = builder.Build("vector_bundle_issue_kernel");
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = spec->peu_per_ap * 64 + 64;
+
+  const auto baseline = runtime.Launch(request);
+  ASSERT_TRUE(baseline.ok) << baseline.error_message;
+
+  runtime.ResetDeviceCycle();
+  CollectingTraceSink widened_trace;
+  RuntimeEngine widened_runtime(&widened_trace);
+  widened_runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
+                                         /*kernel_launch_cycles=*/0,
+                                         /*block_launch_cycles=*/0,
+                                         /*wave_launch_cycles=*/0,
+                                         /*warp_switch_cycles=*/1,
+                                         /*arg_load_cycles=*/4);
+  ArchitecturalIssueLimits widened_limits = DefaultArchitecturalIssueLimits();
+  widened_limits.vector_alu = 2;
+  widened_runtime.SetCycleIssueLimits(widened_limits);
+
+  const auto widened = widened_runtime.Launch(request);
+  ASSERT_TRUE(widened.ok) << widened.error_message;
+
+  uint32_t baseline_wave_steps_at_0 = 0;
+  for (const auto& event : baseline_trace.events()) {
+    if (event.kind == TraceEventKind::WaveStep && event.cycle == 0u) {
+      ++baseline_wave_steps_at_0;
+    }
+  }
+
+  uint32_t widened_wave_steps_at_0 = 0;
+  for (const auto& event : widened_trace.events()) {
+    if (event.kind == TraceEventKind::WaveStep && event.cycle == 0u) {
+      ++widened_wave_steps_at_0;
+    }
+  }
+
+  EXPECT_EQ(baseline_wave_steps_at_0, spec->peu_per_ap);
+  EXPECT_GT(widened_wave_steps_at_0, baseline_wave_steps_at_0);
+}
+
 TEST(CycleSmokeTest, IssueCycleClassOverrideChangesSelectedInstructionCategory) {
   ConstSegment const_segment;
   const int32_t value = 7;

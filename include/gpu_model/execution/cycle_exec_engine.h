@@ -11,6 +11,7 @@ struct CycleTimingConfig {
   LaunchTimingSpec launch_timing;
   IssueCycleClassOverridesSpec issue_cycle_class_overrides;
   IssueCycleOpOverridesSpec issue_cycle_op_overrides;
+  ArchitecturalIssueLimits issue_limits;
 };
 
 class CycleExecEngine final : public IExecutionEngine {

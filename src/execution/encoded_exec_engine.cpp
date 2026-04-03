@@ -1568,7 +1568,7 @@ class EncodedExecutionCore {
           });
         }
         const auto bundle = IssueScheduler::SelectIssueBundle(
-            BuildEncodedIssueCandidates(issue_inputs), slot.next_rr, spec_.cycle_resources.issue_limits);
+            BuildEncodedIssueCandidates(issue_inputs), slot.next_rr, timing_config_.issue_limits);
         if (bundle.selected_candidate_indices.empty()) {
           continue;
         }

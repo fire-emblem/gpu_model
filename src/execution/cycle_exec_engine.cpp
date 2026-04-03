@@ -900,7 +900,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
       const auto candidates =
           BuildIssueCandidates(slot, context.kernel, cycle, ap_states, ordered_waves);
       const auto bundle = IssueScheduler::SelectIssueBundle(
-          candidates, slot.last_issue_index, context.spec.cycle_resources.issue_limits);
+          candidates, slot.last_issue_index, timing_config_.issue_limits);
 
       if (bundle.selected_candidate_indices.empty()) {
         if (const auto blocked = PickFirstBlockedWave(slot, context.kernel, cycle, ap_states)) {
