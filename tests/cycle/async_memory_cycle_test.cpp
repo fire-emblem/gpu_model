@@ -30,6 +30,24 @@ uint64_t NthWaveStepCycle(const std::vector<TraceEvent>& events,
   return std::numeric_limits<uint64_t>::max();
 }
 
+uint64_t NthWaveStepCycleForPeu(const std::vector<TraceEvent>& events,
+                                std::string_view opcode,
+                                uint32_t peu_id,
+                                size_t ordinal) {
+  size_t seen = 0;
+  for (const auto& event : events) {
+    if (event.kind != TraceEventKind::WaveStep || event.peu_id != peu_id ||
+        event.message.find(std::string(opcode)) == std::string::npos) {
+      continue;
+    }
+    if (seen == ordinal) {
+      return event.cycle;
+    }
+    ++seen;
+  }
+  return std::numeric_limits<uint64_t>::max();
+}
+
 uint64_t FirstWaveStepCycle(const std::vector<TraceEvent>& events, std::string_view opcode) {
   return NthWaveStepCycle(events, opcode, 0);
 }
@@ -194,6 +212,43 @@ TEST(AsyncMemoryCycleTest, ResidentSlotsDoNotBypassPeuIssueTiming) {
   ASSERT_NE(slot1_step_cycle, std::numeric_limits<uint64_t>::max());
   EXPECT_EQ(slot0_step_cycle, 0u);
   EXPECT_EQ(slot1_step_cycle, 4u);
+}
+
+TEST(AsyncMemoryCycleTest, ResidentSlotBundlesUsePeuWideMaxTiming) {
+  CollectingTraceSink trace;
+  RuntimeEngine runtime(&trace);
+  runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
+                                 /*kernel_launch_cycles=*/0,
+                                 /*block_launch_cycles=*/0,
+                                 /*wave_launch_cycles=*/4,
+                                 /*warp_switch_cycles=*/1,
+                                 /*arg_load_cycles=*/4);
+
+  IssueCycleClassOverridesSpec class_overrides;
+  class_overrides.scalar_alu = 8;
+  class_overrides.vector_alu = 4;
+  runtime.SetIssueCycleClassOverrides(class_overrides);
+
+  InstructionBuilder builder;
+  builder.SMov("s0", 1);
+  builder.VMov("v0", "s0");
+  builder.BExit();
+  const auto kernel = builder.Build("resident_slot_bundle_max_timing");
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 576;
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  const uint64_t third_peu0_scalar_cycle =
+      NthWaveStepCycleForPeu(trace.events(), "s_mov_b32", 0u, 2u);
+
+  ASSERT_NE(third_peu0_scalar_cycle, std::numeric_limits<uint64_t>::max());
+  EXPECT_EQ(third_peu0_scalar_cycle, 17u);
 }
 
 TEST(AsyncMemoryCycleTest, ResidentSlotDoesNotIssueBeforeDelayedWaveLaunch) {

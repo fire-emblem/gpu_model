@@ -1051,6 +1051,8 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
         continue;
       }
 
+      uint64_t bundle_commit_cycle = cycle;
+      uint64_t bundle_last_wave_tag = slot.last_wave_tag;
       for (const size_t selected_candidate_index : bundle.selected_candidate_indices) {
         ResidentIssueSlot& resident_slot = *ordered_resident_slots.at(selected_candidate_index);
         ScheduledWave* candidate = resident_slot.resident_wave;
@@ -1081,8 +1083,8 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
         const OpPlan plan = semantics_.BuildPlan(instruction, wave, context);
         const uint64_t wave_tag = WaveTag(wave);
         const uint64_t switch_penalty =
-            slot.last_wave_tag != std::numeric_limits<uint64_t>::max() &&
-                    slot.last_wave_tag != wave_tag
+            bundle_last_wave_tag != std::numeric_limits<uint64_t>::max() &&
+                    bundle_last_wave_tag != wave_tag
                 ? timing_config_.launch_timing.warp_switch_cycles
                 : 0;
         if (switch_penalty > 0) {
@@ -1100,8 +1102,8 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
           });
         }
         const uint64_t commit_cycle = cycle + switch_penalty + plan.issue_cycles;
-        slot.busy_until = commit_cycle;
-        slot.last_wave_tag = wave_tag;
+        bundle_commit_cycle = std::max(bundle_commit_cycle, commit_cycle);
+        bundle_last_wave_tag = wave_tag;
         wave.status = WaveStatus::Stalled;
         wave.valid_entry = false;
         if (plan.memory.has_value()) {
@@ -1610,6 +1612,8 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
         });
         issued_any = true;
       }
+      slot.busy_until = bundle_commit_cycle;
+      slot.last_wave_tag = bundle_last_wave_tag;
     }
 
     if (!issued_any && events.empty()) {
