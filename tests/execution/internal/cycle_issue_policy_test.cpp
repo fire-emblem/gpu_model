@@ -1,7 +1,10 @@
 #include <gtest/gtest.h>
 
+#include <vector>
+
 #include "gpu_model/arch/arch_registry.h"
 #include "gpu_model/execution/internal/cycle_issue_policy.h"
+#include "gpu_model/execution/internal/issue_scheduler.h"
 
 namespace gpu_model {
 namespace {
@@ -29,7 +32,28 @@ TEST(CycleIssuePolicyTest, ReturnsConfiguredIssuePolicyFromSpec) {
   EXPECT_EQ(policy.group_limits[0], 1u);
   EXPECT_EQ(policy.group_limits[6], 1u);
   EXPECT_EQ(policy.type_to_group[0], 0u);
-  EXPECT_EQ(policy.type_to_group[6], 6u);
+  EXPECT_EQ(policy.type_to_group[6], 0u);
+}
+
+TEST(CycleIssuePolicyTest, C500DefaultPolicyMakesBranchAndSpecialConflictInScheduler) {
+  const auto spec = ArchRegistry::Get("c500");
+  ASSERT_NE(spec, nullptr);
+
+  const std::vector<IssueSchedulerCandidate> candidates{
+      {.candidate_index = 0,
+       .wave_id = 0,
+       .issue_type = ArchitecturalIssueType::Branch,
+       .ready = true},
+      {.candidate_index = 1,
+       .wave_id = 1,
+       .issue_type = ArchitecturalIssueType::Special,
+       .ready = true},
+  };
+
+  const auto result =
+      IssueScheduler::SelectIssueBundle(candidates, 0, CycleIssuePolicyForSpec(*spec));
+  ASSERT_EQ(result.selected_candidate_indices.size(), 1u);
+  EXPECT_EQ(result.selected_candidate_indices[0], 0u);
 }
 
 }  // namespace

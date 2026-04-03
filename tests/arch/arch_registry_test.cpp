@@ -34,7 +34,7 @@ TEST(ArchRegistryTest, C500FieldsMatchDesign) {
   EXPECT_EQ(spec->cycle_resources.issue_policy.group_limits[0], 1u);
   EXPECT_EQ(spec->cycle_resources.issue_policy.group_limits[6], 1u);
   EXPECT_EQ(spec->cycle_resources.issue_policy.type_to_group[0], 0u);
-  EXPECT_EQ(spec->cycle_resources.issue_policy.type_to_group[6], 6u);
+  EXPECT_EQ(spec->cycle_resources.issue_policy.type_to_group[6], 0u);
   EXPECT_EQ(spec->default_issue_cycles, 4u);
 }
 
