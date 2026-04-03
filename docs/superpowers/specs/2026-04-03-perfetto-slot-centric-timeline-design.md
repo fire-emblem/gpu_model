@@ -18,6 +18,17 @@
 
 因此这份设计虽然会以当前最成熟的 `cycle` 路径为切入点来讨论具体问题，但目标 schema 和视觉语义必须从一开始就按三类 dump 统一设计。
 
+用户随后进一步明确了一个关键边界：
+
+- `cycle dump` 需要真实 resident slot 语义
+- `st / mt dump` 不考虑 resident slot 上限
+- `st / mt dump` 中，某个 `PEU` 上 dispatch 了多少个 wave，就在 Perfetto 上展示多少条最细轨道
+
+因此本文后续提到的最细轨道，必须区分两种模式语义：
+
+1. `cycle` 的固定 resident slot
+2. `st / mt` 的无限逻辑 lane
+
 但当前时间线仍然存在一个关键错位：
 
 > 现在的轨道身份是 `Wave`，而用户真正需要观察的是 `Slot`。
@@ -45,6 +56,7 @@
 7. wave 如果被切换走，也需要在时间线上可见
 8. 层级标签使用分层数字标识，避免冗长字符串影响阅读
 9. 上述要求适用于所有 `st / mt / cycle dump`，不能只在 `cycle dump` 中成立
+10. `cycle` 的最细轨道必须保留真实 resident-slot 语义；`st / mt` 的最细轨道允许是无限逻辑 lane
 
 用户已明确选择：
 
@@ -67,6 +79,7 @@
 
 - 不要求 `st / mt / cycle dump` 三条路径在第一批同时达到完全同等的信息密度
 - 不要求第一批就把三条路径背后的内部执行模型完全统一
+- 不要求 `st / mt` 去模拟 `cycle` 的硬件 resident slot 上限
 
 本轮只做“可准确观测”的 slot 级时间线基础设施，优先定义统一 schema 与视觉语义，再按实现成熟度分批落地到各 dump 路径。
 
@@ -185,13 +198,46 @@ Device
 2. `DPC` 是第一层可折叠分组
 3. `AP` 是第二层可折叠分组
 4. `PEU` 是第三层可折叠分组
-5. `Slot` 是最细时间轴，对应一个 resident wave slot
+5. `Slot` 是统一标签下的最细时间轴，但其物理语义按模式区分：
+   - `cycle`: resident wave slot
+   - `st / mt`: logical wave lane
 
 `Wave` 不再建成独立 thread track，而是作为：
 
 - 当前 slot occupant 的标签
 - 指令 slice 的 `args`
 - launch / switch / exit marker 的 `args`
+
+## 模式语义
+
+### `cycle dump`
+
+`cycle dump` 的最细轨道必须对应真实 resident slot。
+
+也就是说：
+
+- 每个 `PEU` 下有固定数量的 resident slot
+- track identity 必须绑定到真实 `(dpc, ap, peu, slot)`
+- bubble 的空白区间具有硬件资源语义
+- `switch_out / switch_in` 具有真实调度语义
+
+### `st / mt dump`
+
+`st / mt dump` 的最细轨道不要求遵守 resident slot 上限。
+
+其语义为：
+
+- 某个 `PEU` 上 dispatch 了多少个 wave，就展开多少条逻辑 lane
+- lane 数量可增长，不受固定上限约束
+- 这些 lane 用于稳定展示 wave 指令序列与 marker
+- bubble 空白区间表示“该逻辑 lane 当前没有执行 slice”，不自动等价于硬件 slot 空闲
+
+### 统一 metadata 要求
+
+为了避免把两种语义混淆，Perfetto `args` 或 metadata 必须显式带出：
+
+- `mode = cycle | st | mt`
+- `slot_model = resident_fixed | logical_unbounded`
 
 ## 标签与命名
 
@@ -208,7 +254,7 @@ Device
 - `process_name` / `thread_name` 使用短标签
 - 完整坐标放在 `args`
 
-例如某个 slot 轨可以显示为：
+例如某个最细轨道可以显示为：
 
 ```text
 S3
@@ -221,6 +267,11 @@ dpc=0 ap=4 peu=1 slot=3
 ```
 
 这样既满足“分层数字标签”，又保留精确定位能力。
+
+其中：
+
+- `cycle` 中的 `slot` 编号表示 resident slot
+- `st / mt` 中的 `slot` 编号表示 logical lane
 
 ## Perfetto 时间单位策略
 
@@ -307,13 +358,13 @@ args: { cycle=120, wave=3, slot=2 }
 
 ## 事件模型要求
 
-为了支撑 slot 视图，trace 事件模型至少需要补足“slot 身份”和“occupancy 生命周期”。
+为了支撑该视图，trace 事件模型至少需要补足“叶子轨身份”和“occupancy 生命周期”。
 
 对于 `cycle dump`，这通常意味着扩展现有 `TraceEvent`。
 
 对于 `st / mt dump`，如果它们当前不是直接复用 `TraceEvent`，也必须导出语义等价的信息，至少保证：
 
-- 相同的 slot 坐标字段
+- 相同的叶子轨坐标字段
 - 相同的 occupant 标识字段
 - 相同的 marker 名称
 - 相同的 bubble 语义
@@ -323,18 +374,21 @@ args: { cycle=120, wave=3, slot=2 }
 `TraceEvent` 需要新增稳定字段：
 
 - `slot_id`
+- `slot_model`
 
 含义：
 
-- 表示事件发生时绑定到哪个 resident slot
-- 对于当前还没有 slot 语义的 runtime-level 事件，可保留默认值或无效值
+- `slot_id` 表示事件发生时绑定到哪个最细轨道编号
+- `slot_model` 表示该编号属于哪种语义
+- 在 `cycle` 中，`slot_id` 表示 resident slot
+- 在 `st / mt` 中，`slot_id` 表示 logical lane
 
 ### 必要新增事件语义
 
 本轮不一定要求新增很多 `TraceEventKind` 枚举，但逻辑上必须能区分以下生命周期：
 
-1. slot assign
-2. slot release
+1. slot assign / lane assign
+2. slot release / lane release
 3. wave start
 4. wave end
 5. switch out
@@ -385,6 +439,7 @@ args: { cycle=120, wave=3, slot=2 }
 - `ap`
 - `peu`
 - `slot`
+- `slot_model`
 - `block`
 - `wave`
 - `pc`（如适用）
@@ -396,7 +451,7 @@ args: { cycle=120, wave=3, slot=2 }
 
 - `Device/DPC/AP/PEU` 作为 process 层级元数据
 - `Slot` 作为最细 thread track
-- 每个 `(dpc, ap, peu, slot)` 对应唯一 track identity
+- 每个 `(dpc, ap, peu, slot_model, slot)` 对应唯一 track identity
 
 也就是说，track key 应从当前的：
 
@@ -407,7 +462,7 @@ args: { cycle=120, wave=3, slot=2 }
 切换成：
 
 ```text
-(dpc, ap, peu, slot)
+(dpc, ap, peu, slot_model, slot)
 ```
 
 ### 2. slice 映射
@@ -421,9 +476,10 @@ instruction slice 需要携带：
 - `args.wave`
 - `args.block`
 - `args.slot`
+- `args.slot_model`
 - `args.pc`
 
-如果同一 slot 前后运行不同 wave，那么它们的 slice 都落在同一 track 上，只通过 `args.wave` 等元数据区分 occupant。
+如果同一最细轨道前后运行不同 wave，那么它们的 slice 都落在同一 track 上，只通过 `args.wave` 等元数据区分 occupant。
 
 ### 3. marker 映射
 
@@ -431,7 +487,7 @@ marker 使用 instant event，要求：
 
 - 名称稳定
 - category 稳定
-- 携带完整 occupant 与 slot 坐标
+- 携带完整 occupant 与最细轨坐标
 - 携带准确的 `cycle`
 
 例如：
@@ -445,10 +501,10 @@ marker 使用 instant event，要求：
 
 为了让肉眼能明显看到空泡，新 example 必须满足以下要求：
 
-1. 同一 PEU 下至少有多个 slot 同时有 occupant 历史
-2. 至少一个 slot 存在清晰的空白区间
+1. 同一 PEU 下至少有多个最细轨道同时有 occupant 历史
+2. 至少一个最细轨道存在清晰的空白区间
 3. 至少一个 wave 触发可见 `arrive`
-4. 至少一个 case 能展示 switch out / switch in
+4. 至少一个 `cycle` case 能展示 switch out / switch in
 5. 指令序列长度足够，不能只有极短的单指令闪现
 
 推荐构造方向：
@@ -464,14 +520,15 @@ marker 使用 instant event，要求：
 
 至少需要覆盖：
 
-1. 默认 Google Trace 使用 slot track，而不是 wave track
+1. 默认 Google Trace 使用叶子轨 track，而不是 wave track
 2. 轨道命名中存在 `D/A/P/S` 分层数字标签
-3. 同一 slot 上可以出现来自不同 wave 的事件
-4. instruction slice 携带 `slot` 和 `wave` args
+3. 同一最细轨道上可以出现来自不同 wave 的事件
+4. instruction slice 携带 `slot`、`slot_model` 和 `wave` args
 5. instruction slice 和 marker 都稳定携带 cycle 数值
 6. `arrive`、`wave_start`、`wave_end`、`switch_out`、`switch_in` 能稳定搜到
 7. 没有把 bubble 伪装成新的指令 slice
-8. `st / mt / cycle dump` 至少在 schema 层面共享同一组 track identity 和 marker naming
+8. `st / mt / cycle dump` 至少在 hierarchy、marker naming 和 cycle metadata 层面保持一致
+9. `cycle` 与 `st / mt` 能通过 `slot_model` 区分真实 resident slot 与逻辑 lane
 
 对于 ASCII renderer，可以允许先保持简化，但也需要至少能反映 slot 行标签与空白区间。
 
@@ -479,11 +536,11 @@ marker 使用 instant event，要求：
 
 为了降低第一批风险，建议按如下顺序落地：
 
-1. 先定义 `st / mt / cycle dump` 共用的 slot-centric schema 与命名约定
-2. 优先在 `cycle dump` 中补 `slot_id` 与必要事件元数据
-3. 再把 Perfetto renderer 的 track identity 改为 slot
+1. 先定义 `st / mt / cycle dump` 共用的 hierarchy、`slot_model` 与命名约定
+2. 再把 Perfetto renderer 的 track identity 改为 `(slot_model, slot)`
+3. 优先在 `cycle dump` 中建立真实 resident-slot 建模并补齐事件元数据
 4. 再补 marker 命名与 args
-5. 最后把同一 schema 推广到 `st / mt dump`，并补强 example 和 focused regression
+5. 最后把同一 hierarchy 推广到 `st / mt dump`，并以逻辑 lane 方式补齐 schema 与 example
 6. 统一补齐 cycle args 与默认命名策略，确保 Perfetto 中不丢 cycle 精度
 
 如果过程中发现当前 cycle engine 还没有稳定的 slot / switch 生命周期可供消费，那么第一批至少也要先做到：
@@ -502,8 +559,8 @@ marker 使用 instant event，要求：
 
 处理方式：
 
-- 第一批只为“实际活跃过的 slot”建轨
-- 但 track identity 必须是 slot，而不是 wave
+- 第一批只为“实际活跃过的最细轨道”建轨
+- 但 track identity 必须是 `(slot_model, slot)`，而不是 wave
 
 这意味着：
 
@@ -531,15 +588,16 @@ marker 使用 instant event，要求：
 当以下条件全部满足时，本轮设计视为达标：
 
 1. `st / mt / cycle dump` 的默认 Perfetto 层级定义统一为 `Device -> DPC -> AP -> PEU -> Slot`
-2. 最细轨道 identity 为 `(dpc, ap, peu, slot)`，不再是 `(block, wave)`
-3. bubble 在 slot 时间轴上表现为空白区间，而不是伪造 duration
-4. 同一 slot 可以连续看到不同 wave 的占用历史
+2. 最细轨道 identity 为 `(dpc, ap, peu, slot_model, slot)`，不再是 `(block, wave)`
+3. bubble 在最细轨道时间轴上表现为空白区间，而不是伪造 duration
+4. 同一最细轨道可以连续看到不同 wave 的占用历史
 5. 至少能稳定看到 `wave_start`、`wave_end`、`arrive`
-6. 若当前 engine 已具备相关信号，还应看到 `switch_out` / `switch_in`
+6. `cycle` 若当前 engine 已具备相关信号，还应看到 `switch_out` / `switch_in`
 7. 新 example 在 Perfetto 上能肉眼看出明显空泡
-8. focused tests 能程序化断言 slot 级结构与关键 marker
-9. 三类 dump 至少在 schema、命名和层级语义上保持一致，即使第一批实现成熟度不同
+8. focused tests 能程序化断言最细轨道结构与关键 marker
+9. 三类 dump 至少在 hierarchy、命名和 cycle metadata 上保持一致，即使叶子轨物理语义不同
 10. 所有关键 slice / marker 都能在 Perfetto 事件详情中直接读到 cycle 数值
+11. `cycle` 明确使用固定 resident slot；`st / mt` 明确使用无限逻辑 lane
 
 ## 结论
 
@@ -548,8 +606,8 @@ marker 使用 instant event，要求：
 因此下一步实现应围绕以下主线展开：
 
 - 为 `st / mt / cycle dump` 定义统一的观察面
-- 引入 slot identity
-- 让 slot 成为最细轨道
+- 引入 `(slot_model, slot)` identity
+- 让 `Slot` 成为统一标签下的最细轨道
 - 让 wave 退化为 occupant 元数据
 - 保持 bubble 为空白
 - 用稳定 marker 表达生命周期

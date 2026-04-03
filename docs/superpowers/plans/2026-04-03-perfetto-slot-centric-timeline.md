@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build a unified `st / mt / cycle dump` Perfetto observation surface where the finest track is `Slot`, bubbles stay blank, key lifecycle markers are visible, and cycle numbers are preserved in event metadata.
+**Goal:** Build a unified `st / mt / cycle dump` Perfetto observation surface where the finest track is `Slot`, bubbles stay blank, key lifecycle markers are visible, and cycle numbers are preserved in event metadata, while `cycle` uses fixed resident slots and `st / mt` use unbounded logical lanes.
 
-**Architecture:** First define one shared trace schema around `(dpc, ap, peu, slot)` identity and cycle-bearing event args. Then switch the Perfetto/timeline renderer from wave-centric rows to slot-centric rows while keeping `Wave` as occupant metadata. After the renderer contract is locked by tests, wire `cycle` emissions to provide stable `slot_id` and lifecycle markers, and finally align `st / mt` artifact dumps to the same naming and hierarchy contract.
+**Architecture:** First define one shared trace schema around `(dpc, ap, peu, slot_model, slot)` identity and cycle-bearing event args. Then switch the Perfetto/timeline renderer from wave-centric rows to slot-centric rows while keeping `Wave` as occupant metadata. After the renderer contract is locked by tests, rebuild `cycle` around real resident slots so emitted events carry true slot identity and lifecycle markers. Finally, align `st / mt` artifact dumps to the same hierarchy using unbounded logical lanes per `PEU` rather than hardware-capped resident slots.
 
 **Tech Stack:** C++, GoogleTest, existing trace sinks and artifact recorder, Perfetto-compatible Google Trace export, Ninja build
 
@@ -48,12 +48,11 @@ trace.OnEvent(TraceEvent{
 });
 ```
 
-Then add failing expectations that all three artifacts preserve `slot_id`:
+Then add failing expectations that the text and JSON artifacts preserve `slot_id`:
 
 ```cpp
 EXPECT_NE(text_buffer.str().find("slot=0x2"), std::string::npos);
 EXPECT_NE(json_buffer.str().find("\"slot_id\":\"0x2\""), std::string::npos);
-EXPECT_NE(timeline_buffer.str().find("\"slot\":2"), std::string::npos);
 ```
 
 Also extend `PerfettoDumpContainsTraceEventsAndRequiredFields` with one new structural expectation:
@@ -73,7 +72,7 @@ Run:
 Expected:
 
 - FAIL
-- errors mention missing `slot=0x2`, missing `"slot_id"`, or missing `"slot":2`
+- errors mention missing `slot=0x2` or missing `"slot_id"`
 - no compile errors outside `TraceEvent` initialization
 
 - [ ] **Step 3: Add `slot_id` to `include/gpu_model/debug/trace_event.h`**
@@ -128,7 +127,7 @@ Expected:
 - PASS
 - text trace includes `slot=0x2`
 - json trace includes `"slot_id":"0x2"`
-- Perfetto export still loads as JSON and now carries slot args
+- Perfetto export still loads as JSON
 
 - [ ] **Step 6: Commit the schema foundation**
 
@@ -317,7 +316,7 @@ git add include/gpu_model/debug/cycle_timeline.h src/debug/cycle_timeline.cpp te
 git commit -m "feat: switch perfetto renderer to slot tracks"
 ```
 
-### Task 3: Wire `cycle dump` to emit slot identity and lifecycle markers
+### Task 3: Rebuild `cycle dump` around real resident slots and emit lifecycle markers
 
 **Files:**
 - Modify: `src/execution/cycle_exec_engine.cpp`
@@ -354,16 +353,21 @@ TEST(CycleTimelineTest, RuntimePerfettoDumpCarriesWaveLifecycleOnSlotTracks) {
 }
 ```
 
-In `tests/cycle/async_memory_cycle_test.cpp`, add a failing event-level slot check:
+In `tests/cycle/async_memory_cycle_test.cpp`, add a failing event-level slot diversity check:
 
 ```cpp
 bool saw_nonzero_slot = false;
+std::set<uint32_t> seen_slots;
 for (const auto& event : trace.events()) {
+  if (event.kind == TraceEventKind::WaveStep) {
+    seen_slots.insert(event.slot_id);
+  }
   if (event.kind == TraceEventKind::WaveStep && event.slot_id > 0) {
     saw_nonzero_slot = true;
   }
 }
 EXPECT_TRUE(saw_nonzero_slot);
+EXPECT_GE(seen_slots.size(), 2u);
 ```
 
 In `tests/cycle/shared_barrier_cycle_test.cpp`, add a failing lifecycle scan:
@@ -390,28 +394,37 @@ Run:
 Expected:
 
 - FAIL
-- failures mention missing nonzero `slot_id` or missing slot args in exported trace
+- failures mention missing nonzero `slot_id`, collapsed slot diversity, or missing slot args in exported trace
 
-- [ ] **Step 3: Thread `slot_id` through cycle trace emission in `src/execution/cycle_exec_engine.cpp`**
+- [ ] **Step 3: Replace the current PEU-level scheduler container with real resident slots in `src/execution/cycle_exec_engine.cpp`**
 
-Wherever the cycle engine emits `TraceEvent`, populate `.slot_id` from the resident slot or active wave context instead of leaving the default:
+The current scheduler groups all waves for one `(dpc, ap, peu)` into a single dispatch container. Replace that with a real resident-slot model so each `PEU` owns multiple independent resident slots:
 
 ```cpp
-TraceEvent{
-    .kind = TraceEventKind::WaveStep,
-    .cycle = cycle_,
-    .dpc_id = dpc_id,
-    .ap_id = ap_id,
-    .peu_id = peu_id,
-    .slot_id = resident_slot.slot_index,
-    .block_id = wave.block_id(),
-    .wave_id = wave.wave_id(),
-    .pc = wave.pc(),
-    .message = message,
+struct ResidentWaveSlot {
+  uint32_t dpc_id = 0;
+  uint32_t ap_id = 0;
+  uint32_t peu_id = 0;
+  uint32_t slot_id = 0;
+  uint64_t busy_until = 0;
+  uint64_t last_wave_tag = std::numeric_limits<uint64_t>::max();
+  ScheduledWave* occupant = nullptr;
+  std::deque<ScheduledWave*> standby_waves;
 };
 ```
 
-Apply the same fill-in to:
+The rebuilt scheduler must:
+
+- create `resident_wave_slots_per_peu` slots for each `(dpc, ap, peu)`
+- assign each scheduled wave to one concrete resident slot
+- preserve that slot identity across launch, issue, stall, arrive, barrier, and exit
+- allow different slots under the same `PEU` to show concurrent occupant history in Perfetto
+
+Do not fake this by reusing the current `peu_slot_index` as if it were already the resident slot. This task is where the true slot model gets introduced.
+
+- [ ] **Step 4: Thread true `slot_id` through cycle trace emission and normalize lifecycle marker messages**
+
+Once the resident-slot model exists, populate `.slot_id` from the true resident slot on every relevant event:
 
 - `WaveLaunch`
 - `WaveStep`
@@ -420,10 +433,6 @@ Apply the same fill-in to:
 - `Arrive`
 - `Barrier`
 - `WaveExit`
-
-Use the already-known resident slot source wherever possible; do not invent a second scheduler-owned slot table in this task.
-
-- [ ] **Step 4: Normalize lifecycle marker messages in `src/execution/cycle_exec_engine.cpp` so the renderer can keep stable names**
 
 For existing launch/exit/barrier/arrive emissions, ensure the messages are parseable but compact:
 
@@ -454,17 +463,18 @@ Run:
 Expected:
 
 - PASS
-- runtime-emitted events carry non-default `slot_id`
+- runtime-emitted events carry true `slot_id`
+- traces from the same `PEU` can occupy multiple distinct slots
 - exported Perfetto contains slot args and lifecycle markers
 
 - [ ] **Step 6: Commit the cycle emitter wiring**
 
 ```bash
 git add src/execution/cycle_exec_engine.cpp tests/cycle/async_memory_cycle_test.cpp tests/cycle/shared_barrier_cycle_test.cpp tests/runtime/cycle_timeline_test.cpp
-git commit -m "feat: emit cycle slot lifecycle traces"
+git commit -m "feat: model resident slots in cycle traces"
 ```
 
-### Task 4: Align `st / mt dump` schema and add an obvious bubble example
+### Task 4: Align `st / mt dump` to unbounded logical lanes and add an obvious bubble example
 
 **Files:**
 - Modify: `src/debug/trace_artifact_recorder.cpp`
@@ -507,13 +517,15 @@ TEST(TraceTest, PerfettoDumpForSingleThreadedWaitKernelUsesSharedSlotSchema) {
 In `tests/functional/waitcnt_functional_test.cpp`, add an event-level schema check after one ST and one MT launch:
 
 ```cpp
+std::set<uint32_t> seen_slots;
 for (const auto& event : trace.events()) {
   if (event.kind == TraceEventKind::WaveStep ||
       event.kind == TraceEventKind::Stall ||
       event.kind == TraceEventKind::Arrive) {
-    EXPECT_LT(event.slot_id, 8u);
+    seen_slots.insert(event.slot_id);
   }
 }
+EXPECT_GE(seen_slots.size(), 2u);
 ```
 
 In `tests/functional/shared_sync_functional_test.cpp`, add a bubble-oriented assertion that the exported trace contains markers but does not grow synthetic duration slices beyond the actual instruction count:
@@ -534,7 +546,7 @@ Run:
 Expected:
 
 - FAIL
-- at least one failure reports missing slot args or default-only slot ids in ST/MT paths
+- at least one failure reports missing slot args, default-only slot ids, or collapsed lane diversity in ST/MT paths
 
 - [ ] **Step 3: Update `src/debug/trace_artifact_recorder.cpp` and shared dump plumbing to keep one renderer/schema across all modes**
 
@@ -546,9 +558,14 @@ out << CycleTimelineRenderer::RenderGoogleTrace(collector_.events(), timeline_op
 
 No mode-specific branching should be introduced here. If any ST/MT code path bypasses the common trace event shape, route it back through the same `TraceEvent` fields rather than adding a second exporter.
 
-- [ ] **Step 4: Fill or derive slot ids for `st / mt` event emissions and add one strong bubble example**
+- [ ] **Step 4: Fill or derive logical lane ids for `st / mt` event emissions and add one strong bubble example**
 
-Where functional ST/MT event emitters currently leave `slot_id` at the default, fill it from their wave placement / scheduling context using the same `(dpc, ap, peu, slot)` convention as cycle.
+Where functional ST/MT event emitters currently leave `slot_id` at the default, fill it from their wave placement / scheduling context using an unbounded logical-lane convention:
+
+- per `(dpc, ap, peu)`, assign a stable logical lane id to each dispatched wave
+- do not clamp to hardware resident slot capacity
+- preserve the assigned lane id for the lifetime of that wave in the trace
+- emit `slot_model=logical_unbounded` in renderer args/metadata
 
 For the stronger bubble case, prefer the existing wait kernel plus fixed memory latency and at least two blocks/waves so the exported slot tracks show:
 
@@ -577,6 +594,8 @@ Expected:
 
 - PASS
 - ST, MT, and cycle all export slot-centric Perfetto traces
+- `cycle` uses `slot_model=resident_fixed`
+- `st / mt` use `slot_model=logical_unbounded`
 - event args expose cycle counts everywhere they matter
 - bubble remains visible as blank time between slices rather than a fake event bar
 
@@ -610,10 +629,10 @@ git commit -m "feat: align slot-centric perfetto dumps across modes"
   - Stronger example coverage is covered by Task 4.
 
 - Placeholder scan:
-  - No unresolved placeholder markers remain in the plan body.
+  - No unresolved stub markers remain in the plan body.
   - Commands, files, and expected outcomes are spelled out per task.
 
 - Type consistency:
   - The plan consistently uses `slot_id` as the trace field name.
-  - The slot identity tuple is consistently `(dpc, ap, peu, slot)`.
-  - Renderer metadata consistently uses `slot`, `wave`, `issue_cycle`, `commit_cycle`, and `cycle`.
+  - The leaf-track identity tuple is consistently `(dpc, ap, peu, slot_model, slot)`.
+  - Renderer metadata consistently uses `slot`, `slot_model`, `wave`, `issue_cycle`, `commit_cycle`, and `cycle`.
