@@ -60,6 +60,26 @@ std::string HexU64(uint64_t value) {
   return out.str();
 }
 
+std::string_view StallReasonFromMessage(std::string_view message) {
+  constexpr std::string_view kPrefix = "reason=";
+  if (!message.starts_with(kPrefix)) {
+    return {};
+  }
+  const size_t end = message.find(' ');
+  if (end == std::string_view::npos) {
+    return message.substr(kPrefix.size());
+  }
+  return message.substr(kPrefix.size(), end - kPrefix.size());
+}
+
+std::string StallLabel(std::string_view message) {
+  const std::string_view reason = StallReasonFromMessage(message);
+  if (!reason.empty()) {
+    return std::string(reason);
+  }
+  return std::string(message);
+}
+
 std::string WaveLabel(const WaveKey& key) {
   std::ostringstream out;
   out << "B" << key.block_id << "W" << key.wave_id;
@@ -306,7 +326,10 @@ std::string MarkerName(const Marker& marker) {
     case TraceEventKind::WaveExit:
       return "wave_exit";
     case TraceEventKind::Stall:
-      return marker.message.empty() ? "stall" : "stall_" + marker.message;
+      if (marker.message.empty()) {
+        return "stall";
+      }
+      return "stall_" + StallLabel(marker.message);
     case TraceEventKind::WaveLaunch:
       return "wave_launch";
     case TraceEventKind::BlockLaunch:
@@ -326,7 +349,10 @@ std::string MarkerCategory(const Marker& marker) {
     case TraceEventKind::WaveExit:
       return "control/exit";
     case TraceEventKind::Stall:
-      return marker.message.empty() ? "stall" : "stall/" + marker.message;
+      if (marker.message.empty()) {
+        return "stall";
+      }
+      return "stall/" + StallLabel(marker.message);
     case TraceEventKind::WaveLaunch:
       return "launch/wave";
     case TraceEventKind::BlockLaunch:

@@ -11,6 +11,7 @@
 #include <optional>
 #include <sstream>
 #include <stdexcept>
+#include <string_view>
 #include <tuple>
 #include <vector>
 
@@ -462,6 +463,23 @@ std::vector<uint64_t> ActiveAddresses(const MemoryRequest& request) {
 
 uint64_t WaveTag(const WaveContext& wave) {
   return (static_cast<uint64_t>(wave.block_id) << 32) | wave.wave_id;
+}
+
+constexpr std::string_view kStallReasonWaitcntGlobal = "waitcnt_global";
+constexpr std::string_view kStallReasonWaitcntShared = "waitcnt_shared";
+constexpr std::string_view kStallReasonWaitcntPrivate = "waitcnt_private";
+constexpr std::string_view kStallReasonWaitcntScalarBuffer = "waitcnt_scalar_buffer";
+constexpr std::string_view kStallReasonBarrierWait = "barrier_wait";
+constexpr std::string_view kStallReasonDependency = "dependency";
+constexpr std::string_view kStallReasonNoReadyWave = "no_ready_wave";
+constexpr std::string_view kStallReasonWarpSwitch = "warp_switch";
+
+std::string FormatCycleStallMessage(std::string_view reason) {
+  constexpr std::string_view kPrefix = "reason=";
+  if (reason.starts_with(kPrefix)) {
+    return std::string(reason);
+  }
+  return std::string(kPrefix) + std::string(reason);
 }
 
 void ScheduleWaveLaunch(ScheduledWave& scheduled_wave,
@@ -933,7 +951,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
               .block_id = blocked->first->wave.block_id,
               .wave_id = blocked->first->wave.wave_id,
               .pc = blocked->first->wave.pc,
-              .message = blocked->second,
+              .message = FormatCycleStallMessage(blocked->second),
           });
         }
         continue;
@@ -977,7 +995,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
               .block_id = wave.block_id,
               .wave_id = wave.wave_id,
               .pc = wave.pc,
-              .message = "warp_switch",
+              .message = FormatCycleStallMessage(kStallReasonWarpSwitch),
           });
         }
         const uint64_t commit_cycle = cycle + switch_penalty + plan.issue_cycles;
