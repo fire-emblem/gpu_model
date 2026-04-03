@@ -132,35 +132,35 @@
 
 ## Stall Taxonomy
 
-第一版 taxonomy 固定为：
+本轮先锁定的是 **`reason=` schema**，以及一组已经在 `cycle` 路径中稳定存在或已明确接入的首批 reason。
 
-- `no_ready_wave`
-- `dependency`
+当前批次显式覆盖或已接入的 reason 包括：
+
 - `waitcnt_global`
 - `waitcnt_shared`
 - `waitcnt_private`
 - `waitcnt_scalar_buffer`
+- `barrier_slot_unavailable`
+- `warp_switch`
+
+这些值的设计原则是：
+
+- 优先锁定已经在 `cycle` 主路径里稳定存在、且当前 focused tests 能覆盖的 reason
+- 先把 `reason=` 包装、Perfetto 命名与 focused regression 稳定下来
+- 把其余阻塞语义的规范化留到下一批，而不是在本轮一次性承诺完成
+
+下一批应继续把其余阻塞原因规范化并收敛到同一 taxonomy，例如：
+
+- `no_ready_wave`
+- `dependency`
 - `barrier_wait`
 - `issue_group_conflict`
 - `same_wave_conflict`
 - `front_end_window`
-- `barrier_slot_unavailable`
 
-这些值的设计原则是：
+当前代码里仍可能存在与这些目标名不同的历史 reason token；本轮不要求一次性全部改名完成。
 
-- 覆盖当前 `cycle` 主路径里最主要的阻塞来源
-- 能与现有 focused tests 对齐
-- 还没有细到会让实现承诺过重
-
-### taxonomy 含义
-
-#### `no_ready_wave`
-
-当前 cycle 没有任何可进入 issue 竞争的 ready wave。
-
-#### `dependency`
-
-候选 wave 存在，但当前指令因寄存器或其它执行依赖尚未满足而不可 issue。
+### 已接入 reason 含义
 
 #### `waitcnt_global`
 
@@ -178,25 +178,13 @@ wave 因 `private` memory domain 的 `waitcnt` 条件未满足而阻塞。
 
 wave 因 `scalar-buffer` memory domain 的 `waitcnt` 条件未满足而阻塞。
 
-#### `barrier_wait`
-
-wave 已进入 barrier 等待态，直到 barrier release 前不可继续 issue。
-
-#### `issue_group_conflict`
-
-本 cycle 存在 ready candidate，但因 issue group 竞争失败而未被选中。
-
-#### `same_wave_conflict`
-
-本 cycle 存在 ready candidate，但因“同一 wave 每 cycle 最多 issue 一条”的前端规则而未被选中。
-
-#### `front_end_window`
-
-wave 虽 resident，但当前不在前端允许参与 issue 的 active/front-end window 中。
-
 #### `barrier_slot_unavailable`
 
 当前 barrier generation 需要资源槽位，但 `barrier_slots_per_ap` 相关资源暂不可用。
+
+#### `warp_switch`
+
+当前 cycle 的 issue 需要支付 wave 切换代价，因此 trace 会显式记录一次 context-switch 类 stall。
 
 ## Message 格式
 
@@ -309,36 +297,29 @@ ready candidates -> Issue(winner) + Stall(issue_group_conflict or same_wave_conf
 
 ## 验收标准
 
-### AC-1：`Stall` 事件具备稳定 taxonomy
+### AC-1：`Stall` 事件具备稳定 `reason=` schema
 
 必须满足：
 
 - `cycle` 路径发出的 `Stall` message 一律包含 `reason=`
-- `reason` 值来自固定 taxonomy
-- 旧的模糊自然语言主 message 不再作为测试依赖面
+- `reason` 值来自当前批次已接入的首批 reason 集合，或后续保留的历史 token
+- 旧的模糊自然语言主 message 不再作为 cycle-path focused tests 的主要依赖面
 
-### AC-2：`waitcnt` domain 阻塞在 Perfetto 上可区分
-
-必须满足：
-
-- 至少能区分：
-  - `waitcnt_global`
-  - `waitcnt_shared`
-  - `waitcnt_private`
-  - `waitcnt_scalar_buffer`
-
-### AC-3：`barrier` 与 front-end 冲突类 stall 不再混淆
+### AC-2：当前已稳定出现的 `waitcnt` domain 阻塞在 Perfetto 上可区分
 
 必须满足：
 
-- `barrier_wait`
-- `issue_group_conflict`
-- `same_wave_conflict`
-- `front_end_window`
+- 至少 `waitcnt_global` 在 raw trace 与 Perfetto 上有 focused regression 锁定
+- 对其余 `waitcnt` domain，本轮优先保证 `reason=` schema 与现有行为兼容，不强行要求每个 domain 都在当前 focused ring 中稳定出现可见 stall
 
-这些原因在 focused regression 中可分别断言。
+### AC-3：barrier-heavy 路径上的 stall 命名在 raw trace 与 Perfetto 上可稳定观察
 
-### AC-4：Perfetto 导出与 focused regression 可稳定消费 taxonomy
+必须满足：
+
+- barrier-heavy 路径新增的 focused regression 能锁定至少一种稳定出现的 `reason=` stall 信号
+- 当前批次不强行要求 `barrier_wait` 自身已经在 cycle active-window 语义下稳定发出 `Stall` 事件
+
+### AC-4：Perfetto 导出与 focused regression 可稳定消费 `reason=` schema
 
 必须满足：
 

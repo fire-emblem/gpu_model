@@ -66,12 +66,12 @@ std::string_view StallReasonFromMessage(std::string_view message) {
     return {};
   }
   std::string_view rest = message.substr(kPrefix.size());
-  const size_t start = rest.find_first_not_of(" \t");
+  const size_t start = rest.find_first_not_of(" \t\n");
   if (start == std::string_view::npos) {
     return {};
   }
   rest.remove_prefix(start);
-  const size_t end = rest.find_first_of(" \t");
+  const size_t end = rest.find_first_of(" \t\n");
   if (end == std::string_view::npos) {
     return rest;
   }
