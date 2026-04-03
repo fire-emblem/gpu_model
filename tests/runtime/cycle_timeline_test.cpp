@@ -218,7 +218,8 @@ TEST(CycleTimelineTest, PerfettoDumpPreservesCycleIssueAndCommitOrdering) {
 
   const auto& events = trace.events();
   const uint64_t issue_cycle = FirstEventCycle(events, TraceEventKind::WaveStep, "buffer_load_dword");
-  const uint64_t stall_cycle = FirstEventCycle(events, TraceEventKind::Stall, "waitcnt_global");
+  const uint64_t stall_cycle =
+      FirstEventCycle(events, TraceEventKind::Stall, "reason=waitcnt_global");
   const uint64_t arrive_cycle = FirstEventCycle(events, TraceEventKind::Arrive, "load_arrive");
   const uint64_t commit_cycle = FirstEventCycle(events, TraceEventKind::Commit, "s_waitcnt");
 

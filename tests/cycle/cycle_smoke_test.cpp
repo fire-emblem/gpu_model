@@ -91,7 +91,8 @@ TEST(CycleSmokeTest, QueuesBlocksWhenGridExceedsPhysicalApCount) {
       }
     } else if (event.kind == TraceEventKind::WaveLaunch) {
       ++wave_launches;
-    } else if (event.kind == TraceEventKind::Stall && event.message == "warp_switch") {
+    } else if (event.kind == TraceEventKind::Stall &&
+               event.message.find("reason=warp_switch") != std::string::npos) {
       saw_warp_switch = true;
     }
   }

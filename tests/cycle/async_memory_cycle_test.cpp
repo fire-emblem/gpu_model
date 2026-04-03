@@ -125,7 +125,8 @@ TEST(AsyncMemoryCycleTest, WaitCntCanWaitForGlobalMemoryOnly) {
   EXPECT_EQ(result.total_cycles, 44u);
   bool saw_waitcnt_global_stall = false;
   for (const auto& event : trace.events()) {
-    if (event.kind == TraceEventKind::Stall && event.message == "waitcnt_global") {
+    if (event.kind == TraceEventKind::Stall &&
+        event.message.find("reason=waitcnt_global") != std::string::npos) {
       saw_waitcnt_global_stall = true;
       break;
     }
@@ -164,6 +165,21 @@ TEST(AsyncMemoryCycleTest, WaitCntIgnoresGlobalWhenWaitingSharedOnly) {
   EXPECT_EQ(FirstWaveStepCycle(trace.events(), "s_waitcnt"), 16u);
   EXPECT_EQ(NthWaveStepCycle(trace.events(), "s_mov_b32", 3), 20u);
   EXPECT_EQ(result.total_cycles, 32u);
+  bool saw_waitcnt_global_stall = false;
+  bool saw_waitcnt_shared_stall = false;
+  for (const auto& event : trace.events()) {
+    if (event.kind != TraceEventKind::Stall) {
+      continue;
+    }
+    if (event.message.find("reason=waitcnt_global") != std::string::npos) {
+      saw_waitcnt_global_stall = true;
+    }
+    if (event.message.find("reason=waitcnt_shared") != std::string::npos) {
+      saw_waitcnt_shared_stall = true;
+    }
+  }
+  EXPECT_FALSE(saw_waitcnt_global_stall);
+  EXPECT_TRUE(saw_waitcnt_shared_stall);
 }
 
 TEST(AsyncMemoryCycleTest, WaitCntCanWaitForScalarBufferOnly) {
@@ -196,6 +212,15 @@ TEST(AsyncMemoryCycleTest, WaitCntCanWaitForScalarBufferOnly) {
   EXPECT_EQ(FirstWaveStepCycle(trace.events(), "s_waitcnt"), 8u);
   EXPECT_EQ(FirstWaveStepCycle(trace.events(), "s_mov_b32"), 12u);
   EXPECT_EQ(result.total_cycles, 20u);
+  bool saw_waitcnt_scalar_buffer_stall = false;
+  for (const auto& event : trace.events()) {
+    if (event.kind == TraceEventKind::Stall &&
+        event.message.find("reason=waitcnt_scalar_buffer") != std::string::npos) {
+      saw_waitcnt_scalar_buffer_stall = true;
+      break;
+    }
+  }
+  EXPECT_TRUE(saw_waitcnt_scalar_buffer_stall);
 }
 
 TEST(AsyncMemoryCycleTest, WaitCntCanWaitForScalarBufferScalarLoadOnly) {
@@ -228,6 +253,15 @@ TEST(AsyncMemoryCycleTest, WaitCntCanWaitForScalarBufferScalarLoadOnly) {
   EXPECT_EQ(FirstWaveStepCycle(trace.events(), "s_waitcnt"), 8u);
   EXPECT_EQ(NthWaveStepCycle(trace.events(), "s_mov_b32", 1), 12u);
   EXPECT_EQ(result.total_cycles, 20u);
+  bool saw_waitcnt_scalar_buffer_stall = false;
+  for (const auto& event : trace.events()) {
+    if (event.kind == TraceEventKind::Stall &&
+        event.message.find("reason=waitcnt_scalar_buffer") != std::string::npos) {
+      saw_waitcnt_scalar_buffer_stall = true;
+      break;
+    }
+  }
+  EXPECT_TRUE(saw_waitcnt_scalar_buffer_stall);
 }
 
 TEST(AsyncMemoryCycleTest, BufferLoadUsesImmediateOffset) {
