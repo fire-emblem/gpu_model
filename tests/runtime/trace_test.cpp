@@ -417,13 +417,14 @@ TEST(TraceTest, PerfettoDumpForMultiThreadedWaitKernelShowsWaitingAndResumeOrder
   ASSERT_FALSE(trace_events.empty());
 
   EXPECT_GE(CountOccurrences(trace_events, "\"name\":\"thread_name\""), 2u) << timeline;
-  EXPECT_NE(FindFirst(trace_events, "\"args\":{\"name\":\"B0W0\"}"), std::string::npos)
+  EXPECT_NE(FindFirst(trace_events, "\"args\":{\"name\":\"S0\"}"), std::string::npos)
       << timeline;
-  EXPECT_NE(FindFirst(trace_events, "\"args\":{\"name\":\"B1W0\"}"), std::string::npos)
+  EXPECT_EQ(FindFirst(trace_events, "\"args\":{\"name\":\"B0W0\"}"), std::string::npos)
       << timeline;
   EXPECT_NE(FindFirst(trace_events, "\"name\":\"stall_waitcnt_global\""), std::string::npos)
       << timeline;
   EXPECT_NE(FindFirst(trace_events, "\"name\":\"wave_exit\""), std::string::npos) << timeline;
+  EXPECT_NE(FindFirst(trace_events, "\"cycle\":"), std::string::npos) << timeline;
   EXPECT_LT(FindFirst(trace_events, "\"name\":\"stall_waitcnt_global\""),
             FindFirst(trace_events, "\"name\":\"wave_exit\""))
       << timeline;
@@ -456,6 +457,10 @@ TEST(TraceTest, TraceArtifactRecorderWritesTraceAndPerfettoFiles) {
     trace.OnEvent(TraceEvent{
         .kind = TraceEventKind::WaveStep,
         .cycle = 1,
+        .dpc_id = 0,
+        .ap_id = 0,
+        .peu_id = 0,
+        .slot_id = 2,
         .block_id = 0,
         .wave_id = 0,
         .message = "op=v_add_i32",
@@ -463,6 +468,10 @@ TEST(TraceTest, TraceArtifactRecorderWritesTraceAndPerfettoFiles) {
     trace.OnEvent(TraceEvent{
         .kind = TraceEventKind::Commit,
         .cycle = 4,
+        .dpc_id = 0,
+        .ap_id = 0,
+        .peu_id = 0,
+        .slot_id = 2,
         .block_id = 0,
         .wave_id = 0,
         .message = "op=v_add_i32",
@@ -470,6 +479,10 @@ TEST(TraceTest, TraceArtifactRecorderWritesTraceAndPerfettoFiles) {
     trace.OnEvent(TraceEvent{
         .kind = TraceEventKind::WaveExit,
         .cycle = 5,
+        .dpc_id = 0,
+        .ap_id = 0,
+        .peu_id = 0,
+        .slot_id = 2,
         .block_id = 0,
         .wave_id = 0,
         .message = "done",
@@ -477,6 +490,10 @@ TEST(TraceTest, TraceArtifactRecorderWritesTraceAndPerfettoFiles) {
     trace.OnEvent(TraceEvent{
         .kind = TraceEventKind::Stall,
         .cycle = 6,
+        .dpc_id = 0,
+        .ap_id = 0,
+        .peu_id = 0,
+        .slot_id = 2,
         .block_id = 0,
         .wave_id = 0,
         .message = "reason=waitcnt_global",
@@ -509,6 +526,7 @@ TEST(TraceTest, TraceArtifactRecorderWritesTraceAndPerfettoFiles) {
   EXPECT_NE(text_buffer.str().find("slot=0x2"), std::string::npos);
   EXPECT_NE(json_buffer.str().find("\"slot_id\":\"0x2\""), std::string::npos);
   EXPECT_NE(timeline_buffer.str().find("\"traceEvents\""), std::string::npos);
+  EXPECT_NE(timeline_buffer.str().find("\"slot\":2"), std::string::npos);
   EXPECT_NE(timeline_buffer.str().find("\"name\":\"stall_waitcnt_global\""), std::string::npos);
 
   std::filesystem::remove_all(out_dir);

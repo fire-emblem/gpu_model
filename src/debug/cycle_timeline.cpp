@@ -33,10 +33,40 @@ struct WaveKey {
   }
 };
 
+struct SlotKey {
+  uint32_t dpc_id = 0;
+  uint32_t ap_id = 0;
+  uint32_t peu_id = 0;
+  uint32_t slot_id = 0;
+
+  bool operator<(const SlotKey& other) const {
+    return std::tie(dpc_id, ap_id, peu_id, slot_id) <
+           std::tie(other.dpc_id, other.ap_id, other.peu_id, other.slot_id);
+  }
+};
+
+struct RowDescriptor {
+  uint32_t pid = 0;
+  uint32_t tid = 0;
+  int32_t process_sort_index = 0;
+  int32_t thread_sort_index = 0;
+  std::string process_name;
+  std::string thread_name;
+
+  bool operator<(const RowDescriptor& other) const {
+    return std::tie(process_sort_index, pid, thread_sort_index, tid, process_name, thread_name) <
+           std::tie(other.process_sort_index, other.pid, other.thread_sort_index, other.tid,
+                    other.process_name, other.thread_name);
+  }
+};
+
 struct Segment {
   uint64_t issue_cycle = 0;
   uint64_t commit_cycle = 0;
   std::string op;
+  uint32_t block_id = 0;
+  uint32_t wave_id = 0;
+  uint64_t pc = 0;
 };
 
 struct Marker {
@@ -44,13 +74,14 @@ struct Marker {
   char symbol = '.';
   TraceEventKind kind = TraceEventKind::Launch;
   std::string message;
+  uint32_t block_id = 0;
+  uint32_t wave_id = 0;
 };
 
 struct TimelineData {
-  std::map<WaveKey, std::vector<Segment>> segments;
-  std::map<WaveKey, std::vector<Marker>> markers;
+  std::map<SlotKey, std::vector<Segment>> segments;
+  std::map<SlotKey, std::vector<Marker>> markers;
   std::unordered_map<std::string, char> symbols;
-  std::set<WaveKey> seen_waves;
   std::vector<TraceEvent> runtime_events;
 };
 
@@ -86,29 +117,23 @@ std::string StallLabel(std::string_view message) {
   return std::string(message);
 }
 
-std::string WaveLabel(const WaveKey& key) {
-  std::ostringstream out;
-  out << "B" << key.block_id << "W" << key.wave_id;
-  return out.str();
+std::string SlotLabel(const SlotKey& key) {
+  return "S" + std::to_string(key.slot_id);
 }
 
-std::string PeuLabel(const WaveKey& key) {
-  std::ostringstream out;
-  out << "D" << key.dpc_id << "A" << key.ap_id << "P" << key.peu_id;
-  return out.str();
+std::string PeuLabel(const SlotKey& key) {
+  return "P" + std::to_string(key.peu_id);
 }
 
-std::string ApLabel(const WaveKey& key) {
-  std::ostringstream out;
-  out << "D" << key.dpc_id << "A" << key.ap_id;
-  return out.str();
+std::string ApLabel(const SlotKey& key) {
+  return "A" + std::to_string(key.ap_id);
 }
 
-std::string DpcLabel(const WaveKey& key) {
+std::string DpcLabel(const SlotKey& key) {
   return "D" + std::to_string(key.dpc_id);
 }
 
-std::string ProcessName(const WaveKey& key, CycleTimelineGroupBy group_by) {
+std::string ProcessName(const SlotKey& key, CycleTimelineGroupBy group_by) {
   switch (group_by) {
     case CycleTimelineGroupBy::Wave:
       return "Device/" + DpcLabel(key) + "/" + ApLabel(key) + "/" + PeuLabel(key);
@@ -193,27 +218,46 @@ std::string EscapeJson(std::string_view text) {
 
 TimelineData BuildTimelineData(const std::vector<TraceEvent>& events) {
   TimelineData data;
-  std::map<WaveKey, std::queue<std::pair<uint64_t, std::string>>> open_issue;
+  struct OpenIssue {
+    uint64_t issue_cycle = 0;
+    std::string op;
+    SlotKey slot;
+    uint32_t block_id = 0;
+    uint32_t wave_id = 0;
+    uint64_t pc = 0;
+  };
+  std::map<WaveKey, std::queue<OpenIssue>> open_issue;
 
   for (const auto& event : events) {
-    const WaveKey key{.dpc_id = event.dpc_id,
-                      .ap_id = event.ap_id,
-                      .peu_id = event.peu_id,
-                      .block_id = event.block_id,
-                      .wave_id = event.wave_id};
+    const WaveKey wave_key{.dpc_id = event.dpc_id,
+                           .ap_id = event.ap_id,
+                           .peu_id = event.peu_id,
+                           .block_id = event.block_id,
+                           .wave_id = event.wave_id};
+    const SlotKey slot_key{.dpc_id = event.dpc_id,
+                           .ap_id = event.ap_id,
+                           .peu_id = event.peu_id,
+                           .slot_id = event.slot_id};
     if (event.kind == TraceEventKind::WaveStep) {
       const std::string op = ExtractOpName(event.message);
-      open_issue[key].push({event.cycle, op});
-      data.seen_waves.insert(key);
+      open_issue[wave_key].push(OpenIssue{.issue_cycle = event.cycle,
+                                          .op = op,
+                                          .slot = slot_key,
+                                          .block_id = event.block_id,
+                                          .wave_id = event.wave_id,
+                                          .pc = event.pc});
       AssignSymbol(op, data.symbols);
     } else if (event.kind == TraceEventKind::Commit) {
-      auto& queue = open_issue[key];
+      auto& queue = open_issue[wave_key];
       if (!queue.empty()) {
-        const auto [issue_cycle, op] = queue.front();
+        const OpenIssue issue = queue.front();
         queue.pop();
-        data.segments[key].push_back(
-            Segment{.issue_cycle = issue_cycle, .commit_cycle = event.cycle, .op = op});
-        data.seen_waves.insert(key);
+        data.segments[issue.slot].push_back(Segment{.issue_cycle = issue.issue_cycle,
+                                                    .commit_cycle = event.cycle,
+                                                    .op = issue.op,
+                                                    .block_id = issue.block_id,
+                                                    .wave_id = issue.wave_id,
+                                                    .pc = issue.pc});
       }
     } else if (event.kind == TraceEventKind::Arrive || event.kind == TraceEventKind::Barrier ||
                event.kind == TraceEventKind::WaveExit || event.kind == TraceEventKind::Stall ||
@@ -232,9 +276,12 @@ TimelineData BuildTimelineData(const std::vector<TraceEvent>& events) {
       } else if (event.kind == TraceEventKind::BlockLaunch) {
         symbol = '#';
       }
-      data.markers[key].push_back(
-          Marker{.cycle = event.cycle, .symbol = symbol, .kind = event.kind, .message = event.message});
-      data.seen_waves.insert(key);
+      data.markers[slot_key].push_back(Marker{.cycle = event.cycle,
+                                              .symbol = symbol,
+                                              .kind = event.kind,
+                                              .message = event.message,
+                                              .block_id = event.block_id,
+                                              .wave_id = event.wave_id});
     } else if (event.kind == TraceEventKind::Launch || event.kind == TraceEventKind::BlockPlaced) {
       data.runtime_events.push_back(event);
     }
@@ -243,12 +290,14 @@ TimelineData BuildTimelineData(const std::vector<TraceEvent>& events) {
   return data;
 }
 
-std::string ThreadLabel(const WaveKey& key, CycleTimelineGroupBy group_by) {
+std::string ThreadLabel(const SlotKey& key,
+                        CycleTimelineGroupBy group_by,
+                        std::optional<uint32_t> block_id = std::nullopt) {
   switch (group_by) {
     case CycleTimelineGroupBy::Wave:
-      return WaveLabel(key);
+      return SlotLabel(key);
     case CycleTimelineGroupBy::Block:
-      return BlockLabel(key.block_id);
+      return BlockLabel(block_id.value_or(0));
     case CycleTimelineGroupBy::Peu:
       return PeuLabel(key);
     case CycleTimelineGroupBy::Ap:
@@ -256,10 +305,10 @@ std::string ThreadLabel(const WaveKey& key, CycleTimelineGroupBy group_by) {
     case CycleTimelineGroupBy::Dpc:
       return DpcLabel(key);
   }
-  return WaveLabel(key);
+  return SlotLabel(key);
 }
 
-uint32_t TracePid(const WaveKey& key, CycleTimelineGroupBy group_by) {
+uint32_t TracePid(const SlotKey& key, CycleTimelineGroupBy group_by) {
   switch (group_by) {
     case CycleTimelineGroupBy::Wave:
       return 1u + (key.dpc_id << 12) + (key.ap_id << 4) + key.peu_id;
@@ -275,12 +324,14 @@ uint32_t TracePid(const WaveKey& key, CycleTimelineGroupBy group_by) {
   return 1u;
 }
 
-uint32_t TraceTid(const WaveKey& key, CycleTimelineGroupBy group_by) {
+uint32_t TraceTid(const SlotKey& key,
+                  CycleTimelineGroupBy group_by,
+                  std::optional<uint32_t> block_id = std::nullopt) {
   switch (group_by) {
     case CycleTimelineGroupBy::Wave:
-      return (key.block_id << 8) + key.wave_id;
+      return key.slot_id;
     case CycleTimelineGroupBy::Block:
-      return key.block_id;
+      return block_id.value_or(0);
     case CycleTimelineGroupBy::Peu:
       return key.peu_id;
     case CycleTimelineGroupBy::Ap:
@@ -288,10 +339,10 @@ uint32_t TraceTid(const WaveKey& key, CycleTimelineGroupBy group_by) {
     case CycleTimelineGroupBy::Dpc:
       return key.dpc_id;
   }
-  return key.wave_id;
+  return key.slot_id;
 }
 
-int32_t ProcessSortIndex(const WaveKey& key, CycleTimelineGroupBy group_by) {
+int32_t ProcessSortIndex(const SlotKey& key, CycleTimelineGroupBy group_by) {
   switch (group_by) {
     case CycleTimelineGroupBy::Wave:
       return static_cast<int32_t>((key.dpc_id << 8) + (key.ap_id << 4) + key.peu_id);
@@ -307,12 +358,14 @@ int32_t ProcessSortIndex(const WaveKey& key, CycleTimelineGroupBy group_by) {
   return 0;
 }
 
-int32_t ThreadSortIndex(const WaveKey& key, CycleTimelineGroupBy group_by) {
+int32_t ThreadSortIndex(const SlotKey& key,
+                        CycleTimelineGroupBy group_by,
+                        std::optional<uint32_t> block_id = std::nullopt) {
   switch (group_by) {
     case CycleTimelineGroupBy::Wave:
-      return static_cast<int32_t>((key.block_id << 8) + key.wave_id);
+      return static_cast<int32_t>(key.slot_id);
     case CycleTimelineGroupBy::Block:
-      return static_cast<int32_t>(key.block_id);
+      return static_cast<int32_t>(block_id.value_or(0));
     case CycleTimelineGroupBy::Peu:
       return static_cast<int32_t>(key.peu_id);
     case CycleTimelineGroupBy::Ap:
@@ -321,6 +374,17 @@ int32_t ThreadSortIndex(const WaveKey& key, CycleTimelineGroupBy group_by) {
       return static_cast<int32_t>(key.dpc_id);
   }
   return 0;
+}
+
+RowDescriptor DescribeRow(const SlotKey& key,
+                          CycleTimelineGroupBy group_by,
+                          std::optional<uint32_t> block_id = std::nullopt) {
+  return RowDescriptor{.pid = TracePid(key, group_by),
+                       .tid = TraceTid(key, group_by, block_id),
+                       .process_sort_index = ProcessSortIndex(key, group_by),
+                       .thread_sort_index = ThreadSortIndex(key, group_by, block_id),
+                       .process_name = ProcessName(key, group_by),
+                       .thread_name = ThreadLabel(key, group_by, block_id)};
 }
 
 std::string MarkerName(const Marker& marker) {
@@ -368,6 +432,28 @@ std::string MarkerCategory(const Marker& marker) {
   }
 }
 
+std::string SegmentArgs(const SlotKey& key, const Segment& segment) {
+  std::ostringstream out;
+  out << "\"dpc\":" << key.dpc_id << ",\"ap\":" << key.ap_id << ",\"peu\":" << key.peu_id
+      << ",\"slot\":" << key.slot_id << ",\"block\":" << segment.block_id << ",\"wave\":"
+      << segment.wave_id;
+  if (segment.pc != 0) {
+    out << ",\"pc\":\"" << EscapeJson(HexU64(segment.pc)) << "\"";
+  }
+  out << ",\"issue_cycle\":" << segment.issue_cycle << ",\"commit_cycle\":"
+      << segment.commit_cycle;
+  return out.str();
+}
+
+std::string MarkerArgs(const SlotKey& key, const Marker& marker) {
+  std::ostringstream out;
+  out << "\"dpc\":" << key.dpc_id << ",\"ap\":" << key.ap_id << ",\"peu\":" << key.peu_id
+      << ",\"slot\":" << key.slot_id << ",\"block\":" << marker.block_id << ",\"wave\":"
+      << marker.wave_id << ",\"cycle\":" << marker.cycle << ",\"message\":\""
+      << EscapeJson(marker.message) << "\"";
+  return out.str();
+}
+
 }  // namespace
 
 std::string CycleTimelineRenderer::RenderAscii(const std::vector<TraceEvent>& events,
@@ -411,44 +497,44 @@ std::string CycleTimelineRenderer::RenderAscii(const std::vector<TraceEvent>& ev
   }
   out << '\n';
 
-  std::map<std::string, std::vector<Segment>> grouped_segments;
-  std::map<std::string, std::vector<Marker>> grouped_markers;
-  for (const auto& key : data.seen_waves) {
-    const std::string label = ThreadLabel(key, options.group_by);
-    const auto segment_it = data.segments.find(key);
-    if (segment_it != data.segments.end()) {
-      grouped_segments[label].insert(grouped_segments[label].end(), segment_it->second.begin(),
-                                     segment_it->second.end());
+  struct AsciiRow {
+    std::vector<Segment> segments;
+    std::vector<Marker> markers;
+  };
+  std::map<RowDescriptor, AsciiRow> grouped_rows;
+  for (const auto& [key, row_segments] : data.segments) {
+    for (const auto& segment : row_segments) {
+      grouped_rows[DescribeRow(key, options.group_by, segment.block_id)].segments.push_back(segment);
     }
-    const auto marker_it = data.markers.find(key);
-    if (marker_it != data.markers.end()) {
-      grouped_markers[label].insert(grouped_markers[label].end(), marker_it->second.begin(),
-                                    marker_it->second.end());
+  }
+  for (const auto& [key, row_markers] : data.markers) {
+    for (const auto& marker : row_markers) {
+      grouped_rows[DescribeRow(key, options.group_by, marker.block_id)].markers.push_back(marker);
     }
   }
 
-  for (const auto& [label, row_segments] : grouped_segments) {
-    std::string row(width, '.');
-    for (const auto& segment : row_segments) {
+  for (const auto& [row_info, contents] : grouped_rows) {
+    std::string line(width, '.');
+    for (const auto& segment : contents.segments) {
       const char symbol = data.symbols.at(segment.op);
       for (uint32_t col = 0; col < width; ++col) {
         const uint64_t col_begin = begin + static_cast<uint64_t>(col) * cycles_per_column;
         const uint64_t col_end = col_begin + cycles_per_column;
         if (segment.issue_cycle < col_end && segment.commit_cycle > col_begin) {
-          row[col] = symbol;
+          line[col] = symbol;
         }
       }
     }
-    for (const auto& marker : grouped_markers[label]) {
+    for (const auto& marker : contents.markers) {
       if (marker.cycle < begin || marker.cycle > end) {
         continue;
       }
       const uint32_t col = static_cast<uint32_t>((marker.cycle - begin) / cycles_per_column);
-      if (col < row.size()) {
-        row[col] = marker.symbol;
+      if (col < line.size()) {
+        line[col] = marker.symbol;
       }
     }
-    out << std::left << std::setw(8) << label << ' ' << row << '\n';
+    out << std::left << std::setw(8) << row_info.thread_name << ' ' << line << '\n';
   }
 
   return out.str();
@@ -493,34 +579,38 @@ std::string CycleTimelineRenderer::RenderGoogleTrace(const std::vector<TraceEven
            EscapeJson(runtime_event.message) + "\"}}");
   }
 
-  std::set<std::pair<uint32_t, uint32_t>> declared_rows;
+  std::set<RowDescriptor> declared_rows;
+  for (const auto& [key, row_segments] : data.segments) {
+    for (const auto& segment : row_segments) {
+      declared_rows.insert(DescribeRow(key, options.group_by, segment.block_id));
+    }
+  }
+  for (const auto& [key, row_markers] : data.markers) {
+    for (const auto& marker : row_markers) {
+      declared_rows.insert(DescribeRow(key, options.group_by, marker.block_id));
+    }
+  }
+
   std::set<uint32_t> declared_processes;
-  for (const auto& key : data.seen_waves) {
-    const uint32_t pid = TracePid(key, options.group_by);
-    const uint32_t tid = TraceTid(key, options.group_by);
-    if (declared_processes.insert(pid).second) {
-      append("{\"name\":\"process_name\",\"ph\":\"M\",\"pid\":" + std::to_string(pid) +
-             ",\"tid\":0,\"args\":{\"name\":\"" +
-             EscapeJson(ProcessName(key, options.group_by)) + "\"}}");
-      append("{\"name\":\"process_sort_index\",\"ph\":\"M\",\"pid\":" + std::to_string(pid) +
+  for (const auto& row : declared_rows) {
+    if (declared_processes.insert(row.pid).second) {
+      append("{\"name\":\"process_name\",\"ph\":\"M\",\"pid\":" + std::to_string(row.pid) +
+             ",\"tid\":0,\"args\":{\"name\":\"" + EscapeJson(row.process_name) + "\"}}");
+      append("{\"name\":\"process_sort_index\",\"ph\":\"M\",\"pid\":" + std::to_string(row.pid) +
              ",\"tid\":0,\"args\":{\"sort_index\":" +
-             std::to_string(ProcessSortIndex(key, options.group_by)) + "}}");
+             std::to_string(row.process_sort_index) + "}}");
     }
-    if (!declared_rows.insert({pid, tid}).second) {
-      continue;
-    }
-    append("{\"name\":\"thread_name\",\"ph\":\"M\",\"pid\":" + std::to_string(pid) + ",\"tid\":" +
-           std::to_string(tid) + ",\"args\":{\"name\":\"" +
-           EscapeJson(ThreadLabel(key, options.group_by)) + "\"}}");
-    append("{\"name\":\"thread_sort_index\",\"ph\":\"M\",\"pid\":" + std::to_string(pid) +
-           ",\"tid\":" + std::to_string(tid) + ",\"args\":{\"sort_index\":" +
-           std::to_string(ThreadSortIndex(key, options.group_by)) + "}}");
+    append("{\"name\":\"thread_name\",\"ph\":\"M\",\"pid\":" + std::to_string(row.pid) +
+           ",\"tid\":" + std::to_string(row.tid) + ",\"args\":{\"name\":\"" +
+           EscapeJson(row.thread_name) + "\"}}");
+    append("{\"name\":\"thread_sort_index\",\"ph\":\"M\",\"pid\":" + std::to_string(row.pid) +
+           ",\"tid\":" + std::to_string(row.tid) + ",\"args\":{\"sort_index\":" +
+           std::to_string(row.thread_sort_index) + "}}");
   }
 
   for (const auto& [key, row_segments] : data.segments) {
-    const uint32_t pid = TracePid(key, options.group_by);
-    const uint32_t tid = TraceTid(key, options.group_by);
     for (const auto& segment : row_segments) {
+      const RowDescriptor row = DescribeRow(key, options.group_by, segment.block_id);
       if (segment.commit_cycle < begin || segment.issue_cycle > end) {
         continue;
       }
@@ -529,29 +619,24 @@ std::string CycleTimelineRenderer::RenderGoogleTrace(const std::vector<TraceEven
       const uint64_t duration = clipped_end > clipped_begin ? clipped_end - clipped_begin : 1;
       const std::string category = IsTensorMnemonic(segment.op) ? "tensor" : "instruction";
       append("{\"name\":\"" + EscapeJson(segment.op) +
-             "\",\"cat\":\"" + category + "\",\"ph\":\"X\",\"pid\":" + std::to_string(pid) +
-             ",\"tid\":" + std::to_string(tid) + ",\"ts\":" + std::to_string(clipped_begin) +
-             ",\"dur\":" + std::to_string(duration) + ",\"args\":{\"block_id\":\"" +
-             HexU64(key.block_id) + "\",\"wave_id\":\"" + HexU64(key.wave_id) +
-             "\",\"dpc_id\":\"" + HexU64(key.dpc_id) + "\",\"ap_id\":\"" +
-             HexU64(key.ap_id) + "\",\"peu_id\":\"" + HexU64(key.peu_id) +
-             "\",\"issue_cycle\":\"" + HexU64(segment.issue_cycle) + "\",\"commit_cycle\":\"" +
-             HexU64(segment.commit_cycle) + "\"}}");
+             "\",\"cat\":\"" + category + "\",\"ph\":\"X\",\"pid\":" +
+             std::to_string(row.pid) + ",\"tid\":" + std::to_string(row.tid) + ",\"ts\":" +
+             std::to_string(clipped_begin) + ",\"dur\":" + std::to_string(duration) +
+             ",\"args\":{" + SegmentArgs(key, segment) + "}}");
     }
   }
 
   for (const auto& [key, row_markers] : data.markers) {
-    const uint32_t pid = TracePid(key, options.group_by);
-    const uint32_t tid = TraceTid(key, options.group_by);
     for (const auto& marker : row_markers) {
+      const RowDescriptor row = DescribeRow(key, options.group_by, marker.block_id);
       if (marker.cycle < begin || marker.cycle > end) {
         continue;
       }
       append("{\"name\":\"" + EscapeJson(MarkerName(marker)) +
              "\",\"cat\":\"" + EscapeJson(MarkerCategory(marker)) +
-             "\",\"ph\":\"i\",\"s\":\"t\",\"pid\":" + std::to_string(pid) +
-             ",\"tid\":" + std::to_string(tid) + ",\"ts\":" + std::to_string(marker.cycle) +
-             ",\"args\":{\"message\":\"" + EscapeJson(marker.message) + "\"}}");
+             "\",\"ph\":\"i\",\"s\":\"t\",\"pid\":" + std::to_string(row.pid) +
+             ",\"tid\":" + std::to_string(row.tid) + ",\"ts\":" +
+             std::to_string(marker.cycle) + ",\"args\":{" + MarkerArgs(key, marker) + "}}");
     }
   }
 

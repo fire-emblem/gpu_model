@@ -76,6 +76,16 @@ uint64_t FirstEventCycle(const std::vector<TraceEvent>& events,
   return std::numeric_limits<uint64_t>::max();
 }
 
+size_t CountOccurrences(std::string_view text, std::string_view needle) {
+  size_t count = 0;
+  size_t pos = 0;
+  while ((pos = text.find(needle, pos)) != std::string_view::npos) {
+    ++count;
+    pos += needle.size();
+  }
+  return count;
+}
+
 TEST(CycleTimelineTest, RendersAsciiTimelineForMultipleWaves) {
   CollectingTraceSink trace;
   RuntimeEngine runtime(&trace);
@@ -92,8 +102,8 @@ TEST(CycleTimelineTest, RendersAsciiTimelineForMultipleWaves) {
 
   const std::string timeline = CycleTimelineRenderer::RenderAscii(trace.events());
   EXPECT_NE(timeline.find("cycle_timeline"), std::string::npos);
-  EXPECT_NE(timeline.find("B0W0"), std::string::npos);
-  EXPECT_NE(timeline.find("B0W1"), std::string::npos);
+  EXPECT_NE(timeline.find("S0"), std::string::npos);
+  EXPECT_EQ(timeline.find("B0W0"), std::string::npos);
   EXPECT_NE(timeline.find("v_mad_i32"), std::string::npos);
 }
 
@@ -139,7 +149,8 @@ TEST(CycleTimelineTest, RendersGoogleTraceForWaveTimeline) {
   EXPECT_NE(timeline.find("\"traceEvents\""), std::string::npos);
   EXPECT_NE(timeline.find("\"ph\":\"X\""), std::string::npos);
   EXPECT_NE(timeline.find("\"thread_name\""), std::string::npos);
-  EXPECT_NE(timeline.find("B0W0"), std::string::npos);
+  EXPECT_NE(timeline.find("\"args\":{\"name\":\"S0\"}"), std::string::npos);
+  EXPECT_EQ(timeline.find("B0W0"), std::string::npos);
   EXPECT_NE(timeline.find("\"name\":\"v_mad_i32\""), std::string::npos);
   EXPECT_NE(timeline.find("\"thread_sort_index\""), std::string::npos);
 }
@@ -187,9 +198,9 @@ TEST(CycleTimelineTest, GoogleTraceCanGroupByPeu) {
                                            .cycle_begin = std::nullopt,
                                            .cycle_end = std::nullopt,
                                            .group_by = CycleTimelineGroupBy::Peu});
-  EXPECT_NE(timeline.find("Device/D0/D0A0"), std::string::npos);
-  EXPECT_NE(timeline.find("\"name\":\"D0A0P0\""), std::string::npos);
-  EXPECT_NE(timeline.find("\"name\":\"D0A0P1\""), std::string::npos);
+  EXPECT_NE(timeline.find("Device/D0/A0"), std::string::npos);
+  EXPECT_NE(timeline.find("\"name\":\"P0\""), std::string::npos);
+  EXPECT_NE(timeline.find("\"name\":\"P1\""), std::string::npos);
   EXPECT_NE(timeline.find("\"process_sort_index\""), std::string::npos);
 }
 
@@ -201,6 +212,7 @@ TEST(CycleTimelineTest, HighlightsTensorOpsInAsciiAndGoogleTrace) {
           .dpc_id = 0,
           .ap_id = 0,
           .peu_id = 0,
+          .slot_id = 0,
           .block_id = 0,
           .wave_id = 0,
           .pc = 0x100,
@@ -212,6 +224,7 @@ TEST(CycleTimelineTest, HighlightsTensorOpsInAsciiAndGoogleTrace) {
           .dpc_id = 0,
           .ap_id = 0,
           .peu_id = 0,
+          .slot_id = 0,
           .block_id = 0,
           .wave_id = 0,
           .pc = 0x100,
@@ -264,8 +277,8 @@ TEST(CycleTimelineTest, PerfettoDumpPreservesCycleIssueAndCommitOrdering) {
   EXPECT_NE(timeline.find("\"name\":\"buffer_load_dword\""), std::string::npos);
   EXPECT_NE(timeline.find("\"name\":\"load_arrive\""), std::string::npos);
   EXPECT_NE(timeline.find("\"name\":\"stall_waitcnt_global\""), std::string::npos);
-  EXPECT_NE(timeline.find("\"issue_cycle\":\""), std::string::npos);
-  EXPECT_NE(timeline.find("\"commit_cycle\":\""), std::string::npos);
+  EXPECT_NE(timeline.find("\"issue_cycle\":"), std::string::npos);
+  EXPECT_NE(timeline.find("\"commit_cycle\":"), std::string::npos);
 }
 
 TEST(CycleTimelineTest, PerfettoDumpPreservesBarrierKernelStallTaxonomy) {
@@ -294,6 +307,84 @@ TEST(CycleTimelineTest, PerfettoDumpPreservesBarrierKernelStallTaxonomy) {
 
   const std::string timeline = CycleTimelineRenderer::RenderGoogleTrace(events);
   EXPECT_NE(timeline.find("\"name\":\"stall_waitcnt_global\""), std::string::npos);
+}
+
+TEST(CycleTimelineTest, GoogleTraceUsesSlotTracksAndPreservesWaveAsArgs) {
+  std::vector<TraceEvent> events{
+      TraceEvent{.kind = TraceEventKind::WaveLaunch,
+                 .cycle = 0,
+                 .dpc_id = 0,
+                 .ap_id = 0,
+                 .peu_id = 0,
+                 .slot_id = 3,
+                 .block_id = 0,
+                 .wave_id = 0,
+                 .message = "wave_start"},
+      TraceEvent{.kind = TraceEventKind::WaveStep,
+                 .cycle = 2,
+                 .dpc_id = 0,
+                 .ap_id = 0,
+                 .peu_id = 0,
+                 .slot_id = 3,
+                 .block_id = 0,
+                 .wave_id = 0,
+                 .pc = 0x100,
+                 .message = "pc=0x100 op=v_add_i32"},
+      TraceEvent{.kind = TraceEventKind::Commit,
+                 .cycle = 5,
+                 .dpc_id = 0,
+                 .ap_id = 0,
+                 .peu_id = 0,
+                 .slot_id = 3,
+                 .block_id = 0,
+                 .wave_id = 0,
+                 .message = "commit"},
+  };
+
+  const std::string trace = CycleTimelineRenderer::RenderGoogleTrace(events);
+  EXPECT_NE(trace.find("\"args\":{\"name\":\"S3\"}"), std::string::npos);
+  EXPECT_NE(trace.find("\"name\":\"v_add_i32\""), std::string::npos);
+  EXPECT_NE(trace.find("\"slot\":3"), std::string::npos);
+  EXPECT_NE(trace.find("\"wave\":0"), std::string::npos);
+  EXPECT_NE(trace.find("\"issue_cycle\":2"), std::string::npos);
+  EXPECT_NE(trace.find("\"commit_cycle\":5"), std::string::npos);
+  EXPECT_EQ(trace.find("\"args\":{\"name\":\"B0W0\"}"), std::string::npos);
+}
+
+TEST(CycleTimelineTest, GoogleTraceDoesNotRenderBubbleAsDurationSlice) {
+  std::vector<TraceEvent> events{
+      TraceEvent{.kind = TraceEventKind::WaveStep,
+                 .cycle = 1,
+                 .dpc_id = 0,
+                 .ap_id = 0,
+                 .peu_id = 0,
+                 .slot_id = 1,
+                 .block_id = 0,
+                 .wave_id = 0,
+                 .message = "op=v_add_i32"},
+      TraceEvent{.kind = TraceEventKind::Commit,
+                 .cycle = 2,
+                 .dpc_id = 0,
+                 .ap_id = 0,
+                 .peu_id = 0,
+                 .slot_id = 1,
+                 .block_id = 0,
+                 .wave_id = 0,
+                 .message = "commit"},
+      TraceEvent{.kind = TraceEventKind::Stall,
+                 .cycle = 10,
+                 .dpc_id = 0,
+                 .ap_id = 0,
+                 .peu_id = 0,
+                 .slot_id = 1,
+                 .block_id = 0,
+                 .wave_id = 0,
+                 .message = "reason=waitcnt_global"},
+  };
+
+  const std::string trace = CycleTimelineRenderer::RenderGoogleTrace(events);
+  EXPECT_EQ(CountOccurrences(trace, "\"ph\":\"X\""), 1u);
+  EXPECT_NE(trace.find("\"name\":\"stall_waitcnt_global\""), std::string::npos);
 }
 
 }  // namespace
