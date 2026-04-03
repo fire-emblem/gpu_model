@@ -465,13 +465,7 @@ uint64_t WaveTag(const WaveContext& wave) {
   return (static_cast<uint64_t>(wave.block_id) << 32) | wave.wave_id;
 }
 
-constexpr std::string_view kStallReasonWaitcntGlobal = "waitcnt_global";
-constexpr std::string_view kStallReasonWaitcntShared = "waitcnt_shared";
-constexpr std::string_view kStallReasonWaitcntPrivate = "waitcnt_private";
-constexpr std::string_view kStallReasonWaitcntScalarBuffer = "waitcnt_scalar_buffer";
-constexpr std::string_view kStallReasonBarrierWait = "barrier_wait";
-constexpr std::string_view kStallReasonDependency = "dependency";
-constexpr std::string_view kStallReasonNoReadyWave = "no_ready_wave";
+constexpr std::string_view kStallReasonBarrierSlotUnavailable = "barrier_slot_unavailable";
 constexpr std::string_view kStallReasonWarpSwitch = "warp_switch";
 
 std::string FormatCycleStallMessage(std::string_view reason) {
@@ -795,7 +789,8 @@ std::optional<std::pair<ScheduledWave*, std::string>> PickFirstBlockedWave(PeuSl
         if (!TryAcquireBarrierSlot(ap_state_it->second.barrier_slot_capacity,
                                    slots_in_use,
                                    acquired)) {
-          return std::make_pair(scheduled_wave, std::string("barrier_slots_full"));
+          return std::make_pair(scheduled_wave,
+                                std::string(kStallReasonBarrierSlotUnavailable));
         }
       }
     }

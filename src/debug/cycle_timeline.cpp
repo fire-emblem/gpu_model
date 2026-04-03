@@ -65,11 +65,17 @@ std::string_view StallReasonFromMessage(std::string_view message) {
   if (!message.starts_with(kPrefix)) {
     return {};
   }
-  const size_t end = message.find(' ');
-  if (end == std::string_view::npos) {
-    return message.substr(kPrefix.size());
+  std::string_view rest = message.substr(kPrefix.size());
+  const size_t start = rest.find_first_not_of(" \t");
+  if (start == std::string_view::npos) {
+    return {};
   }
-  return message.substr(kPrefix.size(), end - kPrefix.size());
+  rest.remove_prefix(start);
+  const size_t end = rest.find_first_of(" \t");
+  if (end == std::string_view::npos) {
+    return rest;
+  }
+  return rest.substr(0, end);
 }
 
 std::string StallLabel(std::string_view message) {
