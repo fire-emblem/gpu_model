@@ -459,6 +459,13 @@ TEST(TraceTest, TraceArtifactRecorderWritesTraceAndPerfettoFiles) {
         .wave_id = 0,
         .message = "done",
     });
+    trace.OnEvent(TraceEvent{
+        .kind = TraceEventKind::Stall,
+        .cycle = 6,
+        .block_id = 0,
+        .wave_id = 0,
+        .message = "reason=waitcnt_global",
+    });
     trace.FlushTimeline();
   }
 
@@ -481,8 +488,11 @@ TEST(TraceTest, TraceArtifactRecorderWritesTraceAndPerfettoFiles) {
   timeline_buffer << timeline_in.rdbuf();
 
   EXPECT_NE(text_buffer.str().find("kind=Launch"), std::string::npos);
+  EXPECT_NE(text_buffer.str().find("reason=waitcnt_global"), std::string::npos);
   EXPECT_NE(json_buffer.str().find("\"kind\":\"Launch\""), std::string::npos);
+  EXPECT_NE(json_buffer.str().find("\"message\":\"reason=waitcnt_global\""), std::string::npos);
   EXPECT_NE(timeline_buffer.str().find("\"traceEvents\""), std::string::npos);
+  EXPECT_NE(timeline_buffer.str().find("\"name\":\"stall_waitcnt_global\""), std::string::npos);
 
   std::filesystem::remove_all(out_dir);
 }

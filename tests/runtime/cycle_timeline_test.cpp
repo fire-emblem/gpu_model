@@ -31,6 +31,36 @@ ExecutableKernel BuildCycleOrderingKernel() {
   return builder.Build("cycle_ordering_kernel");
 }
 
+ExecutableKernel BuildSharedBarrierCycleKernel() {
+  InstructionBuilder builder;
+  builder.SysGlobalIdX("v0");
+  builder.SysBlockIdxX("s0");
+  builder.SysBlockDimX("s1");
+  builder.SMul("s2", "s0", "s1");
+  builder.SMov("s3", static_cast<uint64_t>(-1));
+  builder.SMul("s4", "s2", "s3");
+  builder.VAdd("v1", "v0", "s4");
+  builder.VMov("v2", 1);
+  builder.MStoreShared("v1", "v2", 4);
+  builder.SMov("s5", 64);
+  builder.VCmpLtCmask("v1", "s5");
+  builder.MaskSaveExec("s10");
+  builder.MaskAndExecCmask();
+  builder.BIfNoexec("after_extra");
+  builder.VMov("v3", 7);
+  builder.Label("after_extra");
+  builder.MaskRestoreExec("s10");
+  builder.SyncBarrier();
+  builder.MLoadShared("v4", "v1", 4);
+  builder.SLoadArg("s6", 0);
+  builder.SMov("s7", 0);
+  builder.MLoadGlobal("v5", "s6", "s7", 4);
+  builder.SWaitCnt(/*global_count=*/0, /*shared_count=*/UINT32_MAX,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
+  builder.BExit();
+  return builder.Build("shared_barrier_cycle_timeline");
+}
+
 uint64_t FirstEventCycle(const std::vector<TraceEvent>& events,
                          TraceEventKind kind,
                          std::string_view message_substr) {
@@ -236,6 +266,34 @@ TEST(CycleTimelineTest, PerfettoDumpPreservesCycleIssueAndCommitOrdering) {
   EXPECT_NE(timeline.find("\"name\":\"stall_waitcnt_global\""), std::string::npos);
   EXPECT_NE(timeline.find("\"issue_cycle\":\""), std::string::npos);
   EXPECT_NE(timeline.find("\"commit_cycle\":\""), std::string::npos);
+}
+
+TEST(CycleTimelineTest, PerfettoDumpPreservesBarrierKernelStallTaxonomy) {
+  CollectingTraceSink trace;
+  RuntimeEngine runtime(&trace);
+  runtime.SetFixedGlobalMemoryLatency(20);
+
+  const auto kernel = BuildSharedBarrierCycleKernel();
+  const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
+  runtime.memory().StoreGlobalValue<int32_t>(base_addr, 9);
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 128;
+  request.config.shared_memory_bytes = 128 * sizeof(int32_t);
+  request.args.PushU64(base_addr);
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  const auto& events = trace.events();
+  const uint64_t stall_cycle =
+      FirstEventCycle(events, TraceEventKind::Stall, "reason=waitcnt_global");
+  EXPECT_NE(stall_cycle, std::numeric_limits<uint64_t>::max());
+
+  const std::string timeline = CycleTimelineRenderer::RenderGoogleTrace(events);
+  EXPECT_NE(timeline.find("\"name\":\"stall_waitcnt_global\""), std::string::npos);
 }
 
 }  // namespace
