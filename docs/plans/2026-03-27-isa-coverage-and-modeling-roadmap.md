@@ -254,6 +254,11 @@ Recommended project approximation:
 - If the project adds lightweight same-cycle issue competition, it should do so as an explicit approximation layer.
 - That approximation should say exactly which whitepaper issue types it merges together.
 - The approximation must not be described as the GCN rule itself.
+- Current project approximation:
+  - the default `c500` cycle policy still keeps the seven whitepaper issue types as the architectural reference
+  - but its current lightweight competition model merges `branch` and `special` into one shared issue group
+  - the remaining five issue types still keep one independent group each
+  - runtime overrides may still replace either the per-type limits or the full grouped approximation explicitly
 
 ### Trace / Timeline
 
