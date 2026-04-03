@@ -1567,8 +1567,8 @@ class EncodedExecutionCore {
               .barrier_slot_acquired = raw_blocks_[raw_wave->block_index].barrier_slot_acquired,
           });
         }
-        const auto bundle =
-            IssueScheduler::SelectIssueBundle(BuildEncodedIssueCandidates(issue_inputs), slot.next_rr);
+        const auto bundle = IssueScheduler::SelectIssueBundle(
+            BuildEncodedIssueCandidates(issue_inputs), slot.next_rr, spec_.cycle_resources.issue_limits);
         if (bundle.selected_candidate_indices.empty()) {
           continue;
         }

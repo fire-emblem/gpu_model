@@ -23,6 +23,13 @@ TEST(ArchRegistryTest, C500FieldsMatchDesign) {
   EXPECT_EQ(spec->max_issuable_waves, 4u);
   EXPECT_EQ(spec->cycle_resources.resident_wave_slots_per_peu, 8u);
   EXPECT_EQ(spec->cycle_resources.barrier_slots_per_ap, 16u);
+  EXPECT_EQ(spec->cycle_resources.issue_limits.branch, 1u);
+  EXPECT_EQ(spec->cycle_resources.issue_limits.scalar_alu_or_memory, 1u);
+  EXPECT_EQ(spec->cycle_resources.issue_limits.vector_alu, 1u);
+  EXPECT_EQ(spec->cycle_resources.issue_limits.vector_memory, 1u);
+  EXPECT_EQ(spec->cycle_resources.issue_limits.local_data_share, 1u);
+  EXPECT_EQ(spec->cycle_resources.issue_limits.global_data_share_or_export, 1u);
+  EXPECT_EQ(spec->cycle_resources.issue_limits.special, 1u);
   EXPECT_EQ(spec->default_issue_cycles, 4u);
 }
 
