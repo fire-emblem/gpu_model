@@ -32,8 +32,7 @@ ArchitecturalIssueLimits DefaultArchitecturalIssueLimits() {
   return ArchitecturalIssueLimits{};
 }
 
-ArchitecturalIssuePolicy DefaultArchitecturalIssuePolicy() {
-  const auto limits = DefaultArchitecturalIssueLimits();
+ArchitecturalIssuePolicy ArchitecturalIssuePolicyFromLimits(const ArchitecturalIssueLimits& limits) {
   return ArchitecturalIssuePolicy{
       .type_limits = limits,
       .group_limits = {limits.branch,
@@ -45,6 +44,10 @@ ArchitecturalIssuePolicy DefaultArchitecturalIssuePolicy() {
                        limits.special},
       .type_to_group = {0, 1, 2, 3, 4, 5, 6},
   };
+}
+
+ArchitecturalIssuePolicy DefaultArchitecturalIssuePolicy() {
+  return ArchitecturalIssuePolicyFromLimits(DefaultArchitecturalIssueLimits());
 }
 
 }  // namespace gpu_model

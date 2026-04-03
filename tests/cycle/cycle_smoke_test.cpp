@@ -253,6 +253,127 @@ TEST(CycleSmokeTest, VectorIssueLimitOverrideAllowsTwoWaveBundleIssue) {
   EXPECT_GT(widened_wave_steps_at_0, baseline_wave_steps_at_0);
 }
 
+TEST(CycleSmokeTest, IssuePolicyOverrideCanWidenVectorBundleWithoutSeparateLimitOverride) {
+  const auto spec = ArchRegistry::Get("c500");
+  ASSERT_NE(spec, nullptr);
+
+  InstructionBuilder builder;
+  builder.VMov("v0", 1);
+  builder.BExit();
+  const auto kernel = builder.Build("vector_policy_bundle_issue_kernel");
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = spec->peu_per_ap * 64 + 64;
+
+  CollectingTraceSink baseline_trace;
+  RuntimeEngine baseline_runtime(&baseline_trace);
+  baseline_runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
+                                          /*kernel_launch_cycles=*/0,
+                                          /*block_launch_cycles=*/0,
+                                          /*wave_launch_cycles=*/0,
+                                          /*warp_switch_cycles=*/1,
+                                          /*arg_load_cycles=*/4);
+  const auto baseline = baseline_runtime.Launch(request);
+  ASSERT_TRUE(baseline.ok) << baseline.error_message;
+
+  CollectingTraceSink grouped_trace;
+  RuntimeEngine grouped_runtime(&grouped_trace);
+  grouped_runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
+                                         /*kernel_launch_cycles=*/0,
+                                         /*block_launch_cycles=*/0,
+                                         /*wave_launch_cycles=*/0,
+                                         /*warp_switch_cycles=*/1,
+                                         /*arg_load_cycles=*/4);
+  ArchitecturalIssueLimits widened_limits = DefaultArchitecturalIssueLimits();
+  widened_limits.vector_alu = 2;
+  auto grouped_policy = ArchitecturalIssuePolicyFromLimits(widened_limits);
+  grouped_runtime.SetCycleIssuePolicy(grouped_policy);
+
+  const auto grouped = grouped_runtime.Launch(request);
+  ASSERT_TRUE(grouped.ok) << grouped.error_message;
+
+  uint32_t baseline_wave_steps_at_0 = 0;
+  for (const auto& event : baseline_trace.events()) {
+    if (event.kind == TraceEventKind::WaveStep && event.cycle == 0u) {
+      ++baseline_wave_steps_at_0;
+    }
+  }
+
+  uint32_t grouped_wave_steps_at_0 = 0;
+  for (const auto& event : grouped_trace.events()) {
+    if (event.kind == TraceEventKind::WaveStep && event.cycle == 0u) {
+      ++grouped_wave_steps_at_0;
+    }
+  }
+
+  EXPECT_EQ(baseline_wave_steps_at_0, spec->peu_per_ap);
+  EXPECT_GT(grouped_wave_steps_at_0, baseline_wave_steps_at_0);
+}
+
+TEST(CycleSmokeTest, IssueLimitOverrideTakesPriorityOverIssuePolicyTypeLimits) {
+  const auto spec = ArchRegistry::Get("c500");
+  ASSERT_NE(spec, nullptr);
+
+  InstructionBuilder builder;
+  builder.VMov("v0", 1);
+  builder.BExit();
+  const auto kernel = builder.Build("vector_policy_limit_precedence_kernel");
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = spec->peu_per_ap * 64 + 64;
+
+  CollectingTraceSink baseline_trace;
+  RuntimeEngine baseline_runtime(&baseline_trace);
+  baseline_runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
+                                          /*kernel_launch_cycles=*/0,
+                                          /*block_launch_cycles=*/0,
+                                          /*wave_launch_cycles=*/0,
+                                          /*warp_switch_cycles=*/1,
+                                          /*arg_load_cycles=*/4);
+  const auto baseline = baseline_runtime.Launch(request);
+  ASSERT_TRUE(baseline.ok) << baseline.error_message;
+
+  CollectingTraceSink limited_trace;
+  RuntimeEngine limited_runtime(&limited_trace);
+  limited_runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
+                                         /*kernel_launch_cycles=*/0,
+                                         /*block_launch_cycles=*/0,
+                                         /*wave_launch_cycles=*/0,
+                                         /*warp_switch_cycles=*/1,
+                                         /*arg_load_cycles=*/4);
+  ArchitecturalIssueLimits widened_limits = DefaultArchitecturalIssueLimits();
+  widened_limits.vector_alu = 2;
+  limited_runtime.SetCycleIssuePolicy(ArchitecturalIssuePolicyFromLimits(widened_limits));
+  limited_runtime.SetCycleIssueLimits(DefaultArchitecturalIssueLimits());
+
+  const auto limited = limited_runtime.Launch(request);
+  ASSERT_TRUE(limited.ok) << limited.error_message;
+
+  uint32_t baseline_wave_steps_at_0 = 0;
+  for (const auto& event : baseline_trace.events()) {
+    if (event.kind == TraceEventKind::WaveStep && event.cycle == 0u) {
+      ++baseline_wave_steps_at_0;
+    }
+  }
+
+  uint32_t limited_wave_steps_at_0 = 0;
+  for (const auto& event : limited_trace.events()) {
+    if (event.kind == TraceEventKind::WaveStep && event.cycle == 0u) {
+      ++limited_wave_steps_at_0;
+    }
+  }
+
+  EXPECT_EQ(baseline_wave_steps_at_0, spec->peu_per_ap);
+  EXPECT_EQ(limited_wave_steps_at_0, baseline_wave_steps_at_0);
+  EXPECT_EQ(limited.total_cycles, baseline.total_cycles);
+}
+
 TEST(CycleSmokeTest, IssueCycleClassOverrideChangesSelectedInstructionCategory) {
   ConstSegment const_segment;
   const int32_t value = 7;

@@ -137,6 +137,23 @@ uint64_t ConstantPoolBase(const ExecutionContext& context) {
   return 0;
 }
 
+bool IssueLimitsUnset(const ArchitecturalIssueLimits& limits) {
+  return limits.branch == 0 && limits.scalar_alu_or_memory == 0 && limits.vector_alu == 0 &&
+         limits.vector_memory == 0 && limits.local_data_share == 0 &&
+         limits.global_data_share_or_export == 0 && limits.special == 0;
+}
+
+ArchitecturalIssuePolicy ResolveIssuePolicy(const CycleTimingConfig& timing_config,
+                                            const GpuArchSpec& spec) {
+  if (timing_config.issue_policy.has_value()) {
+    return *timing_config.issue_policy;
+  }
+  if (IssueLimitsUnset(timing_config.issue_limits)) {
+    return CycleIssuePolicyForSpec(spec);
+  }
+  return ArchitecturalIssuePolicyFromLimits(timing_config.issue_limits);
+}
+
 void StoreLaneValue(MemorySystem& memory, const LaneAccess& lane) {
   memory_ops::StoreGlobalLaneValue(memory, lane);
 }
@@ -903,15 +920,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
       const auto bundle = IssueScheduler::SelectIssueBundle(
           candidates,
           slot.last_issue_index,
-          timing_config_.issue_limits.branch == 0 &&
-                  timing_config_.issue_limits.scalar_alu_or_memory == 0 &&
-                  timing_config_.issue_limits.vector_alu == 0 &&
-                  timing_config_.issue_limits.vector_memory == 0 &&
-                  timing_config_.issue_limits.local_data_share == 0 &&
-                  timing_config_.issue_limits.global_data_share_or_export == 0 &&
-                  timing_config_.issue_limits.special == 0
-              ? CycleIssueLimitsForSpec(context.spec)
-              : timing_config_.issue_limits);
+          ResolveIssuePolicy(timing_config_, context.spec));
 
       if (bundle.selected_candidate_indices.empty()) {
         if (const auto blocked = PickFirstBlockedWave(slot, context.kernel, cycle, ap_states)) {

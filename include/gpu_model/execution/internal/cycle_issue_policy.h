@@ -8,4 +8,8 @@ inline ArchitecturalIssueLimits CycleIssueLimitsForSpec(const GpuArchSpec& spec)
   return spec.cycle_resources.issue_limits;
 }
 
+inline ArchitecturalIssuePolicy CycleIssuePolicyForSpec(const GpuArchSpec& spec) {
+  return spec.cycle_resources.issue_policy;
+}
+
 }  // namespace gpu_model

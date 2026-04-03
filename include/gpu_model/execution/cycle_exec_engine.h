@@ -1,5 +1,7 @@
 #pragma once
 
+#include <optional>
+
 #include "gpu_model/arch/gpu_arch_spec.h"
 #include "gpu_model/execution/internal/execution_engine.h"
 
@@ -12,6 +14,7 @@ struct CycleTimingConfig {
   IssueCycleClassOverridesSpec issue_cycle_class_overrides;
   IssueCycleOpOverridesSpec issue_cycle_op_overrides;
   ArchitecturalIssueLimits issue_limits;
+  std::optional<ArchitecturalIssuePolicy> issue_policy;
 };
 
 class CycleExecEngine final : public IExecutionEngine {

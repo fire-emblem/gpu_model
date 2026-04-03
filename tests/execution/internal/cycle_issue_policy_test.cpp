@@ -20,5 +20,17 @@ TEST(CycleIssuePolicyTest, ReturnsConfiguredIssueLimitsFromSpec) {
   EXPECT_EQ(limits.special, 1u);
 }
 
+TEST(CycleIssuePolicyTest, ReturnsConfiguredIssuePolicyFromSpec) {
+  const auto spec = ArchRegistry::Get("c500");
+  ASSERT_NE(spec, nullptr);
+
+  const auto policy = CycleIssuePolicyForSpec(*spec);
+  EXPECT_EQ(policy.type_limits.branch, 1u);
+  EXPECT_EQ(policy.group_limits[0], 1u);
+  EXPECT_EQ(policy.group_limits[6], 1u);
+  EXPECT_EQ(policy.type_to_group[0], 0u);
+  EXPECT_EQ(policy.type_to_group[6], 6u);
+}
+
 }  // namespace
 }  // namespace gpu_model

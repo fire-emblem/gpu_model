@@ -39,6 +39,7 @@ class RuntimeEngine {
   void SetIssueCycleClassOverrides(const IssueCycleClassOverridesSpec& overrides);
   void SetIssueCycleOpOverrides(const IssueCycleOpOverridesSpec& overrides);
   void SetCycleIssueLimits(const ArchitecturalIssueLimits& limits);
+  void SetCycleIssuePolicy(const ArchitecturalIssuePolicy& policy);
   void SetFunctionalExecutionConfig(FunctionalExecutionConfig config);
   void SetFunctionalExecutionMode(FunctionalExecutionMode mode);
   const FunctionalExecutionConfig& functional_execution_config() const;

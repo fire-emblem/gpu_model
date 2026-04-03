@@ -37,6 +37,7 @@ struct ArchitecturalIssuePolicy {
 std::optional<ArchitecturalIssueType> ArchitecturalIssueTypeForOpcode(Opcode opcode);
 std::string_view ToString(ArchitecturalIssueType type);
 ArchitecturalIssueLimits DefaultArchitecturalIssueLimits();
+ArchitecturalIssuePolicy ArchitecturalIssuePolicyFromLimits(const ArchitecturalIssueLimits& limits);
 ArchitecturalIssuePolicy DefaultArchitecturalIssuePolicy();
 
 }  // namespace gpu_model

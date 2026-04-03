@@ -131,6 +131,23 @@ void WriteWaveSgprPair(WaveContext& wave, uint32_t first, uint64_t value) {
   wave.sgpr.Write(first + 1, static_cast<uint32_t>(value >> 32u));
 }
 
+bool IssueLimitsUnset(const ArchitecturalIssueLimits& limits) {
+  return limits.branch == 0 && limits.scalar_alu_or_memory == 0 && limits.vector_alu == 0 &&
+         limits.vector_memory == 0 && limits.local_data_share == 0 &&
+         limits.global_data_share_or_export == 0 && limits.special == 0;
+}
+
+ArchitecturalIssuePolicy ResolveIssuePolicy(const CycleTimingConfig& timing_config,
+                                            const GpuArchSpec& spec) {
+  if (timing_config.issue_policy.has_value()) {
+    return *timing_config.issue_policy;
+  }
+  if (IssueLimitsUnset(timing_config.issue_limits)) {
+    return CycleIssuePolicyForSpec(spec);
+  }
+  return ArchitecturalIssuePolicyFromLimits(timing_config.issue_limits);
+}
+
 uint32_t PackWorkgroupInfo(bool first_wavefront, uint32_t wave_count) {
   return (first_wavefront ? (1u << 31u) : 0u) | (wave_count & 0x3fu);
 }
@@ -1571,15 +1588,7 @@ class EncodedExecutionCore {
         const auto bundle = IssueScheduler::SelectIssueBundle(
             BuildEncodedIssueCandidates(issue_inputs),
             slot.next_rr,
-            timing_config_.issue_limits.branch == 0 &&
-                    timing_config_.issue_limits.scalar_alu_or_memory == 0 &&
-                    timing_config_.issue_limits.vector_alu == 0 &&
-                    timing_config_.issue_limits.vector_memory == 0 &&
-                    timing_config_.issue_limits.local_data_share == 0 &&
-                    timing_config_.issue_limits.global_data_share_or_export == 0 &&
-                    timing_config_.issue_limits.special == 0
-                ? CycleIssueLimitsForSpec(spec_)
-                : timing_config_.issue_limits);
+            ResolveIssuePolicy(timing_config_, spec_));
         if (bundle.selected_candidate_indices.empty()) {
           continue;
         }

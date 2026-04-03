@@ -35,6 +35,8 @@ std::shared_ptr<const GpuArchSpec> MakeC500Spec() {
   spec->cycle_resources.resident_wave_slots_per_peu = 8;
   spec->cycle_resources.barrier_slots_per_ap = 16;
   spec->cycle_resources.issue_limits = DefaultArchitecturalIssueLimits();
+  spec->cycle_resources.issue_policy =
+      ArchitecturalIssuePolicyFromLimits(spec->cycle_resources.issue_limits);
   return spec;
 }
 

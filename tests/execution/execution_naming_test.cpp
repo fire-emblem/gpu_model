@@ -11,6 +11,7 @@
 #include "gpu_model/execution/sync_ops.h"
 #include "gpu_model/execution/wave_context.h"
 #include "gpu_model/execution/wave_context_builder.h"
+#include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -27,8 +28,14 @@ TEST(ExecutionNamingTest, ExecutionHeadersDeclarePrimaryTypes) {
   static_assert(std::is_base_of_v<IExecutionEngine, CycleExecEngine>);
   static_assert(std::is_same_v<decltype(CycleTimingConfig{}.cache_model), CacheModelSpec>);
   static_assert(std::is_same_v<decltype(CycleTimingConfig{}.shared_bank_model), SharedBankModelSpec>);
+  static_assert(std::is_same_v<decltype(CycleTimingConfig{}.issue_policy),
+                               std::optional<ArchitecturalIssuePolicy>>);
   using CycleRunSignature = uint64_t (CycleExecEngine::*)(ExecutionContext&);
   static_assert(std::is_same_v<decltype(&CycleExecEngine::Run), CycleRunSignature>);
+  using RuntimeSetIssuePolicySignature =
+      void (RuntimeEngine::*)(const ArchitecturalIssuePolicy&);
+  static_assert(std::is_same_v<decltype(&RuntimeEngine::SetCycleIssuePolicy),
+                               RuntimeSetIssuePolicySignature>);
 
   using EncodedRunSignature = LaunchResult (EncodedExecEngine::*)(const EncodedProgramObject&,
                                                                   const GpuArchSpec&,

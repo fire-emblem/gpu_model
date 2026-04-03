@@ -42,6 +42,9 @@ class RuntimeEngineImpl {
   void SetCycleIssueLimits(const ArchitecturalIssueLimits& limits) {
     issue_limits_override_ = limits;
   }
+  void SetCycleIssuePolicy(const ArchitecturalIssuePolicy& policy) {
+    issue_policy_override_ = policy;
+  }
   void SetFunctionalExecutionConfig(FunctionalExecutionConfig config) {
     functional_execution_config_ = config;
   }
@@ -78,6 +81,7 @@ class RuntimeEngineImpl {
   std::optional<IssueCycleClassOverridesSpec> issue_cycle_class_overrides_;
   std::optional<IssueCycleOpOverridesSpec> issue_cycle_op_overrides_;
   std::optional<ArchitecturalIssueLimits> issue_limits_override_;
+  std::optional<ArchitecturalIssuePolicy> issue_policy_override_;
   FunctionalExecutionConfig functional_execution_config_{};
   uint64_t device_cycle_ = 0;
   bool has_cycle_launch_history_ = false;
@@ -186,6 +190,10 @@ void RuntimeEngineImpl::SetIssueCycleOpOverrides(const IssueCycleOpOverridesSpec
 
 void RuntimeEngine::SetCycleIssueLimits(const ArchitecturalIssueLimits& limits) {
   impl_->SetCycleIssueLimits(limits);
+}
+
+void RuntimeEngine::SetCycleIssuePolicy(const ArchitecturalIssuePolicy& policy) {
+  impl_->SetCycleIssuePolicy(policy);
 }
 
 LaunchResult RuntimeEngineImpl::Launch(const LaunchRequest& request) {
@@ -427,6 +435,8 @@ CycleTimingConfig RuntimeEngineImpl::ResolveCycleTimingConfig(const GpuArchSpec&
   config.issue_cycle_class_overrides = spec.issue_cycle_class_overrides;
   config.issue_cycle_op_overrides = spec.issue_cycle_op_overrides;
   config.issue_limits = CycleIssueLimitsForSpec(spec);
+  config.issue_policy = CycleIssuePolicyForSpec(spec);
+  const bool has_issue_policy_override = issue_policy_override_.has_value();
 
   if (flat_global_latency_override_.has_value()) {
     config.cache_model.enabled = false;
@@ -478,8 +488,17 @@ CycleTimingConfig RuntimeEngineImpl::ResolveCycleTimingConfig(const GpuArchSpec&
   if (issue_cycle_op_overrides_.has_value()) {
     config.issue_cycle_op_overrides = *issue_cycle_op_overrides_;
   }
+  if (has_issue_policy_override) {
+    config.issue_policy = *issue_policy_override_;
+    config.issue_limits = issue_policy_override_->type_limits;
+  }
   if (issue_limits_override_.has_value()) {
     config.issue_limits = *issue_limits_override_;
+  }
+  if (issue_limits_override_.has_value() && !has_issue_policy_override) {
+    config.issue_policy = ArchitecturalIssuePolicyFromLimits(config.issue_limits);
+  } else if (config.issue_policy.has_value()) {
+    config.issue_policy->type_limits = config.issue_limits;
   }
 
   return config;

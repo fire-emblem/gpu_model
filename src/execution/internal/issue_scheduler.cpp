@@ -43,16 +43,9 @@ IssueSchedulerResult IssueScheduler::SelectIssueBundle(
     const std::vector<IssueSchedulerCandidate>& candidates,
     size_t round_robin_start_index,
     const ArchitecturalIssueLimits& limits) {
-  auto policy = DefaultArchitecturalIssuePolicy();
-  policy.type_limits = limits;
-  policy.group_limits = {limits.branch,
-                         limits.scalar_alu_or_memory,
-                         limits.vector_alu,
-                         limits.vector_memory,
-                         limits.local_data_share,
-                         limits.global_data_share_or_export,
-                         limits.special};
-  return SelectIssueBundle(candidates, round_robin_start_index, policy);
+  return SelectIssueBundle(candidates,
+                           round_robin_start_index,
+                           ArchitecturalIssuePolicyFromLimits(limits));
 }
 
 IssueSchedulerResult IssueScheduler::SelectIssueBundle(
