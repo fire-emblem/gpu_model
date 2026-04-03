@@ -56,5 +56,22 @@ TEST(CycleIssuePolicyTest, C500DefaultPolicyMakesBranchAndSpecialConflictInSched
   EXPECT_EQ(result.selected_candidate_indices[0], 0u);
 }
 
+TEST(CycleIssuePolicyTest, ApplyingLimitsToGroupedPolicyPreservesTypeGrouping) {
+  const auto spec = ArchRegistry::Get("c500");
+  ASSERT_NE(spec, nullptr);
+
+  ArchitecturalIssueLimits widened_limits = CycleIssueLimitsForSpec(*spec);
+  widened_limits.branch = 2;
+  widened_limits.vector_alu = 3;
+
+  const auto policy = CycleIssuePolicyWithLimits(CycleIssuePolicyForSpec(*spec), widened_limits);
+  EXPECT_EQ(policy.type_limits.branch, 2u);
+  EXPECT_EQ(policy.type_limits.vector_alu, 3u);
+  EXPECT_EQ(policy.type_to_group[0], 0u);
+  EXPECT_EQ(policy.type_to_group[6], 0u);
+  EXPECT_EQ(policy.group_limits[0], 2u);
+  EXPECT_EQ(policy.group_limits[2], 3u);
+}
+
 }  // namespace
 }  // namespace gpu_model

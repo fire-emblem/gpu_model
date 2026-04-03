@@ -496,7 +496,7 @@ CycleTimingConfig RuntimeEngineImpl::ResolveCycleTimingConfig(const GpuArchSpec&
     config.issue_limits = *issue_limits_override_;
   }
   if (issue_limits_override_.has_value() && !has_issue_policy_override) {
-    config.issue_policy = ArchitecturalIssuePolicyFromLimits(config.issue_limits);
+    config.issue_policy = CycleIssuePolicyWithLimits(*config.issue_policy, config.issue_limits);
   } else if (config.issue_policy.has_value()) {
     config.issue_policy->type_limits = config.issue_limits;
   }
