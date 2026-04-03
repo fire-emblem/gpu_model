@@ -73,5 +73,73 @@ TEST(IssueSchedulerTest, RespectsRoundRobinStartIndex) {
   EXPECT_EQ(result.next_round_robin_index, 2u);
 }
 
+TEST(IssueSchedulerTest, AllowsMixedPipeBundleWhenLimitsPermit) {
+  const std::vector<IssueSchedulerCandidate> candidates{
+      {.candidate_index = 0,
+       .wave_id = 0,
+       .issue_type = ArchitecturalIssueType::ScalarAluOrMemory,
+       .ready = true},
+      {.candidate_index = 1,
+       .wave_id = 1,
+       .issue_type = ArchitecturalIssueType::VectorAlu,
+       .ready = true},
+      {.candidate_index = 2,
+       .wave_id = 2,
+       .issue_type = ArchitecturalIssueType::VectorMemory,
+       .ready = true},
+      {.candidate_index = 3,
+       .wave_id = 3,
+       .issue_type = ArchitecturalIssueType::LocalDataShare,
+       .ready = true},
+      {.candidate_index = 4,
+       .wave_id = 4,
+       .issue_type = ArchitecturalIssueType::Special,
+       .ready = true},
+  };
+
+  const auto result = IssueScheduler::SelectIssueBundle(candidates, 0);
+  ASSERT_EQ(result.selected_candidate_indices.size(), 5u);
+}
+
+TEST(IssueSchedulerTest, RespectsPerPipeOverrideLimits) {
+  const std::vector<IssueSchedulerCandidate> candidates{
+      {.candidate_index = 0,
+       .wave_id = 0,
+       .issue_type = ArchitecturalIssueType::VectorAlu,
+       .ready = true},
+      {.candidate_index = 1,
+       .wave_id = 1,
+       .issue_type = ArchitecturalIssueType::VectorAlu,
+       .ready = true},
+      {.candidate_index = 2,
+       .wave_id = 2,
+       .issue_type = ArchitecturalIssueType::VectorAlu,
+       .ready = true},
+  };
+
+  ArchitecturalIssueLimits limits = DefaultArchitecturalIssueLimits();
+  limits.vector_alu = 2;
+  const auto result = IssueScheduler::SelectIssueBundle(candidates, 0, limits);
+  ASSERT_EQ(result.selected_candidate_indices.size(), 2u);
+  EXPECT_EQ(result.selected_candidate_indices[0], 0u);
+  EXPECT_EQ(result.selected_candidate_indices[1], 1u);
+}
+
+TEST(IssueSchedulerTest, KeepsSpecialPipeIndependentFromBranchPipe) {
+  const std::vector<IssueSchedulerCandidate> candidates{
+      {.candidate_index = 0,
+       .wave_id = 0,
+       .issue_type = ArchitecturalIssueType::Branch,
+       .ready = true},
+      {.candidate_index = 1,
+       .wave_id = 1,
+       .issue_type = ArchitecturalIssueType::Special,
+       .ready = true},
+  };
+
+  const auto result = IssueScheduler::SelectIssueBundle(candidates, 0);
+  ASSERT_EQ(result.selected_candidate_indices.size(), 2u);
+}
+
 }  // namespace
 }  // namespace gpu_model
