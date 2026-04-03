@@ -60,6 +60,11 @@ struct IssueCycleOpOverridesSpec {
   std::optional<uint64_t> ds_add_u32;
 };
 
+struct CycleResourceSpec {
+  uint32_t resident_wave_slots_per_peu = 0;
+  uint32_t barrier_slots_per_ap = 0;
+};
+
 struct GpuArchSpec {
   std::string name;
   uint32_t wave_size = 64;
@@ -75,6 +80,7 @@ struct GpuArchSpec {
   LaunchTimingSpec launch_timing;
   IssueCycleClassOverridesSpec issue_cycle_class_overrides;
   IssueCycleOpOverridesSpec issue_cycle_op_overrides;
+  CycleResourceSpec cycle_resources;
 
   [[nodiscard]] uint32_t total_ap_count() const { return dpc_count * ap_per_dpc; }
   [[nodiscard]] uint32_t total_peu_count() const { return total_ap_count() * peu_per_ap; }

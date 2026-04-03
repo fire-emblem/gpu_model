@@ -79,6 +79,8 @@ struct ApResidentState {
   std::vector<ExecutableBlock*> resident_blocks;
   uint32_t resident_block_limit = 2;
   uint32_t scheduled_readmit_count = 0;
+  uint32_t barrier_slot_capacity = 0;
+  uint32_t barrier_slots_in_use = 0;
 };
 
 struct L1Key {
@@ -487,6 +489,28 @@ bool ContainsWave(const Container& waves, const ScheduledWave* target) {
   return std::find(waves.begin(), waves.end(), target) != waves.end();
 }
 
+uint32_t ResidentWaveSlotCapacityPerPeu(const GpuArchSpec& spec) {
+  return spec.cycle_resources.resident_wave_slots_per_peu > 0
+             ? spec.cycle_resources.resident_wave_slots_per_peu
+             : spec.max_resident_waves;
+}
+
+bool CanAdmitBlockToResidentWaveSlots(const ExecutableBlock& block,
+                                      const std::vector<PeuSlot>& slots,
+                                      uint32_t resident_wave_slots_per_peu) {
+  std::map<size_t, uint32_t> required_per_slot;
+  for (const auto& scheduled_wave : block.waves) {
+    ++required_per_slot[scheduled_wave.peu_slot_index];
+  }
+  for (const auto& [slot_index, required] : required_per_slot) {
+    const auto& slot = slots.at(slot_index);
+    if (slot.resident_waves.size() + required > resident_wave_slots_per_peu) {
+      return false;
+    }
+  }
+  return true;
+}
+
 void RegisterResidentWave(PeuSlot& slot, ScheduledWave& scheduled_wave) {
   RemoveWaveFromList(slot.resident_waves, &scheduled_wave);
   RemoveWaveFromList(slot.active_window, &scheduled_wave);
@@ -583,6 +607,7 @@ void ActivateBlock(ExecutableBlock& block,
 bool AdmitOneResidentBlock(ApResidentState& ap_state,
                            uint64_t cycle,
                            std::vector<PeuSlot>& slots,
+                           uint32_t resident_wave_slots_per_peu,
                            uint32_t max_issuable_waves,
                            uint64_t wave_launch_cycles,
                            EventQueue& events,
@@ -590,10 +615,14 @@ bool AdmitOneResidentBlock(ApResidentState& ap_state,
   while (ap_state.resident_blocks.size() < ap_state.resident_block_limit &&
          !ap_state.pending_blocks.empty()) {
     ExecutableBlock* next_block = ap_state.pending_blocks.front();
-    ap_state.pending_blocks.pop_front();
     if (next_block == nullptr || next_block->active || next_block->completed) {
+      ap_state.pending_blocks.pop_front();
       continue;
     }
+    if (!CanAdmitBlockToResidentWaveSlots(*next_block, slots, resident_wave_slots_per_peu)) {
+      return false;
+    }
+    ap_state.pending_blocks.pop_front();
     ap_state.resident_blocks.push_back(next_block);
     ActivateBlock(*next_block,
                   cycle,
@@ -610,6 +639,7 @@ bool AdmitOneResidentBlock(ApResidentState& ap_state,
 void AdmitResidentBlocks(ApResidentState& ap_state,
                          uint64_t cycle,
                          std::vector<PeuSlot>& slots,
+                         uint32_t resident_wave_slots_per_peu,
                          uint32_t max_issuable_waves,
                          uint64_t wave_launch_cycles,
                          EventQueue& events,
@@ -617,6 +647,7 @@ void AdmitResidentBlocks(ApResidentState& ap_state,
   while (AdmitOneResidentBlock(ap_state,
                                cycle,
                                slots,
+                               resident_wave_slots_per_peu,
                                max_issuable_waves,
                                wave_launch_cycles,
                                events,
@@ -731,6 +762,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
   for (auto& block : blocks) {
     auto& ap_state = ap_states[block.global_ap_id];
     ap_state.global_ap_id = block.global_ap_id;
+    ap_state.barrier_slot_capacity = context.spec.cycle_resources.barrier_slots_per_ap;
     ap_state.pending_blocks.push_back(&block);
   }
   for (auto& [global_ap_id, ap_state] : ap_states) {
@@ -738,6 +770,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
     AdmitResidentBlocks(ap_state,
                         context.cycle,
                         slots,
+                        ResidentWaveSlotCapacityPerPeu(context.spec),
                         context.spec.max_issuable_waves,
                         timing_config_.launch_timing.wave_launch_cycles,
                         events,
@@ -1287,6 +1320,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                                       state_it->second,
                                       commit_cycle + timing_config_.launch_timing.block_launch_cycles,
                                       slots,
+                                      ResidentWaveSlotCapacityPerPeu(context.spec),
                                       context.spec.max_issuable_waves,
                                       timing_config_.launch_timing.wave_launch_cycles,
                                       events,

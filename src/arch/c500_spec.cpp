@@ -32,6 +32,8 @@ std::shared_ptr<const GpuArchSpec> MakeC500Spec() {
   spec->launch_timing.wave_launch_cycles = 0;
   spec->launch_timing.warp_switch_cycles = 1;
   spec->launch_timing.arg_load_cycles = 4;
+  spec->cycle_resources.resident_wave_slots_per_peu = 8;
+  spec->cycle_resources.barrier_slots_per_ap = 16;
   return spec;
 }
 

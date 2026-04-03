@@ -91,6 +91,8 @@ struct EncodedApResidentState {
   std::deque<size_t> pending_blocks;
   std::vector<size_t> resident_blocks;
   uint32_t resident_block_limit = 2;
+  uint32_t barrier_slot_capacity = 0;
+  uint32_t barrier_slots_in_use = 0;
 };
 
 struct RawBlock {
@@ -1262,6 +1264,7 @@ class EncodedExecutionCore {
       auto& block = raw_blocks_[block_index];
       auto& ap_state = cycle_ap_states_[block.global_ap_id];
       ap_state.global_ap_id = block.global_ap_id;
+      ap_state.barrier_slot_capacity = spec_.cycle_resources.barrier_slots_per_ap;
       ap_state.pending_blocks.push_back(block_index);
       for (size_t wave_index = 0; wave_index < block.waves.size(); ++wave_index) {
         const auto key = std::make_pair(block.global_ap_id, block.waves[wave_index].wave.peu_id);
@@ -1279,6 +1282,28 @@ class EncodedExecutionCore {
                           uint64_t cycle) {
     raw_wave.launch_scheduled = true;
     raw_wave.launch_cycle = cycle;
+  }
+
+  uint32_t ResidentWaveSlotCapacityPerPeu() const {
+    return spec_.cycle_resources.resident_wave_slots_per_peu > 0
+               ? spec_.cycle_resources.resident_wave_slots_per_peu
+               : spec_.max_resident_waves;
+  }
+
+  bool CanAdmitBlockToResidentWaveSlots(size_t block_index) const {
+    const auto& block = raw_blocks_.at(block_index);
+    std::map<size_t, uint32_t> required_per_slot;
+    for (const auto& raw_wave : block.waves) {
+      ++required_per_slot[raw_wave.peu_slot_index];
+    }
+    const uint32_t capacity = ResidentWaveSlotCapacityPerPeu();
+    for (const auto& [slot_index, required] : required_per_slot) {
+      const auto& slot = cycle_peu_slots_.at(slot_index);
+      if (slot.resident_waves.size() + required > capacity) {
+        return false;
+      }
+    }
+    return true;
   }
 
   void RegisterResidentWave(EncodedPeuSlot& slot, RawWave& raw_wave) {
@@ -1409,10 +1434,14 @@ class EncodedExecutionCore {
       while (ap_state.resident_blocks.size() < ap_state.resident_block_limit &&
              !ap_state.pending_blocks.empty()) {
         const size_t block_index = ap_state.pending_blocks.front();
-        ap_state.pending_blocks.pop_front();
         if (raw_blocks_[block_index].active || raw_blocks_[block_index].completed) {
+          ap_state.pending_blocks.pop_front();
           continue;
         }
+        if (!CanAdmitBlockToResidentWaveSlots(block_index)) {
+          break;
+        }
+        ap_state.pending_blocks.pop_front();
         ap_state.resident_blocks.push_back(block_index);
         ActivateBlock(block_index, cycle);
       }

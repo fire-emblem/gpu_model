@@ -21,6 +21,8 @@ TEST(ArchRegistryTest, C500FieldsMatchDesign) {
   EXPECT_EQ(spec->total_peu_count(), 416u);
   EXPECT_EQ(spec->max_resident_waves, 8u);
   EXPECT_EQ(spec->max_issuable_waves, 4u);
+  EXPECT_EQ(spec->cycle_resources.resident_wave_slots_per_peu, 8u);
+  EXPECT_EQ(spec->cycle_resources.barrier_slots_per_ap, 16u);
   EXPECT_EQ(spec->default_issue_cycles, 4u);
 }
 

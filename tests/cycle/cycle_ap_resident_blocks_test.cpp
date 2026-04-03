@@ -92,18 +92,6 @@ size_t FirstBarrierEventIndex(const std::vector<TraceEvent>& events,
   return std::numeric_limits<size_t>::max();
 }
 
-uint32_t CountWaveLaunchesForBlockBeforeIndex(const std::vector<TraceEvent>& events,
-                                              uint32_t block_id,
-                                              size_t limit) {
-  uint32_t count = 0;
-  for (size_t i = 0; i < events.size() && i < limit; ++i) {
-    if (events[i].kind == TraceEventKind::WaveLaunch && events[i].block_id == block_id) {
-      ++count;
-    }
-  }
-  return count;
-}
-
 size_t FirstPostIndexWaveProgressEvent(const std::vector<TraceEvent>& events,
                                        uint32_t block_id,
                                        uint32_t wave_id,
@@ -297,26 +285,24 @@ TEST(CycleApResidentBlocksTest, BarrierWaitingResidentWaveYieldsActiveSlotUntilR
   LaunchRequest request;
   request.kernel = &kernel;
   request.mode = ExecutionMode::Cycle;
-  request.config.grid_dim_x = 1;
-  request.config.block_dim_x =
-      spec->peu_per_ap * (spec->max_issuable_waves + 1) * 64;
+  request.config.grid_dim_x = spec->total_ap_count() + 1;
+  request.config.block_dim_x = 1024;
 
   const auto result = runtime.Launch(request);
   ASSERT_TRUE(result.ok) << result.error_message;
 
   const uint32_t block0 = 0;
-  const uint32_t active_window_waves_per_ap = spec->peu_per_ap * spec->max_issuable_waves;
-  const size_t first_exit = FirstWaveExitIndex(trace.events(), block0);
+  const uint32_t block1 = WrappedBlockId(*spec, 1);
   const size_t release = FirstBarrierEventIndex(trace.events(), block0, "release");
-  const size_t wave0_progress = FirstPostIndexWaveProgressEvent(trace.events(), block0, 0, release);
-  ASSERT_NE(first_exit, std::numeric_limits<size_t>::max());
+  const size_t block1_launch = FirstWaveLaunchIndexForBlock(trace.events(), block1);
+  const size_t block1_progress =
+      FirstPostIndexWaveProgressEvent(trace.events(), block1, 0, release);
+  ASSERT_NE(block1_launch, std::numeric_limits<size_t>::max());
   ASSERT_NE(release, std::numeric_limits<size_t>::max());
-  ASSERT_NE(wave0_progress, std::numeric_limits<size_t>::max());
+  ASSERT_NE(block1_progress, std::numeric_limits<size_t>::max());
 
-  EXPECT_GT(CountWaveLaunchesForBlockBeforeIndex(trace.events(), block0, first_exit),
-            active_window_waves_per_ap);
-  EXPECT_LT(release, first_exit);
-  EXPECT_LT(release, wave0_progress);
+  EXPECT_LT(block1_launch, release);
+  EXPECT_LT(release, block1_progress);
 }
 
 }  // namespace
