@@ -222,6 +222,38 @@ dpc=0 ap=4 peu=1 slot=3
 
 这样既满足“分层数字标签”，又保留精确定位能力。
 
+## Perfetto 时间单位策略
+
+Perfetto 顶部时间轴本身仍按其原生时间刻度机制工作，本轮不要求把 UI 的主单位文字直接改成 `cycle`。
+
+本轮采用的策略是：
+
+1. Perfetto 继续负责层级折叠、事件浏览和时间顺序展示
+2. `cycle` 作为一等语义，通过事件 `args` 和默认命名显式暴露
+3. 不依赖 Perfetto 顶部标尺文字来表达 cycle 语义
+
+这意味着：
+
+- slice 需要携带 `issue_cycle`、`commit_cycle`
+- instant marker 需要携带 `cycle`
+- 需要时可在 `name` 或 `args.label` 中加入 `C<number>` 形式的辅助标识
+
+例如：
+
+```text
+name=arrive
+args: { cycle=120, wave=3, slot=2 }
+```
+
+或：
+
+```text
+name=arrive@C120
+args: { cycle=120, wave=3, slot=2 }
+```
+
+具体是否把 `C<number>` 直接拼进默认 `name`，可作为实现期的小开关决定；但 `args` 中必须稳定带出 cycle 数值。
+
 ## 时间线语义
 
 ### 1. 指令 slice
@@ -384,6 +416,8 @@ instruction slice 需要携带：
 
 - `name = op mnemonic`
 - `cat = instruction/...`
+- `args.issue_cycle`
+- `args.commit_cycle`
 - `args.wave`
 - `args.block`
 - `args.slot`
@@ -398,6 +432,7 @@ marker 使用 instant event，要求：
 - 名称稳定
 - category 稳定
 - 携带完整 occupant 与 slot 坐标
+- 携带准确的 `cycle`
 
 例如：
 
@@ -433,9 +468,10 @@ marker 使用 instant event，要求：
 2. 轨道命名中存在 `D/A/P/S` 分层数字标签
 3. 同一 slot 上可以出现来自不同 wave 的事件
 4. instruction slice 携带 `slot` 和 `wave` args
-5. `arrive`、`wave_start`、`wave_end`、`switch_out`、`switch_in` 能稳定搜到
-6. 没有把 bubble 伪装成新的指令 slice
-7. `st / mt / cycle dump` 至少在 schema 层面共享同一组 track identity 和 marker naming
+5. instruction slice 和 marker 都稳定携带 cycle 数值
+6. `arrive`、`wave_start`、`wave_end`、`switch_out`、`switch_in` 能稳定搜到
+7. 没有把 bubble 伪装成新的指令 slice
+8. `st / mt / cycle dump` 至少在 schema 层面共享同一组 track identity 和 marker naming
 
 对于 ASCII renderer，可以允许先保持简化，但也需要至少能反映 slot 行标签与空白区间。
 
@@ -448,6 +484,7 @@ marker 使用 instant event，要求：
 3. 再把 Perfetto renderer 的 track identity 改为 slot
 4. 再补 marker 命名与 args
 5. 最后把同一 schema 推广到 `st / mt dump`，并补强 example 和 focused regression
+6. 统一补齐 cycle args 与默认命名策略，确保 Perfetto 中不丢 cycle 精度
 
 如果过程中发现当前 cycle engine 还没有稳定的 slot / switch 生命周期可供消费，那么第一批至少也要先做到：
 
@@ -502,6 +539,7 @@ marker 使用 instant event，要求：
 7. 新 example 在 Perfetto 上能肉眼看出明显空泡
 8. focused tests 能程序化断言 slot 级结构与关键 marker
 9. 三类 dump 至少在 schema、命名和层级语义上保持一致，即使第一批实现成熟度不同
+10. 所有关键 slice / marker 都能在 Perfetto 事件详情中直接读到 cycle 数值
 
 ## 结论
 
