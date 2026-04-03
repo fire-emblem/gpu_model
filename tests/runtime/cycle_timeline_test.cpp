@@ -387,5 +387,28 @@ TEST(CycleTimelineTest, GoogleTraceDoesNotRenderBubbleAsDurationSlice) {
   EXPECT_NE(trace.find("\"name\":\"stall_waitcnt_global\""), std::string::npos);
 }
 
+TEST(CycleTimelineTest, RuntimePerfettoDumpCarriesWaveLifecycleOnSlotTracks) {
+  CollectingTraceSink trace;
+  RuntimeEngine runtime(&trace);
+
+  const auto kernel = BuildTimelineKernel();
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 320;
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  const std::string timeline = CycleTimelineRenderer::RenderGoogleTrace(trace.events());
+  EXPECT_NE(timeline.find("\"args\":{\"name\":\"S1\"}"), std::string::npos);
+  EXPECT_NE(timeline.find("\"name\":\"wave_launch\""), std::string::npos);
+  EXPECT_NE(timeline.find("\"message\":\"wave_start"), std::string::npos);
+  EXPECT_NE(timeline.find("\"name\":\"wave_exit\""), std::string::npos);
+  EXPECT_NE(timeline.find("\"message\":\"wave_end\""), std::string::npos);
+  EXPECT_NE(timeline.find("\"slot\":1"), std::string::npos);
+}
+
 }  // namespace
 }  // namespace gpu_model

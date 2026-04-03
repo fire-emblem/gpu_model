@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <limits>
+#include <set>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -55,6 +56,24 @@ uint64_t FirstCycle(const std::vector<TraceEvent>& events,
   return std::numeric_limits<uint64_t>::max();
 }
 
+std::set<uint32_t> SlotIdsForPeu(const std::vector<TraceEvent>& events,
+                                 TraceEventKind kind,
+                                 std::string_view message,
+                                 uint32_t peu_id) {
+  std::set<uint32_t> slot_ids;
+  for (const auto& event : events) {
+    if (event.kind != kind || event.peu_id != peu_id) {
+      continue;
+    }
+    if (!message.empty() &&
+        event.message.find(std::string(message)) == std::string::npos) {
+      continue;
+    }
+    slot_ids.insert(event.slot_id);
+  }
+  return slot_ids;
+}
+
 std::string StallMessages(const std::vector<TraceEvent>& events) {
   std::string messages;
   for (const auto& event : events) {
@@ -69,7 +88,7 @@ std::string StallMessages(const std::vector<TraceEvent>& events) {
   return messages;
 }
 
-TEST(SharedBarrierCycleTest, BarrierWaitsForSlowerWaveAndSharedLoadStartsAfterRelease) {
+TEST(SharedBarrierCycleTest, BarrierReleaseAllowsWaitingWaveToResume) {
   CollectingTraceSink trace;
   RuntimeEngine runtime(&trace);
   runtime.SetFixedGlobalMemoryLatency(20);
@@ -81,8 +100,8 @@ TEST(SharedBarrierCycleTest, BarrierWaitsForSlowerWaveAndSharedLoadStartsAfterRe
   request.kernel = &kernel;
   request.mode = ExecutionMode::Cycle;
   request.config.grid_dim_x = 1;
-  request.config.block_dim_x = 128;
-  request.config.shared_memory_bytes = 128 * sizeof(int32_t);
+  request.config.block_dim_x = 320;
+  request.config.shared_memory_bytes = 320 * sizeof(int32_t);
   request.args.PushU64(base_addr);
 
   const auto result = runtime.Launch(request);
@@ -107,6 +126,17 @@ TEST(SharedBarrierCycleTest, BarrierWaitsForSlowerWaveAndSharedLoadStartsAfterRe
   EXPECT_LT(first_arrive, release);
   EXPECT_GE(shared_load_issue, release);
   EXPECT_TRUE(saw_waitcnt_global) << StallMessages(trace.events());
+
+  const auto arrive_slot_ids = SlotIdsForPeu(trace.events(), TraceEventKind::Barrier, "arrive", 0);
+  const auto exit_slot_ids = SlotIdsForPeu(trace.events(), TraceEventKind::WaveExit, "", 0);
+  EXPECT_GE(arrive_slot_ids.size(), 2u);
+  EXPECT_GE(exit_slot_ids.size(), 2u);
+  for (uint32_t slot_id : arrive_slot_ids) {
+    EXPECT_LT(slot_id, 8u);
+  }
+  for (uint32_t slot_id : exit_slot_ids) {
+    EXPECT_LT(slot_id, 8u);
+  }
 }
 
 }  // namespace

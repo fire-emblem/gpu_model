@@ -49,6 +49,7 @@ struct ScheduledWave {
   bool dispatch_enabled = false;
   bool launch_scheduled = false;
   size_t peu_slot_index = std::numeric_limits<size_t>::max();
+  size_t resident_slot_id = std::numeric_limits<size_t>::max();
 };
 
 struct ExecutableBlock {
@@ -74,6 +75,7 @@ struct PeuSlot {
   uint64_t last_wave_tag = std::numeric_limits<uint64_t>::max();
   size_t last_issue_index = std::numeric_limits<size_t>::max();
   std::vector<ScheduledWave*> waves;
+  std::vector<ScheduledWave*> resident_slots;
   std::vector<ScheduledWave*> resident_waves;
   std::vector<ScheduledWave*> active_window;
   std::deque<ScheduledWave*> standby_waves;
@@ -405,7 +407,14 @@ std::vector<ExecutableBlock> MaterializeBlocks(const PlacementMap& placement,
   return blocks;
 }
 
-std::vector<PeuSlot> BuildPeuSlots(std::vector<ExecutableBlock>& blocks) {
+uint32_t TraceSlotId(const ScheduledWave& scheduled_wave) {
+  return scheduled_wave.resident_slot_id == std::numeric_limits<size_t>::max()
+             ? 0u
+             : static_cast<uint32_t>(scheduled_wave.resident_slot_id);
+}
+
+std::vector<PeuSlot> BuildPeuSlots(std::vector<ExecutableBlock>& blocks,
+                                   uint32_t resident_wave_slots_per_peu) {
   std::vector<PeuSlot> slots;
   std::map<std::tuple<uint32_t, uint32_t, uint32_t>, size_t> slot_indices;
 
@@ -419,6 +428,7 @@ std::vector<PeuSlot> BuildPeuSlots(std::vector<ExecutableBlock>& blocks) {
             .ap_id = block.ap_id,
             .peu_id = scheduled_wave.wave.peu_id,
             .waves = {},
+            .resident_slots = std::vector<ScheduledWave*>(resident_wave_slots_per_peu, nullptr),
             .resident_waves = {},
             .active_window = {},
             .standby_waves = {},
@@ -491,7 +501,7 @@ void ScheduleWaveLaunch(ScheduledWave& scheduled_wave,
   events.Schedule(TimedEvent{
       .cycle = cycle,
       .action =
-          [wave_ptr, &trace, block_id = scheduled_wave.wave.block_id, peu_id = scheduled_wave.wave.peu_id]() {
+          [wave_ptr, &trace, block_id = scheduled_wave.wave.block_id]() {
             wave_ptr->launch_scheduled = false;
             if (wave_ptr->wave.status == WaveStatus::Exited) {
               return;
@@ -504,10 +514,11 @@ void ScheduleWaveLaunch(ScheduledWave& scheduled_wave,
                 .dpc_id = wave_ptr->wave.dpc_id,
                 .ap_id = wave_ptr->wave.ap_id,
                 .peu_id = wave_ptr->wave.peu_id,
+                .slot_id = TraceSlotId(*wave_ptr),
                 .block_id = block_id,
                 .wave_id = wave_ptr->wave.wave_id,
                 .pc = wave_ptr->wave.pc,
-                .message = FormatWaveLaunchTraceMessage(wave_ptr->wave),
+                .message = "wave_start " + FormatWaveLaunchTraceMessage(wave_ptr->wave),
             });
           },
   });
@@ -538,7 +549,9 @@ bool CanAdmitBlockToResidentWaveSlots(const ExecutableBlock& block,
   }
   for (const auto& [slot_index, required] : required_per_slot) {
     const auto& slot = slots.at(slot_index);
-    if (slot.resident_waves.size() + required > resident_wave_slots_per_peu) {
+    const auto free_slots = static_cast<uint32_t>(
+        std::count(slot.resident_slots.begin(), slot.resident_slots.end(), nullptr));
+    if (required > free_slots || slot.resident_waves.size() + required > resident_wave_slots_per_peu) {
       return false;
     }
   }
@@ -549,6 +562,14 @@ void RegisterResidentWave(PeuSlot& slot, ScheduledWave& scheduled_wave) {
   RemoveWaveFromList(slot.resident_waves, &scheduled_wave);
   RemoveWaveFromList(slot.active_window, &scheduled_wave);
   RemoveWaveFromList(slot.standby_waves, &scheduled_wave);
+  const auto resident_slot_it =
+      std::find(slot.resident_slots.begin(), slot.resident_slots.end(), nullptr);
+  if (resident_slot_it == slot.resident_slots.end()) {
+    throw std::runtime_error("no free resident slot available for wave admission");
+  }
+  scheduled_wave.resident_slot_id =
+      static_cast<size_t>(std::distance(slot.resident_slots.begin(), resident_slot_it));
+  *resident_slot_it = &scheduled_wave;
   scheduled_wave.dispatch_enabled = false;
   slot.resident_waves.push_back(&scheduled_wave);
   slot.standby_waves.push_back(&scheduled_wave);
@@ -564,6 +585,7 @@ void QueueResidentWaveForRefill(PeuSlot& slot, ScheduledWave& scheduled_wave) {
   if (!ContainsWave(slot.resident_waves, &scheduled_wave) ||
       ContainsWave(slot.active_window, &scheduled_wave) ||
       ContainsWave(slot.standby_waves, &scheduled_wave) ||
+      scheduled_wave.resident_slot_id == std::numeric_limits<size_t>::max() ||
       scheduled_wave.wave.status == WaveStatus::Exited ||
       scheduled_wave.wave.waiting_at_barrier) {
     return;
@@ -576,6 +598,12 @@ void RemoveResidentWave(PeuSlot& slot, ScheduledWave& scheduled_wave) {
   RemoveWaveFromList(slot.resident_waves, &scheduled_wave);
   RemoveWaveFromActiveWindow(slot, scheduled_wave);
   RemoveWaveFromList(slot.standby_waves, &scheduled_wave);
+  if (scheduled_wave.resident_slot_id != std::numeric_limits<size_t>::max() &&
+      scheduled_wave.resident_slot_id < slot.resident_slots.size() &&
+      slot.resident_slots[scheduled_wave.resident_slot_id] == &scheduled_wave) {
+    slot.resident_slots[scheduled_wave.resident_slot_id] = nullptr;
+  }
+  scheduled_wave.resident_slot_id = std::numeric_limits<size_t>::max();
   scheduled_wave.dispatch_enabled = false;
 }
 
@@ -872,7 +900,8 @@ std::vector<IssueSchedulerCandidate> BuildIssueCandidates(
 
 uint64_t CycleExecEngine::Run(ExecutionContext& context) {
   auto blocks = MaterializeBlocks(context.placement, context.launch_config);
-  auto slots = BuildPeuSlots(blocks);
+  const uint32_t resident_wave_slots_per_peu = ResidentWaveSlotCapacityPerPeu(context.spec);
+  auto slots = BuildPeuSlots(blocks, resident_wave_slots_per_peu);
   EventQueue events;
   std::map<L1Key, CacheModel> l1_caches;
   CacheModel l2_cache(timing_config_.cache_model);
@@ -896,7 +925,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
     AdmitResidentBlocks(ap_state,
                         context.cycle,
                         slots,
-                        ResidentWaveSlotCapacityPerPeu(context.spec),
+                        resident_wave_slots_per_peu,
                         context.spec.max_issuable_waves,
                         timing_config_.launch_timing.wave_launch_cycles,
                         events,
@@ -943,6 +972,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
               .dpc_id = blocked->first->wave.dpc_id,
               .ap_id = blocked->first->wave.ap_id,
               .peu_id = blocked->first->wave.peu_id,
+              .slot_id = TraceSlotId(*blocked->first),
               .block_id = blocked->first->wave.block_id,
               .wave_id = blocked->first->wave.wave_id,
               .pc = blocked->first->wave.pc,
@@ -957,6 +987,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
       auto issue_candidate = [&](ScheduledWave* candidate, size_t selected_index) {
         WaveContext& wave = candidate->wave;
         const Instruction instruction = context.kernel.instructions().at(wave.pc);
+        const uint32_t slot_id = TraceSlotId(*candidate);
         if (context.stats != nullptr) {
           ++context.stats->wave_steps;
           ++context.stats->instructions_issued;
@@ -967,6 +998,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
             .dpc_id = wave.dpc_id,
             .ap_id = wave.ap_id,
             .peu_id = wave.peu_id,
+            .slot_id = slot_id,
             .block_id = wave.block_id,
             .wave_id = wave.wave_id,
             .pc = wave.pc,
@@ -987,6 +1019,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
               .dpc_id = wave.dpc_id,
               .ap_id = wave.ap_id,
               .peu_id = wave.peu_id,
+              .slot_id = slot_id,
               .block_id = wave.block_id,
               .wave_id = wave.wave_id,
               .pc = wave.pc,
@@ -1039,6 +1072,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
               .dpc_id = wave.dpc_id,
               .ap_id = wave.ap_id,
               .peu_id = wave.peu_id,
+              .slot_id = slot_id,
               .block_id = wave.block_id,
               .wave_id = wave.wave_id,
               .pc = wave.pc,
@@ -1051,7 +1085,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
         events.Schedule(TimedEvent{
             .cycle = commit_cycle,
             .action =
-                [&, candidate, instruction, plan, commit_cycle]() {
+                [&, candidate, instruction, plan, commit_cycle, slot_id]() {
                 context.cycle = commit_cycle;
 
                 ApplyExecutionPlanRegisterWrites(plan, candidate->wave);
@@ -1063,6 +1097,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                       .dpc_id = candidate->wave.dpc_id,
                       .ap_id = candidate->wave.ap_id,
                       .peu_id = candidate->wave.peu_id,
+                      .slot_id = slot_id,
                       .block_id = candidate->wave.block_id,
                       .wave_id = candidate->wave.wave_id,
                       .pc = candidate->wave.pc,
@@ -1076,6 +1111,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                     .dpc_id = candidate->wave.dpc_id,
                     .ap_id = candidate->wave.ap_id,
                     .peu_id = candidate->wave.peu_id,
+                    .slot_id = slot_id,
                     .block_id = candidate->wave.block_id,
                     .wave_id = candidate->wave.wave_id,
                     .pc = candidate->wave.pc,
@@ -1104,7 +1140,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                     events.Schedule(TimedEvent{
                         .cycle = arrive_cycle,
                         .action =
-                            [&, candidate, request, addrs, arrive_cycle]() {
+                            [&, candidate, request, addrs, arrive_cycle, slot_id]() {
                               context.cycle = arrive_cycle;
                               if (request.kind == AccessKind::Load) {
                                 if (!request.dst.has_value()) {
@@ -1150,6 +1186,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                                   .dpc_id = candidate->wave.dpc_id,
                                   .ap_id = candidate->wave.ap_id,
                                   .peu_id = candidate->wave.peu_id,
+                                  .slot_id = slot_id,
                                   .block_id = candidate->wave.block_id,
                                   .wave_id = candidate->wave.wave_id,
                                   .pc = candidate->wave.pc,
@@ -1316,6 +1353,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                       .dpc_id = candidate->wave.dpc_id,
                       .ap_id = candidate->wave.ap_id,
                       .peu_id = candidate->wave.peu_id,
+                      .slot_id = slot_id,
                       .block_id = candidate->wave.block_id,
                       .wave_id = candidate->wave.wave_id,
                       .pc = candidate->wave.pc,
@@ -1356,6 +1394,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                       .dpc_id = candidate->wave.dpc_id,
                       .ap_id = candidate->wave.ap_id,
                       .peu_id = candidate->wave.peu_id,
+                      .slot_id = slot_id,
                       .block_id = candidate->wave.block_id,
                       .wave_id = candidate->wave.wave_id,
                       .pc = candidate->wave.pc,
@@ -1393,7 +1432,10 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                         .cycle = commit_cycle,
                         .dpc_id = candidate->wave.dpc_id,
                         .ap_id = candidate->wave.ap_id,
+                        .peu_id = candidate->wave.peu_id,
+                        .slot_id = slot_id,
                         .block_id = candidate->wave.block_id,
+                        .wave_id = candidate->wave.wave_id,
                         .pc = candidate->wave.pc,
                         .message = "release",
                     });
@@ -1436,10 +1478,11 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                       .dpc_id = candidate->wave.dpc_id,
                       .ap_id = candidate->wave.ap_id,
                       .peu_id = candidate->wave.peu_id,
+                      .slot_id = slot_id,
                       .block_id = candidate->wave.block_id,
                       .wave_id = candidate->wave.wave_id,
                       .pc = candidate->wave.pc,
-                      .message = "exit",
+                      .message = "wave_end",
                   });
                   if (candidate->block->active && !candidate->block->completed &&
                       AllWavesExited(*candidate->block)) {
