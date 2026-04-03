@@ -18,6 +18,7 @@
 #include "gpu_model/debug/trace_event.h"
 #include "gpu_model/debug/wave_launch_trace.h"
 #include "gpu_model/execution/internal/barrier_resource_pool.h"
+#include "gpu_model/execution/internal/cycle_issue_policy.h"
 #include "gpu_model/execution/internal/event_queue.h"
 #include "gpu_model/execution/internal/issue_model.h"
 #include "gpu_model/execution/internal/issue_scheduler.h"
@@ -900,7 +901,17 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
       const auto candidates =
           BuildIssueCandidates(slot, context.kernel, cycle, ap_states, ordered_waves);
       const auto bundle = IssueScheduler::SelectIssueBundle(
-          candidates, slot.last_issue_index, timing_config_.issue_limits);
+          candidates,
+          slot.last_issue_index,
+          timing_config_.issue_limits.branch == 0 &&
+                  timing_config_.issue_limits.scalar_alu_or_memory == 0 &&
+                  timing_config_.issue_limits.vector_alu == 0 &&
+                  timing_config_.issue_limits.vector_memory == 0 &&
+                  timing_config_.issue_limits.local_data_share == 0 &&
+                  timing_config_.issue_limits.global_data_share_or_export == 0 &&
+                  timing_config_.issue_limits.special == 0
+              ? CycleIssueLimitsForSpec(context.spec)
+              : timing_config_.issue_limits);
 
       if (bundle.selected_candidate_indices.empty()) {
         if (const auto blocked = PickFirstBlockedWave(slot, context.kernel, cycle, ap_states)) {

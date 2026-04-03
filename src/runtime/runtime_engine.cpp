@@ -12,6 +12,7 @@
 #include "gpu_model/execution/cycle_exec_engine.h"
 #include "gpu_model/execution/functional_exec_engine.h"
 #include "gpu_model/execution/encoded_exec_engine.h"
+#include "gpu_model/execution/internal/cycle_issue_policy.h"
 #include "gpu_model/isa/kernel_metadata.h"
 #include "gpu_model/loader/device_image_loader.h"
 #include "gpu_model/loader/asm_parser.h"
@@ -425,7 +426,7 @@ CycleTimingConfig RuntimeEngineImpl::ResolveCycleTimingConfig(const GpuArchSpec&
   config.launch_timing = spec.launch_timing;
   config.issue_cycle_class_overrides = spec.issue_cycle_class_overrides;
   config.issue_cycle_op_overrides = spec.issue_cycle_op_overrides;
-  config.issue_limits = spec.cycle_resources.issue_limits;
+  config.issue_limits = CycleIssueLimitsForSpec(spec);
 
   if (flat_global_latency_override_.has_value()) {
     config.cache_model.enabled = false;

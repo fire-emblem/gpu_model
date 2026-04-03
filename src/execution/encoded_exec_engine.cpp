@@ -22,6 +22,7 @@
 
 #include "gpu_model/execution/encoded_semantic_handler.h"
 #include "gpu_model/execution/internal/barrier_resource_pool.h"
+#include "gpu_model/execution/internal/cycle_issue_policy.h"
 #include "gpu_model/execution/internal/encoded_issue_candidate.h"
 #include "gpu_model/execution/internal/tensor_op_utils.h"
 #include "gpu_model/execution/internal/issue_eligibility.h"
@@ -1568,7 +1569,17 @@ class EncodedExecutionCore {
           });
         }
         const auto bundle = IssueScheduler::SelectIssueBundle(
-            BuildEncodedIssueCandidates(issue_inputs), slot.next_rr, timing_config_.issue_limits);
+            BuildEncodedIssueCandidates(issue_inputs),
+            slot.next_rr,
+            timing_config_.issue_limits.branch == 0 &&
+                    timing_config_.issue_limits.scalar_alu_or_memory == 0 &&
+                    timing_config_.issue_limits.vector_alu == 0 &&
+                    timing_config_.issue_limits.vector_memory == 0 &&
+                    timing_config_.issue_limits.local_data_share == 0 &&
+                    timing_config_.issue_limits.global_data_share_or_export == 0 &&
+                    timing_config_.issue_limits.special == 0
+                ? CycleIssueLimitsForSpec(spec_)
+                : timing_config_.issue_limits);
         if (bundle.selected_candidate_indices.empty()) {
           continue;
         }
