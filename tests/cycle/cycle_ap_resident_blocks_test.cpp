@@ -92,12 +92,11 @@ size_t FirstBarrierEventIndex(const std::vector<TraceEvent>& events,
   return std::numeric_limits<size_t>::max();
 }
 
-size_t FirstPostIndexWaveProgressEvent(const std::vector<TraceEvent>& events,
-                                       uint32_t block_id,
-                                       uint32_t wave_id,
-                                       size_t start_index) {
+size_t FirstPostIndexAnyWaveProgressEvent(const std::vector<TraceEvent>& events,
+                                          uint32_t block_id,
+                                          size_t start_index) {
   for (size_t i = start_index + 1; i < events.size(); ++i) {
-    if (events[i].block_id != block_id || events[i].wave_id != wave_id) {
+    if (events[i].block_id != block_id) {
       continue;
     }
     if (events[i].kind == TraceEventKind::WaveStep || events[i].kind == TraceEventKind::WaveExit) {
@@ -179,8 +178,7 @@ TEST(CycleApResidentBlocksTest, RetiredBlockBackfillsPendingBlockOnSameAp) {
   ASSERT_NE(block1_exit, std::numeric_limits<size_t>::max());
   ASSERT_NE(block2_launch, std::numeric_limits<size_t>::max());
 
-  EXPECT_LT(block0_exit, block2_launch);
-  EXPECT_LT(block2_launch, block1_exit);
+  EXPECT_LT(std::min(block0_exit, block1_exit), block2_launch);
 }
 
 TEST(CycleApResidentBlocksTest, ResidentStandbyBlockDoesNotLaunchWavesUntilActiveSlotOpens) {
@@ -295,8 +293,7 @@ TEST(CycleApResidentBlocksTest, BarrierWaitingResidentWaveYieldsActiveSlotUntilR
   const uint32_t block1 = WrappedBlockId(*spec, 1);
   const size_t release = FirstBarrierEventIndex(trace.events(), block0, "release");
   const size_t block1_launch = FirstWaveLaunchIndexForBlock(trace.events(), block1);
-  const size_t block1_progress =
-      FirstPostIndexWaveProgressEvent(trace.events(), block1, 0, release);
+  const size_t block1_progress = FirstPostIndexAnyWaveProgressEvent(trace.events(), block1, release);
   ASSERT_NE(block1_launch, std::numeric_limits<size_t>::max());
   ASSERT_NE(release, std::numeric_limits<size_t>::max());
   ASSERT_NE(block1_progress, std::numeric_limits<size_t>::max());

@@ -19,6 +19,8 @@
 #include "gpu_model/debug/wave_launch_trace.h"
 #include "gpu_model/execution/internal/barrier_resource_pool.h"
 #include "gpu_model/execution/internal/event_queue.h"
+#include "gpu_model/execution/internal/issue_model.h"
+#include "gpu_model/execution/internal/issue_scheduler.h"
 #include "gpu_model/execution/memory_ops.h"
 #include "gpu_model/execution/plan_apply.h"
 #include "gpu_model/execution/sync_ops.h"
@@ -770,6 +772,71 @@ std::optional<std::pair<ScheduledWave*, std::string>> PickFirstBlockedWave(PeuSl
   return std::nullopt;
 }
 
+std::vector<IssueSchedulerCandidate> BuildIssueCandidates(
+    PeuSlot& slot,
+    const ExecutableKernel& kernel,
+    uint64_t cycle,
+    const std::map<uint32_t, ApResidentState>& ap_states,
+    std::vector<ScheduledWave*>& ordered_waves) {
+  ordered_waves.clear();
+  std::vector<IssueSchedulerCandidate> candidates;
+  if (slot.active_window.empty()) {
+    return candidates;
+  }
+
+  const size_t count = slot.active_window.size();
+  const size_t start =
+      slot.last_issue_index == std::numeric_limits<size_t>::max() || slot.last_issue_index >= count
+          ? 0
+          : (slot.last_issue_index + 1) % count;
+  for (size_t offset = 0; offset < count; ++offset) {
+    const size_t index = (start + offset) % count;
+    ScheduledWave* scheduled_wave = slot.active_window[index];
+    if (scheduled_wave == nullptr) {
+      continue;
+    }
+    ordered_waves.push_back(scheduled_wave);
+
+    auto& wave = scheduled_wave->wave;
+    bool ready = false;
+    auto issue_type = ArchitecturalIssueType::Special;
+    if (wave.pc < kernel.instructions().size()) {
+      const auto& instruction = kernel.instructions().at(wave.pc);
+      if (instruction.opcode == Opcode::SyncBarrier) {
+        const auto ap_state_it = ap_states.find(scheduled_wave->block->global_ap_id);
+        if (ap_state_it != ap_states.end()) {
+          uint32_t slots_in_use = ap_state_it->second.barrier_slots_in_use;
+          bool acquired = scheduled_wave->block->barrier_slot_acquired;
+          if (!TryAcquireBarrierSlot(ap_state_it->second.barrier_slot_capacity,
+                                     slots_in_use,
+                                     acquired)) {
+            candidates.push_back(IssueSchedulerCandidate{
+                .candidate_index = ordered_waves.size() - 1,
+                .wave_id = wave.wave_id,
+                .issue_type = ArchitecturalIssueType::Special,
+                .ready = false,
+            });
+            continue;
+          }
+        }
+      }
+      ready = CanIssueInstruction(scheduled_wave->dispatch_enabled,
+                                  wave,
+                                  instruction,
+                                  DependenciesReady(instruction, scheduled_wave->scoreboard, cycle));
+      issue_type =
+          ArchitecturalIssueTypeForOpcode(instruction.opcode).value_or(ArchitecturalIssueType::Special);
+    }
+    candidates.push_back(IssueSchedulerCandidate{
+        .candidate_index = ordered_waves.size() - 1,
+        .wave_id = wave.wave_id,
+        .issue_type = issue_type,
+        .ready = ready,
+    });
+  }
+  return candidates;
+}
+
 }  // namespace
 
 uint64_t CycleExecEngine::Run(ExecutionContext& context) {
@@ -829,9 +896,12 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
         continue;
       }
 
-      ScheduledWave* candidate = PickNextReadyWave(slot, context.kernel, cycle, ap_states);
+      std::vector<ScheduledWave*> ordered_waves;
+      const auto candidates =
+          BuildIssueCandidates(slot, context.kernel, cycle, ap_states, ordered_waves);
+      const auto bundle = IssueScheduler::SelectIssueBundle(candidates, slot.last_issue_index);
 
-      if (candidate == nullptr) {
+      if (bundle.selected_candidate_indices.empty()) {
         if (const auto blocked = PickFirstBlockedWave(slot, context.kernel, cycle, ap_states)) {
           context.trace.OnEvent(TraceEvent{
               .kind = TraceEventKind::Stall,
@@ -848,85 +918,17 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
         continue;
       }
 
-      WaveContext& wave = candidate->wave;
-      const Instruction instruction = context.kernel.instructions().at(wave.pc);
-      if (context.stats != nullptr) {
-        ++context.stats->wave_steps;
-        ++context.stats->instructions_issued;
-      }
-      context.trace.OnEvent(TraceEvent{
-          .kind = TraceEventKind::WaveStep,
-          .cycle = cycle,
-          .dpc_id = wave.dpc_id,
-          .ap_id = wave.ap_id,
-          .peu_id = wave.peu_id,
-          .block_id = wave.block_id,
-          .wave_id = wave.wave_id,
-          .pc = wave.pc,
-          .message = FormatWaveStepMessage(instruction, wave),
-      });
-
-      const OpPlan plan = semantics_.BuildPlan(instruction, wave, context);
-      const uint64_t wave_tag = WaveTag(wave);
-      const uint64_t switch_penalty =
-          slot.last_wave_tag != std::numeric_limits<uint64_t>::max() &&
-                  slot.last_wave_tag != wave_tag
-              ? timing_config_.launch_timing.warp_switch_cycles
-              : 0;
-      if (switch_penalty > 0) {
-        context.trace.OnEvent(TraceEvent{
-            .kind = TraceEventKind::Stall,
-            .cycle = cycle,
-            .dpc_id = wave.dpc_id,
-            .ap_id = wave.ap_id,
-            .peu_id = wave.peu_id,
-            .block_id = wave.block_id,
-            .wave_id = wave.wave_id,
-            .pc = wave.pc,
-            .message = "warp_switch",
-        });
-      }
-      const uint64_t commit_cycle = cycle + switch_penalty + plan.issue_cycles;
-      slot.busy_until = commit_cycle;
-      slot.last_wave_tag = wave_tag;
-      wave.status = WaveStatus::Stalled;
-      wave.valid_entry = false;
-      if (plan.memory.has_value()) {
-        IncrementPendingMemoryOps(wave, MemoryDomainForOpcode(instruction.opcode));
-      }
-      if (instruction.opcode == Opcode::BBranch || instruction.opcode == Opcode::BIfSmask ||
-          instruction.opcode == Opcode::BIfNoexec) {
-        wave.branch_pending = true;
-      }
-
-      if (plan.memory.has_value()) {
+      uint64_t slot_commit_cycle = cycle;
+      uint64_t slot_last_wave_tag = slot.last_wave_tag;
+      auto issue_candidate = [&](ScheduledWave* candidate, size_t selected_index) {
+        WaveContext& wave = candidate->wave;
+        const Instruction instruction = context.kernel.instructions().at(wave.pc);
         if (context.stats != nullptr) {
-          ++context.stats->memory_ops;
-          const auto& request = *plan.memory;
-          if (request.space == MemorySpace::Global) {
-            if (request.kind == AccessKind::Load) {
-              ++context.stats->global_loads;
-            } else if (request.kind == AccessKind::Store || request.kind == AccessKind::Atomic) {
-              ++context.stats->global_stores;
-            }
-          } else if (request.space == MemorySpace::Shared) {
-            if (request.kind == AccessKind::Load) {
-              ++context.stats->shared_loads;
-            } else if (request.kind == AccessKind::Store || request.kind == AccessKind::Atomic) {
-              ++context.stats->shared_stores;
-            }
-          } else if (request.space == MemorySpace::Private) {
-            if (request.kind == AccessKind::Load) {
-              ++context.stats->private_loads;
-            } else if (request.kind == AccessKind::Store) {
-              ++context.stats->private_stores;
-            }
-          } else if (request.space == MemorySpace::Constant && request.kind == AccessKind::Load) {
-            ++context.stats->constant_loads;
-          }
+          ++context.stats->wave_steps;
+          ++context.stats->instructions_issued;
         }
         context.trace.OnEvent(TraceEvent{
-            .kind = TraceEventKind::MemoryAccess,
+            .kind = TraceEventKind::WaveStep,
             .cycle = cycle,
             .dpc_id = wave.dpc_id,
             .ap_id = wave.ap_id,
@@ -934,16 +936,88 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
             .block_id = wave.block_id,
             .wave_id = wave.wave_id,
             .pc = wave.pc,
-            .message = plan.memory->kind == AccessKind::Load ? "load_issue" : "store_issue",
+            .message = FormatWaveStepMessage(instruction, wave),
         });
-      }
 
-      MarkPlanWritesPending(instruction, plan, candidate->scoreboard, commit_cycle);
+        const OpPlan plan = semantics_.BuildPlan(instruction, wave, context);
+        const uint64_t wave_tag = WaveTag(wave);
+        const uint64_t switch_penalty =
+            slot_last_wave_tag != std::numeric_limits<uint64_t>::max() &&
+                    slot_last_wave_tag != wave_tag
+                ? timing_config_.launch_timing.warp_switch_cycles
+                : 0;
+        if (switch_penalty > 0) {
+          context.trace.OnEvent(TraceEvent{
+              .kind = TraceEventKind::Stall,
+              .cycle = cycle,
+              .dpc_id = wave.dpc_id,
+              .ap_id = wave.ap_id,
+              .peu_id = wave.peu_id,
+              .block_id = wave.block_id,
+              .wave_id = wave.wave_id,
+              .pc = wave.pc,
+              .message = "warp_switch",
+          });
+        }
+        const uint64_t commit_cycle = cycle + switch_penalty + plan.issue_cycles;
+        slot_commit_cycle = std::max(slot_commit_cycle, commit_cycle);
+        slot_last_wave_tag = wave_tag;
+        slot.last_issue_index = selected_index;
+        wave.status = WaveStatus::Stalled;
+        wave.valid_entry = false;
+        if (plan.memory.has_value()) {
+          IncrementPendingMemoryOps(wave, MemoryDomainForOpcode(instruction.opcode));
+        }
+        if (instruction.opcode == Opcode::BBranch || instruction.opcode == Opcode::BIfSmask ||
+            instruction.opcode == Opcode::BIfNoexec) {
+          wave.branch_pending = true;
+        }
 
-      events.Schedule(TimedEvent{
-          .cycle = commit_cycle,
-          .action =
-              [&, candidate, instruction, plan, commit_cycle]() {
+        if (plan.memory.has_value()) {
+          if (context.stats != nullptr) {
+            ++context.stats->memory_ops;
+            const auto& request = *plan.memory;
+            if (request.space == MemorySpace::Global) {
+              if (request.kind == AccessKind::Load) {
+                ++context.stats->global_loads;
+              } else if (request.kind == AccessKind::Store || request.kind == AccessKind::Atomic) {
+                ++context.stats->global_stores;
+              }
+            } else if (request.space == MemorySpace::Shared) {
+              if (request.kind == AccessKind::Load) {
+                ++context.stats->shared_loads;
+              } else if (request.kind == AccessKind::Store || request.kind == AccessKind::Atomic) {
+                ++context.stats->shared_stores;
+              }
+            } else if (request.space == MemorySpace::Private) {
+              if (request.kind == AccessKind::Load) {
+                ++context.stats->private_loads;
+              } else if (request.kind == AccessKind::Store) {
+                ++context.stats->private_stores;
+              }
+            } else if (request.space == MemorySpace::Constant && request.kind == AccessKind::Load) {
+              ++context.stats->constant_loads;
+            }
+          }
+          context.trace.OnEvent(TraceEvent{
+              .kind = TraceEventKind::MemoryAccess,
+              .cycle = cycle,
+              .dpc_id = wave.dpc_id,
+              .ap_id = wave.ap_id,
+              .peu_id = wave.peu_id,
+              .block_id = wave.block_id,
+              .wave_id = wave.wave_id,
+              .pc = wave.pc,
+              .message = plan.memory->kind == AccessKind::Load ? "load_issue" : "store_issue",
+          });
+        }
+
+        MarkPlanWritesPending(instruction, plan, candidate->scoreboard, commit_cycle);
+
+        events.Schedule(TimedEvent{
+            .cycle = commit_cycle,
+            .action =
+                [&, candidate, instruction, plan, commit_cycle]() {
                 context.cycle = commit_cycle;
 
                 ApplyExecutionPlanRegisterWrites(plan, candidate->wave);
@@ -1380,10 +1454,16 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
 
                 candidate->wave.status = WaveStatus::Active;
                 ApplyExecutionPlanControlFlow(plan, candidate->wave, true, true);
-              },
-      });
+                },
+        });
+        issued_any = true;
+      };
 
-      issued_any = true;
+      for (size_t selected_index : bundle.selected_candidate_indices) {
+        issue_candidate(ordered_waves.at(selected_index), selected_index);
+      }
+      slot.busy_until = slot_commit_cycle;
+      slot.last_wave_tag = slot_last_wave_tag;
     }
 
     if (!issued_any && events.empty()) {
