@@ -43,13 +43,30 @@ IssueSchedulerResult IssueScheduler::SelectIssueBundle(
     const std::vector<IssueSchedulerCandidate>& candidates,
     size_t round_robin_start_index,
     const ArchitecturalIssueLimits& limits) {
+  auto policy = DefaultArchitecturalIssuePolicy();
+  policy.type_limits = limits;
+  policy.group_limits = {limits.branch,
+                         limits.scalar_alu_or_memory,
+                         limits.vector_alu,
+                         limits.vector_memory,
+                         limits.local_data_share,
+                         limits.global_data_share_or_export,
+                         limits.special};
+  return SelectIssueBundle(candidates, round_robin_start_index, policy);
+}
+
+IssueSchedulerResult IssueScheduler::SelectIssueBundle(
+    const std::vector<IssueSchedulerCandidate>& candidates,
+    size_t round_robin_start_index,
+    const ArchitecturalIssuePolicy& policy) {
   IssueSchedulerResult result;
   if (candidates.empty()) {
     return result;
   }
 
-  const auto remaining_limits = LimitsToArray(limits);
+  const auto remaining_limits = LimitsToArray(policy.type_limits);
   std::array<uint32_t, 7> used_per_type{};
+  std::array<uint32_t, 7> used_per_group{};
   std::set<uint32_t> used_waves;
 
   const size_t count = candidates.size();
@@ -65,13 +82,18 @@ IssueSchedulerResult IssueScheduler::SelectIssueBundle(
     }
 
     const size_t type_index = IssueTypeIndex(candidate.issue_type);
+    const size_t group_index = policy.type_to_group[type_index];
     if (used_per_type[type_index] >= remaining_limits[type_index]) {
+      continue;
+    }
+    if (used_per_group[group_index] >= policy.group_limits[group_index]) {
       continue;
     }
 
     result.selected_candidate_indices.push_back(candidate.candidate_index);
     used_waves.insert(candidate.wave_id);
     ++used_per_type[type_index];
+    ++used_per_group[group_index];
   }
 
   if (!result.selected_candidate_indices.empty()) {

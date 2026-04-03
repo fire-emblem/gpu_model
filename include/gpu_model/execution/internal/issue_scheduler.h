@@ -26,6 +26,10 @@ class IssueScheduler {
       const std::vector<IssueSchedulerCandidate>& candidates,
       size_t round_robin_start_index,
       const ArchitecturalIssueLimits& limits = DefaultArchitecturalIssueLimits());
+  static IssueSchedulerResult SelectIssueBundle(
+      const std::vector<IssueSchedulerCandidate>& candidates,
+      size_t round_robin_start_index,
+      const ArchitecturalIssuePolicy& policy);
 };
 
 }  // namespace gpu_model

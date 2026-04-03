@@ -32,4 +32,19 @@ ArchitecturalIssueLimits DefaultArchitecturalIssueLimits() {
   return ArchitecturalIssueLimits{};
 }
 
+ArchitecturalIssuePolicy DefaultArchitecturalIssuePolicy() {
+  const auto limits = DefaultArchitecturalIssueLimits();
+  return ArchitecturalIssuePolicy{
+      .type_limits = limits,
+      .group_limits = {limits.branch,
+                       limits.scalar_alu_or_memory,
+                       limits.vector_alu,
+                       limits.vector_memory,
+                       limits.local_data_share,
+                       limits.global_data_share_or_export,
+                       limits.special},
+      .type_to_group = {0, 1, 2, 3, 4, 5, 6},
+  };
+}
+
 }  // namespace gpu_model

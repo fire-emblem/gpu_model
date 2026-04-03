@@ -141,5 +141,27 @@ TEST(IssueSchedulerTest, KeepsSpecialPipeIndependentFromBranchPipe) {
   ASSERT_EQ(result.selected_candidate_indices.size(), 2u);
 }
 
+TEST(IssueSchedulerTest, SharedIssueGroupCanMakeTwoTypesConflict) {
+  const std::vector<IssueSchedulerCandidate> candidates{
+      {.candidate_index = 0,
+       .wave_id = 0,
+       .issue_type = ArchitecturalIssueType::Branch,
+       .ready = true},
+      {.candidate_index = 1,
+       .wave_id = 1,
+       .issue_type = ArchitecturalIssueType::Special,
+       .ready = true},
+  };
+
+  auto policy = DefaultArchitecturalIssuePolicy();
+  policy.type_to_group[0] = 0;  // Branch
+  policy.type_to_group[6] = 0;  // Special
+  policy.group_limits[0] = 1;
+
+  const auto result = IssueScheduler::SelectIssueBundle(candidates, 0, policy);
+  ASSERT_EQ(result.selected_candidate_indices.size(), 1u);
+  EXPECT_EQ(result.selected_candidate_indices[0], 0u);
+}
+
 }  // namespace
 }  // namespace gpu_model

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <optional>
+#include <array>
 #include <string_view>
 
 #include "gpu_model/isa/opcode.h"
@@ -27,8 +28,15 @@ struct ArchitecturalIssueLimits {
   uint32_t special = 1;
 };
 
+struct ArchitecturalIssuePolicy {
+  ArchitecturalIssueLimits type_limits{};
+  std::array<uint32_t, 7> group_limits{};
+  std::array<uint8_t, 7> type_to_group{};
+};
+
 std::optional<ArchitecturalIssueType> ArchitecturalIssueTypeForOpcode(Opcode opcode);
 std::string_view ToString(ArchitecturalIssueType type);
 ArchitecturalIssueLimits DefaultArchitecturalIssueLimits();
+ArchitecturalIssuePolicy DefaultArchitecturalIssuePolicy();
 
 }  // namespace gpu_model
