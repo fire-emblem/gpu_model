@@ -75,6 +75,15 @@ size_t FindFirst(std::string_view text, std::string_view needle) {
   return text.find(needle);
 }
 
+bool HasJsonField(std::string_view text, std::string_view needle) {
+  return text.find(needle) != std::string_view::npos;
+}
+
+bool HasEventArg(std::string_view text, std::string_view key) {
+  return text.find(std::string("\"") + std::string(key) + "\"") !=
+         std::string::npos;
+}
+
 [[maybe_unused]] bool HasStallReason(const std::vector<TraceEvent>& events, std::string_view reason) {
   const std::string needle = std::string("reason=") + std::string(reason);
   for (const auto& event : events) {
@@ -374,6 +383,8 @@ TEST(TraceTest, PerfettoDumpContainsTraceEventsAndRequiredFields) {
   EXPECT_NE(trace_events.find("\"name\""), std::string::npos);
   EXPECT_NE(trace_events.find("\"ph\":"), std::string::npos);
   EXPECT_NE(trace_events.find("\"ts\":"), std::string::npos);
+  EXPECT_TRUE(HasJsonField(trace_events, "\"args\""));
+  EXPECT_TRUE(HasEventArg(trace_events, "name"));
 }
 
 TEST(TraceTest, PerfettoDumpForMultiThreadedWaitKernelShowsWaitingAndResumeOrdering) {
@@ -434,6 +445,10 @@ TEST(TraceTest, TraceArtifactRecorderWritesTraceAndPerfettoFiles) {
     trace.OnEvent(TraceEvent{
         .kind = TraceEventKind::WaveLaunch,
         .cycle = 0,
+        .dpc_id = 0,
+        .ap_id = 0,
+        .peu_id = 0,
+        .slot_id = 2,
         .block_id = 0,
         .wave_id = 0,
         .message = "lanes=0x40 exec=0xffffffffffffffff",
@@ -491,6 +506,8 @@ TEST(TraceTest, TraceArtifactRecorderWritesTraceAndPerfettoFiles) {
   EXPECT_NE(text_buffer.str().find("reason=waitcnt_global"), std::string::npos);
   EXPECT_NE(json_buffer.str().find("\"kind\":\"Launch\""), std::string::npos);
   EXPECT_NE(json_buffer.str().find("\"message\":\"reason=waitcnt_global\""), std::string::npos);
+  EXPECT_NE(text_buffer.str().find("slot=0x2"), std::string::npos);
+  EXPECT_NE(json_buffer.str().find("\"slot_id\":\"0x2\""), std::string::npos);
   EXPECT_NE(timeline_buffer.str().find("\"traceEvents\""), std::string::npos);
   EXPECT_NE(timeline_buffer.str().find("\"name\":\"stall_waitcnt_global\""), std::string::npos);
 
