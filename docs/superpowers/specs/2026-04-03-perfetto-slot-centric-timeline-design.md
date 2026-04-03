@@ -1,4 +1,4 @@
-# Perfetto Slot-Centric Cycle Timeline Design
+# Perfetto Slot-Centric Timeline Design
 
 ## 背景
 
@@ -9,6 +9,14 @@
 - `timeline.perfetto.json` 导出
 - `TraceEventKind::{WaveLaunch, WaveStep, Stall, Arrive, Commit, WaveExit, Barrier}`
 - 一批覆盖 cycle trace 的运行时与回归测试
+
+当前直接暴露问题最多的是 `cycle dump`，因为它已经有相对丰富的 issue / stall / arrive / commit 事件。
+
+但用户这里补充了一个更高优先级的约束：
+
+> 本文的层级、slot 视图、bubble 语义和 marker 语义，不是只给 `cycle dump`，而是面向所有 `st / mt / cycle dump` 的统一观察面。
+
+因此这份设计虽然会以当前最成熟的 `cycle` 路径为切入点来讨论具体问题，但目标 schema 和视觉语义必须从一开始就按三类 dump 统一设计。
 
 但当前时间线仍然存在一个关键错位：
 
@@ -22,7 +30,7 @@
 4. 理论上的大规模并发槽位不会被结构化展开，导致 Perfetto 上看不出真实层级
 5. wave 被切换走、slot 释放、后续新 wave 占用，当前都缺少明确的生命周期表示
 
-因此，这一轮的重点不是继续扩 stall taxonomy，而是把 Perfetto 观察面从 wave-centric 改成 slot-centric。
+因此，这一轮的重点不是继续扩 stall taxonomy，而是把 Perfetto 观察面从 wave-centric 改成 slot-centric，并把这套观察面定义成 `st / mt / cycle dump` 的共同目标。
 
 ## 用户目标
 
@@ -36,6 +44,7 @@
 6. `arrive` 需要有明确的成功到达标志
 7. wave 如果被切换走，也需要在时间线上可见
 8. 层级标签使用分层数字标识，避免冗长字符串影响阅读
+9. 上述要求适用于所有 `st / mt / cycle dump`，不能只在 `cycle dump` 中成立
 
 用户已明确选择：
 
@@ -49,11 +58,17 @@
 - 直接做完整硬件校准
 - 一次性补齐所有 runtime / loader / ISA 范围扩展
 - 一次性支持所有可能的 trace event family
-- 把 functional / encoded / cycle 三条路径统一成一个总 schema
 - 在第一批就把所有内部调度状态完整 dump 到 Perfetto
 - 强行把所有理论槽位都默认展开到屏幕可见
 
-本轮只做“可准确观测”的 slot 级时间线基础设施，优先 Perfetto 可读性与可断言性。
+本轮不把“统一观察面”本身作为非目标。相反，统一观察面是目标的一部分。
+
+本轮真正的非目标是：
+
+- 不要求 `st / mt / cycle dump` 三条路径在第一批同时达到完全同等的信息密度
+- 不要求第一批就把三条路径背后的内部执行模型完全统一
+
+本轮只做“可准确观测”的 slot 级时间线基础设施，优先定义统一 schema 与视觉语义，再按实现成熟度分批落地到各 dump 路径。
 
 ## 当前设计为什么看不到你要的现象
 
@@ -72,6 +87,12 @@ WaveKey = { dpc_id, ap_id, peu_id, block_id, wave_id }
 - 只有出现过事件的 wave 才能得到一条轨
 
 结果就是空槽永远不会被渲染出来。
+
+这段分析直接来自当前 `cycle dump` 实现，但它揭示的是一个更一般的问题：
+
+- 只要任一路径继续按 wave 建轨，它就无法满足统一观察面的 slot 级需求
+
+所以该设计结论应同时约束 `st / mt / cycle dump` 的后续导出实现。
 
 ### 2. Perfetto 格式不是主因
 
@@ -142,11 +163,13 @@ WaveKey = { dpc_id, ap_id, peu_id, block_id, wave_id }
 
 采用方案 B。
 
-第一批只把默认视图切到 slot-centric；wave-centric 视图是否保留，留到后续批次决定。
+第一批优先把默认视图切到 slot-centric；wave-centric 视图是否保留，留到后续批次决定。
+
+在实施顺序上，可以先由 `cycle dump` 完成首个落地，再把同一套 track identity、marker naming 和 bubble 语义推广到 `st / mt dump`。
 
 ## 目标层级
 
-Perfetto 默认层级改成：
+`st / mt / cycle dump` 的 Perfetto 默认层级统一改成：
 
 ```text
 Device
@@ -252,7 +275,16 @@ dpc=0 ap=4 peu=1 slot=3
 
 ## 事件模型要求
 
-为了支撑 slot 视图，现有 `TraceEvent` 至少需要补足“slot 身份”和“occupancy 生命周期”。
+为了支撑 slot 视图，trace 事件模型至少需要补足“slot 身份”和“occupancy 生命周期”。
+
+对于 `cycle dump`，这通常意味着扩展现有 `TraceEvent`。
+
+对于 `st / mt dump`，如果它们当前不是直接复用 `TraceEvent`，也必须导出语义等价的信息，至少保证：
+
+- 相同的 slot 坐标字段
+- 相同的 occupant 标识字段
+- 相同的 marker 名称
+- 相同的 bubble 语义
 
 ### 必要新增字段
 
@@ -403,6 +435,7 @@ marker 使用 instant event，要求：
 4. instruction slice 携带 `slot` 和 `wave` args
 5. `arrive`、`wave_start`、`wave_end`、`switch_out`、`switch_in` 能稳定搜到
 6. 没有把 bubble 伪装成新的指令 slice
+7. `st / mt / cycle dump` 至少在 schema 层面共享同一组 track identity 和 marker naming
 
 对于 ASCII renderer，可以允许先保持简化，但也需要至少能反映 slot 行标签与空白区间。
 
@@ -410,10 +443,11 @@ marker 使用 instant event，要求：
 
 为了降低第一批风险，建议按如下顺序落地：
 
-1. 先补 `slot_id` 与必要事件元数据
-2. 再把 Perfetto renderer 的 track identity 改为 slot
-3. 再补 marker 命名与 args
-4. 最后补强 example 和 focused regression
+1. 先定义 `st / mt / cycle dump` 共用的 slot-centric schema 与命名约定
+2. 优先在 `cycle dump` 中补 `slot_id` 与必要事件元数据
+3. 再把 Perfetto renderer 的 track identity 改为 slot
+4. 再补 marker 命名与 args
+5. 最后把同一 schema 推广到 `st / mt dump`，并补强 example 和 focused regression
 
 如果过程中发现当前 cycle engine 还没有稳定的 slot / switch 生命周期可供消费，那么第一批至少也要先做到：
 
@@ -459,7 +493,7 @@ marker 使用 instant event，要求：
 
 当以下条件全部满足时，本轮设计视为达标：
 
-1. Perfetto 默认层级为 `Device -> DPC -> AP -> PEU -> Slot`
+1. `st / mt / cycle dump` 的默认 Perfetto 层级定义统一为 `Device -> DPC -> AP -> PEU -> Slot`
 2. 最细轨道 identity 为 `(dpc, ap, peu, slot)`，不再是 `(block, wave)`
 3. bubble 在 slot 时间轴上表现为空白区间，而不是伪造 duration
 4. 同一 slot 可以连续看到不同 wave 的占用历史
@@ -467,6 +501,7 @@ marker 使用 instant event，要求：
 6. 若当前 engine 已具备相关信号，还应看到 `switch_out` / `switch_in`
 7. 新 example 在 Perfetto 上能肉眼看出明显空泡
 8. focused tests 能程序化断言 slot 级结构与关键 marker
+9. 三类 dump 至少在 schema、命名和层级语义上保持一致，即使第一批实现成熟度不同
 
 ## 结论
 
@@ -474,6 +509,7 @@ marker 使用 instant event，要求：
 
 因此下一步实现应围绕以下主线展开：
 
+- 为 `st / mt / cycle dump` 定义统一的观察面
 - 引入 slot identity
 - 让 slot 成为最细轨道
 - 让 wave 退化为 occupant 元数据
