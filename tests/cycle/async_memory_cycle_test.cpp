@@ -116,6 +116,9 @@ TEST(AsyncMemoryCycleTest, LoadUsesIssuePlusArriveLatency) {
 TEST(AsyncMemoryCycleTest, ResidentSlotsIssueIndependentlyWithinSamePeu) {
   CollectingTraceSink trace;
   RuntimeEngine runtime(&trace);
+  ArchitecturalIssueLimits widened_limits = DefaultArchitecturalIssueLimits();
+  widened_limits.scalar_alu_or_memory = 2;
+  runtime.SetCycleIssueLimits(widened_limits);
 
   InstructionBuilder builder;
   builder.SMov("s0", 1);
@@ -136,6 +139,32 @@ TEST(AsyncMemoryCycleTest, ResidentSlotsIssueIndependentlyWithinSamePeu) {
   EXPECT_GE(cycle0_slots.size(), 2u);
   EXPECT_EQ(cycle0_slots.count(0u), 1u);
   EXPECT_EQ(cycle0_slots.count(1u), 1u);
+}
+
+TEST(AsyncMemoryCycleTest, ResidentSlotsStillHonorIssueLimitsPerPeu) {
+  CollectingTraceSink trace;
+  RuntimeEngine runtime(&trace);
+
+  ArchitecturalIssueLimits scalar_limited = DefaultArchitecturalIssueLimits();
+  scalar_limited.scalar_alu_or_memory = 2;
+  runtime.SetCycleIssueLimits(scalar_limited);
+
+  InstructionBuilder builder;
+  builder.SMov("s0", 1);
+  builder.BExit();
+  const auto kernel = builder.Build("resident_slot_issue_limited");
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 320;
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  const auto cycle0_slots = WaveStepSlotIdsForCycleAndPeu(trace.events(), "s_mov_b32", 0, 0);
+  EXPECT_EQ(cycle0_slots.size(), 2u);
 }
 
 TEST(AsyncMemoryCycleTest, ResidentSlotDoesNotIssueBeforeDelayedWaveLaunch) {
