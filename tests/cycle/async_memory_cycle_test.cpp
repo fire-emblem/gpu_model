@@ -68,6 +68,23 @@ std::set<uint32_t> WaveStepSlotIdsForCycleAndPeu(const std::vector<TraceEvent>& 
   return slot_ids;
 }
 
+uint64_t FirstCycleForSlotEvent(const std::vector<TraceEvent>& events,
+                                TraceEventKind kind,
+                                uint32_t slot_id,
+                                std::string_view message = {}) {
+  for (const auto& event : events) {
+    if (event.kind != kind || event.slot_id != slot_id) {
+      continue;
+    }
+    if (!message.empty() &&
+        event.message.find(std::string(message)) == std::string::npos) {
+      continue;
+    }
+    return event.cycle;
+  }
+  return std::numeric_limits<uint64_t>::max();
+}
+
 TEST(AsyncMemoryCycleTest, LoadUsesIssuePlusArriveLatency) {
   CollectingTraceSink trace;
   RuntimeEngine runtime(&trace);
@@ -119,6 +136,41 @@ TEST(AsyncMemoryCycleTest, ResidentSlotsIssueIndependentlyWithinSamePeu) {
   EXPECT_GE(cycle0_slots.size(), 2u);
   EXPECT_EQ(cycle0_slots.count(0u), 1u);
   EXPECT_EQ(cycle0_slots.count(1u), 1u);
+}
+
+TEST(AsyncMemoryCycleTest, ResidentSlotDoesNotIssueBeforeDelayedWaveLaunch) {
+  CollectingTraceSink trace;
+  RuntimeEngine runtime(&trace);
+  runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
+                                 /*kernel_launch_cycles=*/0,
+                                 /*block_launch_cycles=*/0,
+                                 /*wave_launch_cycles=*/4,
+                                 /*warp_switch_cycles=*/1,
+                                 /*arg_load_cycles=*/4);
+
+  InstructionBuilder builder;
+  builder.SMov("s0", 1);
+  builder.BExit();
+  const auto kernel = builder.Build("resident_slot_delayed_launch_gate");
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 320;
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  const uint64_t slot1_launch_cycle =
+      FirstCycleForSlotEvent(trace.events(), TraceEventKind::WaveLaunch, 1u, "wave_start");
+  const uint64_t slot1_step_cycle =
+      FirstCycleForSlotEvent(trace.events(), TraceEventKind::WaveStep, 1u, "s_mov_b32");
+
+  ASSERT_NE(slot1_launch_cycle, std::numeric_limits<uint64_t>::max());
+  ASSERT_NE(slot1_step_cycle, std::numeric_limits<uint64_t>::max());
+  EXPECT_EQ(slot1_launch_cycle, 4u);
+  EXPECT_GE(slot1_step_cycle, slot1_launch_cycle);
 }
 
 TEST(AsyncMemoryCycleTest, LoadAllowsIndependentScalarIssueBeforeArrive) {

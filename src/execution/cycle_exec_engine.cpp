@@ -44,6 +44,7 @@ struct ScheduledWave {
   WaveContext wave;
   Scoreboard scoreboard;
   uint64_t launch_cycle = 0;
+  bool launch_completed = false;
   bool dispatch_enabled = false;
   bool launch_scheduled = false;
   size_t peu_slot_index = std::numeric_limits<size_t>::max();
@@ -488,9 +489,8 @@ void ScheduleWaveLaunch(ScheduledWave& scheduled_wave,
                         EventQueue& events,
                         TraceSink& trace,
                         bool immediate = false) {
-  scheduled_wave.dispatch_enabled = true;
   scheduled_wave.launch_cycle = cycle;
-  if (scheduled_wave.launch_scheduled || scheduled_wave.wave.status == WaveStatus::Active ||
+  if (scheduled_wave.launch_scheduled || scheduled_wave.launch_completed ||
       scheduled_wave.wave.status == WaveStatus::Exited) {
     return;
   }
@@ -499,6 +499,8 @@ void ScheduleWaveLaunch(ScheduledWave& scheduled_wave,
     if (wave.wave.status == WaveStatus::Exited) {
       return;
     }
+    wave.launch_completed = true;
+    wave.dispatch_enabled = true;
     wave.wave.status = WaveStatus::Active;
     wave.wave.valid_entry = true;
     trace.OnEvent(TraceEvent{
@@ -587,6 +589,7 @@ void RegisterResidentWave(PeuSlot& slot, ScheduledWave& scheduled_wave) {
     throw std::runtime_error("no free resident slot available for wave admission");
   }
   scheduled_wave.resident_slot_id = resident_slot_it->slot_id;
+  scheduled_wave.launch_completed = false;
   resident_slot_it->resident_wave = &scheduled_wave;
   resident_slot_it->active = false;
   scheduled_wave.dispatch_enabled = false;
@@ -669,10 +672,24 @@ void RefillActiveWindow(PeuSlot& slot,
       continue;
     }
     resident_slot.active = true;
-    const uint64_t launch_cycle =
-        cycle + static_cast<uint64_t>(launch_order) * wave_launch_cycles;
-    ScheduleWaveLaunch(
-        *resident_slot.resident_wave, launch_cycle, events, trace, immediate_launch);
+    ScheduledWave& scheduled_wave = *resident_slot.resident_wave;
+    if (scheduled_wave.launch_completed) {
+      scheduled_wave.launch_scheduled = false;
+      scheduled_wave.dispatch_enabled = true;
+      scheduled_wave.wave.valid_entry = true;
+      if (scheduled_wave.wave.status != WaveStatus::Exited &&
+          !scheduled_wave.wave.waiting_at_barrier) {
+        scheduled_wave.wave.status = WaveStatus::Active;
+      }
+    } else {
+      const uint64_t launch_cycle =
+          cycle + static_cast<uint64_t>(launch_order) * wave_launch_cycles;
+      ScheduleWaveLaunch(scheduled_wave,
+                         launch_cycle,
+                         events,
+                         trace,
+                         immediate_launch && launch_cycle == cycle);
+    }
     ++active_count;
     ++launch_order;
   }
@@ -794,14 +811,21 @@ void FillDispatchWindow(PeuSlot& slot,
   RefillActiveWindow(slot, cycle, max_issuable_waves, wave_launch_cycles, events, trace, false);
 }
 
+bool ResidentSlotReadyToIssue(const ResidentIssueSlot& resident_slot, uint64_t cycle) {
+  return resident_slot.active && resident_slot.resident_wave != nullptr &&
+         !resident_slot.resident_wave->launch_scheduled &&
+         resident_slot.resident_wave->launch_cycle <= cycle &&
+         resident_slot.resident_wave->dispatch_enabled &&
+         resident_slot.resident_wave->wave.status == WaveStatus::Active;
+}
+
 std::optional<std::pair<ScheduledWave*, std::string>> BlockedResidentWave(
     ResidentIssueSlot& resident_slot,
     const ExecutableKernel& kernel,
     uint64_t cycle,
     const std::map<uint32_t, ApResidentState>& ap_states) {
   ScheduledWave* scheduled_wave = resident_slot.resident_wave;
-  if (!resident_slot.active || scheduled_wave == nullptr || !scheduled_wave->dispatch_enabled ||
-      scheduled_wave->wave.status != WaveStatus::Active) {
+  if (!ResidentSlotReadyToIssue(resident_slot, cycle)) {
     return std::nullopt;
   }
   if (scheduled_wave->wave.pc >= kernel.instructions().size()) {
@@ -890,7 +914,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
     for (auto& slot : slots) {
       for (auto& resident_slot : slot.resident_slots) {
         if (!resident_slot.active || resident_slot.resident_wave == nullptr ||
-            resident_slot.busy_until > cycle) {
+            resident_slot.busy_until > cycle || !ResidentSlotReadyToIssue(resident_slot, cycle)) {
           continue;
         }
 
