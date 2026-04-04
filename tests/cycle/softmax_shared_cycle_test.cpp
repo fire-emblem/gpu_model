@@ -101,8 +101,17 @@ bool ContainsTraceEvent(const std::vector<TraceEvent>& events,
                         TraceEventKind kind,
                         std::string_view needle) {
   for (const auto& event : events) {
-    if (event.kind == kind &&
-        event.message.find(std::string(needle)) != std::string::npos) {
+    if (event.kind != kind) {
+      continue;
+    }
+    if (kind == TraceEventKind::Barrier) {
+      if ((needle == "arrive" && event.barrier_kind == TraceBarrierKind::Arrive) ||
+          (needle == "release" && event.barrier_kind == TraceBarrierKind::Release)) {
+        return true;
+      }
+      continue;
+    }
+    if (event.message.find(std::string(needle)) != std::string::npos) {
       return true;
     }
   }
