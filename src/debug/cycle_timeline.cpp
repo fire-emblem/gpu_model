@@ -3,6 +3,7 @@
 #include "gpu_model/debug/trace_event_builder.h"
 #include "gpu_model/debug/trace_json_fields.h"
 #include "gpu_model/debug/trace_event_view.h"
+#include "cycle_timeline_internal.h"
 #include "trace_perfetto_proto.h"
 
 #include <algorithm>
@@ -35,33 +36,6 @@ struct WaveKey {
   bool operator<(const WaveKey& other) const {
     return std::tie(dpc_id, ap_id, peu_id, block_id, wave_id) <
            std::tie(other.dpc_id, other.ap_id, other.peu_id, other.block_id, other.wave_id);
-  }
-};
-
-struct SlotKey {
-  uint32_t dpc_id = 0;
-  uint32_t ap_id = 0;
-  uint32_t peu_id = 0;
-  uint32_t slot_id = 0;
-
-  bool operator<(const SlotKey& other) const {
-    return std::tie(dpc_id, ap_id, peu_id, slot_id) <
-           std::tie(other.dpc_id, other.ap_id, other.peu_id, other.slot_id);
-  }
-};
-
-struct RowDescriptor {
-  uint32_t pid = 0;
-  uint32_t tid = 0;
-  int32_t process_sort_index = 0;
-  int32_t thread_sort_index = 0;
-  std::string process_name;
-  std::string thread_name;
-
-  bool operator<(const RowDescriptor& other) const {
-    return std::tie(process_sort_index, pid, thread_sort_index, tid, process_name, thread_name) <
-           std::tie(other.process_sort_index, other.pid, other.thread_sort_index, other.tid,
-                    other.process_name, other.thread_name);
   }
 };
 
@@ -138,42 +112,6 @@ std::string StallLabel(const Marker& marker) {
     return std::string(TraceStallReasonName(marker.stall_reason));
   }
   return StallLabel(marker.message);
-}
-
-std::string SlotLabel(const SlotKey& key) {
-  return "S" + std::to_string(key.slot_id);
-}
-
-std::string PeuLabel(const SlotKey& key) {
-  return "P" + std::to_string(key.peu_id);
-}
-
-std::string ApLabel(const SlotKey& key) {
-  return "A" + std::to_string(key.ap_id);
-}
-
-std::string DpcLabel(const SlotKey& key) {
-  return "D" + std::to_string(key.dpc_id);
-}
-
-std::string ProcessName(const SlotKey& key, CycleTimelineGroupBy group_by) {
-  switch (group_by) {
-    case CycleTimelineGroupBy::Wave:
-      return DpcLabel(key) + "/" + ApLabel(key) + "/" + PeuLabel(key);
-    case CycleTimelineGroupBy::Block:
-      return "Blocks";
-    case CycleTimelineGroupBy::Peu:
-      return DpcLabel(key) + "/" + ApLabel(key);
-    case CycleTimelineGroupBy::Ap:
-      return DpcLabel(key);
-    case CycleTimelineGroupBy::Dpc:
-      return "Device";
-  }
-  return "Device";
-}
-
-std::string BlockLabel(uint32_t block_id) {
-  return "B" + std::to_string(block_id);
 }
 
 std::string RuntimeLabel() {
@@ -397,103 +335,6 @@ uint64_t SlotTrackUuid(const SlotKey& key) {
   const std::string path = DpcLabel(key) + "/" + ApLabel(key) + "/" + PeuLabel(key) + "/" +
                            SlotLabel(key);
   return MakeTrackUuid("track", path);
-}
-
-std::string ThreadLabel(const SlotKey& key,
-                        CycleTimelineGroupBy group_by,
-                        std::optional<uint32_t> block_id = std::nullopt) {
-  switch (group_by) {
-    case CycleTimelineGroupBy::Wave:
-      return SlotLabel(key);
-    case CycleTimelineGroupBy::Block:
-      return BlockLabel(block_id.value_or(0));
-    case CycleTimelineGroupBy::Peu:
-      return PeuLabel(key);
-    case CycleTimelineGroupBy::Ap:
-      return ApLabel(key);
-    case CycleTimelineGroupBy::Dpc:
-      return DpcLabel(key);
-  }
-  return SlotLabel(key);
-}
-
-uint32_t TracePid(const SlotKey& key, CycleTimelineGroupBy group_by) {
-  switch (group_by) {
-    case CycleTimelineGroupBy::Wave:
-      return 1u + (key.dpc_id << 12) + (key.ap_id << 4) + key.peu_id;
-    case CycleTimelineGroupBy::Block:
-      return 1u;
-    case CycleTimelineGroupBy::Peu:
-      return 1u + (key.dpc_id << 8) + key.ap_id;
-    case CycleTimelineGroupBy::Ap:
-      return 1u + key.dpc_id;
-    case CycleTimelineGroupBy::Dpc:
-      return 1u;
-  }
-  return 1u;
-}
-
-uint32_t TraceTid(const SlotKey& key,
-                  CycleTimelineGroupBy group_by,
-                  std::optional<uint32_t> block_id = std::nullopt) {
-  switch (group_by) {
-    case CycleTimelineGroupBy::Wave:
-      return key.slot_id;
-    case CycleTimelineGroupBy::Block:
-      return block_id.value_or(0);
-    case CycleTimelineGroupBy::Peu:
-      return key.peu_id;
-    case CycleTimelineGroupBy::Ap:
-      return key.ap_id;
-    case CycleTimelineGroupBy::Dpc:
-      return key.dpc_id;
-  }
-  return key.slot_id;
-}
-
-int32_t ProcessSortIndex(const SlotKey& key, CycleTimelineGroupBy group_by) {
-  switch (group_by) {
-    case CycleTimelineGroupBy::Wave:
-      return static_cast<int32_t>((key.dpc_id << 8) + (key.ap_id << 4) + key.peu_id);
-    case CycleTimelineGroupBy::Block:
-      return 0;
-    case CycleTimelineGroupBy::Peu:
-      return static_cast<int32_t>((key.dpc_id << 8) + key.ap_id);
-    case CycleTimelineGroupBy::Ap:
-      return static_cast<int32_t>(key.dpc_id);
-    case CycleTimelineGroupBy::Dpc:
-      return 0;
-  }
-  return 0;
-}
-
-int32_t ThreadSortIndex(const SlotKey& key,
-                        CycleTimelineGroupBy group_by,
-                        std::optional<uint32_t> block_id = std::nullopt) {
-  switch (group_by) {
-    case CycleTimelineGroupBy::Wave:
-      return static_cast<int32_t>(key.slot_id);
-    case CycleTimelineGroupBy::Block:
-      return static_cast<int32_t>(block_id.value_or(0));
-    case CycleTimelineGroupBy::Peu:
-      return static_cast<int32_t>(key.peu_id);
-    case CycleTimelineGroupBy::Ap:
-      return static_cast<int32_t>(key.ap_id);
-    case CycleTimelineGroupBy::Dpc:
-      return static_cast<int32_t>(key.dpc_id);
-  }
-  return 0;
-}
-
-RowDescriptor DescribeRow(const SlotKey& key,
-                          CycleTimelineGroupBy group_by,
-                          std::optional<uint32_t> block_id = std::nullopt) {
-  return RowDescriptor{.pid = TracePid(key, group_by),
-                       .tid = TraceTid(key, group_by, block_id),
-                       .process_sort_index = ProcessSortIndex(key, group_by),
-                       .thread_sort_index = ThreadSortIndex(key, group_by, block_id),
-                       .process_name = ProcessName(key, group_by),
-                       .thread_name = ThreadLabel(key, group_by, block_id)};
 }
 
 std::string MarkerName(const Marker& marker) {
