@@ -1241,12 +1241,8 @@ class FunctionalExecutionCoreImpl {
     const bool released_barrier = ReleaseBlockBarrierIfReady(block);
     progressed = released_barrier || progressed;
     if (released_barrier) {
-      TraceEventLocked(MakeTraceBlockEvent(block.dpc_id,
-                                           block.ap_id,
-                                           block.block_id,
-                                           TraceEventKind::Barrier,
-                                           NextTraceCycle(),
-                                           std::string(kTraceBarrierReleaseMessage)));
+      TraceEventLocked(
+          MakeTraceBarrierReleaseEvent(block.dpc_id, block.ap_id, block.block_id, NextTraceCycle()));
       EmitWaveStatsSnapshot();
     }
     EmitWaitingWaveStalls(block);
