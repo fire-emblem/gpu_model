@@ -124,6 +124,8 @@ TEST(AsyncMemoryCycleTest, LoadUsesIssuePlusArriveLatency) {
   builder.SMov("s0", base_addr);
   builder.SMov("s1", 0);
   builder.MLoadGlobal("v1", "s0", "s1", 4);
+  builder.SWaitCnt(/*global_count=*/0, /*shared_count=*/UINT32_MAX,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
   builder.VAdd("v2", "v1", "v1");
   builder.BExit();
   const auto kernel = builder.Build("one_load");
@@ -514,6 +516,8 @@ TEST(AsyncMemoryCycleTest, BufferLoadUsesImmediateOffset) {
   builder.SMov("s0", base_addr);
   builder.SMov("s1", 0);
   builder.MLoadGlobal("v1", "s0", "s1", 4, 4);
+  builder.SWaitCnt(/*global_count=*/0, /*shared_count=*/UINT32_MAX,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
   builder.VAdd("v2", "v1", "v1");
   builder.BExit();
   const auto kernel = builder.Build("buffer_offset_load");

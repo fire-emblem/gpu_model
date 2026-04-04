@@ -36,6 +36,8 @@ ExecutableKernel BuildBitwiseBucketKernel() {
   builder.MaskAndExecCmask();
   builder.BIfNoexec("exit");
   builder.MLoadGlobal("v1", "s0", "v0", 4);
+  builder.SWaitCnt(/*global_count=*/0, /*shared_count=*/UINT32_MAX,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
   builder.VAnd("v2", "v1", "v0");
   builder.VShl("v3", "v2", "v0");
   builder.VXor("v4", "v3", "v1");

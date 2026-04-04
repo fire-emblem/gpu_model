@@ -25,6 +25,8 @@ ExecutableKernel BuildSaxpyKernel() {
   builder.BIfNoexec("exit");
   builder.MLoadGlobal("v1", "s0", "v0", 4);
   builder.MLoadGlobal("v2", "s1", "v0", 4);
+  builder.SWaitCnt(/*global_count=*/0, /*shared_count=*/UINT32_MAX,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
   builder.VFma("v3", "v1", "s2", "v2");
   builder.MStoreGlobal("s3", "v0", "v3", 4);
   builder.Label("exit");
@@ -45,7 +47,11 @@ ExecutableKernel BuildGatherKernel() {
   builder.MaskAndExecCmask();
   builder.BIfNoexec("exit");
   builder.MLoadGlobal("v1", "s1", "v0", 4);
+  builder.SWaitCnt(/*global_count=*/0, /*shared_count=*/UINT32_MAX,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
   builder.MLoadGlobal("v2", "s0", "v1", 4);
+  builder.SWaitCnt(/*global_count=*/0, /*shared_count=*/UINT32_MAX,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
   builder.MStoreGlobal("s2", "v0", "v2", 4);
   builder.Label("exit");
   builder.MaskRestoreExec("s10");
@@ -70,6 +76,8 @@ ExecutableKernel BuildBlockReductionKernel() {
   builder.MaskAndExecCmask();
   builder.BIfNoexec("after_load");
   builder.MLoadGlobal("v2", "s0", "v1", 4);
+  builder.SWaitCnt(/*global_count=*/0, /*shared_count=*/UINT32_MAX,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
   builder.Label("after_load");
   builder.MaskRestoreExec("s10");
 
@@ -90,6 +98,8 @@ ExecutableKernel BuildBlockReductionKernel() {
   builder.VAdd("v3", "v0", "s5");
   builder.MLoadShared("v4", "v0", 4);
   builder.MLoadShared("v5", "v3", 4);
+  builder.SWaitCnt(/*global_count=*/UINT32_MAX, /*shared_count=*/0,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
   builder.VAdd("v6", "v4", "v5");
   builder.MStoreShared("v0", "v6", 4);
   builder.Label("after_reduce_step");
@@ -105,6 +115,8 @@ ExecutableKernel BuildBlockReductionKernel() {
   builder.BIfNoexec("exit");
   builder.VMov("v7", "s3");
   builder.MLoadShared("v8", "v0", 4);
+  builder.SWaitCnt(/*global_count=*/UINT32_MAX, /*shared_count=*/0,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
   builder.MStoreGlobal("s1", "v7", "v8", 4);
   builder.Label("exit");
   builder.MaskRestoreExec("s12");
@@ -155,6 +167,8 @@ ExecutableKernel BuildStencil2DKernel() {
   builder.MLoadGlobal("v12", "s0", "v5", 4);
   builder.MLoadGlobal("v13", "s0", "v6", 4);
   builder.MLoadGlobal("v14", "s0", "v7", 4);
+  builder.SWaitCnt(/*global_count=*/0, /*shared_count=*/UINT32_MAX,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
   builder.VAdd("v15", "v10", "v11");
   builder.VAdd("v16", "v15", "v12");
   builder.VAdd("v17", "v16", "v13");

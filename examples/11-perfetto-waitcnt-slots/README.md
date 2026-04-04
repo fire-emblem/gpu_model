@@ -1,42 +1,61 @@
 # 11 Perfetto Waitcnt Slots
 
-这个例子专门给 Perfetto timeline 看三类现象：
+## 例子作用
+
+这个例子不是通用功能样例，而是一个**专门为了 Perfetto 可视化而构造的调试样例集**。
+
+它的目标非常明确：
+
+- 让 timeline 上出现明显空泡
+- 让多个 wave 同时可见
+- 让 `wave_launch / wave_switch_away / load_arrive / wave_exit` 都能看清
+- 区分 `cycle` 的 `resident_fixed` 和 `st/mt` 的 `logical_unbounded`
+- 优先服务于 Perfetto 观测，而不是通用 host 业务逻辑
+
+## 本例关注点
+
+这个例子包含三个子 case：
 
 - `timeline_gap`
-  用最小 waitcnt kernel 生成明显空泡。时间轴上可以看到指令切片、等待期间空白、`load_arrive` 和后续恢复。
+  最适合看 `waitcnt` 导致的明显空泡
 - `same_peu_slots`
-  用同一 `PEU` 上堆很多 wave 的 kernel 生成多个 slot 轨道。更适合看 `S0/S1/S2/...`、wave start/end、`wave_switch_away`，以及多个 wave 在逻辑槽位上的并行存在。
+  最适合看同一个 `PEU` 下多个 slot / wave 的并行存在
 - `switch_away_heavy`
-  用几乎全是 ALU 的多 wave kernel 放大调度切换现象。更适合专门看 `wave_switch_away` 的轮转节奏。
+  最适合看调度器反复切走 wave 的节奏
 
-这套展示约定现在不是只对这个例子生效，而是当前 trace/perfetto 导出的统一语义：
+同时它会生成三组模式：
+
+- `st`
+- `mt`
+- `cycle`
+
+因此总共是 9 组结果目录。
+
+## 统一语义
+
+当前 trace/perfetto 导出的统一槽位语义是：
 
 - `cycle`
-  使用 `resident_fixed`。同一个 `PEU` 下只展示真实 resident slot。
+  使用 `resident_fixed`
+  也就是同一个 `PEU` 下只展示真实 resident slot
 - `st/mt`
-  使用 `logical_unbounded`。同一个 `PEU` 下有多少 wave dispatch 到这里，就展示多少个逻辑 `S*` 轨道。
-- 这套语义同时覆盖 `InstructionBuilder` kernel 和 `encoded_program_object` kernel。
+  使用 `logical_unbounded`
+  也就是只要 wave 被 dispatch 到这个 `PEU`，就给它分配一个逻辑 `S*` 轨道
 
-当前每个目录都会同时导出两种 Perfetto 文件：
+这套语义同时覆盖：
 
-- `timeline.perfetto.pb`
-  native Perfetto trace。优先打开这个文件，可以看到真正的 `TrackDescriptor(parent_uuid)`
-  层级，也就是 `Device -> DPC -> AP -> PEU -> Slot` 的可折叠父子 track。
-- `timeline.perfetto.json`
-  Chrome JSON trace。保留它主要是为了文本检查、回归测试和快速 diff。
+- `InstructionBuilder` kernel
+- `encoded_program_object` kernel
 
-其中 `timeline.perfetto.json` 使用的是 Chrome JSON trace 格式。
-这意味着 Perfetto 原生只能折叠 `process/thread` 两级，不能直接表达 `Device -> DPC -> AP -> PEU -> Slot`
-这种多级 nested track。当前实现采用的可视化折中是：
+## 运行方式
 
-- process 名称使用扁平路径数字标签，例如 `D0/A0/P0`
-- thread 名称使用 slot 数字标签，例如 `S0`
-- metadata 里额外写出 `hierarchy_levels`、`track_layout` 和 `perfetto_format`
+```bash
+./examples/11-perfetto-waitcnt-slots/run.sh
+```
 
-所以当前设计的主要限制不是例子构造，而是 `timeline.perfetto.json` 这个导出格式本身。
-如果后续要让每一级都在 Perfetto 里单独折叠，需要新增 native Perfetto `TrackDescriptor(parent_uuid)` 导出。
+## 关键产物
 
-输出目录：
+结果目录结构：
 
 - `results/st/timeline_gap`
 - `results/st/same_peu_slots`
@@ -48,7 +67,7 @@
 - `results/cycle/same_peu_slots`
 - `results/cycle/switch_away_heavy`
 
-每个目录都会生成：
+每个 case 目录都应包含：
 
 - `stdout.txt`
 - `trace.txt`
@@ -57,34 +76,85 @@
 - `timeline.perfetto.json`
 - `launch_summary.txt`
 
-结果根目录还会额外生成：
+根目录还会额外生成：
 
 - `guide.txt`
-  直接告诉你先看哪个 case、每个 case 最适合观察什么现象。
 - `summary.txt`
-  由 `run.sh` 生成，除了运行日志，还会附带 quick-start 入口。
 
-运行：
+## 如何阅读产物
 
-```bash
-./examples/11-perfetto-waitcnt-slots/run.sh
-```
+优先顺序：
 
-建议观察：
+1. `timeline.perfetto.pb`
+   这是 native Perfetto protobuf，支持真正的层级 track
+2. `timeline.perfetto.json`
+   这是 Chrome trace JSON，主要用于文本检查、grep、diff
+3. `trace.jsonl`
+   适合看逐事件字段
+4. `trace.txt`
+   适合人肉快速浏览
 
-- 优先打开 `timeline.perfetto.pb`:
-  这是 native Perfetto 层级版，应该可以直接折叠 `Device/D0/A0/P0/S0` 这些层级。
-- 需要看文本结构或回归 diff 时再看 `timeline.perfetto.json`:
-  这个版本保留了 `slot_model`、数字路径标签和便于 grep 的 JSON 结构。
+为什么优先 `.pb`：
 
-- `timeline_gap`:
-  看 `buffer_load_dword` 后的等待空白、`stall_waitcnt_global` / `load_arrive`、以及恢复后的下一条指令。
-- `same_peu_slots`:
-  看同一个 `PEU` 的 process 路径 `D*/A*/P*` 下多个 `S*` 轨道。
-  这个 case 现在更适合作为“多逻辑槽位 + wave_switch_away”的观察入口。
-  `wave_switch_away` 表示该 wave 因调度切换被让出执行；等待空泡、`stall_waitcnt_global` 和 `load_arrive` 更适合去看 `timeline_gap`。
-  `st/mt` 会显示 `logical_unbounded` 槽位语义，`cycle` 会显示 `resident_fixed`。
-  如果你打开的是别的 trace dump，而不是这个例子，观察规则也是一样的。
-- `switch_away_heavy`:
-  优先看 `cycle/switch_away_heavy`。
-  这个 case 里 `wave_switch_away` 会比 waitcnt 事件更密集、更主导，适合单独观察多个 wave 在 slot 之间轮转推进。
+- `.pb` 能表达 `Device -> DPC -> AP -> PEU -> Slot` 的折叠层级
+- `.json` 只能近似成 `process/thread` 两级，层级要靠路径标签模拟
+
+## 预期结果
+
+运行成功后：
+
+- `summary.txt` 应出现 `perfetto_waitcnt_slots_demo ok`
+- 9 个 case 目录的 `stdout.txt` 都应包含 `ok=1`
+- 每个 case 目录的 `.pb` 都应是非空文件
+
+具体到三个子 case：
+
+`timeline_gap`
+
+- 预期看到：
+  - `buffer_load_dword`
+  - `stall_waitcnt_global`
+  - 一段没有指令切片的空白时间
+  - `load_arrive`
+  - 恢复后的下一条指令
+
+`same_peu_slots`
+
+- `cycle` 下预期看到：
+  - `resident_fixed`
+  - 多个 `PEU`
+  - 每个 `PEU` 下多个固定 `S*`
+- `st/mt` 下预期看到：
+  - `logical_unbounded`
+  - 同一个 `PEU` 下很多逻辑 `S*`
+  - `wave_switch_away`
+  - `wave_exit`
+
+`switch_away_heavy`
+
+- 预期看到：
+  - 高频 `wave_switch_away`
+  - waitcnt 事件不是主角
+  - timeline 更像调度轮转图，而不是内存等待图
+
+当前仓库已有 `summary.txt` 给出的 quick-start 顺序就是合理入口：
+
+1. `results/guide.txt`
+2. `results/cycle/timeline_gap/timeline.perfetto.pb`
+3. `results/cycle/same_peu_slots/timeline.perfetto.pb`
+4. `results/st/same_peu_slots/timeline.perfetto.pb`
+5. `results/mt/same_peu_slots/timeline.perfetto.pb`
+6. `results/cycle/switch_away_heavy/timeline.perfetto.pb`
+
+## 调试建议
+
+- 如果你关心“空泡是不是足够明显”，先看 `cycle/timeline_gap`
+- 如果你关心“st/mt 多个 wave 是否真的同时可见”，先看 `st/mt/same_peu_slots`
+- 如果你关心“调度切换是否被稳定观测到”，先看 `cycle/switch_away_heavy`
+- 如果 `.json` 看不出层级，不要怀疑 example 构造；先切回 `.pb`
+
+## 结果解读
+
+- 这个例子通过，说明当前 trace / Perfetto 观察能力基本符合预期
+- 它验证的是“能否看见空泡、slot、wave 生命周期、switch-away”，不是某个业务 kernel 的数值正确性
+- 如果这里观察不到预期现象，应优先怀疑 trace 语义、事件布局或导出格式，而不是先怀疑 Perfetto 本身

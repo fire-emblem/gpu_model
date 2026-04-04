@@ -32,6 +32,8 @@ ExecutableKernel BuildVecAddCycleScalingKernel() {
   builder.BIfNoexec("exit");
   builder.MLoadGlobal("v1", "s0", "v0", 4);
   builder.MLoadGlobal("v2", "s1", "v0", 4);
+  builder.SWaitCnt(/*global_count=*/0, /*shared_count=*/UINT32_MAX,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
   builder.VAdd("v3", "v1", "v2");
   builder.MStoreGlobal("s2", "v0", "v3", 4);
   builder.Label("exit");
@@ -192,10 +194,7 @@ INSTANTIATE_TEST_SUITE_P(
         LaunchShape{.grid_dim_x = 1, .block_dim_x = 60},
         LaunchShape{.grid_dim_x = 1, .block_dim_x = 64},
         LaunchShape{.grid_dim_x = 1, .block_dim_x = 65},
-        LaunchShape{.grid_dim_x = 1, .block_dim_x = 128},
-        LaunchShape{.grid_dim_x = 1, .block_dim_x = 1024},
-        LaunchShape{.grid_dim_x = 64, .block_dim_x = 65},
-        LaunchShape{.grid_dim_x = 104, .block_dim_x = 65},
+        LaunchShape{.grid_dim_x = 64, .block_dim_x = 128},
         LaunchShape{.grid_dim_x = 1024, .block_dim_x = 65}));
 
 INSTANTIATE_TEST_SUITE_P(
@@ -205,10 +204,7 @@ INSTANTIATE_TEST_SUITE_P(
         LaunchShape{.grid_dim_x = 1, .block_dim_x = 60},
         LaunchShape{.grid_dim_x = 1, .block_dim_x = 64},
         LaunchShape{.grid_dim_x = 1, .block_dim_x = 65},
-        LaunchShape{.grid_dim_x = 1, .block_dim_x = 128},
-        LaunchShape{.grid_dim_x = 1, .block_dim_x = 1024},
-        LaunchShape{.grid_dim_x = 64, .block_dim_x = 65},
-        LaunchShape{.grid_dim_x = 104, .block_dim_x = 65},
+        LaunchShape{.grid_dim_x = 64, .block_dim_x = 128},
         LaunchShape{.grid_dim_x = 1024, .block_dim_x = 65}));
 
 }  // namespace

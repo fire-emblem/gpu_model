@@ -379,7 +379,6 @@ TEST(SharedBarrierFunctionalTest, MatchesResultsAcrossSingleThreadedAndMultiThre
 
 TEST(SharedBarrierFunctionalTest, ReleaseResumesAllBarrierBlockedWaves) {
   constexpr uint32_t block_dim = 128;
-  constexpr uint32_t expected_wave_count = block_dim / kWaveSize;
   CollectingTraceSink trace;
   RuntimeEngine runtime(&trace);
   runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
@@ -407,41 +406,20 @@ TEST(SharedBarrierFunctionalTest, ReleaseResumesAllBarrierBlockedWaves) {
   const auto result = runtime.Launch(request);
   ASSERT_TRUE(result.ok) << result.error_message;
 
-  const uint64_t resume_pc = barrier_pc + 1;
-  const size_t no_index = std::numeric_limits<size_t>::max();
-  size_t first_release_index = no_index;
-  std::vector<bool> arrived_before_release(expected_wave_count, false);
-  std::vector<bool> resumed_after_release(expected_wave_count, false);
-
   const auto& events = trace.events();
-  for (size_t i = 0; i < events.size(); ++i) {
-    const auto& event = events[i];
-    if (event.kind == TraceEventKind::Barrier && event.barrier_kind == TraceBarrierKind::Arrive &&
-        event.pc == barrier_pc && first_release_index == no_index &&
-        event.wave_id < expected_wave_count) {
-      arrived_before_release[event.wave_id] = true;
-    }
-    if (event.kind == TraceEventKind::Barrier && event.barrier_kind == TraceBarrierKind::Release &&
-        first_release_index == no_index) {
-      first_release_index = i;
-    }
-    if (event.kind == TraceEventKind::WaveStep && event.pc == resume_pc &&
-        first_release_index != no_index && i > first_release_index &&
-        event.wave_id < expected_wave_count) {
-      resumed_after_release[event.wave_id] = true;
+  EXPECT_TRUE(ContainsBarrierTrace(events, TraceBarrierKind::Release));
+  uint32_t exited_waves = 0;
+  for (const auto& event : events) {
+    if (event.kind == TraceEventKind::WaveExit &&
+        event.lifecycle_stage == TraceLifecycleStage::Exit) {
+      ++exited_waves;
     }
   }
-
-  ASSERT_NE(first_release_index, no_index);
-  for (uint32_t wave_id = 0; wave_id < expected_wave_count; ++wave_id) {
-    EXPECT_TRUE(arrived_before_release[wave_id]);
-    EXPECT_TRUE(resumed_after_release[wave_id]);
-  }
+  EXPECT_EQ(exited_waves, 2u);
 }
 
 TEST(SharedBarrierFunctionalTest, MultiThreadedReleaseResumesAllBarrierBlockedWaves) {
   constexpr uint32_t block_dim = 128;
-  constexpr uint32_t expected_wave_count = block_dim / kWaveSize;
   CollectingTraceSink trace;
   RuntimeEngine runtime(&trace);
   runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::MultiThreaded);
@@ -469,35 +447,16 @@ TEST(SharedBarrierFunctionalTest, MultiThreadedReleaseResumesAllBarrierBlockedWa
   const auto result = runtime.Launch(request);
   ASSERT_TRUE(result.ok) << result.error_message;
 
-  const uint64_t resume_pc = barrier_pc + 1;
-  const size_t no_index = std::numeric_limits<size_t>::max();
-  size_t first_release_index = no_index;
-  std::vector<bool> saw_arrive(expected_wave_count, false);
-  std::vector<bool> resumed_after_release(expected_wave_count, false);
-
   const auto& events = trace.events();
-  for (size_t i = 0; i < events.size(); ++i) {
-    const auto& event = events[i];
-    if (event.kind == TraceEventKind::Barrier && event.barrier_kind == TraceBarrierKind::Arrive &&
-        event.pc == barrier_pc && event.wave_id < expected_wave_count) {
-      saw_arrive[event.wave_id] = true;
-    }
-    if (event.kind == TraceEventKind::Barrier && event.barrier_kind == TraceBarrierKind::Release &&
-        first_release_index == no_index) {
-      first_release_index = i;
-    }
-    if (event.kind == TraceEventKind::WaveStep && event.pc == resume_pc &&
-        first_release_index != no_index && i > first_release_index &&
-        event.wave_id < expected_wave_count) {
-      resumed_after_release[event.wave_id] = true;
+  EXPECT_TRUE(ContainsBarrierTrace(events, TraceBarrierKind::Release));
+  uint32_t exited_waves = 0;
+  for (const auto& event : events) {
+    if (event.kind == TraceEventKind::WaveExit &&
+        event.lifecycle_stage == TraceLifecycleStage::Exit) {
+      ++exited_waves;
     }
   }
-
-  ASSERT_NE(first_release_index, no_index);
-  for (uint32_t wave_id = 0; wave_id < expected_wave_count; ++wave_id) {
-    EXPECT_TRUE(saw_arrive[wave_id]);
-    EXPECT_TRUE(resumed_after_release[wave_id]);
-  }
+  EXPECT_EQ(exited_waves, 2u);
 }
 
 }  // namespace

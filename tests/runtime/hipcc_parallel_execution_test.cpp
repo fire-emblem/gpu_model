@@ -2111,5 +2111,133 @@ TEST(HipccParallelExecutionTest,
   std::filesystem::remove_all(temp_dir);
 }
 
+TEST(HipccParallelExecutionTest,
+     EncodedConditionalMultiBarrierKernelMatchesAcrossModesAt8BlocksWithFourWorkers) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir =
+      MakeUniqueTempDir("gpu_model_hipcc_parallel_conditional_multibarrier_workers4");
+  const auto src_path = temp_dir / "conditional_multibarrier.cpp";
+  const auto exe_path = temp_dir / "conditional_multibarrier.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n"
+           "extern \"C\" __global__ void conditional_multibarrier(int* out) {\n"
+           "  __shared__ int tile[128];\n"
+           "  int tid = static_cast<int>(threadIdx.x);\n"
+           "  int block = static_cast<int>(blockIdx.x);\n"
+           "  int base = block * blockDim.x;\n"
+           "  int value = base + tid;\n"
+           "  tile[tid] = value + 3;\n"
+           "  __syncthreads();\n"
+           "  if (tid < 64) tile[tid] += tile[127 - tid];\n"
+           "  else tile[tid] -= tile[127 - tid];\n"
+           "  __syncthreads();\n"
+           "  int mixed = tile[tid];\n"
+           "  if (tid < 32) mixed += 11;\n"
+           "  else if (tid < 96) mixed -= 7;\n"
+           "  else mixed += 5;\n"
+           "  if (tid < 64) mixed += tile[(tid + 17) & 127];\n"
+           "  else mixed -= tile[(tid + 23) & 127];\n"
+           "  tile[tid] = mixed;\n"
+           "  __syncthreads();\n"
+           "  out[base + tid] = tile[tid];\n"
+           "}\n"
+           "int main() { return 0; }\n";
+  }
+
+  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  constexpr uint32_t grid_dim = 8;
+  constexpr uint32_t block_dim = 128;
+  constexpr uint32_t n = grid_dim * block_dim;
+  std::vector<int32_t> expect(n);
+
+  for (uint32_t block = 0; block < grid_dim; ++block) {
+    std::vector<int32_t> tile(block_dim);
+    const uint32_t base = block * block_dim;
+    for (uint32_t tid = 0; tid < block_dim; ++tid) {
+      const int32_t value = static_cast<int32_t>(base + tid);
+      tile[tid] = value + 3;
+    }
+
+    std::vector<int32_t> stage1(block_dim);
+    for (uint32_t tid = 0; tid < block_dim; ++tid) {
+      if (tid < 64) {
+        stage1[tid] = tile[tid] + tile[127 - tid];
+      } else {
+        stage1[tid] = tile[tid] - tile[127 - tid];
+      }
+    }
+
+    std::vector<int32_t> stage2(block_dim);
+    for (uint32_t tid = 0; tid < block_dim; ++tid) {
+      int32_t mixed = stage1[tid];
+      if (tid < 32) {
+        mixed += 11;
+      } else if (tid < 96) {
+        mixed -= 7;
+      } else {
+        mixed += 5;
+      }
+      if (tid < 64) {
+        mixed += stage1[(tid + 17) & 127u];
+      } else {
+        mixed -= stage1[(tid + 23) & 127u];
+      }
+      stage2[tid] = mixed;
+    }
+
+    for (uint32_t tid = 0; tid < block_dim; ++tid) {
+      expect[base + tid] = stage2[tid];
+    }
+  }
+
+  const auto run_mode = [&](ExecutionMode mode,
+                            FunctionalExecutionMode functional_mode,
+                            uint32_t worker_threads) -> IntLaunchRunResult {
+    RuntimeEngine runtime;
+    runtime.SetFunctionalExecutionConfig(
+        FunctionalExecutionConfig{.mode = functional_mode, .worker_threads = worker_threads});
+    HipRuntime hooks(&runtime);
+
+    std::vector<int32_t> out(n, -1);
+    const uint64_t out_addr = hooks.Malloc(n * sizeof(int32_t));
+    hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(out));
+
+    KernelArgPack args;
+    args.PushU64(out_addr);
+
+    auto launch = hooks.LaunchEncodedProgramObject(
+        LoadHipccImage(exe_path, "conditional_multibarrier"),
+        LaunchConfig{.grid_dim_x = grid_dim, .block_dim_x = block_dim},
+        std::move(args),
+        mode,
+        "c500",
+        nullptr);
+    if (!launch.ok) {
+      ADD_FAILURE() << launch.error_message;
+      return {};
+    }
+    hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(out));
+    return IntLaunchRunResult{.launch = std::move(launch), .output = std::move(out)};
+  };
+
+  const auto st = run_mode(ExecutionMode::Functional, FunctionalExecutionMode::SingleThreaded, 0);
+  const auto mt = run_mode(ExecutionMode::Functional, FunctionalExecutionMode::MultiThreaded, 4);
+  const auto cycle = run_mode(ExecutionMode::Cycle, FunctionalExecutionMode::SingleThreaded, 0);
+
+  for (uint32_t i = 0; i < n; ++i) {
+    EXPECT_EQ(st.output[i], expect[i]);
+    EXPECT_EQ(mt.output[i], expect[i]);
+    EXPECT_EQ(cycle.output[i], expect[i]);
+  }
+}
+
 }  // namespace
 }  // namespace gpu_model

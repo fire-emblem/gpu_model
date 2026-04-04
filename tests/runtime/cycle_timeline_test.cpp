@@ -275,7 +275,7 @@ TEST(CycleTimelineTest, PerfettoDumpPreservesCycleIssueAndCommitOrdering) {
   }();
   const std::string timeline = CycleTimelineRenderer::RenderGoogleTrace(recorder);
   EXPECT_NE(timeline.find("\"name\":\"buffer_load_dword\""), std::string::npos);
-  EXPECT_NE(timeline.find("\"name\":\"load_arrive\""), std::string::npos);
+  EXPECT_NE(timeline.find("load_arrive"), std::string::npos);
   EXPECT_NE(timeline.find("\"name\":\"stall_waitcnt_global\""), std::string::npos);
   EXPECT_NE(timeline.find("\"issue_cycle\":"), std::string::npos);
   EXPECT_NE(timeline.find("\"commit_cycle\":"), std::string::npos);

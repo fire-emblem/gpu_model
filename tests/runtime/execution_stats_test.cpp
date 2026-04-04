@@ -34,10 +34,15 @@ ExecutableKernel BuildStatsCycleKernel() {
   builder.SLoadArg("s0", 0);
   builder.SMov("s1", 0);
   builder.MLoadGlobal("v1", "s0", "s1", 4);
+  builder.SWaitCnt(/*global_count=*/0, /*shared_count=*/UINT32_MAX,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
   builder.VAdd("v5", "v1", "v1");
   builder.MLoadGlobal("v2", "s0", "s1", 4);
   builder.VMov("v3", 0);
   builder.MLoadShared("v4", "v3", 4);
+  builder.SWaitCnt(/*global_count=*/0, /*shared_count=*/0,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
+  builder.VMov("v6", 1);
   builder.BExit();
   return builder.Build("stats_cycle");
 }
@@ -117,10 +122,10 @@ TEST(ExecutionStatsTest, CycleLaunchReportsCacheAndBankPenaltyCounts) {
   const auto result = runtime.Launch(request);
   ASSERT_TRUE(result.ok) << result.error_message;
   EXPECT_EQ(result.stats.global_loads, 2u);
-  EXPECT_EQ(result.stats.shared_loads, 1u);
+  EXPECT_EQ(result.stats.shared_loads, 2u);
   EXPECT_EQ(result.stats.cache_misses, 1u);
   EXPECT_EQ(result.stats.l1_hits, 1u);
-  EXPECT_EQ(result.stats.shared_bank_conflict_penalty_cycles, 63u);
+  EXPECT_EQ(result.stats.shared_bank_conflict_penalty_cycles, 126u);
 }
 
 }  // namespace

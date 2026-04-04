@@ -22,6 +22,8 @@ ExecutableKernel BuildSoftmaxStyleBlockStatsKernel() {
   builder.SMov("s6", 1);
 
   builder.MLoadGlobal("v2", "s0", "v1", 4);
+  builder.SWaitCnt(/*global_count=*/0, /*shared_count=*/UINT32_MAX,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
   builder.MStoreShared("v0", "v2", 4);
   builder.SyncBarrier();
 
@@ -39,6 +41,8 @@ ExecutableKernel BuildSoftmaxStyleBlockStatsKernel() {
   builder.VAdd("v3", "v0", "s5");
   builder.MLoadShared("v4", "v0", 4);
   builder.MLoadShared("v5", "v3", 4);
+  builder.SWaitCnt(/*global_count=*/UINT32_MAX, /*shared_count=*/0,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
   builder.VMax("v6", "v4", "v5");
   builder.MStoreShared("v0", "v6", 4);
   builder.Label("after_max_step");
@@ -54,6 +58,8 @@ ExecutableKernel BuildSoftmaxStyleBlockStatsKernel() {
   builder.BIfNoexec("reload_for_sum");
   builder.VMov("v7", "s3");
   builder.MLoadShared("v8", "v0", 4);
+  builder.SWaitCnt(/*global_count=*/UINT32_MAX, /*shared_count=*/0,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
   builder.MStoreGlobal("s1", "v7", "v8", 4);
   builder.Label("reload_for_sum");
   builder.MaskRestoreExec("s11");
@@ -75,6 +81,8 @@ ExecutableKernel BuildSoftmaxStyleBlockStatsKernel() {
   builder.VAdd("v3", "v0", "s5");
   builder.MLoadShared("v4", "v0", 4);
   builder.MLoadShared("v5", "v3", 4);
+  builder.SWaitCnt(/*global_count=*/UINT32_MAX, /*shared_count=*/0,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
   builder.VAdd("v6", "v4", "v5");
   builder.MStoreShared("v0", "v6", 4);
   builder.Label("after_sum_step");
@@ -90,6 +98,8 @@ ExecutableKernel BuildSoftmaxStyleBlockStatsKernel() {
   builder.BIfNoexec("exit");
   builder.VMov("v9", "s3");
   builder.MLoadShared("v10", "v0", 4);
+  builder.SWaitCnt(/*global_count=*/UINT32_MAX, /*shared_count=*/0,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
   builder.MStoreGlobal("s2", "v9", "v10", 4);
   builder.Label("exit");
   builder.MaskRestoreExec("s13");

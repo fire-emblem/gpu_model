@@ -25,7 +25,42 @@ std::vector<uint64_t> UniqueLines(const std::vector<uint64_t>& addresses, uint32
 
 }  // namespace
 
+CacheModel::CacheModel(const CacheModel& other) : spec_(other.spec_) {
+  std::lock_guard<std::mutex> lock(other.mutex_);
+  l1_lines_ = other.l1_lines_;
+  l2_lines_ = other.l2_lines_;
+}
+
+CacheModel& CacheModel::operator=(const CacheModel& other) {
+  if (this == &other) {
+    return *this;
+  }
+  std::scoped_lock lock(mutex_, other.mutex_);
+  spec_ = other.spec_;
+  l1_lines_ = other.l1_lines_;
+  l2_lines_ = other.l2_lines_;
+  return *this;
+}
+
+CacheModel::CacheModel(CacheModel&& other) noexcept : spec_(other.spec_) {
+  std::lock_guard<std::mutex> lock(other.mutex_);
+  l1_lines_ = std::move(other.l1_lines_);
+  l2_lines_ = std::move(other.l2_lines_);
+}
+
+CacheModel& CacheModel::operator=(CacheModel&& other) noexcept {
+  if (this == &other) {
+    return *this;
+  }
+  std::scoped_lock lock(mutex_, other.mutex_);
+  spec_ = other.spec_;
+  l1_lines_ = std::move(other.l1_lines_);
+  l2_lines_ = std::move(other.l2_lines_);
+  return *this;
+}
+
 CacheProbeResult CacheModel::Probe(const std::vector<uint64_t>& addresses) const {
+  std::lock_guard<std::mutex> lock(mutex_);
   CacheProbeResult result;
   if (addresses.empty()) {
     return result;
@@ -52,6 +87,7 @@ CacheProbeResult CacheModel::Probe(const std::vector<uint64_t>& addresses) const
 }
 
 void CacheModel::Promote(const std::vector<uint64_t>& addresses) {
+  std::lock_guard<std::mutex> lock(mutex_);
   if (!spec_.enabled) {
     return;
   }

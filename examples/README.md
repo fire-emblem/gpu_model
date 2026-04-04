@@ -31,3 +31,22 @@
 8. [08-conditional-multibarrier](./08-conditional-multibarrier)
 9. [09-dynamic-shared-sum](./09-dynamic-shared-sum)
 10. [10-block-reduce-sum](./10-block-reduce-sum)
+11. [11-perfetto-waitcnt-slots](./11-perfetto-waitcnt-slots)
+
+阅读建议：
+
+- `01-05`
+  先看基础功能是否正确，包括算术、shared、barrier、atomic、reduction
+- `06`
+  看 MMA / MFMA 能力是否接通
+- `07`
+  看同一语义的不同写法在 cycle 上有什么差异
+- `08-10`
+  看更复杂同步与归约模式
+- `11`
+  专门看 trace / perfetto 观察能力、空泡、slot 语义和 wave 调度可视化
+
+关于 `results/`：
+
+- 仓库中已有的 `results/` 可能来自较早一次运行
+- README 中描述的“预期结果”以当前 `run.sh` 重新生成的产物为准

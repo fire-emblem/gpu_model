@@ -2,6 +2,8 @@
 
 #include <stdexcept>
 
+#include "gpu_model/execution/internal/issue_eligibility.h"
+
 namespace gpu_model::sync_ops {
 
 namespace {
@@ -37,7 +39,8 @@ bool ReleaseBarrierIfReadyImpl(size_t wave_count,
     if (wave.status == WaveStatus::Active || wave.status == WaveStatus::Stalled) {
       ++active_wave_count;
       if (wave.waiting_at_barrier && wave.run_state == WaveRunState::Waiting &&
-          wave.wait_reason == WaveWaitReason::BlockBarrier) {
+          wave.wait_reason == WaveWaitReason::BlockBarrier &&
+          PendingMemoryOpsForDomain(wave, MemoryWaitDomain::Shared) == 0) {
         ++waiting_wave_count;
       }
     }
@@ -133,7 +136,8 @@ bool ReleaseBarrierIfReady(const std::vector<WaveContext*>& waves,
     if (wave->status == WaveStatus::Active || wave->status == WaveStatus::Stalled) {
       ++active_wave_count;
       if (wave->waiting_at_barrier && wave->run_state == WaveRunState::Waiting &&
-          wave->wait_reason == WaveWaitReason::BlockBarrier) {
+          wave->wait_reason == WaveWaitReason::BlockBarrier &&
+          PendingMemoryOpsForDomain(*wave, MemoryWaitDomain::Shared) == 0) {
         ++waiting_wave_count;
       }
     }

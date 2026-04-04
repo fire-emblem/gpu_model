@@ -31,12 +31,16 @@ ExecutableKernel BuildSharedTransposeKernel() {
   builder.VAdd("v7", "v6", "v2");  // shared linear index
 
   builder.MLoadGlobal("v8", "s0", "v5", 4);
+  builder.SWaitCnt(/*global_count=*/0, /*shared_count=*/UINT32_MAX,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
   builder.MStoreShared("v7", "v8", 4);
   builder.SyncBarrier();
 
   builder.VMul("v9", "v2", "s3");   // transposed local row offset
   builder.VAdd("v10", "v9", "v3");  // transposed shared index
   builder.MLoadShared("v11", "v10", 4);
+  builder.SWaitCnt(/*global_count=*/UINT32_MAX, /*shared_count=*/0,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
 
   builder.MStoreGlobal("s1", "v5", "v11", 4);  // square-tile transpose output
   builder.BExit();

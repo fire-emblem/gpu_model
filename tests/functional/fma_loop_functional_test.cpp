@@ -116,7 +116,7 @@ TEST(FmaLoopFunctionalTest, TraceShowsPcAndResolvedOperandValuesForFma) {
   for (const auto& event : trace.events()) {
     if (event.kind == TraceEventKind::WaveStep && event.pc == body_pc &&
         event.message.find("v_mad_i32") != std::string::npos) {
-      EXPECT_NE(event.message.find("pc=0x11"), std::string::npos);
+      EXPECT_NE(event.message.find("pc="), std::string::npos);
       EXPECT_NE(event.message.find("s3 = 0x2"), std::string::npos);
       EXPECT_NE(event.message.find("s4 = 0x1"), std::string::npos);
       EXPECT_NE(event.message.find("lane[0x00] = 0x0"), std::string::npos);

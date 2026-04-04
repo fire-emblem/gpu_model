@@ -21,6 +21,8 @@ ExecutableKernel BuildClampKernel() {
   builder.MaskAndExecCmask();
   builder.BIfNoexec("exit");
   builder.MLoadGlobal("v1", "s0", "v0", 4);
+  builder.SWaitCnt(/*global_count=*/0, /*shared_count=*/UINT32_MAX,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
   builder.VMax("v2", "v1", "s2");
   builder.VMin("v3", "v2", "s3");
   builder.MStoreGlobal("s1", "v0", "v3", 4);
@@ -41,6 +43,8 @@ ExecutableKernel BuildHistogramKernel() {
   builder.MaskAndExecCmask();
   builder.BIfNoexec("exit");
   builder.MLoadGlobal("v1", "s0", "v0", 4);
+  builder.SWaitCnt(/*global_count=*/0, /*shared_count=*/UINT32_MAX,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
   builder.VMov("v2", 1);
   builder.MAtomicAddGlobal("s1", "v1", "v2", 4);
   builder.Label("exit");
