@@ -432,6 +432,16 @@ TEST(CycleTimelineTest, GoogleTraceUsesCanonicalBarrierAndArriveNamesFromTypedFi
   EXPECT_NE(trace.find("\"name\":\"load_arrive\""), std::string::npos);
 }
 
+TEST(CycleTimelineTest, TimelineCanRenderCanonicalNamesWithoutLegacyMessages) {
+  const TraceWaveView wave = MakeWaveView(/*slot_id=*/0);
+  TraceEvent barrier_arrive =
+      MakeTraceBarrierArriveEvent(wave, 1, TraceSlotModelKind::ResidentFixed);
+  barrier_arrive.message.clear();
+
+  const std::string trace = CycleTimelineRenderer::RenderGoogleTrace({barrier_arrive});
+  EXPECT_NE(trace.find("\"name\":\"barrier_arrive\""), std::string::npos);
+}
+
 TEST(CycleTimelineTest, RuntimePerfettoDumpCarriesWaveLifecycleOnSlotTracks) {
   CollectingTraceSink trace;
   RuntimeEngine runtime(&trace);

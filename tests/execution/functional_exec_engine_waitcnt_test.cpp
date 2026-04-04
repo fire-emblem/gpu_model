@@ -438,11 +438,11 @@ TEST(FunctionalExecEngineWaitcntTest,
   bool saw_exit = false;
   for (const auto& event : events) {
     saw_arrive = saw_arrive || (event.kind == TraceEventKind::Barrier &&
-                                event.message == kTraceBarrierArriveMessage);
+                                event.barrier_kind == TraceBarrierKind::Arrive);
     saw_release = saw_release || (event.kind == TraceEventKind::Barrier &&
-                                  event.message == kTraceBarrierReleaseMessage);
+                                  event.barrier_kind == TraceBarrierKind::Release);
     saw_exit = saw_exit || (event.kind == TraceEventKind::WaveExit &&
-                            event.message == kTraceWaveEndMessage);
+                            event.lifecycle_stage == TraceLifecycleStage::Exit);
   }
 
   EXPECT_TRUE(saw_arrive);
@@ -529,7 +529,7 @@ TEST(FunctionalExecEngineWaitcntTest,
 
   for (const auto& event : events) {
     if (event.kind == TraceEventKind::WaveLaunch &&
-        event.message.starts_with(kTraceWaveStartMessage)) {
+        event.lifecycle_stage == TraceLifecycleStage::Launch) {
       saw_launch = true;
       EXPECT_TRUE(TraceHasSlotModel(event, TraceSlotModelKind::LogicalUnbounded));
     }
@@ -537,27 +537,28 @@ TEST(FunctionalExecEngineWaitcntTest,
       saw_commit = true;
       EXPECT_TRUE(TraceHasSlotModel(event, TraceSlotModelKind::LogicalUnbounded));
     }
-    if (event.kind == TraceEventKind::Barrier && event.message == kTraceBarrierWaveMessage) {
+    if (event.kind == TraceEventKind::Barrier && event.barrier_kind == TraceBarrierKind::Wave) {
       saw_barrier_wave = true;
       EXPECT_TRUE(TraceHasSlotModel(event, TraceSlotModelKind::LogicalUnbounded));
     }
-    if (event.kind == TraceEventKind::Barrier && event.message == kTraceBarrierArriveMessage) {
+    if (event.kind == TraceEventKind::Barrier && event.barrier_kind == TraceBarrierKind::Arrive) {
       saw_barrier_arrive = true;
       EXPECT_TRUE(TraceHasSlotModel(event, TraceSlotModelKind::LogicalUnbounded));
     }
-    if (event.kind == TraceEventKind::Barrier && event.message == kTraceBarrierReleaseMessage) {
+    if (event.kind == TraceEventKind::Barrier && event.barrier_kind == TraceBarrierKind::Release) {
       saw_barrier_release = true;
     }
     if (event.kind == TraceEventKind::Stall &&
-        event.message == MakeTraceStallReasonMessage(kTraceStallReasonWaitCntGlobal)) {
+        event.stall_reason == TraceStallReason::WaitCntGlobal) {
       saw_wait_stall = true;
       EXPECT_TRUE(TraceHasSlotModel(event, TraceSlotModelKind::LogicalUnbounded));
     }
-    if (event.kind == TraceEventKind::Arrive && event.message == kTraceArriveLoadMessage) {
+    if (event.kind == TraceEventKind::Arrive && event.arrive_kind == TraceArriveKind::Load) {
       saw_memory_arrive = true;
       EXPECT_TRUE(TraceHasSlotModel(event, TraceSlotModelKind::LogicalUnbounded));
     }
-    if (event.kind == TraceEventKind::WaveExit && event.message == kTraceWaveEndMessage) {
+    if (event.kind == TraceEventKind::WaveExit &&
+        event.lifecycle_stage == TraceLifecycleStage::Exit) {
       saw_wave_exit = true;
       EXPECT_TRUE(TraceHasSlotModel(event, TraceSlotModelKind::LogicalUnbounded));
     }

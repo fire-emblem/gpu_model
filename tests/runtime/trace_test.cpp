@@ -676,6 +676,22 @@ TEST(TraceTest, TraceEventViewCanNormalizeLegacyMessageOnlyRecords) {
   EXPECT_TRUE(view.used_legacy_fallback);
 }
 
+TEST(TraceTest, TypedTraceSemanticsRemainValidWhenCompatibilityMessageIsEmpty) {
+  TraceEvent event{
+      .kind = TraceEventKind::Barrier,
+      .cycle = 3,
+      .slot_model = {},
+      .barrier_kind = TraceBarrierKind::Release,
+      .display_name = "release",
+      .message = {},
+  };
+
+  const TraceEventView view = MakeTraceEventView(event);
+  EXPECT_EQ(view.canonical_name, "barrier_release");
+  EXPECT_EQ(view.barrier_kind, TraceBarrierKind::Release);
+  EXPECT_EQ(view.display_name, "release");
+}
+
 TEST(TraceTest, UnifiedFactoriesSupportRepresentativeHandBuiltTraceScenarios) {
   const TraceWaveView wave{
       .dpc_id = 0,
@@ -774,9 +790,9 @@ TEST(TraceTest, EncodedTraceUsesCanonicalArriveAndBarrierReleaseMessages) {
   bool saw_release = false;
   for (const auto& event : trace.events()) {
     saw_arrive = saw_arrive || (event.kind == TraceEventKind::Arrive &&
-                                event.message == kTraceArriveSharedMessage);
+                                event.arrive_kind == TraceArriveKind::Shared);
     saw_release = saw_release || (event.kind == TraceEventKind::Barrier &&
-                                  event.message == kTraceBarrierReleaseMessage);
+                                  event.barrier_kind == TraceBarrierKind::Release);
   }
 
   EXPECT_TRUE(saw_arrive);
@@ -836,8 +852,10 @@ TEST(TraceTest, CycleExecutionEmitsCanonicalLifecycleAndStallMessagesViaFactorie
   bool saw_wave_end = false;
   bool saw_switch = false;
   for (const auto& event : trace.events()) {
-    saw_wave_start = saw_wave_start || event.message.starts_with("wave_start");
-    saw_wave_end = saw_wave_end || event.message == "wave_end";
+    saw_wave_start = saw_wave_start || (event.kind == TraceEventKind::WaveLaunch &&
+                                        event.lifecycle_stage == TraceLifecycleStage::Launch);
+    saw_wave_end = saw_wave_end || (event.kind == TraceEventKind::WaveExit &&
+                                    event.lifecycle_stage == TraceLifecycleStage::Exit);
     saw_switch = saw_switch || TraceHasStallReason(event, TraceStallReason::WarpSwitch);
   }
 
