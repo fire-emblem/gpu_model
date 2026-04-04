@@ -89,4 +89,8 @@ std::string RenderGoogleTraceExport(const TimelineData& data,
                                     uint64_t end,
                                     CycleTimelineGroupBy group_by);
 
+std::string RenderPerfettoTraceExport(const TimelineData& data,
+                                      uint64_t begin,
+                                      uint64_t end);
+
 }  // namespace gpu_model
