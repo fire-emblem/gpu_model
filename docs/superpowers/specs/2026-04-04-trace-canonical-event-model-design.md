@@ -42,6 +42,26 @@ Move to a single canonical event model with two layers:
 
 `message` is retained only as an optional compatibility/display field during migration, but all primary semantics must be represented by typed fields.
 
+## Execution-First Constraint
+
+Behavioral truth belongs to the execution model, not to trace projection.
+
+- `arrive` completion timing, `waitcnt(N)` threshold accounting, barrier release, and wave switch /
+  resume decisions must be computed by execution state machines and must remain correct even when
+  trace capture is completely disabled.
+- trace-oriented layers (`TraceEvent`, recorder, text/json serializers, timeline, Perfetto) may
+  only project already-decided execution outcomes into typed fields and visual names.
+- projection code must not decide whether an `arrive` means "still blocked" or "resume" by
+  re-deriving execution semantics from partial trace state. If the UI needs that distinction, the
+  execution path must emit it explicitly as typed event state first.
+
+This constraint applies in particular to:
+
+- `arrive` events with different completion times
+- `waitcnt(1)` vs `waitcnt(0)` threshold-consumption behavior
+- "first arrive still blocked, second arrive resumes" visualization
+- barrier and wave-switch causal markers
+
 ## Canonical Schema Direction
 
 Keep the top-level `TraceEventKind`, and add typed subkind fields rather than flattening everything into one giant event enum.
