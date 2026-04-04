@@ -1,0 +1,12 @@
+[gpu_model_hip_interposer] __hipRegisterFatBinary
+[gpu_model] functional_mode=st workers=0
+[gpu_model_hip_interposer] __hipRegisterFunction host=0x200e70 device=conditional_multibarrier
+[gpu_model_hip_interposer] hipMalloc size=4096 -> 0x100000000
+[gpu_model_hip_interposer] hipMemset dst=0x100000000 value=0 bytes=4096
+[gpu_model_hip_interposer] __hipPushCallConfiguration grid=(8,1,1) block=(128,1,1) shared=0
+[gpu_model_hip_interposer] __hipPopCallConfiguration
+[gpu_model_hip_interposer] hipLaunchKernel host=0x200e70 grid=(8,1,1) block=(128,1,1) shared=0
+[gpu_model_hip_interposer] hipLaunchKernel result ok=1 err=
+[gpu_model_hip_interposer] hipDeviceSynchronize
+[gpu_model_hip_interposer] hipMemcpy kind=2 bytes=4096 dst=0x15a6210 src=0x100000000
+conditional_multibarrier mismatches=0 n=1024

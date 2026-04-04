@@ -1,0 +1,26 @@
+running mode=st case=timeline_gap
+running mode=st case=same_peu_slots
+running mode=st case=switch_away_heavy
+running mode=mt case=timeline_gap
+running mode=mt case=same_peu_slots
+running mode=mt case=switch_away_heavy
+running mode=cycle case=timeline_gap
+running mode=cycle case=same_peu_slots
+running mode=cycle case=switch_away_heavy
+perfetto_waitcnt_slots_demo ok results="/data/gpu_model/examples/11-perfetto-waitcnt-slots/results"
+
+Recommended quick-start:
+1. Open results/guide.txt
+2. Open results/cycle/timeline_gap/timeline.perfetto.pb for obvious blank bubbles
+3. Open results/cycle/same_peu_slots/timeline.perfetto.pb for resident slots + wait/arrive
+4. Open results/st/same_peu_slots/timeline.perfetto.pb for logical_unbounded slots in ST
+5. Open results/mt/same_peu_slots/timeline.perfetto.pb for logical_unbounded slots in MT
+6. Open results/cycle/switch_away_heavy/timeline.perfetto.pb for dense wave_switch_away rotation
+
+Key files:
+- results/guide.txt
+- results/cycle/timeline_gap/timeline.perfetto.pb
+- results/cycle/same_peu_slots/timeline.perfetto.pb
+- results/st/same_peu_slots/timeline.perfetto.pb
+- results/mt/same_peu_slots/timeline.perfetto.pb
+- results/cycle/switch_away_heavy/timeline.perfetto.pb
