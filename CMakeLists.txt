@@ -85,6 +85,7 @@ add_library(gpu_model STATIC
   src/debug/trace_event_export.cpp
   src/debug/trace_event_view.cpp
   src/debug/cycle_timeline_layout.cpp
+  src/debug/cycle_timeline_ascii.cpp
   src/debug/cycle_timeline_google_trace.cpp
   src/debug/cycle_timeline_perfetto.cpp
   src/debug/cycle_timeline.cpp
