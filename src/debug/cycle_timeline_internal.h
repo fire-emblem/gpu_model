@@ -93,10 +93,4 @@ std::string RenderPerfettoTraceExport(const TimelineData& data,
                                       uint64_t begin,
                                       uint64_t end);
 
-std::string RenderAsciiTimelineExport(const TimelineData& data,
-                                      uint64_t begin,
-                                      uint64_t end,
-                                      uint32_t max_columns,
-                                      CycleTimelineGroupBy group_by);
-
 }  // namespace gpu_model

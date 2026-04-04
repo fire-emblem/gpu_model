@@ -169,18 +169,6 @@ TimelineData BuildTimelineData(const std::vector<TraceEvent>& events) {
 
 }  // namespace
 
-std::string CycleTimelineRenderer::RenderAscii(const std::vector<TraceEvent>& events,
-                                               CycleTimelineOptions options) {
-  if (events.empty()) {
-    return "cycle_timeline: <no events>\n";
-  }
-
-  const uint64_t begin = options.cycle_begin.value_or(0);
-  const uint64_t end = options.cycle_end.value_or(ComputeEndCycle(events));
-  const TimelineData data = BuildTimelineData(events);
-  return RenderAsciiTimelineExport(data, begin, end, options.max_columns, options.group_by);
-}
-
 std::string CycleTimelineRenderer::RenderGoogleTrace(const std::vector<TraceEvent>& events,
                                                      CycleTimelineOptions options) {
   if (events.empty()) {

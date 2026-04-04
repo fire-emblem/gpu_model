@@ -132,51 +132,6 @@ size_t CountOccurrences(std::string_view text, std::string_view needle) {
   return count;
 }
 
-TEST(CycleTimelineTest, RendersAsciiTimelineForMultipleWaves) {
-  CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
-
-  const auto kernel = BuildTimelineKernel();
-  LaunchRequest request;
-  request.kernel = &kernel;
-  request.mode = ExecutionMode::Cycle;
-  request.config.grid_dim_x = 1;
-  request.config.block_dim_x = 128;
-
-  const auto result = runtime.Launch(request);
-  ASSERT_TRUE(result.ok) << result.error_message;
-
-  const std::string timeline = CycleTimelineRenderer::RenderAscii(trace.events());
-  EXPECT_NE(timeline.find("cycle_timeline"), std::string::npos);
-  EXPECT_NE(timeline.find("S0"), std::string::npos);
-  EXPECT_EQ(timeline.find("B0W0"), std::string::npos);
-  EXPECT_NE(timeline.find("v_mad_i32"), std::string::npos);
-}
-
-TEST(CycleTimelineTest, CanGroupTimelineByBlock) {
-  CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
-
-  const auto kernel = BuildTimelineKernel();
-  LaunchRequest request;
-  request.kernel = &kernel;
-  request.mode = ExecutionMode::Cycle;
-  request.config.grid_dim_x = 2;
-  request.config.block_dim_x = 128;
-
-  const auto result = runtime.Launch(request);
-  ASSERT_TRUE(result.ok) << result.error_message;
-
-  const std::string timeline = CycleTimelineRenderer::RenderAscii(
-      trace.events(), CycleTimelineOptions{.max_columns = 120,
-                                           .cycle_begin = std::nullopt,
-                                           .cycle_end = std::nullopt,
-                                           .group_by = CycleTimelineGroupBy::Block});
-  EXPECT_NE(timeline.find("B0"), std::string::npos);
-  EXPECT_NE(timeline.find("B1"), std::string::npos);
-  EXPECT_EQ(timeline.find("B0W0"), std::string::npos);
-}
-
 TEST(CycleTimelineTest, RendersGoogleTraceForWaveTimeline) {
   CollectingTraceSink trace;
   RuntimeEngine runtime(&trace);
@@ -250,17 +205,13 @@ TEST(CycleTimelineTest, GoogleTraceCanGroupByPeu) {
   EXPECT_NE(timeline.find("\"process_sort_index\""), std::string::npos);
 }
 
-TEST(CycleTimelineTest, HighlightsTensorOpsInAsciiAndGoogleTrace) {
+TEST(CycleTimelineTest, HighlightsTensorOpsInGoogleTrace) {
   const TraceWaveView wave = MakeWaveView(/*slot_id=*/0);
   std::vector<TraceEvent> events{
       MakeResidentWaveEvent(
           wave, TraceEventKind::WaveStep, 10, "pc=0x100 op=v_mfma_f32_16x16x4f32 exec_lanes=0x40"),
       MakeTraceCommitEvent(wave, 14, TraceSlotModelKind::ResidentFixed),
   };
-
-  const std::string ascii = CycleTimelineRenderer::RenderAscii(events);
-  EXPECT_NE(ascii.find("T=tensor-op"), std::string::npos);
-  EXPECT_NE(ascii.find("T=v_mfma_f32_16x16x4f32"), std::string::npos);
 
   const std::string trace = CycleTimelineRenderer::RenderGoogleTrace(events);
   EXPECT_NE(trace.find("\"cat\":\"tensor\""), std::string::npos);
