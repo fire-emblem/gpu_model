@@ -66,6 +66,55 @@ inline std::string_view TraceMemoryArriveMessage(TraceMemoryArriveKind kind) {
   return {};
 }
 
+inline TraceArriveKind TraceArriveKindForMemoryAccess(TraceMemoryArriveKind kind) {
+  switch (kind) {
+    case TraceMemoryArriveKind::Load:
+      return TraceArriveKind::Load;
+    case TraceMemoryArriveKind::Store:
+      return TraceArriveKind::Store;
+    case TraceMemoryArriveKind::Shared:
+      return TraceArriveKind::Shared;
+    case TraceMemoryArriveKind::Private:
+      return TraceArriveKind::Private;
+    case TraceMemoryArriveKind::ScalarBuffer:
+      return TraceArriveKind::ScalarBuffer;
+  }
+  return TraceArriveKind::None;
+}
+
+inline std::string MakeTraceStallDisplayName(TraceStallReason stall_reason) {
+  const std::string_view reason_name = TraceStallReasonName(stall_reason);
+  if (reason_name.empty()) {
+    return "stall";
+  }
+  return std::string(reason_name);
+}
+
+inline std::string MakeTraceLifecycleDisplayName(TraceLifecycleStage stage) {
+  const std::string_view stage_name = TraceLifecycleStageName(stage);
+  return stage_name.empty() ? "lifecycle" : std::string(stage_name);
+}
+
+inline std::string MakeTraceBarrierDisplayName(TraceBarrierKind kind) {
+  const std::string_view barrier_name = TraceBarrierKindName(kind);
+  return barrier_name.empty() ? "barrier" : std::string(barrier_name);
+}
+
+inline std::string MakeTraceArriveDisplayName(TraceMemoryArriveKind kind) {
+  return std::string(TraceArriveKindName(TraceArriveKindForMemoryAccess(kind)));
+}
+
+inline std::string MakeTraceWaveStepDisplayName(std::string_view detail) {
+  constexpr std::string_view kOpPrefix = "op=";
+  const size_t op_pos = detail.find(kOpPrefix);
+  if (op_pos == std::string_view::npos) {
+    return std::string(detail);
+  }
+  const size_t value_begin = op_pos + kOpPrefix.size();
+  const size_t value_end = detail.find_first_of(" \n", value_begin);
+  return std::string(detail.substr(value_begin, value_end - value_begin));
+}
+
 // Semantic trace factories are the canonical producer/test entry surface.
 // New trace construction should use these helpers instead of raw semantic strings.
 inline TraceEvent MakeTraceWaveEvent(const TraceWaveView& wave,
@@ -88,6 +137,7 @@ inline TraceEvent MakeTraceWaveEvent(const TraceWaveView& wave,
       .pc = pc == std::numeric_limits<uint64_t>::max() ? wave.pc : pc,
       .stall_reason = kind == TraceEventKind::Stall ? TraceStallReasonFromMessage(message)
                                                     : TraceStallReason::None,
+      .display_name = {},
       .message = std::move(message),
   };
 }
@@ -103,6 +153,7 @@ inline TraceEvent MakeTraceEvent(TraceEventKind kind,
       .slot_model = std::string(TraceSlotModelName(slot_model)),
       .stall_reason = kind == TraceEventKind::Stall ? TraceStallReasonFromMessage(message)
                                                     : TraceStallReason::None,
+      .display_name = {},
       .message = std::move(message),
   };
 }
@@ -128,6 +179,7 @@ inline TraceEvent MakeTraceBlockEvent(uint32_t dpc_id,
       .block_id = block_id,
       .stall_reason = kind == TraceEventKind::Stall ? TraceStallReasonFromMessage(message)
                                                     : TraceStallReason::None,
+      .display_name = {},
       .message = std::move(message),
   };
 }
@@ -149,8 +201,11 @@ inline TraceEvent MakeTraceWaveLaunchEvent(const TraceWaveView& wave,
                                            uint64_t cycle,
                                            std::string detail,
                                            TraceSlotModelKind slot_model) {
-  return MakeTraceWaveEvent(wave, TraceEventKind::WaveLaunch, cycle, slot_model,
-                            MakeTraceWaveStartMessage(detail));
+  TraceEvent event = MakeTraceWaveEvent(wave, TraceEventKind::WaveLaunch, cycle, slot_model,
+                                        MakeTraceWaveStartMessage(detail));
+  event.lifecycle_stage = TraceLifecycleStage::Launch;
+  event.display_name = MakeTraceLifecycleDisplayName(event.lifecycle_stage);
+  return event;
 }
 
 inline TraceEvent MakeTraceWaveStepEvent(const TraceWaveView& wave,
@@ -158,48 +213,64 @@ inline TraceEvent MakeTraceWaveStepEvent(const TraceWaveView& wave,
                                          TraceSlotModelKind slot_model,
                                          std::string detail,
                                          uint64_t pc = std::numeric_limits<uint64_t>::max()) {
-  return MakeTraceWaveEvent(wave, TraceEventKind::WaveStep, cycle, slot_model, std::move(detail),
-                            pc);
+  TraceEvent event = MakeTraceWaveEvent(
+      wave, TraceEventKind::WaveStep, cycle, slot_model, std::move(detail), pc);
+  event.display_name = MakeTraceWaveStepDisplayName(event.message);
+  return event;
 }
 
 inline TraceEvent MakeTraceCommitEvent(const TraceWaveView& wave,
                                        uint64_t cycle,
                                        TraceSlotModelKind slot_model,
                                        uint64_t pc = std::numeric_limits<uint64_t>::max()) {
-  return MakeTraceWaveEvent(wave, TraceEventKind::Commit, cycle, slot_model,
-                            std::string(kTraceCommitMessage), pc);
+  TraceEvent event = MakeTraceWaveEvent(wave, TraceEventKind::Commit, cycle, slot_model,
+                                        std::string(kTraceCommitMessage), pc);
+  event.display_name = "commit";
+  return event;
 }
 
 inline TraceEvent MakeTraceWaveExitEvent(const TraceWaveView& wave,
                                          uint64_t cycle,
                                          TraceSlotModelKind slot_model,
                                          uint64_t pc = std::numeric_limits<uint64_t>::max()) {
-  return MakeTraceWaveEvent(wave, TraceEventKind::WaveExit, cycle, slot_model,
-                            std::string(kTraceWaveEndMessage), pc);
+  TraceEvent event = MakeTraceWaveEvent(wave, TraceEventKind::WaveExit, cycle, slot_model,
+                                        std::string(kTraceWaveEndMessage), pc);
+  event.lifecycle_stage = TraceLifecycleStage::Exit;
+  event.display_name = MakeTraceLifecycleDisplayName(event.lifecycle_stage);
+  return event;
 }
 
 inline TraceEvent MakeTraceBarrierWaveEvent(const TraceWaveView& wave,
                                             uint64_t cycle,
                                             TraceSlotModelKind slot_model,
                                             uint64_t pc = std::numeric_limits<uint64_t>::max()) {
-  return MakeTraceWaveEvent(wave, TraceEventKind::Barrier, cycle, slot_model,
-                            std::string(kTraceBarrierWaveMessage), pc);
+  TraceEvent event = MakeTraceWaveEvent(wave, TraceEventKind::Barrier, cycle, slot_model,
+                                        std::string(kTraceBarrierWaveMessage), pc);
+  event.barrier_kind = TraceBarrierKind::Wave;
+  event.display_name = MakeTraceBarrierDisplayName(event.barrier_kind);
+  return event;
 }
 
 inline TraceEvent MakeTraceBarrierArriveEvent(const TraceWaveView& wave,
                                               uint64_t cycle,
                                               TraceSlotModelKind slot_model,
                                               uint64_t pc = std::numeric_limits<uint64_t>::max()) {
-  return MakeTraceWaveEvent(wave, TraceEventKind::Barrier, cycle, slot_model,
-                            std::string(kTraceBarrierArriveMessage), pc);
+  TraceEvent event = MakeTraceWaveEvent(wave, TraceEventKind::Barrier, cycle, slot_model,
+                                        std::string(kTraceBarrierArriveMessage), pc);
+  event.barrier_kind = TraceBarrierKind::Arrive;
+  event.display_name = MakeTraceBarrierDisplayName(event.barrier_kind);
+  return event;
 }
 
 inline TraceEvent MakeTraceBarrierReleaseEvent(uint32_t dpc_id,
                                                uint32_t ap_id,
                                                uint32_t block_id,
                                                uint64_t cycle) {
-  return MakeTraceBlockEvent(dpc_id, ap_id, block_id, TraceEventKind::Barrier, cycle,
-                             std::string(kTraceBarrierReleaseMessage));
+  TraceEvent event = MakeTraceBlockEvent(dpc_id, ap_id, block_id, TraceEventKind::Barrier, cycle,
+                                         std::string(kTraceBarrierReleaseMessage));
+  event.barrier_kind = TraceBarrierKind::Release;
+  event.display_name = MakeTraceBarrierDisplayName(event.barrier_kind);
+  return event;
 }
 
 inline TraceEvent MakeTraceMemoryArriveEvent(const TraceWaveView& wave,
@@ -207,8 +278,11 @@ inline TraceEvent MakeTraceMemoryArriveEvent(const TraceWaveView& wave,
                                              TraceMemoryArriveKind kind,
                                              TraceSlotModelKind slot_model,
                                              uint64_t pc = std::numeric_limits<uint64_t>::max()) {
-  return MakeTraceWaveEvent(wave, TraceEventKind::Arrive, cycle, slot_model,
-                            std::string(TraceMemoryArriveMessage(kind)), pc);
+  TraceEvent event = MakeTraceWaveEvent(wave, TraceEventKind::Arrive, cycle, slot_model,
+                                        std::string(TraceMemoryArriveMessage(kind)), pc);
+  event.arrive_kind = TraceArriveKindForMemoryAccess(kind);
+  event.display_name = MakeTraceArriveDisplayName(kind);
+  return event;
 }
 
 inline TraceEvent MakeTraceWaitStallEvent(const TraceWaveView& wave,
@@ -216,8 +290,11 @@ inline TraceEvent MakeTraceWaitStallEvent(const TraceWaveView& wave,
                                           TraceStallReason stall_reason,
                                           TraceSlotModelKind slot_model,
                                           uint64_t pc = std::numeric_limits<uint64_t>::max()) {
-  return MakeTraceWaveEvent(wave, TraceEventKind::Stall, cycle, slot_model,
-                            MakeTraceStallReasonMessage(TraceStallReasonName(stall_reason)), pc);
+  TraceEvent event =
+      MakeTraceWaveEvent(wave, TraceEventKind::Stall, cycle, slot_model,
+                         MakeTraceStallReasonMessage(TraceStallReasonName(stall_reason)), pc);
+  event.display_name = MakeTraceStallDisplayName(stall_reason);
+  return event;
 }
 
 inline TraceEvent MakeTraceWaveSwitchStallEvent(const TraceWaveView& wave,

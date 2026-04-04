@@ -4,6 +4,8 @@
 #include <stdexcept>
 #include <string_view>
 
+#include "gpu_model/debug/trace_event_view.h"
+
 namespace gpu_model {
 
 namespace {
@@ -63,17 +65,26 @@ FileTraceSink::FileTraceSink(const std::filesystem::path& path) : out_(path) {
 }
 
 void FileTraceSink::OnEvent(const TraceEvent& event) {
-  const std::string_view slot_model = TraceEffectiveSlotModelName(event);
-  const std::string_view stall_reason = TraceStallReasonName(TraceEffectiveStallReason(event));
-  out_ << "pc=" << HexU64(event.pc) << " cycle=" << HexU64(event.cycle)
-       << " dpc=" << HexU64(event.dpc_id) << " ap=" << HexU64(event.ap_id)
-       << " peu=" << HexU64(event.peu_id) << " slot=" << HexU64(event.slot_id)
+  const TraceEventView view = MakeTraceEventView(event);
+  const std::string_view slot_model = TraceSlotModelName(view.slot_model_kind);
+  const std::string_view stall_reason = TraceStallReasonName(view.stall_reason);
+  const std::string_view barrier_kind = TraceBarrierKindName(view.barrier_kind);
+  const std::string_view arrive_kind = TraceArriveKindName(view.arrive_kind);
+  const std::string_view lifecycle_stage = TraceLifecycleStageName(view.lifecycle_stage);
+  out_ << "pc=" << HexU64(view.pc) << " cycle=" << HexU64(view.cycle)
+       << " dpc=" << HexU64(view.dpc_id) << " ap=" << HexU64(view.ap_id)
+       << " peu=" << HexU64(view.peu_id) << " slot=" << HexU64(view.slot_id)
        << " slot_model=" << slot_model
        << " slot_model_kind=" << slot_model
-       << " kind=" << KindToString(event.kind) << " block=" << HexU64(event.block_id)
-       << " wave=" << HexU64(event.wave_id)
+       << " kind=" << KindToString(view.kind) << " block=" << HexU64(view.block_id)
+       << " wave=" << HexU64(view.wave_id)
+       << " canonical_name=" << view.canonical_name
+       << " display_name=" << view.display_name
        << " stall_reason=" << stall_reason
-       << " msg=" << event.message << '\n';
+       << " barrier_kind=" << barrier_kind
+       << " arrive_kind=" << arrive_kind
+       << " lifecycle_stage=" << lifecycle_stage
+       << " msg=" << view.compatibility_message << '\n';
 }
 
 JsonTraceSink::JsonTraceSink(const std::filesystem::path& path) : out_(path) {
@@ -83,18 +94,27 @@ JsonTraceSink::JsonTraceSink(const std::filesystem::path& path) : out_(path) {
 }
 
 void JsonTraceSink::OnEvent(const TraceEvent& event) {
-  const std::string_view slot_model = TraceEffectiveSlotModelName(event);
-  const std::string_view stall_reason = TraceStallReasonName(TraceEffectiveStallReason(event));
-  out_ << "{\"pc\":\"" << HexU64(event.pc) << "\",\"cycle\":\"" << HexU64(event.cycle)
-       << "\",\"dpc_id\":\"" << HexU64(event.dpc_id) << "\",\"ap_id\":\""
-       << HexU64(event.ap_id) << "\",\"peu_id\":\"" << HexU64(event.peu_id)
-       << "\",\"slot_id\":\"" << HexU64(event.slot_id) << "\",\"slot_model\":\""
+  const TraceEventView view = MakeTraceEventView(event);
+  const std::string_view slot_model = TraceSlotModelName(view.slot_model_kind);
+  const std::string_view stall_reason = TraceStallReasonName(view.stall_reason);
+  const std::string_view barrier_kind = TraceBarrierKindName(view.barrier_kind);
+  const std::string_view arrive_kind = TraceArriveKindName(view.arrive_kind);
+  const std::string_view lifecycle_stage = TraceLifecycleStageName(view.lifecycle_stage);
+  out_ << "{\"pc\":\"" << HexU64(view.pc) << "\",\"cycle\":\"" << HexU64(view.cycle)
+       << "\",\"dpc_id\":\"" << HexU64(view.dpc_id) << "\",\"ap_id\":\""
+       << HexU64(view.ap_id) << "\",\"peu_id\":\"" << HexU64(view.peu_id)
+       << "\",\"slot_id\":\"" << HexU64(view.slot_id) << "\",\"slot_model\":\""
        << EscapeJson(std::string(slot_model)) << "\",\"slot_model_kind\":\""
        << EscapeJson(std::string(slot_model)) << "\",\"kind\":\""
-       << KindToString(event.kind) << "\",\"block_id\":\"" << HexU64(event.block_id)
-       << "\",\"wave_id\":\"" << HexU64(event.wave_id)
+       << KindToString(view.kind) << "\",\"block_id\":\"" << HexU64(view.block_id)
+       << "\",\"wave_id\":\"" << HexU64(view.wave_id)
+       << "\",\"canonical_name\":\"" << EscapeJson(view.canonical_name)
+       << "\",\"display_name\":\"" << EscapeJson(view.display_name)
        << "\",\"stall_reason\":\"" << EscapeJson(std::string(stall_reason))
-       << "\",\"message\":\"" << EscapeJson(event.message) << "\"}\n";
+       << "\",\"barrier_kind\":\"" << EscapeJson(std::string(barrier_kind))
+       << "\",\"arrive_kind\":\"" << EscapeJson(std::string(arrive_kind))
+       << "\",\"lifecycle_stage\":\"" << EscapeJson(std::string(lifecycle_stage))
+       << "\",\"message\":\"" << EscapeJson(view.compatibility_message) << "\"}\n";
 }
 
 std::string JsonTraceSink::EscapeJson(const std::string& text) {

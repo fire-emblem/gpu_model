@@ -15,6 +15,7 @@
 
 #include "gpu_model/debug/trace_artifact_recorder.h"
 #include "gpu_model/debug/trace_event_builder.h"
+#include "gpu_model/debug/trace_event_view.h"
 #include "gpu_model/debug/trace_sink.h"
 #include "gpu_model/isa/instruction_builder.h"
 #include "gpu_model/program/object_reader.h"
@@ -556,6 +557,125 @@ TEST(TraceTest, SemanticFactoriesEmitCanonicalArriveAndStallMessages) {
   EXPECT_EQ(switch_stall.message, "reason=warp_switch");
 }
 
+TEST(TraceTest, SemanticFactoriesPopulateTypedBarrierArriveAndLifecycleFields) {
+  const TraceWaveView wave{
+      .dpc_id = 0,
+      .ap_id = 1,
+      .peu_id = 2,
+      .slot_id = 3,
+      .block_id = 4,
+      .wave_id = 5,
+      .pc = 6,
+  };
+
+  const TraceEvent launch =
+      MakeTraceWaveLaunchEvent(wave, /*cycle=*/10, "lanes=0x40", TraceSlotModelKind::ResidentFixed);
+  const TraceEvent barrier_wave =
+      MakeTraceBarrierWaveEvent(wave, /*cycle=*/10, TraceSlotModelKind::ResidentFixed);
+  const TraceEvent barrier_arrive =
+      MakeTraceBarrierArriveEvent(wave, /*cycle=*/11, TraceSlotModelKind::ResidentFixed);
+  const TraceEvent release =
+      MakeTraceBarrierReleaseEvent(wave.dpc_id, wave.ap_id, wave.block_id, /*cycle=*/12);
+  const TraceEvent exit =
+      MakeTraceWaveExitEvent(wave, /*cycle=*/13, TraceSlotModelKind::ResidentFixed);
+
+  EXPECT_EQ(launch.lifecycle_stage, TraceLifecycleStage::Launch);
+  EXPECT_EQ(launch.display_name, "launch");
+  EXPECT_EQ(barrier_wave.barrier_kind, TraceBarrierKind::Wave);
+  EXPECT_EQ(barrier_wave.display_name, "wave");
+  EXPECT_EQ(barrier_arrive.barrier_kind, TraceBarrierKind::Arrive);
+  EXPECT_EQ(barrier_arrive.display_name, "arrive");
+  EXPECT_EQ(release.barrier_kind, TraceBarrierKind::Release);
+  EXPECT_EQ(release.display_name, "release");
+  EXPECT_EQ(exit.lifecycle_stage, TraceLifecycleStage::Exit);
+  EXPECT_EQ(exit.display_name, "exit");
+}
+
+TEST(TraceTest, SemanticFactoriesPopulateTypedArriveAndDisplayFields) {
+  const TraceWaveView wave{
+      .dpc_id = 0,
+      .ap_id = 0,
+      .peu_id = 0,
+      .slot_id = 1,
+      .block_id = 2,
+      .wave_id = 3,
+      .pc = 4,
+  };
+
+  const TraceEvent load_arrive = MakeTraceMemoryArriveEvent(
+      wave, /*cycle=*/20, TraceMemoryArriveKind::Load, TraceSlotModelKind::LogicalUnbounded);
+  const TraceEvent store_arrive = MakeTraceMemoryArriveEvent(
+      wave, /*cycle=*/21, TraceMemoryArriveKind::Store, TraceSlotModelKind::LogicalUnbounded);
+  const TraceEvent shared_arrive = MakeTraceMemoryArriveEvent(
+      wave, /*cycle=*/22, TraceMemoryArriveKind::Shared, TraceSlotModelKind::LogicalUnbounded);
+  const TraceEvent private_arrive = MakeTraceMemoryArriveEvent(
+      wave, /*cycle=*/23, TraceMemoryArriveKind::Private, TraceSlotModelKind::LogicalUnbounded);
+  const TraceEvent scalar_buffer_arrive =
+      MakeTraceMemoryArriveEvent(wave,
+                                 /*cycle=*/24,
+                                 TraceMemoryArriveKind::ScalarBuffer,
+                                 TraceSlotModelKind::LogicalUnbounded);
+  const TraceEvent step = MakeTraceWaveStepEvent(
+      wave, /*cycle=*/25, TraceSlotModelKind::LogicalUnbounded, "pc=0x4 op=v_add_i32");
+  const TraceEvent multiline_step = MakeTraceWaveStepEvent(
+      wave,
+      /*cycle=*/26,
+      TraceSlotModelKind::LogicalUnbounded,
+      "pc=0x5 op=v_mul_f32\nlane=0");
+  const TraceEvent fallback_step = MakeTraceWaveStepEvent(
+      wave, /*cycle=*/27, TraceSlotModelKind::LogicalUnbounded, "issued");
+  const TraceEvent commit =
+      MakeTraceCommitEvent(wave, /*cycle=*/28, TraceSlotModelKind::LogicalUnbounded);
+
+  EXPECT_EQ(load_arrive.arrive_kind, TraceArriveKind::Load);
+  EXPECT_EQ(load_arrive.display_name, "load");
+  EXPECT_EQ(store_arrive.arrive_kind, TraceArriveKind::Store);
+  EXPECT_EQ(store_arrive.display_name, "store");
+  EXPECT_EQ(shared_arrive.arrive_kind, TraceArriveKind::Shared);
+  EXPECT_EQ(shared_arrive.display_name, "shared");
+  EXPECT_EQ(private_arrive.arrive_kind, TraceArriveKind::Private);
+  EXPECT_EQ(private_arrive.display_name, "private");
+  EXPECT_EQ(scalar_buffer_arrive.arrive_kind, TraceArriveKind::ScalarBuffer);
+  EXPECT_EQ(scalar_buffer_arrive.display_name, "scalar_buffer");
+  EXPECT_EQ(step.display_name, "v_add_i32");
+  EXPECT_EQ(multiline_step.display_name, "v_mul_f32");
+  EXPECT_EQ(fallback_step.display_name, "issued");
+  EXPECT_EQ(commit.display_name, "commit");
+}
+
+TEST(TraceTest, TraceEventViewPrefersTypedSemanticFieldsOverLegacyMessage) {
+  TraceEvent event{
+      .kind = TraceEventKind::Barrier,
+      .cycle = 7,
+      .slot_model = {},
+      .barrier_kind = TraceBarrierKind::Release,
+      .display_name = "release",
+      .message = "arrive",
+  };
+
+  const TraceEventView view = MakeTraceEventView(event);
+  EXPECT_EQ(view.canonical_name, "barrier_release");
+  EXPECT_EQ(view.display_name, "release");
+  EXPECT_EQ(view.barrier_kind, TraceBarrierKind::Release);
+  EXPECT_FALSE(view.used_legacy_fallback);
+}
+
+TEST(TraceTest, TraceEventViewCanNormalizeLegacyMessageOnlyRecords) {
+  TraceEvent event{
+      .kind = TraceEventKind::Stall,
+      .cycle = 8,
+      .slot_model = {},
+      .display_name = {},
+      .message = "reason=waitcnt_global",
+  };
+
+  const TraceEventView view = MakeTraceEventView(event);
+  EXPECT_EQ(view.canonical_name, "stall_waitcnt_global");
+  EXPECT_EQ(view.display_name, "stall_waitcnt_global");
+  EXPECT_EQ(view.stall_reason, TraceStallReason::WaitCntGlobal);
+  EXPECT_TRUE(view.used_legacy_fallback);
+}
+
 TEST(TraceTest, UnifiedFactoriesSupportRepresentativeHandBuiltTraceScenarios) {
   const TraceWaveView wave{
       .dpc_id = 0,
@@ -909,6 +1029,7 @@ TEST(TraceTest, WritesWaveStatsEventsToTraceSinks) {
         .kind = TraceEventKind::WaveStats,
         .cycle = 7,
         .slot_model = {},
+        .display_name = {},
         .message = "launch=2 init=2 active=2 end=0",
     };
     text_trace.OnEvent(event);
@@ -944,6 +1065,7 @@ TEST(TraceTest, TraceSinksPreferTypedSchemaFieldsWhenLegacyStringsAreEmpty) {
         .slot_model_kind = TraceSlotModelKind::LogicalUnbounded,
         .slot_model = {},
         .stall_reason = TraceStallReason::WaitCntGlobal,
+        .display_name = {},
         .message = {},
     };
     text_trace.OnEvent(event);
@@ -961,6 +1083,54 @@ TEST(TraceTest, TraceSinksPreferTypedSchemaFieldsWhenLegacyStringsAreEmpty) {
   ExpectContainsTypedSlotFieldsJson(json_line, "logical_unbounded");
   ExpectContainsTypedStallReasonFieldsJson(json_line, "waitcnt_global");
   std::filesystem::remove(text_path);
+  std::filesystem::remove(json_path);
+}
+
+TEST(TraceTest, FileTraceSinkSerializesCanonicalTypedSubkinds) {
+  const std::filesystem::path text_path =
+      std::filesystem::temp_directory_path() / "gpu_model_trace_canonical.txt";
+
+  {
+    FileTraceSink sink(text_path);
+    TraceEvent event{
+        .kind = TraceEventKind::Barrier,
+        .cycle = 3,
+        .slot_model = {},
+        .barrier_kind = TraceBarrierKind::Release,
+        .display_name = "release",
+        .message = "release",
+    };
+    sink.OnEvent(event);
+  }
+
+  const std::string text = ReadTextFile(text_path);
+  EXPECT_NE(text.find("barrier_kind=release"), std::string::npos);
+  EXPECT_NE(text.find("canonical_name=barrier_release"), std::string::npos);
+  EXPECT_NE(text.find("display_name=release"), std::string::npos);
+  std::filesystem::remove(text_path);
+}
+
+TEST(TraceTest, JsonTraceSinkSerializesCanonicalTypedSubkinds) {
+  const std::filesystem::path json_path =
+      std::filesystem::temp_directory_path() / "gpu_model_trace_canonical.jsonl";
+
+  {
+    JsonTraceSink sink(json_path);
+    TraceEvent event{
+        .kind = TraceEventKind::Arrive,
+        .cycle = 4,
+        .slot_model = {},
+        .arrive_kind = TraceArriveKind::Shared,
+        .display_name = "shared",
+        .message = "shared_arrive",
+    };
+    sink.OnEvent(event);
+  }
+
+  const std::string text = ReadTextFile(json_path);
+  EXPECT_NE(text.find("\"arrive_kind\":\"shared\""), std::string::npos);
+  EXPECT_NE(text.find("\"canonical_name\":\"shared_arrive\""), std::string::npos);
+  EXPECT_NE(text.find("\"display_name\":\"shared\""), std::string::npos);
   std::filesystem::remove(json_path);
 }
 
@@ -1000,6 +1170,64 @@ TEST(TraceTest, PerfettoDumpContainsTraceEventsAndRequiredFields) {
   EXPECT_NE(trace_events.find("\"ts\":"), std::string::npos);
   EXPECT_TRUE(HasJsonField(trace_events, "\"args\""));
   EXPECT_TRUE(HasEventArg(trace_events, "name"));
+}
+
+TEST(TraceTest, PerfettoExportUsesCanonicalTypedNamesWithoutMessageParsing) {
+  const TraceWaveView wave{
+      .dpc_id = 0,
+      .ap_id = 0,
+      .peu_id = 0,
+      .slot_id = 0,
+      .block_id = 0,
+      .wave_id = 0,
+      .pc = 0,
+  };
+
+  const std::vector<TraceEvent> events{
+      TraceEvent{.kind = TraceEventKind::WaveLaunch,
+                 .cycle = 0,
+                 .dpc_id = wave.dpc_id,
+                 .ap_id = wave.ap_id,
+                 .peu_id = wave.peu_id,
+                 .slot_id = wave.slot_id,
+                 .slot_model_kind = TraceSlotModelKind::ResidentFixed,
+                 .slot_model = {},
+                 .block_id = wave.block_id,
+                 .wave_id = wave.wave_id,
+                 .pc = wave.pc,
+                 .lifecycle_stage = TraceLifecycleStage::Launch,
+                 .display_name = "launch",
+                 .message = {}},
+      TraceEvent{.kind = TraceEventKind::WaveExit,
+                 .cycle = 5,
+                 .dpc_id = wave.dpc_id,
+                 .ap_id = wave.ap_id,
+                 .peu_id = wave.peu_id,
+                 .slot_id = wave.slot_id,
+                 .slot_model_kind = TraceSlotModelKind::ResidentFixed,
+                 .slot_model = {},
+                 .block_id = wave.block_id,
+                 .wave_id = wave.wave_id,
+                 .pc = wave.pc,
+                 .lifecycle_stage = TraceLifecycleStage::Exit,
+                 .display_name = "exit",
+                 .message = {}},
+  };
+
+  const std::string trace = CycleTimelineRenderer::RenderPerfettoTraceProto(events);
+  const auto parsed_events = ParseTrackEvents(trace);
+  bool saw_wave_launch = false;
+  bool saw_wave_exit = false;
+  for (const auto& event : parsed_events) {
+    if (event.type != 3u) {
+      continue;
+    }
+    saw_wave_launch = saw_wave_launch || event.name == "wave_launch";
+    saw_wave_exit = saw_wave_exit || event.name == "wave_exit";
+  }
+
+  EXPECT_TRUE(saw_wave_launch);
+  EXPECT_TRUE(saw_wave_exit);
 }
 
 TEST(TraceTest, PerfettoDumpForMultiThreadedWaitKernelShowsWaitingAndResumeOrdering) {

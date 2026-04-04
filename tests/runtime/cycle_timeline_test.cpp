@@ -394,6 +394,44 @@ TEST(CycleTimelineTest, GoogleTracePrefersTypedSchemaFieldsWhenLegacyStringsAreE
       std::string::npos);
 }
 
+TEST(CycleTimelineTest, GoogleTraceUsesCanonicalBarrierAndArriveNamesFromTypedFields) {
+  const TraceWaveView wave = MakeWaveView(/*slot_id=*/1);
+  std::vector<TraceEvent> events{
+      TraceEvent{.kind = TraceEventKind::Barrier,
+                 .cycle = 3,
+                 .dpc_id = wave.dpc_id,
+                 .ap_id = wave.ap_id,
+                 .peu_id = wave.peu_id,
+                 .slot_id = wave.slot_id,
+                 .slot_model_kind = TraceSlotModelKind::ResidentFixed,
+                 .slot_model = {},
+                 .block_id = wave.block_id,
+                 .wave_id = wave.wave_id,
+                 .pc = wave.pc,
+                 .barrier_kind = TraceBarrierKind::Arrive,
+                 .display_name = "arrive",
+                 .message = {}},
+      TraceEvent{.kind = TraceEventKind::Arrive,
+                 .cycle = 4,
+                 .dpc_id = wave.dpc_id,
+                 .ap_id = wave.ap_id,
+                 .peu_id = wave.peu_id,
+                 .slot_id = wave.slot_id,
+                 .slot_model_kind = TraceSlotModelKind::ResidentFixed,
+                 .slot_model = {},
+                 .block_id = wave.block_id,
+                 .wave_id = wave.wave_id,
+                 .pc = wave.pc,
+                 .arrive_kind = TraceArriveKind::Load,
+                 .display_name = "load",
+                 .message = {}},
+  };
+
+  const std::string trace = CycleTimelineRenderer::RenderGoogleTrace(events);
+  EXPECT_NE(trace.find("\"name\":\"barrier_arrive\""), std::string::npos);
+  EXPECT_NE(trace.find("\"name\":\"load_arrive\""), std::string::npos);
+}
+
 TEST(CycleTimelineTest, RuntimePerfettoDumpCarriesWaveLifecycleOnSlotTracks) {
   CollectingTraceSink trace;
   RuntimeEngine runtime(&trace);

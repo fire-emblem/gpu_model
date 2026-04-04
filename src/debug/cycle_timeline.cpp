@@ -1,5 +1,6 @@
 #include "gpu_model/debug/cycle_timeline.h"
 #include "gpu_model/debug/trace_event_builder.h"
+#include "gpu_model/debug/trace_event_view.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -90,6 +91,11 @@ struct Marker {
   char symbol = '.';
   TraceEventKind kind = TraceEventKind::Launch;
   TraceStallReason stall_reason = TraceStallReason::None;
+  TraceBarrierKind barrier_kind = TraceBarrierKind::None;
+  TraceArriveKind arrive_kind = TraceArriveKind::None;
+  TraceLifecycleStage lifecycle_stage = TraceLifecycleStage::None;
+  std::string canonical_name;
+  std::string display_name;
   std::string message;
   std::string slot_model;
   uint32_t block_id = 0;
@@ -292,7 +298,8 @@ TimelineData BuildTimelineData(const std::vector<TraceEvent>& events) {
   std::map<WaveKey, std::queue<OpenIssue>> open_issue;
 
   for (const auto& event : events) {
-    const std::string_view slot_model = TraceEffectiveSlotModelName(event);
+    const TraceEventView view = MakeTraceEventView(event);
+    const std::string_view slot_model = TraceSlotModelName(view.slot_model_kind);
     if (!slot_model.empty()) {
       data.slot_models.insert(std::string(slot_model));
     }
@@ -306,7 +313,8 @@ TimelineData BuildTimelineData(const std::vector<TraceEvent>& events) {
                            .peu_id = event.peu_id,
                            .slot_id = event.slot_id};
     if (event.kind == TraceEventKind::WaveStep) {
-      const std::string op = ExtractOpName(event.message);
+      const std::string op =
+          view.display_name.empty() ? ExtractOpName(event.message) : view.display_name;
       open_issue[wave_key].push(OpenIssue{.issue_cycle = event.cycle,
                                           .op = op,
                                           .slot = slot_key,
@@ -337,7 +345,7 @@ TimelineData BuildTimelineData(const std::vector<TraceEvent>& events) {
       if (event.kind == TraceEventKind::Arrive) {
         symbol = 'R';
       } else if (event.kind == TraceEventKind::Barrier) {
-        symbol = event.message.find("release") != std::string::npos ? '|' : 'B';
+        symbol = view.barrier_kind == TraceBarrierKind::Release ? '|' : 'B';
       } else if (event.kind == TraceEventKind::WaveExit) {
         symbol = 'X';
       } else if (event.kind == TraceEventKind::Stall) {
@@ -350,7 +358,12 @@ TimelineData BuildTimelineData(const std::vector<TraceEvent>& events) {
       data.markers[slot_key].push_back(Marker{.cycle = event.cycle,
                                               .symbol = symbol,
                                               .kind = event.kind,
-                                              .stall_reason = TraceEffectiveStallReason(event),
+                                              .stall_reason = view.stall_reason,
+                                              .barrier_kind = view.barrier_kind,
+                                              .arrive_kind = view.arrive_kind,
+                                              .lifecycle_stage = view.lifecycle_stage,
+                                              .canonical_name = view.canonical_name,
+                                              .display_name = view.display_name,
                                               .message = event.message,
                                               .slot_model = std::string(slot_model),
                                               .block_id = event.block_id,
@@ -576,6 +589,12 @@ RowDescriptor DescribeRow(const SlotKey& key,
 }
 
 std::string MarkerName(const Marker& marker) {
+  if (marker.kind == TraceEventKind::Stall && marker.stall_reason == TraceStallReason::WarpSwitch) {
+    return "wave_switch_away";
+  }
+  if (!marker.canonical_name.empty()) {
+    return marker.canonical_name;
+  }
   switch (marker.kind) {
     case TraceEventKind::Arrive:
       return marker.message.empty() ? "arrive" : marker.message;
@@ -603,8 +622,7 @@ std::string MarkerName(const Marker& marker) {
 std::string MarkerCategory(const Marker& marker) {
   switch (marker.kind) {
     case TraceEventKind::Arrive:
-      return marker.message.find("load") != std::string::npos ? "memory/arrive_load"
-                                                              : "memory/arrive_store";
+      return marker.canonical_name.empty() ? "memory/arrive" : "memory/" + marker.canonical_name;
     case TraceEventKind::Barrier:
       return "sync/barrier";
     case TraceEventKind::WaveExit:

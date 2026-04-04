@@ -23,6 +23,28 @@ enum class TraceStallReason {
   Other,
 };
 
+enum class TraceBarrierKind {
+  None,
+  Wave,
+  Arrive,
+  Release,
+};
+
+enum class TraceArriveKind {
+  None,
+  Load,
+  Store,
+  Shared,
+  Private,
+  ScalarBuffer,
+};
+
+enum class TraceLifecycleStage {
+  None,
+  Launch,
+  Exit,
+};
+
 enum class TraceEventKind {
   Launch,
   BlockPlaced,
@@ -52,6 +74,10 @@ struct TraceEvent {
   uint32_t wave_id = 0;
   uint64_t pc = 0;
   TraceStallReason stall_reason = TraceStallReason::None;
+  TraceBarrierKind barrier_kind = TraceBarrierKind::None;
+  TraceArriveKind arrive_kind = TraceArriveKind::None;
+  TraceLifecycleStage lifecycle_stage = TraceLifecycleStage::None;
+  std::string display_name;
   std::string message;
 };
 
@@ -114,6 +140,50 @@ inline std::string_view TraceStallReasonName(TraceStallReason reason) {
       return kTraceStallReasonBarrierSlotUnavailable;
     case TraceStallReason::Other:
       return "other";
+  }
+  return "";
+}
+
+inline std::string_view TraceBarrierKindName(TraceBarrierKind kind) {
+  switch (kind) {
+    case TraceBarrierKind::None:
+      return "";
+    case TraceBarrierKind::Wave:
+      return "wave";
+    case TraceBarrierKind::Arrive:
+      return "arrive";
+    case TraceBarrierKind::Release:
+      return "release";
+  }
+  return "";
+}
+
+inline std::string_view TraceArriveKindName(TraceArriveKind kind) {
+  switch (kind) {
+    case TraceArriveKind::None:
+      return "";
+    case TraceArriveKind::Load:
+      return "load";
+    case TraceArriveKind::Store:
+      return "store";
+    case TraceArriveKind::Shared:
+      return "shared";
+    case TraceArriveKind::Private:
+      return "private";
+    case TraceArriveKind::ScalarBuffer:
+      return "scalar_buffer";
+  }
+  return "";
+}
+
+inline std::string_view TraceLifecycleStageName(TraceLifecycleStage stage) {
+  switch (stage) {
+    case TraceLifecycleStage::None:
+      return "";
+    case TraceLifecycleStage::Launch:
+      return "launch";
+    case TraceLifecycleStage::Exit:
+      return "exit";
   }
   return "";
 }
