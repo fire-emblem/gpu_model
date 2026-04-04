@@ -121,6 +121,41 @@ std::string CanonicalNameFromStall(TraceStallReason reason) {
   return "stall_" + std::string(reason_name);
 }
 
+std::string WaitcntBlockedDomainSuffix(const TraceWaitcntState& state) {
+  if (!state.valid) {
+    return {};
+  }
+  std::string suffix;
+  const auto append_domain = [&](std::string_view domain) {
+    if (!suffix.empty()) {
+      suffix += "_";
+    }
+    suffix += domain;
+  };
+  if (state.blocked_global) {
+    append_domain("global");
+  }
+  if (state.blocked_shared) {
+    append_domain("shared");
+  }
+  if (state.blocked_private) {
+    append_domain("private");
+  }
+  if (state.blocked_scalar_buffer) {
+    append_domain("scalar_buffer");
+  }
+  return suffix;
+}
+
+std::string CanonicalNameFromStall(const TraceWaitcntState& state,
+                                   TraceStallReason reason) {
+  const std::string blocked_suffix = WaitcntBlockedDomainSuffix(state);
+  if (!blocked_suffix.empty()) {
+    return "stall_waitcnt_" + blocked_suffix;
+  }
+  return CanonicalNameFromStall(reason);
+}
+
 std::string CanonicalNameFromRuntimeKind(TraceEventKind kind) {
   switch (kind) {
     case TraceEventKind::Launch:
@@ -137,6 +172,7 @@ std::string CanonicalNameFromRuntimeKind(TraceEventKind kind) {
 
 std::string PresentationNameFromView(TraceEventKind kind,
                                      TraceStallReason stall_reason,
+                                     const TraceWaitcntState& waitcnt_state,
                                      std::string_view canonical_name,
                                      std::string_view display_name) {
   if (kind == TraceEventKind::Stall && stall_reason == TraceStallReason::WarpSwitch) {
@@ -150,6 +186,7 @@ std::string PresentationNameFromView(TraceEventKind kind,
 
 std::string CategoryFromView(TraceEventKind kind,
                              TraceStallReason stall_reason,
+                             const TraceWaitcntState& waitcnt_state,
                              std::string_view canonical_name) {
   switch (kind) {
     case TraceEventKind::Launch:
@@ -162,6 +199,12 @@ std::string CategoryFromView(TraceEventKind kind,
     case TraceEventKind::Stall:
       if (stall_reason == TraceStallReason::WarpSwitch) {
         return "wave/switch_away";
+      }
+      if (waitcnt_state.valid) {
+        const std::string blocked_suffix = WaitcntBlockedDomainSuffix(waitcnt_state);
+        if (!blocked_suffix.empty()) {
+          return "stall/waitcnt_" + blocked_suffix;
+        }
       }
       if (stall_reason == TraceStallReason::None) {
         return "stall";
@@ -203,6 +246,7 @@ TraceEventView MakeTraceEventView(const TraceEvent& event) {
       .barrier_kind = event.barrier_kind,
       .arrive_kind = event.arrive_kind,
       .lifecycle_stage = event.lifecycle_stage,
+      .waitcnt_state = event.waitcnt_state,
       .canonical_name = {},
       .presentation_name = {},
       .display_name = event.display_name,
@@ -233,7 +277,7 @@ TraceEventView MakeTraceEventView(const TraceEvent& event) {
              view.lifecycle_stage != TraceLifecycleStage::None) {
     view.canonical_name = CanonicalNameFromLifecycle(view.lifecycle_stage);
   } else if (event.kind == TraceEventKind::Stall && view.stall_reason != TraceStallReason::None) {
-    view.canonical_name = CanonicalNameFromStall(view.stall_reason);
+    view.canonical_name = CanonicalNameFromStall(view.waitcnt_state, view.stall_reason);
   } else if (!CanonicalNameFromRuntimeKind(event.kind).empty()) {
     view.canonical_name = CanonicalNameFromRuntimeKind(event.kind);
   } else if (!event.display_name.empty()) {
@@ -260,8 +304,10 @@ TraceEventView MakeTraceEventView(const TraceEvent& event) {
   }
 
   view.presentation_name =
-      PresentationNameFromView(event.kind, view.stall_reason, view.canonical_name, view.display_name);
-  view.category = CategoryFromView(event.kind, view.stall_reason, view.canonical_name);
+      PresentationNameFromView(
+          event.kind, view.stall_reason, view.waitcnt_state, view.canonical_name, view.display_name);
+  view.category = CategoryFromView(event.kind, view.stall_reason, view.waitcnt_state,
+                                   view.canonical_name);
 
   return view;
 }

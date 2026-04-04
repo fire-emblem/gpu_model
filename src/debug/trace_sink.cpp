@@ -84,6 +84,9 @@ void FileTraceSink::OnEvent(const TraceEvent& event) {
        << " barrier_kind=" << fields.barrier_kind
        << " arrive_kind=" << fields.arrive_kind
        << " lifecycle_stage=" << fields.lifecycle_stage
+       << " waitcnt_thresholds=" << fields.waitcnt_thresholds
+       << " waitcnt_pending=" << fields.waitcnt_pending
+       << " waitcnt_blocked_domains=" << fields.waitcnt_blocked_domains
        << " msg=" << fields.compatibility_message << '\n';
 }
 

@@ -61,6 +61,22 @@ enum class TraceEventKind {
   Arrive,
 };
 
+struct TraceWaitcntState {
+  bool valid = false;
+  uint32_t threshold_global = UINT32_MAX;
+  uint32_t threshold_shared = UINT32_MAX;
+  uint32_t threshold_private = UINT32_MAX;
+  uint32_t threshold_scalar_buffer = UINT32_MAX;
+  uint32_t pending_global = 0;
+  uint32_t pending_shared = 0;
+  uint32_t pending_private = 0;
+  uint32_t pending_scalar_buffer = 0;
+  bool blocked_global = false;
+  bool blocked_shared = false;
+  bool blocked_private = false;
+  bool blocked_scalar_buffer = false;
+};
+
 struct TraceEvent {
   TraceEventKind kind = TraceEventKind::Launch;
   uint64_t cycle = 0;
@@ -77,6 +93,7 @@ struct TraceEvent {
   TraceBarrierKind barrier_kind = TraceBarrierKind::None;
   TraceArriveKind arrive_kind = TraceArriveKind::None;
   TraceLifecycleStage lifecycle_stage = TraceLifecycleStage::None;
+  TraceWaitcntState waitcnt_state;
   std::string display_name;
   std::string message;
 };
@@ -252,6 +269,10 @@ inline TraceStallReason TraceEffectiveStallReason(const TraceEvent& event) {
 
 inline bool TraceHasStallReason(const TraceEvent& event, TraceStallReason reason) {
   return event.kind == TraceEventKind::Stall && TraceEffectiveStallReason(event) == reason;
+}
+
+inline bool TraceHasWaitcntState(const TraceEvent& event) {
+  return event.waitcnt_state.valid;
 }
 
 }  // namespace gpu_model

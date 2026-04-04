@@ -22,6 +22,7 @@ struct TraceEventView {
   TraceBarrierKind barrier_kind = TraceBarrierKind::None;
   TraceArriveKind arrive_kind = TraceArriveKind::None;
   TraceLifecycleStage lifecycle_stage = TraceLifecycleStage::None;
+  TraceWaitcntState waitcnt_state;
   std::string canonical_name;
   std::string presentation_name;
   std::string display_name;

@@ -558,6 +558,51 @@ TEST(TraceTest, SemanticFactoriesEmitCanonicalArriveAndStallMessages) {
   EXPECT_EQ(switch_stall.message, "reason=warp_switch");
 }
 
+TEST(TraceTest, WaitcntStallCarriesTypedThresholdPendingAndBlockedDomains) {
+  const TraceWaveView wave{
+      .dpc_id = 0,
+      .ap_id = 0,
+      .peu_id = 0,
+      .slot_id = 1,
+      .block_id = 2,
+      .wave_id = 3,
+      .pc = 4,
+  };
+
+  const TraceWaitcntState waitcnt_state{
+      .valid = true,
+      .threshold_global = 0,
+      .threshold_shared = 0,
+      .threshold_private = UINT32_MAX,
+      .threshold_scalar_buffer = UINT32_MAX,
+      .pending_global = 1,
+      .pending_shared = 1,
+      .pending_private = 0,
+      .pending_scalar_buffer = 0,
+      .blocked_global = true,
+      .blocked_shared = true,
+      .blocked_private = false,
+      .blocked_scalar_buffer = false,
+  };
+
+  const TraceEvent event = MakeTraceWaitStallEvent(wave,
+                                                   /*cycle=*/22,
+                                                   TraceStallReason::WaitCntGlobal,
+                                                   TraceSlotModelKind::LogicalUnbounded,
+                                                   std::numeric_limits<uint64_t>::max(),
+                                                   waitcnt_state);
+  const TraceEventView view = MakeTraceEventView(event);
+  const TraceEventExportFields fields = MakeTraceEventExportFields(view);
+
+  EXPECT_TRUE(TraceHasWaitcntState(event));
+  EXPECT_EQ(view.canonical_name, "stall_waitcnt_global_shared");
+  EXPECT_EQ(view.presentation_name, "stall_waitcnt_global_shared");
+  EXPECT_EQ(view.category, "stall/waitcnt_global_shared");
+  EXPECT_EQ(fields.waitcnt_thresholds, "g=0 s=0 p=* sb=*");
+  EXPECT_EQ(fields.waitcnt_pending, "g=1 s=1 p=0 sb=0");
+  EXPECT_EQ(fields.waitcnt_blocked_domains, "global|shared");
+}
+
 TEST(TraceTest, SemanticFactoriesPopulateTypedBarrierArriveAndLifecycleFields) {
   const TraceWaveView wave{
       .dpc_id = 0,
@@ -725,6 +770,9 @@ TEST(TraceTest, TraceEventExportFieldsMirrorTypedViewFields) {
   EXPECT_EQ(fields.display_name, view.display_name);
   EXPECT_EQ(fields.category, view.category);
   EXPECT_EQ(fields.compatibility_message, view.compatibility_message);
+  EXPECT_TRUE(fields.waitcnt_thresholds.empty());
+  EXPECT_TRUE(fields.waitcnt_pending.empty());
+  EXPECT_TRUE(fields.waitcnt_blocked_domains.empty());
 }
 
 TEST(TraceTest, TypedTraceSemanticsRemainValidWhenCompatibilityMessageIsEmpty) {
@@ -1205,6 +1253,53 @@ TEST(TraceTest, JsonTraceSinkSerializesCanonicalTypedSubkinds) {
   EXPECT_NE(text.find("\"category\":\"memory/shared_arrive\""), std::string::npos);
   EXPECT_NE(text.find("\"display_name\":\"shared\""), std::string::npos);
   std::filesystem::remove(json_path);
+}
+
+TEST(TraceTest, JsonTraceSinkSerializesWaitcntMetadataFields) {
+  const TraceWaveView wave{
+      .dpc_id = 0,
+      .ap_id = 0,
+      .peu_id = 0,
+      .slot_id = 1,
+      .block_id = 2,
+      .wave_id = 3,
+      .pc = 4,
+  };
+  const TraceEvent event = MakeTraceWaitStallEvent(
+      wave,
+      /*cycle=*/9,
+      TraceStallReason::WaitCntGlobal,
+      TraceSlotModelKind::LogicalUnbounded,
+      std::numeric_limits<uint64_t>::max(),
+      TraceWaitcntState{.valid = true,
+                        .threshold_global = 0,
+                        .threshold_shared = 0,
+                        .threshold_private = UINT32_MAX,
+                        .threshold_scalar_buffer = UINT32_MAX,
+                        .pending_global = 2,
+                        .pending_shared = 1,
+                        .pending_private = 0,
+                        .pending_scalar_buffer = 0,
+                        .blocked_global = true,
+                        .blocked_shared = true});
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_waitcnt_trace_json");
+  const struct Cleanup {
+    std::filesystem::path path;
+    ~Cleanup() { std::filesystem::remove_all(path); }
+  } cleanup{temp_dir};
+  const auto temp_path = temp_dir / "trace.json";
+
+  {
+    JsonTraceSink sink(temp_path);
+    sink.OnEvent(event);
+  }
+
+  const std::string line = ReadTextFile(temp_path);
+  EXPECT_NE(line.find("\"waitcnt_thresholds\":\"g=0 s=0 p=* sb=*\""), std::string::npos);
+  EXPECT_NE(line.find("\"waitcnt_pending\":\"g=2 s=1 p=0 sb=0\""), std::string::npos);
+  EXPECT_NE(line.find("\"waitcnt_blocked_domains\":\"global|shared\""), std::string::npos);
+  EXPECT_NE(line.find("\"presentation_name\":\"stall_waitcnt_global_shared\""), std::string::npos);
 }
 
 TEST(TraceTest, PerfettoDumpContainsTraceEventsAndRequiredFields) {

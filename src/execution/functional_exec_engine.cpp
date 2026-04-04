@@ -1302,9 +1302,14 @@ class FunctionalExecutionCoreImpl {
 
   void EmitWaitingWaveStalls(const ExecutableBlock& block) {
     std::lock_guard<std::mutex> state_lock(*block.wave_state_mutex);
-    for (const auto& wave : block.waves) {
+    for (size_t i = 0; i < block.waves.size(); ++i) {
+      const auto& wave = block.waves[i];
       if (wave.run_state != WaveRunState::Waiting || !IsMemoryWaitReason(wave.wait_reason)) {
         continue;
+      }
+      TraceWaitcntState waitcnt_state;
+      if (block.wave_states[i].waiting_waitcnt_thresholds.has_value()) {
+        waitcnt_state = MakeTraceWaitcntState(wave, *block.wave_states[i].waiting_waitcnt_thresholds);
       }
       TraceEventLocked(MakeTraceWaitStallEvent(
           TraceWaveView{.dpc_id = wave.dpc_id,
@@ -1316,7 +1321,9 @@ class FunctionalExecutionCoreImpl {
                         .pc = wave.pc},
           NextTraceCycle(),
           TraceStallReasonForWaitReason(wave.wait_reason),
-          TraceSlotModelKind::LogicalUnbounded));
+          TraceSlotModelKind::LogicalUnbounded,
+          std::numeric_limits<uint64_t>::max(),
+          waitcnt_state));
     }
   }
 
@@ -1621,6 +1628,8 @@ class FunctionalExecutionCoreImpl {
       {
         std::lock_guard<std::mutex> state_lock(*block.wave_state_mutex);
         if (EnterWaitStateFromWaitcnt(instruction, wave_state, wave)) {
+          const TraceWaitcntState waitcnt_state =
+              MakeTraceWaitcntState(wave, *wave_state.waiting_waitcnt_thresholds);
           TraceEventLocked(MakeTraceCommitEvent(
               TraceWaveView{.dpc_id = wave.dpc_id,
                             .ap_id = wave.ap_id,
@@ -1643,7 +1652,8 @@ class FunctionalExecutionCoreImpl {
               NextTraceCycle(),
               TraceStallReasonForWaitReason(wave.wait_reason),
               TraceSlotModelKind::LogicalUnbounded,
-              issue_pc));
+              issue_pc,
+              waitcnt_state));
           emit_waitcnt_wave_stats = true;
         } else {
           ApplyExecutionPlanControlFlow(plan, wave, false, false);

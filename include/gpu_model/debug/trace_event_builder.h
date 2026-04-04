@@ -289,11 +289,13 @@ inline TraceEvent MakeTraceWaitStallEvent(const TraceWaveView& wave,
                                           uint64_t cycle,
                                           TraceStallReason stall_reason,
                                           TraceSlotModelKind slot_model,
-                                          uint64_t pc = std::numeric_limits<uint64_t>::max()) {
+                                          uint64_t pc = std::numeric_limits<uint64_t>::max(),
+                                          TraceWaitcntState waitcnt_state = {}) {
   TraceEvent event =
       MakeTraceWaveEvent(wave, TraceEventKind::Stall, cycle, slot_model,
                          MakeTraceStallReasonMessage(TraceStallReasonName(stall_reason)), pc);
   event.display_name = MakeTraceStallDisplayName(stall_reason);
+  event.waitcnt_state = waitcnt_state;
   return event;
 }
 

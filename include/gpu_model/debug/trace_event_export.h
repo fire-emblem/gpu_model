@@ -12,6 +12,9 @@ struct TraceEventExportFields {
   std::string barrier_kind;
   std::string arrive_kind;
   std::string lifecycle_stage;
+  std::string waitcnt_thresholds;
+  std::string waitcnt_pending;
+  std::string waitcnt_blocked_domains;
   std::string canonical_name;
   std::string presentation_name;
   std::string display_name;

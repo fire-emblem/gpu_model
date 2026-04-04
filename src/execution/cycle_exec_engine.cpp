@@ -1029,11 +1029,22 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
       if (bundle.selected_candidate_indices.empty()) {
         if (const auto blocked =
                 PickFirstBlockedResidentWave(slot, context.kernel, cycle, ap_states)) {
+          TraceWaitcntState waitcnt_state;
+          const WaveContext& blocked_wave = blocked->first->wave;
+          if (blocked_wave.pc < context.kernel.instructions().size()) {
+            const Instruction& blocked_instruction = context.kernel.instructions().at(blocked_wave.pc);
+            if (blocked_instruction.opcode == Opcode::SWaitCnt) {
+              waitcnt_state =
+                  MakeTraceWaitcntState(blocked_wave, WaitCntThresholdsForInstruction(blocked_instruction));
+            }
+          }
           context.trace.OnEvent(MakeTraceWaitStallEvent(
               MakeTraceWaveView(*blocked->first, TraceSlotId(*blocked->first)),
               cycle,
               TraceStallReasonFromMessage(MakeTraceStallReasonMessage(blocked->second)),
-              TraceSlotModelKind::ResidentFixed));
+              TraceSlotModelKind::ResidentFixed,
+              std::numeric_limits<uint64_t>::max(),
+              waitcnt_state));
         }
         continue;
       }

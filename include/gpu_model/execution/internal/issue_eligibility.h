@@ -4,6 +4,7 @@
 #include <optional>
 #include <string>
 
+#include "gpu_model/debug/trace_event.h"
 #include "gpu_model/isa/instruction.h"
 #include "gpu_model/execution/wave_context.h"
 
@@ -30,6 +31,8 @@ void IncrementPendingMemoryOps(WaveContext& wave, MemoryWaitDomain domain);
 void DecrementPendingMemoryOps(WaveContext& wave, MemoryWaitDomain domain);
 
 WaitCntThresholds WaitCntThresholdsForInstruction(const Instruction& instruction);
+TraceWaitcntState MakeTraceWaitcntState(const WaveContext& wave,
+                                        const WaitCntThresholds& thresholds);
 bool WaitCntSatisfied(const WaveContext& wave, const Instruction& instruction);
 std::optional<std::string> WaitCntBlockReason(const WaveContext& wave,
                                               const Instruction& instruction);

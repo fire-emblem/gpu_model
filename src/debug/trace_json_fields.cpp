@@ -54,6 +54,10 @@ void AppendTraceExportJsonFields(std::ostringstream& out,
   AppendOptionalTraceJsonStringField(out, "barrier_kind", fields.barrier_kind);
   AppendOptionalTraceJsonStringField(out, "arrive_kind", fields.arrive_kind);
   AppendOptionalTraceJsonStringField(out, "lifecycle_stage", fields.lifecycle_stage);
+  AppendOptionalTraceJsonStringField(out, "waitcnt_thresholds", fields.waitcnt_thresholds);
+  AppendOptionalTraceJsonStringField(out, "waitcnt_pending", fields.waitcnt_pending);
+  AppendOptionalTraceJsonStringField(out, "waitcnt_blocked_domains",
+                                     fields.waitcnt_blocked_domains);
   AppendOptionalTraceJsonStringField(out, "canonical_name", fields.canonical_name);
   AppendOptionalTraceJsonStringField(out, "presentation_name", fields.presentation_name);
   AppendOptionalTraceJsonStringField(out, "display_name", fields.display_name);

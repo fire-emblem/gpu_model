@@ -2064,11 +2064,15 @@ class EncodedExecutionCore {
         wave_state.waiting_waitcnt_thresholds = WaitCntThresholdsForDecodedInstruction(decoded);
         wave_state.waiting_resume_pc_increment = decoded.size_bytes;
         MarkWaveWaiting(wave, *wait_reason);
+        const TraceWaitcntState waitcnt_state =
+            MakeTraceWaitcntState(wave, *wave_state.waiting_waitcnt_thresholds);
         TraceEventLocked(MakeTraceWaitStallEvent(
             MakeRawTraceWaveView(raw_wave),
             0,
             TraceStallReasonForWaveWaitReason(*wait_reason),
-            TraceSlotModel()));
+            TraceSlotModel(),
+            std::numeric_limits<uint64_t>::max(),
+            waitcnt_state));
         CommitStats(step_stats);
         return;
       }
@@ -2164,11 +2168,15 @@ class EncodedExecutionCore {
         wave_state.waiting_waitcnt_thresholds = WaitCntThresholdsForDecodedInstruction(decoded);
         wave_state.waiting_resume_pc_increment = decoded.size_bytes;
         MarkWaveWaiting(wave, *wait_reason);
+        const TraceWaitcntState waitcnt_state =
+            MakeTraceWaitcntState(wave, *wave_state.waiting_waitcnt_thresholds);
         TraceEventLocked(MakeTraceWaitStallEvent(
             MakeRawTraceWaveView(raw_wave),
             cycle,
             TraceStallReasonForWaveWaitReason(*wait_reason),
-            TraceSlotModel()));
+            TraceSlotModel(),
+            std::numeric_limits<uint64_t>::max(),
+            waitcnt_state));
         CommitStats(step_stats);
         return issue_cycles;
       }

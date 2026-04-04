@@ -559,6 +559,20 @@ TEST(FunctionalExecEngineWaitcntTest, WaitcntResumeRequiresAllStoredThresholdDom
       std::numeric_limits<size_t>::max());
   EXPECT_NE(FirstEventIndex(events, TraceEventKind::WaveStep, marker_after_shared_only_pc),
             std::numeric_limits<size_t>::max());
+
+  const size_t combined_waitcnt_stall_index =
+      FirstEventIndex(events, TraceEventKind::Stall, combined_waitcnt_pc, "waitcnt_global");
+  ASSERT_NE(combined_waitcnt_stall_index, std::numeric_limits<size_t>::max());
+  const TraceEvent& combined_waitcnt_stall = events.at(combined_waitcnt_stall_index);
+  EXPECT_TRUE(TraceHasWaitcntState(combined_waitcnt_stall));
+  EXPECT_TRUE(combined_waitcnt_stall.waitcnt_state.blocked_global);
+  EXPECT_TRUE(combined_waitcnt_stall.waitcnt_state.blocked_shared);
+  EXPECT_FALSE(combined_waitcnt_stall.waitcnt_state.blocked_private);
+  EXPECT_FALSE(combined_waitcnt_stall.waitcnt_state.blocked_scalar_buffer);
+  EXPECT_EQ(combined_waitcnt_stall.waitcnt_state.threshold_global, 0u);
+  EXPECT_EQ(combined_waitcnt_stall.waitcnt_state.threshold_shared, 0u);
+  EXPECT_EQ(combined_waitcnt_stall.waitcnt_state.pending_global, 1u);
+  EXPECT_EQ(combined_waitcnt_stall.waitcnt_state.pending_shared, 1u);
 }
 
 TEST(FunctionalExecEngineWaitcntTest,

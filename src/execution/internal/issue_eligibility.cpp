@@ -165,6 +165,25 @@ WaitCntThresholds WaitCntThresholdsForInstruction(const Instruction& instruction
   return thresholds;
 }
 
+TraceWaitcntState MakeTraceWaitcntState(const WaveContext& wave,
+                                        const WaitCntThresholds& thresholds) {
+  return TraceWaitcntState{
+      .valid = true,
+      .threshold_global = thresholds.global,
+      .threshold_shared = thresholds.shared,
+      .threshold_private = thresholds.private_mem,
+      .threshold_scalar_buffer = thresholds.scalar_buffer,
+      .pending_global = wave.pending_global_mem_ops,
+      .pending_shared = wave.pending_shared_mem_ops,
+      .pending_private = wave.pending_private_mem_ops,
+      .pending_scalar_buffer = wave.pending_scalar_buffer_mem_ops,
+      .blocked_global = wave.pending_global_mem_ops > thresholds.global,
+      .blocked_shared = wave.pending_shared_mem_ops > thresholds.shared,
+      .blocked_private = wave.pending_private_mem_ops > thresholds.private_mem,
+      .blocked_scalar_buffer = wave.pending_scalar_buffer_mem_ops > thresholds.scalar_buffer,
+  };
+}
+
 bool WaitCntSatisfied(const WaveContext& wave, const Instruction& instruction) {
   if (instruction.opcode != Opcode::SWaitCnt) {
     return true;
