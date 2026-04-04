@@ -9,7 +9,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "gpu_model/debug/trace_sink.h"
+#include "gpu_model/debug/trace/sink.h"
 #include "gpu_model/runtime/model_runtime.h"
 #include "gpu_model/runtime/runtime_submission_context.h"
 

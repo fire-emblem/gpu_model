@@ -13,14 +13,18 @@
 #include <string_view>
 #include <vector>
 
-#include "gpu_model/debug/trace_artifact_recorder.h"
-#include "gpu_model/debug/trace_event_export.h"
-#include "gpu_model/debug/trace_event_builder.h"
-#include "gpu_model/debug/trace_event_view.h"
-#include "gpu_model/debug/trace_sink.h"
+#include "gpu_model/debug/recorder/export.h"
+#include "gpu_model/debug/recorder/recorder.h"
+#include "gpu_model/debug/timeline/cycle_timeline.h"
+#include "gpu_model/debug/trace/artifact_recorder.h"
+#include "gpu_model/debug/trace/event_export.h"
+#include "gpu_model/debug/trace/event_factory.h"
+#include "gpu_model/debug/trace/event_view.h"
+#include "gpu_model/debug/trace/sink.h"
 #include "gpu_model/isa/instruction_builder.h"
 #include "gpu_model/program/object_reader.h"
 #include "gpu_model/runtime/runtime_engine.h"
+#include "tests/test_utils/llvm_mc_test_support.h"
 
 namespace gpu_model {
 namespace {
@@ -74,6 +78,22 @@ ExecutableKernel BuildCycleMultiWaveWaitcntKernelForTraceTest() {
   return builder.Build("cycle_multi_wave_waitcnt_trace_test");
 }
 
+ExecutableKernel BuildWaitcntThresholdProgressKernel() {
+  InstructionBuilder builder;
+  builder.SLoadArg("s0", 0);
+  builder.SMov("s1", 0);
+  builder.MLoadGlobal("v1", "s0", "s1", 4);
+  builder.SMov("s2", 1);
+  builder.MLoadGlobal("v2", "s0", "s2", 4);
+  builder.SMov("s3", 2);
+  builder.MLoadGlobal("v3", "s0", "s3", 4);
+  builder.SWaitCnt(/*global_count=*/0, /*shared_count=*/UINT32_MAX,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
+  builder.SMov("s4", 7);
+  builder.BExit();
+  return builder.Build("trace_waitcnt_threshold_progress");
+}
+
 std::filesystem::path MakeUniqueTempDir(const std::string& stem) {
   const auto suffix =
       std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());
@@ -81,6 +101,14 @@ std::filesystem::path MakeUniqueTempDir(const std::string& stem) {
   std::filesystem::remove_all(path);
   std::filesystem::create_directories(path);
   return path;
+}
+
+Recorder MakeRecorder(const std::vector<TraceEvent>& events) {
+  Recorder recorder;
+  for (const auto& event : events) {
+    recorder.Record(event);
+  }
+  return recorder;
 }
 
 std::string ReadTextFile(const std::filesystem::path& path) {
@@ -152,6 +180,42 @@ size_t CountOccurrences(std::string_view text, std::string_view needle) {
 
 size_t FindFirst(std::string_view text, std::string_view needle) {
   return text.find(needle);
+}
+
+uint64_t NthEncodedInstructionPcWithMnemonic(const EncodedProgramObject& image,
+                                             std::string_view mnemonic,
+                                             size_t ordinal) {
+  size_t seen = 0;
+  for (size_t i = 0; i < image.decoded_instructions.size() && i < image.instructions.size(); ++i) {
+    if (image.decoded_instructions[i].mnemonic != mnemonic) {
+      continue;
+    }
+    if (seen == ordinal) {
+      return image.instructions[i].pc;
+    }
+    ++seen;
+  }
+  return std::numeric_limits<uint64_t>::max();
+}
+
+size_t FirstTraceEventIndex(const std::vector<TraceEvent>& events,
+                            TraceEventKind kind,
+                            uint64_t pc,
+                            std::optional<std::string_view> message = std::nullopt) {
+  for (size_t i = 0; i < events.size(); ++i) {
+    if (events[i].kind != kind || events[i].pc != pc) {
+      continue;
+    }
+    if (kind == TraceEventKind::Stall && message.has_value() &&
+        TraceHasStallReason(events[i], TraceStallReasonFromMessage(*message))) {
+      return i;
+    }
+    if (message.has_value() && events[i].message != *message) {
+      continue;
+    }
+    return i;
+  }
+  return std::numeric_limits<size_t>::max();
 }
 
 bool HasJsonField(std::string_view text, std::string_view needle) {
@@ -558,6 +622,33 @@ TEST(TraceTest, SemanticFactoriesEmitCanonicalArriveAndStallMessages) {
   EXPECT_EQ(switch_stall.message, "reason=warp_switch");
 }
 
+TEST(TraceTest, BlockedStallFactorySupportsKnownAndGenericReasons) {
+  const TraceWaveView wave{
+      .dpc_id = 0,
+      .ap_id = 0,
+      .peu_id = 0,
+      .slot_id = 1,
+      .block_id = 2,
+      .wave_id = 3,
+      .pc = 4,
+  };
+
+  const TraceEvent waitcnt_stall = MakeTraceBlockedStallEvent(
+      wave, /*cycle=*/24, "waitcnt_global", TraceSlotModelKind::LogicalUnbounded);
+  const TraceEvent dependency_stall = MakeTraceBlockedStallEvent(
+      wave, /*cycle=*/25, "dependency_wait", TraceSlotModelKind::ResidentFixed);
+
+  EXPECT_EQ(waitcnt_stall.kind, TraceEventKind::Stall);
+  EXPECT_EQ(waitcnt_stall.stall_reason, TraceStallReason::WaitCntGlobal);
+  EXPECT_EQ(waitcnt_stall.message, "reason=waitcnt_global");
+  EXPECT_EQ(waitcnt_stall.display_name, "waitcnt_global");
+
+  EXPECT_EQ(dependency_stall.kind, TraceEventKind::Stall);
+  EXPECT_EQ(dependency_stall.stall_reason, TraceStallReason::Other);
+  EXPECT_EQ(dependency_stall.message, "reason=dependency_wait");
+  EXPECT_EQ(dependency_stall.display_name, "stall");
+}
+
 TEST(TraceTest, WaitcntStallCarriesTypedThresholdPendingAndBlockedDomains) {
   const TraceWaveView wave{
       .dpc_id = 0,
@@ -591,8 +682,9 @@ TEST(TraceTest, WaitcntStallCarriesTypedThresholdPendingAndBlockedDomains) {
                                                    TraceSlotModelKind::LogicalUnbounded,
                                                    std::numeric_limits<uint64_t>::max(),
                                                    waitcnt_state);
-  const TraceEventView view = MakeTraceEventView(event);
-  const TraceEventExportFields fields = MakeTraceEventExportFields(view);
+  const CanonicalTraceEvent canonical = MakeCanonicalTraceEvent(event);
+  const auto& view = canonical.view;
+  const auto& fields = canonical.fields;
 
   EXPECT_TRUE(TraceHasWaitcntState(event));
   EXPECT_EQ(view.canonical_name, "stall_waitcnt_global_shared");
@@ -695,6 +787,7 @@ TEST(TraceTest, TraceEventViewPrefersTypedSemanticFieldsOverLegacyMessage) {
       .cycle = 7,
       .slot_model = {},
       .barrier_kind = TraceBarrierKind::Release,
+      .waitcnt_state = {},
       .display_name = "release",
       .message = "arrive",
   };
@@ -713,6 +806,7 @@ TEST(TraceTest, TraceEventViewCanNormalizeLegacyMessageOnlyRecords) {
       .kind = TraceEventKind::Stall,
       .cycle = 8,
       .slot_model = {},
+      .waitcnt_state = {},
       .display_name = {},
       .message = "reason=waitcnt_global",
   };
@@ -760,8 +854,9 @@ TEST(TraceTest, TraceEventExportFieldsMirrorTypedViewFields) {
   const TraceEvent event =
       MakeTraceWaitStallEvent(wave, /*cycle=*/9, TraceStallReason::WaitCntGlobal,
                               TraceSlotModelKind::LogicalUnbounded);
-  const TraceEventView view = MakeTraceEventView(event);
-  const TraceEventExportFields fields = MakeTraceEventExportFields(view);
+  const CanonicalTraceEvent canonical = MakeCanonicalTraceEvent(event);
+  const auto& view = canonical.view;
+  const auto& fields = canonical.fields;
 
   EXPECT_EQ(fields.slot_model, std::string(TraceSlotModelName(view.slot_model_kind)));
   EXPECT_EQ(fields.stall_reason, std::string(TraceStallReasonName(view.stall_reason)));
@@ -775,12 +870,217 @@ TEST(TraceTest, TraceEventExportFieldsMirrorTypedViewFields) {
   EXPECT_TRUE(fields.waitcnt_blocked_domains.empty());
 }
 
+TEST(TraceTest, ArriveViewCanDistinguishStillBlockedVsResumeForWaitcnt) {
+  TraceEvent still_blocked{
+      .kind = TraceEventKind::Arrive,
+      .cycle = 30,
+      .dpc_id = 0,
+      .ap_id = 0,
+      .peu_id = 0,
+      .slot_id = 0,
+      .slot_model_kind = TraceSlotModelKind::None,
+      .slot_model = {},
+      .block_id = 0,
+      .wave_id = 0,
+      .pc = 0x44,
+      .arrive_kind = TraceArriveKind::Load,
+      .arrive_progress = TraceArriveProgressKind::StillBlocked,
+      .waitcnt_state =
+          TraceWaitcntState{
+              .valid = true,
+              .threshold_global = 1,
+              .threshold_shared = UINT32_MAX,
+              .threshold_private = UINT32_MAX,
+              .threshold_scalar_buffer = UINT32_MAX,
+              .pending_global = 2,
+              .pending_shared = 0,
+              .pending_private = 0,
+              .pending_scalar_buffer = 0,
+              .blocked_global = true,
+          },
+      .display_name = "load",
+      .message = "load_arrive",
+  };
+  still_blocked.waitcnt_state.has_pending_before = true;
+  still_blocked.waitcnt_state.pending_before_global = 3;
+
+  TraceEvent resume = still_blocked;
+  resume.cycle = 34;
+  resume.arrive_progress = TraceArriveProgressKind::Resume;
+  resume.waitcnt_state.pending_global = 1;
+  resume.waitcnt_state.blocked_global = false;
+  resume.waitcnt_state.pending_before_global = 2;
+
+  const TraceEventView blocked_view = MakeTraceEventView(still_blocked);
+  const TraceEventExportFields blocked_fields = MakeTraceEventExportFields(blocked_view);
+  const TraceEventView resume_view = MakeTraceEventView(resume);
+  const TraceEventExportFields resume_fields = MakeTraceEventExportFields(resume_view);
+
+  EXPECT_EQ(blocked_view.canonical_name, "load_arrive_still_blocked");
+  EXPECT_EQ(blocked_view.presentation_name, "load_arrive_still_blocked");
+  EXPECT_EQ(blocked_view.category, "memory/load_arrive/still_blocked");
+  EXPECT_EQ(blocked_fields.waitcnt_pending_before, "g=3 s=0 p=0 sb=0");
+  EXPECT_EQ(blocked_fields.waitcnt_pending, "g=2 s=0 p=0 sb=0");
+  EXPECT_EQ(blocked_fields.waitcnt_pending_transition, "g=3->2 s=0->0 p=0->0 sb=0->0");
+
+  EXPECT_EQ(resume_view.canonical_name, "load_arrive_resume");
+  EXPECT_EQ(resume_view.presentation_name, "load_arrive_resume");
+  EXPECT_EQ(resume_view.category, "memory/load_arrive/resume");
+  EXPECT_EQ(resume_fields.waitcnt_pending_before, "g=2 s=0 p=0 sb=0");
+  EXPECT_EQ(resume_fields.waitcnt_pending, "g=1 s=0 p=0 sb=0");
+  EXPECT_EQ(resume_fields.waitcnt_pending_transition, "g=2->1 s=0->0 p=0->0 sb=0->0");
+}
+
+TEST(TraceTest, CanonicalTraceEventBundlesViewAndExportFields) {
+  const TraceWaveView wave{
+      .dpc_id = 0,
+      .ap_id = 0,
+      .peu_id = 0,
+      .slot_id = 1,
+      .block_id = 2,
+      .wave_id = 3,
+      .pc = 4,
+  };
+
+  const TraceEvent event = MakeTraceBlockedStallEvent(
+      wave, /*cycle=*/12, "dependency_wait", TraceSlotModelKind::ResidentFixed);
+  const CanonicalTraceEvent canonical = MakeCanonicalTraceEvent(event);
+
+  ASSERT_EQ(canonical.event, &event);
+  EXPECT_EQ(canonical.view.canonical_name, "stall");
+  EXPECT_EQ(canonical.view.presentation_name, "stall");
+  EXPECT_EQ(canonical.fields.compatibility_message, "reason=dependency_wait");
+  EXPECT_EQ(canonical.fields.category, canonical.view.category);
+  EXPECT_EQ(canonical.fields.stall_reason,
+            std::string(TraceStallReasonName(canonical.view.stall_reason)));
+}
+
+TEST(TraceTest, RecorderBuildsPerWaveEntriesAndInstructionCycleRanges) {
+  Recorder recorder;
+  const TraceWaveView wave0{
+      .dpc_id = 0,
+      .ap_id = 1,
+      .peu_id = 2,
+      .slot_id = 3,
+      .block_id = 4,
+      .wave_id = 5,
+      .pc = 0x40,
+  };
+  const TraceWaveView wave1{
+      .dpc_id = 0,
+      .ap_id = 1,
+      .peu_id = 2,
+      .slot_id = 3,
+      .block_id = 4,
+      .wave_id = 6,
+      .pc = 0x80,
+  };
+
+  recorder.Record(MakeTraceRuntimeLaunchEvent(0, "kernel=recorder_test arch=c500"));
+  recorder.Record(
+      MakeTraceWaveStepEvent(wave0, 8, TraceSlotModelKind::ResidentFixed, "pc=0x40 op=v_add_i32"));
+  recorder.Record(MakeTraceCommitEvent(wave0, 12, TraceSlotModelKind::ResidentFixed));
+  recorder.Record(
+      MakeTraceWaveStepEvent(wave1, 16, TraceSlotModelKind::ResidentFixed, "pc=0x80 op=s_mov_b32"));
+
+  ASSERT_EQ(recorder.events().size(), 4u);
+  ASSERT_EQ(recorder.program_events().size(), 1u);
+  EXPECT_EQ(recorder.program_events().front().kind, RecorderProgramEventKind::Launch);
+  ASSERT_EQ(recorder.waves().size(), 2u);
+
+  const RecorderWave& first_wave = recorder.waves().at(0);
+  EXPECT_EQ(first_wave.dpc_id, 0u);
+  EXPECT_EQ(first_wave.ap_id, 1u);
+  EXPECT_EQ(first_wave.peu_id, 2u);
+  EXPECT_EQ(first_wave.slot_id, 3u);
+  EXPECT_EQ(first_wave.block_id, 4u);
+  EXPECT_EQ(first_wave.wave_id, 5u);
+  ASSERT_EQ(first_wave.entries.size(), 2u);
+  EXPECT_EQ(first_wave.entries.at(0).kind, RecorderEntryKind::InstructionIssue);
+  EXPECT_TRUE(first_wave.entries.at(0).has_cycle_range);
+  EXPECT_EQ(first_wave.entries.at(0).begin_cycle, 8u);
+  EXPECT_EQ(first_wave.entries.at(0).end_cycle, 12u);
+  EXPECT_EQ(first_wave.entries.at(1).kind, RecorderEntryKind::Commit);
+  EXPECT_FALSE(first_wave.entries.at(1).has_cycle_range);
+
+  const RecorderWave& second_wave = recorder.waves().at(1);
+  ASSERT_EQ(second_wave.entries.size(), 1u);
+  EXPECT_EQ(second_wave.wave_id, 6u);
+  EXPECT_EQ(second_wave.entries.at(0).kind, RecorderEntryKind::InstructionIssue);
+  EXPECT_EQ(second_wave.entries.at(0).begin_cycle, 16u);
+  EXPECT_EQ(second_wave.entries.at(0).end_cycle, 20u);
+}
+
+TEST(TraceTest, RecorderCapturesTypedSemanticSnapshotForReplayFacingUses) {
+  Recorder recorder;
+  const TraceWaveView wave{
+      .dpc_id = 0,
+      .ap_id = 0,
+      .peu_id = 0,
+      .slot_id = 1,
+      .block_id = 2,
+      .wave_id = 3,
+      .pc = 0x44,
+  };
+  const TraceWaitcntState waitcnt_state{
+      .valid = true,
+      .threshold_global = 0,
+      .threshold_shared = UINT32_MAX,
+      .threshold_private = UINT32_MAX,
+      .threshold_scalar_buffer = UINT32_MAX,
+      .pending_global = 2,
+      .pending_shared = 0,
+      .pending_private = 0,
+      .pending_scalar_buffer = 0,
+      .blocked_global = true,
+      .blocked_shared = false,
+      .blocked_private = false,
+      .blocked_scalar_buffer = false,
+  };
+
+  recorder.Record(MakeTraceWaveLaunchEvent(
+      wave, 1, "lanes=0x40 exec=0xffffffffffffffff", TraceSlotModelKind::ResidentFixed));
+  recorder.Record(MakeTraceWaitStallEvent(wave,
+                                          8,
+                                          TraceStallReason::WaitCntGlobal,
+                                          TraceSlotModelKind::ResidentFixed,
+                                          std::numeric_limits<uint64_t>::max(),
+                                          waitcnt_state));
+  recorder.Record(MakeTraceMemoryArriveEvent(
+      wave, 12, TraceMemoryArriveKind::Load, TraceSlotModelKind::ResidentFixed));
+  recorder.Record(
+      MakeTraceBarrierArriveEvent(wave, 16, TraceSlotModelKind::ResidentFixed));
+
+  ASSERT_EQ(recorder.waves().size(), 1u);
+  const RecorderWave& recorded_wave = recorder.waves().front();
+  ASSERT_EQ(recorded_wave.entries.size(), 4u);
+
+  EXPECT_EQ(recorded_wave.entries.at(0).kind, RecorderEntryKind::WaveLaunch);
+  EXPECT_EQ(recorded_wave.entries.at(0).lifecycle_stage, TraceLifecycleStage::Launch);
+  EXPECT_EQ(recorded_wave.entries.at(0).canonical_name, "wave_launch");
+
+  EXPECT_EQ(recorded_wave.entries.at(1).kind, RecorderEntryKind::Stall);
+  EXPECT_EQ(recorded_wave.entries.at(1).stall_reason, TraceStallReason::WaitCntGlobal);
+  EXPECT_TRUE(recorded_wave.entries.at(1).waitcnt_state.valid);
+  EXPECT_TRUE(recorded_wave.entries.at(1).waitcnt_state.blocked_global);
+  EXPECT_EQ(recorded_wave.entries.at(1).category, "stall/waitcnt_global");
+
+  EXPECT_EQ(recorded_wave.entries.at(2).kind, RecorderEntryKind::Arrive);
+  EXPECT_EQ(recorded_wave.entries.at(2).arrive_kind, TraceArriveKind::Load);
+  EXPECT_EQ(recorded_wave.entries.at(2).canonical_name, "load_arrive");
+
+  EXPECT_EQ(recorded_wave.entries.at(3).kind, RecorderEntryKind::Barrier);
+  EXPECT_EQ(recorded_wave.entries.at(3).barrier_kind, TraceBarrierKind::Arrive);
+  EXPECT_EQ(recorded_wave.entries.at(3).canonical_name, "barrier_arrive");
+}
+
 TEST(TraceTest, TypedTraceSemanticsRemainValidWhenCompatibilityMessageIsEmpty) {
   TraceEvent event{
       .kind = TraceEventKind::Barrier,
       .cycle = 3,
       .slot_model = {},
       .barrier_kind = TraceBarrierKind::Release,
+      .waitcnt_state = {},
       .display_name = "release",
       .message = {},
   };
@@ -815,7 +1115,7 @@ TEST(TraceTest, UnifiedFactoriesSupportRepresentativeHandBuiltTraceScenarios) {
       MakeTraceWaveExitEvent(wave, 5, TraceSlotModelKind::ResidentFixed),
   };
 
-  const std::string timeline = CycleTimelineRenderer::RenderGoogleTrace(events);
+  const std::string timeline = CycleTimelineRenderer::RenderGoogleTrace(MakeRecorder(events));
   EXPECT_NE(timeline.find("\"name\":\"wave_launch\""), std::string::npos);
   EXPECT_NE(timeline.find("\"name\":\"stall_waitcnt_global\""), std::string::npos);
   EXPECT_NE(timeline.find(std::string("\"name\":\"") + std::string(kTraceArriveLoadMessage) + "\""),
@@ -1146,6 +1446,7 @@ TEST(TraceTest, WritesWaveStatsEventsToTraceSinks) {
         .kind = TraceEventKind::WaveStats,
         .cycle = 7,
         .slot_model = {},
+        .waitcnt_state = {},
         .display_name = {},
         .message = "launch=2 init=2 active=2 end=0",
     };
@@ -1182,6 +1483,7 @@ TEST(TraceTest, TraceSinksPreferTypedSchemaFieldsWhenLegacyStringsAreEmpty) {
         .slot_model_kind = TraceSlotModelKind::LogicalUnbounded,
         .slot_model = {},
         .stall_reason = TraceStallReason::WaitCntGlobal,
+        .waitcnt_state = {},
         .display_name = {},
         .message = {},
     };
@@ -1214,6 +1516,7 @@ TEST(TraceTest, FileTraceSinkSerializesCanonicalTypedSubkinds) {
         .cycle = 3,
         .slot_model = {},
         .barrier_kind = TraceBarrierKind::Release,
+        .waitcnt_state = {},
         .display_name = "release",
         .message = "release",
     };
@@ -1240,6 +1543,7 @@ TEST(TraceTest, JsonTraceSinkSerializesCanonicalTypedSubkinds) {
         .cycle = 4,
         .slot_model = {},
         .arrive_kind = TraceArriveKind::Shared,
+        .waitcnt_state = {},
         .display_name = "shared",
         .message = "shared_arrive",
     };
@@ -1300,6 +1604,54 @@ TEST(TraceTest, JsonTraceSinkSerializesWaitcntMetadataFields) {
   EXPECT_NE(line.find("\"waitcnt_pending\":\"g=2 s=1 p=0 sb=0\""), std::string::npos);
   EXPECT_NE(line.find("\"waitcnt_blocked_domains\":\"global|shared\""), std::string::npos);
   EXPECT_NE(line.find("\"presentation_name\":\"stall_waitcnt_global_shared\""), std::string::npos);
+}
+
+TEST(TraceTest, JsonTraceSinkSerializesWaitcntArrivalProgressFields) {
+  TraceEvent arrive{
+      .kind = TraceEventKind::Arrive,
+      .cycle = 18,
+      .dpc_id = 0,
+      .ap_id = 0,
+      .peu_id = 0,
+      .slot_id = 1,
+      .slot_model_kind = TraceSlotModelKind::None,
+      .slot_model = {},
+      .block_id = 0,
+      .wave_id = 0,
+      .pc = 0x40,
+      .arrive_kind = TraceArriveKind::Load,
+      .arrive_progress = TraceArriveProgressKind::StillBlocked,
+      .waitcnt_state =
+          TraceWaitcntState{
+              .valid = true,
+              .threshold_global = 0,
+              .threshold_shared = UINT32_MAX,
+              .threshold_private = UINT32_MAX,
+              .threshold_scalar_buffer = UINT32_MAX,
+              .pending_global = 1,
+              .pending_shared = 0,
+              .pending_private = 0,
+              .pending_scalar_buffer = 0,
+              .blocked_global = true,
+          },
+      .display_name = "load",
+      .message = "load_arrive",
+  };
+  arrive.waitcnt_state.has_pending_before = true;
+  arrive.waitcnt_state.pending_before_global = 2;
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_waitcnt_arrive_progress_json");
+  {
+    JsonTraceSink sink(temp_dir / "trace.jsonl");
+    sink.OnEvent(arrive);
+  }
+
+  const std::string line = ReadTextFile(temp_dir / "trace.jsonl");
+  EXPECT_NE(line.find("\"canonical_name\":\"load_arrive_still_blocked\""), std::string::npos);
+  EXPECT_NE(line.find("\"waitcnt_pending_before\":\"g=2 s=0 p=0 sb=0\""), std::string::npos);
+  EXPECT_NE(line.find("\"waitcnt_pending\":\"g=1 s=0 p=0 sb=0\""), std::string::npos);
+  EXPECT_NE(line.find("\"waitcnt_pending_transition\":\"g=2->1 s=0->0 p=0->0 sb=0->0\""),
+            std::string::npos);
 }
 
 TEST(TraceTest, PerfettoDumpContainsTraceEventsAndRequiredFields) {
@@ -1364,6 +1716,7 @@ TEST(TraceTest, PerfettoExportUsesCanonicalTypedNamesWithoutMessageParsing) {
                  .wave_id = wave.wave_id,
                  .pc = wave.pc,
                  .lifecycle_stage = TraceLifecycleStage::Launch,
+                 .waitcnt_state = {},
                  .display_name = "launch",
                  .message = {}},
       TraceEvent{.kind = TraceEventKind::WaveExit,
@@ -1378,11 +1731,12 @@ TEST(TraceTest, PerfettoExportUsesCanonicalTypedNamesWithoutMessageParsing) {
                  .wave_id = wave.wave_id,
                  .pc = wave.pc,
                  .lifecycle_stage = TraceLifecycleStage::Exit,
+                 .waitcnt_state = {},
                  .display_name = "exit",
                  .message = {}},
   };
 
-  const std::string trace = CycleTimelineRenderer::RenderPerfettoTraceProto(events);
+  const std::string trace = CycleTimelineRenderer::RenderPerfettoTraceProto(MakeRecorder(events));
   const auto parsed_events = ParseTrackEvents(trace);
   bool saw_wave_launch = false;
   bool saw_wave_exit = false;
@@ -1569,6 +1923,87 @@ TEST(TraceTest, TraceArtifactRecorderWritesTraceAndPerfettoFiles) {
   std::filesystem::remove_all(out_dir);
 }
 
+TEST(TraceTest, TraceArtifactRecorderOwnsUnifiedRecorderState) {
+  const auto out_dir =
+      std::filesystem::temp_directory_path() / "gpu_model_trace_artifact_recorder_state";
+  std::filesystem::remove_all(out_dir);
+  std::filesystem::create_directories(out_dir);
+
+  TraceArtifactRecorder trace(out_dir);
+  const TraceWaveView wave{
+      .dpc_id = 0,
+      .ap_id = 0,
+      .peu_id = 0,
+      .slot_id = 1,
+      .block_id = 2,
+      .wave_id = 3,
+      .pc = 0x20,
+  };
+  trace.OnEvent(MakeTraceRuntimeLaunchEvent(0, "kernel=artifact_state arch=c500"));
+  trace.OnEvent(
+      MakeTraceWaveStepEvent(wave, 4, TraceSlotModelKind::ResidentFixed, "pc=0x20 op=v_add_i32"));
+  trace.OnEvent(MakeTraceCommitEvent(wave, 8, TraceSlotModelKind::ResidentFixed));
+
+  ASSERT_EQ(trace.events().size(), 3u);
+  ASSERT_EQ(trace.recorder().waves().size(), 1u);
+  const RecorderWave& recorded_wave = trace.recorder().waves().front();
+  EXPECT_EQ(recorded_wave.dpc_id, 0u);
+  EXPECT_EQ(recorded_wave.ap_id, 0u);
+  EXPECT_EQ(recorded_wave.peu_id, 0u);
+  EXPECT_EQ(recorded_wave.slot_id, 1u);
+  EXPECT_EQ(recorded_wave.block_id, 2u);
+  EXPECT_EQ(recorded_wave.wave_id, 3u);
+  ASSERT_EQ(recorded_wave.entries.size(), 2u);
+  EXPECT_EQ(recorded_wave.entries.front().begin_cycle, 4u);
+  EXPECT_EQ(recorded_wave.entries.front().end_cycle, 8u);
+
+  std::filesystem::remove_all(out_dir);
+}
+
+TEST(TraceTest, RecorderExportsTextAndJsonInRecordedOrder) {
+  Recorder recorder;
+  const TraceWaveView wave{
+      .dpc_id = 0,
+      .ap_id = 0,
+      .peu_id = 0,
+      .slot_id = 2,
+      .block_id = 0,
+      .wave_id = 1,
+      .pc = 0x24,
+  };
+
+  recorder.Record(MakeTraceRuntimeLaunchEvent(0, "kernel=recorder_export arch=c500"));
+  recorder.Record(MakeTraceWaveLaunchEvent(
+      wave, 1, "lanes=0x40 exec=0xffffffffffffffff", TraceSlotModelKind::ResidentFixed));
+  recorder.Record(
+      MakeTraceWaveStepEvent(wave, 2, TraceSlotModelKind::ResidentFixed, "pc=0x24 op=v_add_i32"));
+  recorder.Record(MakeTraceCommitEvent(wave, 6, TraceSlotModelKind::ResidentFixed));
+  recorder.Record(MakeTraceWaveExitEvent(wave, 7, TraceSlotModelKind::ResidentFixed));
+
+  const std::string text = RenderRecorderTextTrace(recorder);
+  const std::string json = RenderRecorderJsonTrace(recorder);
+
+  EXPECT_NE(text.find("kind=Launch"), std::string::npos);
+  EXPECT_NE(text.find("kind=WaveLaunch"), std::string::npos);
+  EXPECT_NE(text.find("kind=WaveStep"), std::string::npos);
+  EXPECT_NE(text.find("kind=Commit"), std::string::npos);
+  EXPECT_NE(text.find("kind=WaveExit"), std::string::npos);
+  EXPECT_LT(text.find("kind=Launch"), text.find("kind=WaveLaunch"));
+  EXPECT_LT(text.find("kind=WaveLaunch"), text.find("kind=WaveStep"));
+  EXPECT_LT(text.find("kind=WaveStep"), text.find("kind=Commit"));
+  EXPECT_LT(text.find("kind=Commit"), text.find("kind=WaveExit"));
+
+  EXPECT_NE(json.find("\"kind\":\"Launch\""), std::string::npos);
+  EXPECT_NE(json.find("\"kind\":\"WaveLaunch\""), std::string::npos);
+  EXPECT_NE(json.find("\"kind\":\"WaveStep\""), std::string::npos);
+  EXPECT_NE(json.find("\"kind\":\"Commit\""), std::string::npos);
+  EXPECT_NE(json.find("\"kind\":\"WaveExit\""), std::string::npos);
+  EXPECT_LT(json.find("\"kind\":\"Launch\""), json.find("\"kind\":\"WaveLaunch\""));
+  EXPECT_LT(json.find("\"kind\":\"WaveLaunch\""), json.find("\"kind\":\"WaveStep\""));
+  EXPECT_LT(json.find("\"kind\":\"WaveStep\""), json.find("\"kind\":\"Commit\""));
+  EXPECT_LT(json.find("\"kind\":\"Commit\""), json.find("\"kind\":\"WaveExit\""));
+}
+
 TEST(TraceTest, NativePerfettoProtoContainsHierarchicalTracksAndEvents) {
   const auto out_dir = MakeUniqueTempDir("gpu_model_perfetto_proto_structure");
   const struct Cleanup {
@@ -1645,7 +2080,8 @@ TEST(TraceTest, NativePerfettoProtoContainsHierarchicalTracksAndEvents) {
     if (event.type == 3u && event.name == "wave_exit") {
       saw_wave_exit = true;
     }
-    if (event.type == 3u && event.name == "load_arrive") {
+    if (event.type == 3u &&
+        (event.name == "load_arrive" || event.name.starts_with("load_arrive_"))) {
       saw_load_arrive = true;
     }
   }
@@ -2113,7 +2549,7 @@ TEST(TraceTest, NativePerfettoProtoShowsFunctionalTimelineGapWaitArriveInMultiTh
 
   const std::string timeline = ReadTextFile(out_dir / "timeline.perfetto.json");
   EXPECT_NE(timeline.find("\"name\":\"stall_waitcnt_global\""), std::string::npos);
-  EXPECT_NE(timeline.find("\"name\":\"load_arrive\""), std::string::npos);
+  EXPECT_NE(timeline.find("load_arrive"), std::string::npos);
   EXPECT_NE(timeline.find("\"slot_model\":\"logical_unbounded\""), std::string::npos);
 
   const std::string bytes = ReadTextFile(out_dir / "timeline.perfetto.pb");
@@ -2125,10 +2561,393 @@ TEST(TraceTest, NativePerfettoProtoShowsFunctionalTimelineGapWaitArriveInMultiTh
       continue;
     }
     saw_waitcnt_stall = saw_waitcnt_stall || event.name == "stall_waitcnt_global";
-    saw_load_arrive = saw_load_arrive || event.name == "load_arrive";
+    saw_load_arrive = saw_load_arrive || event.name == "load_arrive" ||
+                      event.name.starts_with("load_arrive_");
   }
   EXPECT_TRUE(saw_waitcnt_stall);
   EXPECT_TRUE(saw_load_arrive);
+}
+
+TEST(TraceTest, NativePerfettoProtoShowsEncodedFunctionalLoadArriveInMultiThreadedMode) {
+  if (!test_utils::HasLlvmMcAmdgpuToolchain()) {
+    GTEST_SKIP() << "required llvm-mc/LLVM/binutils tools not available";
+  }
+
+  const auto out_dir = MakeUniqueTempDir("gpu_model_perfetto_mt_encoded_timeline_gap_wait");
+  const struct Cleanup {
+    std::filesystem::path path;
+    ~Cleanup() { std::filesystem::remove_all(path); }
+  } cleanup{out_dir};
+
+  const auto assembled = test_utils::AssembleAndDecodeLlvmMcModule(
+      "gpu_model_perfetto_mt_encoded_timeline_gap_wait",
+      "encoded_trace_waitcnt_kernel",
+      R"(.amdgcn_target "amdgcn-amd-amdhsa--gfx900"
+
+.text
+.globl encoded_trace_waitcnt_kernel
+.p2align 8
+.type encoded_trace_waitcnt_kernel,@function
+encoded_trace_waitcnt_kernel:
+  s_load_dwordx2 s[2:3], s[0:1], 0x0
+  s_waitcnt lgkmcnt(0)
+  v_mov_b32_e32 v1, s2
+  v_mov_b32_e32 v2, s3
+  global_load_dword v4, v[1:2], off
+  global_load_dword v5, v[1:2], off
+  s_waitcnt vmcnt(0)
+  v_add_u32_e32 v6, v4, v5
+  global_store_dword v[1:2], v6, off
+  s_endpgm
+.Lfunc_end0:
+  .size encoded_trace_waitcnt_kernel, .Lfunc_end0-encoded_trace_waitcnt_kernel
+
+.rodata
+.p2align 6
+.amdhsa_kernel encoded_trace_waitcnt_kernel
+  .amdhsa_user_sgpr_kernarg_segment_ptr 1
+  .amdhsa_next_free_vgpr 7
+  .amdhsa_next_free_sgpr 4
+.end_amdhsa_kernel
+
+.amdgpu_metadata
+---
+amdhsa.version:
+  - 1
+  - 0
+amdhsa.kernels:
+  - .name: encoded_trace_waitcnt_kernel
+    .symbol: encoded_trace_waitcnt_kernel.kd
+    .kernarg_segment_size: 8
+    .group_segment_fixed_size: 0
+    .private_segment_fixed_size: 0
+    .kernarg_segment_align: 8
+    .wavefront_size: 64
+    .sgpr_count: 4
+    .vgpr_count: 7
+    .max_flat_workgroup_size: 256
+    .args:
+      - .size: 8
+        .offset: 0
+        .value_kind: global_buffer
+        .address_space: global
+        .actual_access: read_write
+...
+.end_amdgpu_metadata
+)");
+
+  TraceArtifactRecorder trace(out_dir);
+  RuntimeEngine runtime(&trace);
+  runtime.SetFunctionalExecutionConfig(FunctionalExecutionConfig{
+      .mode = FunctionalExecutionMode::MultiThreaded,
+      .worker_threads = 2,
+  });
+  runtime.SetGlobalMemoryLatencyProfile(/*dram_latency=*/40, /*l2_hit_latency=*/20, /*l1_hit_latency=*/8);
+
+  const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
+  runtime.memory().StoreGlobalValue<int32_t>(base_addr, 11);
+
+  LaunchRequest request;
+  request.arch_name = "c500";
+  request.encoded_program_object = &assembled.image;
+  request.mode = ExecutionMode::Functional;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+  request.args.PushU64(base_addr);
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+  trace.FlushTimeline();
+
+  const std::string timeline = ReadTextFile(out_dir / "timeline.perfetto.json");
+  EXPECT_NE(timeline.find("load_arrive"), std::string::npos);
+  EXPECT_NE(timeline.find("\"slot_model\":\"logical_unbounded\""), std::string::npos);
+
+  const std::string bytes = ReadTextFile(out_dir / "timeline.perfetto.pb");
+  const auto events = ParseTrackEvents(bytes);
+  bool saw_load_arrive = false;
+  for (const auto& event : events) {
+    if (event.type != 3u) {
+      continue;
+    }
+    saw_load_arrive = saw_load_arrive || event.name == "load_arrive" ||
+                      event.name.starts_with("load_arrive_");
+  }
+  EXPECT_TRUE(saw_load_arrive);
+}
+
+TEST(TraceTest, EncodedCycleDoesNotStallBeforeExplicitWaitcnt) {
+  if (!test_utils::HasLlvmMcAmdgpuToolchain()) {
+    GTEST_SKIP() << "required llvm-mc/LLVM/binutils tools not available";
+  }
+
+  const auto assembled = test_utils::AssembleAndDecodeLlvmMcModule(
+      "gpu_model_encoded_cycle_explicit_waitcnt",
+      "encoded_cycle_explicit_waitcnt_kernel",
+      R"(.amdgcn_target "amdgcn-amd-amdhsa--gfx900"
+
+.text
+.globl encoded_cycle_explicit_waitcnt_kernel
+.p2align 8
+.type encoded_cycle_explicit_waitcnt_kernel,@function
+encoded_cycle_explicit_waitcnt_kernel:
+  s_load_dwordx2 s[2:3], s[0:1], 0x0
+  s_waitcnt lgkmcnt(0)
+  v_mov_b32_e32 v1, s2
+  v_mov_b32_e32 v2, s3
+  global_load_dword v4, v[1:2], off
+  s_mov_b32 s4, 7
+  s_waitcnt vmcnt(0)
+  v_add_u32_e32 v5, v4, v4
+  s_endpgm
+.Lfunc_end0:
+  .size encoded_cycle_explicit_waitcnt_kernel, .Lfunc_end0-encoded_cycle_explicit_waitcnt_kernel
+
+.rodata
+.p2align 6
+.amdhsa_kernel encoded_cycle_explicit_waitcnt_kernel
+  .amdhsa_user_sgpr_kernarg_segment_ptr 1
+  .amdhsa_next_free_vgpr 6
+  .amdhsa_next_free_sgpr 5
+.end_amdhsa_kernel
+
+.amdgpu_metadata
+---
+amdhsa.version:
+  - 1
+  - 0
+amdhsa.kernels:
+  - .name: encoded_cycle_explicit_waitcnt_kernel
+    .symbol: encoded_cycle_explicit_waitcnt_kernel.kd
+    .kernarg_segment_size: 8
+    .group_segment_fixed_size: 0
+    .private_segment_fixed_size: 0
+    .kernarg_segment_align: 8
+    .wavefront_size: 64
+    .sgpr_count: 5
+    .vgpr_count: 6
+    .max_flat_workgroup_size: 256
+    .args:
+      - .size: 8
+        .offset: 0
+        .value_kind: global_buffer
+        .address_space: global
+        .actual_access: read_write
+...
+.end_amdgpu_metadata
+)");
+
+  CollectingTraceSink trace;
+  RuntimeEngine runtime(&trace);
+  runtime.SetFixedGlobalMemoryLatency(40);
+
+  const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
+  runtime.memory().StoreGlobalValue<int32_t>(base_addr, 11);
+
+  const uint64_t load_pc =
+      NthEncodedInstructionPcWithMnemonic(assembled.image, "global_load_dword", 0);
+  const uint64_t marker_pc = NthEncodedInstructionPcWithMnemonic(assembled.image, "s_mov_b32", 0);
+  const uint64_t waitcnt_pc = NthEncodedInstructionPcWithMnemonic(assembled.image, "s_waitcnt", 1);
+  ASSERT_NE(load_pc, std::numeric_limits<uint64_t>::max());
+  ASSERT_NE(marker_pc, std::numeric_limits<uint64_t>::max());
+  ASSERT_NE(waitcnt_pc, std::numeric_limits<uint64_t>::max());
+
+  LaunchRequest request;
+  request.arch_name = "c500";
+  request.encoded_program_object = &assembled.image;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+  request.args.PushU64(base_addr);
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  const auto& events = trace.events();
+  const size_t load_index = FirstTraceEventIndex(events, TraceEventKind::WaveStep, load_pc);
+  const size_t marker_index = FirstTraceEventIndex(events, TraceEventKind::WaveStep, marker_pc);
+  const size_t waitcnt_index = FirstTraceEventIndex(events, TraceEventKind::WaveStep, waitcnt_pc);
+  const size_t stall_index =
+      FirstTraceEventIndex(events, TraceEventKind::Stall, waitcnt_pc, "waitcnt_global");
+
+  ASSERT_NE(load_index, std::numeric_limits<size_t>::max());
+  ASSERT_NE(marker_index, std::numeric_limits<size_t>::max());
+  ASSERT_NE(waitcnt_index, std::numeric_limits<size_t>::max());
+  ASSERT_NE(stall_index, std::numeric_limits<size_t>::max());
+  EXPECT_LT(load_index, marker_index);
+  EXPECT_LT(marker_index, waitcnt_index);
+  EXPECT_LT(waitcnt_index, stall_index);
+}
+
+TEST(TraceTest, NativePerfettoProtoShowsEncodedFunctionalWaitcntStallWhenLoadLatencyIsHigh) {
+  if (!test_utils::HasLlvmMcAmdgpuToolchain()) {
+    GTEST_SKIP() << "required llvm-mc/LLVM/binutils tools not available";
+  }
+
+  const auto out_dir = MakeUniqueTempDir("gpu_model_perfetto_mt_encoded_waitcnt_stall");
+  const struct Cleanup {
+    std::filesystem::path path;
+    ~Cleanup() { std::filesystem::remove_all(path); }
+  } cleanup{out_dir};
+
+  const auto assembled = test_utils::AssembleAndDecodeLlvmMcModule(
+      "gpu_model_perfetto_mt_encoded_waitcnt_stall",
+      "encoded_trace_waitcnt_stall_kernel",
+      R"(.amdgcn_target "amdgcn-amd-amdhsa--gfx900"
+
+.text
+.globl encoded_trace_waitcnt_stall_kernel
+.p2align 8
+.type encoded_trace_waitcnt_stall_kernel,@function
+encoded_trace_waitcnt_stall_kernel:
+  s_load_dwordx2 s[2:3], s[0:1], 0x0
+  s_waitcnt lgkmcnt(0)
+  v_mov_b32_e32 v1, s2
+  v_mov_b32_e32 v2, s3
+  global_load_dword v4, v[1:2], off
+  s_waitcnt vmcnt(0)
+  v_add_u32_e32 v5, v4, v4
+  global_store_dword v[1:2], v5, off
+  s_endpgm
+.Lfunc_end0:
+  .size encoded_trace_waitcnt_stall_kernel, .Lfunc_end0-encoded_trace_waitcnt_stall_kernel
+
+.rodata
+.p2align 6
+.amdhsa_kernel encoded_trace_waitcnt_stall_kernel
+  .amdhsa_user_sgpr_kernarg_segment_ptr 1
+  .amdhsa_next_free_vgpr 6
+  .amdhsa_next_free_sgpr 4
+.end_amdhsa_kernel
+
+.amdgpu_metadata
+---
+amdhsa.version:
+  - 1
+  - 0
+amdhsa.kernels:
+  - .name: encoded_trace_waitcnt_stall_kernel
+    .symbol: encoded_trace_waitcnt_stall_kernel.kd
+    .kernarg_segment_size: 8
+    .group_segment_fixed_size: 0
+    .private_segment_fixed_size: 0
+    .kernarg_segment_align: 8
+    .wavefront_size: 64
+    .sgpr_count: 4
+    .vgpr_count: 6
+    .max_flat_workgroup_size: 256
+    .args:
+      - .size: 8
+        .offset: 0
+        .value_kind: global_buffer
+        .address_space: global
+        .actual_access: read_write
+...
+.end_amdgpu_metadata
+)");
+
+  TraceArtifactRecorder trace(out_dir);
+  RuntimeEngine runtime(&trace);
+  runtime.SetFunctionalExecutionConfig(FunctionalExecutionConfig{
+      .mode = FunctionalExecutionMode::MultiThreaded,
+      .worker_threads = 2,
+  });
+  runtime.SetGlobalMemoryLatencyProfile(/*dram_latency=*/40, /*l2_hit_latency=*/20, /*l1_hit_latency=*/8);
+
+  const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
+  runtime.memory().StoreGlobalValue<int32_t>(base_addr, 11);
+
+  LaunchRequest request;
+  request.arch_name = "c500";
+  request.encoded_program_object = &assembled.image;
+  request.mode = ExecutionMode::Functional;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+  request.args.PushU64(base_addr);
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+  trace.FlushTimeline();
+
+  const std::string timeline = ReadTextFile(out_dir / "timeline.perfetto.json");
+  EXPECT_NE(timeline.find("\"name\":\"stall_waitcnt_global\""), std::string::npos);
+  EXPECT_NE(timeline.find("\"name\":\"load_arrive_resume\""), std::string::npos);
+
+  const std::string bytes = ReadTextFile(out_dir / "timeline.perfetto.pb");
+  const auto events = ParseTrackEvents(bytes);
+  bool saw_waitcnt_stall = false;
+  bool saw_load_arrive = false;
+  for (const auto& event : events) {
+    if (event.type != 3u) {
+      continue;
+    }
+    saw_waitcnt_stall = saw_waitcnt_stall || event.name == "stall_waitcnt_global";
+    saw_load_arrive = saw_load_arrive || event.name == "load_arrive_resume";
+  }
+  EXPECT_TRUE(saw_waitcnt_stall);
+  EXPECT_TRUE(saw_load_arrive);
+}
+
+TEST(TraceTest, NativePerfettoProtoShowsWaitcntArrivalProgressMarkersAndBubble) {
+  const auto out_dir = MakeUniqueTempDir("gpu_model_perfetto_waitcnt_arrival_progress");
+  const struct Cleanup {
+    std::filesystem::path path;
+    ~Cleanup() { std::filesystem::remove_all(path); }
+  } cleanup{out_dir};
+
+  TraceArtifactRecorder trace(out_dir);
+  RuntimeEngine runtime(&trace);
+  runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
+  runtime.SetFixedGlobalMemoryLatency(20);
+
+  const auto kernel = BuildWaitcntThresholdProgressKernel();
+  const uint64_t base_addr = runtime.memory().AllocateGlobal(3 * sizeof(int32_t));
+  runtime.memory().StoreGlobalValue<int32_t>(base_addr + 0 * sizeof(int32_t), 11);
+  runtime.memory().StoreGlobalValue<int32_t>(base_addr + 1 * sizeof(int32_t), 13);
+  runtime.memory().StoreGlobalValue<int32_t>(base_addr + 2 * sizeof(int32_t), 17);
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Functional;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+  request.args.PushU64(base_addr);
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+  trace.FlushTimeline();
+
+  const std::string timeline = ReadTextFile(out_dir / "timeline.perfetto.json");
+  EXPECT_NE(timeline.find("\"name\":\"stall_waitcnt_global\""), std::string::npos) << timeline;
+  EXPECT_NE(timeline.find("\"name\":\"load_arrive_still_blocked\""), std::string::npos) << timeline;
+  EXPECT_NE(timeline.find("\"name\":\"load_arrive_resume\""), std::string::npos) << timeline;
+  EXPECT_EQ(timeline.find("\"name\":\"s_waitcnt\""), std::string::npos) << timeline;
+
+  const std::string bytes = ReadTextFile(out_dir / "timeline.perfetto.pb");
+  const auto events = ParseTrackEvents(bytes);
+  size_t stall_index = std::numeric_limits<size_t>::max();
+  size_t still_blocked_index = std::numeric_limits<size_t>::max();
+  size_t resume_index = std::numeric_limits<size_t>::max();
+  for (size_t i = 0; i < events.size(); ++i) {
+    if (events[i].type != 3u) {
+      continue;
+    }
+    if (events[i].name == "stall_waitcnt_global" &&
+        stall_index == std::numeric_limits<size_t>::max()) {
+      stall_index = i;
+    } else if (events[i].name == "load_arrive_still_blocked" &&
+               still_blocked_index == std::numeric_limits<size_t>::max()) {
+      still_blocked_index = i;
+    } else if (events[i].name == "load_arrive_resume" &&
+               resume_index == std::numeric_limits<size_t>::max()) {
+      resume_index = i;
+    }
+  }
+  ASSERT_NE(stall_index, std::numeric_limits<size_t>::max());
+  ASSERT_NE(still_blocked_index, std::numeric_limits<size_t>::max());
+  ASSERT_NE(resume_index, std::numeric_limits<size_t>::max());
+  EXPECT_LT(stall_index, still_blocked_index);
+  EXPECT_LT(still_blocked_index, resume_index);
 }
 
 }  // namespace

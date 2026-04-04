@@ -1,5 +1,7 @@
 #include "gpu_model/execution/sync_ops.h"
 
+#include <stdexcept>
+
 namespace gpu_model::sync_ops {
 
 namespace {
@@ -88,6 +90,20 @@ bool ReleaseBarrierIfReady(std::vector<WaveContext>& waves,
       set_valid_entry_on_release);
 }
 
+bool ReleaseBarrierIfReady(std::vector<WaveContext>& waves,
+                           const ExecutableKernel& kernel,
+                           uint64_t& barrier_generation,
+                           uint32_t& barrier_arrivals,
+                           bool set_valid_entry_on_release) {
+  std::vector<WaveContext*> wave_ptrs;
+  wave_ptrs.reserve(waves.size());
+  for (auto& wave : waves) {
+    wave_ptrs.push_back(&wave);
+  }
+  return ReleaseBarrierIfReady(
+      wave_ptrs, kernel, barrier_generation, barrier_arrivals, set_valid_entry_on_release);
+}
+
 bool ReleaseBarrierIfReady(const std::vector<WaveContext*>& waves,
                            uint64_t& barrier_generation,
                            uint32_t& barrier_arrivals,
@@ -100,6 +116,46 @@ bool ReleaseBarrierIfReady(const std::vector<WaveContext*>& waves,
       barrier_arrivals,
       pc_increment,
       set_valid_entry_on_release);
+}
+
+bool ReleaseBarrierIfReady(const std::vector<WaveContext*>& waves,
+                           const ExecutableKernel& kernel,
+                           uint64_t& barrier_generation,
+                           uint32_t& barrier_arrivals,
+                           bool set_valid_entry_on_release) {
+  if (waves.empty()) {
+    return false;
+  }
+
+  uint32_t active_wave_count = 0;
+  uint32_t waiting_wave_count = 0;
+  for (const WaveContext* wave : waves) {
+    if (wave->status == WaveStatus::Active || wave->status == WaveStatus::Stalled) {
+      ++active_wave_count;
+      if (wave->waiting_at_barrier && wave->run_state == WaveRunState::Waiting &&
+          wave->wait_reason == WaveWaitReason::BlockBarrier) {
+        ++waiting_wave_count;
+      }
+    }
+  }
+  if (active_wave_count == 0 || waiting_wave_count != active_wave_count) {
+    return false;
+  }
+
+  for (WaveContext* wave : waves) {
+    if (!wave->waiting_at_barrier || wave->barrier_generation != barrier_generation) {
+      continue;
+    }
+    const auto next_pc = kernel.NextPc(wave->pc);
+    if (!next_pc.has_value()) {
+      throw std::out_of_range("barrier release next pc not found");
+    }
+    ResumeBarrierReleasedWave(*wave, *next_pc - wave->pc, set_valid_entry_on_release);
+  }
+
+  barrier_arrivals = 0;
+  ++barrier_generation;
+  return true;
 }
 
 }  // namespace gpu_model::sync_ops

@@ -8,7 +8,7 @@
 - 对外公开接口应优先通过 `execution/*` 暴露
 - 这里主要承载：
   - issue model / issue scheduler / eligibility
-  - scoreboard / event queue
+  - async scoreboard / event queue
   - internal semantics / semantic handlers / op plan
   - tensor helper 等执行期内部工具
 

@@ -14,7 +14,7 @@
 #include <string_view>
 #include <unordered_map>
 
-#include "gpu_model/debug/trace_artifact_recorder.h"
+#include "gpu_model/debug/trace/artifact_recorder.h"
 #include "gpu_model/runtime/hip_interposer_state.h"
 
 using gpu_model::HipInterposerState;

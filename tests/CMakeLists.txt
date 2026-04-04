@@ -1,4 +1,5 @@
 add_executable(gpu_model_tests
+  test_utils/llvm_mc_test_support.cpp
   instruction/internal/generated_encoded_gcn_full_opcode_table_test.cpp
   instruction/internal/generated_encoded_gcn_inst_db_test.cpp
   instruction/internal/encoded_gcn_db_lookup_test.cpp
@@ -31,8 +32,6 @@ add_executable(gpu_model_tests
   execution/encoded_semantic_execute_test.cpp
   execution/encoded_semantic_handler_registry_test.cpp
   execution/internal/handlers/semantic_handler_test.cpp
-  isa/executable_kernel_builder_test.cpp
-  isa/executable_kernel_test.cpp
   isa/opcode_descriptor_test.cpp
   execution/wave_context_test.cpp
   functional/mapper_test.cpp
@@ -108,7 +107,6 @@ add_executable(gpu_model_tests
   runtime/trace_test.cpp
   runtime/hip_runtime_test.cpp
   runtime/execution_stats_test.cpp
-  runtime/executed_flow_program_cycle_stats_test.cpp
   instruction/instruction_naming_test.cpp
 )
 
@@ -116,6 +114,11 @@ target_link_libraries(gpu_model_tests
   PRIVATE
     gpu_model
     GTest::gtest_main
+)
+
+target_include_directories(gpu_model_tests
+  PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/..
 )
 
 gpu_model_enable_warnings(gpu_model_tests)

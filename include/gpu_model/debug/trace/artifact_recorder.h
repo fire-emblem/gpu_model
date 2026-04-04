@@ -1,0 +1,37 @@
+#pragma once
+
+#include <filesystem>
+#include <memory>
+
+#include "gpu_model/debug/trace/sink.h"
+
+namespace gpu_model {
+class Recorder;
+struct CycleTimelineOptions;
+
+class TraceArtifactRecorder final : public TraceSink {
+ public:
+  explicit TraceArtifactRecorder(std::filesystem::path output_dir);
+  TraceArtifactRecorder(std::filesystem::path output_dir,
+                        CycleTimelineOptions timeline_options);
+  ~TraceArtifactRecorder() override;
+
+  TraceArtifactRecorder(TraceArtifactRecorder&&) noexcept;
+  TraceArtifactRecorder& operator=(TraceArtifactRecorder&&) noexcept;
+
+  TraceArtifactRecorder(const TraceArtifactRecorder&) = delete;
+  TraceArtifactRecorder& operator=(const TraceArtifactRecorder&) = delete;
+
+  void OnEvent(const TraceEvent& event) override;
+  void FlushTimeline();
+
+  const std::filesystem::path& output_dir() const;
+  const std::vector<TraceEvent>& events() const;
+  const Recorder& recorder() const;
+
+ private:
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
+};
+
+}  // namespace gpu_model

@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-#include "gpu_model/debug/trace_artifact_recorder.h"
+#include "gpu_model/debug/trace/artifact_recorder.h"
 #include "gpu_model/program/object_reader.h"
 #include "gpu_model/runtime/hip_runtime.h"
 #include "gpu_model/runtime/runtime_engine.h"

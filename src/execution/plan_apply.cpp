@@ -1,6 +1,7 @@
 #include "gpu_model/execution/plan_apply.h"
 
 #include <sstream>
+#include <stdexcept>
 
 namespace gpu_model {
 
@@ -36,7 +37,8 @@ std::optional<std::string> MaybeFormatExecutionMaskUpdate(const OpPlan& plan,
   return mask_text.str();
 }
 
-void ApplyExecutionPlanControlFlow(const OpPlan& plan,
+void ApplyExecutionPlanControlFlow(const ExecutableKernel& kernel,
+                                   const OpPlan& plan,
                                    WaveContext& wave,
                                    bool set_valid_entry,
                                    bool clear_branch_pending) {
@@ -47,7 +49,11 @@ void ApplyExecutionPlanControlFlow(const OpPlan& plan,
   if (plan.branch_target.has_value()) {
     wave.pc = *plan.branch_target;
   } else if (plan.advance_pc) {
-    ++wave.pc;
+    const auto next_pc = kernel.NextPc(wave.pc);
+    if (!next_pc.has_value()) {
+      throw std::out_of_range("next instruction pc not found");
+    }
+    wave.pc = *next_pc;
   }
   if (clear_branch_pending) {
     wave.branch_pending = false;

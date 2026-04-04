@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <string_view>
 
-#include "gpu_model/debug/trace_sink.h"
+#include "gpu_model/debug/trace/sink.h"
 #include "gpu_model/isa/instruction_builder.h"
 #include "gpu_model/runtime/runtime_engine.h"
 

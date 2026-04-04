@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cstddef>
 #include <cstdarg>
 #include <cstdio>
@@ -21,13 +22,14 @@
 #include <vector>
 
 #include "gpu_model/execution/encoded_semantic_handler.h"
+#include "gpu_model/execution/internal/async_scoreboard.h"
 #include "gpu_model/execution/internal/barrier_resource_pool.h"
 #include "gpu_model/execution/internal/cycle_issue_policy.h"
 #include "gpu_model/execution/internal/encoded_issue_candidate.h"
 #include "gpu_model/execution/internal/tensor_op_utils.h"
 #include "gpu_model/execution/internal/issue_eligibility.h"
-#include "gpu_model/debug/wave_launch_trace.h"
-#include "gpu_model/debug/trace_event_builder.h"
+#include "gpu_model/debug/trace/event_factory.h"
+#include "gpu_model/debug/trace/wave_launch_trace.h"
 #include "gpu_model/instruction/encoded/internal/encoded_instruction_descriptor.h"
 #include "gpu_model/execution/sync_ops.h"
 #include "gpu_model/execution/wave_context_builder.h"
@@ -724,29 +726,6 @@ std::optional<MemoryWaitDomain> MemoryDomainForEncodedInstruction(
   return std::nullopt;
 }
 
-std::optional<WaveWaitReason> WaitReasonForDomain(MemoryWaitDomain domain) {
-  switch (domain) {
-    case MemoryWaitDomain::Global:
-      return WaveWaitReason::PendingGlobalMemory;
-    case MemoryWaitDomain::Shared:
-      return WaveWaitReason::PendingSharedMemory;
-    case MemoryWaitDomain::Private:
-      return WaveWaitReason::PendingPrivateMemory;
-    case MemoryWaitDomain::ScalarBuffer:
-      return WaveWaitReason::PendingScalarBufferMemory;
-    case MemoryWaitDomain::None:
-      return std::nullopt;
-  }
-  return std::nullopt;
-}
-
-bool IsMemoryWaitReason(WaveWaitReason reason) {
-  return reason == WaveWaitReason::PendingGlobalMemory ||
-         reason == WaveWaitReason::PendingSharedMemory ||
-         reason == WaveWaitReason::PendingPrivateMemory ||
-         reason == WaveWaitReason::PendingScalarBufferMemory;
-}
-
 void MarkWaveWaiting(WaveContext& wave, WaveWaitReason reason) {
   if (wave.run_state == WaveRunState::Completed) {
     return;
@@ -781,28 +760,7 @@ WaitCntThresholds WaitCntThresholdsForDecodedInstruction(const DecodedInstructio
 std::optional<WaveWaitReason> WaitCntBlockReasonForDecodedInstruction(
     const WaveContext& wave,
     const DecodedInstruction& instruction) {
-  const auto thresholds = WaitCntThresholdsForDecodedInstruction(instruction);
-  for (const auto domain : {MemoryWaitDomain::Global, MemoryWaitDomain::Shared,
-                            MemoryWaitDomain::Private, MemoryWaitDomain::ScalarBuffer}) {
-    if (PendingMemoryOpsForDomain(wave, domain) > [&]() {
-          switch (domain) {
-            case MemoryWaitDomain::Global:
-              return thresholds.global;
-            case MemoryWaitDomain::Shared:
-              return thresholds.shared;
-            case MemoryWaitDomain::Private:
-              return thresholds.private_mem;
-            case MemoryWaitDomain::ScalarBuffer:
-              return thresholds.scalar_buffer;
-            case MemoryWaitDomain::None:
-              return UINT32_MAX;
-          }
-          return UINT32_MAX;
-        }()) {
-      return WaitReasonForDomain(domain);
-    }
-  }
-  return std::nullopt;
+  return BlockingMemoryWaitReason(wave, WaitCntThresholdsForDecodedInstruction(instruction));
 }
 
 TraceStallReason TraceStallReasonForWaveWaitReason(WaveWaitReason reason) {
@@ -844,19 +802,6 @@ TraceMemoryArriveKind TraceMemoryArriveKindForMemoryOp(
 
 void RecordPendingMemoryOp(EncodedWaveState& state,
                            WaveContext& wave,
-                           MemoryWaitDomain domain) {
-  if (domain == MemoryWaitDomain::None) {
-    return;
-  }
-  IncrementPendingMemoryOps(wave, domain);
-  state.pending_memory_ops.push_back(EncodedPendingMemoryOp{
-      .domain = domain,
-      .arrive_kind = std::nullopt,
-  });
-}
-
-void RecordPendingMemoryOp(EncodedWaveState& state,
-                           WaveContext& wave,
                            MemoryWaitDomain domain,
                            uint64_t ready_cycle,
                            TraceMemoryArriveKind arrive_kind) {
@@ -871,27 +816,6 @@ void RecordPendingMemoryOp(EncodedWaveState& state,
       .uses_ready_cycle = true,
       .arrive_kind = arrive_kind,
   });
-}
-
-bool AdvancePendingMemoryOps(EncodedWaveState& state, WaveContext& wave) {
-  bool advanced = false;
-  for (auto it = state.pending_memory_ops.begin(); it != state.pending_memory_ops.end();) {
-    advanced = true;
-    if (it->uses_ready_cycle) {
-      ++it;
-      continue;
-    }
-    if (it->turns_until_complete > 0) {
-      --it->turns_until_complete;
-    }
-    if (it->turns_until_complete == 0) {
-      DecrementPendingMemoryOps(wave, it->domain);
-      it = state.pending_memory_ops.erase(it);
-      continue;
-    }
-    ++it;
-  }
-  return advanced;
 }
 
 bool AdvancePendingMemoryOps(EncodedWaveState& state,
@@ -931,43 +855,16 @@ bool AdvancePendingMemoryOps(EncodedWaveState& state,
 
 bool ResumeWaveIfWaitSatisfied(EncodedWaveState& state,
                                WaveContext& wave) {
-  if (wave.run_state != WaveRunState::Waiting || !state.waiting_waitcnt_thresholds.has_value()) {
+  if (!state.waiting_waitcnt_thresholds.has_value()) {
     return false;
   }
-  const auto& thresholds = *state.waiting_waitcnt_thresholds;
-  const bool satisfied =
-      wave.pending_global_mem_ops <= thresholds.global &&
-      wave.pending_shared_mem_ops <= thresholds.shared &&
-      wave.pending_private_mem_ops <= thresholds.private_mem &&
-      wave.pending_scalar_buffer_mem_ops <= thresholds.scalar_buffer;
-  if (!IsMemoryWaitReason(wave.wait_reason) || !satisfied) {
+  if (!ResumeMemoryWaitStateIfSatisfied(*state.waiting_waitcnt_thresholds, wave)) {
     return false;
   }
   state.waiting_waitcnt_thresholds.reset();
   ResumeWaveToRunnable(wave, state.waiting_resume_pc_increment);
   state.waiting_resume_pc_increment = 0;
   return true;
-}
-
-WaitCntThresholds ZeroThresholdForDomain(MemoryWaitDomain domain) {
-  WaitCntThresholds thresholds;
-  switch (domain) {
-    case MemoryWaitDomain::Global:
-      thresholds.global = 0;
-      break;
-    case MemoryWaitDomain::Shared:
-      thresholds.shared = 0;
-      break;
-    case MemoryWaitDomain::Private:
-      thresholds.private_mem = 0;
-      break;
-    case MemoryWaitDomain::ScalarBuffer:
-      thresholds.scalar_buffer = 0;
-      break;
-    case MemoryWaitDomain::None:
-      break;
-  }
-  return thresholds;
 }
 
 class GlobalEncodedWorkerPool {
@@ -1197,6 +1094,7 @@ class EncodedExecutionCore {
   std::mutex global_memory_mutex_;
   std::mutex scheduler_mutex_;
   std::condition_variable scheduler_cv_;
+  std::atomic<uint64_t> functional_trace_cycle_{0};
   std::vector<ApSchedulerState> ap_schedulers_;
   std::vector<EncodedPeuSlot> cycle_peu_slots_;
   std::unordered_map<uint32_t, EncodedApResidentState> cycle_ap_states_;
@@ -1261,7 +1159,7 @@ class EncodedExecutionCore {
         const auto launch_summary = BuildWaveLaunchAbiSummary(raw_wave.wave, image_.kernel_descriptor);
         TraceEventLocked(MakeTraceWaveLaunchEvent(
             MakeRawTraceWaveView(raw_wave),
-            0,
+            NextFunctionalTraceCycle(),
             FormatWaveLaunchTraceMessage(raw_wave.wave,
                                          &launch_summary,
                                          WaveLaunchTraceScalarRegs(image_.kernel_descriptor),
@@ -1566,6 +1464,49 @@ class EncodedExecutionCore {
     return nullptr;
   }
 
+  std::optional<std::pair<RawWave*, std::string>> PickFirstBlockedWaveForCycleSlot(
+      EncodedPeuSlot& slot) {
+    if (slot.active_window.empty()) {
+      return std::nullopt;
+    }
+    const size_t start = slot.next_rr % slot.active_window.size();
+    for (size_t offset = 0; offset < slot.active_window.size(); ++offset) {
+      const size_t index = (start + offset) % slot.active_window.size();
+      RawWave* raw_wave = slot.active_window[index];
+      if (raw_wave == nullptr) {
+        continue;
+      }
+      const auto& wave = raw_wave->wave;
+      const auto pc_it = pc_to_index_.find(wave.pc);
+      if (pc_it == pc_to_index_.end()) {
+        continue;
+      }
+      const auto& decoded = image_.decoded_instructions[pc_it->second];
+      if (const auto front_end_reason =
+              FrontEndBlockReason(raw_wave->dispatch_enabled, wave);
+          front_end_reason.has_value()) {
+        if (raw_wave->dispatch_enabled && wave.status == WaveStatus::Active) {
+          return std::make_pair(raw_wave, *front_end_reason);
+        }
+        continue;
+      }
+      if (decoded.mnemonic == "s_barrier") {
+        const auto ap_state_it =
+            cycle_ap_states_.find(raw_blocks_[raw_wave->block_index].global_ap_id);
+        if (ap_state_it != cycle_ap_states_.end()) {
+          uint32_t slots_in_use = ap_state_it->second.barrier_slots_in_use;
+          bool acquired = raw_blocks_[raw_wave->block_index].barrier_slot_acquired;
+          if (!TryAcquireBarrierSlot(ap_state_it->second.barrier_slot_capacity,
+                                     slots_in_use,
+                                     acquired)) {
+            return std::make_pair(raw_wave, std::string("barrier_slot_unavailable"));
+          }
+        }
+      }
+    }
+    return std::nullopt;
+  }
+
   bool HasFutureProgress(uint64_t cycle) const {
     for (const auto& slot : cycle_peu_slots_) {
       if (slot.busy_until > cycle) {
@@ -1649,6 +1590,28 @@ class EncodedExecutionCore {
             slot.next_rr,
             ResolveIssuePolicy(timing_config_, spec_));
         if (bundle.selected_candidate_indices.empty()) {
+      if (const auto blocked = PickFirstBlockedWaveForCycleSlot(slot);
+              blocked.has_value()) {
+            std::optional<WaitCntThresholds> waitcnt_thresholds;
+            const auto pc_it = pc_to_index_.find(blocked->first->wave.pc);
+            if (pc_it != pc_to_index_.end()) {
+              const auto& decoded = image_.decoded_instructions[pc_it->second];
+              if (decoded.mnemonic == "s_waitcnt") {
+                waitcnt_thresholds =
+                    raw_blocks_[blocked->first->block_index]
+                        .wave_states[blocked->first->wave_index]
+                        .waiting_waitcnt_thresholds.value_or(
+                            WaitCntThresholdsForDecodedInstruction(decoded));
+              }
+            }
+            TraceEventLocked(MakeTraceBlockedStallEvent(
+                MakeRawTraceWaveView(*blocked->first),
+                cycle,
+                blocked->second,
+                TraceSlotModelKind::ResidentFixed,
+                std::numeric_limits<uint64_t>::max(),
+                MakeOptionalTraceWaitcntState(blocked->first->wave, waitcnt_thresholds)));
+          }
           continue;
         }
         uint64_t slot_commit_cycle = cycle;
@@ -1804,8 +1767,9 @@ class EncodedExecutionCore {
   }
 
   bool AdvanceWaitingWavesForBlockLocked(size_t block_index) {
-    return ProcessWaitingWaves(raw_blocks_[block_index]) ||
-           RequeueRunnableWavesForBlockLocked(block_index);
+    const bool progressed = ProcessWaitingWaves(raw_blocks_[block_index]);
+    const bool requeued = RequeueRunnableWavesForBlockLocked(block_index);
+    return progressed || requeued;
   }
 
   bool AdvanceWaitingWavesLocked() {
@@ -1886,7 +1850,25 @@ class EncodedExecutionCore {
     {
       std::lock_guard<std::mutex> lock(*block.wave_state_mutex);
       for (size_t i = 0; i < block.waves.size(); ++i) {
-        progressed = AdvancePendingMemoryOps(block.wave_states[i], block.waves[i].wave) || progressed;
+        std::vector<EncodedPendingMemoryOp> completed_ops;
+        progressed = AdvancePendingMemoryOps(block.wave_states[i],
+                                            block.waves[i].wave,
+                                            NextFunctionalTraceCycle(),
+                                            &completed_ops) || progressed;
+        for (const auto& op : completed_ops) {
+          if (!op.arrive_kind.has_value()) {
+            continue;
+          }
+          TraceEvent event = MakeTraceMemoryArriveEvent(MakeRawTraceWaveView(block.waves[i]),
+                                                        NextFunctionalTraceCycle(),
+                                                        *op.arrive_kind,
+                                                        TraceSlotModel());
+          const AsyncArriveResult arrive_result = MakeAsyncArriveResult(
+              block.waves[i].wave, op.domain, block.wave_states[i].waiting_waitcnt_thresholds);
+          event.waitcnt_state = arrive_result.waitcnt_state;
+          event.arrive_progress = arrive_result.arrive_progress;
+          TraceEventLocked(std::move(event));
+        }
       }
       for (size_t i = 0; i < block.waves.size(); ++i) {
         auto& wave = block.waves[i].wave;
@@ -1908,11 +1890,19 @@ class EncodedExecutionCore {
       for (auto& wave : block.waves) {
         wave_ptrs.push_back(&wave.wave);
       }
-      progressed = sync_ops::ReleaseBarrierIfReady(wave_ptrs,
-                                                   block.barrier_generation,
-                                                   block.barrier_arrivals,
-                                                   4,
-                                                   false) || progressed;
+      const bool released = sync_ops::ReleaseBarrierIfReady(wave_ptrs,
+                                                            block.barrier_generation,
+                                                            block.barrier_arrivals,
+                                                            4,
+                                                            false);
+      if (released) {
+        TraceEventLocked(
+            MakeTraceBarrierReleaseEvent(block.dpc_id,
+                                         block.ap_id,
+                                         block.block_id,
+                                         NextFunctionalTraceCycle()));
+      }
+      progressed = released || progressed;
     }
     return progressed;
   }
@@ -1932,10 +1922,15 @@ class EncodedExecutionCore {
           if (!op.arrive_kind.has_value()) {
             continue;
           }
-          TraceEventLocked(MakeTraceMemoryArriveEvent(MakeRawTraceWaveView(block.waves[i]),
-                                                      cycle,
-                                                      *op.arrive_kind,
-                                                      TraceSlotModel()));
+          TraceEvent event = MakeTraceMemoryArriveEvent(MakeRawTraceWaveView(block.waves[i]),
+                                                        cycle,
+                                                        *op.arrive_kind,
+                                                        TraceSlotModel());
+          const AsyncArriveResult arrive_result = MakeAsyncArriveResult(
+              block.waves[i].wave, op.domain, block.wave_states[i].waiting_waitcnt_thresholds);
+          event.waitcnt_state = arrive_result.waitcnt_state;
+          event.arrive_progress = arrive_result.arrive_progress;
+          TraceEventLocked(std::move(event));
         }
       }
       for (size_t i = 0; i < block.waves.size(); ++i) {
@@ -2010,6 +2005,10 @@ class EncodedExecutionCore {
     trace_.OnEvent(std::move(event));
   }
 
+  uint64_t NextFunctionalTraceCycle() {
+    return functional_trace_cycle_.fetch_add(1, std::memory_order_relaxed);
+  }
+
   void CommitStats(const ExecutionStats& step_stats) {
     std::lock_guard<std::mutex> lock(stats_mutex_);
     MergeStats(result_.stats, step_stats);
@@ -2042,6 +2041,8 @@ class EncodedExecutionCore {
             ? image_.instruction_objects[it->second].get()
             : nullptr;
     const auto descriptor = DescribeEncodedInstruction(decoded);
+    const uint64_t issue_cycles =
+        ResolveEncodedIssueCycles(decoded.mnemonic, descriptor, spec_, timing_config_);
 
     ExecutionStats step_stats;
     ++step_stats.wave_steps;
@@ -2054,8 +2055,10 @@ class EncodedExecutionCore {
                                             cycle_stats_config_));
     }
 
+    const uint64_t trace_cycle = NextFunctionalTraceCycle();
+    const uint64_t commit_cycle = trace_cycle + std::max<uint64_t>(1u, issue_cycles);
     TraceEventLocked(MakeRawWaveTraceEvent(
-        raw_wave, TraceEventKind::WaveStep, 0, FormatRawWaveStepMessage(decoded, object, wave)));
+        raw_wave, TraceEventKind::WaveStep, trace_cycle, FormatRawWaveStepMessage(decoded, object, wave)));
 
     if (decoded.mnemonic == "s_waitcnt") {
       std::lock_guard<std::mutex> lock(*block.wave_state_mutex);
@@ -2068,7 +2071,7 @@ class EncodedExecutionCore {
             MakeTraceWaitcntState(wave, *wave_state.waiting_waitcnt_thresholds);
         TraceEventLocked(MakeTraceWaitStallEvent(
             MakeRawTraceWaveView(raw_wave),
-            0,
+            trace_cycle,
             TraceStallReasonForWaveWaitReason(*wait_reason),
             TraceSlotModel(),
             std::numeric_limits<uint64_t>::max(),
@@ -2108,14 +2111,51 @@ class EncodedExecutionCore {
       ExecuteInstruction(decoded, object, context);
     }
 
+    uint64_t ready_cycle = commit_cycle + kEncodedPendingMemoryCompletionTurns;
+    if (captured_memory_request.has_value()) {
+      auto& request = *captured_memory_request;
+      if (request.space == MemorySpace::Global) {
+        const std::vector<uint64_t> addrs = ActiveAddresses(request);
+        auto& l1_cache = l1_caches_.at(std::make_pair(block.dpc_id, block.ap_id));
+        const CacheProbeResult l1_probe = l1_cache.Probe(addrs);
+        const CacheProbeResult l2_probe = l2_cache_.Probe(addrs);
+        const uint64_t arrive_latency = std::min(l1_probe.latency, l2_probe.latency);
+        if (l1_probe.l1_hits > 0) {
+          step_stats.l1_hits += l1_probe.l1_hits;
+        } else if (l2_probe.l2_hits > 0) {
+          step_stats.l2_hits += l2_probe.l2_hits;
+        } else {
+          step_stats.cache_misses += std::max<uint64_t>(1, l2_probe.misses);
+        }
+        l2_cache_.Promote(addrs);
+        l1_cache.Promote(addrs);
+        ready_cycle = commit_cycle + arrive_latency;
+      } else if (request.space == MemorySpace::Shared) {
+        const uint64_t penalty = shared_bank_model_.ConflictPenalty(request);
+        step_stats.shared_bank_conflict_penalty_cycles += penalty;
+        ready_cycle = commit_cycle + penalty;
+      }
+    }
+
     {
       std::lock_guard<std::mutex> lock(*block.wave_state_mutex);
       if (maybe_domain.has_value()) {
-        RecordPendingMemoryOp(wave_state, wave, *maybe_domain);
+        RecordPendingMemoryOp(wave_state,
+                              wave,
+                              *maybe_domain,
+                              ready_cycle,
+                              TraceMemoryArriveKindForMemoryOp(*maybe_domain,
+                                                               captured_memory_request));
+      }
+      if (wave.waiting_at_barrier) {
+        TraceEventLocked(
+            MakeTraceBarrierArriveEvent(MakeRawTraceWaveView(raw_wave), trace_cycle, TraceSlotModel()));
       }
       if (wave.status == WaveStatus::Exited) {
         wave.run_state = WaveRunState::Completed;
         wave.wait_reason = WaveWaitReason::None;
+        TraceEventLocked(
+            MakeTraceWaveExitEvent(MakeRawTraceWaveView(raw_wave), trace_cycle, TraceSlotModel()));
       } else if (wave.run_state != WaveRunState::Waiting) {
         wave.run_state = WaveRunState::Runnable;
         wave.status = WaveStatus::Active;
@@ -2211,14 +2251,6 @@ class EncodedExecutionCore {
                               ready_cycle,
                               TraceMemoryArriveKindForMemoryOp(*maybe_domain,
                                                                captured_memory_request));
-        if (captured_memory_request.has_value() &&
-            captured_memory_request->kind == AccessKind::Load) {
-          wave_state.waiting_waitcnt_thresholds = ZeroThresholdForDomain(*maybe_domain);
-          wave_state.waiting_resume_pc_increment = 0;
-          if (const auto wait_reason = WaitReasonForDomain(*maybe_domain); wait_reason.has_value()) {
-            MarkWaveWaiting(wave, *wait_reason);
-          }
-        }
       }
       if (wave.waiting_at_barrier) {
         auto& ap_state = cycle_ap_states_.at(block.global_ap_id);

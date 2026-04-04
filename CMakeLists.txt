@@ -67,8 +67,8 @@ add_library(gpu_model STATIC
   src/execution/internal/issue_model.cpp
   src/execution/internal/issue_scheduler.cpp
   src/execution/internal/issue_eligibility.cpp
+  src/execution/internal/async_scoreboard.cpp
   src/execution/functional_exec_engine.cpp
-  src/execution/internal/scoreboard.cpp
   src/execution/internal/event_queue.cpp
   src/execution/internal/handlers/compute_functor_registry.cpp
   src/execution/cycle_exec_engine.cpp
@@ -78,18 +78,22 @@ add_library(gpu_model STATIC
   src/runtime/runtime_engine.cpp
   src/runtime/hip_interposer_state.cpp
   src/runtime/hip_runtime.cpp
-  src/debug/instruction_trace.cpp
-  src/debug/trace_artifact_recorder.cpp
-  src/debug/trace_json_fields.cpp
-  src/debug/trace_perfetto_proto.cpp
-  src/debug/trace_event_export.cpp
-  src/debug/trace_event_view.cpp
-  src/debug/cycle_timeline_layout.cpp
-  src/debug/cycle_timeline_google_trace.cpp
-  src/debug/cycle_timeline_perfetto.cpp
-  src/debug/cycle_timeline.cpp
-  src/debug/debug_info_io.cpp
-  src/debug/trace_sink.cpp
+  src/debug/trace/instruction_trace.cpp
+  src/debug/recorder/recorder.cpp
+  src/debug/recorder/recorder_export.cpp
+  src/debug/recorder/trace_recorder_adapter.cpp
+  src/debug/trace/trace_artifact_recorder.cpp
+  src/debug/trace/trace_format.cpp
+  src/debug/trace/trace_json_fields.cpp
+  src/debug/timeline/trace_perfetto_proto.cpp
+  src/debug/trace/trace_event_export.cpp
+  src/debug/trace/trace_event_view.cpp
+  src/debug/timeline/cycle_timeline_layout.cpp
+  src/debug/timeline/cycle_timeline_google_trace.cpp
+  src/debug/timeline/cycle_timeline_perfetto.cpp
+  src/debug/timeline/cycle_timeline.cpp
+  src/debug/info/debug_info_io.cpp
+  src/debug/trace/trace_sink.cpp
 )
 
 set_target_properties(gpu_model PROPERTIES POSITION_INDEPENDENT_CODE ON)
@@ -100,6 +104,15 @@ target_include_directories(gpu_model
 )
 
 gpu_model_enable_warnings(gpu_model)
+
+add_executable(gpu_model_perfetto_waitcnt_slots_demo
+  examples/11-perfetto-waitcnt-slots/perfetto_waitcnt_slots_demo.cpp
+)
+target_link_libraries(gpu_model_perfetto_waitcnt_slots_demo PRIVATE gpu_model)
+target_include_directories(gpu_model_perfetto_waitcnt_slots_demo PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+gpu_model_enable_warnings(gpu_model_perfetto_waitcnt_slots_demo)
 
 add_subdirectory(tests)
 

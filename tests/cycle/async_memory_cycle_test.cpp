@@ -7,7 +7,7 @@
 #include <string_view>
 #include <vector>
 
-#include "gpu_model/debug/trace_sink.h"
+#include "gpu_model/debug/trace/sink.h"
 #include "gpu_model/isa/instruction_builder.h"
 #include "gpu_model/runtime/runtime_engine.h"
 
@@ -324,6 +324,49 @@ TEST(AsyncMemoryCycleTest, LoadAllowsIndependentScalarIssueBeforeArrive) {
   EXPECT_EQ(FirstWaveStepCycle(trace.events(), "buffer_load_dword"), 8u);
   EXPECT_EQ(NthWaveStepCycle(trace.events(), "s_mov_b32", 2), 12u);
   EXPECT_EQ(result.total_cycles, 32u);
+}
+
+TEST(AsyncMemoryCycleTest, IndependentGlobalLoadsIssueBeforeExplicitWaitcnt) {
+  CollectingTraceSink trace;
+  RuntimeEngine runtime(&trace);
+  runtime.SetFixedGlobalMemoryLatency(20);
+
+  const uint64_t base_addr = runtime.memory().AllocateGlobal(2 * sizeof(int32_t));
+  runtime.memory().StoreGlobalValue<int32_t>(base_addr + 0 * sizeof(int32_t), 9);
+  runtime.memory().StoreGlobalValue<int32_t>(base_addr + 1 * sizeof(int32_t), 13);
+
+  InstructionBuilder builder;
+  builder.SMov("s0", base_addr);
+  builder.SMov("s1", 0);
+  builder.MLoadGlobal("v1", "s0", "s1", 4);
+  builder.SMov("s2", 1);
+  builder.MLoadGlobal("v2", "s0", "s2", 4);
+  builder.SWaitCnt(/*global_count=*/1, /*shared_count=*/UINT32_MAX,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
+  builder.SMov("s3", 7);
+  builder.SWaitCnt(/*global_count=*/0, /*shared_count=*/UINT32_MAX,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
+  builder.SMov("s4", 9);
+  builder.BExit();
+  const auto kernel = builder.Build("independent_global_loads_before_waitcnt");
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  EXPECT_EQ(FirstWaveStepCycle(trace.events(), "buffer_load_dword"), 8u);
+  EXPECT_EQ(NthWaveStepCycle(trace.events(), "buffer_load_dword", 1), 16u);
+  EXPECT_EQ(FirstWaveStepCycle(trace.events(), "s_waitcnt"), 20u);
+  EXPECT_EQ(NthWaveStepCycle(trace.events(), "s_mov_b32", 3), 32u);
+  EXPECT_EQ(NthWaveStepCycle(trace.events(), "s_waitcnt", 1), 36u);
+  EXPECT_EQ(NthWaveStepCycle(trace.events(), "s_mov_b32", 4), 40u);
+  EXPECT_TRUE(HasStallReason(trace.events(), TraceStallReason::WaitCntGlobal));
+  EXPECT_EQ(result.total_cycles, 48u);
 }
 
 TEST(AsyncMemoryCycleTest, WaitCntCanWaitForGlobalMemoryOnly) {

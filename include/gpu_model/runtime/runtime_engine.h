@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <memory>
 
-#include "gpu_model/debug/trace_sink.h"
+#include "gpu_model/debug/trace/sink.h"
 #include "gpu_model/execution/cycle_exec_engine.h"
 #include "gpu_model/execution/functional_execution_mode.h"
 #include "gpu_model/memory/memory_system.h"

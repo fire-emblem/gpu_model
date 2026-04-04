@@ -7,8 +7,8 @@
 #include <vector>
 
 #include "gpu_model/arch/arch_registry.h"
-#include "gpu_model/debug/trace_event_builder.h"
-#include "gpu_model/debug/trace_sink.h"
+#include "gpu_model/debug/trace/event_factory.h"
+#include "gpu_model/debug/trace/sink.h"
 #include "gpu_model/isa/instruction_builder.h"
 #include "gpu_model/isa/opcode.h"
 #include "gpu_model/runtime/runtime_engine.h"
@@ -104,8 +104,8 @@ ExecutableKernel BuildSamePeuBarrierResumeKernel() {
 }
 
 uint64_t FirstInstructionPcWithOpcode(const ExecutableKernel& kernel, Opcode opcode) {
-  for (uint64_t pc = 0; pc < kernel.instructions().size(); ++pc) {
-    if (kernel.instructions()[pc].opcode == opcode) {
+  for (const auto& [pc, instruction] : kernel.instructions_by_pc()) {
+    if (instruction.opcode == opcode) {
       return pc;
     }
   }
@@ -125,8 +125,8 @@ bool ContainsStallMessage(const std::vector<TraceEvent>& events,
 
 uint64_t NthInstructionPcWithOpcode(const ExecutableKernel& kernel, Opcode opcode, size_t ordinal) {
   size_t seen = 0;
-  for (uint64_t pc = 0; pc < kernel.instructions().size(); ++pc) {
-    if (kernel.instructions()[pc].opcode != opcode) {
+  for (const auto& [pc, instruction] : kernel.instructions_by_pc()) {
+    if (instruction.opcode != opcode) {
       continue;
     }
     if (seen == ordinal) {

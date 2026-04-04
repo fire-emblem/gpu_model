@@ -12,8 +12,8 @@
 #include <vector>
 
 #include "gpu_model/arch/arch_registry.h"
-#include "gpu_model/debug/trace_event_builder.h"
-#include "gpu_model/debug/trace_sink.h"
+#include "gpu_model/debug/trace/event_factory.h"
+#include "gpu_model/debug/trace/sink.h"
 #include "gpu_model/execution/functional_exec_engine.h"
 #include "gpu_model/isa/instruction_builder.h"
 #include "gpu_model/isa/opcode.h"
@@ -148,8 +148,8 @@ ExecutableKernel BuildSemanticTraceCoverageKernel() {
 
 uint64_t NthInstructionPcWithOpcode(const ExecutableKernel& kernel, Opcode opcode, size_t ordinal) {
   size_t seen = 0;
-  for (uint64_t pc = 0; pc < kernel.instructions().size(); ++pc) {
-    if (kernel.instructions()[pc].opcode != opcode) {
+  for (const auto& [pc, instruction] : kernel.instructions_by_pc()) {
+    if (instruction.opcode != opcode) {
       continue;
     }
     if (seen == ordinal) {
@@ -446,8 +446,9 @@ TEST(FunctionalExecEngineWaitcntTest, GlobalWaitcntTransitionsThroughWaitingAndR
 
   const auto events = RunHarnessAndCollectTrace(harness);
   const uint64_t waitcnt_pc = NthInstructionPcWithOpcode(harness.kernel, Opcode::SWaitCnt, 0);
-  const uint64_t resume_marker_pc = waitcnt_pc + 1;
   ASSERT_NE(waitcnt_pc, std::numeric_limits<uint64_t>::max());
+  ASSERT_TRUE(harness.kernel.NextPc(waitcnt_pc).has_value());
+  const uint64_t resume_marker_pc = *harness.kernel.NextPc(waitcnt_pc);
 
   EXPECT_TRUE(
       ContainsWaveStatsMessage(events, "launch=1 init=1 active=1 runnable=0 waiting=1 end=0"));
@@ -461,8 +462,9 @@ TEST(FunctionalExecEngineWaitcntTest, SharedWaitcntTransitionsThroughWaitingAndR
   auto harness = MakeWaitcntHarness(BuildSharedWaitcntLifecycleKernel(), /*shared_memory_bytes=*/4);
   const auto events = RunHarnessAndCollectTrace(harness);
   const uint64_t waitcnt_pc = NthInstructionPcWithOpcode(harness.kernel, Opcode::SWaitCnt, 0);
-  const uint64_t resume_marker_pc = waitcnt_pc + 1;
   ASSERT_NE(waitcnt_pc, std::numeric_limits<uint64_t>::max());
+  ASSERT_TRUE(harness.kernel.NextPc(waitcnt_pc).has_value());
+  const uint64_t resume_marker_pc = *harness.kernel.NextPc(waitcnt_pc);
 
   EXPECT_TRUE(
       ContainsWaveStatsMessage(events, "launch=1 init=1 active=1 runnable=0 waiting=1 end=0"));
@@ -499,8 +501,9 @@ TEST(FunctionalExecEngineWaitcntTest, PrivateWaitcntTransitionsThroughWaitingAnd
   auto harness = MakeWaitcntHarness(BuildPrivateWaitcntLifecycleKernel());
   const auto events = RunHarnessAndCollectTrace(harness);
   const uint64_t waitcnt_pc = NthInstructionPcWithOpcode(harness.kernel, Opcode::SWaitCnt, 0);
-  const uint64_t resume_marker_pc = waitcnt_pc + 1;
   ASSERT_NE(waitcnt_pc, std::numeric_limits<uint64_t>::max());
+  ASSERT_TRUE(harness.kernel.NextPc(waitcnt_pc).has_value());
+  const uint64_t resume_marker_pc = *harness.kernel.NextPc(waitcnt_pc);
 
   EXPECT_TRUE(
       ContainsWaveStatsMessage(events, "launch=1 init=1 active=1 runnable=0 waiting=1 end=0"));
@@ -514,8 +517,9 @@ TEST(FunctionalExecEngineWaitcntTest, ScalarBufferWaitcntTransitionsThroughWaiti
   auto harness = MakeWaitcntHarness(BuildScalarBufferWaitcntLifecycleKernel());
   const auto events = RunHarnessAndCollectTrace(harness);
   const uint64_t waitcnt_pc = NthInstructionPcWithOpcode(harness.kernel, Opcode::SWaitCnt, 0);
-  const uint64_t resume_marker_pc = waitcnt_pc + 1;
   ASSERT_NE(waitcnt_pc, std::numeric_limits<uint64_t>::max());
+  ASSERT_TRUE(harness.kernel.NextPc(waitcnt_pc).has_value());
+  const uint64_t resume_marker_pc = *harness.kernel.NextPc(waitcnt_pc);
 
   EXPECT_TRUE(
       ContainsWaveStatsMessage(events, "launch=1 init=1 active=1 runnable=0 waiting=1 end=0"));

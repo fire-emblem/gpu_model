@@ -20,6 +20,8 @@ uint32_t WaitCntThresholdForDomain(const WaitCntThresholds& thresholds, MemoryWa
   return UINT32_MAX;
 }
 
+}  // namespace
+
 std::optional<std::string> WaitReasonForDomain(MemoryWaitDomain domain) {
   switch (domain) {
     case MemoryWaitDomain::Global:
@@ -36,6 +38,25 @@ std::optional<std::string> WaitReasonForDomain(MemoryWaitDomain domain) {
   return std::nullopt;
 }
 
+TraceStallReason TraceStallReasonForWaitReason(WaveWaitReason reason) {
+  switch (reason) {
+    case WaveWaitReason::PendingGlobalMemory:
+      return TraceStallReason::WaitCntGlobal;
+    case WaveWaitReason::PendingSharedMemory:
+      return TraceStallReason::WaitCntShared;
+    case WaveWaitReason::PendingPrivateMemory:
+      return TraceStallReason::WaitCntPrivate;
+    case WaveWaitReason::PendingScalarBufferMemory:
+      return TraceStallReason::WaitCntScalarBuffer;
+    case WaveWaitReason::None:
+    case WaveWaitReason::BlockBarrier:
+      break;
+  }
+  return TraceStallReason::None;
+}
+
+namespace {
+
 std::optional<std::string> DetermineWaitCntBlockReason(const WaveContext& wave,
                                                        const WaitCntThresholds& thresholds) {
   for (const auto domain : {MemoryWaitDomain::Global, MemoryWaitDomain::Shared,
@@ -46,6 +67,8 @@ std::optional<std::string> DetermineWaitCntBlockReason(const WaveContext& wave,
   }
   return std::nullopt;
 }
+
+}  // namespace
 
 std::optional<std::string> WaitingStateBlockReason(const WaveContext& wave) {
   if (wave.run_state != WaveRunState::Waiting) {
@@ -67,6 +90,8 @@ std::optional<std::string> WaitingStateBlockReason(const WaveContext& wave) {
   }
   return std::nullopt;
 }
+
+namespace {
 
 }  // namespace
 
@@ -165,6 +190,15 @@ WaitCntThresholds WaitCntThresholdsForInstruction(const Instruction& instruction
   return thresholds;
 }
 
+TraceWaitcntState MakeOptionalTraceWaitcntState(
+    const WaveContext& wave,
+    const std::optional<WaitCntThresholds>& thresholds) {
+  if (!thresholds.has_value()) {
+    return {};
+  }
+  return MakeTraceWaitcntState(wave, *thresholds);
+}
+
 TraceWaitcntState MakeTraceWaitcntState(const WaveContext& wave,
                                         const WaitCntThresholds& thresholds) {
   return TraceWaitcntState{
@@ -206,34 +240,16 @@ std::optional<std::string> WaitCntBlockReason(const WaveContext& wave,
   return DetermineWaitCntBlockReason(wave, WaitCntThresholdsForInstruction(instruction));
 }
 
-std::optional<std::string> MemoryDomainBlockReason(const WaveContext& wave,
-                                                   const Instruction& instruction) {
-  const auto domain = MemoryDomainForOpcode(instruction.opcode);
-  if (PendingMemoryOpsForDomain(wave, domain) > 0) {
-    return WaitReasonForDomain(domain);
-  }
-  return std::nullopt;
-}
-
 bool CanIssueInstruction(bool dispatch_enabled,
                          const WaveContext& wave,
-                         const Instruction& instruction,
-                         bool dependencies_ready) {
-  const auto memory_domain = MemoryDomainForOpcode(instruction.opcode);
+                         const Instruction&) {
   return dispatch_enabled && wave.status == WaveStatus::Active &&
          wave.run_state == WaveRunState::Runnable && wave.valid_entry &&
-         (memory_domain == MemoryWaitDomain::None ||
-          PendingMemoryOpsForDomain(wave, memory_domain) == 0) &&
-         WaitCntSatisfied(wave, instruction) &&
-         !wave.branch_pending &&
-         !wave.waiting_at_barrier &&
-         dependencies_ready;
+         !wave.branch_pending && !wave.waiting_at_barrier;
 }
 
-std::optional<std::string> IssueBlockReason(bool dispatch_enabled,
-                                            const WaveContext& wave,
-                                            const Instruction& instruction,
-                                            bool dependencies_ready) {
+std::optional<std::string> FrontEndBlockReason(bool dispatch_enabled,
+                                               const WaveContext& wave) {
   if (!dispatch_enabled || wave.status != WaveStatus::Active) {
     return std::nullopt;
   }
@@ -249,14 +265,18 @@ std::optional<std::string> IssueBlockReason(bool dispatch_enabled,
   if (wave.branch_pending) {
     return std::string("branch_wait");
   }
+  return std::nullopt;
+}
+
+std::optional<std::string> IssueBlockReason(bool dispatch_enabled,
+                                            const WaveContext& wave,
+                                            const Instruction& instruction) {
+  if (const auto reason = FrontEndBlockReason(dispatch_enabled, wave);
+      reason.has_value()) {
+    return reason;
+  }
   if (const auto reason = WaitCntBlockReason(wave, instruction)) {
     return reason;
-  }
-  if (const auto reason = MemoryDomainBlockReason(wave, instruction)) {
-    return reason;
-  }
-  if (!dependencies_ready) {
-    return std::string("dependency_wait");
   }
   return std::nullopt;
 }

@@ -24,6 +24,7 @@ class KernelProgramBuilder {
   ExecutableKernel Build(std::string name,
                          MetadataBlob metadata = {},
                          ConstSegment const_segment = {});
+  std::string EmitAssemblyText() const;
 
  protected:
   struct PendingLabelRef {
@@ -37,6 +38,7 @@ class KernelProgramBuilder {
  private:
   std::vector<Instruction> instructions_;
   std::unordered_map<std::string, uint64_t> labels_;
+  std::vector<std::pair<size_t, std::string>> label_order_;
   std::vector<PendingLabelRef> pending_labels_;
   DebugLoc next_debug_loc_;
   bool has_next_debug_loc_ = false;

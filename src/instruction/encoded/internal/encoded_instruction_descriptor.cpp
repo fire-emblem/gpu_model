@@ -46,6 +46,8 @@ EncodedInstructionDescriptor DescribeEncodedInstruction(const DecodedInstruction
     return MakeUnknownDescriptor();
   }
   switch (match->opcode_descriptor->op_type) {
+    case GcnIsaOpType::Unknown:
+      return MakeUnknownDescriptor();
     case GcnIsaOpType::Smrd:
     case GcnIsaOpType::Smem:
       return MakeDescriptor(match->opcode_descriptor, match->category, "scalar_memory",

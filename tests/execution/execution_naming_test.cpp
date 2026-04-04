@@ -76,7 +76,7 @@ TEST(ExecutionNamingTest, ExecutionHeadersDeclarePrimaryUtilities) {
                                MaybeFormatExecutionMaskUpdateSignature>);
 
   using ApplyExecutionPlanControlFlowSignature = void (*)(
-      const OpPlan&, WaveContext&, bool, bool);
+      const ExecutableKernel&, const OpPlan&, WaveContext&, bool, bool);
   static_assert(std::is_same_v<decltype(&ApplyExecutionPlanControlFlow),
                                ApplyExecutionPlanControlFlowSignature>);
 }

@@ -73,26 +73,19 @@ TEST(IssueEligibilityTest, ReportsFirstExceededWaitcntReasonByDomainPrecedence) 
   EXPECT_EQ(*wait_reason, "waitcnt_global");
 }
 
-TEST(IssueEligibilityTest, IssueBlockReasonReportsWaitcntAndDependencyReasons) {
+TEST(IssueEligibilityTest, IssueBlockReasonReportsWaitcntReason) {
   WaveContext wave;
   wave.status = WaveStatus::Active;
   wave.valid_entry = true;
   wave.pending_global_mem_ops = 1;
 
   const auto wait_reason =
-      IssueBlockReason(true, wave, MakeWaitCntInstruction(0, UINT32_MAX, UINT32_MAX, UINT32_MAX), true);
+      IssueBlockReason(true, wave, MakeWaitCntInstruction(0, UINT32_MAX, UINT32_MAX, UINT32_MAX));
   ASSERT_TRUE(wait_reason.has_value());
   EXPECT_EQ(*wait_reason, "waitcnt_global");
-
-  wave.pending_global_mem_ops = 0;
-  Instruction vector_instr;
-  vector_instr.opcode = Opcode::VAdd;
-  const auto dep_reason = IssueBlockReason(true, wave, vector_instr, false);
-  ASSERT_TRUE(dep_reason.has_value());
-  EXPECT_EQ(*dep_reason, "dependency_wait");
 }
 
-TEST(IssueEligibilityTest, WaitingWaveCannotIssueEvenWhenInstructionDependenciesAreOtherwiseReady) {
+TEST(IssueEligibilityTest, WaitingWaveCannotIssue) {
   WaveContext wave;
   wave.status = WaveStatus::Active;
   wave.valid_entry = true;
@@ -102,7 +95,7 @@ TEST(IssueEligibilityTest, WaitingWaveCannotIssueEvenWhenInstructionDependencies
   Instruction vector_instr;
   vector_instr.opcode = Opcode::VAdd;
 
-  EXPECT_FALSE(CanIssueInstruction(true, wave, vector_instr, true));
+  EXPECT_FALSE(CanIssueInstruction(true, wave, vector_instr));
 }
 
 TEST(IssueEligibilityTest, WaitingWaveReportsExplicitWaitReasonBeforeOtherChecks) {
@@ -115,7 +108,7 @@ TEST(IssueEligibilityTest, WaitingWaveReportsExplicitWaitReasonBeforeOtherChecks
   Instruction vector_instr;
   vector_instr.opcode = Opcode::VAdd;
 
-  const auto reason = IssueBlockReason(true, wave, vector_instr, true);
+  const auto reason = IssueBlockReason(true, wave, vector_instr);
   ASSERT_TRUE(reason.has_value());
   EXPECT_EQ(*reason, "waitcnt_global");
 }
@@ -131,9 +124,29 @@ TEST(IssueEligibilityTest, BarrierWaitingWaveReportsBarrierWait) {
   Instruction vector_instr;
   vector_instr.opcode = Opcode::VAdd;
 
-  const auto reason = IssueBlockReason(true, wave, vector_instr, true);
+  const auto reason = IssueBlockReason(true, wave, vector_instr);
   ASSERT_TRUE(reason.has_value());
   EXPECT_EQ(*reason, "barrier_wait");
+}
+
+TEST(IssueEligibilityTest, FrontEndBlockReasonReportsBranchWait) {
+  WaveContext wave;
+  wave.status = WaveStatus::Active;
+  wave.valid_entry = true;
+  wave.branch_pending = true;
+
+  const auto reason = FrontEndBlockReason(true, wave);
+
+  ASSERT_TRUE(reason.has_value());
+  EXPECT_EQ(*reason, "branch_wait");
+}
+
+TEST(IssueEligibilityTest, OptionalTraceWaitcntStateIsInvalidWhenThresholdsMissing) {
+  WaveContext wave;
+
+  const TraceWaitcntState state = MakeOptionalTraceWaitcntState(wave, std::nullopt);
+
+  EXPECT_FALSE(state.valid);
 }
 
 }  // namespace

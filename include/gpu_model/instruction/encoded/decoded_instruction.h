@@ -23,8 +23,8 @@ enum class DecodedInstructionOperandKind {
 
 struct DecodedInstructionOperand {
   DecodedInstructionOperandKind kind = DecodedInstructionOperandKind::Unknown;
-  std::string text;
-  GcnOperandInfo info;
+  std::string text{};
+  GcnOperandInfo info{};
 };
 
 struct DecodedInstruction {
@@ -33,9 +33,9 @@ struct DecodedInstruction {
   uint32_t encoding_id = 0;
   EncodedGcnInstFormatClass format_class = EncodedGcnInstFormatClass::Unknown;
   GcnInstLayout layout{};
-  std::vector<uint32_t> words;
-  std::string mnemonic;
-  std::vector<DecodedInstructionOperand> operands;
+  std::vector<uint32_t> words{};
+  std::string mnemonic{};
+  std::vector<DecodedInstructionOperand> operands{};
 };
 
 }  // namespace gpu_model

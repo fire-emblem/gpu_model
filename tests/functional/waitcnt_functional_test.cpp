@@ -9,15 +9,24 @@
 #include <string_view>
 #include <vector>
 
-#include "gpu_model/debug/cycle_timeline.h"
-#include "gpu_model/debug/trace_event_builder.h"
-#include "gpu_model/debug/trace_sink.h"
+#include "gpu_model/debug/recorder/recorder.h"
+#include "gpu_model/debug/timeline/cycle_timeline.h"
+#include "gpu_model/debug/trace/event_factory.h"
+#include "gpu_model/debug/trace/sink.h"
 #include "gpu_model/isa/instruction_builder.h"
 #include "gpu_model/isa/opcode.h"
 #include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
 namespace {
+
+Recorder MakeRecorder(const std::vector<TraceEvent>& events) {
+  Recorder recorder;
+  for (const auto& event : events) {
+    recorder.Record(event);
+  }
+  return recorder;
+}
 
 ExecutableKernel BuildPendingMemoryBeforeExplicitWaitcntKernel() {
   InstructionBuilder builder;
@@ -101,8 +110,8 @@ ExecutableKernel BuildTimelineWaitcntBubbleKernel() {
 
 uint64_t NthInstructionPcWithOpcode(const ExecutableKernel& kernel, Opcode opcode, size_t ordinal) {
   size_t seen = 0;
-  for (uint64_t pc = 0; pc < kernel.instructions().size(); ++pc) {
-    if (kernel.instructions()[pc].opcode != opcode) {
+  for (const auto& [pc, instruction] : kernel.instructions_by_pc()) {
+    if (instruction.opcode != opcode) {
       continue;
     }
     if (seen == ordinal) {
@@ -556,7 +565,7 @@ TEST(FunctionalWaitcntTest, TimelineShowsBlankBubbleWithWaitcntStallAndArrive) {
   EXPECT_LT(events[waitcnt_stall_index].cycle, events[arrive_index].cycle);
   EXPECT_LT(events[arrive_index].cycle, events[resume_step_index].cycle);
 
-  const std::string timeline = CycleTimelineRenderer::RenderGoogleTrace(trace.events());
+  const std::string timeline = CycleTimelineRenderer::RenderGoogleTrace(MakeRecorder(trace.events()));
   EXPECT_NE(timeline.find("\"name\":\"buffer_load_dword\""), std::string::npos) << timeline;
   EXPECT_NE(timeline.find("\"name\":\"load_arrive\""), std::string::npos) << timeline;
   EXPECT_NE(timeline.find("\"name\":\"s_mov_b32\""), std::string::npos) << timeline;

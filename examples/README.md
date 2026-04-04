@@ -11,6 +11,14 @@
 - 目录按由简到难编号
 - 当前特性尚未完全接通的部分，在目录 `README.md` 里明确标记
 
+补充说明：
+
+- 凡是通过 `TraceArtifactRecorder` 落盘 trace 的例子，都会同时产出 `timeline.perfetto.pb` 和 `timeline.perfetto.json`
+- 优先打开 `timeline.perfetto.pb` 看 Perfetto 原生层级；`timeline.perfetto.json` 更适合文本检查、grep 和回归 diff
+- 目前统一的 slot 语义是：
+  `cycle` 使用 `resident_fixed`，只展示真实 resident slot；
+  `st/mt` 使用 `logical_unbounded`，同一个 `PEU` 上有多少 wave 就展示多少逻辑 `S*` 轨道
+
 当前目标例子：
 
 1. [01-vecadd-basic](./01-vecadd-basic)

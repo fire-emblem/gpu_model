@@ -9,7 +9,7 @@
 #include <thread>
 
 #include "gpu_model/arch/arch_registry.h"
-#include "gpu_model/debug/trace_event_builder.h"
+#include "gpu_model/debug/trace/event_factory.h"
 #include "gpu_model/execution/cycle_exec_engine.h"
 #include "gpu_model/execution/functional_exec_engine.h"
 #include "gpu_model/execution/encoded_exec_engine.h"

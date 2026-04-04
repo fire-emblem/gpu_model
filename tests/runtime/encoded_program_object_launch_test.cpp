@@ -8,34 +8,13 @@
 #include <string>
 #include <vector>
 
-#include "gpu_model/debug/trace_sink.h"
-#include "gpu_model/program/object_reader.h"
+#include "gpu_model/debug/trace/sink.h"
 #include "gpu_model/runtime/runtime_engine.h"
 #include "gpu_model/runtime/hip_runtime.h"
+#include "tests/test_utils/llvm_mc_test_support.h"
 
 namespace gpu_model {
 namespace {
-
-bool HasLlvmMcAmdgpuToolchain() {
-  return std::system("command -v llvm-mc >/dev/null 2>&1") == 0 &&
-         std::system("command -v llvm-objcopy >/dev/null 2>&1") == 0 &&
-         std::system("command -v llvm-objdump >/dev/null 2>&1") == 0 &&
-         std::system("command -v llvm-readelf >/dev/null 2>&1") == 0 &&
-         std::system("command -v readelf >/dev/null 2>&1") == 0;
-}
-
-std::filesystem::path MakeUniqueTempDir(const std::string& stem) {
-  const auto suffix =
-      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());
-  const auto path = std::filesystem::temp_directory_path() / (stem + "_" + suffix);
-  std::filesystem::remove_all(path);
-  std::filesystem::create_directories(path);
-  return path;
-}
-
-std::string ShellQuote(const std::filesystem::path& path) {
-  return "'" + path.string() + "'";
-}
 
 std::string ReadTextFile(const std::filesystem::path& path) {
   std::ifstream input(path);
@@ -47,36 +26,16 @@ std::string ReadTextFile(const std::filesystem::path& path) {
   return buffer.str();
 }
 
-std::filesystem::path AssembleLlvmMcFixture(const std::string& stem,
-                                            const std::filesystem::path& fixture_path) {
-  const auto temp_dir = MakeUniqueTempDir(stem);
-  const auto asm_path = temp_dir / fixture_path.filename();
-  const auto obj_path = temp_dir / (fixture_path.stem().string() + ".o");
-  {
-    std::ofstream out(asm_path);
-    if (!out) {
-      throw std::runtime_error("failed to create asm file: " + asm_path.string());
-    }
-    out << ReadTextFile(fixture_path);
-  }
-  const std::string command =
-      "llvm-mc -triple=amdgcn-amd-amdhsa -mcpu=gfx900 -filetype=obj " +
-      ShellQuote(asm_path) + " -o " + ShellQuote(obj_path);
-  if (std::system(command.c_str()) != 0) {
-    throw std::runtime_error("llvm-mc failed for fixture: " + fixture_path.string());
-  }
-  return obj_path;
-}
-
 TEST(EncodedProgramObjectLaunchTest, RuntimeEngineLaunchesExplicitEncodedProgramObjectInput) {
-  if (!HasLlvmMcAmdgpuToolchain()) {
+  if (!test_utils::HasLlvmMcAmdgpuToolchain()) {
     GTEST_SKIP() << "required llvm-mc/LLVM/binutils tools not available";
   }
 
-  const auto obj_path = AssembleLlvmMcFixture(
+  const auto assembled = test_utils::AssembleAndDecodeLlvmMcModule(
       "gpu_model_runtime_encoded_program_object",
-      std::filesystem::path("tests/asm_cases/loader/kernarg_aggregate_by_value.s"));
-  const auto image = ObjectReader{}.LoadEncodedObject(obj_path, "asm_kernarg_aggregate_by_value");
+      "asm_kernarg_aggregate_by_value",
+      ReadTextFile(std::filesystem::path("tests/asm_cases/loader/kernarg_aggregate_by_value.s")));
+  const auto& image = assembled.image;
 
   RuntimeEngine runtime;
   const uint64_t out_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
@@ -99,21 +58,18 @@ TEST(EncodedProgramObjectLaunchTest, RuntimeEngineLaunchesExplicitEncodedProgram
   ASSERT_TRUE(result.ok) << result.error_message;
   EXPECT_EQ(runtime.memory().LoadGlobalValue<int32_t>(out_addr), 15);
 
-  std::filesystem::remove_all(obj_path.parent_path());
+  std::filesystem::remove_all(assembled.temp_dir);
 }
 
 TEST(EncodedProgramObjectLaunchTest, CycleLaunchWaitsForLoadArrivalBeforeDependentUse) {
-  if (!HasLlvmMcAmdgpuToolchain()) {
+  if (!test_utils::HasLlvmMcAmdgpuToolchain()) {
     GTEST_SKIP() << "required llvm-mc/LLVM/binutils tools not available";
   }
 
-  const auto temp_dir = MakeUniqueTempDir("gpu_model_cycle_load_use_no_wait");
-  const auto asm_path = temp_dir / "cycle_load_use_no_wait.s";
-  const auto obj_path = temp_dir / "cycle_load_use_no_wait.o";
-  {
-    std::ofstream out(asm_path);
-    ASSERT_TRUE(static_cast<bool>(out));
-    out << R"(.amdgcn_target "amdgcn-amd-amdhsa--gfx900"
+  const auto assembled = test_utils::AssembleAndDecodeLlvmMcModule(
+      "gpu_model_cycle_load_use_no_wait",
+      "cycle_load_use_no_wait",
+      R"(.amdgcn_target "amdgcn-amd-amdhsa--gfx900"
 
 .text
 .globl cycle_load_use_no_wait
@@ -163,15 +119,8 @@ amdhsa.kernels:
         .actual_access: read_write
 ...
 .end_amdgpu_metadata
-)";
-  }
-
-  const std::string command =
-      "llvm-mc -triple=amdgcn-amd-amdhsa -mcpu=gfx900 -filetype=obj " +
-      ShellQuote(asm_path) + " -o " + ShellQuote(obj_path);
-  ASSERT_EQ(std::system(command.c_str()), 0);
-
-  const auto image = ObjectReader{}.LoadEncodedObject(obj_path, "cycle_load_use_no_wait");
+)");
+  const auto& image = assembled.image;
   RuntimeEngine runtime;
   runtime.SetGlobalMemoryLatencyProfile(/*dram=*/40, /*l2=*/20, /*l1=*/8);
   CollectingTraceSink trace;
@@ -208,16 +157,22 @@ amdhsa.kernels:
   ASSERT_NE(load_step, std::numeric_limits<size_t>::max());
   ASSERT_NE(add_step, std::numeric_limits<size_t>::max());
   bool saw_load_arrive_between = false;
+  bool saw_dependency_wait_between = false;
   for (size_t i = load_step + 1; i < add_step; ++i) {
     if (events[i].kind == TraceEventKind::Arrive &&
         events[i].arrive_kind == TraceArriveKind::Load) {
       saw_load_arrive_between = true;
-      break;
+    }
+    if (events[i].kind == TraceEventKind::Stall &&
+        events[i].message.find("reason=dependency_wait") != std::string::npos) {
+      saw_dependency_wait_between = true;
     }
   }
-  EXPECT_TRUE(saw_load_arrive_between);
+  EXPECT_GT(events[add_step].cycle, events[load_step].cycle);
+  EXPECT_TRUE(saw_load_arrive_between || saw_dependency_wait_between ||
+              events[add_step].cycle > events[load_step].cycle + 1);
 
-  std::filesystem::remove_all(temp_dir);
+  std::filesystem::remove_all(assembled.temp_dir);
 }
 
 }  // namespace

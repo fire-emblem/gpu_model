@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "gpu_model/instruction/encoded/instruction_object.h"
+#include "tests/test_utils/llvm_mc_test_support.h"
 
 namespace gpu_model {
 namespace {
@@ -128,6 +129,33 @@ TEST(InstructionArrayParserTest, UsesCanonicalOpcodeExtractionForViStyleObjects)
   EXPECT_EQ(parsed.instruction_objects[0]->op_type_name(), "smrd");
   EXPECT_EQ(parsed.instruction_objects[1]->class_name(), "s_load_dwordx2");
   EXPECT_EQ(parsed.instruction_objects[1]->op_type_name(), "smrd");
+}
+
+TEST(InstructionArrayParserTest, ParsesLlvmMcAssembledInstructionStreamInRealPcSpace) {
+  if (!test_utils::HasLlvmMcAmdgpuToolchain()) {
+    GTEST_SKIP() << "required llvm-mc/LLVM/binutils tools not available";
+  }
+
+  const auto assembled = test_utils::AssembleInstructionStream(
+      "gpu_model_instruction_stream_real_pc",
+      R"(.text
+stream_start:
+  s_load_dword s2, s[0:1], 0x0
+  v_add_u32_e32 v3, v1, v2
+  s_endpgm
+)");
+
+  const auto& parsed = assembled.parsed;
+  ASSERT_EQ(parsed.raw_instructions.size(), 3u);
+  ASSERT_EQ(parsed.decoded_instructions.size(), 3u);
+  EXPECT_EQ(parsed.raw_instructions[0].pc, 0u);
+  EXPECT_EQ(parsed.raw_instructions[0].size_bytes, 8u);
+  EXPECT_EQ(parsed.raw_instructions[1].pc, 8u);
+  EXPECT_EQ(parsed.raw_instructions[1].size_bytes, 4u);
+  EXPECT_EQ(parsed.raw_instructions[2].pc, 12u);
+  EXPECT_EQ(parsed.decoded_instructions[0].mnemonic, "s_load_dword");
+  EXPECT_EQ(parsed.decoded_instructions[1].mnemonic, "v_add_u32_e32");
+  EXPECT_EQ(parsed.decoded_instructions[2].mnemonic, "s_endpgm");
 }
 
 }  // namespace

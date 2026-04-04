@@ -203,6 +203,8 @@ const GcnIsaOpcodeDescriptor* FindDescriptorByMnemonic(std::string_view mnemonic
 
 EncodedInstructionCategory CategoryForOpType(GcnIsaOpType op_type) {
   switch (op_type) {
+    case GcnIsaOpType::Unknown:
+      return EncodedInstructionCategory::Unknown;
     case GcnIsaOpType::Smrd:
     case GcnIsaOpType::Smem:
       return EncodedInstructionCategory::ScalarMemory;
@@ -396,10 +398,6 @@ std::string FormatVectorReg(uint32_t reg) {
   return "v" + std::to_string(reg);
 }
 
-std::string FormatSpecialReg(std::string text) {
-  return text;
-}
-
 std::string FormatImmediate(uint32_t value) {
   std::ostringstream out;
   out << "0x" << std::hex << value;
@@ -530,77 +528,6 @@ EncodedGcnOperand DecodeFlatOffset13Operand(const std::vector<uint32_t>& words) 
     return MakeImmediateOperand(std::to_string(offset), offset);
   }
   return MakeImmediateOperand("off", 0);
-}
-
-bool StartsWith(std::string_view text, std::string_view prefix) {
-  return text.size() >= prefix.size() && text.substr(0, prefix.size()) == prefix;
-}
-
-const GcnIsaOpcodeDescriptor* FindDescriptorByPairAndPrefix(GcnIsaOpType op_type,
-                                                            uint32_t opcode,
-                                                            std::string_view prefix) {
-  const auto& descriptors = GcnIsaOpcodeDescriptors();
-  for (const auto& descriptor : descriptors) {
-    if (descriptor.op_type == op_type && descriptor.opcode == opcode &&
-        StartsWith(descriptor.opname, prefix)) {
-      return &descriptor;
-    }
-  }
-  return nullptr;
-}
-
-const GcnIsaOpcodeDescriptor* FindDescriptorByPair(GcnIsaOpType op_type, uint32_t opcode) {
-  return FindGcnIsaOpcodeDescriptor(op_type, static_cast<uint16_t>(opcode));
-}
-
-const GcnIsaOpcodeDescriptor* FindSmrdDescriptor(uint32_t opcode) {
-  if (const auto* descriptor = FindDescriptorByPair(GcnIsaOpType::Smrd, opcode);
-      descriptor != nullptr) {
-    return descriptor;
-  }
-  if (opcode == 32u) {
-    return FindDescriptorByPair(GcnIsaOpType::Smrd, 1u);
-  }
-  if (opcode == 64u) {
-    return FindDescriptorByPair(GcnIsaOpType::Smrd, 2u);
-  }
-  if (opcode == 96u) {
-    return FindDescriptorByPair(GcnIsaOpType::Smrd, 3u);
-  }
-  if (opcode == 128u) {
-    return FindDescriptorByPair(GcnIsaOpType::Smrd, 4u);
-  }
-  return nullptr;
-}
-
-const GcnIsaOpcodeDescriptor* FindFlatDescriptor(const std::vector<uint32_t>& words, uint32_t opcode) {
-  const uint32_t low = words.empty() ? 0u : words[0];
-  const uint32_t seg = (low >> 14u) & 0x3u;
-  if (seg == 0x2u) {
-    if (const auto* descriptor = FindDescriptorByPairAndPrefix(GcnIsaOpType::Flat, opcode, "global_");
-        descriptor != nullptr) {
-      return descriptor;
-    }
-  } else if (seg == 0x1u) {
-    if (const auto* descriptor = FindDescriptorByPairAndPrefix(GcnIsaOpType::Flat, opcode, "scratch_");
-        descriptor != nullptr) {
-      return descriptor;
-    }
-  } else {
-    if (const auto* descriptor = FindDescriptorByPairAndPrefix(GcnIsaOpType::Flat, opcode, "flat_");
-        descriptor != nullptr) {
-      return descriptor;
-    }
-  }
-  return FindDescriptorByPair(GcnIsaOpType::Flat, opcode);
-}
-
-const GcnIsaOpcodeDescriptor* FindVop3Descriptor(uint32_t opcode) {
-  if (const auto* descriptor = FindDescriptorByPair(GcnIsaOpType::Vop3a, opcode);
-      descriptor != nullptr) {
-    return descriptor;
-  }
-  return FindDescriptorByPair(GcnIsaOpType::Vop3b, opcode);
 }
 
 std::string FormatWaitCnt(const WaitCntInfo& info) {

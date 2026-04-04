@@ -2,9 +2,10 @@
 
 #include <cstdint>
 
-#include "gpu_model/debug/cycle_timeline.h"
-#include "gpu_model/debug/trace_event_builder.h"
-#include "gpu_model/debug/trace_sink.h"
+#include "gpu_model/debug/recorder/recorder.h"
+#include "gpu_model/debug/timeline/cycle_timeline.h"
+#include "gpu_model/debug/trace/event_factory.h"
+#include "gpu_model/debug/trace/sink.h"
 #include "gpu_model/isa/instruction_builder.h"
 #include "gpu_model/runtime/runtime_engine.h"
 
@@ -93,6 +94,22 @@ TraceEvent MakeTypedStallEvent(const TraceWaveView& wave,
   return event;
 }
 
+Recorder MakeRecorder(std::initializer_list<TraceEvent> events) {
+  Recorder recorder;
+  for (const auto& event : events) {
+    recorder.Record(event);
+  }
+  return recorder;
+}
+
+Recorder MakeRecorder(const std::vector<TraceEvent>& events) {
+  Recorder recorder;
+  for (const auto& event : events) {
+    recorder.Record(event);
+  }
+  return recorder;
+}
+
 uint64_t FirstEventCycle(const std::vector<TraceEvent>& events,
                          TraceEventKind kind,
                          std::string_view message_substr) {
@@ -105,16 +122,6 @@ uint64_t FirstEventCycle(const std::vector<TraceEvent>& events,
       return event.cycle;
     }
     if (event.message.find(std::string(message_substr)) == std::string::npos) {
-      continue;
-    }
-    return event.cycle;
-  }
-  return std::numeric_limits<uint64_t>::max();
-}
-
-uint64_t FirstCommitCycleAtOrAfter(const std::vector<TraceEvent>& events, uint64_t cycle) {
-  for (const auto& event : events) {
-    if (event.kind != TraceEventKind::Commit || event.cycle < cycle) {
       continue;
     }
     return event.cycle;
@@ -146,7 +153,8 @@ TEST(CycleTimelineTest, RendersGoogleTraceForWaveTimeline) {
   const auto result = runtime.Launch(request);
   ASSERT_TRUE(result.ok) << result.error_message;
 
-  const std::string timeline = CycleTimelineRenderer::RenderGoogleTrace(trace.events());
+  const std::string timeline =
+      CycleTimelineRenderer::RenderGoogleTrace(MakeRecorder(trace.events()));
   EXPECT_NE(timeline.find("\"traceEvents\""), std::string::npos);
   EXPECT_NE(timeline.find("\"ph\":\"X\""), std::string::npos);
   EXPECT_NE(timeline.find("\"thread_name\""), std::string::npos);
@@ -171,10 +179,10 @@ TEST(CycleTimelineTest, GoogleTraceCanGroupByBlock) {
   ASSERT_TRUE(result.ok) << result.error_message;
 
   const std::string timeline = CycleTimelineRenderer::RenderGoogleTrace(
-      trace.events(), CycleTimelineOptions{.max_columns = 120,
-                                           .cycle_begin = std::nullopt,
-                                           .cycle_end = std::nullopt,
-                                           .group_by = CycleTimelineGroupBy::Block});
+      MakeRecorder(trace.events()), CycleTimelineOptions{.max_columns = 120,
+                                                         .cycle_begin = std::nullopt,
+                                                         .cycle_end = std::nullopt,
+                                                         .group_by = CycleTimelineGroupBy::Block});
   EXPECT_NE(timeline.find("B0"), std::string::npos);
   EXPECT_NE(timeline.find("B1"), std::string::npos);
   EXPECT_EQ(timeline.find("\"name\":\"B0W0\""), std::string::npos);
@@ -195,10 +203,10 @@ TEST(CycleTimelineTest, GoogleTraceCanGroupByPeu) {
   ASSERT_TRUE(result.ok) << result.error_message;
 
   const std::string timeline = CycleTimelineRenderer::RenderGoogleTrace(
-      trace.events(), CycleTimelineOptions{.max_columns = 120,
-                                           .cycle_begin = std::nullopt,
-                                           .cycle_end = std::nullopt,
-                                           .group_by = CycleTimelineGroupBy::Peu});
+      MakeRecorder(trace.events()), CycleTimelineOptions{.max_columns = 120,
+                                                         .cycle_begin = std::nullopt,
+                                                         .cycle_end = std::nullopt,
+                                                         .group_by = CycleTimelineGroupBy::Peu});
   EXPECT_NE(timeline.find("\"name\":\"DPC_00/AP_00\""), std::string::npos);
   EXPECT_NE(timeline.find("\"name\":\"PEU_00\""), std::string::npos);
   EXPECT_NE(timeline.find("\"name\":\"PEU_01\""), std::string::npos);
@@ -207,13 +215,13 @@ TEST(CycleTimelineTest, GoogleTraceCanGroupByPeu) {
 
 TEST(CycleTimelineTest, HighlightsTensorOpsInGoogleTrace) {
   const TraceWaveView wave = MakeWaveView(/*slot_id=*/0);
-  std::vector<TraceEvent> events{
+  const Recorder recorder = MakeRecorder({
       MakeResidentWaveEvent(
           wave, TraceEventKind::WaveStep, 10, "pc=0x100 op=v_mfma_f32_16x16x4f32 exec_lanes=0x40"),
       MakeTraceCommitEvent(wave, 14, TraceSlotModelKind::ResidentFixed),
-  };
+  });
 
-  const std::string trace = CycleTimelineRenderer::RenderGoogleTrace(events);
+  const std::string trace = CycleTimelineRenderer::RenderGoogleTrace(recorder);
   EXPECT_NE(trace.find("\"cat\":\"tensor\""), std::string::npos);
   EXPECT_NE(trace.find("\"name\":\"v_mfma_f32_16x16x4f32\""), std::string::npos);
 }
@@ -249,17 +257,23 @@ TEST(CycleTimelineTest, PerfettoDumpPreservesCycleIssueAndCommitOrdering) {
   }
   const uint64_t waitcnt_issue_cycle =
       FirstEventCycle(events, TraceEventKind::WaveStep, "s_waitcnt");
-  const uint64_t commit_cycle = FirstCommitCycleAtOrAfter(events, waitcnt_issue_cycle);
 
   ASSERT_NE(issue_cycle, std::numeric_limits<uint64_t>::max());
   ASSERT_NE(stall_cycle, std::numeric_limits<uint64_t>::max());
   ASSERT_NE(arrive_cycle, std::numeric_limits<uint64_t>::max());
   ASSERT_NE(waitcnt_issue_cycle, std::numeric_limits<uint64_t>::max());
-  ASSERT_NE(commit_cycle, std::numeric_limits<uint64_t>::max());
   EXPECT_LT(issue_cycle, arrive_cycle);
-  EXPECT_LT(stall_cycle, commit_cycle);
+  EXPECT_LT(waitcnt_issue_cycle, stall_cycle);
+  EXPECT_LT(stall_cycle, arrive_cycle);
 
-  const std::string timeline = CycleTimelineRenderer::RenderGoogleTrace(events);
+  const Recorder recorder = [&] {
+    Recorder r;
+    for (const auto& event : events) {
+      r.Record(event);
+    }
+    return r;
+  }();
+  const std::string timeline = CycleTimelineRenderer::RenderGoogleTrace(recorder);
   EXPECT_NE(timeline.find("\"name\":\"buffer_load_dword\""), std::string::npos);
   EXPECT_NE(timeline.find("\"name\":\"load_arrive\""), std::string::npos);
   EXPECT_NE(timeline.find("\"name\":\"stall_waitcnt_global\""), std::string::npos);
@@ -291,19 +305,29 @@ TEST(CycleTimelineTest, PerfettoDumpPreservesBarrierKernelStallTaxonomy) {
       FirstEventCycle(events, TraceEventKind::Stall, "reason=waitcnt_global");
   EXPECT_NE(stall_cycle, std::numeric_limits<uint64_t>::max());
 
-  const std::string timeline = CycleTimelineRenderer::RenderGoogleTrace(events);
+  const Recorder recorder = [&] {
+    Recorder r;
+    for (const auto& event : events) {
+      r.Record(event);
+    }
+    return r;
+  }();
+  const std::string timeline = CycleTimelineRenderer::RenderGoogleTrace(recorder);
   EXPECT_NE(timeline.find("\"name\":\"stall_waitcnt_global\""), std::string::npos);
 }
 
 TEST(CycleTimelineTest, GoogleTraceUsesSlotTracksAndPreservesWaveAsArgs) {
   const TraceWaveView wave = MakeWaveView(/*slot_id=*/3);
-  std::vector<TraceEvent> events{
+  Recorder recorder;
+  for (const TraceEvent& event : std::vector<TraceEvent>{
       MakeTraceWaveLaunchEvent(wave, 0, {}, TraceSlotModelKind::ResidentFixed),
       MakeResidentWaveEvent(wave, TraceEventKind::WaveStep, 2, "pc=0x100 op=v_add_i32"),
       MakeTraceCommitEvent(wave, 5, TraceSlotModelKind::ResidentFixed),
-  };
+  }) {
+    recorder.Record(event);
+  }
 
-  const std::string trace = CycleTimelineRenderer::RenderGoogleTrace(events);
+  const std::string trace = CycleTimelineRenderer::RenderGoogleTrace(recorder);
   EXPECT_NE(trace.find("\"args\":{\"name\":\"WAVE_SLOT_03\"}"), std::string::npos);
   EXPECT_NE(trace.find("\"name\":\"v_add_i32\""), std::string::npos);
   EXPECT_NE(trace.find("\"slot\":3"), std::string::npos);
@@ -311,9 +335,60 @@ TEST(CycleTimelineTest, GoogleTraceUsesSlotTracksAndPreservesWaveAsArgs) {
   EXPECT_NE(trace.find("\"wave\":0"), std::string::npos);
   EXPECT_NE(trace.find("\"issue_cycle\":2"), std::string::npos);
   EXPECT_NE(trace.find("\"commit_cycle\":5"), std::string::npos);
+  EXPECT_NE(trace.find("\"dur\":4"), std::string::npos);
   EXPECT_EQ(trace.find("\"args\":{\"name\":\"B0W0\"}"), std::string::npos);
   EXPECT_NE(trace.find("\"slot_models\":[\"resident_fixed\"]"),
             std::string::npos);
+}
+
+TEST(CycleTimelineTest, GoogleTraceRendersOrdinaryInstructionAsFixedFourCycleSlice) {
+  const TraceWaveView wave = MakeWaveView(/*slot_id=*/0);
+  std::vector<TraceEvent> events{
+      MakeResidentWaveEvent(wave, TraceEventKind::WaveStep, 10, "pc=0x100 op=v_add_i32"),
+      MakeTraceCommitEvent(wave, 11, TraceSlotModelKind::ResidentFixed),
+  };
+
+  const std::string trace = CycleTimelineRenderer::RenderGoogleTrace(MakeRecorder(events));
+  EXPECT_NE(trace.find("\"name\":\"v_add_i32\""), std::string::npos);
+  EXPECT_NE(trace.find("\"ts\":10"), std::string::npos);
+  EXPECT_NE(trace.find("\"dur\":4"), std::string::npos);
+  EXPECT_NE(trace.find("\"issue_cycle\":10"), std::string::npos);
+  EXPECT_NE(trace.find("\"commit_cycle\":11"), std::string::npos);
+}
+
+TEST(CycleTimelineTest, GoogleTraceFillsFourCyclesIndependentlyAcrossPeusAndSlots) {
+  const TraceWaveView wave0{
+      .dpc_id = 0,
+      .ap_id = 0,
+      .peu_id = 0,
+      .slot_id = 1,
+      .block_id = 0,
+      .wave_id = 0,
+      .pc = 0x100,
+  };
+  const TraceWaveView wave1{
+      .dpc_id = 0,
+      .ap_id = 0,
+      .peu_id = 1,
+      .slot_id = 3,
+      .block_id = 1,
+      .wave_id = 0,
+      .pc = 0x200,
+  };
+
+  std::vector<TraceEvent> events{
+      MakeResidentWaveEvent(wave0, TraceEventKind::WaveStep, 20, "pc=0x100 op=v_add_i32"),
+      MakeTraceCommitEvent(wave0, 21, TraceSlotModelKind::ResidentFixed),
+      MakeResidentWaveEvent(wave1, TraceEventKind::WaveStep, 20, "pc=0x200 op=s_mov_b32"),
+      MakeTraceCommitEvent(wave1, 20, TraceSlotModelKind::ResidentFixed),
+  };
+
+  const std::string trace = CycleTimelineRenderer::RenderGoogleTrace(MakeRecorder(events));
+  EXPECT_EQ(CountOccurrences(trace, "\"dur\":4"), 2u);
+  EXPECT_NE(trace.find("\"peu\":0,\"slot\":1"), std::string::npos);
+  EXPECT_NE(trace.find("\"peu\":1,\"slot\":3"), std::string::npos);
+  EXPECT_NE(trace.find("\"name\":\"v_add_i32\""), std::string::npos);
+  EXPECT_NE(trace.find("\"name\":\"s_mov_b32\""), std::string::npos);
 }
 
 TEST(CycleTimelineTest, GoogleTraceDoesNotRenderBubbleAsDurationSlice) {
@@ -325,7 +400,7 @@ TEST(CycleTimelineTest, GoogleTraceDoesNotRenderBubbleAsDurationSlice) {
                           TraceStallReason::WaitCntGlobal),
   };
 
-  const std::string trace = CycleTimelineRenderer::RenderGoogleTrace(events);
+  const std::string trace = CycleTimelineRenderer::RenderGoogleTrace(MakeRecorder(events));
   EXPECT_EQ(CountOccurrences(trace, "\"ph\":\"X\""), 1u);
   EXPECT_NE(trace.find("\"name\":\"stall_waitcnt_global\""), std::string::npos);
 }
@@ -340,7 +415,7 @@ TEST(CycleTimelineTest, GoogleTracePrefersTypedSchemaFieldsWhenLegacyStringsAreE
                           TraceStallReason::WaitCntGlobal),
   };
 
-  const std::string trace = CycleTimelineRenderer::RenderGoogleTrace(events);
+  const std::string trace = CycleTimelineRenderer::RenderGoogleTrace(MakeRecorder(events));
   EXPECT_NE(trace.find("\"name\":\"stall_waitcnt_global\""), std::string::npos);
   EXPECT_NE(trace.find("\"slot_model\":\"logical_unbounded\""), std::string::npos);
   EXPECT_NE(trace.find("\"stall_reason\":\"waitcnt_global\""), std::string::npos);
@@ -364,6 +439,7 @@ TEST(CycleTimelineTest, GoogleTraceUsesCanonicalBarrierAndArriveNamesFromTypedFi
                  .wave_id = wave.wave_id,
                  .pc = wave.pc,
                  .barrier_kind = TraceBarrierKind::Arrive,
+                 .waitcnt_state = {},
                  .display_name = "arrive",
                  .message = {}},
       TraceEvent{.kind = TraceEventKind::Arrive,
@@ -378,11 +454,12 @@ TEST(CycleTimelineTest, GoogleTraceUsesCanonicalBarrierAndArriveNamesFromTypedFi
                  .wave_id = wave.wave_id,
                  .pc = wave.pc,
                  .arrive_kind = TraceArriveKind::Load,
+                 .waitcnt_state = {},
                  .display_name = "load",
                  .message = {}},
   };
 
-  const std::string trace = CycleTimelineRenderer::RenderGoogleTrace(events);
+  const std::string trace = CycleTimelineRenderer::RenderGoogleTrace(MakeRecorder(events));
   EXPECT_NE(trace.find("\"name\":\"barrier_arrive\""), std::string::npos);
   EXPECT_NE(trace.find("\"cat\":\"sync/barrier\""), std::string::npos);
   EXPECT_NE(trace.find("\"barrier_kind\":\"arrive\""), std::string::npos);
@@ -400,7 +477,7 @@ TEST(CycleTimelineTest, GoogleTraceMarkerArgsShareTypedPresentationFields) {
                           TraceStallReason::WaitCntGlobal),
   };
 
-  const std::string trace = CycleTimelineRenderer::RenderGoogleTrace(events);
+  const std::string trace = CycleTimelineRenderer::RenderGoogleTrace(MakeRecorder(events));
   EXPECT_NE(trace.find("\"name\":\"stall_waitcnt_global\""), std::string::npos);
   EXPECT_NE(trace.find("\"category\":\"stall/waitcnt_global\""), std::string::npos);
   EXPECT_NE(trace.find("\"presentation_name\":\"stall_waitcnt_global\""), std::string::npos);
@@ -414,7 +491,7 @@ TEST(CycleTimelineTest, GoogleTraceRuntimeArgsSharePresentationFields) {
       MakeTraceRuntimeLaunchEvent(/*cycle=*/5, "kernel=timeline_runtime arch=c500"),
   };
 
-  const std::string trace = CycleTimelineRenderer::RenderGoogleTrace(events);
+  const std::string trace = CycleTimelineRenderer::RenderGoogleTrace(MakeRecorder(events));
   EXPECT_NE(trace.find("\"name\":\"launch\""), std::string::npos);
   EXPECT_NE(trace.find("\"cat\":\"runtime\""), std::string::npos);
   EXPECT_NE(trace.find("\"canonical_name\":\"launch\""), std::string::npos);
@@ -429,7 +506,8 @@ TEST(CycleTimelineTest, TimelineCanRenderCanonicalNamesWithoutLegacyMessages) {
       MakeTraceBarrierArriveEvent(wave, 1, TraceSlotModelKind::ResidentFixed);
   barrier_arrive.message.clear();
 
-  const std::string trace = CycleTimelineRenderer::RenderGoogleTrace({barrier_arrive});
+  const std::string trace =
+      CycleTimelineRenderer::RenderGoogleTrace(MakeRecorder({barrier_arrive}));
   EXPECT_NE(trace.find("\"name\":\"barrier_arrive\""), std::string::npos);
 }
 
@@ -447,7 +525,7 @@ TEST(CycleTimelineTest, RuntimePerfettoDumpCarriesWaveLifecycleOnSlotTracks) {
   const auto result = runtime.Launch(request);
   ASSERT_TRUE(result.ok) << result.error_message;
 
-  const std::string timeline = CycleTimelineRenderer::RenderGoogleTrace(trace.events());
+  const std::string timeline = CycleTimelineRenderer::RenderGoogleTrace(MakeRecorder(trace.events()));
   EXPECT_NE(timeline.find("\"args\":{\"name\":\"WAVE_SLOT_01\"}"), std::string::npos);
   EXPECT_NE(timeline.find("\"name\":\"wave_launch\""), std::string::npos);
   EXPECT_NE(timeline.find(std::string("\"message\":\"") + std::string(kTraceWaveStartMessage)),

@@ -3,7 +3,7 @@
 #include <filesystem>
 #include <optional>
 
-#include "gpu_model/debug/debug_info.h"
+#include "gpu_model/debug/info/debug_info.h"
 #include "gpu_model/program/program_object.h"
 
 namespace gpu_model {

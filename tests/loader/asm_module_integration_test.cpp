@@ -10,70 +10,12 @@
 #include <string>
 #include <vector>
 
-#include "gpu_model/program/object_reader.h"
+#include "tests/test_utils/llvm_mc_test_support.h"
 
 namespace gpu_model {
 namespace {
 
-bool HasLlvmMcAmdgpuToolchain() {
-  return std::system("command -v llvm-mc >/dev/null 2>&1") == 0 &&
-         std::system("command -v llvm-objcopy >/dev/null 2>&1") == 0 &&
-         std::system("command -v llvm-objdump >/dev/null 2>&1") == 0 &&
-         std::system("command -v llvm-readelf >/dev/null 2>&1") == 0 &&
-         std::system("command -v readelf >/dev/null 2>&1") == 0;
-}
-
-std::filesystem::path MakeUniqueTempDir(const std::string& stem) {
-  const auto suffix = std::to_string(
-      std::chrono::steady_clock::now().time_since_epoch().count());
-  const auto path = std::filesystem::temp_directory_path() / (stem + "_" + suffix);
-  std::filesystem::remove_all(path);
-  std::filesystem::create_directories(path);
-  return path;
-}
-
-std::string ShellQuote(const std::filesystem::path& path) {
-  return "'" + path.string() + "'";
-}
-
-struct AssembledModule {
-  std::filesystem::path temp_dir;
-  std::filesystem::path asm_path;
-  std::filesystem::path obj_path;
-  EncodedProgramObject image;
-};
-
 std::optional<std::string> ExtractFixtureDirective(const std::string& text, std::string_view key);
-
-AssembledModule AssembleAndDecodeLlvmMcModule(const std::string& stem,
-                                              const std::string& kernel_name,
-                                              const std::string& assembly_text,
-                                              const std::string& mcpu = "gfx900") {
-  const auto temp_dir = MakeUniqueTempDir(stem);
-  const auto asm_path = temp_dir / (kernel_name + ".s");
-  const auto obj_path = temp_dir / (kernel_name + ".o");
-  {
-    std::ofstream out(asm_path);
-    if (!out) {
-      throw std::runtime_error("failed to create asm file: " + asm_path.string());
-    }
-    out << assembly_text;
-  }
-
-  const std::string assemble_command =
-      "llvm-mc -triple=amdgcn-amd-amdhsa -mcpu=" + mcpu + " -filetype=obj " +
-      ShellQuote(asm_path) + " -o " + ShellQuote(obj_path);
-  if (std::system(assemble_command.c_str()) != 0) {
-    throw std::runtime_error("llvm-mc failed for asm module: " + kernel_name);
-  }
-
-  return AssembledModule{
-      .temp_dir = temp_dir,
-      .asm_path = asm_path,
-      .obj_path = obj_path,
-      .image = ObjectReader{}.LoadEncodedObject(obj_path, kernel_name),
-  };
-}
 
 std::string ReadTextFile(const std::filesystem::path& path) {
   std::ifstream input(path);
@@ -85,12 +27,13 @@ std::string ReadTextFile(const std::filesystem::path& path) {
   return buffer.str();
 }
 
-AssembledModule AssembleAndDecodeLlvmMcModuleFromFixture(const std::string& stem,
-                                                         const std::string& kernel_name,
-                                                         const std::filesystem::path& fixture_path) {
+test_utils::AssembledModule AssembleAndDecodeLlvmMcModuleFromFixture(
+    const std::string& stem,
+    const std::string& kernel_name,
+    const std::filesystem::path& fixture_path) {
   const auto text = ReadTextFile(fixture_path);
   const auto mcpu = ExtractFixtureDirective(text, "GPU_MODEL_MCPU").value_or("gfx900");
-  return AssembleAndDecodeLlvmMcModule(stem, kernel_name, text, mcpu);
+  return test_utils::AssembleAndDecodeLlvmMcModule(stem, kernel_name, text, mcpu);
 }
 
 std::optional<std::string> ExtractFixtureDirective(const std::string& text, std::string_view key) {
@@ -178,7 +121,7 @@ std::string FixtureNameForGtest(const std::filesystem::path& path) {
 }
 
 TEST(AsmModuleIntegrationTest, DecodesModuleFromLlvmMcAssembledAmdgpuAssembly) {
-  if (!HasLlvmMcAmdgpuToolchain()) {
+  if (!test_utils::HasLlvmMcAmdgpuToolchain()) {
     GTEST_SKIP() << "required llvm-mc/LLVM/binutils tools not available";
   }
 
@@ -238,7 +181,7 @@ TEST(AsmModuleIntegrationTest, DecodesModuleFromLlvmMcAssembledAmdgpuAssembly) {
 }
 
 TEST(AsmModuleIntegrationTest, DecodesVariantHeavyLlvmMcAssemblyModule) {
-  if (!HasLlvmMcAmdgpuToolchain()) {
+  if (!test_utils::HasLlvmMcAmdgpuToolchain()) {
     GTEST_SKIP() << "required llvm-mc/LLVM/binutils tools not available";
   }
 
@@ -296,7 +239,7 @@ TEST(AsmModuleIntegrationTest, DecodesVariantHeavyLlvmMcAssemblyModule) {
 }
 
 TEST(AsmModuleIntegrationTest, DecodesFlatAndAtomicLlvmMcAssemblyModule) {
-  if (!HasLlvmMcAmdgpuToolchain()) {
+  if (!test_utils::HasLlvmMcAmdgpuToolchain()) {
     GTEST_SKIP() << "required llvm-mc/LLVM/binutils tools not available";
   }
 
@@ -344,7 +287,7 @@ TEST(AsmModuleIntegrationTest, DecodesFlatAndAtomicLlvmMcAssemblyModule) {
 class LoaderAsmFixtureTest : public ::testing::TestWithParam<std::filesystem::path> {};
 
 TEST_P(LoaderAsmFixtureTest, AssemblesAndDecodesFixtureModule) {
-  if (!HasLlvmMcAmdgpuToolchain()) {
+  if (!test_utils::HasLlvmMcAmdgpuToolchain()) {
     GTEST_SKIP() << "required llvm-mc/LLVM/binutils tools not available";
   }
 

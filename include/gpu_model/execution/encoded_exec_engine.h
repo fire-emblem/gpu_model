@@ -2,7 +2,7 @@
 
 #include "gpu_model/arch/gpu_arch_spec.h"
 #include "gpu_model/execution/cycle_exec_engine.h"
-#include "gpu_model/debug/trace_sink.h"
+#include "gpu_model/debug/trace/sink.h"
 #include "gpu_model/memory/memory_system.h"
 #include "gpu_model/program/encoded_program_object.h"
 #include "gpu_model/execution/functional_execution_mode.h"

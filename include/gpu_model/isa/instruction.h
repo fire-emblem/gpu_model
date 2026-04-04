@@ -10,15 +10,16 @@
 namespace gpu_model {
 
 struct DebugLoc {
-  std::string file;
+  std::string file{};
   uint32_t line = 0;
-  std::string label;
+  std::string label{};
 };
 
 struct Instruction {
   Opcode opcode{};
-  std::vector<Operand> operands;
-  DebugLoc debug_loc;
+  uint32_t size_bytes = 4;
+  std::vector<Operand> operands{};
+  DebugLoc debug_loc{};
 };
 
 }  // namespace gpu_model

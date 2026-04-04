@@ -40,6 +40,14 @@ TEST(PlanApplyTest, AppliesRegisterWritesAndFormatsExecUpdate) {
 }
 
 TEST(PlanApplyTest, AppliesControlFlowAndExitSemantics) {
+  const ExecutableKernel kernel(
+      "control_flow_kernel",
+      {
+          Instruction{.opcode = Opcode::MLoadGlobal, .size_bytes = 8},
+          Instruction{.opcode = Opcode::BExit, .size_bytes = 4},
+      },
+      {});
+
   WaveContext branch_wave;
   branch_wave.thread_count = 64;
   branch_wave.ResetInitialExec();
@@ -49,11 +57,21 @@ TEST(PlanApplyTest, AppliesControlFlowAndExitSemantics) {
 
   OpPlan branch_plan;
   branch_plan.branch_target = 42;
-  ApplyExecutionPlanControlFlow(branch_plan, branch_wave, true, true);
+  ApplyExecutionPlanControlFlow(kernel, branch_plan, branch_wave, true, true);
   EXPECT_EQ(branch_wave.pc, 42u);
   EXPECT_FALSE(branch_wave.branch_pending);
   EXPECT_TRUE(branch_wave.valid_entry);
   EXPECT_EQ(branch_wave.status, WaveStatus::Active);
+
+  WaveContext advance_wave;
+  advance_wave.thread_count = 64;
+  advance_wave.ResetInitialExec();
+  advance_wave.pc = 0;
+
+  OpPlan advance_plan;
+  advance_plan.advance_pc = true;
+  ApplyExecutionPlanControlFlow(kernel, advance_plan, advance_wave, false, false);
+  EXPECT_EQ(advance_wave.pc, 8u);
 
   WaveContext exit_wave;
   exit_wave.thread_count = 64;
@@ -62,7 +80,7 @@ TEST(PlanApplyTest, AppliesControlFlowAndExitSemantics) {
 
   OpPlan exit_plan;
   exit_plan.exit_wave = true;
-  ApplyExecutionPlanControlFlow(exit_plan, exit_wave, true, true);
+  ApplyExecutionPlanControlFlow(kernel, exit_plan, exit_wave, true, true);
   EXPECT_EQ(exit_wave.status, WaveStatus::Exited);
   EXPECT_EQ(exit_wave.pc, 9u);
 }

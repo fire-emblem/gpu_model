@@ -5,7 +5,7 @@
 #include <cstdint>
 
 #include "gpu_model/arch/gpu_arch_spec.h"
-#include "gpu_model/debug/trace_sink.h"
+#include "gpu_model/debug/trace/sink.h"
 #include "gpu_model/execution/internal/op_plan.h"
 #include "gpu_model/memory/memory_system.h"
 #include "gpu_model/program/executable_kernel.h"

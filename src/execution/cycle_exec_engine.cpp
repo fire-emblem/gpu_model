@@ -15,21 +15,21 @@
 #include <tuple>
 #include <vector>
 
-#include "gpu_model/debug/instruction_trace.h"
-#include "gpu_model/debug/trace_event.h"
-#include "gpu_model/debug/trace_event_builder.h"
-#include "gpu_model/debug/wave_launch_trace.h"
+#include "gpu_model/debug/trace/event.h"
+#include "gpu_model/debug/trace/event_factory.h"
+#include "gpu_model/debug/trace/instruction_trace.h"
+#include "gpu_model/debug/trace/wave_launch_trace.h"
 #include "gpu_model/execution/internal/barrier_resource_pool.h"
 #include "gpu_model/execution/internal/cycle_issue_policy.h"
 #include "gpu_model/execution/internal/event_queue.h"
 #include "gpu_model/execution/internal/issue_model.h"
 #include "gpu_model/execution/internal/issue_scheduler.h"
+#include "gpu_model/execution/internal/async_scoreboard.h"
 #include "gpu_model/execution/memory_ops.h"
 #include "gpu_model/execution/plan_apply.h"
 #include "gpu_model/execution/sync_ops.h"
 #include "gpu_model/execution/wave_context_builder.h"
 #include "gpu_model/execution/internal/issue_eligibility.h"
-#include "gpu_model/execution/internal/scoreboard.h"
 #include "gpu_model/isa/opcode.h"
 #include "gpu_model/loader/device_image_loader.h"
 #include "gpu_model/memory/cache_model.h"
@@ -45,7 +45,6 @@ struct ScheduledWave {
   uint32_t dpc_id = 0;
   ExecutableBlock* block = nullptr;
   WaveContext wave;
-  Scoreboard scoreboard;
   uint64_t launch_cycle = 0;
   bool launch_completed = false;
   bool dispatch_enabled = false;
@@ -110,26 +109,6 @@ struct L1Key {
   }
 };
 
-ReadyRef ScalarRef(uint32_t index) {
-  return ReadyRef{.kind = ReadyKind::ScalarReg, .index = index};
-}
-
-ReadyRef VectorRef(uint32_t index) {
-  return ReadyRef{.kind = ReadyKind::VectorReg, .index = index};
-}
-
-ReadyRef ExecRef() {
-  return ReadyRef{.kind = ReadyKind::Exec};
-}
-
-ReadyRef CmaskRef() {
-  return ReadyRef{.kind = ReadyKind::Cmask};
-}
-
-ReadyRef SmaskRef() {
-  return ReadyRef{.kind = ReadyKind::Smask};
-}
-
 uint64_t LoadLaneValue(const MemorySystem& memory, MemoryPoolKind pool, const LaneAccess& lane) {
   return memory_ops::LoadPoolLaneValue(memory, pool, lane);
 }
@@ -148,6 +127,46 @@ uint64_t ConstantPoolBase(const ExecutionContext& context) {
     }
   }
   return 0;
+}
+
+bool ResumeWaitcntWaveIfReady(const ExecutableKernel& kernel, WaveContext& wave) {
+  if (wave.run_state != WaveRunState::Waiting) {
+    return false;
+  }
+  if (!kernel.ContainsPc(wave.pc)) {
+    return false;
+  }
+  const Instruction& instruction = kernel.InstructionAtPc(wave.pc);
+  if (instruction.opcode != Opcode::SWaitCnt ||
+      !ResumeMemoryWaitStateIfSatisfied(WaitCntThresholdsForInstruction(instruction), wave)) {
+    return false;
+  }
+  const auto next_pc = kernel.NextPc(wave.pc);
+  if (!next_pc.has_value()) {
+    throw std::out_of_range("next instruction pc not found");
+  }
+  wave.pc = *next_pc;
+  wave.valid_entry = true;
+  if (wave.status != WaveStatus::Exited && !wave.waiting_at_barrier) {
+    wave.status = WaveStatus::Active;
+  }
+  return true;
+}
+
+AsyncArriveResult MakeCycleArriveResult(const ExecutableKernel& kernel,
+                                        const WaveContext& wave,
+                                        MemoryWaitDomain arrive_domain) {
+  if (wave.run_state != WaveRunState::Waiting) {
+    return {};
+  }
+  if (!kernel.ContainsPc(wave.pc)) {
+    return {};
+  }
+  const Instruction& instruction = kernel.InstructionAtPc(wave.pc);
+  if (instruction.opcode != Opcode::SWaitCnt) {
+    return {};
+  }
+  return MakeAsyncArriveResult(wave, arrive_domain, WaitCntThresholdsForInstruction(instruction));
 }
 
 bool IssueLimitsUnset(const ArchitecturalIssueLimits& limits) {
@@ -189,195 +208,6 @@ void StoreLaneValue(std::array<std::vector<std::byte>, kWaveSize>& memory,
                     uint32_t lane_id,
                     const LaneAccess& lane) {
   memory_ops::StorePrivateLaneValue(memory, lane_id, lane);
-}
-
-void AddOperandDependency(const Operand& operand, std::vector<ReadyRef>& refs) {
-  if (operand.kind != OperandKind::Register) {
-    return;
-  }
-  refs.push_back(operand.reg.file == RegisterFile::Scalar ? ScalarRef(operand.reg.index)
-                                                          : VectorRef(operand.reg.index));
-}
-
-std::vector<ReadyRef> CollectReadRefs(const Instruction& instruction) {
-  std::vector<ReadyRef> refs;
-
-  switch (instruction.opcode) {
-    case Opcode::SysLoadArg:
-    case Opcode::SysGlobalIdX:
-    case Opcode::SysGlobalIdY:
-    case Opcode::SysGlobalIdZ:
-    case Opcode::SysLocalIdX:
-    case Opcode::SysLocalIdY:
-    case Opcode::SysLocalIdZ:
-    case Opcode::SysBlockOffsetX:
-    case Opcode::SysBlockIdxX:
-    case Opcode::SysBlockIdxY:
-    case Opcode::SysBlockIdxZ:
-    case Opcode::SysBlockDimX:
-    case Opcode::SysBlockDimY:
-    case Opcode::SysBlockDimZ:
-    case Opcode::SysGridDimX:
-    case Opcode::SysGridDimY:
-    case Opcode::SysGridDimZ:
-    case Opcode::SysLaneId:
-    case Opcode::BBranch:
-    case Opcode::BExit:
-      break;
-    case Opcode::SMov:
-      AddOperandDependency(instruction.operands.at(1), refs);
-      break;
-    case Opcode::SAdd:
-    case Opcode::SSub:
-    case Opcode::SMul:
-    case Opcode::SDiv:
-    case Opcode::SRem:
-    case Opcode::SAnd:
-    case Opcode::SOr:
-    case Opcode::SXor:
-    case Opcode::SShl:
-    case Opcode::SShr:
-      AddOperandDependency(instruction.operands.at(1), refs);
-      AddOperandDependency(instruction.operands.at(2), refs);
-      break;
-    case Opcode::SWaitCnt:
-      break;
-    case Opcode::SCmpLt:
-    case Opcode::SCmpEq:
-    case Opcode::SCmpGt:
-    case Opcode::SCmpGe:
-      AddOperandDependency(instruction.operands.at(0), refs);
-      AddOperandDependency(instruction.operands.at(1), refs);
-      break;
-    case Opcode::VMov:
-      refs.push_back(ExecRef());
-      AddOperandDependency(instruction.operands.at(1), refs);
-      break;
-    case Opcode::VAdd:
-    case Opcode::VAnd:
-    case Opcode::VOr:
-    case Opcode::VXor:
-    case Opcode::VShl:
-    case Opcode::VShr:
-    case Opcode::VSub:
-    case Opcode::VDiv:
-    case Opcode::VRem:
-    case Opcode::VMul:
-    case Opcode::VAddF32:
-    case Opcode::VMin:
-    case Opcode::VMax:
-    case Opcode::VFma:
-      refs.push_back(ExecRef());
-      AddOperandDependency(instruction.operands.at(1), refs);
-      AddOperandDependency(instruction.operands.at(2), refs);
-      if (instruction.opcode == Opcode::VFma) {
-        AddOperandDependency(instruction.operands.at(3), refs);
-      }
-      break;
-    case Opcode::VCmpLtCmask:
-    case Opcode::VCmpEqCmask:
-    case Opcode::VCmpGeCmask:
-    case Opcode::VCmpGtCmask:
-      refs.push_back(ExecRef());
-      AddOperandDependency(instruction.operands.at(0), refs);
-      AddOperandDependency(instruction.operands.at(1), refs);
-      break;
-    case Opcode::VSelectCmask:
-      refs.push_back(ExecRef());
-      refs.push_back(CmaskRef());
-      AddOperandDependency(instruction.operands.at(1), refs);
-      AddOperandDependency(instruction.operands.at(2), refs);
-      break;
-    case Opcode::MLoadGlobal:
-    case Opcode::MLoadGlobalAddr:
-    case Opcode::MLoadShared:
-    case Opcode::MLoadPrivate:
-    case Opcode::MLoadConst:
-      refs.push_back(ExecRef());
-      AddOperandDependency(instruction.operands.at(1), refs);
-      if (instruction.opcode == Opcode::MLoadGlobal) {
-        AddOperandDependency(instruction.operands.at(2), refs);
-      } else if (instruction.opcode == Opcode::MLoadGlobalAddr) {
-        AddOperandDependency(instruction.operands.at(2), refs);
-      }
-      break;
-    case Opcode::SBufferLoadDword:
-      AddOperandDependency(instruction.operands.at(1), refs);
-      break;
-    case Opcode::MStoreGlobal:
-    case Opcode::MStoreGlobalAddr:
-    case Opcode::MAtomicAddGlobal:
-    case Opcode::MStoreShared:
-    case Opcode::MStorePrivate:
-    case Opcode::MAtomicAddShared:
-      refs.push_back(ExecRef());
-      AddOperandDependency(instruction.operands.at(0), refs);
-      AddOperandDependency(instruction.operands.at(1), refs);
-      if (instruction.opcode == Opcode::MStoreGlobal || instruction.opcode == Opcode::MAtomicAddGlobal ||
-          instruction.opcode == Opcode::MStoreGlobalAddr) {
-        AddOperandDependency(instruction.operands.at(2), refs);
-      }
-      break;
-    case Opcode::MaskSaveExec:
-      refs.push_back(ExecRef());
-      break;
-    case Opcode::MaskRestoreExec:
-      AddOperandDependency(instruction.operands.at(0), refs);
-      break;
-    case Opcode::MaskAndExecCmask:
-      refs.push_back(ExecRef());
-      refs.push_back(CmaskRef());
-      break;
-    case Opcode::BIfSmask:
-      refs.push_back(SmaskRef());
-      break;
-    case Opcode::BIfNoexec:
-      refs.push_back(ExecRef());
-      break;
-    case Opcode::SyncWaveBarrier:
-    case Opcode::SyncBarrier:
-      break;
-  }
-
-  return refs;
-}
-
-bool DependenciesReady(const Instruction& instruction,
-                       const Scoreboard& scoreboard,
-                       uint64_t cycle) {
-  for (const auto& ref : CollectReadRefs(instruction)) {
-    if (!scoreboard.IsReady(ref, cycle)) {
-      return false;
-    }
-  }
-  return true;
-}
-
-void MarkPlanWritesPending(const Instruction& instruction,
-                           const OpPlan& plan,
-                           Scoreboard& scoreboard,
-                           uint64_t ready_cycle) {
-  for (const auto& write : plan.scalar_writes) {
-    scoreboard.MarkReady(ScalarRef(write.reg_index), ready_cycle);
-  }
-  for (const auto& write : plan.vector_writes) {
-    scoreboard.MarkReady(VectorRef(write.reg_index), ready_cycle);
-  }
-  if (plan.cmask_write.has_value()) {
-    scoreboard.MarkReady(CmaskRef(), ready_cycle);
-  }
-  if (plan.smask_write.has_value()) {
-    scoreboard.MarkReady(SmaskRef(), ready_cycle);
-  }
-  if (plan.exec_write.has_value()) {
-    scoreboard.MarkReady(ExecRef(), ready_cycle);
-  }
-  if (plan.memory.has_value() && plan.memory->kind == AccessKind::Load &&
-      plan.memory->dst.has_value() && plan.memory->space == MemorySpace::Global) {
-    scoreboard.MarkNotReady(VectorRef(plan.memory->dst->index));
-  }
-
-  (void)instruction;
 }
 
 std::vector<ExecutableBlock> MaterializeBlocks(const PlacementMap& placement,
@@ -842,10 +672,10 @@ std::optional<std::pair<ScheduledWave*, std::string>> BlockedResidentWave(
   if (!ResidentSlotReadyToIssue(resident_slot, cycle)) {
     return std::nullopt;
   }
-  if (scheduled_wave->wave.pc >= kernel.instructions().size()) {
+  if (!kernel.ContainsPc(scheduled_wave->wave.pc)) {
     return std::nullopt;
   }
-  const auto& instruction = kernel.instructions().at(scheduled_wave->wave.pc);
+  const auto& instruction = kernel.InstructionAtPc(scheduled_wave->wave.pc);
   if (instruction.opcode == Opcode::SyncBarrier) {
     const auto ap_state_it = ap_states.find(scheduled_wave->block->global_ap_id);
     if (ap_state_it != ap_states.end()) {
@@ -861,8 +691,7 @@ std::optional<std::pair<ScheduledWave*, std::string>> BlockedResidentWave(
   if (const auto reason =
           IssueBlockReason(scheduled_wave->dispatch_enabled,
                            scheduled_wave->wave,
-                           instruction,
-                           DependenciesReady(instruction, scheduled_wave->scoreboard, cycle))) {
+                           instruction)) {
     return std::make_pair(scheduled_wave, *reason);
   }
   return std::nullopt;
@@ -919,8 +748,8 @@ std::vector<IssueSchedulerCandidate> BuildResidentIssueCandidates(
     auto& wave = scheduled_wave->wave;
     bool ready = false;
     auto issue_type = ArchitecturalIssueType::Special;
-    if (wave.pc < kernel.instructions().size()) {
-      const auto& instruction = kernel.instructions().at(wave.pc);
+    if (kernel.ContainsPc(wave.pc)) {
+      const auto& instruction = kernel.InstructionAtPc(wave.pc);
       if (instruction.opcode == Opcode::SyncBarrier) {
         const auto ap_state_it = ap_states.find(scheduled_wave->block->global_ap_id);
         if (ap_state_it != ap_states.end()) {
@@ -939,10 +768,7 @@ std::vector<IssueSchedulerCandidate> BuildResidentIssueCandidates(
           }
         }
       }
-      ready = CanIssueInstruction(scheduled_wave->dispatch_enabled,
-                                  wave,
-                                  instruction,
-                                  DependenciesReady(instruction, scheduled_wave->scoreboard, cycle));
+      ready = CanIssueInstruction(scheduled_wave->dispatch_enabled, wave, instruction);
       issue_type = ArchitecturalIssueTypeForOpcode(instruction.opcode)
                        .value_or(ArchitecturalIssueType::Special);
     }
@@ -1029,22 +855,21 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
       if (bundle.selected_candidate_indices.empty()) {
         if (const auto blocked =
                 PickFirstBlockedResidentWave(slot, context.kernel, cycle, ap_states)) {
-          TraceWaitcntState waitcnt_state;
+          std::optional<WaitCntThresholds> waitcnt_thresholds;
           const WaveContext& blocked_wave = blocked->first->wave;
-          if (blocked_wave.pc < context.kernel.instructions().size()) {
-            const Instruction& blocked_instruction = context.kernel.instructions().at(blocked_wave.pc);
+          if (context.kernel.ContainsPc(blocked_wave.pc)) {
+            const Instruction& blocked_instruction = context.kernel.InstructionAtPc(blocked_wave.pc);
             if (blocked_instruction.opcode == Opcode::SWaitCnt) {
-              waitcnt_state =
-                  MakeTraceWaitcntState(blocked_wave, WaitCntThresholdsForInstruction(blocked_instruction));
+              waitcnt_thresholds = WaitCntThresholdsForInstruction(blocked_instruction);
             }
           }
-          context.trace.OnEvent(MakeTraceWaitStallEvent(
+          context.trace.OnEvent(MakeTraceBlockedStallEvent(
               MakeTraceWaveView(*blocked->first, TraceSlotId(*blocked->first)),
               cycle,
-              TraceStallReasonFromMessage(MakeTraceStallReasonMessage(blocked->second)),
+              blocked->second,
               TraceSlotModelKind::ResidentFixed,
               std::numeric_limits<uint64_t>::max(),
-              waitcnt_state));
+              MakeOptionalTraceWaitcntState(blocked_wave, waitcnt_thresholds)));
         }
         continue;
       }
@@ -1054,12 +879,12 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
       for (const size_t selected_candidate_index : bundle.selected_candidate_indices) {
         ResidentIssueSlot& resident_slot = *ordered_resident_slots.at(selected_candidate_index);
         ScheduledWave* candidate = resident_slot.resident_wave;
-        if (candidate == nullptr || candidate->wave.pc >= context.kernel.instructions().size()) {
+        if (candidate == nullptr || !context.kernel.ContainsPc(candidate->wave.pc)) {
           throw std::out_of_range("wave pc out of range");
         }
 
         WaveContext& wave = candidate->wave;
-        const Instruction instruction = context.kernel.instructions().at(wave.pc);
+        const Instruction instruction = context.kernel.InstructionAtPc(wave.pc);
         const uint32_t slot_id = TraceSlotId(*candidate);
         if (context.stats != nullptr) {
           ++context.stats->wave_steps;
@@ -1128,8 +953,6 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
               plan.memory->kind == AccessKind::Load ? "load_issue" : "store_issue"));
         }
 
-        MarkPlanWritesPending(instruction, plan, candidate->scoreboard, commit_cycle);
-
         events.Schedule(TimedEvent{
             .cycle = commit_cycle,
             .action =
@@ -1186,8 +1009,6 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                                     candidate->wave.vgpr.Write(request.dst->index, lane, value);
                                   }
                                 }
-                                candidate->scoreboard.MarkReady(
-                                    VectorRef(request.dst->index), arrive_cycle);
                                 l2_cache.Promote(addrs);
                                 l1_caches
                                     .at(L1Key{.dpc_id = candidate->block->dpc_id, .ap_id = candidate->block->ap_id})
@@ -1213,17 +1034,24 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                                 }
                               }
 
-                              context.trace.OnEvent(MakeTraceMemoryArriveEvent(
+                              TraceEvent arrive_event = MakeTraceMemoryArriveEvent(
                                   MakeTraceWaveView(*candidate, slot_id),
                                   arrive_cycle,
                                   request.kind == AccessKind::Load ? TraceMemoryArriveKind::Load
                                                                    : TraceMemoryArriveKind::Store,
-                                  TraceSlotModelKind::ResidentFixed));
+                                  TraceSlotModelKind::ResidentFixed);
                               DecrementPendingMemoryOps(candidate->wave, MemoryWaitDomain::Global);
-                              candidate->wave.valid_entry = true;
-                              if (candidate->wave.status != WaveStatus::Exited &&
-                                  !candidate->wave.waiting_at_barrier) {
-                                candidate->wave.status = WaveStatus::Active;
+                              const AsyncArriveResult arrive_result = MakeCycleArriveResult(
+                                  context.kernel, candidate->wave, MemoryWaitDomain::Global);
+                              arrive_event.waitcnt_state = arrive_result.waitcnt_state;
+                              arrive_event.arrive_progress = arrive_result.arrive_progress;
+                              context.trace.OnEvent(std::move(arrive_event));
+                              if (!ResumeWaitcntWaveIfReady(context.kernel, candidate->wave)) {
+                                candidate->wave.valid_entry = true;
+                                if (candidate->wave.status != WaveStatus::Exited &&
+                                    !candidate->wave.waiting_at_barrier) {
+                                  candidate->wave.status = WaveStatus::Active;
+                                }
                               }
                             },
                     });
@@ -1233,12 +1061,10 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                       context.stats->shared_bank_conflict_penalty_cycles += penalty;
                     }
                     const uint64_t ready_cycle = commit_cycle + penalty;
-                    const bool advance_pc = plan.advance_pc;
-                    const std::optional<uint64_t> branch_target = plan.branch_target;
                     events.Schedule(TimedEvent{
                         .cycle = ready_cycle,
                         .action =
-                            [&, candidate, request, ready_cycle, advance_pc, branch_target]() {
+                            [&, candidate, request, ready_cycle, plan]() {
                               context.cycle = ready_cycle;
                               if (request.kind == AccessKind::Load) {
                                 if (!request.dst.has_value()) {
@@ -1251,8 +1077,6 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                                     candidate->wave.vgpr.Write(request.dst->index, lane, value);
                                   }
                                 }
-                                candidate->scoreboard.MarkReady(
-                                    VectorRef(request.dst->index), ready_cycle);
                               } else if (request.kind == AccessKind::Store) {
                                 for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
                                   if (request.lanes[lane].active) {
@@ -1274,19 +1098,25 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                                 }
                               }
 
-                              if (branch_target.has_value()) {
-                                candidate->wave.pc = *branch_target;
-                              } else if (advance_pc) {
-                                ++candidate->wave.pc;
-                              }
+                              TraceEvent arrive_event = MakeTraceMemoryArriveEvent(
+                                  MakeTraceWaveView(*candidate, slot_id),
+                                  ready_cycle,
+                                  request.kind == AccessKind::Load ? TraceMemoryArriveKind::Shared
+                                                                   : TraceMemoryArriveKind::Store,
+                                  TraceSlotModelKind::ResidentFixed);
+                              ApplyExecutionPlanControlFlow(
+                                  context.kernel, plan, candidate->wave, true, true);
                               DecrementPendingMemoryOps(candidate->wave, MemoryWaitDomain::Shared);
-                              candidate->wave.valid_entry = true;
-                              candidate->wave.status = WaveStatus::Active;
+                              const AsyncArriveResult arrive_result = MakeCycleArriveResult(
+                                  context.kernel, candidate->wave, MemoryWaitDomain::Shared);
+                              arrive_event.waitcnt_state = arrive_result.waitcnt_state;
+                              arrive_event.arrive_progress = arrive_result.arrive_progress;
+                              context.trace.OnEvent(std::move(arrive_event));
+                              if (!ResumeWaitcntWaveIfReady(context.kernel, candidate->wave)) {
+                                candidate->wave.status = WaveStatus::Active;
+                              }
                             },
                     });
-                    if (request.kind == AccessKind::Load && request.dst.has_value()) {
-                      candidate->scoreboard.MarkNotReady(VectorRef(request.dst->index));
-                    }
                     return;
                   } else if (request.space == MemorySpace::Private) {
                     if (request.kind == AccessKind::Load) {
@@ -1300,8 +1130,6 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                           candidate->wave.vgpr.Write(request.dst->index, lane, value);
                         }
                       }
-                      candidate->scoreboard.MarkReady(
-                          VectorRef(request.dst->index), commit_cycle);
                     } else if (request.kind == AccessKind::Store) {
                       for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
                         if (request.lanes[lane].active) {
@@ -1309,8 +1137,21 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                         }
                       }
                     }
+                    TraceEvent arrive_event = MakeTraceMemoryArriveEvent(
+                        MakeTraceWaveView(*candidate, slot_id),
+                        commit_cycle,
+                        request.kind == AccessKind::Load ? TraceMemoryArriveKind::Private
+                                                         : TraceMemoryArriveKind::Store,
+                        TraceSlotModelKind::ResidentFixed);
                     DecrementPendingMemoryOps(candidate->wave, MemoryWaitDomain::Private);
-                    candidate->wave.valid_entry = true;
+                    const AsyncArriveResult arrive_result = MakeCycleArriveResult(
+                        context.kernel, candidate->wave, MemoryWaitDomain::Private);
+                    arrive_event.waitcnt_state = arrive_result.waitcnt_state;
+                    arrive_event.arrive_progress = arrive_result.arrive_progress;
+                    context.trace.OnEvent(std::move(arrive_event));
+                    if (!ResumeWaitcntWaveIfReady(context.kernel, candidate->wave)) {
+                      candidate->wave.valid_entry = true;
+                    }
                   } else if (request.space == MemorySpace::Constant) {
                     if (!request.dst.has_value()) {
                       throw std::invalid_argument("load request missing destination");
@@ -1338,8 +1179,6 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                         break;
                       }
                       candidate->wave.sgpr.Write(request.dst->index, loaded_value);
-                      candidate->scoreboard.MarkReady(
-                          ScalarRef(request.dst->index), commit_cycle);
                     } else {
                       for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
                         if (request.lanes[lane].active) {
@@ -1359,11 +1198,21 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                           candidate->wave.vgpr.Write(request.dst->index, lane, value);
                         }
                       }
-                      candidate->scoreboard.MarkReady(
-                          VectorRef(request.dst->index), commit_cycle);
                     }
+                    TraceEvent arrive_event = MakeTraceMemoryArriveEvent(
+                        MakeTraceWaveView(*candidate, slot_id),
+                        commit_cycle,
+                        TraceMemoryArriveKind::ScalarBuffer,
+                        TraceSlotModelKind::ResidentFixed);
                     DecrementPendingMemoryOps(candidate->wave, MemoryWaitDomain::ScalarBuffer);
-                    candidate->wave.valid_entry = true;
+                    const AsyncArriveResult arrive_result = MakeCycleArriveResult(
+                        context.kernel, candidate->wave, MemoryWaitDomain::ScalarBuffer);
+                    arrive_event.waitcnt_state = arrive_result.waitcnt_state;
+                    arrive_event.arrive_progress = arrive_result.arrive_progress;
+                    context.trace.OnEvent(std::move(arrive_event));
+                    if (!ResumeWaitcntWaveIfReady(context.kernel, candidate->wave)) {
+                      candidate->wave.valid_entry = true;
+                    }
                   } else {
                     throw std::invalid_argument("unsupported memory space in cycle executor");
                   }
@@ -1377,12 +1226,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                       MakeTraceWaveView(*candidate, slot_id),
                       commit_cycle,
                       TraceSlotModelKind::ResidentFixed));
-                  if (plan.branch_target.has_value()) {
-                    candidate->wave.pc = *plan.branch_target;
-                  } else if (plan.advance_pc) {
-                    ++candidate->wave.pc;
-                  }
-                  candidate->wave.valid_entry = true;
+                  ApplyExecutionPlanControlFlow(context.kernel, plan, candidate->wave, true, true);
                   candidate->wave.status = WaveStatus::Active;
                   return;
                 }
@@ -1432,9 +1276,9 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                     waiting_waves.push_back(&waiting_wave.wave);
                   }
                   if (sync_ops::ReleaseBarrierIfReady(waiting_waves,
+                                                      context.kernel,
                                                       candidate->block->barrier_generation,
                                                       candidate->block->barrier_arrivals,
-                                                      1,
                                                       true)) {
                     ReleaseBarrierSlot(ap_state.barrier_slots_in_use,
                                        candidate->block->barrier_slot_acquired);
@@ -1474,7 +1318,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                   if (context.stats != nullptr) {
                     ++context.stats->wave_exits;
                   }
-                  ApplyExecutionPlanControlFlow(plan, candidate->wave, false, false);
+                  ApplyExecutionPlanControlFlow(context.kernel, plan, candidate->wave, false, false);
                   PeuSlot& peu_slot = slots.at(candidate->peu_slot_index);
                   RemoveResidentWave(peu_slot, *candidate);
                   context.trace.OnEvent(MakeTraceWaveExitEvent(
@@ -1527,8 +1371,24 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                   return;
                 }
 
+                if (instruction.opcode == Opcode::SWaitCnt) {
+                  const WaitCntThresholds thresholds = WaitCntThresholdsForInstruction(instruction);
+                  if (EnterMemoryWaitState(thresholds, candidate->wave)) {
+                    candidate->wave.valid_entry = true;
+                    candidate->wave.status = WaveStatus::Active;
+                    context.trace.OnEvent(MakeTraceWaitStallEvent(
+                        MakeTraceWaveView(*candidate, slot_id),
+                        commit_cycle,
+                        TraceStallReasonForWaitReason(candidate->wave.wait_reason),
+                        TraceSlotModelKind::ResidentFixed,
+                        std::numeric_limits<uint64_t>::max(),
+                        MakeTraceWaitcntState(candidate->wave, thresholds)));
+                    return;
+                  }
+                }
+
                 candidate->wave.status = WaveStatus::Active;
-                ApplyExecutionPlanControlFlow(plan, candidate->wave, true, true);
+                ApplyExecutionPlanControlFlow(context.kernel, plan, candidate->wave, true, true);
                 },
         });
         issued_any = true;

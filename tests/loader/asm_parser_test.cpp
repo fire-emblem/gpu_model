@@ -26,10 +26,33 @@ TEST(AsmParserTest, PreservesMetadataConstSegmentAndLabels) {
   const auto kernel = AsmParser{}.Parse(image);
 
   EXPECT_EQ(kernel.instructions().size(), 2u);
-  EXPECT_EQ(kernel.ResolveLabel("exit"), 1u);
+  EXPECT_EQ(kernel.ResolveLabel("exit"), 8u);
   EXPECT_EQ(kernel.metadata().values.at("arch"), "c500");
   EXPECT_EQ(kernel.metadata().values.at("source"), "asm");
   EXPECT_EQ(kernel.const_segment().bytes.size(), 3u);
+}
+
+TEST(AsmParserTest, ResolvesLabelsInPcSpaceUsingInstructionEncodingSize) {
+  ProgramObject image(
+      "pc_size_asm",
+      R"(
+        .meta arch=c500
+        buffer_load_dword v1, s0, v0, 4
+      exit:
+        s_endpgm
+      )");
+
+  const auto kernel = AsmParser{}.Parse(image);
+
+  ASSERT_EQ(kernel.instructions().size(), 2u);
+  EXPECT_EQ(kernel.ResolveLabel("exit"), 8u);
+  ASSERT_EQ(kernel.instructions_by_pc().size(), 2u);
+  EXPECT_TRUE(kernel.ContainsPc(0u));
+  EXPECT_TRUE(kernel.ContainsPc(8u));
+  EXPECT_FALSE(kernel.ContainsPc(4u));
+  EXPECT_EQ(kernel.entry_pc(), 0u);
+  ASSERT_TRUE(kernel.NextPc(0u).has_value());
+  EXPECT_EQ(*kernel.NextPc(0u), 8u);
 }
 
 TEST(AsmParserTest, LaunchesParsedVecAddKernelFunctionally) {

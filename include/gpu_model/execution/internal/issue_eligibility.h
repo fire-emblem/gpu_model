@@ -4,7 +4,7 @@
 #include <optional>
 #include <string>
 
-#include "gpu_model/debug/trace_event.h"
+#include "gpu_model/debug/trace/event.h"
 #include "gpu_model/isa/instruction.h"
 #include "gpu_model/execution/wave_context.h"
 
@@ -29,22 +29,26 @@ MemoryWaitDomain MemoryDomainForOpcode(Opcode opcode);
 uint32_t PendingMemoryOpsForDomain(const WaveContext& wave, MemoryWaitDomain domain);
 void IncrementPendingMemoryOps(WaveContext& wave, MemoryWaitDomain domain);
 void DecrementPendingMemoryOps(WaveContext& wave, MemoryWaitDomain domain);
+std::optional<std::string> WaitReasonForDomain(MemoryWaitDomain domain);
+TraceStallReason TraceStallReasonForWaitReason(WaveWaitReason reason);
+std::optional<std::string> WaitingStateBlockReason(const WaveContext& wave);
+std::optional<std::string> FrontEndBlockReason(bool dispatch_enabled,
+                                               const WaveContext& wave);
 
 WaitCntThresholds WaitCntThresholdsForInstruction(const Instruction& instruction);
+TraceWaitcntState MakeOptionalTraceWaitcntState(
+    const WaveContext& wave,
+    const std::optional<WaitCntThresholds>& thresholds);
 TraceWaitcntState MakeTraceWaitcntState(const WaveContext& wave,
                                         const WaitCntThresholds& thresholds);
 bool WaitCntSatisfied(const WaveContext& wave, const Instruction& instruction);
 std::optional<std::string> WaitCntBlockReason(const WaveContext& wave,
                                               const Instruction& instruction);
-std::optional<std::string> MemoryDomainBlockReason(const WaveContext& wave,
-                                                   const Instruction& instruction);
 bool CanIssueInstruction(bool dispatch_enabled,
                          const WaveContext& wave,
-                         const Instruction& instruction,
-                         bool dependencies_ready);
+                         const Instruction& instruction);
 std::optional<std::string> IssueBlockReason(bool dispatch_enabled,
                                             const WaveContext& wave,
-                                            const Instruction& instruction,
-                                            bool dependencies_ready);
+                                            const Instruction& instruction);
 
 }  // namespace gpu_model

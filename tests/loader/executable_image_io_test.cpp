@@ -6,7 +6,7 @@
 #include <filesystem>
 #include <vector>
 
-#include "gpu_model/debug/debug_info.h"
+#include "gpu_model/debug/info/debug_info.h"
 #include "gpu_model/isa/instruction_builder.h"
 #include "gpu_model/loader/executable_image_io.h"
 #include "gpu_model/runtime/runtime_engine.h"
@@ -98,7 +98,7 @@ TEST(ExecutableImageIOTest, RoundTripsEmbeddedDebugInfoSection) {
   EXPECT_EQ(loaded->kernel_name, "debug_image_kernel");
   EXPECT_EQ(loaded->pc_to_debug_loc.at(0).file, "kernel.cpp");
   EXPECT_EQ(loaded->pc_to_debug_loc.at(0).line, 12u);
-  EXPECT_EQ(loaded->pc_to_debug_loc.at(1).label, "done");
+  EXPECT_EQ(loaded->pc_to_debug_loc.at(4).label, "done");
 
   std::filesystem::remove(path);
 }
