@@ -673,6 +673,40 @@ std::string SegmentArgs(const SlotKey& key, const Segment& segment) {
   return out.str();
 }
 
+void AppendOptionalJsonStringField(std::ostringstream& out,
+                                   std::string_view key,
+                                   std::string_view value) {
+  if (value.empty()) {
+    return;
+  }
+  out << ",\"" << key << "\":\"" << EscapeJson(value) << "\"";
+}
+
+void AppendPresentationJsonFields(std::ostringstream& out,
+                                  std::string_view canonical_name,
+                                  std::string_view presentation_name,
+                                  std::string_view display_name,
+                                  std::string_view category,
+                                  std::string_view compatibility_message) {
+  AppendOptionalJsonStringField(out, "canonical_name", canonical_name);
+  AppendOptionalJsonStringField(out, "presentation_name", presentation_name);
+  AppendOptionalJsonStringField(out, "display_name", display_name);
+  AppendOptionalJsonStringField(out, "category", category);
+  AppendOptionalJsonStringField(out, "message", compatibility_message);
+}
+
+std::string RuntimeArgs(const TraceEventExportFields& fields) {
+  std::ostringstream out;
+  out << "\"message\":\"" << EscapeJson(fields.compatibility_message) << "\"";
+  AppendPresentationJsonFields(out,
+                               fields.canonical_name,
+                               fields.presentation_name,
+                               fields.display_name,
+                               fields.category,
+                               {});
+  return out.str();
+}
+
 std::string MarkerArgs(const SlotKey& key, const Marker& marker) {
   std::ostringstream out;
   out << "\"dpc\":" << key.dpc_id << ",\"ap\":" << key.ap_id << ",\"peu\":" << key.peu_id
@@ -693,20 +727,13 @@ std::string MarkerArgs(const SlotKey& key, const Marker& marker) {
   if (!marker.lifecycle_stage_name.empty()) {
     out << ",\"lifecycle_stage\":\"" << EscapeJson(marker.lifecycle_stage_name) << "\"";
   }
-  if (!marker.canonical_name.empty()) {
-    out << ",\"canonical_name\":\"" << EscapeJson(marker.canonical_name) << "\"";
-  }
-  if (!marker.presentation_name.empty()) {
-    out << ",\"presentation_name\":\"" << EscapeJson(marker.presentation_name) << "\"";
-  }
-  if (!marker.display_name.empty()) {
-    out << ",\"display_name\":\"" << EscapeJson(marker.display_name) << "\"";
-  }
-  if (!marker.category.empty()) {
-    out << ",\"category\":\"" << EscapeJson(marker.category) << "\"";
-  }
-  out << ",\"cycle\":" << marker.cycle << ",\"message\":\""
-      << EscapeJson(marker.message) << "\"";
+  out << ",\"cycle\":" << marker.cycle;
+  AppendPresentationJsonFields(out,
+                               marker.canonical_name,
+                               marker.presentation_name,
+                               marker.display_name,
+                               marker.category,
+                               marker.message);
   return out.str();
 }
 
@@ -853,11 +880,11 @@ std::string CycleTimelineRenderer::RenderGoogleTrace(const std::vector<TraceEven
       continue;
     }
     const TraceEventView view = MakeTraceEventView(runtime_event);
+    const TraceEventExportFields fields = MakeTraceEventExportFields(view);
     append("{\"name\":\"" + EscapeJson(view.presentation_name) +
            "\",\"cat\":\"" + EscapeJson(view.category) +
            "\",\"ph\":\"i\",\"s\":\"g\",\"pid\":0,\"tid\":0,\"ts\":" +
-           std::to_string(runtime_event.cycle) + ",\"args\":{\"message\":\"" +
-           EscapeJson(view.compatibility_message) + "\"}}");
+           std::to_string(runtime_event.cycle) + ",\"args\":{" + RuntimeArgs(fields) + "}}");
   }
 
   std::set<RowDescriptor> declared_rows;

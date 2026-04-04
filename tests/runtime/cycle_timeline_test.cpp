@@ -458,6 +458,20 @@ TEST(CycleTimelineTest, GoogleTraceMarkerArgsShareTypedPresentationFields) {
   EXPECT_NE(trace.find("\"slot_model\":\"logical_unbounded\""), std::string::npos);
 }
 
+TEST(CycleTimelineTest, GoogleTraceRuntimeArgsSharePresentationFields) {
+  std::vector<TraceEvent> events{
+      MakeTraceRuntimeLaunchEvent(/*cycle=*/5, "kernel=timeline_runtime arch=c500"),
+  };
+
+  const std::string trace = CycleTimelineRenderer::RenderGoogleTrace(events);
+  EXPECT_NE(trace.find("\"name\":\"launch\""), std::string::npos);
+  EXPECT_NE(trace.find("\"cat\":\"runtime\""), std::string::npos);
+  EXPECT_NE(trace.find("\"canonical_name\":\"launch\""), std::string::npos);
+  EXPECT_NE(trace.find("\"presentation_name\":\"launch\""), std::string::npos);
+  EXPECT_NE(trace.find("\"category\":\"runtime\""), std::string::npos);
+  EXPECT_NE(trace.find("\"message\":\"kernel=timeline_runtime arch=c500\""), std::string::npos);
+}
+
 TEST(CycleTimelineTest, TimelineCanRenderCanonicalNamesWithoutLegacyMessages) {
   const TraceWaveView wave = MakeWaveView(/*slot_id=*/0);
   TraceEvent barrier_arrive =
