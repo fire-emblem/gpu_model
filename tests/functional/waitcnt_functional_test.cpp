@@ -525,8 +525,14 @@ TEST(FunctionalWaitcntTest, TimelineShowsBlankBubbleWithWaitcntStallAndArrive) {
   const size_t load_step_index = FirstEventIndex(events, TraceEventKind::WaveStep, load_pc);
   const size_t waitcnt_stall_index =
       FirstEventIndex(events, TraceEventKind::Stall, waitcnt_pc, "waitcnt_global");
-  const size_t arrive_index =
-      FirstEventIndex(events, TraceEventKind::Arrive, waitcnt_pc, "load_arrive");
+  size_t arrive_index = std::numeric_limits<size_t>::max();
+  for (size_t i = 0; i < events.size(); ++i) {
+    if (events[i].kind == TraceEventKind::Arrive && events[i].pc == waitcnt_pc &&
+        events[i].arrive_kind == TraceArriveKind::Load) {
+      arrive_index = i;
+      break;
+    }
+  }
   const size_t resume_step_index = FirstEventIndex(events, TraceEventKind::WaveStep, resume_pc);
   ASSERT_NE(load_step_index, std::numeric_limits<size_t>::max());
   ASSERT_NE(waitcnt_stall_index, std::numeric_limits<size_t>::max());

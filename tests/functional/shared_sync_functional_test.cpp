@@ -116,8 +116,7 @@ bool ContainsStallMessage(const std::vector<TraceEvent>& events,
                           std::string_view message) {
   const TraceStallReason reason = TraceStallReasonFromMessage(message);
   for (const auto& event : events) {
-    if (TraceHasStallReason(event, reason) ||
-        (event.kind == TraceEventKind::Stall && event.message == message)) {
+    if (TraceHasStallReason(event, reason)) {
       return true;
     }
   }
@@ -155,7 +154,7 @@ size_t FirstEventIndexForBlockWave(const std::vector<TraceEvent>& events,
 size_t FirstBarrierReleaseIndex(const std::vector<TraceEvent>& events) {
   for (size_t i = 0; i < events.size(); ++i) {
     if (events[i].kind == TraceEventKind::Barrier &&
-        events[i].message == kTraceBarrierReleaseMessage) {
+        events[i].barrier_kind == TraceBarrierKind::Release) {
       return i;
     }
   }

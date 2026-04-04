@@ -416,12 +416,12 @@ TEST(SharedBarrierFunctionalTest, ReleaseResumesAllBarrierBlockedWaves) {
   const auto& events = trace.events();
   for (size_t i = 0; i < events.size(); ++i) {
     const auto& event = events[i];
-    if (event.kind == TraceEventKind::Barrier && event.message == kTraceBarrierArriveMessage &&
+    if (event.kind == TraceEventKind::Barrier && event.barrier_kind == TraceBarrierKind::Arrive &&
         event.pc == barrier_pc && first_release_index == no_index &&
         event.wave_id < expected_wave_count) {
       arrived_before_release[event.wave_id] = true;
     }
-    if (event.kind == TraceEventKind::Barrier && event.message == kTraceBarrierReleaseMessage &&
+    if (event.kind == TraceEventKind::Barrier && event.barrier_kind == TraceBarrierKind::Release &&
         first_release_index == no_index) {
       first_release_index = i;
     }
@@ -478,11 +478,11 @@ TEST(SharedBarrierFunctionalTest, MultiThreadedReleaseResumesAllBarrierBlockedWa
   const auto& events = trace.events();
   for (size_t i = 0; i < events.size(); ++i) {
     const auto& event = events[i];
-    if (event.kind == TraceEventKind::Barrier && event.message == kTraceBarrierArriveMessage &&
+    if (event.kind == TraceEventKind::Barrier && event.barrier_kind == TraceBarrierKind::Arrive &&
         event.pc == barrier_pc && event.wave_id < expected_wave_count) {
       saw_arrive[event.wave_id] = true;
     }
-    if (event.kind == TraceEventKind::Barrier && event.message == kTraceBarrierReleaseMessage &&
+    if (event.kind == TraceEventKind::Barrier && event.barrier_kind == TraceBarrierKind::Release &&
         first_release_index == no_index) {
       first_release_index = i;
     }
