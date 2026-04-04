@@ -22,6 +22,7 @@ class TraceArtifactRecorder final : public TraceSink {
  private:
   std::filesystem::path output_dir_;
   std::filesystem::path timeline_path_;
+  std::filesystem::path timeline_proto_path_;
   CycleTimelineOptions timeline_options_;
   CollectingTraceSink collector_;
   FileTraceSink text_trace_;

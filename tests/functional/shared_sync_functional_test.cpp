@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "gpu_model/arch/arch_registry.h"
+#include "gpu_model/debug/trace_event_builder.h"
 #include "gpu_model/debug/trace_sink.h"
 #include "gpu_model/isa/instruction_builder.h"
 #include "gpu_model/isa/opcode.h"
@@ -113,8 +114,10 @@ uint64_t FirstInstructionPcWithOpcode(const ExecutableKernel& kernel, Opcode opc
 
 bool ContainsStallMessage(const std::vector<TraceEvent>& events,
                           std::string_view message) {
+  const TraceStallReason reason = TraceStallReasonFromMessage(message);
   for (const auto& event : events) {
-    if (event.kind == TraceEventKind::Stall && event.message == message) {
+    if (TraceHasStallReason(event, reason) ||
+        (event.kind == TraceEventKind::Stall && event.message == message)) {
       return true;
     }
   }
@@ -151,7 +154,8 @@ size_t FirstEventIndexForBlockWave(const std::vector<TraceEvent>& events,
 
 size_t FirstBarrierReleaseIndex(const std::vector<TraceEvent>& events) {
   for (size_t i = 0; i < events.size(); ++i) {
-    if (events[i].kind == TraceEventKind::Barrier && events[i].message == "release") {
+    if (events[i].kind == TraceEventKind::Barrier &&
+        events[i].message == kTraceBarrierReleaseMessage) {
       return i;
     }
   }

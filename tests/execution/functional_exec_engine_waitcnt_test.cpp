@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -11,6 +12,7 @@
 #include <vector>
 
 #include "gpu_model/arch/arch_registry.h"
+#include "gpu_model/debug/trace_event_builder.h"
 #include "gpu_model/debug/trace_sink.h"
 #include "gpu_model/execution/functional_exec_engine.h"
 #include "gpu_model/isa/instruction_builder.h"
@@ -122,6 +124,28 @@ ExecutableKernel BuildMultiDomainWaitcntResumeKernel() {
   return builder.Build("exec_waitcnt_multi_domain_resume");
 }
 
+ExecutableKernel BuildBarrierLifecycleKernel() {
+  InstructionBuilder builder;
+  builder.SysGlobalIdX("v0");
+  builder.SyncBarrier();
+  builder.SMov("s0", 7);
+  builder.BExit();
+  return builder.Build("exec_barrier_lifecycle");
+}
+
+ExecutableKernel BuildSemanticTraceCoverageKernel() {
+  InstructionBuilder builder;
+  builder.SLoadArg("s0", 0);
+  builder.SMov("s1", 0);
+  builder.MLoadGlobal("v1", "s0", "s1", 4);
+  builder.SWaitCnt(/*global_count=*/0, /*shared_count=*/UINT32_MAX,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
+  builder.SyncWaveBarrier();
+  builder.SyncBarrier();
+  builder.BExit();
+  return builder.Build("exec_semantic_trace_coverage");
+}
+
 uint64_t NthInstructionPcWithOpcode(const ExecutableKernel& kernel, Opcode opcode, size_t ordinal) {
   size_t seen = 0;
   for (uint64_t pc = 0; pc < kernel.instructions().size(); ++pc) {
@@ -144,6 +168,10 @@ size_t FirstEventIndex(const std::vector<TraceEvent>& events,
     if (events[i].kind != kind || events[i].pc != pc) {
       continue;
     }
+    if (kind == TraceEventKind::Stall && message.has_value() &&
+        TraceHasStallReason(events[i], TraceStallReasonFromMessage(*message))) {
+      return i;
+    }
     if (message.has_value() && events[i].message != *message) {
       continue;
     }
@@ -160,6 +188,10 @@ size_t FirstEventIndexAfter(const std::vector<TraceEvent>& events,
   for (size_t i = start + 1; i < events.size(); ++i) {
     if (events[i].kind != kind || events[i].pc != pc) {
       continue;
+    }
+    if (kind == TraceEventKind::Stall && message.has_value() &&
+        TraceHasStallReason(events[i], TraceStallReasonFromMessage(*message))) {
+      return i;
     }
     if (message.has_value() && events[i].message != *message) {
       continue;
@@ -231,7 +263,11 @@ bool ContainsWaveStatsMessage(const std::vector<TraceEvent>& events, std::string
 }
 
 bool ContainsStallMessage(const std::vector<TraceEvent>& events, std::string_view message) {
-  return ContainsMessage(events, TraceEventKind::Stall, message);
+  const TraceStallReason reason = TraceStallReasonFromMessage(message);
+  return std::any_of(events.begin(), events.end(), [reason, message](const TraceEvent& event) {
+    return TraceHasStallReason(event, reason) || 
+           (event.kind == TraceEventKind::Stall && event.message == message);
+  });
 }
 
 size_t FirstWaveStatsIndexContainingAfter(const std::vector<TraceEvent>& events,
@@ -391,6 +427,29 @@ TEST(FunctionalExecEngineWaitcntTest, SharedWaitcntTransitionsThroughWaitingAndR
   EXPECT_TRUE(HasResumeOrdering(events, waitcnt_pc, resume_marker_pc, "waitcnt_shared"));
 }
 
+TEST(FunctionalExecEngineWaitcntTest,
+     FunctionalTraceUsesCanonicalBarrierArriveReleaseAndExitMessages) {
+  FunctionalExecHarness harness(BuildBarrierLifecycleKernel(),
+                                LaunchConfig{.grid_dim_x = 1, .block_dim_x = 128});
+  const auto events = RunHarnessAndCollectTrace(harness);
+
+  bool saw_arrive = false;
+  bool saw_release = false;
+  bool saw_exit = false;
+  for (const auto& event : events) {
+    saw_arrive = saw_arrive || (event.kind == TraceEventKind::Barrier &&
+                                event.message == kTraceBarrierArriveMessage);
+    saw_release = saw_release || (event.kind == TraceEventKind::Barrier &&
+                                  event.message == kTraceBarrierReleaseMessage);
+    saw_exit = saw_exit || (event.kind == TraceEventKind::WaveExit &&
+                            event.message == kTraceWaveEndMessage);
+  }
+
+  EXPECT_TRUE(saw_arrive);
+  EXPECT_TRUE(saw_release);
+  EXPECT_TRUE(saw_exit);
+}
+
 TEST(FunctionalExecEngineWaitcntTest, PrivateWaitcntTransitionsThroughWaitingAndResume) {
   auto harness = MakeWaitcntHarness(BuildPrivateWaitcntLifecycleKernel());
   const auto events = RunHarnessAndCollectTrace(harness);
@@ -448,6 +507,71 @@ TEST(FunctionalExecEngineWaitcntTest, WaitcntResumeRequiresAllStoredThresholdDom
       std::numeric_limits<size_t>::max());
   EXPECT_NE(FirstEventIndex(events, TraceEventKind::WaveStep, marker_after_shared_only_pc),
             std::numeric_limits<size_t>::max());
+}
+
+TEST(FunctionalExecEngineWaitcntTest,
+     FunctionalTraceUsesCanonicalSemanticFactoryMessagesAndLogicalSlots) {
+  auto harness = MakeWaitcntHarness(BuildSemanticTraceCoverageKernel());
+  const uint64_t base_addr = harness.memory.AllocateGlobal(sizeof(int32_t));
+  harness.memory.StoreGlobalValue<int32_t>(base_addr, 11);
+  harness.args.PushU64(base_addr);
+
+  const auto events = RunHarnessAndCollectTrace(harness);
+
+  bool saw_launch = false;
+  bool saw_commit = false;
+  bool saw_barrier_wave = false;
+  bool saw_barrier_arrive = false;
+  bool saw_barrier_release = false;
+  bool saw_wait_stall = false;
+  bool saw_memory_arrive = false;
+  bool saw_wave_exit = false;
+
+  for (const auto& event : events) {
+    if (event.kind == TraceEventKind::WaveLaunch &&
+        event.message.starts_with(kTraceWaveStartMessage)) {
+      saw_launch = true;
+      EXPECT_TRUE(TraceHasSlotModel(event, TraceSlotModelKind::LogicalUnbounded));
+    }
+    if (event.kind == TraceEventKind::Commit && event.message == kTraceCommitMessage) {
+      saw_commit = true;
+      EXPECT_TRUE(TraceHasSlotModel(event, TraceSlotModelKind::LogicalUnbounded));
+    }
+    if (event.kind == TraceEventKind::Barrier && event.message == kTraceBarrierWaveMessage) {
+      saw_barrier_wave = true;
+      EXPECT_TRUE(TraceHasSlotModel(event, TraceSlotModelKind::LogicalUnbounded));
+    }
+    if (event.kind == TraceEventKind::Barrier && event.message == kTraceBarrierArriveMessage) {
+      saw_barrier_arrive = true;
+      EXPECT_TRUE(TraceHasSlotModel(event, TraceSlotModelKind::LogicalUnbounded));
+    }
+    if (event.kind == TraceEventKind::Barrier && event.message == kTraceBarrierReleaseMessage) {
+      saw_barrier_release = true;
+    }
+    if (event.kind == TraceEventKind::Stall &&
+        event.message == MakeTraceStallReasonMessage(kTraceStallReasonWaitCntGlobal)) {
+      saw_wait_stall = true;
+      EXPECT_TRUE(TraceHasSlotModel(event, TraceSlotModelKind::LogicalUnbounded));
+    }
+    if (event.kind == TraceEventKind::Arrive && event.message == kTraceArriveLoadMessage) {
+      saw_memory_arrive = true;
+      EXPECT_TRUE(TraceHasSlotModel(event, TraceSlotModelKind::LogicalUnbounded));
+    }
+    if (event.kind == TraceEventKind::WaveExit && event.message == kTraceWaveEndMessage) {
+      saw_wave_exit = true;
+      EXPECT_TRUE(TraceHasSlotModel(event, TraceSlotModelKind::LogicalUnbounded));
+    }
+    EXPECT_NE(event.message, kTraceExitMessage);
+  }
+
+  EXPECT_TRUE(saw_launch);
+  EXPECT_TRUE(saw_commit);
+  EXPECT_TRUE(saw_barrier_wave);
+  EXPECT_TRUE(saw_barrier_arrive);
+  EXPECT_TRUE(saw_barrier_release);
+  EXPECT_TRUE(saw_wait_stall);
+  EXPECT_TRUE(saw_memory_arrive);
+  EXPECT_TRUE(saw_wave_exit);
 }
 
 }  // namespace

@@ -63,11 +63,16 @@ FileTraceSink::FileTraceSink(const std::filesystem::path& path) : out_(path) {
 }
 
 void FileTraceSink::OnEvent(const TraceEvent& event) {
+  const std::string_view slot_model = TraceEffectiveSlotModelName(event);
+  const std::string_view stall_reason = TraceStallReasonName(TraceEffectiveStallReason(event));
   out_ << "pc=" << HexU64(event.pc) << " cycle=" << HexU64(event.cycle)
        << " dpc=" << HexU64(event.dpc_id) << " ap=" << HexU64(event.ap_id)
        << " peu=" << HexU64(event.peu_id) << " slot=" << HexU64(event.slot_id)
+       << " slot_model=" << slot_model
+       << " slot_model_kind=" << slot_model
        << " kind=" << KindToString(event.kind) << " block=" << HexU64(event.block_id)
        << " wave=" << HexU64(event.wave_id)
+       << " stall_reason=" << stall_reason
        << " msg=" << event.message << '\n';
 }
 
@@ -78,12 +83,17 @@ JsonTraceSink::JsonTraceSink(const std::filesystem::path& path) : out_(path) {
 }
 
 void JsonTraceSink::OnEvent(const TraceEvent& event) {
+  const std::string_view slot_model = TraceEffectiveSlotModelName(event);
+  const std::string_view stall_reason = TraceStallReasonName(TraceEffectiveStallReason(event));
   out_ << "{\"pc\":\"" << HexU64(event.pc) << "\",\"cycle\":\"" << HexU64(event.cycle)
        << "\",\"dpc_id\":\"" << HexU64(event.dpc_id) << "\",\"ap_id\":\""
        << HexU64(event.ap_id) << "\",\"peu_id\":\"" << HexU64(event.peu_id)
-       << "\",\"slot_id\":\"" << HexU64(event.slot_id) << "\",\"kind\":\""
+       << "\",\"slot_id\":\"" << HexU64(event.slot_id) << "\",\"slot_model\":\""
+       << EscapeJson(std::string(slot_model)) << "\",\"slot_model_kind\":\""
+       << EscapeJson(std::string(slot_model)) << "\",\"kind\":\""
        << KindToString(event.kind) << "\",\"block_id\":\"" << HexU64(event.block_id)
        << "\",\"wave_id\":\"" << HexU64(event.wave_id)
+       << "\",\"stall_reason\":\"" << EscapeJson(std::string(stall_reason))
        << "\",\"message\":\"" << EscapeJson(event.message) << "\"}\n";
 }
 

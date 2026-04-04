@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "gpu_model/debug/cycle_timeline.h"
+#include "gpu_model/debug/trace_event_builder.h"
 #include "gpu_model/debug/trace_sink.h"
 #include "gpu_model/isa/instruction_builder.h"
 #include "gpu_model/isa/opcode.h"
@@ -119,6 +120,10 @@ size_t FirstEventIndex(const std::vector<TraceEvent>& events,
   for (size_t i = 0; i < events.size(); ++i) {
     if (events[i].kind != kind || events[i].pc != pc) {
       continue;
+    }
+    if (kind == TraceEventKind::Stall && message.has_value() &&
+        TraceHasStallReason(events[i], TraceStallReasonFromMessage(*message))) {
+      return i;
     }
     if (message.has_value() && events[i].message != *message) {
       continue;
@@ -491,7 +496,7 @@ TEST(WaitcntFunctionalTest, SingleAndMultiThreadedTraceUseUnboundedLogicalLaneId
   EXPECT_GE(*mt_slots.rbegin(), kExpectedLogicalSlotsOnPeu0 - 1);
 }
 
-TEST(WaitcntFunctionalTest, PerfettoTimelineShowsInstructionGapArriveAndResumeWithoutBubbleSlices) {
+TEST(FunctionalWaitcntTest, TimelineShowsBlankBubbleWithWaitcntStallAndArrive) {
   CollectingTraceSink trace;
   RuntimeEngine runtime(&trace);
   runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
@@ -527,6 +532,19 @@ TEST(WaitcntFunctionalTest, PerfettoTimelineShowsInstructionGapArriveAndResumeWi
   ASSERT_NE(waitcnt_stall_index, std::numeric_limits<size_t>::max());
   ASSERT_NE(arrive_index, std::numeric_limits<size_t>::max());
   ASSERT_NE(resume_step_index, std::numeric_limits<size_t>::max());
+  EXPECT_EQ(events[waitcnt_stall_index].message,
+            MakeTraceStallReasonMessage(kTraceStallReasonWaitCntGlobal));
+  EXPECT_EQ(events[arrive_index].message, kTraceArriveLoadMessage);
+  EXPECT_TRUE(TraceHasSlotModel(events[waitcnt_stall_index], TraceSlotModelKind::LogicalUnbounded));
+  EXPECT_TRUE(TraceHasSlotModel(events[arrive_index], TraceSlotModelKind::LogicalUnbounded));
+  bool saw_wave_end = false;
+  for (const auto& event : events) {
+    if (event.kind == TraceEventKind::WaveExit && event.message == kTraceWaveEndMessage) {
+      saw_wave_end = true;
+      EXPECT_TRUE(TraceHasSlotModel(event, TraceSlotModelKind::LogicalUnbounded));
+    }
+  }
+  EXPECT_TRUE(saw_wave_end);
   EXPECT_LT(events[load_step_index].cycle, events[arrive_index].cycle);
   EXPECT_LT(events[waitcnt_stall_index].cycle, events[arrive_index].cycle);
   EXPECT_LT(events[arrive_index].cycle, events[resume_step_index].cycle);
@@ -536,6 +554,7 @@ TEST(WaitcntFunctionalTest, PerfettoTimelineShowsInstructionGapArriveAndResumeWi
   EXPECT_NE(timeline.find("\"name\":\"load_arrive\""), std::string::npos) << timeline;
   EXPECT_NE(timeline.find("\"name\":\"s_mov_b32\""), std::string::npos) << timeline;
   EXPECT_NE(timeline.find("\"name\":\"stall_waitcnt_global\""), std::string::npos) << timeline;
+  EXPECT_EQ(timeline.find("\"name\":\"s_waitcnt\""), std::string::npos) << timeline;
   EXPECT_GE(CountOccurrences(timeline, "\"ph\":\"X\""), 2u) << timeline;
   EXPECT_EQ(CountOccurrences(timeline, "\"name\":\"bubble\""), 0u) << timeline;
 }

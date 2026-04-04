@@ -11,6 +11,12 @@
 namespace gpu_model {
 namespace {
 
+bool HasStallReason(const std::vector<TraceEvent>& events, TraceStallReason reason) {
+  return std::any_of(events.begin(), events.end(), [reason](const TraceEvent& event) {
+    return TraceHasStallReason(event, reason);
+  });
+}
+
 TEST(CycleSmokeTest, ScalarAndVectorOpsConsumeFourCyclesEach) {
   InstructionBuilder builder;
   builder.SMov("s0", 7);
@@ -82,7 +88,6 @@ TEST(CycleSmokeTest, QueuesBlocksWhenGridExceedsPhysicalApCount) {
   uint32_t block_launches = 0;
   uint32_t wave_launches = 0;
   uint64_t wrapped_block_launch_cycle = 0;
-  bool saw_warp_switch = false;
   for (const auto& event : trace.events()) {
     if (event.kind == TraceEventKind::BlockLaunch) {
       ++block_launches;
@@ -91,16 +96,13 @@ TEST(CycleSmokeTest, QueuesBlocksWhenGridExceedsPhysicalApCount) {
       }
     } else if (event.kind == TraceEventKind::WaveLaunch) {
       ++wave_launches;
-    } else if (event.kind == TraceEventKind::Stall &&
-               event.message.find("reason=warp_switch") != std::string::npos) {
-      saw_warp_switch = true;
     }
   }
 
   EXPECT_EQ(block_launches, spec->total_ap_count() + 1);
   EXPECT_EQ(wave_launches, spec->total_ap_count() + 1);
   EXPECT_EQ(wrapped_block_launch_cycle, 0u);
-  EXPECT_TRUE(saw_warp_switch);
+  EXPECT_TRUE(HasStallReason(trace.events(), TraceStallReason::WarpSwitch));
 }
 
 TEST(CycleSmokeTest, AsyncLoadDoesNotPromoteOverflowResidentWavesPerPeu) {

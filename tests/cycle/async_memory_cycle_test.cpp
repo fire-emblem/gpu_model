@@ -103,6 +103,15 @@ uint64_t FirstCycleForSlotEvent(const std::vector<TraceEvent>& events,
   return std::numeric_limits<uint64_t>::max();
 }
 
+bool HasStallReason(const std::vector<TraceEvent>& events, TraceStallReason reason) {
+  for (const auto& event : events) {
+    if (TraceHasStallReason(event, reason)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 TEST(AsyncMemoryCycleTest, LoadUsesIssuePlusArriveLatency) {
   CollectingTraceSink trace;
   RuntimeEngine runtime(&trace);
@@ -346,15 +355,7 @@ TEST(AsyncMemoryCycleTest, WaitCntCanWaitForGlobalMemoryOnly) {
   ASSERT_TRUE(result.ok) << result.error_message;
   const auto waitcnt_slot_ids = WaveStepSlotIdsForPeu(trace.events(), "s_waitcnt", 0);
   EXPECT_GE(waitcnt_slot_ids.size(), 2u);
-  bool saw_waitcnt_global_stall = false;
-  for (const auto& event : trace.events()) {
-    if (event.kind == TraceEventKind::Stall &&
-        event.message.find("reason=waitcnt_global") != std::string::npos) {
-      saw_waitcnt_global_stall = true;
-      break;
-    }
-  }
-  EXPECT_TRUE(saw_waitcnt_global_stall);
+  EXPECT_TRUE(HasStallReason(trace.events(), TraceStallReason::WaitCntGlobal));
 }
 
 TEST(AsyncMemoryCycleTest, WaitCntIgnoresGlobalWhenWaitingSharedOnly) {
@@ -388,17 +389,7 @@ TEST(AsyncMemoryCycleTest, WaitCntIgnoresGlobalWhenWaitingSharedOnly) {
   EXPECT_EQ(FirstWaveStepCycle(trace.events(), "s_waitcnt"), 16u);
   EXPECT_EQ(NthWaveStepCycle(trace.events(), "s_mov_b32", 3), 20u);
   EXPECT_EQ(result.total_cycles, 32u);
-  bool saw_waitcnt_global_stall = false;
-  // Ensure this shared-only waitcnt never gets mislabeled as global.
-  for (const auto& event : trace.events()) {
-    if (event.kind != TraceEventKind::Stall) {
-      continue;
-    }
-    if (event.message.find("reason=waitcnt_global") != std::string::npos) {
-      saw_waitcnt_global_stall = true;
-    }
-  }
-  EXPECT_FALSE(saw_waitcnt_global_stall);
+  EXPECT_FALSE(HasStallReason(trace.events(), TraceStallReason::WaitCntGlobal));
 }
 
 TEST(AsyncMemoryCycleTest, WaitCntCanWaitForScalarBufferOnly) {

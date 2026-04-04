@@ -30,6 +30,8 @@ class CycleTimelineRenderer {
                                  CycleTimelineOptions options = {});
   static std::string RenderGoogleTrace(const std::vector<TraceEvent>& events,
                                        CycleTimelineOptions options = {});
+  static std::string RenderPerfettoTraceProto(const std::vector<TraceEvent>& events,
+                                              CycleTimelineOptions options = {});
 };
 
 }  // namespace gpu_model

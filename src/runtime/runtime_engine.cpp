@@ -9,6 +9,7 @@
 #include <thread>
 
 #include "gpu_model/arch/arch_registry.h"
+#include "gpu_model/debug/trace_event_builder.h"
 #include "gpu_model/execution/cycle_exec_engine.h"
 #include "gpu_model/execution/functional_exec_engine.h"
 #include "gpu_model/execution/encoded_exec_engine.h"
@@ -302,14 +303,11 @@ LaunchResult RuntimeEngineImpl::Launch(const LaunchRequest& request) {
                                     : 0;
       result.begin_cycle = result.submit_cycle + spec->launch_timing.kernel_launch_cycles;
     }
-    trace.OnEvent(TraceEvent{
-        .kind = TraceEventKind::Launch,
-        .cycle = result.submit_cycle,
-        .message = "kernel=" +
-                   (use_encoded_program_object ? encoded_program_object->kernel_name
-                                               : kernel->name()) +
-                   " arch=" + spec->name,
-    });
+    trace.OnEvent(MakeTraceRuntimeLaunchEvent(
+        result.submit_cycle,
+        "kernel=" + (use_encoded_program_object ? encoded_program_object->kernel_name
+                                                : kernel->name()) +
+            " arch=" + spec->name));
 
     result.placement = Mapper::Place(*spec, request.config);
     for (const auto& block : result.placement.blocks) {
@@ -317,13 +315,11 @@ LaunchResult RuntimeEngineImpl::Launch(const LaunchRequest& request) {
       message << "block=" << block.block_id << " block_xyz=(" << block.block_idx_x << ","
               << block.block_idx_y << "," << block.block_idx_z << ") dpc=" << block.dpc_id << " ap=" << block.ap_id
               << " waves=" << block.waves.size();
-      trace.OnEvent(TraceEvent{
-          .kind = TraceEventKind::BlockPlaced,
-          .dpc_id = block.dpc_id,
-          .ap_id = block.ap_id,
-          .block_id = block.block_id,
-          .message = message.str(),
-      });
+      trace.OnEvent(MakeTraceBlockPlacedEvent(block.dpc_id,
+                                              block.ap_id,
+                                              block.block_id,
+                                              result.submit_cycle,
+                                              message.str()));
     }
     if (request.mode == ExecutionMode::Functional) {
         if (use_encoded_program_object) {

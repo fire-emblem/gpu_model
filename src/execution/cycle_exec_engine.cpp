@@ -17,6 +17,7 @@
 
 #include "gpu_model/debug/instruction_trace.h"
 #include "gpu_model/debug/trace_event.h"
+#include "gpu_model/debug/trace_event_builder.h"
 #include "gpu_model/debug/wave_launch_trace.h"
 #include "gpu_model/execution/internal/barrier_resource_pool.h"
 #include "gpu_model/execution/internal/cycle_issue_policy.h"
@@ -494,14 +495,17 @@ uint64_t WaveTag(const WaveContext& wave) {
 }
 
 constexpr std::string_view kStallReasonBarrierSlotUnavailable = "barrier_slot_unavailable";
-constexpr std::string_view kStallReasonWarpSwitch = "warp_switch";
 
-std::string FormatCycleStallMessage(std::string_view reason) {
-  constexpr std::string_view kPrefix = "reason=";
-  if (reason.starts_with(kPrefix)) {
-    return std::string(reason);
-  }
-  return std::string(kPrefix) + std::string(reason);
+TraceWaveView MakeTraceWaveView(const ScheduledWave& wave, uint32_t slot_id) {
+  return TraceWaveView{
+      .dpc_id = wave.wave.dpc_id,
+      .ap_id = wave.wave.ap_id,
+      .peu_id = wave.wave.peu_id,
+      .slot_id = slot_id,
+      .block_id = wave.wave.block_id,
+      .wave_id = wave.wave.wave_id,
+      .pc = wave.wave.pc,
+  };
 }
 
 void ScheduleWaveLaunch(ScheduledWave& scheduled_wave,
@@ -523,18 +527,10 @@ void ScheduleWaveLaunch(ScheduledWave& scheduled_wave,
     wave.dispatch_enabled = true;
     wave.wave.status = WaveStatus::Active;
     wave.wave.valid_entry = true;
-    trace.OnEvent(TraceEvent{
-        .kind = TraceEventKind::WaveLaunch,
-        .cycle = wave.launch_cycle,
-        .dpc_id = wave.wave.dpc_id,
-        .ap_id = wave.wave.ap_id,
-        .peu_id = wave.wave.peu_id,
-        .slot_id = TraceSlotId(wave),
-        .block_id = wave.wave.block_id,
-        .wave_id = wave.wave.wave_id,
-        .pc = wave.wave.pc,
-        .message = "wave_start " + FormatWaveLaunchTraceMessage(wave.wave),
-    });
+    trace.OnEvent(MakeTraceWaveLaunchEvent(MakeTraceWaveView(wave, TraceSlotId(wave)),
+                                           wave.launch_cycle,
+                                           FormatWaveLaunchTraceMessage(wave.wave),
+                                           TraceSlotModelKind::ResidentFixed));
   };
   if (immediate) {
     activate_launch(scheduled_wave);
@@ -723,14 +719,12 @@ void ActivateBlock(ExecutableBlock& block,
                    EventQueue& events,
                    TraceSink& trace) {
   block.active = true;
-  trace.OnEvent(TraceEvent{
-      .kind = TraceEventKind::BlockLaunch,
-      .cycle = cycle,
-      .dpc_id = block.dpc_id,
-      .ap_id = block.ap_id,
-      .block_id = block.block_id,
-      .message = "ap=" + std::to_string(block.ap_id),
-  });
+  trace.OnEvent(MakeTraceBlockEvent(block.dpc_id,
+                                    block.ap_id,
+                                    block.block_id,
+                                    TraceEventKind::BlockLaunch,
+                                    cycle,
+                                    "ap=" + std::to_string(block.ap_id)));
   std::vector<size_t> touched_slots;
   for (auto& scheduled_wave : block.waves) {
     scheduled_wave.wave.status = WaveStatus::Stalled;
@@ -1035,18 +1029,11 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
       if (bundle.selected_candidate_indices.empty()) {
         if (const auto blocked =
                 PickFirstBlockedResidentWave(slot, context.kernel, cycle, ap_states)) {
-          context.trace.OnEvent(TraceEvent{
-              .kind = TraceEventKind::Stall,
-              .cycle = cycle,
-              .dpc_id = blocked->first->wave.dpc_id,
-              .ap_id = blocked->first->wave.ap_id,
-              .peu_id = blocked->first->wave.peu_id,
-              .slot_id = TraceSlotId(*blocked->first),
-              .block_id = blocked->first->wave.block_id,
-              .wave_id = blocked->first->wave.wave_id,
-              .pc = blocked->first->wave.pc,
-              .message = FormatCycleStallMessage(blocked->second),
-          });
+          context.trace.OnEvent(MakeTraceWaitStallEvent(
+              MakeTraceWaveView(*blocked->first, TraceSlotId(*blocked->first)),
+              cycle,
+              TraceStallReasonFromMessage(MakeTraceStallReasonMessage(blocked->second)),
+              TraceSlotModelKind::ResidentFixed));
         }
         continue;
       }
@@ -1067,18 +1054,10 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
           ++context.stats->wave_steps;
           ++context.stats->instructions_issued;
         }
-        context.trace.OnEvent(TraceEvent{
-            .kind = TraceEventKind::WaveStep,
-            .cycle = cycle,
-            .dpc_id = wave.dpc_id,
-            .ap_id = wave.ap_id,
-            .peu_id = wave.peu_id,
-            .slot_id = slot_id,
-            .block_id = wave.block_id,
-            .wave_id = wave.wave_id,
-            .pc = wave.pc,
-            .message = FormatWaveStepMessage(instruction, wave),
-        });
+        context.trace.OnEvent(MakeTraceWaveStepEvent(MakeTraceWaveView(*candidate, slot_id),
+                                                     cycle,
+                                                     TraceSlotModelKind::ResidentFixed,
+                                                     FormatWaveStepMessage(instruction, wave)));
 
         const OpPlan plan = semantics_.BuildPlan(instruction, wave, context);
         const uint64_t wave_tag = WaveTag(wave);
@@ -1088,18 +1067,8 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                 ? timing_config_.launch_timing.warp_switch_cycles
                 : 0;
         if (switch_penalty > 0) {
-          context.trace.OnEvent(TraceEvent{
-              .kind = TraceEventKind::Stall,
-              .cycle = cycle,
-              .dpc_id = wave.dpc_id,
-              .ap_id = wave.ap_id,
-              .peu_id = wave.peu_id,
-              .slot_id = slot_id,
-              .block_id = wave.block_id,
-              .wave_id = wave.wave_id,
-              .pc = wave.pc,
-              .message = FormatCycleStallMessage(kStallReasonWarpSwitch),
-          });
+          context.trace.OnEvent(MakeTraceWaveSwitchStallEvent(
+              MakeTraceWaveView(*candidate, slot_id), cycle, TraceSlotModelKind::ResidentFixed));
         }
         const uint64_t commit_cycle = cycle + switch_penalty + plan.issue_cycles;
         bundle_commit_cycle = std::max(bundle_commit_cycle, commit_cycle);
@@ -1140,18 +1109,12 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
               ++context.stats->constant_loads;
             }
           }
-          context.trace.OnEvent(TraceEvent{
-              .kind = TraceEventKind::MemoryAccess,
-              .cycle = cycle,
-              .dpc_id = wave.dpc_id,
-              .ap_id = wave.ap_id,
-              .peu_id = wave.peu_id,
-              .slot_id = slot_id,
-              .block_id = wave.block_id,
-              .wave_id = wave.wave_id,
-              .pc = wave.pc,
-              .message = plan.memory->kind == AccessKind::Load ? "load_issue" : "store_issue",
-          });
+          context.trace.OnEvent(MakeTraceWaveEvent(
+              MakeTraceWaveView(*candidate, slot_id),
+              TraceEventKind::MemoryAccess,
+              cycle,
+              TraceSlotModelKind::ResidentFixed,
+              plan.memory->kind == AccessKind::Load ? "load_issue" : "store_issue"));
         }
 
         MarkPlanWritesPending(instruction, plan, candidate->scoreboard, commit_cycle);
@@ -1165,32 +1128,17 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                 ApplyExecutionPlanRegisterWrites(plan, candidate->wave);
                 if (const auto mask_text = MaybeFormatExecutionMaskUpdate(plan, candidate->wave);
                     mask_text.has_value()) {
-                  context.trace.OnEvent(TraceEvent{
-                      .kind = TraceEventKind::ExecMaskUpdate,
-                      .cycle = commit_cycle,
-                      .dpc_id = candidate->wave.dpc_id,
-                      .ap_id = candidate->wave.ap_id,
-                      .peu_id = candidate->wave.peu_id,
-                      .slot_id = slot_id,
-                      .block_id = candidate->wave.block_id,
-                      .wave_id = candidate->wave.wave_id,
-                      .pc = candidate->wave.pc,
-                      .message = *mask_text,
-                  });
+                  context.trace.OnEvent(MakeTraceWaveEvent(MakeTraceWaveView(*candidate, slot_id),
+                                                           TraceEventKind::ExecMaskUpdate,
+                                                           commit_cycle,
+                                                           TraceSlotModelKind::ResidentFixed,
+                                                           *mask_text));
                 }
 
-                context.trace.OnEvent(TraceEvent{
-                    .kind = TraceEventKind::Commit,
-                    .cycle = commit_cycle,
-                    .dpc_id = candidate->wave.dpc_id,
-                    .ap_id = candidate->wave.ap_id,
-                    .peu_id = candidate->wave.peu_id,
-                    .slot_id = slot_id,
-                    .block_id = candidate->wave.block_id,
-                    .wave_id = candidate->wave.wave_id,
-                    .pc = candidate->wave.pc,
-                    .message = std::string(ToString(instruction.opcode)),
-                });
+                context.trace.OnEvent(MakeTraceCommitEvent(
+                    MakeTraceWaveView(*candidate, slot_id),
+                    commit_cycle,
+                    TraceSlotModelKind::ResidentFixed));
 
                 if (plan.memory.has_value()) {
                   const MemoryRequest request = *plan.memory;
@@ -1254,19 +1202,12 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                                 }
                               }
 
-                              context.trace.OnEvent(TraceEvent{
-                                  .kind = TraceEventKind::Arrive,
-                                  .cycle = arrive_cycle,
-                                  .dpc_id = candidate->wave.dpc_id,
-                                  .ap_id = candidate->wave.ap_id,
-                                  .peu_id = candidate->wave.peu_id,
-                                  .slot_id = slot_id,
-                                  .block_id = candidate->wave.block_id,
-                                  .wave_id = candidate->wave.wave_id,
-                                  .pc = candidate->wave.pc,
-                                  .message = request.kind == AccessKind::Load ? "load_arrive"
-                                                                              : "store_arrive",
-                              });
+                              context.trace.OnEvent(MakeTraceMemoryArriveEvent(
+                                  MakeTraceWaveView(*candidate, slot_id),
+                                  arrive_cycle,
+                                  request.kind == AccessKind::Load ? TraceMemoryArriveKind::Load
+                                                                   : TraceMemoryArriveKind::Store,
+                                  TraceSlotModelKind::ResidentFixed));
                               DecrementPendingMemoryOps(candidate->wave, MemoryWaitDomain::Global);
                               candidate->wave.valid_entry = true;
                               if (candidate->wave.status != WaveStatus::Exited &&
@@ -1421,18 +1362,10 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                   if (context.stats != nullptr) {
                     ++context.stats->barriers;
                   }
-                  context.trace.OnEvent(TraceEvent{
-                      .kind = TraceEventKind::Barrier,
-                      .cycle = commit_cycle,
-                      .dpc_id = candidate->wave.dpc_id,
-                      .ap_id = candidate->wave.ap_id,
-                      .peu_id = candidate->wave.peu_id,
-                      .slot_id = slot_id,
-                      .block_id = candidate->wave.block_id,
-                      .wave_id = candidate->wave.wave_id,
-                      .pc = candidate->wave.pc,
-                      .message = "wave",
-                  });
+                  context.trace.OnEvent(MakeTraceBarrierWaveEvent(
+                      MakeTraceWaveView(*candidate, slot_id),
+                      commit_cycle,
+                      TraceSlotModelKind::ResidentFixed));
                   if (plan.branch_target.has_value()) {
                     candidate->wave.pc = *plan.branch_target;
                   } else if (plan.advance_pc) {
@@ -1462,18 +1395,10 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                                               true);
                   PeuSlot& peu_slot = slots.at(candidate->peu_slot_index);
                   DeactivateResidentSlot(ResidentSlotForWave(peu_slot, *candidate));
-                  context.trace.OnEvent(TraceEvent{
-                      .kind = TraceEventKind::Barrier,
-                      .cycle = commit_cycle,
-                      .dpc_id = candidate->wave.dpc_id,
-                      .ap_id = candidate->wave.ap_id,
-                      .peu_id = candidate->wave.peu_id,
-                      .slot_id = slot_id,
-                      .block_id = candidate->wave.block_id,
-                      .wave_id = candidate->wave.wave_id,
-                      .pc = candidate->wave.pc,
-                      .message = "arrive",
-                  });
+                  context.trace.OnEvent(MakeTraceBarrierArriveEvent(
+                      MakeTraceWaveView(*candidate, slot_id),
+                      commit_cycle,
+                      TraceSlotModelKind::ResidentFixed));
                   RefillActiveWindow(peu_slot,
                                      commit_cycle,
                                      context.spec.max_issuable_waves,
@@ -1502,18 +1427,11 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                                                       true)) {
                     ReleaseBarrierSlot(ap_state.barrier_slots_in_use,
                                        candidate->block->barrier_slot_acquired);
-                    context.trace.OnEvent(TraceEvent{
-                        .kind = TraceEventKind::Barrier,
-                        .cycle = commit_cycle,
-                        .dpc_id = candidate->wave.dpc_id,
-                        .ap_id = candidate->wave.ap_id,
-                        .peu_id = candidate->wave.peu_id,
-                        .slot_id = slot_id,
-                        .block_id = candidate->wave.block_id,
-                        .wave_id = candidate->wave.wave_id,
-                        .pc = candidate->wave.pc,
-                        .message = "release",
-                    });
+                    context.trace.OnEvent(MakeTraceBarrierReleaseEvent(
+                        candidate->block->dpc_id,
+                        candidate->block->ap_id,
+                        candidate->block->block_id,
+                        commit_cycle));
                     std::vector<size_t> refill_slots;
                     refill_slots.reserve(barrier_generation_waves.size());
                     for (ScheduledWave* released_wave : barrier_generation_waves) {
@@ -1548,18 +1466,10 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                   ApplyExecutionPlanControlFlow(plan, candidate->wave, false, false);
                   PeuSlot& peu_slot = slots.at(candidate->peu_slot_index);
                   RemoveResidentWave(peu_slot, *candidate);
-                  context.trace.OnEvent(TraceEvent{
-                      .kind = TraceEventKind::WaveExit,
-                      .cycle = commit_cycle,
-                      .dpc_id = candidate->wave.dpc_id,
-                      .ap_id = candidate->wave.ap_id,
-                      .peu_id = candidate->wave.peu_id,
-                      .slot_id = slot_id,
-                      .block_id = candidate->wave.block_id,
-                      .wave_id = candidate->wave.wave_id,
-                      .pc = candidate->wave.pc,
-                      .message = "wave_end",
-                  });
+                  context.trace.OnEvent(MakeTraceWaveExitEvent(
+                      MakeTraceWaveView(*candidate, slot_id),
+                      commit_cycle,
+                      TraceSlotModelKind::ResidentFixed));
                   if (candidate->block->active && !candidate->block->completed &&
                       AllWavesExited(*candidate->block)) {
                     candidate->block->active = false;

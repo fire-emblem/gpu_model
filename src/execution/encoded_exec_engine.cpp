@@ -27,6 +27,7 @@
 #include "gpu_model/execution/internal/tensor_op_utils.h"
 #include "gpu_model/execution/internal/issue_eligibility.h"
 #include "gpu_model/debug/wave_launch_trace.h"
+#include "gpu_model/debug/trace_event_builder.h"
 #include "gpu_model/instruction/encoded/internal/encoded_instruction_descriptor.h"
 #include "gpu_model/execution/sync_ops.h"
 #include "gpu_model/execution/wave_context_builder.h"
@@ -43,12 +44,15 @@ namespace gpu_model {
 namespace {
 
 constexpr uint8_t kEncodedPendingMemoryCompletionTurns = 5;
+constexpr uint32_t kInvalidTraceSlotId = std::numeric_limits<uint32_t>::max();
 
 struct RawWave {
   size_t block_index = 0;
   size_t wave_index = 0;
   WaveContext wave;
   uint64_t vcc = 0;
+  uint32_t logical_slot_id = 0;
+  uint32_t resident_slot_id = kInvalidTraceSlotId;
   bool dispatch_enabled = false;
   bool launch_scheduled = false;
   uint64_t launch_cycle = 0;
@@ -60,7 +64,7 @@ struct EncodedPendingMemoryOp {
   uint8_t turns_until_complete = kEncodedPendingMemoryCompletionTurns;
   uint64_t ready_cycle = 0;
   bool uses_ready_cycle = false;
-  const char* arrive_message = nullptr;
+  std::optional<TraceMemoryArriveKind> arrive_kind;
 };
 
 struct EncodedWaveState {
@@ -122,9 +126,6 @@ struct EncodedExecutedWaveStep {
   ExecutedStepClass step_class = ExecutedStepClass::ScalarAlu;
   uint64_t cost_cycles = 0;
 };
-
-bool DebugEnabled();
-void DebugLog(const char* fmt, ...);
 
 void WriteWaveSgprPair(WaveContext& wave, uint32_t first, uint64_t value) {
   wave.sgpr.Write(first, static_cast<uint32_t>(value & 0xffffffffu));
@@ -400,22 +401,6 @@ void InitializeWaveAbiState(WaveContext& wave,
   }
 }
 
-bool DebugEnabled() {
-  return std::getenv("GPU_MODEL_ENCODED_EXEC_DEBUG") != nullptr;
-}
-
-void DebugLog(const char* fmt, ...) {
-  if (!DebugEnabled()) {
-    return;
-  }
-  va_list args;
-  va_start(args, fmt);
-  std::fputs("[gpu_model_encoded_exec] ", stderr);
-  std::vfprintf(stderr, fmt, args);
-  std::fputc('\n', stderr);
-  va_end(args);
-}
-
 std::string HexU64(uint64_t value) {
   std::ostringstream out;
   out << "0x" << std::hex << std::nouppercase << value;
@@ -443,11 +428,6 @@ bool IsBranchMnemonic(std::string_view mnemonic) {
 
 bool IsMaskMnemonic(std::string_view mnemonic) {
   return mnemonic.find("exec") != std::string_view::npos;
-}
-
-bool IsLoadMnemonic(std::string_view mnemonic) {
-  return mnemonic.find("load") != std::string_view::npos ||
-         mnemonic.find("read") != std::string_view::npos;
 }
 
 uint64_t ResolveEncodedIssueCycles(std::string_view mnemonic,
@@ -825,9 +805,41 @@ std::optional<WaveWaitReason> WaitCntBlockReasonForDecodedInstruction(
   return std::nullopt;
 }
 
-bool WaitCntSatisfiedForDecodedInstruction(const WaveContext& wave,
-                                           const DecodedInstruction& instruction) {
-  return !WaitCntBlockReasonForDecodedInstruction(wave, instruction).has_value();
+TraceStallReason TraceStallReasonForWaveWaitReason(WaveWaitReason reason) {
+  switch (reason) {
+    case WaveWaitReason::PendingGlobalMemory:
+      return TraceStallReason::WaitCntGlobal;
+    case WaveWaitReason::PendingSharedMemory:
+      return TraceStallReason::WaitCntShared;
+    case WaveWaitReason::PendingPrivateMemory:
+      return TraceStallReason::WaitCntPrivate;
+    case WaveWaitReason::PendingScalarBufferMemory:
+      return TraceStallReason::WaitCntScalarBuffer;
+    case WaveWaitReason::None:
+    case WaveWaitReason::BlockBarrier:
+      return TraceStallReason::None;
+  }
+  return TraceStallReason::None;
+}
+
+TraceMemoryArriveKind TraceMemoryArriveKindForMemoryOp(
+    MemoryWaitDomain domain,
+    const std::optional<MemoryRequest>& request) {
+  switch (domain) {
+    case MemoryWaitDomain::Global:
+      return request.has_value() && request->kind == AccessKind::Load
+                 ? TraceMemoryArriveKind::Load
+                 : TraceMemoryArriveKind::Store;
+    case MemoryWaitDomain::Shared:
+      return TraceMemoryArriveKind::Shared;
+    case MemoryWaitDomain::Private:
+      return TraceMemoryArriveKind::Private;
+    case MemoryWaitDomain::ScalarBuffer:
+      return TraceMemoryArriveKind::ScalarBuffer;
+    case MemoryWaitDomain::None:
+      return TraceMemoryArriveKind::Load;
+  }
+  return TraceMemoryArriveKind::Load;
 }
 
 void RecordPendingMemoryOp(EncodedWaveState& state,
@@ -837,14 +849,17 @@ void RecordPendingMemoryOp(EncodedWaveState& state,
     return;
   }
   IncrementPendingMemoryOps(wave, domain);
-  state.pending_memory_ops.push_back(EncodedPendingMemoryOp{.domain = domain});
+  state.pending_memory_ops.push_back(EncodedPendingMemoryOp{
+      .domain = domain,
+      .arrive_kind = std::nullopt,
+  });
 }
 
 void RecordPendingMemoryOp(EncodedWaveState& state,
                            WaveContext& wave,
                            MemoryWaitDomain domain,
                            uint64_t ready_cycle,
-                           const char* arrive_message) {
+                           TraceMemoryArriveKind arrive_kind) {
   if (domain == MemoryWaitDomain::None) {
     return;
   }
@@ -854,7 +869,7 @@ void RecordPendingMemoryOp(EncodedWaveState& state,
       .turns_until_complete = 0,
       .ready_cycle = ready_cycle,
       .uses_ready_cycle = true,
-      .arrive_message = arrive_message,
+      .arrive_kind = arrive_kind,
   });
 }
 
@@ -1056,6 +1071,7 @@ std::vector<RawBlock> MaterializeRawBlocks(const PlacementMap& placement,
                                            uint32_t shared_bytes) {
   config.shared_memory_bytes = shared_bytes;
   const auto shared_blocks = BuildWaveContextBlocks(placement, config);
+  std::map<std::tuple<uint32_t, uint32_t, uint32_t>, uint32_t> next_slot_per_peu;
   std::vector<RawBlock> blocks;
   blocks.reserve(shared_blocks.size());
   for (const auto& shared_block : shared_blocks) {
@@ -1078,7 +1094,11 @@ std::vector<RawBlock> MaterializeRawBlocks(const PlacementMap& placement,
           .block_index = block_index,
           .wave_index = wave_index,
           .wave = shared_block.waves[wave_index],
-      });
+          .logical_slot_id =
+              next_slot_per_peu[std::make_tuple(shared_block.waves[wave_index].dpc_id,
+                                                shared_block.waves[wave_index].ap_id,
+                                                shared_block.waves[wave_index].peu_id)]++,
+          });
     }
     for (size_t wave_index = 0; wave_index < block.waves.size(); ++wave_index) {
       const auto peu_id = block.waves[wave_index].wave.peu_id;
@@ -1187,6 +1207,42 @@ class EncodedExecutionCore {
   uint64_t cycle_total_cycles_ = 0;
   uint64_t max_trace_cycle_ = 0;
 
+  TraceSlotModelKind TraceSlotModel() const {
+    return execution_mode_ == ExecutionMode::Cycle ? TraceSlotModelKind::ResidentFixed
+                                                   : TraceSlotModelKind::LogicalUnbounded;
+  }
+
+  uint32_t TraceSlotId(const RawWave& raw_wave) const {
+    if (execution_mode_ == ExecutionMode::Cycle &&
+        raw_wave.resident_slot_id != kInvalidTraceSlotId) {
+      return raw_wave.resident_slot_id;
+    }
+    return raw_wave.logical_slot_id;
+  }
+
+  TraceWaveView MakeRawTraceWaveView(const RawWave& raw_wave) const {
+    return TraceWaveView{.dpc_id = raw_wave.wave.dpc_id,
+                         .ap_id = raw_wave.wave.ap_id,
+                         .peu_id = raw_wave.wave.peu_id,
+                         .slot_id = TraceSlotId(raw_wave),
+                         .block_id = raw_wave.wave.block_id,
+                         .wave_id = raw_wave.wave.wave_id,
+                         .pc = raw_wave.wave.pc};
+  }
+
+  TraceEvent MakeRawWaveTraceEvent(const RawWave& raw_wave,
+                                   TraceEventKind kind,
+                                   uint64_t cycle,
+                                   std::string message,
+                                   uint64_t pc = std::numeric_limits<uint64_t>::max()) const {
+    return MakeTraceWaveEvent(MakeRawTraceWaveView(raw_wave),
+                              kind,
+                              cycle,
+                              TraceSlotModel(),
+                              std::move(message),
+                              pc);
+  }
+
   void InitializeWaveLaunchState() {
     for (const auto& raw_block : raw_blocks_) {
       l1_caches_.try_emplace(std::make_pair(raw_block.dpc_id, raw_block.ap_id),
@@ -1203,21 +1259,14 @@ class EncodedExecutionCore {
           continue;
         }
         const auto launch_summary = BuildWaveLaunchAbiSummary(raw_wave.wave, image_.kernel_descriptor);
-        TraceEventLocked(TraceEvent{
-            .kind = TraceEventKind::WaveLaunch,
-            .cycle = 0,
-            .dpc_id = raw_wave.wave.dpc_id,
-            .ap_id = raw_wave.wave.ap_id,
-            .peu_id = raw_wave.wave.peu_id,
-            .block_id = raw_wave.wave.block_id,
-            .wave_id = raw_wave.wave.wave_id,
-            .pc = raw_wave.wave.pc,
-            .message = FormatWaveLaunchTraceMessage(
-                raw_wave.wave,
-                &launch_summary,
-                WaveLaunchTraceScalarRegs(image_.kernel_descriptor),
-                WaveLaunchTraceVectorRegs(image_.kernel_descriptor)),
-        });
+        TraceEventLocked(MakeTraceWaveLaunchEvent(
+            MakeRawTraceWaveView(raw_wave),
+            0,
+            FormatWaveLaunchTraceMessage(raw_wave.wave,
+                                         &launch_summary,
+                                         WaveLaunchTraceScalarRegs(image_.kernel_descriptor),
+                                         WaveLaunchTraceVectorRegs(image_.kernel_descriptor)),
+            TraceSlotModel()));
       }
     }
   }
@@ -1334,6 +1383,24 @@ class EncodedExecutionCore {
     remove_if_present(slot.resident_waves);
     remove_if_present(slot.active_window);
     remove_if_present(slot.standby_waves);
+    const uint32_t capacity = ResidentWaveSlotCapacityPerPeu();
+    uint32_t resident_slot_id = 0;
+    for (; resident_slot_id < capacity; ++resident_slot_id) {
+      const bool occupied = std::any_of(
+          slot.resident_waves.begin(),
+          slot.resident_waves.end(),
+          [resident_slot_id](const RawWave* resident_wave) {
+            return resident_wave != nullptr &&
+                   resident_wave->resident_slot_id == resident_slot_id;
+          });
+      if (!occupied) {
+        break;
+      }
+    }
+    if (resident_slot_id >= capacity) {
+      throw std::runtime_error("no resident trace slot available for encoded wave");
+    }
+    raw_wave.resident_slot_id = resident_slot_id;
     raw_wave.dispatch_enabled = false;
     raw_wave.wave.status = WaveStatus::Stalled;
     slot.resident_waves.push_back(&raw_wave);
@@ -1358,6 +1425,7 @@ class EncodedExecutionCore {
                                          slot.standby_waves.end(),
                                          &raw_wave),
                              slot.standby_waves.end());
+    raw_wave.resident_slot_id = kInvalidTraceSlotId;
   }
 
   void QueueResidentWaveForRefill(EncodedPeuSlot& slot, RawWave& raw_wave) {
@@ -1402,21 +1470,14 @@ class EncodedExecutionCore {
         raw_wave->wave.status = WaveStatus::Active;
         raw_wave->wave.valid_entry = true;
         const auto launch_summary = BuildWaveLaunchAbiSummary(raw_wave->wave, image_.kernel_descriptor);
-        TraceEventLocked(TraceEvent{
-            .kind = TraceEventKind::WaveLaunch,
-            .cycle = cycle,
-            .dpc_id = raw_wave->wave.dpc_id,
-            .ap_id = raw_wave->wave.ap_id,
-            .peu_id = raw_wave->wave.peu_id,
-            .block_id = raw_wave->wave.block_id,
-            .wave_id = raw_wave->wave.wave_id,
-            .pc = raw_wave->wave.pc,
-            .message = FormatWaveLaunchTraceMessage(
-                raw_wave->wave,
-                &launch_summary,
-                WaveLaunchTraceScalarRegs(image_.kernel_descriptor),
-                WaveLaunchTraceVectorRegs(image_.kernel_descriptor)),
-        });
+        TraceEventLocked(MakeTraceWaveLaunchEvent(
+            MakeRawTraceWaveView(*raw_wave),
+            cycle,
+            FormatWaveLaunchTraceMessage(raw_wave->wave,
+                                         &launch_summary,
+                                         WaveLaunchTraceScalarRegs(image_.kernel_descriptor),
+                                         WaveLaunchTraceVectorRegs(image_.kernel_descriptor)),
+            TraceSlotModel()));
       }
     }
   }
@@ -1424,14 +1485,12 @@ class EncodedExecutionCore {
   void ActivateBlock(size_t block_index, uint64_t cycle) {
     auto& block = raw_blocks_[block_index];
     block.active = true;
-    TraceEventLocked(TraceEvent{
-        .kind = TraceEventKind::BlockLaunch,
-        .cycle = cycle,
-        .dpc_id = block.dpc_id,
-        .ap_id = block.ap_id,
-        .block_id = block.block_id,
-        .message = "ap=" + std::to_string(block.ap_id),
-    });
+    TraceEventLocked(MakeTraceBlockEvent(block.dpc_id,
+                                         block.ap_id,
+                                         block.block_id,
+                                         TraceEventKind::BlockLaunch,
+                                         cycle,
+                                         "ap=" + std::to_string(block.ap_id)));
     std::vector<size_t> touched_slots;
     for (auto& raw_wave : block.waves) {
       raw_wave.wave.status = WaveStatus::Stalled;
@@ -1605,17 +1664,9 @@ class EncodedExecutionCore {
                   ? timing_config_.launch_timing.warp_switch_cycles
                   : 0;
           if (switch_penalty > 0) {
-            TraceEventLocked(TraceEvent{
-                .kind = TraceEventKind::Stall,
-                .cycle = cycle,
-                .dpc_id = raw_wave->wave.dpc_id,
-                .ap_id = raw_wave->wave.ap_id,
-                .peu_id = raw_wave->wave.peu_id,
-                .block_id = raw_wave->wave.block_id,
-                .wave_id = raw_wave->wave.wave_id,
-                .pc = raw_wave->wave.pc,
-                .message = "warp_switch",
-            });
+            TraceEventLocked(MakeTraceWaveSwitchStallEvent(MakeRawTraceWaveView(*raw_wave),
+                                                           cycle,
+                                                           TraceSlotModel()));
           }
           const uint64_t issue_cycles = ExecuteWaveCycle(raw_blocks_[raw_wave->block_index],
                                                          raw_wave->wave_index,
@@ -1878,20 +1929,13 @@ class EncodedExecutionCore {
                                             cycle,
                                             &completed_ops) || progressed;
         for (const auto& op : completed_ops) {
-          if (op.arrive_message == nullptr) {
+          if (!op.arrive_kind.has_value()) {
             continue;
           }
-          TraceEventLocked(TraceEvent{
-              .kind = TraceEventKind::Arrive,
-              .cycle = cycle,
-              .dpc_id = block.waves[i].wave.dpc_id,
-              .ap_id = block.waves[i].wave.ap_id,
-              .peu_id = block.waves[i].wave.peu_id,
-              .block_id = block.waves[i].wave.block_id,
-              .wave_id = block.waves[i].wave.wave_id,
-              .pc = block.waves[i].wave.pc,
-              .message = op.arrive_message,
-          });
+          TraceEventLocked(MakeTraceMemoryArriveEvent(MakeRawTraceWaveView(block.waves[i]),
+                                                      cycle,
+                                                      *op.arrive_kind,
+                                                      TraceSlotModel()));
         }
       }
       for (size_t i = 0; i < block.waves.size(); ++i) {
@@ -1923,14 +1967,8 @@ class EncodedExecutionCore {
       if (released) {
         auto& ap_state = cycle_ap_states_.at(block.global_ap_id);
         ReleaseBarrierSlot(ap_state.barrier_slots_in_use, block.barrier_slot_acquired);
-        TraceEventLocked(TraceEvent{
-            .kind = TraceEventKind::Barrier,
-            .cycle = cycle,
-            .dpc_id = block.dpc_id,
-            .ap_id = block.ap_id,
-            .block_id = block.block_id,
-            .message = "release",
-        });
+        TraceEventLocked(
+            MakeTraceBarrierReleaseEvent(block.dpc_id, block.ap_id, block.block_id, cycle));
         std::vector<size_t> refill_slots;
         for (auto& raw_wave : block.waves) {
           if (raw_wave.wave.waiting_at_barrier || raw_wave.wave.status == WaveStatus::Exited) {
@@ -2016,17 +2054,8 @@ class EncodedExecutionCore {
                                             cycle_stats_config_));
     }
 
-    TraceEventLocked(TraceEvent{
-        .kind = TraceEventKind::WaveStep,
-        .cycle = 0,
-        .dpc_id = wave.dpc_id,
-        .ap_id = wave.ap_id,
-        .peu_id = wave.peu_id,
-        .block_id = wave.block_id,
-        .wave_id = wave.wave_id,
-        .pc = wave.pc,
-        .message = FormatRawWaveStepMessage(decoded, object, wave),
-    });
+    TraceEventLocked(MakeRawWaveTraceEvent(
+        raw_wave, TraceEventKind::WaveStep, 0, FormatRawWaveStepMessage(decoded, object, wave)));
 
     if (decoded.mnemonic == "s_waitcnt") {
       std::lock_guard<std::mutex> lock(*block.wave_state_mutex);
@@ -2035,20 +2064,11 @@ class EncodedExecutionCore {
         wave_state.waiting_waitcnt_thresholds = WaitCntThresholdsForDecodedInstruction(decoded);
         wave_state.waiting_resume_pc_increment = decoded.size_bytes;
         MarkWaveWaiting(wave, *wait_reason);
-        TraceEventLocked(TraceEvent{
-            .kind = TraceEventKind::Stall,
-            .cycle = 0,
-            .dpc_id = wave.dpc_id,
-            .ap_id = wave.ap_id,
-            .peu_id = wave.peu_id,
-            .block_id = wave.block_id,
-            .wave_id = wave.wave_id,
-            .pc = wave.pc,
-            .message = *wait_reason == WaveWaitReason::PendingGlobalMemory ? "waitcnt_global"
-                        : *wait_reason == WaveWaitReason::PendingSharedMemory ? "waitcnt_shared"
-                        : *wait_reason == WaveWaitReason::PendingPrivateMemory ? "waitcnt_private"
-                                                                              : "waitcnt_scalar_buffer",
-        });
+        TraceEventLocked(MakeTraceWaitStallEvent(
+            MakeRawTraceWaveView(raw_wave),
+            0,
+            TraceStallReasonForWaveWaitReason(*wait_reason),
+            TraceSlotModel()));
         CommitStats(step_stats);
         return;
       }
@@ -2132,28 +2152,10 @@ class EncodedExecutionCore {
                                             cycle_stats_config_));
     }
 
-    TraceEventLocked(TraceEvent{
-        .kind = TraceEventKind::WaveStep,
-        .cycle = cycle,
-        .dpc_id = wave.dpc_id,
-        .ap_id = wave.ap_id,
-        .peu_id = wave.peu_id,
-        .block_id = wave.block_id,
-        .wave_id = wave.wave_id,
-        .pc = wave.pc,
-        .message = FormatRawWaveStepMessage(decoded, object, wave),
-    });
-    TraceEventLocked(TraceEvent{
-        .kind = TraceEventKind::Commit,
-        .cycle = commit_cycle,
-        .dpc_id = wave.dpc_id,
-        .ap_id = wave.ap_id,
-        .peu_id = wave.peu_id,
-        .block_id = wave.block_id,
-        .wave_id = wave.wave_id,
-        .pc = wave.pc,
-        .message = decoded.mnemonic,
-    });
+    TraceEventLocked(MakeRawWaveTraceEvent(
+        raw_wave, TraceEventKind::WaveStep, cycle, FormatRawWaveStepMessage(decoded, object, wave)));
+    TraceEventLocked(
+        MakeTraceCommitEvent(MakeRawTraceWaveView(raw_wave), commit_cycle, TraceSlotModel()));
 
     if (decoded.mnemonic == "s_waitcnt") {
       std::lock_guard<std::mutex> lock(*block.wave_state_mutex);
@@ -2162,20 +2164,11 @@ class EncodedExecutionCore {
         wave_state.waiting_waitcnt_thresholds = WaitCntThresholdsForDecodedInstruction(decoded);
         wave_state.waiting_resume_pc_increment = decoded.size_bytes;
         MarkWaveWaiting(wave, *wait_reason);
-        TraceEventLocked(TraceEvent{
-            .kind = TraceEventKind::Stall,
-            .cycle = cycle,
-            .dpc_id = wave.dpc_id,
-            .ap_id = wave.ap_id,
-            .peu_id = wave.peu_id,
-            .block_id = wave.block_id,
-            .wave_id = wave.wave_id,
-            .pc = wave.pc,
-            .message = *wait_reason == WaveWaitReason::PendingGlobalMemory ? "waitcnt_global"
-                        : *wait_reason == WaveWaitReason::PendingSharedMemory ? "waitcnt_shared"
-                        : *wait_reason == WaveWaitReason::PendingPrivateMemory ? "waitcnt_private"
-                                                                              : "waitcnt_scalar_buffer",
-        });
+        TraceEventLocked(MakeTraceWaitStallEvent(
+            MakeRawTraceWaveView(raw_wave),
+            cycle,
+            TraceStallReasonForWaveWaitReason(*wait_reason),
+            TraceSlotModel()));
         CommitStats(step_stats);
         return issue_cycles;
       }
@@ -2204,12 +2197,12 @@ class EncodedExecutionCore {
     {
       std::lock_guard<std::mutex> lock(*block.wave_state_mutex);
       if (maybe_domain.has_value()) {
-        const char* arrive_message =
-            captured_memory_request.has_value() &&
-                    captured_memory_request->kind == AccessKind::Load
-                ? "load_arrive"
-                : "store_arrive";
-        RecordPendingMemoryOp(wave_state, wave, *maybe_domain, ready_cycle, arrive_message);
+        RecordPendingMemoryOp(wave_state,
+                              wave,
+                              *maybe_domain,
+                              ready_cycle,
+                              TraceMemoryArriveKindForMemoryOp(*maybe_domain,
+                                                               captured_memory_request));
         if (captured_memory_request.has_value() &&
             captured_memory_request->kind == AccessKind::Load) {
           wave_state.waiting_waitcnt_thresholds = ZeroThresholdForDomain(*maybe_domain);
@@ -2227,17 +2220,9 @@ class EncodedExecutionCore {
         if (!acquired) {
           return issue_cycles;
         }
-        TraceEventLocked(TraceEvent{
-            .kind = TraceEventKind::Barrier,
-            .cycle = cycle,
-            .dpc_id = wave.dpc_id,
-            .ap_id = wave.ap_id,
-            .peu_id = wave.peu_id,
-            .block_id = wave.block_id,
-            .wave_id = wave.wave_id,
-            .pc = wave.pc,
-            .message = "arrive",
-        });
+        TraceEventLocked(MakeTraceBarrierArriveEvent(MakeRawTraceWaveView(raw_wave),
+                                                     cycle,
+                                                     TraceSlotModel()));
         auto& slot = cycle_peu_slots_.at(raw_wave.peu_slot_index);
         RemoveWaveFromActiveWindow(slot, raw_wave);
         RefillActiveWindow(slot, cycle);
@@ -2245,17 +2230,8 @@ class EncodedExecutionCore {
       if (wave.status == WaveStatus::Exited) {
         wave.run_state = WaveRunState::Completed;
         wave.wait_reason = WaveWaitReason::None;
-        TraceEventLocked(TraceEvent{
-            .kind = TraceEventKind::WaveExit,
-            .cycle = cycle,
-            .dpc_id = wave.dpc_id,
-            .ap_id = wave.ap_id,
-            .peu_id = wave.peu_id,
-            .block_id = wave.block_id,
-            .wave_id = wave.wave_id,
-            .pc = wave.pc,
-            .message = "exit",
-        });
+        TraceEventLocked(
+            MakeTraceWaveExitEvent(MakeRawTraceWaveView(raw_wave), cycle, TraceSlotModel()));
         auto& slot = cycle_peu_slots_.at(raw_wave.peu_slot_index);
         RemoveResidentWave(slot, raw_wave);
         RefillActiveWindow(slot, cycle);
@@ -2358,11 +2334,7 @@ LaunchResult EncodedExecEngine::Run(const EncodedProgramObject& image,
     launch_message << " agpr_count=" << image.kernel_descriptor.agpr_count
                    << " accum_offset=" << image.kernel_descriptor.accum_offset;
   }
-  trace.OnEvent(TraceEvent{
-      .kind = TraceEventKind::Launch,
-      .cycle = 0,
-      .message = launch_message.str(),
-  });
+  trace.OnEvent(MakeTraceRuntimeLaunchEvent(0, launch_message.str()));
 
   std::unordered_map<uint64_t, size_t> pc_to_index;
   for (size_t i = 0; i < image.instructions.size(); ++i) {

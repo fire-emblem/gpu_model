@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "gpu_model/debug/trace_event_builder.h"
 #include "gpu_model/debug/trace_sink.h"
 #include "gpu_model/isa/instruction_builder.h"
 #include "gpu_model/runtime/runtime_engine.h"
@@ -25,7 +26,7 @@ ExecutableKernel BuildCacheProbeKernel() {
 std::vector<uint64_t> ArriveCycles(const std::vector<TraceEvent>& events) {
   std::vector<uint64_t> cycles;
   for (const auto& event : events) {
-    if (event.kind == TraceEventKind::Arrive && event.message == "load_arrive") {
+    if (event.kind == TraceEventKind::Arrive && event.message == kTraceArriveLoadMessage) {
       cycles.push_back(event.cycle);
     }
   }

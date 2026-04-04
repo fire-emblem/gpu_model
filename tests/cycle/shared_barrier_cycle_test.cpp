@@ -7,6 +7,7 @@
 #include <string_view>
 #include <vector>
 
+#include "gpu_model/debug/trace_event_builder.h"
 #include "gpu_model/debug/trace_sink.h"
 #include "gpu_model/isa/instruction_builder.h"
 #include "gpu_model/runtime/runtime_engine.h"
@@ -88,6 +89,15 @@ std::string StallMessages(const std::vector<TraceEvent>& events) {
   return messages;
 }
 
+bool HasStallReason(const std::vector<TraceEvent>& events, TraceStallReason reason) {
+  for (const auto& event : events) {
+    if (TraceHasStallReason(event, reason)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 TEST(SharedBarrierCycleTest, BarrierReleaseAllowsWaitingWaveToResume) {
   CollectingTraceSink trace;
   RuntimeEngine runtime(&trace);
@@ -107,27 +117,23 @@ TEST(SharedBarrierCycleTest, BarrierReleaseAllowsWaitingWaveToResume) {
   const auto result = runtime.Launch(request);
   ASSERT_TRUE(result.ok) << result.error_message;
 
-  const uint64_t first_arrive = FirstCycle(trace.events(), TraceEventKind::Barrier, "arrive");
-  const uint64_t release = FirstCycle(trace.events(), TraceEventKind::Barrier, "release");
+  const uint64_t first_arrive =
+      FirstCycle(trace.events(), TraceEventKind::Barrier, kTraceBarrierArriveMessage);
+  const uint64_t release =
+      FirstCycle(trace.events(), TraceEventKind::Barrier, kTraceBarrierReleaseMessage);
   const uint64_t shared_load_issue =
       FirstCycle(trace.events(), TraceEventKind::WaveStep, "ds_read_b32");
-  bool saw_waitcnt_global = false;
-  for (const auto& event : trace.events()) {
-    if (event.kind == TraceEventKind::Stall &&
-        event.message.find("reason=waitcnt_global") != std::string::npos) {
-      saw_waitcnt_global = true;
-      break;
-    }
-  }
 
   ASSERT_NE(first_arrive, std::numeric_limits<uint64_t>::max());
   ASSERT_NE(release, std::numeric_limits<uint64_t>::max());
   ASSERT_NE(shared_load_issue, std::numeric_limits<uint64_t>::max());
   EXPECT_LT(first_arrive, release);
   EXPECT_GE(shared_load_issue, release);
-  EXPECT_TRUE(saw_waitcnt_global) << StallMessages(trace.events());
+  EXPECT_TRUE(HasStallReason(trace.events(), TraceStallReason::WaitCntGlobal))
+      << StallMessages(trace.events());
 
-  const auto arrive_slot_ids = SlotIdsForPeu(trace.events(), TraceEventKind::Barrier, "arrive", 0);
+  const auto arrive_slot_ids =
+      SlotIdsForPeu(trace.events(), TraceEventKind::Barrier, kTraceBarrierArriveMessage, 0);
   const auto exit_slot_ids = SlotIdsForPeu(trace.events(), TraceEventKind::WaveExit, "", 0);
   EXPECT_GE(arrive_slot_ids.size(), 2u);
   EXPECT_GE(exit_slot_ids.size(), 2u);

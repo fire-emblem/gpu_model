@@ -19,6 +19,7 @@ TraceArtifactRecorder::TraceArtifactRecorder(std::filesystem::path output_dir,
                                              CycleTimelineOptions timeline_options)
     : output_dir_(PrepareTraceOutputDir(std::move(output_dir))),
       timeline_path_(output_dir_ / "timeline.perfetto.json"),
+      timeline_proto_path_(output_dir_ / "timeline.perfetto.pb"),
       timeline_options_(timeline_options),
       collector_(),
       text_trace_(output_dir_ / "trace.txt"),
@@ -37,6 +38,14 @@ void TraceArtifactRecorder::FlushTimeline() {
   }
   // Keep every execution mode on the shared slot-centric Perfetto export path.
   out << CycleTimelineRenderer::RenderGoogleTrace(collector_.events(), timeline_options_);
+
+  std::ofstream proto_out(timeline_proto_path_, std::ios::binary);
+  if (!proto_out) {
+    throw std::runtime_error("failed to open native perfetto timeline artifact");
+  }
+  const std::string proto =
+      CycleTimelineRenderer::RenderPerfettoTraceProto(collector_.events(), timeline_options_);
+  proto_out.write(proto.data(), static_cast<std::streamsize>(proto.size()));
 }
 
 }  // namespace gpu_model
