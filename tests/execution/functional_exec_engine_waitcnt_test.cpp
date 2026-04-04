@@ -264,9 +264,8 @@ bool ContainsWaveStatsMessage(const std::vector<TraceEvent>& events, std::string
 
 bool ContainsStallMessage(const std::vector<TraceEvent>& events, std::string_view message) {
   const TraceStallReason reason = TraceStallReasonFromMessage(message);
-  return std::any_of(events.begin(), events.end(), [reason, message](const TraceEvent& event) {
-    return TraceHasStallReason(event, reason) || 
-           (event.kind == TraceEventKind::Stall && event.message == message);
+  return std::any_of(events.begin(), events.end(), [reason](const TraceEvent& event) {
+    return TraceHasStallReason(event, reason);
   });
 }
 
@@ -533,7 +532,7 @@ TEST(FunctionalExecEngineWaitcntTest,
       saw_launch = true;
       EXPECT_TRUE(TraceHasSlotModel(event, TraceSlotModelKind::LogicalUnbounded));
     }
-    if (event.kind == TraceEventKind::Commit && event.message == kTraceCommitMessage) {
+    if (event.kind == TraceEventKind::Commit && event.display_name == "commit") {
       saw_commit = true;
       EXPECT_TRUE(TraceHasSlotModel(event, TraceSlotModelKind::LogicalUnbounded));
     }

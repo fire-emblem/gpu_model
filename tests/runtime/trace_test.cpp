@@ -1495,7 +1495,7 @@ TEST(TraceTest, NativePerfettoProtoContainsHierarchicalTracksAndEvents) {
     if (event.type == 3u && event.name == "wave_exit") {
       saw_wave_exit = true;
     }
-    if (event.type == 3u && event.name == kTraceArriveLoadMessage) {
+    if (event.type == 3u && event.name == "load_arrive") {
       saw_load_arrive = true;
     }
   }
@@ -1963,8 +1963,7 @@ TEST(TraceTest, NativePerfettoProtoShowsFunctionalTimelineGapWaitArriveInMultiTh
 
   const std::string timeline = ReadTextFile(out_dir / "timeline.perfetto.json");
   EXPECT_NE(timeline.find("\"name\":\"stall_waitcnt_global\""), std::string::npos);
-  EXPECT_NE(timeline.find(std::string("\"name\":\"") + std::string(kTraceArriveLoadMessage) + "\""),
-            std::string::npos);
+  EXPECT_NE(timeline.find("\"name\":\"load_arrive\""), std::string::npos);
   EXPECT_NE(timeline.find("\"slot_model\":\"logical_unbounded\""), std::string::npos);
 
   const std::string bytes = ReadTextFile(out_dir / "timeline.perfetto.pb");
@@ -1976,7 +1975,7 @@ TEST(TraceTest, NativePerfettoProtoShowsFunctionalTimelineGapWaitArriveInMultiTh
       continue;
     }
     saw_waitcnt_stall = saw_waitcnt_stall || event.name == "stall_waitcnt_global";
-    saw_load_arrive = saw_load_arrive || event.name == kTraceArriveLoadMessage;
+    saw_load_arrive = saw_load_arrive || event.name == "load_arrive";
   }
   EXPECT_TRUE(saw_waitcnt_stall);
   EXPECT_TRUE(saw_load_arrive);
