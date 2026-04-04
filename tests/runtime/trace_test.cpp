@@ -1428,7 +1428,7 @@ TEST(TraceTest, PerfettoDumpForMultiThreadedWaitKernelShowsWaitingAndResumeOrder
   ASSERT_FALSE(trace_events.empty());
 
   EXPECT_GE(CountOccurrences(trace_events, "\"name\":\"thread_name\""), 2u) << timeline;
-  EXPECT_NE(FindFirst(trace_events, "\"args\":{\"name\":\"S0\"}"), std::string::npos)
+  EXPECT_NE(FindFirst(trace_events, "\"args\":{\"name\":\"WAVE_SLOT_00\"}"), std::string::npos)
       << timeline;
   EXPECT_EQ(FindFirst(trace_events, "\"args\":{\"name\":\"B0W0\"}"), std::string::npos)
       << timeline;
@@ -1469,7 +1469,7 @@ TEST(TraceTest, PerfettoDumpForSingleThreadedWaitKernelUsesSharedSlotSchema) {
   const std::string timeline = ReadTextFile(out_dir / "timeline.perfetto.json");
   const auto trace_events = ExtractTraceEventsPayload(timeline);
   ASSERT_FALSE(trace_events.empty());
-  EXPECT_NE(trace_events.find("\"args\":{\"name\":\"S"), std::string::npos) << timeline;
+  EXPECT_NE(trace_events.find("\"args\":{\"name\":\"WAVE_SLOT_"), std::string::npos) << timeline;
   EXPECT_NE(trace_events.find("\"slot\":"), std::string::npos) << timeline;
   EXPECT_NE(trace_events.find("\"slot_model\":\"logical_unbounded\""), std::string::npos)
       << timeline;
@@ -1478,7 +1478,7 @@ TEST(TraceTest, PerfettoDumpForSingleThreadedWaitKernelUsesSharedSlotSchema) {
   EXPECT_NE(timeline.find("\"metadata\":{\"time_unit\":\"cycle\",\"slot_models\":"),
             std::string::npos)
       << timeline;
-  EXPECT_NE(timeline.find("\"hierarchy_levels\":[\"Device\",\"DPC\",\"AP\",\"PEU\",\"Slot\"]"),
+  EXPECT_NE(timeline.find("\"hierarchy_levels\":[\"Device\",\"DPC\",\"AP\",\"PEU\",\"WAVE_SLOT\"]"),
             std::string::npos)
       << timeline;
   EXPECT_NE(timeline.find("\"perfetto_format\":\"chrome_json\""), std::string::npos)
@@ -1556,14 +1556,14 @@ TEST(TraceTest, TraceArtifactRecorderWritesTraceAndPerfettoFiles) {
   EXPECT_NE(timeline_buffer.str().find("\"slot_model\":\"resident_fixed\""), std::string::npos);
   EXPECT_NE(timeline_buffer.str().find("\"metadata\":{\"time_unit\":\"cycle\",\"slot_models\":"),
             std::string::npos);
-  EXPECT_NE(timeline_buffer.str().find("\"hierarchy_levels\":[\"Device\",\"DPC\",\"AP\",\"PEU\",\"Slot\"]"),
+  EXPECT_NE(timeline_buffer.str().find("\"hierarchy_levels\":[\"Device\",\"DPC\",\"AP\",\"PEU\",\"WAVE_SLOT\"]"),
             std::string::npos);
   EXPECT_NE(timeline_buffer.str().find("\"perfetto_format\":\"chrome_json\""),
             std::string::npos);
   EXPECT_NE(timeline_buffer.str().find("\"name\":\"stall_waitcnt_global\""), std::string::npos);
   EXPECT_FALSE(timeline_proto_buffer.str().empty());
   EXPECT_NE(timeline_proto_buffer.str().find("Device"), std::string::npos);
-  EXPECT_NE(timeline_proto_buffer.str().find("S2"), std::string::npos);
+  EXPECT_NE(timeline_proto_buffer.str().find("WAVE_SLOT_02"), std::string::npos);
   EXPECT_NE(timeline_proto_buffer.str().find("wave_exit"), std::string::npos);
 
   std::filesystem::remove_all(out_dir);
@@ -1609,20 +1609,20 @@ TEST(TraceTest, NativePerfettoProtoContainsHierarchicalTracksAndEvents) {
   }
 
   ASSERT_TRUE(uuids_by_name.count("Device"));
-  ASSERT_TRUE(uuids_by_name.count("D0"));
-  ASSERT_TRUE(uuids_by_name.count("A0"));
-  ASSERT_TRUE(uuids_by_name.count("P0"));
-  ASSERT_TRUE(uuids_by_name.count("S0"));
+  ASSERT_TRUE(uuids_by_name.count("DPC_00"));
+  ASSERT_TRUE(uuids_by_name.count("AP_00"));
+  ASSERT_TRUE(uuids_by_name.count("PEU_00"));
+  ASSERT_TRUE(uuids_by_name.count("WAVE_SLOT_00"));
 
   std::map<uint64_t, std::optional<uint64_t>> parents_by_uuid;
   for (const auto& descriptor : descriptors) {
     parents_by_uuid[descriptor.uuid] = descriptor.parent_uuid;
   }
 
-  EXPECT_EQ(parents_by_uuid[uuids_by_name["D0"]], uuids_by_name["Device"]);
-  EXPECT_EQ(parents_by_uuid[uuids_by_name["A0"]], uuids_by_name["D0"]);
-  EXPECT_EQ(parents_by_uuid[uuids_by_name["P0"]], uuids_by_name["A0"]);
-  EXPECT_EQ(parents_by_uuid[uuids_by_name["S0"]], uuids_by_name["P0"]);
+  EXPECT_EQ(parents_by_uuid[uuids_by_name["DPC_00"]], uuids_by_name["Device"]);
+  EXPECT_EQ(parents_by_uuid[uuids_by_name["AP_00"]], uuids_by_name["DPC_00"]);
+  EXPECT_EQ(parents_by_uuid[uuids_by_name["PEU_00"]], uuids_by_name["AP_00"]);
+  EXPECT_EQ(parents_by_uuid[uuids_by_name["WAVE_SLOT_00"]], uuids_by_name["PEU_00"]);
 
   bool saw_slice_begin = false;
   bool saw_slice_end = false;
@@ -1630,7 +1630,7 @@ TEST(TraceTest, NativePerfettoProtoContainsHierarchicalTracksAndEvents) {
   bool saw_wave_exit = false;
   bool saw_load_arrive = false;
   for (const auto& event : events) {
-    if (event.track_uuid != uuids_by_name["S0"]) {
+    if (event.track_uuid != uuids_by_name["WAVE_SLOT_00"]) {
       continue;
     }
     if (event.type == 1u && event.name == "buffer_load_dword") {
@@ -1698,12 +1698,12 @@ TEST(TraceTest, NativePerfettoProtoShowsCycleSamePeuResidentSlotsAcrossPeus) {
   std::vector<ParsedPerfettoTrackDescriptor> slot_descriptors;
   for (const auto& descriptor : descriptors) {
     uuid_by_name[descriptor.name] = descriptor.uuid;
-    if (descriptor.name == "P0" || descriptor.name == "P1" || descriptor.name == "P2" ||
-        descriptor.name == "P3") {
+    if (descriptor.name == "PEU_00" || descriptor.name == "PEU_01" || descriptor.name == "PEU_02" ||
+        descriptor.name == "PEU_03") {
       peu_descriptors.push_back(descriptor);
     }
-    if (descriptor.name == "S0" || descriptor.name == "S1" || descriptor.name == "S2" ||
-        descriptor.name == "S3") {
+    if (descriptor.name == "WAVE_SLOT_00" || descriptor.name == "WAVE_SLOT_01" ||
+        descriptor.name == "WAVE_SLOT_02" || descriptor.name == "WAVE_SLOT_03") {
       slot_descriptors.push_back(descriptor);
     }
   }
@@ -1766,14 +1766,14 @@ TEST(TraceTest, NativePerfettoProtoShowsFunctionalLogicalUnboundedSlotsOnPeu0) {
   size_t p0_count = 0;
   size_t p0_slot_count = 0;
   for (const auto& descriptor : descriptors) {
-    if (descriptor.name == "P0") {
+    if (descriptor.name == "PEU_00") {
       ++p0_count;
       p0_uuid = descriptor.uuid;
     }
   }
   ASSERT_TRUE(p0_uuid.has_value());
   for (const auto& descriptor : descriptors) {
-    if (descriptor.name.rfind("S", 0) == 0 && descriptor.parent_uuid == p0_uuid) {
+    if (descriptor.name.rfind("WAVE_SLOT_", 0) == 0 && descriptor.parent_uuid == p0_uuid) {
       ++p0_slot_count;
     }
   }
@@ -1827,14 +1827,14 @@ TEST(TraceTest, NativePerfettoProtoShowsMultiThreadedLogicalUnboundedSlotsOnPeu0
   size_t p0_count = 0;
   size_t p0_slot_count = 0;
   for (const auto& descriptor : descriptors) {
-    if (descriptor.name == "P0") {
+    if (descriptor.name == "PEU_00") {
       ++p0_count;
       p0_uuid = descriptor.uuid;
     }
   }
   ASSERT_TRUE(p0_uuid.has_value());
   for (const auto& descriptor : descriptors) {
-    if (descriptor.name.rfind("S", 0) == 0 && descriptor.parent_uuid == p0_uuid) {
+    if (descriptor.name.rfind("WAVE_SLOT_", 0) == 0 && descriptor.parent_uuid == p0_uuid) {
       ++p0_slot_count;
     }
   }
@@ -1894,13 +1894,13 @@ TEST(TraceTest, NativePerfettoProtoShowsEncodedFunctionalLogicalUnboundedSlotsOn
   std::optional<uint64_t> p0_uuid;
   size_t p0_slot_count = 0;
   for (const auto& descriptor : descriptors) {
-    if (descriptor.name == "P0") {
+    if (descriptor.name == "PEU_00") {
       p0_uuid = descriptor.uuid;
     }
   }
   ASSERT_TRUE(p0_uuid.has_value());
   for (const auto& descriptor : descriptors) {
-    if (descriptor.name.rfind("S", 0) == 0 && descriptor.parent_uuid == p0_uuid) {
+    if (descriptor.name.rfind("WAVE_SLOT_", 0) == 0 && descriptor.parent_uuid == p0_uuid) {
       ++p0_slot_count;
     }
   }
@@ -1962,12 +1962,12 @@ TEST(TraceTest, NativePerfettoProtoShowsEncodedCycleResidentSlotsAcrossPeus) {
   std::map<std::string, uint64_t> uuid_by_name;
   for (const auto& descriptor : descriptors) {
     uuid_by_name[descriptor.name] = descriptor.uuid;
-    if (descriptor.name == "P0" || descriptor.name == "P1" || descriptor.name == "P2" ||
-        descriptor.name == "P3") {
+    if (descriptor.name == "PEU_00" || descriptor.name == "PEU_01" || descriptor.name == "PEU_02" ||
+        descriptor.name == "PEU_03") {
       peu_descriptors.push_back(descriptor);
     }
-    if (descriptor.name == "S0" || descriptor.name == "S1" || descriptor.name == "S2" ||
-        descriptor.name == "S3") {
+    if (descriptor.name == "WAVE_SLOT_00" || descriptor.name == "WAVE_SLOT_01" ||
+        descriptor.name == "WAVE_SLOT_02" || descriptor.name == "WAVE_SLOT_03") {
       slot_descriptors.push_back(descriptor);
     }
   }

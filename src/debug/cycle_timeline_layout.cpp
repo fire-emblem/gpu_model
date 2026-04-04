@@ -1,5 +1,7 @@
 #include "cycle_timeline_internal.h"
 
+#include <iomanip>
+#include <sstream>
 #include <tuple>
 
 namespace gpu_model {
@@ -8,6 +10,12 @@ namespace {
 
 std::string BlockLabel(uint32_t block_id) {
   return "B" + std::to_string(block_id);
+}
+
+std::string FormatPaddedLabel(std::string_view prefix, uint32_t value, int width) {
+  std::ostringstream out;
+  out << prefix << std::setw(width) << std::setfill('0') << value;
+  return out.str();
 }
 
 std::string ThreadLabel(const SlotKey& key,
@@ -110,19 +118,19 @@ bool RowDescriptor::operator<(const RowDescriptor& other) const {
 }
 
 std::string SlotLabel(const SlotKey& key) {
-  return "S" + std::to_string(key.slot_id);
+  return FormatPaddedLabel("WAVE_SLOT_", key.slot_id, 2);
 }
 
 std::string PeuLabel(const SlotKey& key) {
-  return "P" + std::to_string(key.peu_id);
+  return FormatPaddedLabel("PEU_", key.peu_id, 2);
 }
 
 std::string ApLabel(const SlotKey& key) {
-  return "A" + std::to_string(key.ap_id);
+  return FormatPaddedLabel("AP_", key.ap_id, 2);
 }
 
 std::string DpcLabel(const SlotKey& key) {
-  return "D" + std::to_string(key.dpc_id);
+  return FormatPaddedLabel("DPC_", key.dpc_id, 2);
 }
 
 std::string ProcessName(const SlotKey& key, CycleTimelineGroupBy group_by) {

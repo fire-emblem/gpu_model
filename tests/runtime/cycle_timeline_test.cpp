@@ -150,7 +150,7 @@ TEST(CycleTimelineTest, RendersGoogleTraceForWaveTimeline) {
   EXPECT_NE(timeline.find("\"traceEvents\""), std::string::npos);
   EXPECT_NE(timeline.find("\"ph\":\"X\""), std::string::npos);
   EXPECT_NE(timeline.find("\"thread_name\""), std::string::npos);
-  EXPECT_NE(timeline.find("\"args\":{\"name\":\"S0\"}"), std::string::npos);
+  EXPECT_NE(timeline.find("\"args\":{\"name\":\"WAVE_SLOT_00\"}"), std::string::npos);
   EXPECT_EQ(timeline.find("B0W0"), std::string::npos);
   EXPECT_NE(timeline.find("\"name\":\"v_mad_i32\""), std::string::npos);
   EXPECT_NE(timeline.find("\"thread_sort_index\""), std::string::npos);
@@ -199,9 +199,9 @@ TEST(CycleTimelineTest, GoogleTraceCanGroupByPeu) {
                                            .cycle_begin = std::nullopt,
                                            .cycle_end = std::nullopt,
                                            .group_by = CycleTimelineGroupBy::Peu});
-  EXPECT_NE(timeline.find("\"name\":\"D0/A0\""), std::string::npos);
-  EXPECT_NE(timeline.find("\"name\":\"P0\""), std::string::npos);
-  EXPECT_NE(timeline.find("\"name\":\"P1\""), std::string::npos);
+  EXPECT_NE(timeline.find("\"name\":\"DPC_00/AP_00\""), std::string::npos);
+  EXPECT_NE(timeline.find("\"name\":\"PEU_00\""), std::string::npos);
+  EXPECT_NE(timeline.find("\"name\":\"PEU_01\""), std::string::npos);
   EXPECT_NE(timeline.find("\"process_sort_index\""), std::string::npos);
 }
 
@@ -304,7 +304,7 @@ TEST(CycleTimelineTest, GoogleTraceUsesSlotTracksAndPreservesWaveAsArgs) {
   };
 
   const std::string trace = CycleTimelineRenderer::RenderGoogleTrace(events);
-  EXPECT_NE(trace.find("\"args\":{\"name\":\"S3\"}"), std::string::npos);
+  EXPECT_NE(trace.find("\"args\":{\"name\":\"WAVE_SLOT_03\"}"), std::string::npos);
   EXPECT_NE(trace.find("\"name\":\"v_add_i32\""), std::string::npos);
   EXPECT_NE(trace.find("\"slot\":3"), std::string::npos);
   EXPECT_NE(trace.find("\"slot_model\":\"resident_fixed\""), std::string::npos);
@@ -448,7 +448,7 @@ TEST(CycleTimelineTest, RuntimePerfettoDumpCarriesWaveLifecycleOnSlotTracks) {
   ASSERT_TRUE(result.ok) << result.error_message;
 
   const std::string timeline = CycleTimelineRenderer::RenderGoogleTrace(trace.events());
-  EXPECT_NE(timeline.find("\"args\":{\"name\":\"S1\"}"), std::string::npos);
+  EXPECT_NE(timeline.find("\"args\":{\"name\":\"WAVE_SLOT_01\"}"), std::string::npos);
   EXPECT_NE(timeline.find("\"name\":\"wave_launch\""), std::string::npos);
   EXPECT_NE(timeline.find(std::string("\"message\":\"") + std::string(kTraceWaveStartMessage)),
             std::string::npos);

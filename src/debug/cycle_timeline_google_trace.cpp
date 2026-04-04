@@ -170,12 +170,12 @@ std::string MetadataJson(const TimelineData& data, std::optional<std::string_vie
     first = false;
     out << "\"" << EscapeTraceJson(slot_model) << "\"";
   }
-  out << "],\"hierarchy_levels\":[\"Device\",\"DPC\",\"AP\",\"PEU\",\"Slot\"]"
+  out << "],\"hierarchy_levels\":[\"Device\",\"DPC\",\"AP\",\"PEU\",\"WAVE_SLOT\"]"
       << ",\"label_style\":\"numeric\""
       << ",\"track_layout\":\"flattened_path_process_plus_slot_thread\""
       << ",\"perfetto_format\":\"chrome_json\""
       << ",\"perfetto_hierarchy_note\":\"chrome_json is limited to process/thread tracks; "
-         "DPC/AP/PEU are encoded as flattened numeric path labels until a native "
+         "DPC/AP/PEU/WAVE_SLOT are encoded as flattened path labels until a native "
          "TrackDescriptor exporter is added\"";
   if (error.has_value()) {
     out << ",\"error\":\"" << EscapeTraceJson(*error) << "\"";
