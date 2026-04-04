@@ -260,6 +260,22 @@ bool ContainsStallMessage(const std::vector<TraceEvent>& events, std::string_vie
   });
 }
 
+size_t FirstArriveIndexAfter(const std::vector<TraceEvent>& events,
+                             size_t start,
+                             TraceArriveKind arrive_kind,
+                             std::optional<uint64_t> pc = std::nullopt) {
+  for (size_t i = start + 1; i < events.size(); ++i) {
+    if (events[i].kind != TraceEventKind::Arrive || events[i].arrive_kind != arrive_kind) {
+      continue;
+    }
+    if (pc.has_value() && events[i].pc != *pc) {
+      continue;
+    }
+    return i;
+  }
+  return std::numeric_limits<size_t>::max();
+}
+
 size_t FirstWaveStatsIndexContainingAfter(const std::vector<TraceEvent>& events,
                                           size_t start,
                                           std::string_view snippet) {
@@ -296,6 +312,31 @@ bool HasResumeOrdering(const std::vector<TraceEvent>& events,
          waitcnt_index < stall_index &&
          stall_index < waiting_stats_index &&
          waiting_stats_index < runnable_stats_index &&
+         runnable_stats_index < resume_marker_index;
+}
+
+bool HasArriveBeforeResumeOrdering(const std::vector<TraceEvent>& events,
+                                   uint64_t waitcnt_pc,
+                                   uint64_t resume_marker_pc,
+                                   std::string_view stall_reason,
+                                   TraceArriveKind arrive_kind) {
+  const size_t stall_index =
+      FirstEventIndex(events, TraceEventKind::Stall, waitcnt_pc, stall_reason);
+  const size_t arrive_index = FirstArriveIndexAfter(events, stall_index, arrive_kind, waitcnt_pc);
+  const size_t waiting_stats_index =
+      FirstWaveStatsIndexContainingAfter(events, stall_index, "waiting=1");
+  const size_t runnable_stats_index =
+      FirstWaveStatsIndexContainingAfter(events, waiting_stats_index, "waiting=0");
+  const size_t resume_marker_index =
+      FirstEventIndexAfter(events, runnable_stats_index, TraceEventKind::WaveStep, resume_marker_pc);
+  return stall_index != std::numeric_limits<size_t>::max() &&
+         arrive_index != std::numeric_limits<size_t>::max() &&
+         waiting_stats_index != std::numeric_limits<size_t>::max() &&
+         runnable_stats_index != std::numeric_limits<size_t>::max() &&
+         resume_marker_index != std::numeric_limits<size_t>::max() &&
+         stall_index < waiting_stats_index &&
+         waiting_stats_index <= arrive_index &&
+         arrive_index < runnable_stats_index &&
          runnable_stats_index < resume_marker_index;
 }
 
@@ -364,6 +405,8 @@ TEST(FunctionalExecEngineWaitcntTest, ResumesWhenStoredThresholdBecomesSatisfied
       FirstEventIndex(events, TraceEventKind::WaveStep, waitcnt_one_pc);
   const size_t first_waitcnt_stall_index =
       FirstEventIndex(events, TraceEventKind::Stall, waitcnt_one_pc, "waitcnt_global");
+  const size_t first_arrive_index =
+      FirstArriveIndexAfter(events, first_waitcnt_stall_index, TraceArriveKind::Load, waitcnt_one_pc);
   const size_t threshold_resume_marker_index =
       FirstEventIndex(events, TraceEventKind::WaveStep, marker_after_threshold_pc);
   const size_t second_waitcnt_index =
@@ -371,19 +414,27 @@ TEST(FunctionalExecEngineWaitcntTest, ResumesWhenStoredThresholdBecomesSatisfied
   const size_t second_waitcnt_stall_index =
       FirstEventIndexAfter(events, threshold_resume_marker_index, TraceEventKind::Stall,
                            waitcnt_zero_pc, "waitcnt_global");
+  const size_t second_arrive_index =
+      FirstArriveIndexAfter(events, second_waitcnt_stall_index, TraceArriveKind::Load, waitcnt_zero_pc);
   const size_t zero_resume_marker_index =
       FirstEventIndex(events, TraceEventKind::WaveStep, marker_after_zero_pc);
 
   ASSERT_NE(first_waitcnt_index, std::numeric_limits<size_t>::max());
   ASSERT_NE(first_waitcnt_stall_index, std::numeric_limits<size_t>::max());
+  ASSERT_NE(first_arrive_index, std::numeric_limits<size_t>::max());
   ASSERT_NE(threshold_resume_marker_index, std::numeric_limits<size_t>::max());
   ASSERT_NE(second_waitcnt_index, std::numeric_limits<size_t>::max());
   ASSERT_NE(second_waitcnt_stall_index, std::numeric_limits<size_t>::max());
+  ASSERT_NE(second_arrive_index, std::numeric_limits<size_t>::max());
   ASSERT_NE(zero_resume_marker_index, std::numeric_limits<size_t>::max());
   EXPECT_LT(first_waitcnt_index, first_waitcnt_stall_index);
+  EXPECT_LT(first_waitcnt_stall_index, first_arrive_index);
+  EXPECT_LT(first_arrive_index, threshold_resume_marker_index);
   EXPECT_LT(first_waitcnt_stall_index, threshold_resume_marker_index);
   EXPECT_LT(threshold_resume_marker_index, second_waitcnt_index);
   EXPECT_LT(second_waitcnt_index, second_waitcnt_stall_index);
+  EXPECT_LT(second_waitcnt_stall_index, second_arrive_index);
+  EXPECT_LT(second_arrive_index, zero_resume_marker_index);
   EXPECT_LT(second_waitcnt_stall_index, zero_resume_marker_index);
 }
 
@@ -402,6 +453,8 @@ TEST(FunctionalExecEngineWaitcntTest, GlobalWaitcntTransitionsThroughWaitingAndR
       ContainsWaveStatsMessage(events, "launch=1 init=1 active=1 runnable=0 waiting=1 end=0"));
   EXPECT_TRUE(ContainsStallMessage(events, "waitcnt_global"));
   EXPECT_TRUE(HasResumeOrdering(events, waitcnt_pc, resume_marker_pc, "waitcnt_global"));
+  EXPECT_TRUE(HasArriveBeforeResumeOrdering(
+      events, waitcnt_pc, resume_marker_pc, "waitcnt_global", TraceArriveKind::Load));
 }
 
 TEST(FunctionalExecEngineWaitcntTest, SharedWaitcntTransitionsThroughWaitingAndResume) {
@@ -415,6 +468,8 @@ TEST(FunctionalExecEngineWaitcntTest, SharedWaitcntTransitionsThroughWaitingAndR
       ContainsWaveStatsMessage(events, "launch=1 init=1 active=1 runnable=0 waiting=1 end=0"));
   EXPECT_TRUE(ContainsStallMessage(events, "waitcnt_shared"));
   EXPECT_TRUE(HasResumeOrdering(events, waitcnt_pc, resume_marker_pc, "waitcnt_shared"));
+  EXPECT_TRUE(HasArriveBeforeResumeOrdering(
+      events, waitcnt_pc, resume_marker_pc, "waitcnt_shared", TraceArriveKind::Shared));
 }
 
 TEST(FunctionalExecEngineWaitcntTest,
@@ -451,6 +506,8 @@ TEST(FunctionalExecEngineWaitcntTest, PrivateWaitcntTransitionsThroughWaitingAnd
       ContainsWaveStatsMessage(events, "launch=1 init=1 active=1 runnable=0 waiting=1 end=0"));
   EXPECT_TRUE(ContainsStallMessage(events, "waitcnt_private"));
   EXPECT_TRUE(HasResumeOrdering(events, waitcnt_pc, resume_marker_pc, "waitcnt_private"));
+  EXPECT_TRUE(HasArriveBeforeResumeOrdering(
+      events, waitcnt_pc, resume_marker_pc, "waitcnt_private", TraceArriveKind::Private));
 }
 
 TEST(FunctionalExecEngineWaitcntTest, ScalarBufferWaitcntTransitionsThroughWaitingAndResume) {
@@ -465,6 +522,11 @@ TEST(FunctionalExecEngineWaitcntTest, ScalarBufferWaitcntTransitionsThroughWaiti
   EXPECT_TRUE(ContainsStallMessage(events, "waitcnt_scalar_buffer"));
   EXPECT_TRUE(
       HasResumeOrdering(events, waitcnt_pc, resume_marker_pc, "waitcnt_scalar_buffer"));
+  EXPECT_TRUE(HasArriveBeforeResumeOrdering(events,
+                                            waitcnt_pc,
+                                            resume_marker_pc,
+                                            "waitcnt_scalar_buffer",
+                                            TraceArriveKind::ScalarBuffer));
 }
 
 TEST(FunctionalExecEngineWaitcntTest, WaitcntResumeRequiresAllStoredThresholdDomains) {

@@ -121,6 +121,7 @@ class GlobalFunctionalWorkerPool {
 struct PendingMemoryOp {
   MemoryWaitDomain domain = MemoryWaitDomain::None;
   uint8_t turns_until_complete = kFunctionalPendingMemoryCompletionTurns;
+  TraceMemoryArriveKind arrive_kind = TraceMemoryArriveKind::Load;
 };
 
 enum class ExecutedFlowEventKind {
@@ -269,7 +270,9 @@ void ClearWaitcntWaitState(FunctionalWaveState& state) {
   state.waiting_waitcnt_thresholds.reset();
 }
 
-bool AdvancePendingMemoryOps(FunctionalWaveState& state, WaveContext& wave) {
+bool AdvancePendingMemoryOps(FunctionalWaveState& state,
+                             WaveContext& wave,
+                             std::vector<PendingMemoryOp>* completed_ops = nullptr) {
   bool advanced = false;
   for (auto it = state.pending_memory_ops.begin(); it != state.pending_memory_ops.end();) {
     advanced = true;
@@ -277,6 +280,9 @@ bool AdvancePendingMemoryOps(FunctionalWaveState& state, WaveContext& wave) {
       --it->turns_until_complete;
     }
     if (it->turns_until_complete == 0) {
+      if (completed_ops != nullptr) {
+        completed_ops->push_back(*it);
+      }
       DecrementPendingMemoryOps(wave, it->domain);
       it = state.pending_memory_ops.erase(it);
       continue;
@@ -288,23 +294,6 @@ bool AdvancePendingMemoryOps(FunctionalWaveState& state, WaveContext& wave) {
 
 uint64_t StableWaveKey(const WaveContext& wave) {
   return (static_cast<uint64_t>(wave.block_id) << 32u) | wave.wave_id;
-}
-
-TraceMemoryArriveKind TraceMemoryArriveKindForWaitReason(WaveWaitReason reason) {
-  switch (reason) {
-    case WaveWaitReason::PendingGlobalMemory:
-      return TraceMemoryArriveKind::Load;
-    case WaveWaitReason::PendingSharedMemory:
-      return TraceMemoryArriveKind::Shared;
-    case WaveWaitReason::PendingPrivateMemory:
-      return TraceMemoryArriveKind::Private;
-    case WaveWaitReason::PendingScalarBufferMemory:
-      return TraceMemoryArriveKind::ScalarBuffer;
-    case WaveWaitReason::None:
-    case WaveWaitReason::BlockBarrier:
-      break;
-  }
-  return TraceMemoryArriveKind::Load;
 }
 
 TraceStallReason TraceStallReasonForWaitReason(WaveWaitReason reason) {
@@ -501,12 +490,32 @@ ProgramCycleStats CollectProgramCycleStatsFromExecutedFlow(
 
 void RecordPendingMemoryOp(FunctionalWaveState& state,
                            WaveContext& wave,
-                           MemoryWaitDomain domain) {
+                           MemoryWaitDomain domain,
+                           TraceMemoryArriveKind arrive_kind) {
   if (domain == MemoryWaitDomain::None) {
     return;
   }
   IncrementPendingMemoryOps(wave, domain);
-  state.pending_memory_ops.push_back(PendingMemoryOp{.domain = domain});
+  state.pending_memory_ops.push_back(PendingMemoryOp{
+      .domain = domain,
+      .turns_until_complete = kFunctionalPendingMemoryCompletionTurns,
+      .arrive_kind = arrive_kind,
+  });
+}
+
+TraceMemoryArriveKind TraceMemoryArriveKindForMemoryRequest(const MemoryRequest& request) {
+  switch (request.space) {
+    case MemorySpace::Global:
+      return request.kind == AccessKind::Load ? TraceMemoryArriveKind::Load
+                                              : TraceMemoryArriveKind::Store;
+    case MemorySpace::Shared:
+      return TraceMemoryArriveKind::Shared;
+    case MemorySpace::Private:
+      return TraceMemoryArriveKind::Private;
+    case MemorySpace::Constant:
+      return TraceMemoryArriveKind::ScalarBuffer;
+  }
+  return TraceMemoryArriveKind::Load;
 }
 
 struct ExecutableBlock {
@@ -1253,7 +1262,22 @@ class FunctionalExecutionCoreImpl {
     std::lock_guard<std::mutex> state_lock(*block.wave_state_mutex);
     bool advanced = false;
     for (size_t i = 0; i < block.waves.size(); ++i) {
-      advanced = ::gpu_model::AdvancePendingMemoryOps(block.wave_states[i], block.waves[i]) || advanced;
+      std::vector<PendingMemoryOp> completed_ops;
+      advanced = ::gpu_model::AdvancePendingMemoryOps(block.wave_states[i], block.waves[i], &completed_ops) ||
+                 advanced;
+      for (const auto& op : completed_ops) {
+        TraceEventLocked(MakeTraceMemoryArriveEvent(
+            TraceWaveView{.dpc_id = block.waves[i].dpc_id,
+                          .ap_id = block.waves[i].ap_id,
+                          .peu_id = block.waves[i].peu_id,
+                          .slot_id = TraceSlotId(block.waves[i]),
+                          .block_id = block.waves[i].block_id,
+                          .wave_id = block.waves[i].wave_id,
+                          .pc = block.waves[i].pc},
+            NextTraceCycle(),
+            op.arrive_kind,
+            TraceSlotModelKind::LogicalUnbounded));
+      }
     }
     return advanced;
   }
@@ -1264,24 +1288,8 @@ class FunctionalExecutionCoreImpl {
       std::lock_guard<std::mutex> state_lock(*block.wave_state_mutex);
       for (size_t i = 0; i < block.waves.size(); ++i) {
         WaveContext& wave = block.waves[i];
-        const WaveWaitReason prior_wait_reason = wave.wait_reason;
-        const uint64_t prior_pc = wave.pc;
         if (!ResumeWaveIfWaitSatisfied(block.wave_states[i], wave)) {
           continue;
-        }
-        if (IsMemoryWaitReason(prior_wait_reason)) {
-          TraceEventLocked(MakeTraceMemoryArriveEvent(
-              TraceWaveView{.dpc_id = wave.dpc_id,
-                            .ap_id = wave.ap_id,
-                            .peu_id = wave.peu_id,
-                            .slot_id = TraceSlotId(wave),
-                            .block_id = wave.block_id,
-                            .wave_id = wave.wave_id,
-                            .pc = wave.pc},
-              NextTraceCycle(),
-              TraceMemoryArriveKindForWaitReason(prior_wait_reason),
-              TraceSlotModelKind::LogicalUnbounded,
-              prior_pc));
         }
         resumed = true;
       }
@@ -1377,7 +1385,10 @@ class FunctionalExecutionCoreImpl {
     if (plan.memory.has_value()) {
       {
         std::lock_guard<std::mutex> state_lock(*block.wave_state_mutex);
-        RecordPendingMemoryOp(wave_state, wave, MemoryDomainForOpcode(instruction.opcode));
+        RecordPendingMemoryOp(wave_state,
+                              wave,
+                              MemoryDomainForOpcode(instruction.opcode),
+                              TraceMemoryArriveKindForMemoryRequest(*plan.memory));
       }
       const auto& request = *plan.memory;
       ++stats.memory_ops;
