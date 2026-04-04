@@ -434,8 +434,28 @@ TEST(CycleTimelineTest, GoogleTraceUsesCanonicalBarrierAndArriveNamesFromTypedFi
   const std::string trace = CycleTimelineRenderer::RenderGoogleTrace(events);
   EXPECT_NE(trace.find("\"name\":\"barrier_arrive\""), std::string::npos);
   EXPECT_NE(trace.find("\"cat\":\"sync/barrier\""), std::string::npos);
+  EXPECT_NE(trace.find("\"barrier_kind\":\"arrive\""), std::string::npos);
+  EXPECT_NE(trace.find("\"presentation_name\":\"barrier_arrive\""), std::string::npos);
   EXPECT_NE(trace.find("\"name\":\"load_arrive\""), std::string::npos);
   EXPECT_NE(trace.find("\"cat\":\"memory/load_arrive\""), std::string::npos);
+  EXPECT_NE(trace.find("\"arrive_kind\":\"load\""), std::string::npos);
+  EXPECT_NE(trace.find("\"presentation_name\":\"load_arrive\""), std::string::npos);
+}
+
+TEST(CycleTimelineTest, GoogleTraceMarkerArgsShareTypedPresentationFields) {
+  const TraceWaveView wave = MakeWaveView(/*slot_id=*/2, /*pc=*/0x80, /*wave_id=*/3);
+  std::vector<TraceEvent> events{
+      MakeTypedStallEvent(wave, 7, TraceSlotModelKind::LogicalUnbounded,
+                          TraceStallReason::WaitCntGlobal),
+  };
+
+  const std::string trace = CycleTimelineRenderer::RenderGoogleTrace(events);
+  EXPECT_NE(trace.find("\"name\":\"stall_waitcnt_global\""), std::string::npos);
+  EXPECT_NE(trace.find("\"category\":\"stall/waitcnt_global\""), std::string::npos);
+  EXPECT_NE(trace.find("\"presentation_name\":\"stall_waitcnt_global\""), std::string::npos);
+  EXPECT_NE(trace.find("\"canonical_name\":\"stall_waitcnt_global\""), std::string::npos);
+  EXPECT_NE(trace.find("\"stall_reason\":\"waitcnt_global\""), std::string::npos);
+  EXPECT_NE(trace.find("\"slot_model\":\"logical_unbounded\""), std::string::npos);
 }
 
 TEST(CycleTimelineTest, TimelineCanRenderCanonicalNamesWithoutLegacyMessages) {

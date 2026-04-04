@@ -100,6 +100,10 @@ struct Marker {
   std::string category;
   std::string message;
   std::string slot_model;
+  std::string stall_reason_name;
+  std::string barrier_kind_name;
+  std::string arrive_kind_name;
+  std::string lifecycle_stage_name;
   uint32_t block_id = 0;
   uint32_t wave_id = 0;
 };
@@ -301,6 +305,7 @@ TimelineData BuildTimelineData(const std::vector<TraceEvent>& events) {
 
   for (const auto& event : events) {
     const TraceEventView view = MakeTraceEventView(event);
+    const TraceEventExportFields fields = MakeTraceEventExportFields(view);
     const std::string_view slot_model = TraceSlotModelName(view.slot_model_kind);
     if (!slot_model.empty()) {
       data.slot_models.insert(std::string(slot_model));
@@ -368,8 +373,12 @@ TimelineData BuildTimelineData(const std::vector<TraceEvent>& events) {
                                               .presentation_name = view.presentation_name,
                                               .display_name = view.display_name,
                                               .category = view.category,
-                                              .message = view.compatibility_message,
-                                              .slot_model = std::string(slot_model),
+                                              .message = fields.compatibility_message,
+                                              .slot_model = fields.slot_model,
+                                              .stall_reason_name = fields.stall_reason,
+                                              .barrier_kind_name = fields.barrier_kind,
+                                              .arrive_kind_name = fields.arrive_kind,
+                                              .lifecycle_stage_name = fields.lifecycle_stage,
                                               .block_id = event.block_id,
                                               .wave_id = event.wave_id});
     } else if (event.kind == TraceEventKind::Launch || event.kind == TraceEventKind::BlockPlaced) {
@@ -672,9 +681,29 @@ std::string MarkerArgs(const SlotKey& key, const Marker& marker) {
   if (!marker.slot_model.empty()) {
     out << ",\"slot_model\":\"" << EscapeJson(marker.slot_model) << "\"";
   }
-  if (marker.stall_reason != TraceStallReason::None) {
-    out << ",\"stall_reason\":\"" << EscapeJson(std::string(TraceStallReasonName(marker.stall_reason)))
-        << "\"";
+  if (!marker.stall_reason_name.empty()) {
+    out << ",\"stall_reason\":\"" << EscapeJson(marker.stall_reason_name) << "\"";
+  }
+  if (!marker.barrier_kind_name.empty()) {
+    out << ",\"barrier_kind\":\"" << EscapeJson(marker.barrier_kind_name) << "\"";
+  }
+  if (!marker.arrive_kind_name.empty()) {
+    out << ",\"arrive_kind\":\"" << EscapeJson(marker.arrive_kind_name) << "\"";
+  }
+  if (!marker.lifecycle_stage_name.empty()) {
+    out << ",\"lifecycle_stage\":\"" << EscapeJson(marker.lifecycle_stage_name) << "\"";
+  }
+  if (!marker.canonical_name.empty()) {
+    out << ",\"canonical_name\":\"" << EscapeJson(marker.canonical_name) << "\"";
+  }
+  if (!marker.presentation_name.empty()) {
+    out << ",\"presentation_name\":\"" << EscapeJson(marker.presentation_name) << "\"";
+  }
+  if (!marker.display_name.empty()) {
+    out << ",\"display_name\":\"" << EscapeJson(marker.display_name) << "\"";
+  }
+  if (!marker.category.empty()) {
+    out << ",\"category\":\"" << EscapeJson(marker.category) << "\"";
   }
   out << ",\"cycle\":" << marker.cycle << ",\"message\":\""
       << EscapeJson(marker.message) << "\"";

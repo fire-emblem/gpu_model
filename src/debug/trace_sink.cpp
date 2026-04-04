@@ -66,27 +66,23 @@ FileTraceSink::FileTraceSink(const std::filesystem::path& path) : out_(path) {
 
 void FileTraceSink::OnEvent(const TraceEvent& event) {
   const TraceEventView view = MakeTraceEventView(event);
-  const std::string_view slot_model = TraceSlotModelName(view.slot_model_kind);
-  const std::string_view stall_reason = TraceStallReasonName(view.stall_reason);
-  const std::string_view barrier_kind = TraceBarrierKindName(view.barrier_kind);
-  const std::string_view arrive_kind = TraceArriveKindName(view.arrive_kind);
-  const std::string_view lifecycle_stage = TraceLifecycleStageName(view.lifecycle_stage);
+  const TraceEventExportFields fields = MakeTraceEventExportFields(view);
   out_ << "pc=" << HexU64(view.pc) << " cycle=" << HexU64(view.cycle)
        << " dpc=" << HexU64(view.dpc_id) << " ap=" << HexU64(view.ap_id)
        << " peu=" << HexU64(view.peu_id) << " slot=" << HexU64(view.slot_id)
-       << " slot_model=" << slot_model
-       << " slot_model_kind=" << slot_model
+       << " slot_model=" << fields.slot_model
+       << " slot_model_kind=" << fields.slot_model
        << " kind=" << KindToString(view.kind) << " block=" << HexU64(view.block_id)
        << " wave=" << HexU64(view.wave_id)
-       << " canonical_name=" << view.canonical_name
-       << " presentation_name=" << view.presentation_name
-       << " display_name=" << view.display_name
-       << " category=" << view.category
-       << " stall_reason=" << stall_reason
-       << " barrier_kind=" << barrier_kind
-       << " arrive_kind=" << arrive_kind
-       << " lifecycle_stage=" << lifecycle_stage
-       << " msg=" << view.compatibility_message << '\n';
+       << " canonical_name=" << fields.canonical_name
+       << " presentation_name=" << fields.presentation_name
+       << " display_name=" << fields.display_name
+       << " category=" << fields.category
+       << " stall_reason=" << fields.stall_reason
+       << " barrier_kind=" << fields.barrier_kind
+       << " arrive_kind=" << fields.arrive_kind
+       << " lifecycle_stage=" << fields.lifecycle_stage
+       << " msg=" << fields.compatibility_message << '\n';
 }
 
 JsonTraceSink::JsonTraceSink(const std::filesystem::path& path) : out_(path) {
@@ -97,28 +93,24 @@ JsonTraceSink::JsonTraceSink(const std::filesystem::path& path) : out_(path) {
 
 void JsonTraceSink::OnEvent(const TraceEvent& event) {
   const TraceEventView view = MakeTraceEventView(event);
-  const std::string_view slot_model = TraceSlotModelName(view.slot_model_kind);
-  const std::string_view stall_reason = TraceStallReasonName(view.stall_reason);
-  const std::string_view barrier_kind = TraceBarrierKindName(view.barrier_kind);
-  const std::string_view arrive_kind = TraceArriveKindName(view.arrive_kind);
-  const std::string_view lifecycle_stage = TraceLifecycleStageName(view.lifecycle_stage);
+  const TraceEventExportFields fields = MakeTraceEventExportFields(view);
   out_ << "{\"pc\":\"" << HexU64(view.pc) << "\",\"cycle\":\"" << HexU64(view.cycle)
        << "\",\"dpc_id\":\"" << HexU64(view.dpc_id) << "\",\"ap_id\":\""
        << HexU64(view.ap_id) << "\",\"peu_id\":\"" << HexU64(view.peu_id)
        << "\",\"slot_id\":\"" << HexU64(view.slot_id) << "\",\"slot_model\":\""
-       << EscapeJson(std::string(slot_model)) << "\",\"slot_model_kind\":\""
-       << EscapeJson(std::string(slot_model)) << "\",\"kind\":\""
+       << EscapeJson(fields.slot_model) << "\",\"slot_model_kind\":\""
+       << EscapeJson(fields.slot_model) << "\",\"kind\":\""
        << KindToString(view.kind) << "\",\"block_id\":\"" << HexU64(view.block_id)
        << "\",\"wave_id\":\"" << HexU64(view.wave_id)
-       << "\",\"canonical_name\":\"" << EscapeJson(view.canonical_name)
-       << "\",\"presentation_name\":\"" << EscapeJson(view.presentation_name)
-       << "\",\"display_name\":\"" << EscapeJson(view.display_name)
-       << "\",\"category\":\"" << EscapeJson(view.category)
-       << "\",\"stall_reason\":\"" << EscapeJson(std::string(stall_reason))
-       << "\",\"barrier_kind\":\"" << EscapeJson(std::string(barrier_kind))
-       << "\",\"arrive_kind\":\"" << EscapeJson(std::string(arrive_kind))
-       << "\",\"lifecycle_stage\":\"" << EscapeJson(std::string(lifecycle_stage))
-       << "\",\"message\":\"" << EscapeJson(view.compatibility_message) << "\"}\n";
+       << "\",\"canonical_name\":\"" << EscapeJson(fields.canonical_name)
+       << "\",\"presentation_name\":\"" << EscapeJson(fields.presentation_name)
+       << "\",\"display_name\":\"" << EscapeJson(fields.display_name)
+       << "\",\"category\":\"" << EscapeJson(fields.category)
+       << "\",\"stall_reason\":\"" << EscapeJson(fields.stall_reason)
+       << "\",\"barrier_kind\":\"" << EscapeJson(fields.barrier_kind)
+       << "\",\"arrive_kind\":\"" << EscapeJson(fields.arrive_kind)
+       << "\",\"lifecycle_stage\":\"" << EscapeJson(fields.lifecycle_stage)
+       << "\",\"message\":\"" << EscapeJson(fields.compatibility_message) << "\"}\n";
 }
 
 std::string JsonTraceSink::EscapeJson(const std::string& text) {
