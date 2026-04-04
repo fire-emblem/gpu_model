@@ -210,7 +210,7 @@ amdhsa.kernels:
   bool saw_load_arrive_between = false;
   for (size_t i = load_step + 1; i < add_step; ++i) {
     if (events[i].kind == TraceEventKind::Arrive &&
-        events[i].message == "load_arrive") {
+        events[i].arrive_kind == TraceArriveKind::Load) {
       saw_load_arrive_between = true;
       break;
     }

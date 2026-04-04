@@ -289,8 +289,13 @@ TEST(CycleTimelineTest, PerfettoDumpPreservesCycleIssueAndCommitOrdering) {
   const uint64_t issue_cycle = FirstEventCycle(events, TraceEventKind::WaveStep, "buffer_load_dword");
   const uint64_t stall_cycle =
       FirstEventCycle(events, TraceEventKind::Stall, "reason=waitcnt_global");
-  const uint64_t arrive_cycle =
-      FirstEventCycle(events, TraceEventKind::Arrive, kTraceArriveLoadMessage);
+  uint64_t arrive_cycle = std::numeric_limits<uint64_t>::max();
+  for (const auto& event : events) {
+    if (event.kind == TraceEventKind::Arrive && event.arrive_kind == TraceArriveKind::Load) {
+      arrive_cycle = event.cycle;
+      break;
+    }
+  }
   const uint64_t waitcnt_issue_cycle =
       FirstEventCycle(events, TraceEventKind::WaveStep, "s_waitcnt");
   const uint64_t commit_cycle = FirstCommitCycleAtOrAfter(events, waitcnt_issue_cycle);
