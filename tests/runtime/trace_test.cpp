@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "gpu_model/debug/trace_artifact_recorder.h"
+#include "gpu_model/debug/trace_event_export.h"
 #include "gpu_model/debug/trace_event_builder.h"
 #include "gpu_model/debug/trace_event_view.h"
 #include "gpu_model/debug/trace_sink.h"
@@ -698,6 +699,32 @@ TEST(TraceTest, TraceEventViewProvidesPresentationNamesForSwitchAwayRendering) {
   EXPECT_EQ(view.canonical_name, "stall_warp_switch");
   EXPECT_EQ(view.presentation_name, "wave_switch_away");
   EXPECT_EQ(view.category, "wave/switch_away");
+}
+
+TEST(TraceTest, TraceEventExportFieldsMirrorTypedViewFields) {
+  const TraceWaveView wave{
+      .dpc_id = 0,
+      .ap_id = 0,
+      .peu_id = 0,
+      .slot_id = 1,
+      .block_id = 2,
+      .wave_id = 3,
+      .pc = 4,
+  };
+
+  const TraceEvent event =
+      MakeTraceWaitStallEvent(wave, /*cycle=*/9, TraceStallReason::WaitCntGlobal,
+                              TraceSlotModelKind::LogicalUnbounded);
+  const TraceEventView view = MakeTraceEventView(event);
+  const TraceEventExportFields fields = MakeTraceEventExportFields(view);
+
+  EXPECT_EQ(fields.slot_model, std::string(TraceSlotModelName(view.slot_model_kind)));
+  EXPECT_EQ(fields.stall_reason, std::string(TraceStallReasonName(view.stall_reason)));
+  EXPECT_EQ(fields.canonical_name, view.canonical_name);
+  EXPECT_EQ(fields.presentation_name, view.presentation_name);
+  EXPECT_EQ(fields.display_name, view.display_name);
+  EXPECT_EQ(fields.category, view.category);
+  EXPECT_EQ(fields.compatibility_message, view.compatibility_message);
 }
 
 TEST(TraceTest, TypedTraceSemanticsRemainValidWhenCompatibilityMessageIsEmpty) {

@@ -30,20 +30,6 @@ struct TraceEventView {
   bool used_legacy_fallback = false;
 };
 
-struct TraceEventExportFields {
-  std::string slot_model;
-  std::string stall_reason;
-  std::string barrier_kind;
-  std::string arrive_kind;
-  std::string lifecycle_stage;
-  std::string canonical_name;
-  std::string presentation_name;
-  std::string display_name;
-  std::string category;
-  std::string compatibility_message;
-};
-
 TraceEventView MakeTraceEventView(const TraceEvent& event);
-TraceEventExportFields MakeTraceEventExportFields(const TraceEventView& view);
 
 }  // namespace gpu_model

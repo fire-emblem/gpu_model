@@ -1,4 +1,5 @@
 #include "gpu_model/debug/cycle_timeline.h"
+#include "gpu_model/debug/trace_event_export.h"
 #include "gpu_model/debug/trace_event_builder.h"
 #include "gpu_model/debug/trace_event_view.h"
 
