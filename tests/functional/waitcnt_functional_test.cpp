@@ -534,12 +534,13 @@ TEST(FunctionalWaitcntTest, TimelineShowsBlankBubbleWithWaitcntStallAndArrive) {
   ASSERT_NE(resume_step_index, std::numeric_limits<size_t>::max());
   EXPECT_EQ(events[waitcnt_stall_index].message,
             MakeTraceStallReasonMessage(kTraceStallReasonWaitCntGlobal));
-  EXPECT_EQ(events[arrive_index].message, kTraceArriveLoadMessage);
+  EXPECT_EQ(events[arrive_index].arrive_kind, TraceArriveKind::Load);
   EXPECT_TRUE(TraceHasSlotModel(events[waitcnt_stall_index], TraceSlotModelKind::LogicalUnbounded));
   EXPECT_TRUE(TraceHasSlotModel(events[arrive_index], TraceSlotModelKind::LogicalUnbounded));
   bool saw_wave_end = false;
   for (const auto& event : events) {
-    if (event.kind == TraceEventKind::WaveExit && event.message == kTraceWaveEndMessage) {
+    if (event.kind == TraceEventKind::WaveExit &&
+        event.lifecycle_stage == TraceLifecycleStage::Exit) {
       saw_wave_end = true;
       EXPECT_TRUE(TraceHasSlotModel(event, TraceSlotModelKind::LogicalUnbounded));
     }

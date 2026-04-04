@@ -26,7 +26,7 @@ ExecutableKernel BuildCacheProbeKernel() {
 std::vector<uint64_t> ArriveCycles(const std::vector<TraceEvent>& events) {
   std::vector<uint64_t> cycles;
   for (const auto& event : events) {
-    if (event.kind == TraceEventKind::Arrive && event.message == kTraceArriveLoadMessage) {
+    if (event.kind == TraceEventKind::Arrive && event.arrive_kind == TraceArriveKind::Load) {
       cycles.push_back(event.cycle);
     }
   }

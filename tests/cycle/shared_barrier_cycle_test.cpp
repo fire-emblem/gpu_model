@@ -57,6 +57,15 @@ uint64_t FirstCycle(const std::vector<TraceEvent>& events,
   return std::numeric_limits<uint64_t>::max();
 }
 
+uint64_t FirstBarrierCycle(const std::vector<TraceEvent>& events, TraceBarrierKind barrier_kind) {
+  for (const auto& event : events) {
+    if (event.kind == TraceEventKind::Barrier && event.barrier_kind == barrier_kind) {
+      return event.cycle;
+    }
+  }
+  return std::numeric_limits<uint64_t>::max();
+}
+
 std::set<uint32_t> SlotIdsForPeu(const std::vector<TraceEvent>& events,
                                  TraceEventKind kind,
                                  std::string_view message,
@@ -68,6 +77,20 @@ std::set<uint32_t> SlotIdsForPeu(const std::vector<TraceEvent>& events,
     }
     if (!message.empty() &&
         event.message.find(std::string(message)) == std::string::npos) {
+      continue;
+    }
+    slot_ids.insert(event.slot_id);
+  }
+  return slot_ids;
+}
+
+std::set<uint32_t> BarrierSlotIdsForPeu(const std::vector<TraceEvent>& events,
+                                        TraceBarrierKind barrier_kind,
+                                        uint32_t peu_id) {
+  std::set<uint32_t> slot_ids;
+  for (const auto& event : events) {
+    if (event.kind != TraceEventKind::Barrier || event.peu_id != peu_id ||
+        event.barrier_kind != barrier_kind) {
       continue;
     }
     slot_ids.insert(event.slot_id);
@@ -117,10 +140,8 @@ TEST(SharedBarrierCycleTest, BarrierReleaseAllowsWaitingWaveToResume) {
   const auto result = runtime.Launch(request);
   ASSERT_TRUE(result.ok) << result.error_message;
 
-  const uint64_t first_arrive =
-      FirstCycle(trace.events(), TraceEventKind::Barrier, kTraceBarrierArriveMessage);
-  const uint64_t release =
-      FirstCycle(trace.events(), TraceEventKind::Barrier, kTraceBarrierReleaseMessage);
+  const uint64_t first_arrive = FirstBarrierCycle(trace.events(), TraceBarrierKind::Arrive);
+  const uint64_t release = FirstBarrierCycle(trace.events(), TraceBarrierKind::Release);
   const uint64_t shared_load_issue =
       FirstCycle(trace.events(), TraceEventKind::WaveStep, "ds_read_b32");
 
@@ -133,7 +154,7 @@ TEST(SharedBarrierCycleTest, BarrierReleaseAllowsWaitingWaveToResume) {
       << StallMessages(trace.events());
 
   const auto arrive_slot_ids =
-      SlotIdsForPeu(trace.events(), TraceEventKind::Barrier, kTraceBarrierArriveMessage, 0);
+      BarrierSlotIdsForPeu(trace.events(), TraceBarrierKind::Arrive, 0);
   const auto exit_slot_ids = SlotIdsForPeu(trace.events(), TraceEventKind::WaveExit, "", 0);
   EXPECT_GE(arrive_slot_ids.size(), 2u);
   EXPECT_GE(exit_slot_ids.size(), 2u);

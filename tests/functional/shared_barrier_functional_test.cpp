@@ -94,9 +94,9 @@ ExecutableKernel BuildBlockReverseKernel() {
   return builder.Build("block_reverse_shared");
 }
 
-bool ContainsBarrierTrace(const std::vector<TraceEvent>& events, std::string_view message) {
+bool ContainsBarrierTrace(const std::vector<TraceEvent>& events, TraceBarrierKind barrier_kind) {
   for (const auto& event : events) {
-    if (event.kind == TraceEventKind::Barrier && event.message == message) {
+    if (event.kind == TraceEventKind::Barrier && event.barrier_kind == barrier_kind) {
       return true;
     }
   }
@@ -235,8 +235,8 @@ TEST(SharedBarrierFunctionalTest, EmitsBarrierTraceEvents) {
 
   const auto result = runtime.Launch(request);
   ASSERT_TRUE(result.ok) << result.error_message;
-  EXPECT_TRUE(ContainsBarrierTrace(trace.events(), kTraceBarrierArriveMessage));
-  EXPECT_TRUE(ContainsBarrierTrace(trace.events(), kTraceBarrierReleaseMessage));
+  EXPECT_TRUE(ContainsBarrierTrace(trace.events(), TraceBarrierKind::Arrive));
+  EXPECT_TRUE(ContainsBarrierTrace(trace.events(), TraceBarrierKind::Release));
 }
 
 TEST(SharedBarrierFunctionalTest, EmitsWaveStatsDuringBarrierProgress) {
