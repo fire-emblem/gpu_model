@@ -5,6 +5,7 @@
 #include <string_view>
 
 #include "gpu_model/debug/trace_event_export.h"
+#include "gpu_model/debug/trace_json_fields.h"
 #include "gpu_model/debug/trace_event_view.h"
 
 namespace gpu_model {
@@ -95,45 +96,15 @@ JsonTraceSink::JsonTraceSink(const std::filesystem::path& path) : out_(path) {
 void JsonTraceSink::OnEvent(const TraceEvent& event) {
   const TraceEventView view = MakeTraceEventView(event);
   const TraceEventExportFields fields = MakeTraceEventExportFields(view);
+  std::ostringstream args;
+  AppendTraceExportJsonFields(args, fields);
   out_ << "{\"pc\":\"" << HexU64(view.pc) << "\",\"cycle\":\"" << HexU64(view.cycle)
        << "\",\"dpc_id\":\"" << HexU64(view.dpc_id) << "\",\"ap_id\":\""
        << HexU64(view.ap_id) << "\",\"peu_id\":\"" << HexU64(view.peu_id)
-       << "\",\"slot_id\":\"" << HexU64(view.slot_id) << "\",\"slot_model\":\""
-       << EscapeJson(fields.slot_model) << "\",\"slot_model_kind\":\""
-       << EscapeJson(fields.slot_model) << "\",\"kind\":\""
+       << "\",\"slot_id\":\"" << HexU64(view.slot_id) << "\",\"slot_model_kind\":\""
+       << EscapeTraceJson(fields.slot_model) << "\",\"kind\":\""
        << KindToString(view.kind) << "\",\"block_id\":\"" << HexU64(view.block_id)
-       << "\",\"wave_id\":\"" << HexU64(view.wave_id)
-       << "\",\"canonical_name\":\"" << EscapeJson(fields.canonical_name)
-       << "\",\"presentation_name\":\"" << EscapeJson(fields.presentation_name)
-       << "\",\"display_name\":\"" << EscapeJson(fields.display_name)
-       << "\",\"category\":\"" << EscapeJson(fields.category)
-       << "\",\"stall_reason\":\"" << EscapeJson(fields.stall_reason)
-       << "\",\"barrier_kind\":\"" << EscapeJson(fields.barrier_kind)
-       << "\",\"arrive_kind\":\"" << EscapeJson(fields.arrive_kind)
-       << "\",\"lifecycle_stage\":\"" << EscapeJson(fields.lifecycle_stage)
-       << "\",\"message\":\"" << EscapeJson(fields.compatibility_message) << "\"}\n";
-}
-
-std::string JsonTraceSink::EscapeJson(const std::string& text) {
-  std::string escaped;
-  escaped.reserve(text.size());
-  for (const char ch : text) {
-    switch (ch) {
-      case '\\':
-        escaped += "\\\\";
-        break;
-      case '"':
-        escaped += "\\\"";
-        break;
-      case '\n':
-        escaped += "\\n";
-        break;
-      default:
-        escaped.push_back(ch);
-        break;
-    }
-  }
-  return escaped;
+       << "\",\"wave_id\":\"" << HexU64(view.wave_id) << "\"" << args.str() << "}\n";
 }
 
 }  // namespace gpu_model

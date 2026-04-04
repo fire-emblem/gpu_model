@@ -4,6 +4,8 @@
 #include <string>
 #include <string_view>
 
+#include "gpu_model/debug/trace_event_export.h"
+
 namespace gpu_model {
 
 std::string EscapeTraceJson(std::string_view text);
@@ -18,5 +20,9 @@ void AppendTracePresentationJsonFields(std::ostringstream& out,
                                        std::string_view display_name,
                                        std::string_view category,
                                        std::string_view compatibility_message);
+
+void AppendTraceExportJsonFields(std::ostringstream& out,
+                                 const TraceEventExportFields& fields,
+                                 std::string_view message_key = "message");
 
 }  // namespace gpu_model

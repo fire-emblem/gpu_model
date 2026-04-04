@@ -46,4 +46,21 @@ void AppendTracePresentationJsonFields(std::ostringstream& out,
   AppendOptionalTraceJsonStringField(out, "message", compatibility_message);
 }
 
+void AppendTraceExportJsonFields(std::ostringstream& out,
+                                 const TraceEventExportFields& fields,
+                                 std::string_view message_key) {
+  AppendOptionalTraceJsonStringField(out, "slot_model", fields.slot_model);
+  AppendOptionalTraceJsonStringField(out, "stall_reason", fields.stall_reason);
+  AppendOptionalTraceJsonStringField(out, "barrier_kind", fields.barrier_kind);
+  AppendOptionalTraceJsonStringField(out, "arrive_kind", fields.arrive_kind);
+  AppendOptionalTraceJsonStringField(out, "lifecycle_stage", fields.lifecycle_stage);
+  AppendOptionalTraceJsonStringField(out, "canonical_name", fields.canonical_name);
+  AppendOptionalTraceJsonStringField(out, "presentation_name", fields.presentation_name);
+  AppendOptionalTraceJsonStringField(out, "display_name", fields.display_name);
+  AppendOptionalTraceJsonStringField(out, "category", fields.category);
+  if (!message_key.empty()) {
+    AppendOptionalTraceJsonStringField(out, message_key, fields.compatibility_message);
+  }
+}
+
 }  // namespace gpu_model

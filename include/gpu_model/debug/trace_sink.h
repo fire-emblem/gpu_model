@@ -44,8 +44,6 @@ class JsonTraceSink final : public TraceSink {
   void OnEvent(const TraceEvent& event) override;
 
  private:
-  static std::string EscapeJson(const std::string& text);
-
   std::ofstream out_;
 };
 

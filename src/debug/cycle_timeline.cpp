@@ -412,8 +412,7 @@ std::string SegmentArgs(const SlotKey& key, const Segment& segment) {
 std::string RuntimeArgs(const TraceEventExportFields& fields) {
   std::ostringstream out;
   out << "\"message\":\"" << EscapeTraceJson(fields.compatibility_message) << "\"";
-  AppendTracePresentationJsonFields(
-      out, fields.canonical_name, fields.presentation_name, fields.display_name, fields.category, {});
+  AppendTraceExportJsonFields(out, fields, {});
   return out.str();
 }
 
@@ -422,28 +421,19 @@ std::string MarkerArgs(const SlotKey& key, const Marker& marker) {
   out << "\"dpc\":" << key.dpc_id << ",\"ap\":" << key.ap_id << ",\"peu\":" << key.peu_id
       << ",\"slot\":" << key.slot_id << ",\"block\":" << marker.block_id << ",\"wave\":"
       << marker.wave_id;
-  if (!marker.slot_model.empty()) {
-    out << ",\"slot_model\":\"" << EscapeTraceJson(marker.slot_model) << "\"";
-  }
-  if (!marker.stall_reason_name.empty()) {
-    out << ",\"stall_reason\":\"" << EscapeTraceJson(marker.stall_reason_name) << "\"";
-  }
-  if (!marker.barrier_kind_name.empty()) {
-    out << ",\"barrier_kind\":\"" << EscapeTraceJson(marker.barrier_kind_name) << "\"";
-  }
-  if (!marker.arrive_kind_name.empty()) {
-    out << ",\"arrive_kind\":\"" << EscapeTraceJson(marker.arrive_kind_name) << "\"";
-  }
-  if (!marker.lifecycle_stage_name.empty()) {
-    out << ",\"lifecycle_stage\":\"" << EscapeTraceJson(marker.lifecycle_stage_name) << "\"";
-  }
   out << ",\"cycle\":" << marker.cycle;
-  AppendTracePresentationJsonFields(out,
-                                    marker.canonical_name,
-                                    marker.presentation_name,
-                                    marker.display_name,
-                                    marker.category,
-                                    marker.message);
+  AppendTraceExportJsonFields(
+      out,
+      TraceEventExportFields{.slot_model = marker.slot_model,
+                             .stall_reason = marker.stall_reason_name,
+                             .barrier_kind = marker.barrier_kind_name,
+                             .arrive_kind = marker.arrive_kind_name,
+                             .lifecycle_stage = marker.lifecycle_stage_name,
+                             .canonical_name = marker.canonical_name,
+                             .presentation_name = marker.presentation_name,
+                             .display_name = marker.display_name,
+                             .category = marker.category,
+                             .compatibility_message = marker.message});
   return out.str();
 }
 
