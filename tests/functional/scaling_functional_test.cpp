@@ -100,6 +100,7 @@ TEST_P(VecAddScalingTest, CoversRequestedBlockAndThreadCounts) {
   ASSERT_GT(n, 0u);
 
   RuntimeEngine runtime;
+  runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::MultiThreaded);
   const auto kernel = BuildVecAddKernelForScaling();
   const uint64_t a_addr = runtime.memory().AllocateGlobal(static_cast<uint64_t>(n) * sizeof(int32_t));
   const uint64_t b_addr = runtime.memory().AllocateGlobal(static_cast<uint64_t>(n) * sizeof(int32_t));
@@ -148,6 +149,7 @@ TEST_P(FmaScalingTest, CoversRequestedBlockAndThreadCounts) {
   constexpr int32_t add1 = 2;
 
   RuntimeEngine runtime;
+  runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::MultiThreaded);
   const auto kernel = BuildFmaLoopKernelForScaling();
   const uint64_t out_addr = runtime.memory().AllocateGlobal(static_cast<uint64_t>(n) * sizeof(int32_t));
   for (uint32_t i = 0; i < n; ++i) {

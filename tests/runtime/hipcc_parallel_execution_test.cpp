@@ -208,6 +208,120 @@ TEST(HipccParallelExecutionTest, ThreeDimensionalVecaddAddsMatchesBetweenStAndMt
   std::filesystem::remove_all(temp_dir);
 }
 
+TEST(HipccParallelExecutionTest, MultiWaveHeavyKernelShowsMtSpeedupWithDefaultWorkers) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+  if (std::thread::hardware_concurrency() <= 1) {
+    GTEST_SKIP() << "requires more than one CPU thread to evaluate mt speedup";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hipcc_parallel_multiwave_speedup");
+  const auto src_path = temp_dir / "vecadd_3d_adds_perf.cpp";
+  const auto exe_path = temp_dir / "vecadd_3d_adds_perf.out";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << "#include <hip/hip_runtime.h>\n"
+           "extern \"C\" __global__ void vecadd_3d_adds_perf(const float* a, const float* b, float* c,\n"
+           "                                                 int width, int height, int depth) {\n"
+           "  int x = blockIdx.x * blockDim.x + threadIdx.x;\n"
+           "  int y = blockIdx.y * blockDim.y + threadIdx.y;\n"
+           "  int z = blockIdx.z * blockDim.z + threadIdx.z;\n"
+           "  if (x < width && y < height && z < depth) {\n"
+           "    int idx = (z * height + y) * width + x;\n"
+           "    float acc = a[idx] + b[idx];\n"
+           "    #pragma unroll 1\n"
+           "    for (int i = 0; i < 512; ++i) {\n"
+           "      acc = acc + 0.125f;\n"
+           "      acc = acc + 0.25f;\n"
+           "      acc = acc + 0.5f;\n"
+           "    }\n"
+           "    c[idx] = acc;\n"
+           "  }\n"
+           "}\n"
+           "int main() { return 0; }\n";
+  }
+
+  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  constexpr uint32_t width = 33;
+  constexpr uint32_t height = 17;
+  constexpr uint32_t depth = 17;
+  constexpr uint32_t n = width * height * depth;
+  std::vector<float> input_a(n), input_b(n), scratch(n, -1.0f);
+  for (uint32_t i = 0; i < n; ++i) {
+    input_a[i] = 0.5f * static_cast<float>(i % 97);
+    input_b[i] = 1.25f + 0.25f * static_cast<float>(i % 13);
+  }
+
+  struct PerfFloatRunResult {
+    std::vector<float> output;
+    double elapsed_ms = 0.0;
+  };
+
+  const auto run_mode = [&](FunctionalExecutionMode mode) {
+    RuntimeEngine runtime;
+    runtime.SetFunctionalExecutionConfig(
+        FunctionalExecutionConfig{.mode = mode, .worker_threads = 0});
+    HipRuntime hooks(&runtime);
+
+    const uint64_t a_addr = hooks.Malloc(n * sizeof(float));
+    const uint64_t b_addr = hooks.Malloc(n * sizeof(float));
+    const uint64_t c_addr = hooks.Malloc(n * sizeof(float));
+    hooks.MemcpyHtoD<float>(a_addr, std::span<const float>(input_a));
+    hooks.MemcpyHtoD<float>(b_addr, std::span<const float>(input_b));
+    hooks.MemcpyHtoD<float>(c_addr, std::span<const float>(scratch));
+
+    KernelArgPack args;
+    args.PushU64(a_addr);
+    args.PushU64(b_addr);
+    args.PushU64(c_addr);
+    args.PushU32(width);
+    args.PushU32(height);
+    args.PushU32(depth);
+
+    const auto begin = std::chrono::steady_clock::now();
+    const auto launch = hooks.LaunchEncodedProgramObject(
+        LoadHipccImage(exe_path, "vecadd_3d_adds_perf"),
+        LaunchConfig{
+            .grid_dim_x = (width + 3) / 4,
+            .grid_dim_y = (height + 3) / 4,
+            .grid_dim_z = (depth + 3) / 4,
+            .block_dim_x = 4,
+            .block_dim_y = 4,
+            .block_dim_z = 4,
+        },
+        std::move(args),
+        ExecutionMode::Functional,
+        "c500",
+        nullptr);
+    const auto end = std::chrono::steady_clock::now();
+    EXPECT_TRUE(launch.ok) << launch.error_message;
+
+    PerfFloatRunResult result;
+    result.elapsed_ms = std::chrono::duration<double, std::milli>(end - begin).count();
+    result.output.resize(n);
+    hooks.MemcpyDtoH<float>(c_addr, std::span<float>(result.output));
+    return result;
+  };
+
+  const auto st = run_mode(FunctionalExecutionMode::SingleThreaded);
+  const auto mt = run_mode(FunctionalExecutionMode::MultiThreaded);
+
+  EXPECT_EQ(st.output, mt.output);
+  EXPECT_LT(mt.elapsed_ms, st.elapsed_ms);
+
+  std::fprintf(stderr,
+               "[gpu_model] multiwave_speedup functional_st_ms=%.3f functional_mt_ms=%.3f\n",
+               st.elapsed_ms,
+               mt.elapsed_ms);
+
+  std::filesystem::remove_all(temp_dir);
+}
+
 TEST(HipccParallelExecutionTest,
      EncodedAsymmetricBarrierKernelMatchesBetweenStAndMtAndReportsProgramCycles) {
   if (!HasHipHostToolchain()) {
