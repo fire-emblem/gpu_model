@@ -83,9 +83,14 @@ size_t FirstWaveLaunchIndexForBlock(const std::vector<TraceEvent>& events, uint3
 size_t FirstBarrierEventIndex(const std::vector<TraceEvent>& events,
                               uint32_t block_id,
                               std::string_view message) {
+  const TraceBarrierKind barrier_kind =
+      message == "arrive"  ? TraceBarrierKind::Arrive
+      : message == "release" ? TraceBarrierKind::Release
+                              : TraceBarrierKind::None;
   for (size_t i = 0; i < events.size(); ++i) {
     if (events[i].kind == TraceEventKind::Barrier && events[i].block_id == block_id &&
-        events[i].message == message) {
+        ((barrier_kind != TraceBarrierKind::None && events[i].barrier_kind == barrier_kind) ||
+         (barrier_kind == TraceBarrierKind::None && events[i].message == message))) {
       return i;
     }
   }

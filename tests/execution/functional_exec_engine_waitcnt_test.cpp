@@ -247,19 +247,10 @@ std::vector<TraceEvent> RunHarnessAndCollectTrace(FunctionalExecHarness& harness
   return harness.trace.events();
 }
 
-bool ContainsMessage(const std::vector<TraceEvent>& events,
-                     TraceEventKind kind,
-                     std::string_view message) {
-  for (const auto& event : events) {
-    if (event.kind == kind && event.message == message) {
-      return true;
-    }
-  }
-  return false;
-}
-
 bool ContainsWaveStatsMessage(const std::vector<TraceEvent>& events, std::string_view message) {
-  return ContainsMessage(events, TraceEventKind::WaveStats, message);
+  return std::any_of(events.begin(), events.end(), [message](const TraceEvent& event) {
+    return event.kind == TraceEventKind::WaveStats && event.message == message;
+  });
 }
 
 bool ContainsStallMessage(const std::vector<TraceEvent>& events, std::string_view message) {
