@@ -121,26 +121,64 @@ std::string CanonicalNameFromStall(TraceStallReason reason) {
   return "stall_" + std::string(reason_name);
 }
 
-std::string KindCategory(TraceEventKind kind) {
+std::string CanonicalNameFromRuntimeKind(TraceEventKind kind) {
+  switch (kind) {
+    case TraceEventKind::Launch:
+      return "launch";
+    case TraceEventKind::BlockPlaced:
+      return "block_placed";
+    case TraceEventKind::BlockLaunch:
+      return "block_launch";
+    default:
+      break;
+  }
+  return {};
+}
+
+std::string PresentationNameFromView(TraceEventKind kind,
+                                     TraceStallReason stall_reason,
+                                     std::string_view canonical_name,
+                                     std::string_view display_name) {
+  if (kind == TraceEventKind::Stall && stall_reason == TraceStallReason::WarpSwitch) {
+    return "wave_switch_away";
+  }
+  if (!canonical_name.empty()) {
+    return std::string(canonical_name);
+  }
+  return std::string(display_name);
+}
+
+std::string CategoryFromView(TraceEventKind kind,
+                             TraceStallReason stall_reason,
+                             std::string_view canonical_name) {
   switch (kind) {
     case TraceEventKind::Launch:
     case TraceEventKind::BlockPlaced:
-    case TraceEventKind::BlockLaunch:
       return "runtime";
+    case TraceEventKind::BlockLaunch:
+      return "launch/block";
     case TraceEventKind::Barrier:
-      return "barrier";
+      return "sync/barrier";
     case TraceEventKind::Stall:
-      return "stall";
+      if (stall_reason == TraceStallReason::WarpSwitch) {
+        return "wave/switch_away";
+      }
+      if (stall_reason == TraceStallReason::None) {
+        return "stall";
+      }
+      return "stall/" + std::string(TraceStallReasonName(stall_reason));
     case TraceEventKind::Arrive:
-      return "arrive";
+      return canonical_name.empty() ? "memory/arrive"
+                                    : "memory/" + std::string(canonical_name);
     case TraceEventKind::WaveStep:
     case TraceEventKind::Commit:
     case TraceEventKind::MemoryAccess:
     case TraceEventKind::ExecMaskUpdate:
       return "instruction";
     case TraceEventKind::WaveLaunch:
+      return "launch/wave";
     case TraceEventKind::WaveExit:
-      return "wave";
+      return "control/exit";
     case TraceEventKind::WaveStats:
       return "stats";
   }
@@ -166,8 +204,9 @@ TraceEventView MakeTraceEventView(const TraceEvent& event) {
       .arrive_kind = event.arrive_kind,
       .lifecycle_stage = event.lifecycle_stage,
       .canonical_name = {},
+      .presentation_name = {},
       .display_name = event.display_name,
-      .category = KindCategory(event.kind),
+      .category = {},
       .compatibility_message = event.message,
       .used_legacy_fallback = false,
   };
@@ -195,6 +234,8 @@ TraceEventView MakeTraceEventView(const TraceEvent& event) {
     view.canonical_name = CanonicalNameFromLifecycle(view.lifecycle_stage);
   } else if (event.kind == TraceEventKind::Stall && view.stall_reason != TraceStallReason::None) {
     view.canonical_name = CanonicalNameFromStall(view.stall_reason);
+  } else if (!CanonicalNameFromRuntimeKind(event.kind).empty()) {
+    view.canonical_name = CanonicalNameFromRuntimeKind(event.kind);
   } else if (!event.display_name.empty()) {
     view.canonical_name = event.display_name;
   } else {
@@ -217,6 +258,10 @@ TraceEventView MakeTraceEventView(const TraceEvent& event) {
     }
     view.used_legacy_fallback = view.used_legacy_fallback || !view.display_name.empty();
   }
+
+  view.presentation_name =
+      PresentationNameFromView(event.kind, view.stall_reason, view.canonical_name, view.display_name);
+  view.category = CategoryFromView(event.kind, view.stall_reason, view.canonical_name);
 
   return view;
 }

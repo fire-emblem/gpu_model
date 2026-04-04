@@ -79,7 +79,9 @@ void FileTraceSink::OnEvent(const TraceEvent& event) {
        << " kind=" << KindToString(view.kind) << " block=" << HexU64(view.block_id)
        << " wave=" << HexU64(view.wave_id)
        << " canonical_name=" << view.canonical_name
+       << " presentation_name=" << view.presentation_name
        << " display_name=" << view.display_name
+       << " category=" << view.category
        << " stall_reason=" << stall_reason
        << " barrier_kind=" << barrier_kind
        << " arrive_kind=" << arrive_kind
@@ -109,7 +111,9 @@ void JsonTraceSink::OnEvent(const TraceEvent& event) {
        << KindToString(view.kind) << "\",\"block_id\":\"" << HexU64(view.block_id)
        << "\",\"wave_id\":\"" << HexU64(view.wave_id)
        << "\",\"canonical_name\":\"" << EscapeJson(view.canonical_name)
+       << "\",\"presentation_name\":\"" << EscapeJson(view.presentation_name)
        << "\",\"display_name\":\"" << EscapeJson(view.display_name)
+       << "\",\"category\":\"" << EscapeJson(view.category)
        << "\",\"stall_reason\":\"" << EscapeJson(std::string(stall_reason))
        << "\",\"barrier_kind\":\"" << EscapeJson(std::string(barrier_kind))
        << "\",\"arrive_kind\":\"" << EscapeJson(std::string(arrive_kind))

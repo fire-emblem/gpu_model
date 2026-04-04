@@ -95,7 +95,9 @@ struct Marker {
   TraceArriveKind arrive_kind = TraceArriveKind::None;
   TraceLifecycleStage lifecycle_stage = TraceLifecycleStage::None;
   std::string canonical_name;
+  std::string presentation_name;
   std::string display_name;
+  std::string category;
   std::string message;
   std::string slot_model;
   uint32_t block_id = 0;
@@ -363,8 +365,10 @@ TimelineData BuildTimelineData(const std::vector<TraceEvent>& events) {
                                               .arrive_kind = view.arrive_kind,
                                               .lifecycle_stage = view.lifecycle_stage,
                                               .canonical_name = view.canonical_name,
+                                              .presentation_name = view.presentation_name,
                                               .display_name = view.display_name,
-                                              .message = event.message,
+                                              .category = view.category,
+                                              .message = view.compatibility_message,
                                               .slot_model = std::string(slot_model),
                                               .block_id = event.block_id,
                                               .wave_id = event.wave_id});
@@ -589,11 +593,8 @@ RowDescriptor DescribeRow(const SlotKey& key,
 }
 
 std::string MarkerName(const Marker& marker) {
-  if (marker.kind == TraceEventKind::Stall && marker.stall_reason == TraceStallReason::WarpSwitch) {
-    return "wave_switch_away";
-  }
-  if (!marker.canonical_name.empty()) {
-    return marker.canonical_name;
+  if (!marker.presentation_name.empty()) {
+    return marker.presentation_name;
   }
   switch (marker.kind) {
     case TraceEventKind::Arrive:
@@ -620,6 +621,9 @@ std::string MarkerName(const Marker& marker) {
 }
 
 std::string MarkerCategory(const Marker& marker) {
+  if (!marker.category.empty()) {
+    return marker.category;
+  }
   switch (marker.kind) {
     case TraceEventKind::Arrive:
       return marker.canonical_name.empty() ? "memory/arrive" : "memory/" + marker.canonical_name;
@@ -819,12 +823,12 @@ std::string CycleTimelineRenderer::RenderGoogleTrace(const std::vector<TraceEven
     if (runtime_event.cycle < begin || runtime_event.cycle > end) {
       continue;
     }
-    const std::string name =
-        runtime_event.kind == TraceEventKind::Launch ? "launch" : "block_placed";
-    append("{\"name\":\"" + EscapeJson(name) +
-           "\",\"cat\":\"runtime\",\"ph\":\"i\",\"s\":\"g\",\"pid\":0,\"tid\":0,\"ts\":" +
+    const TraceEventView view = MakeTraceEventView(runtime_event);
+    append("{\"name\":\"" + EscapeJson(view.presentation_name) +
+           "\",\"cat\":\"" + EscapeJson(view.category) +
+           "\",\"ph\":\"i\",\"s\":\"g\",\"pid\":0,\"tid\":0,\"ts\":" +
            std::to_string(runtime_event.cycle) + ",\"args\":{\"message\":\"" +
-           EscapeJson(runtime_event.message) + "\"}}");
+           EscapeJson(view.compatibility_message) + "\"}}");
   }
 
   std::set<RowDescriptor> declared_rows;
@@ -916,10 +920,10 @@ std::string CycleTimelineRenderer::RenderPerfettoTraceProto(const std::vector<Tr
     if (runtime_event.cycle < begin || runtime_event.cycle > end) {
       continue;
     }
-    const std::string name =
-        runtime_event.kind == TraceEventKind::Launch ? "launch" : "block_placed";
+    const TraceEventView view = MakeTraceEventView(runtime_event);
     AppendTracePacket(
-        EncodeTrackEventPacket(runtime_event.cycle, runtime_track_uuid, 3u, name), trace);
+        EncodeTrackEventPacket(runtime_event.cycle, runtime_track_uuid, 3u, view.presentation_name),
+        trace);
   }
 
   for (const auto& [key, row_segments] : data.segments) {

@@ -655,7 +655,9 @@ TEST(TraceTest, TraceEventViewPrefersTypedSemanticFieldsOverLegacyMessage) {
 
   const TraceEventView view = MakeTraceEventView(event);
   EXPECT_EQ(view.canonical_name, "barrier_release");
+  EXPECT_EQ(view.presentation_name, "barrier_release");
   EXPECT_EQ(view.display_name, "release");
+  EXPECT_EQ(view.category, "sync/barrier");
   EXPECT_EQ(view.barrier_kind, TraceBarrierKind::Release);
   EXPECT_FALSE(view.used_legacy_fallback);
 }
@@ -671,9 +673,31 @@ TEST(TraceTest, TraceEventViewCanNormalizeLegacyMessageOnlyRecords) {
 
   const TraceEventView view = MakeTraceEventView(event);
   EXPECT_EQ(view.canonical_name, "stall_waitcnt_global");
+  EXPECT_EQ(view.presentation_name, "stall_waitcnt_global");
   EXPECT_EQ(view.display_name, "stall_waitcnt_global");
+  EXPECT_EQ(view.category, "stall/waitcnt_global");
   EXPECT_EQ(view.stall_reason, TraceStallReason::WaitCntGlobal);
   EXPECT_TRUE(view.used_legacy_fallback);
+}
+
+TEST(TraceTest, TraceEventViewProvidesPresentationNamesForSwitchAwayRendering) {
+  const TraceWaveView wave{
+      .dpc_id = 0,
+      .ap_id = 0,
+      .peu_id = 0,
+      .slot_id = 0,
+      .block_id = 0,
+      .wave_id = 1,
+      .pc = 0x40,
+  };
+
+  const TraceEvent event =
+      MakeTraceWaveSwitchStallEvent(wave, /*cycle=*/3, TraceSlotModelKind::ResidentFixed);
+
+  const TraceEventView view = MakeTraceEventView(event);
+  EXPECT_EQ(view.canonical_name, "stall_warp_switch");
+  EXPECT_EQ(view.presentation_name, "wave_switch_away");
+  EXPECT_EQ(view.category, "wave/switch_away");
 }
 
 TEST(TraceTest, TypedTraceSemanticsRemainValidWhenCompatibilityMessageIsEmpty) {
@@ -1124,6 +1148,8 @@ TEST(TraceTest, FileTraceSinkSerializesCanonicalTypedSubkinds) {
   const std::string text = ReadTextFile(text_path);
   EXPECT_NE(text.find("barrier_kind=release"), std::string::npos);
   EXPECT_NE(text.find("canonical_name=barrier_release"), std::string::npos);
+  EXPECT_NE(text.find("presentation_name=barrier_release"), std::string::npos);
+  EXPECT_NE(text.find("category=sync/barrier"), std::string::npos);
   EXPECT_NE(text.find("display_name=release"), std::string::npos);
   std::filesystem::remove(text_path);
 }
@@ -1148,6 +1174,8 @@ TEST(TraceTest, JsonTraceSinkSerializesCanonicalTypedSubkinds) {
   const std::string text = ReadTextFile(json_path);
   EXPECT_NE(text.find("\"arrive_kind\":\"shared\""), std::string::npos);
   EXPECT_NE(text.find("\"canonical_name\":\"shared_arrive\""), std::string::npos);
+  EXPECT_NE(text.find("\"presentation_name\":\"shared_arrive\""), std::string::npos);
+  EXPECT_NE(text.find("\"category\":\"memory/shared_arrive\""), std::string::npos);
   EXPECT_NE(text.find("\"display_name\":\"shared\""), std::string::npos);
   std::filesystem::remove(json_path);
 }

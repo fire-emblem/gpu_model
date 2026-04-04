@@ -433,7 +433,9 @@ TEST(CycleTimelineTest, GoogleTraceUsesCanonicalBarrierAndArriveNamesFromTypedFi
 
   const std::string trace = CycleTimelineRenderer::RenderGoogleTrace(events);
   EXPECT_NE(trace.find("\"name\":\"barrier_arrive\""), std::string::npos);
+  EXPECT_NE(trace.find("\"cat\":\"sync/barrier\""), std::string::npos);
   EXPECT_NE(trace.find("\"name\":\"load_arrive\""), std::string::npos);
+  EXPECT_NE(trace.find("\"cat\":\"memory/load_arrive\""), std::string::npos);
 }
 
 TEST(CycleTimelineTest, TimelineCanRenderCanonicalNamesWithoutLegacyMessages) {

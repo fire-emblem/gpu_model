@@ -23,6 +23,7 @@ struct TraceEventView {
   TraceArriveKind arrive_kind = TraceArriveKind::None;
   TraceLifecycleStage lifecycle_stage = TraceLifecycleStage::None;
   std::string canonical_name;
+  std::string presentation_name;
   std::string display_name;
   std::string category;
   std::string compatibility_message;
