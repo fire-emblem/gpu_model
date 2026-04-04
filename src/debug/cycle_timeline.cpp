@@ -1,6 +1,7 @@
 #include "gpu_model/debug/cycle_timeline.h"
 #include "gpu_model/debug/trace_event_export.h"
 #include "gpu_model/debug/trace_event_builder.h"
+#include "gpu_model/debug/trace_json_fields.h"
 #include "gpu_model/debug/trace_event_view.h"
 
 #include <algorithm>
@@ -227,28 +228,6 @@ char AssignSymbol(const std::string& op, std::unordered_map<std::string, char>& 
   const char symbol = index < palette.size() ? palette[index] : '?';
   symbols.emplace(op, symbol);
   return symbol;
-}
-
-std::string EscapeJson(std::string_view text) {
-  std::string escaped;
-  escaped.reserve(text.size());
-  for (const char ch : text) {
-    switch (ch) {
-      case '\\':
-        escaped += "\\\\";
-        break;
-      case '"':
-        escaped += "\\\"";
-        break;
-      case '\n':
-        escaped += "\\n";
-        break;
-      default:
-        escaped.push_back(ch);
-        break;
-    }
-  }
-  return escaped;
 }
 
 void AppendVarint(uint64_t value, std::string& out) {
@@ -664,47 +643,21 @@ std::string SegmentArgs(const SlotKey& key, const Segment& segment) {
       << ",\"slot\":" << key.slot_id << ",\"block\":" << segment.block_id << ",\"wave\":"
       << segment.wave_id;
   if (!segment.slot_model.empty()) {
-    out << ",\"slot_model\":\"" << EscapeJson(segment.slot_model) << "\"";
+    out << ",\"slot_model\":\"" << EscapeTraceJson(segment.slot_model) << "\"";
   }
   if (segment.pc != 0) {
-    out << ",\"pc\":\"" << EscapeJson(HexU64(segment.pc)) << "\"";
+    out << ",\"pc\":\"" << EscapeTraceJson(HexU64(segment.pc)) << "\"";
   }
   out << ",\"issue_cycle\":" << segment.issue_cycle << ",\"commit_cycle\":"
       << segment.commit_cycle;
   return out.str();
 }
 
-void AppendOptionalJsonStringField(std::ostringstream& out,
-                                   std::string_view key,
-                                   std::string_view value) {
-  if (value.empty()) {
-    return;
-  }
-  out << ",\"" << key << "\":\"" << EscapeJson(value) << "\"";
-}
-
-void AppendPresentationJsonFields(std::ostringstream& out,
-                                  std::string_view canonical_name,
-                                  std::string_view presentation_name,
-                                  std::string_view display_name,
-                                  std::string_view category,
-                                  std::string_view compatibility_message) {
-  AppendOptionalJsonStringField(out, "canonical_name", canonical_name);
-  AppendOptionalJsonStringField(out, "presentation_name", presentation_name);
-  AppendOptionalJsonStringField(out, "display_name", display_name);
-  AppendOptionalJsonStringField(out, "category", category);
-  AppendOptionalJsonStringField(out, "message", compatibility_message);
-}
-
 std::string RuntimeArgs(const TraceEventExportFields& fields) {
   std::ostringstream out;
-  out << "\"message\":\"" << EscapeJson(fields.compatibility_message) << "\"";
-  AppendPresentationJsonFields(out,
-                               fields.canonical_name,
-                               fields.presentation_name,
-                               fields.display_name,
-                               fields.category,
-                               {});
+  out << "\"message\":\"" << EscapeTraceJson(fields.compatibility_message) << "\"";
+  AppendTracePresentationJsonFields(
+      out, fields.canonical_name, fields.presentation_name, fields.display_name, fields.category, {});
   return out.str();
 }
 
@@ -714,27 +667,27 @@ std::string MarkerArgs(const SlotKey& key, const Marker& marker) {
       << ",\"slot\":" << key.slot_id << ",\"block\":" << marker.block_id << ",\"wave\":"
       << marker.wave_id;
   if (!marker.slot_model.empty()) {
-    out << ",\"slot_model\":\"" << EscapeJson(marker.slot_model) << "\"";
+    out << ",\"slot_model\":\"" << EscapeTraceJson(marker.slot_model) << "\"";
   }
   if (!marker.stall_reason_name.empty()) {
-    out << ",\"stall_reason\":\"" << EscapeJson(marker.stall_reason_name) << "\"";
+    out << ",\"stall_reason\":\"" << EscapeTraceJson(marker.stall_reason_name) << "\"";
   }
   if (!marker.barrier_kind_name.empty()) {
-    out << ",\"barrier_kind\":\"" << EscapeJson(marker.barrier_kind_name) << "\"";
+    out << ",\"barrier_kind\":\"" << EscapeTraceJson(marker.barrier_kind_name) << "\"";
   }
   if (!marker.arrive_kind_name.empty()) {
-    out << ",\"arrive_kind\":\"" << EscapeJson(marker.arrive_kind_name) << "\"";
+    out << ",\"arrive_kind\":\"" << EscapeTraceJson(marker.arrive_kind_name) << "\"";
   }
   if (!marker.lifecycle_stage_name.empty()) {
-    out << ",\"lifecycle_stage\":\"" << EscapeJson(marker.lifecycle_stage_name) << "\"";
+    out << ",\"lifecycle_stage\":\"" << EscapeTraceJson(marker.lifecycle_stage_name) << "\"";
   }
   out << ",\"cycle\":" << marker.cycle;
-  AppendPresentationJsonFields(out,
-                               marker.canonical_name,
-                               marker.presentation_name,
-                               marker.display_name,
-                               marker.category,
-                               marker.message);
+  AppendTracePresentationJsonFields(out,
+                                    marker.canonical_name,
+                                    marker.presentation_name,
+                                    marker.display_name,
+                                    marker.category,
+                                    marker.message);
   return out.str();
 }
 
@@ -747,7 +700,7 @@ std::string MetadataJson(const TimelineData& data, std::optional<std::string_vie
       out << ',';
     }
     first = false;
-    out << "\"" << EscapeJson(slot_model) << "\"";
+    out << "\"" << EscapeTraceJson(slot_model) << "\"";
   }
   out << "],\"hierarchy_levels\":[\"Device\",\"DPC\",\"AP\",\"PEU\",\"Slot\"]"
       << ",\"label_style\":\"numeric\""
@@ -757,7 +710,7 @@ std::string MetadataJson(const TimelineData& data, std::optional<std::string_vie
          "DPC/AP/PEU are encoded as flattened numeric path labels until a native "
          "TrackDescriptor exporter is added\"";
   if (error.has_value()) {
-    out << ",\"error\":\"" << EscapeJson(*error) << "\"";
+    out << ",\"error\":\"" << EscapeTraceJson(*error) << "\"";
   }
   out << "}";
   return out.str();
@@ -875,15 +828,15 @@ std::string CycleTimelineRenderer::RenderGoogleTrace(const std::vector<TraceEven
   };
 
   append("{\"name\":\"process_name\",\"ph\":\"M\",\"pid\":0,\"tid\":0,\"args\":{\"name\":\"" +
-         EscapeJson(RuntimeLabel()) + "\"}}");
+         EscapeTraceJson(RuntimeLabel()) + "\"}}");
   for (const auto& runtime_event : data.runtime_events) {
     if (runtime_event.cycle < begin || runtime_event.cycle > end) {
       continue;
     }
     const TraceEventView view = MakeTraceEventView(runtime_event);
     const TraceEventExportFields fields = MakeTraceEventExportFields(view);
-    append("{\"name\":\"" + EscapeJson(view.presentation_name) +
-           "\",\"cat\":\"" + EscapeJson(view.category) +
+    append("{\"name\":\"" + EscapeTraceJson(view.presentation_name) +
+           "\",\"cat\":\"" + EscapeTraceJson(view.category) +
            "\",\"ph\":\"i\",\"s\":\"g\",\"pid\":0,\"tid\":0,\"ts\":" +
            std::to_string(runtime_event.cycle) + ",\"args\":{" + RuntimeArgs(fields) + "}}");
   }
@@ -904,14 +857,14 @@ std::string CycleTimelineRenderer::RenderGoogleTrace(const std::vector<TraceEven
   for (const auto& row : declared_rows) {
     if (declared_processes.insert(row.pid).second) {
       append("{\"name\":\"process_name\",\"ph\":\"M\",\"pid\":" + std::to_string(row.pid) +
-             ",\"tid\":0,\"args\":{\"name\":\"" + EscapeJson(row.process_name) + "\"}}");
+             ",\"tid\":0,\"args\":{\"name\":\"" + EscapeTraceJson(row.process_name) + "\"}}");
       append("{\"name\":\"process_sort_index\",\"ph\":\"M\",\"pid\":" + std::to_string(row.pid) +
              ",\"tid\":0,\"args\":{\"sort_index\":" +
              std::to_string(row.process_sort_index) + "}}");
     }
     append("{\"name\":\"thread_name\",\"ph\":\"M\",\"pid\":" + std::to_string(row.pid) +
            ",\"tid\":" + std::to_string(row.tid) + ",\"args\":{\"name\":\"" +
-           EscapeJson(row.thread_name) + "\"}}");
+           EscapeTraceJson(row.thread_name) + "\"}}");
     append("{\"name\":\"thread_sort_index\",\"ph\":\"M\",\"pid\":" + std::to_string(row.pid) +
            ",\"tid\":" + std::to_string(row.tid) + ",\"args\":{\"sort_index\":" +
            std::to_string(row.thread_sort_index) + "}}");
@@ -927,7 +880,7 @@ std::string CycleTimelineRenderer::RenderGoogleTrace(const std::vector<TraceEven
       const uint64_t clipped_end = std::min(end, segment.commit_cycle);
       const uint64_t duration = clipped_end > clipped_begin ? clipped_end - clipped_begin : 1;
       const std::string category = IsTensorMnemonic(segment.op) ? "tensor" : "instruction";
-      append("{\"name\":\"" + EscapeJson(segment.op) +
+      append("{\"name\":\"" + EscapeTraceJson(segment.op) +
              "\",\"cat\":\"" + category + "\",\"ph\":\"X\",\"pid\":" +
              std::to_string(row.pid) + ",\"tid\":" + std::to_string(row.tid) + ",\"ts\":" +
              std::to_string(clipped_begin) + ",\"dur\":" + std::to_string(duration) +
@@ -941,8 +894,8 @@ std::string CycleTimelineRenderer::RenderGoogleTrace(const std::vector<TraceEven
       if (marker.cycle < begin || marker.cycle > end) {
         continue;
       }
-      append("{\"name\":\"" + EscapeJson(MarkerName(marker)) +
-             "\",\"cat\":\"" + EscapeJson(MarkerCategory(marker)) +
+      append("{\"name\":\"" + EscapeTraceJson(MarkerName(marker)) +
+             "\",\"cat\":\"" + EscapeTraceJson(MarkerCategory(marker)) +
              "\",\"ph\":\"i\",\"s\":\"t\",\"pid\":" + std::to_string(row.pid) +
              ",\"tid\":" + std::to_string(row.tid) + ",\"ts\":" +
              std::to_string(marker.cycle) + ",\"args\":{" + MarkerArgs(key, marker) + "}}");

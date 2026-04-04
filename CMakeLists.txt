@@ -80,6 +80,7 @@ add_library(gpu_model STATIC
   src/runtime/hip_runtime.cpp
   src/debug/instruction_trace.cpp
   src/debug/trace_artifact_recorder.cpp
+  src/debug/trace_json_fields.cpp
   src/debug/trace_event_export.cpp
   src/debug/trace_event_view.cpp
   src/debug/cycle_timeline.cpp
