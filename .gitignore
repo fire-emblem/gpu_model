@@ -1,6 +1,11 @@
 build/
 build-ninja/
+build-asan/
+build-gate-release/
+build-gate-examples/
 .cache/
+logs/
+results/
 .toolchains/
 __pycache__/
 .humanize/
