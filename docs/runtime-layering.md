@@ -40,7 +40,7 @@ runtime 侧主线按两层来理解：
 
 - `include/gpu_model/runtime/model_runtime.h`
 - `include/gpu_model/runtime/module_load.h`
-- `src/runtime/runtime_engine.cpp`（目标命名：`ExecEngine`）
+- `src/runtime/exec_engine.cpp`
 - `src/runtime/core/*`
 
 职责：

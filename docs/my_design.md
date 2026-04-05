@@ -63,7 +63,7 @@
 
 - `ModelRuntime`
 
-### 2.3 Runtime Engine 层
+### 2.3 Exec Engine 层
 
 这一层负责真正的执行总控。
 
@@ -77,7 +77,7 @@
 
 长期命名建议：
 
-- `RuntimeEngine`
+- `ExecEngine`
 
 ## 3. 程序对象层
 
@@ -410,7 +410,7 @@ timeline 至少应能展示：
 - `canonical/internal` -> `modeled_*`
 - `ProgramImage` -> `ProgramObject`
 - `KernelProgram` -> `ExecutableKernel`
-- `HostRuntime` -> `RuntimeEngine`
+- `HostRuntime` -> `ExecEngine`
 - `RuntimeHooks` -> `HipRuntime`
 - `ModelRuntimeApi` -> `ModelRuntime`
 - `FunctionalExecutionCore` -> `FunctionalExecEngine`
