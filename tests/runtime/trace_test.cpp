@@ -2093,6 +2093,68 @@ TEST(TraceTest, NativePerfettoProtoContainsHierarchicalTracksAndEvents) {
   EXPECT_TRUE(saw_load_arrive);
 }
 
+TEST(TraceTest, NativePerfettoProtoShowsVisibleWaitcntBubbleInCycleMode) {
+  const auto out_dir = MakeUniqueTempDir("gpu_model_perfetto_cycle_gap_visible_bubble");
+  const struct Cleanup {
+    std::filesystem::path path;
+    ~Cleanup() { std::filesystem::remove_all(path); }
+  } cleanup{out_dir};
+
+  TraceArtifactRecorder trace(out_dir);
+  RuntimeEngine runtime(&trace);
+  runtime.SetFixedGlobalMemoryLatency(20);
+
+  const auto kernel = BuildWaitcntTraceKernel();
+  const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
+  runtime.memory().StoreGlobalValue<int32_t>(base_addr, 17);
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+  request.args.PushU64(base_addr);
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+  trace.FlushTimeline();
+
+  const std::string bytes = ReadTextFile(out_dir / "timeline.perfetto.pb");
+  const auto descriptors = ParseTrackDescriptors(bytes);
+  const auto events = ParseTrackEvents(bytes);
+  ASSERT_FALSE(descriptors.empty());
+  ASSERT_FALSE(events.empty());
+
+  std::optional<uint64_t> slot_uuid;
+  for (const auto& descriptor : descriptors) {
+    if (descriptor.name == "WAVE_SLOT_00") {
+      slot_uuid = descriptor.uuid;
+      break;
+    }
+  }
+  ASSERT_TRUE(slot_uuid.has_value());
+
+  std::optional<uint64_t> first_stall_cycle;
+  std::optional<uint64_t> first_arrive_cycle;
+  for (const auto& event : events) {
+    if (event.track_uuid != *slot_uuid || event.type != 3u) {
+      continue;
+    }
+    if (!first_stall_cycle.has_value() && event.name == "stall_waitcnt_global") {
+      first_stall_cycle = event.timestamp;
+    }
+    if (!first_arrive_cycle.has_value() &&
+        event.name.rfind("load_arrive", 0) == 0) {
+      first_arrive_cycle = event.timestamp;
+    }
+  }
+
+  ASSERT_TRUE(first_stall_cycle.has_value());
+  ASSERT_TRUE(first_arrive_cycle.has_value());
+  EXPECT_GT(*first_arrive_cycle, *first_stall_cycle);
+  EXPECT_GE(*first_arrive_cycle - *first_stall_cycle, 16u);
+}
+
 TEST(TraceTest, NativePerfettoProtoShowsCycleSamePeuResidentSlotsAcrossPeus) {
   const auto out_dir = MakeUniqueTempDir("gpu_model_perfetto_cycle_same_peu_proto");
   const struct Cleanup {
@@ -2155,6 +2217,73 @@ TEST(TraceTest, NativePerfettoProtoShowsCycleSamePeuResidentSlotsAcrossPeus) {
     }
   }
   EXPECT_TRUE(saw_wave_switch_away);
+}
+
+TEST(TraceTest, NativePerfettoProtoShowsSwitchAwayOnEveryCyclePeu) {
+  const auto out_dir = MakeUniqueTempDir("gpu_model_perfetto_cycle_switch_every_peu");
+  const struct Cleanup {
+    std::filesystem::path path;
+    ~Cleanup() { std::filesystem::remove_all(path); }
+  } cleanup{out_dir};
+
+  TraceArtifactRecorder trace(out_dir);
+  RuntimeEngine runtime(&trace);
+  runtime.SetFixedGlobalMemoryLatency(20);
+
+  constexpr uint32_t kBlockDim = 64 * 16;
+  const auto kernel = BuildCycleMultiWaveWaitcntKernelForTraceTest();
+  const uint64_t in_addr = runtime.memory().AllocateGlobal(kBlockDim * sizeof(int32_t));
+  for (uint32_t i = 0; i < kBlockDim; ++i) {
+    runtime.memory().StoreGlobalValue<int32_t>(in_addr + i * sizeof(int32_t),
+                                               static_cast<int32_t>(100 + i));
+  }
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = kBlockDim;
+  request.args.PushU64(in_addr);
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+  trace.FlushTimeline();
+
+  const std::string bytes = ReadTextFile(out_dir / "timeline.perfetto.pb");
+  const auto descriptors = ParseTrackDescriptors(bytes);
+  const auto events = ParseTrackEvents(bytes);
+  ASSERT_FALSE(descriptors.empty());
+  ASSERT_FALSE(events.empty());
+
+  std::map<uint64_t, std::string> peu_name_by_uuid;
+  std::map<uint64_t, uint64_t> slot_parent_uuid;
+  for (const auto& descriptor : descriptors) {
+    if (descriptor.name.rfind("PEU_", 0) == 0) {
+      peu_name_by_uuid[descriptor.uuid] = descriptor.name;
+    }
+  }
+  for (const auto& descriptor : descriptors) {
+    if (descriptor.name.rfind("WAVE_SLOT_", 0) == 0 && descriptor.parent_uuid.has_value()) {
+      slot_parent_uuid[descriptor.uuid] = *descriptor.parent_uuid;
+    }
+  }
+
+  std::map<std::string, size_t> switch_counts_by_peu;
+  for (const auto& event : events) {
+    if (event.type != 3u || event.name != "wave_switch_away") {
+      continue;
+    }
+    const auto slot_it = slot_parent_uuid.find(event.track_uuid);
+    ASSERT_NE(slot_it, slot_parent_uuid.end());
+    const auto peu_it = peu_name_by_uuid.find(slot_it->second);
+    ASSERT_NE(peu_it, peu_name_by_uuid.end());
+    ++switch_counts_by_peu[peu_it->second];
+  }
+
+  EXPECT_GE(switch_counts_by_peu["PEU_00"], 1u);
+  EXPECT_GE(switch_counts_by_peu["PEU_01"], 1u);
+  EXPECT_GE(switch_counts_by_peu["PEU_02"], 1u);
+  EXPECT_GE(switch_counts_by_peu["PEU_03"], 1u);
 }
 
 TEST(TraceTest, NativePerfettoProtoShowsFunctionalLogicalUnboundedSlotsOnPeu0) {
