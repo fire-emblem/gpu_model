@@ -11,7 +11,7 @@
 #include "gpu_model/debug/trace/sink.h"
 #include "gpu_model/isa/instruction_builder.h"
 #include "gpu_model/isa/opcode.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/exec_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -222,7 +222,7 @@ ExecutableKernel BuildSameApCrossBlockBarrierProgressKernel() {
 }
 
 TEST(SharedSyncFunctionalTest, SharedAtomicReductionAcrossTwoWavesIsCorrect) {
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   const auto kernel = BuildSharedAtomicReductionKernel();
   const uint64_t out_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
   runtime.memory().StoreGlobalValue<int32_t>(out_addr, -1);
@@ -252,7 +252,7 @@ TEST(SharedSyncFunctionalTest,
 
   const auto run_mode = [&](FunctionalExecutionMode mode) {
     CollectingTraceSink trace;
-    RuntimeEngine runtime(&trace);
+    ExecEngine runtime(&trace);
     runtime.SetFunctionalExecutionMode(mode);
     const uint64_t in_addr = runtime.memory().AllocateGlobal(kElementCount * sizeof(int32_t));
     const uint64_t out_addr = runtime.memory().AllocateGlobal(kElementCount * sizeof(int32_t));
@@ -296,7 +296,7 @@ TEST(SharedSyncFunctionalTest,
 
 TEST(SharedSyncFunctionalTest, BarrierReleaseReturnsEarlyWaveToDispatch) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::MultiThreaded);
 
   constexpr uint32_t kBlockDim = 320;
@@ -341,7 +341,7 @@ TEST(SharedSyncFunctionalTest, BarrierReleaseReturnsEarlyWaveToDispatch) {
 
 TEST(SharedSyncFunctionalTest, MultiThreadedSingleWorkerCanRunOtherBlockWaveWhileBarrierBlockWaits) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFunctionalExecutionConfig(
       FunctionalExecutionConfig{
           .mode = FunctionalExecutionMode::MultiThreaded,

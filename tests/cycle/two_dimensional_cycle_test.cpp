@@ -3,7 +3,7 @@
 #include <cstdint>
 
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/exec_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -27,7 +27,7 @@ ExecutableKernel BuildGlobal2DWriteKernel() {
 }
 
 TEST(TwoDimensionalCycleTest, Global2DWriteWorksInCycleMode) {
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   runtime.SetFixedGlobalMemoryLatency(8);
   const auto kernel = BuildGlobal2DWriteKernel();
   constexpr uint32_t grid_x = 3;

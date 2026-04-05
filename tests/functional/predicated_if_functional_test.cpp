@@ -4,7 +4,7 @@
 #include <vector>
 
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/exec_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -33,7 +33,7 @@ ExecutableKernel BuildPositiveCopyKernel() {
 
 TEST(PredicatedIfFunctionalTest, UsesCmaskAndExecWithoutImplicitReconvergence) {
   std::vector<int32_t> input{3, -1, 0, 7, -8, 5};
-  RuntimeEngine runtime;
+  ExecEngine runtime;
 
   const uint64_t in_addr = runtime.memory().AllocateGlobal(input.size() * sizeof(int32_t));
   const uint64_t out_addr = runtime.memory().AllocateGlobal(input.size() * sizeof(int32_t));

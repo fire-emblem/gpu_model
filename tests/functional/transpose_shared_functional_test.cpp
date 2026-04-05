@@ -3,7 +3,7 @@
 #include <cstdint>
 
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/exec_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -48,7 +48,7 @@ ExecutableKernel BuildSharedTransposeKernel() {
 }
 
 TEST(TransposeSharedFunctionalTest, TransposesRectangularTileUsingSharedMemory) {
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   const auto kernel = BuildSharedTransposeKernel();
 
   constexpr uint32_t grid_x = 1;

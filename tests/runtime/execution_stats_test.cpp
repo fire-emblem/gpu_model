@@ -4,7 +4,7 @@
 #include <vector>
 
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/exec_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -48,7 +48,7 @@ ExecutableKernel BuildStatsCycleKernel() {
 }
 
 TEST(ExecutionStatsTest, FunctionalLaunchReportsMemoryAndBarrierCounts) {
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   const auto kernel = BuildStatsFunctionalKernel();
 
   constexpr uint32_t n = 128;
@@ -75,7 +75,7 @@ TEST(ExecutionStatsTest, FunctionalLaunchReportsMemoryAndBarrierCounts) {
 }
 
 TEST(ExecutionStatsTest, FunctionalLaunchReportsProgramCycleStats) {
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
 
   const auto kernel = BuildStatsFunctionalKernel();
@@ -103,7 +103,7 @@ TEST(ExecutionStatsTest, FunctionalLaunchReportsProgramCycleStats) {
 }
 
 TEST(ExecutionStatsTest, CycleLaunchReportsCacheAndBankPenaltyCounts) {
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   runtime.SetGlobalMemoryLatencyProfile(/*dram=*/40, /*l2=*/20, /*l1=*/8);
   runtime.SetSharedBankConflictModel(/*bank_count=*/32, /*bank_width_bytes=*/4);
 

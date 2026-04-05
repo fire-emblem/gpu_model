@@ -8,7 +8,7 @@
 #include "gpu_model/program/program_object.h"
 #include "gpu_model/runtime/hip_runtime.h"
 #include "gpu_model/runtime/model_runtime.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/exec_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -16,13 +16,14 @@ namespace {
 TEST(RuntimeNamingTest, NewRuntimeTypesAreConcreteAndUsable) {
   static_assert(std::is_class_v<ModelRuntime>);
   static_assert(std::is_class_v<HipRuntime>);
+  static_assert(std::is_class_v<ExecEngine>);
   static_assert(std::is_class_v<RuntimeEngine>);
-  static_assert(std::is_constructible_v<HipRuntime, RuntimeEngine*>);
-  static_assert(std::is_constructible_v<ModelRuntime, RuntimeEngine*>);
+  static_assert(std::is_constructible_v<HipRuntime, ExecEngine*>);
+  static_assert(std::is_constructible_v<ModelRuntime, ExecEngine*>);
   static_assert(std::is_default_constructible_v<EncodedProgramObject>);
   static_assert(std::is_default_constructible_v<EncodedExecEngine>);
 
-  RuntimeEngine engine;
+  ExecEngine engine;
   HipRuntime hip(&engine);
   ModelRuntime model(&engine);
   EXPECT_EQ(hip.GetDeviceCount(), 1);
@@ -44,7 +45,7 @@ TEST(RuntimeNamingTest, ResetReinitializesOwnedRuntimeState) {
 }
 
 TEST(RuntimeNamingTest, ResetKeepsInjectedRuntimeBinding) {
-  RuntimeEngine shared_runtime;
+  ExecEngine shared_runtime;
   HipRuntime hip(&shared_runtime);
   ModelRuntime model(&shared_runtime);
 

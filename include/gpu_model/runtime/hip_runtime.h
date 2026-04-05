@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <optional>
 
+#include "gpu_model/runtime/exec_engine.h"
 #include "gpu_model/runtime/model_runtime.h"
 
 namespace gpu_model {
@@ -13,7 +14,7 @@ class TraceArtifactRecorder;
 
 class HipRuntime {
  public:
-  explicit HipRuntime(RuntimeEngine* runtime = nullptr);
+  explicit HipRuntime(ExecEngine* runtime = nullptr);
 
   uint64_t Malloc(size_t bytes);
   uint64_t MallocManaged(size_t bytes);
@@ -132,8 +133,8 @@ class HipRuntime {
   const MemorySystem& compatibility_memory() const;
   MemorySystem& memory() { return runtime().memory(); }
   const MemorySystem& memory() const { return runtime().memory(); }
-  RuntimeEngine& runtime() { return model_runtime_.runtime(); }
-  const RuntimeEngine& runtime() const { return model_runtime_.runtime(); }
+  ExecEngine& runtime() { return model_runtime_.runtime(); }
+  const ExecEngine& runtime() const { return model_runtime_.runtime(); }
 
  private:
   ModelRuntime model_runtime_;

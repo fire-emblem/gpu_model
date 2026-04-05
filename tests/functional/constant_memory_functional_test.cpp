@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/exec_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -80,7 +80,7 @@ TEST(ConstantMemoryFunctionalTest, LoadsValuesFromKernelConstSegment) {
     const_values[i] = static_cast<int32_t>(100 + 3 * i);
   }
 
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   const uint64_t out_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
   for (uint32_t i = 0; i < n; ++i) {
     runtime.memory().StoreGlobalValue<int32_t>(out_addr + i * sizeof(int32_t), -1);
@@ -107,7 +107,7 @@ TEST(ConstantMemoryFunctionalTest, LoadsValuesFromKernelConstSegment) {
 
 TEST(ConstantMemoryFunctionalTest, ScalarBufferLoadBroadcastsScalarValue) {
   constexpr uint32_t n = 16;
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   const uint64_t out_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
   for (uint32_t i = 0; i < n; ++i) {
     runtime.memory().StoreGlobalValue<int32_t>(out_addr + i * sizeof(int32_t), -1);
@@ -130,7 +130,7 @@ TEST(ConstantMemoryFunctionalTest, ScalarBufferLoadBroadcastsScalarValue) {
 
 TEST(ConstantMemoryFunctionalTest, ScalarBufferLoadUsesImmediateOffset) {
   constexpr uint32_t n = 8;
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   const uint64_t out_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
   for (uint32_t i = 0; i < n; ++i) {
     runtime.memory().StoreGlobalValue<int32_t>(out_addr + i * sizeof(int32_t), -1);

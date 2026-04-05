@@ -13,7 +13,7 @@
 #include "gpu_model/program/object_reader.h"
 #include "gpu_model/runtime/model_runtime.h"
 #include "tests/test_utils/hipcc_cache_test_utils.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/exec_engine.h"
 #include "gpu_model/util/logging.h"
 
 namespace gpu_model {
@@ -170,7 +170,7 @@ TEST(HipccParallelExecutionTest, ThreeDimensionalVecaddAddsMatchesBetweenStAndMt
   }
 
   const auto run_mode = [&](FunctionalExecutionMode mode, uint32_t worker_threads) {
-    RuntimeEngine runtime;
+    ExecEngine runtime;
     runtime.SetFunctionalExecutionConfig(
         FunctionalExecutionConfig{.mode = mode, .worker_threads = worker_threads});
     ModelRuntime hooks(&runtime);
@@ -301,7 +301,7 @@ TEST(HipccParallelExecutionTest, MultiWaveHeavyKernelShowsMtSpeedupWithDefaultWo
   };
 
   const auto run_mode = [&](FunctionalExecutionMode mode) {
-    RuntimeEngine runtime;
+    ExecEngine runtime;
     runtime.SetFunctionalExecutionConfig(
         FunctionalExecutionConfig{.mode = mode, .worker_threads = 0});
     ModelRuntime hooks(&runtime);
@@ -402,7 +402,7 @@ TEST(HipccParallelExecutionTest,
                      timings.decode_ms);
 
   auto run_mode = [&](FunctionalExecutionMode mode, uint32_t worker_threads) {
-    RuntimeEngine runtime;
+    ExecEngine runtime;
     runtime.SetFunctionalExecutionConfig(
         FunctionalExecutionConfig{.mode = mode, .worker_threads = worker_threads});
     ModelRuntime hooks(&runtime);
@@ -505,7 +505,7 @@ TEST(HipccParallelExecutionTest,
       trace.emplace(*artifact_dir);
     }
 
-    RuntimeEngine runtime(trace ? static_cast<TraceSink*>(&*trace) : nullptr);
+    ExecEngine runtime(trace ? static_cast<TraceSink*>(&*trace) : nullptr);
     runtime.SetFunctionalExecutionConfig(
         FunctionalExecutionConfig{.mode = functional_mode, .worker_threads = worker_threads});
     ModelRuntime hooks(&runtime);
@@ -612,7 +612,7 @@ TEST(HipccParallelExecutionTest,
   const auto run_mode = [&](ExecutionMode mode,
                             FunctionalExecutionMode functional_mode,
                             uint32_t worker_threads) -> FloatLaunchRunResult {
-    RuntimeEngine runtime;
+    ExecEngine runtime;
     runtime.SetFunctionalExecutionConfig(
         FunctionalExecutionConfig{.mode = functional_mode, .worker_threads = worker_threads});
     ModelRuntime hooks(&runtime);
@@ -703,7 +703,7 @@ TEST(HipccParallelExecutionTest,
   const auto run_mode = [&](ExecutionMode mode,
                             FunctionalExecutionMode functional_mode,
                             uint32_t worker_threads) -> std::pair<LaunchResult, int32_t> {
-    RuntimeEngine runtime;
+    ExecEngine runtime;
     runtime.SetFunctionalExecutionConfig(
         FunctionalExecutionConfig{.mode = functional_mode, .worker_threads = worker_threads});
     ModelRuntime hooks(&runtime);
@@ -791,7 +791,7 @@ TEST(HipccParallelExecutionTest,
   const auto run_mode = [&](ExecutionMode mode,
                             FunctionalExecutionMode functional_mode,
                             uint32_t worker_threads) -> FloatLaunchRunResult {
-    RuntimeEngine runtime;
+    ExecEngine runtime;
     runtime.SetFunctionalExecutionConfig(
         FunctionalExecutionConfig{.mode = functional_mode, .worker_threads = worker_threads});
     ModelRuntime hooks(&runtime);
@@ -904,7 +904,7 @@ TEST(HipccParallelExecutionTest,
     const auto run_mode = [&](ExecutionMode mode,
                               FunctionalExecutionMode functional_mode,
                               uint32_t worker_threads) {
-      RuntimeEngine runtime;
+      ExecEngine runtime;
       runtime.SetFunctionalExecutionConfig(
           FunctionalExecutionConfig{.mode = functional_mode, .worker_threads = worker_threads});
       ModelRuntime hooks(&runtime);
@@ -1044,7 +1044,7 @@ TEST(HipccParallelExecutionTest,
     const auto run_mode = [&](ExecutionMode mode,
                               FunctionalExecutionMode functional_mode,
                               uint32_t worker_threads) {
-      RuntimeEngine runtime;
+      ExecEngine runtime;
       runtime.SetFunctionalExecutionConfig(
           FunctionalExecutionConfig{.mode = functional_mode, .worker_threads = worker_threads});
       ModelRuntime hooks(&runtime);
@@ -1160,7 +1160,7 @@ TEST(HipccParallelExecutionTest,
   const auto run_mode = [&](ExecutionMode mode,
                             FunctionalExecutionMode functional_mode,
                             uint32_t worker_threads) -> FloatLaunchRunResult {
-    RuntimeEngine runtime;
+    ExecEngine runtime;
     runtime.SetFunctionalExecutionConfig(
         FunctionalExecutionConfig{.mode = functional_mode, .worker_threads = worker_threads});
     ModelRuntime hooks(&runtime);
@@ -1256,7 +1256,7 @@ TEST(HipccParallelExecutionTest,
   const auto run_mode = [&](ExecutionMode mode,
                             FunctionalExecutionMode functional_mode,
                             uint32_t worker_threads) -> std::pair<LaunchResult, float> {
-    RuntimeEngine runtime;
+    ExecEngine runtime;
     runtime.SetFunctionalExecutionConfig(
         FunctionalExecutionConfig{.mode = functional_mode, .worker_threads = worker_threads});
     ModelRuntime hooks(&runtime);
@@ -1356,7 +1356,7 @@ TEST(HipccParallelExecutionTest,
   const auto run_mode = [&](ExecutionMode mode,
                             FunctionalExecutionMode functional_mode,
                             uint32_t worker_threads) -> IntLaunchRunResult {
-    RuntimeEngine runtime;
+    ExecEngine runtime;
     runtime.SetFunctionalExecutionConfig(
         FunctionalExecutionConfig{.mode = functional_mode, .worker_threads = worker_threads});
     ModelRuntime hooks(&runtime);
@@ -1468,7 +1468,7 @@ TEST(HipccParallelExecutionTest,
   const auto run_mode = [&](ExecutionMode mode,
                             FunctionalExecutionMode functional_mode,
                             uint32_t worker_threads) -> IntLaunchRunResult {
-    RuntimeEngine runtime;
+    ExecEngine runtime;
     runtime.SetFunctionalExecutionConfig(
         FunctionalExecutionConfig{.mode = functional_mode, .worker_threads = worker_threads});
     ModelRuntime hooks(&runtime);
@@ -1603,7 +1603,7 @@ TEST(HipccParallelExecutionTest,
         trace.emplace(*artifact_dir);
       }
 
-      RuntimeEngine runtime(trace ? static_cast<TraceSink*>(&*trace) : nullptr);
+      ExecEngine runtime(trace ? static_cast<TraceSink*>(&*trace) : nullptr);
       runtime.SetFunctionalExecutionConfig(
           FunctionalExecutionConfig{.mode = functional_mode, .worker_threads = worker_threads});
       ModelRuntime hooks(&runtime);
@@ -1754,7 +1754,7 @@ TEST(HipccParallelExecutionTest,
         trace.emplace(*artifact_dir);
       }
 
-      RuntimeEngine runtime(trace ? static_cast<TraceSink*>(&*trace) : nullptr);
+      ExecEngine runtime(trace ? static_cast<TraceSink*>(&*trace) : nullptr);
       runtime.SetFunctionalExecutionConfig(
           FunctionalExecutionConfig{.mode = functional_mode, .worker_threads = worker_threads});
       ModelRuntime hooks(&runtime);
@@ -1892,7 +1892,7 @@ TEST(HipccParallelExecutionTest,
     const auto run_mode = [&](ExecutionMode mode,
                               FunctionalExecutionMode functional_mode,
                               uint32_t worker_threads) -> IntLaunchRunResult {
-      RuntimeEngine runtime;
+      ExecEngine runtime;
       runtime.SetFunctionalExecutionConfig(
           FunctionalExecutionConfig{.mode = functional_mode, .worker_threads = worker_threads});
       ModelRuntime hooks(&runtime);
@@ -2042,7 +2042,7 @@ TEST(HipccParallelExecutionTest,
   const auto run_mode = [&](ExecutionMode mode,
                             FunctionalExecutionMode functional_mode,
                             uint32_t worker_threads) -> IntLaunchRunResult {
-    RuntimeEngine runtime;
+    ExecEngine runtime;
     runtime.SetFunctionalExecutionConfig(
         FunctionalExecutionConfig{.mode = functional_mode, .worker_threads = worker_threads});
     ModelRuntime hooks(&runtime);
@@ -2299,7 +2299,7 @@ TEST(HipccParallelExecutionTest,
   const auto run_mode = [&](ExecutionMode mode,
                             FunctionalExecutionMode functional_mode,
                             uint32_t worker_threads) -> IntLaunchRunResult {
-    RuntimeEngine runtime;
+    ExecEngine runtime;
     runtime.SetFunctionalExecutionConfig(
         FunctionalExecutionConfig{.mode = functional_mode, .worker_threads = worker_threads});
     ModelRuntime hooks(&runtime);

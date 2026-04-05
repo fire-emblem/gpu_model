@@ -3,7 +3,7 @@
 #include <cstdint>
 
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/exec_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -53,7 +53,7 @@ ExecutableKernel BuildScalarDivRemKernel() {
 TEST(DivRemFunctionalTest, DivRemEncodeKernelProducesExpectedOutput) {
   constexpr uint32_t n = 53;
   constexpr uint32_t width = 7;
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   const auto kernel = BuildDivRemEncodeKernel();
   const uint64_t out_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
 
@@ -75,7 +75,7 @@ TEST(DivRemFunctionalTest, DivRemEncodeKernelProducesExpectedOutput) {
 
 TEST(DivRemFunctionalTest, ScalarDivRemKernelBroadcastsExpectedValue) {
   constexpr uint32_t n = 53;
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   const auto kernel = BuildScalarDivRemKernel();
   const uint64_t out_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
 

@@ -6,7 +6,7 @@
 
 #include "gpu_model/isa/opcode.h"
 #include "gpu_model/loader/asm_parser.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/exec_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -80,7 +80,7 @@ TEST(AsmParserTest, LaunchesParsedVecAddKernelFunctionally) {
 
   const auto kernel = AsmParser{}.Parse(image);
   constexpr uint32_t n = 130;
-  RuntimeEngine runtime;
+  ExecEngine runtime;
 
   const uint64_t a_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
   const uint64_t b_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
@@ -156,7 +156,7 @@ TEST(AsmParserTest, LaunchesParsedVectorFloatAddKernelFunctionally) {
 
   const auto kernel = AsmParser{}.Parse(image);
   constexpr uint32_t n = 65;
-  RuntimeEngine runtime;
+  ExecEngine runtime;
 
   const uint64_t a_addr = runtime.memory().AllocateGlobal(n * sizeof(float));
   const uint64_t b_addr = runtime.memory().AllocateGlobal(n * sizeof(float));
@@ -217,7 +217,7 @@ TEST(AsmParserTest, LaunchesParsedGlobalAddressLoadAndStoreFunctionally) {
       )");
 
   const auto kernel = AsmParser{}.Parse(image);
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   const uint64_t out_addr = runtime.memory().AllocateGlobal(sizeof(uint32_t));
   const uint64_t target_addr = runtime.memory().AllocateGlobal(sizeof(uint32_t));
   runtime.memory().StoreGlobalValue<uint32_t>(out_addr, 0u);

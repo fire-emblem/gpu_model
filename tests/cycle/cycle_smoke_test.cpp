@@ -6,7 +6,7 @@
 #include "gpu_model/arch/arch_registry.h"
 #include "gpu_model/debug/trace/sink.h"
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/exec_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -24,7 +24,7 @@ TEST(CycleSmokeTest, ScalarAndVectorOpsConsumeFourCyclesEach) {
   builder.BExit();
   const auto kernel = builder.Build("tiny_cycle_kernel");
 
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   LaunchRequest request;
   request.kernel = &kernel;
   request.mode = ExecutionMode::Cycle;
@@ -41,7 +41,7 @@ TEST(CycleSmokeTest, ConsecutiveKernelLaunchesIncludeDeviceGap) {
   builder.BExit();
   const auto kernel = builder.Build("launch_gap_kernel");
 
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   LaunchRequest request;
   request.kernel = &kernel;
   request.mode = ExecutionMode::Cycle;
@@ -69,7 +69,7 @@ TEST(CycleSmokeTest, QueuesBlocksWhenGridExceedsPhysicalApCount) {
   ASSERT_NE(spec, nullptr);
 
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
 
   InstructionBuilder builder;
   builder.BExit();
@@ -107,7 +107,7 @@ TEST(CycleSmokeTest, QueuesBlocksWhenGridExceedsPhysicalApCount) {
 
 TEST(CycleSmokeTest, AsyncLoadDoesNotPromoteOverflowResidentWavesPerPeu) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFixedGlobalMemoryLatency(40);
   runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
                                  /*kernel_launch_cycles=*/0,
@@ -155,7 +155,7 @@ TEST(CycleSmokeTest, AsyncLoadDoesNotPromoteOverflowResidentWavesPerPeu) {
 
 TEST(CycleSmokeTest, ReadyWavesIssueRoundRobinWithinPeu) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
                                  /*kernel_launch_cycles=*/0,
                                  /*block_launch_cycles=*/0,
@@ -200,7 +200,7 @@ TEST(CycleSmokeTest, VectorIssueLimitOverrideAllowsTwoWaveBundleIssue) {
   ASSERT_NE(spec, nullptr);
 
   CollectingTraceSink baseline_trace;
-  RuntimeEngine runtime(&baseline_trace);
+  ExecEngine runtime(&baseline_trace);
   runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
                                  /*kernel_launch_cycles=*/0,
                                  /*block_launch_cycles=*/0,
@@ -224,7 +224,7 @@ TEST(CycleSmokeTest, VectorIssueLimitOverrideAllowsTwoWaveBundleIssue) {
 
   runtime.ResetDeviceCycle();
   CollectingTraceSink widened_trace;
-  RuntimeEngine widened_runtime(&widened_trace);
+  ExecEngine widened_runtime(&widened_trace);
   widened_runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
                                          /*kernel_launch_cycles=*/0,
                                          /*block_launch_cycles=*/0,
@@ -272,7 +272,7 @@ TEST(CycleSmokeTest, IssuePolicyOverrideCanWidenVectorBundleWithoutSeparateLimit
   request.config.block_dim_x = spec->peu_per_ap * 64 + 64;
 
   CollectingTraceSink baseline_trace;
-  RuntimeEngine baseline_runtime(&baseline_trace);
+  ExecEngine baseline_runtime(&baseline_trace);
   baseline_runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
                                           /*kernel_launch_cycles=*/0,
                                           /*block_launch_cycles=*/0,
@@ -283,7 +283,7 @@ TEST(CycleSmokeTest, IssuePolicyOverrideCanWidenVectorBundleWithoutSeparateLimit
   ASSERT_TRUE(baseline.ok) << baseline.error_message;
 
   CollectingTraceSink grouped_trace;
-  RuntimeEngine grouped_runtime(&grouped_trace);
+  ExecEngine grouped_runtime(&grouped_trace);
   grouped_runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
                                          /*kernel_launch_cycles=*/0,
                                          /*block_launch_cycles=*/0,
@@ -332,7 +332,7 @@ TEST(CycleSmokeTest, IssueLimitOverrideTakesPriorityOverIssuePolicyTypeLimits) {
   request.config.block_dim_x = spec->peu_per_ap * 64 + 64;
 
   CollectingTraceSink baseline_trace;
-  RuntimeEngine baseline_runtime(&baseline_trace);
+  ExecEngine baseline_runtime(&baseline_trace);
   baseline_runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
                                           /*kernel_launch_cycles=*/0,
                                           /*block_launch_cycles=*/0,
@@ -343,7 +343,7 @@ TEST(CycleSmokeTest, IssueLimitOverrideTakesPriorityOverIssuePolicyTypeLimits) {
   ASSERT_TRUE(baseline.ok) << baseline.error_message;
 
   CollectingTraceSink limited_trace;
-  RuntimeEngine limited_runtime(&limited_trace);
+  ExecEngine limited_runtime(&limited_trace);
   limited_runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
                                          /*kernel_launch_cycles=*/0,
                                          /*block_launch_cycles=*/0,
@@ -389,7 +389,7 @@ TEST(CycleSmokeTest, IssueCycleClassOverrideChangesSelectedInstructionCategory) 
   builder.BExit();
   const auto kernel = builder.Build("class_override_kernel", {}, std::move(const_segment));
 
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   IssueCycleClassOverridesSpec class_overrides;
   class_overrides.scalar_memory = 6;
   runtime.SetIssueCycleClassOverrides(class_overrides);
@@ -417,7 +417,7 @@ TEST(CycleSmokeTest, IssueCycleOpOverrideTakesPriorityOverClassOverride) {
   builder.BExit();
   const auto kernel = builder.Build("op_override_kernel", {}, std::move(const_segment));
 
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   IssueCycleClassOverridesSpec class_overrides;
   class_overrides.scalar_memory = 6;
   runtime.SetIssueCycleClassOverrides(class_overrides);

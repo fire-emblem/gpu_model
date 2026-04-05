@@ -15,7 +15,7 @@
 #include "gpu_model/debug/trace/sink.h"
 #include "gpu_model/isa/instruction_builder.h"
 #include "gpu_model/isa/opcode.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/exec_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -204,7 +204,7 @@ size_t CountOccurrences(std::string_view text, std::string_view needle) {
 
 TEST(WaitcntFunctionalTest, PendingMemoryDoesNotStallBeforeExplicitWaitcnt) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
 
   const uint64_t base_addr = runtime.memory().AllocateGlobal(2 * sizeof(int32_t));
   runtime.memory().StoreGlobalValue<int32_t>(base_addr + 0 * sizeof(int32_t), 11);
@@ -245,7 +245,7 @@ TEST(WaitcntFunctionalTest, PendingMemoryDoesNotStallBeforeExplicitWaitcnt) {
 
 TEST(WaitcntFunctionalTest, WaitcntResumesWhenThresholdBecomesSatisfiedNotOnlyAtZero) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
 
   const uint64_t base_addr = runtime.memory().AllocateGlobal(2 * sizeof(int32_t));
   runtime.memory().StoreGlobalValue<int32_t>(base_addr + 0 * sizeof(int32_t), 11);
@@ -303,7 +303,7 @@ TEST(WaitcntFunctionalTest, WaitcntResumesWhenThresholdBecomesSatisfiedNotOnlyAt
 
 TEST(WaitcntFunctionalTest, EmitsWaveStatsDuringWaitcntProgress) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
 
   const uint64_t base_addr = runtime.memory().AllocateGlobal(2 * sizeof(int32_t));
@@ -347,7 +347,7 @@ TEST(WaitcntFunctionalTest, MultiThreadedWaitcntResumeIsConsistentAcrossTwoBlock
   for (int iteration = 0; iteration < 5; ++iteration) {
     SCOPED_TRACE(iteration);
     CollectingTraceSink trace;
-    RuntimeEngine runtime(&trace);
+    ExecEngine runtime(&trace);
     runtime.SetFunctionalExecutionConfig(
         FunctionalExecutionConfig{
             .mode = FunctionalExecutionMode::MultiThreaded,
@@ -395,7 +395,7 @@ TEST(WaitcntFunctionalTest, MultiThreadedWaitcntResumeIsConsistentAcrossTwoBlock
 
 TEST(WaitcntFunctionalTest, WaitingWaveDoesNotBlockReadySiblingOnSamePeu) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
 
   constexpr uint32_t kBlockDim = 320;
@@ -453,7 +453,7 @@ TEST(WaitcntFunctionalTest, SingleAndMultiThreadedTraceUseUnboundedLogicalLaneId
 
   const auto collect_slots = [&](FunctionalExecutionConfig config) {
     CollectingTraceSink trace;
-    RuntimeEngine runtime(&trace);
+    ExecEngine runtime(&trace);
     runtime.SetFunctionalExecutionConfig(config);
 
     const uint64_t in_addr = runtime.memory().AllocateGlobal(kElementCount * sizeof(int32_t));
@@ -508,7 +508,7 @@ TEST(WaitcntFunctionalTest, SingleAndMultiThreadedTraceUseUnboundedLogicalLaneId
 
 TEST(FunctionalWaitcntTest, TimelineShowsBlankBubbleWithWaitcntStallAndArrive) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
   runtime.SetFixedGlobalMemoryLatency(20);
 

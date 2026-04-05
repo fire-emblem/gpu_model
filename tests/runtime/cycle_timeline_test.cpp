@@ -7,7 +7,7 @@
 #include "gpu_model/debug/trace/event_factory.h"
 #include "gpu_model/debug/trace/sink.h"
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/exec_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -141,7 +141,7 @@ size_t CountOccurrences(std::string_view text, std::string_view needle) {
 
 TEST(CycleTimelineTest, RendersGoogleTraceForWaveTimeline) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
 
   const auto kernel = BuildTimelineKernel();
   LaunchRequest request;
@@ -166,7 +166,7 @@ TEST(CycleTimelineTest, RendersGoogleTraceForWaveTimeline) {
 
 TEST(CycleTimelineTest, GoogleTraceCanGroupByBlock) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
 
   const auto kernel = BuildTimelineKernel();
   LaunchRequest request;
@@ -190,7 +190,7 @@ TEST(CycleTimelineTest, GoogleTraceCanGroupByBlock) {
 
 TEST(CycleTimelineTest, GoogleTraceCanGroupByPeu) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
 
   const auto kernel = BuildTimelineKernel();
   LaunchRequest request;
@@ -228,7 +228,7 @@ TEST(CycleTimelineTest, HighlightsTensorOpsInGoogleTrace) {
 
 TEST(CycleTimelineTest, PerfettoDumpPreservesCycleIssueAndCommitOrdering) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFixedGlobalMemoryLatency(20);
 
   const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
@@ -283,7 +283,7 @@ TEST(CycleTimelineTest, PerfettoDumpPreservesCycleIssueAndCommitOrdering) {
 
 TEST(CycleTimelineTest, PerfettoDumpPreservesBarrierKernelStallTaxonomy) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFixedGlobalMemoryLatency(20);
 
   const auto kernel = BuildSharedBarrierCycleKernel();
@@ -513,7 +513,7 @@ TEST(CycleTimelineTest, TimelineCanRenderCanonicalNamesWithoutLegacyMessages) {
 
 TEST(CycleTimelineTest, RuntimePerfettoDumpCarriesWaveLifecycleOnSlotTracks) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
 
   const auto kernel = BuildTimelineKernel();
   LaunchRequest request;

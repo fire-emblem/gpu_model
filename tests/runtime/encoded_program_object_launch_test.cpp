@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "gpu_model/debug/trace/sink.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/exec_engine.h"
 #include "gpu_model/runtime/hip_runtime.h"
 #include "tests/test_utils/llvm_mc_test_support.h"
 
@@ -37,7 +37,7 @@ TEST(EncodedProgramObjectLaunchTest, RuntimeEngineLaunchesExplicitEncodedProgram
       ReadTextFile(std::filesystem::path("tests/asm_cases/loader/kernarg_aggregate_by_value.s")));
   const auto& image = assembled.image;
 
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   const uint64_t out_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
   runtime.memory().StoreGlobalValue<int32_t>(out_addr, 0);
 
@@ -121,7 +121,7 @@ amdhsa.kernels:
 .end_amdgpu_metadata
 )");
   const auto& image = assembled.image;
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   runtime.SetGlobalMemoryLatencyProfile(/*dram=*/40, /*l2=*/20, /*l1=*/8);
   CollectingTraceSink trace;
   const uint64_t out_addr = runtime.memory().AllocateGlobal(sizeof(uint32_t));

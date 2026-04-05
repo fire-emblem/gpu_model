@@ -10,7 +10,7 @@
 #include "gpu_model/arch/arch_registry.h"
 #include "gpu_model/isa/instruction_builder.h"
 #include "gpu_model/runtime/program_cycle_tracker.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/exec_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -28,7 +28,7 @@ LaunchResult LaunchProgramCycleStatsKernel(const ExecutableKernel& kernel,
                                            uint32_t grid_dim_x = 1,
                                            uint32_t shared_memory_bytes = 0,
                                            uint32_t worker_threads = 2) {
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   if (mode == FunctionalExecutionMode::MultiThreaded) {
     runtime.SetFunctionalExecutionConfig(
         FunctionalExecutionConfig{
@@ -51,7 +51,7 @@ LaunchResult LaunchKernelInCycleMode(const ExecutableKernel& kernel,
                                      uint32_t block_dim_x,
                                      uint32_t grid_dim_x = 1,
                                      uint32_t shared_memory_bytes = 0) {
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   LaunchRequest request;
   request.kernel = &kernel;
   request.mode = ExecutionMode::Cycle;
@@ -497,7 +497,7 @@ ExecutableKernel BuildSoftmaxStyleCycleStatsKernel() {
 }
 
 LaunchResult LaunchSharedReverseCycleStats(FunctionalExecutionMode mode) {
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   if (mode == FunctionalExecutionMode::MultiThreaded) {
     runtime.SetFunctionalExecutionConfig(
         FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MultiThreaded, .worker_threads = 4});
@@ -528,7 +528,7 @@ LaunchResult LaunchSharedReverseCycleStats(FunctionalExecutionMode mode) {
 }
 
 LaunchResult LaunchGlobalWaitcntCycleStats(FunctionalExecutionMode mode) {
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   if (mode == FunctionalExecutionMode::MultiThreaded) {
     runtime.SetFunctionalExecutionConfig(
         FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MultiThreaded, .worker_threads = 4});
@@ -550,7 +550,7 @@ LaunchResult LaunchGlobalWaitcntCycleStats(FunctionalExecutionMode mode) {
 }
 
 LaunchResult LaunchScalarBufferWaitcntCycleStats(FunctionalExecutionMode mode) {
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   if (mode == FunctionalExecutionMode::MultiThreaded) {
     runtime.SetFunctionalExecutionConfig(
         FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MultiThreaded, .worker_threads = 4});
@@ -568,7 +568,7 @@ LaunchResult LaunchScalarBufferWaitcntCycleStats(FunctionalExecutionMode mode) {
 }
 
 LaunchResult LaunchSamePeuWaitcntSiblingCycleStats(FunctionalExecutionMode mode) {
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   if (mode == FunctionalExecutionMode::MultiThreaded) {
     runtime.SetFunctionalExecutionConfig(
         FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MultiThreaded, .worker_threads = 4});
@@ -596,7 +596,7 @@ LaunchResult LaunchSamePeuWaitcntSiblingCycleStats(FunctionalExecutionMode mode)
 }
 
 LaunchResult LaunchSamePeuBarrierResumeCycleStats(FunctionalExecutionMode mode) {
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   if (mode == FunctionalExecutionMode::MultiThreaded) {
     runtime.SetFunctionalExecutionConfig(
         FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MultiThreaded, .worker_threads = 4});
@@ -622,7 +622,7 @@ LaunchResult LaunchSamePeuBarrierResumeCycleStats(FunctionalExecutionMode mode) 
 LaunchResult LaunchSharedReverseCase(ExecutionMode mode,
                                      FunctionalExecutionMode functional_mode =
                                          FunctionalExecutionMode::SingleThreaded) {
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   if (mode == ExecutionMode::Functional) {
     if (functional_mode == FunctionalExecutionMode::MultiThreaded) {
       runtime.SetFunctionalExecutionConfig(
@@ -656,7 +656,7 @@ LaunchResult LaunchSharedReverseCase(ExecutionMode mode,
 }
 
 LaunchResult LaunchSharedTransposeCycleStats(FunctionalExecutionMode mode) {
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   if (mode == FunctionalExecutionMode::MultiThreaded) {
     runtime.SetFunctionalExecutionConfig(
         FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MultiThreaded, .worker_threads = 4});
@@ -692,7 +692,7 @@ LaunchResult LaunchSharedTransposeCycleStats(FunctionalExecutionMode mode) {
 }
 
 LaunchResult LaunchSoftmaxStyleCycleStats(FunctionalExecutionMode mode) {
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   if (mode == FunctionalExecutionMode::MultiThreaded) {
     runtime.SetFunctionalExecutionConfig(
         FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MultiThreaded, .worker_threads = 4});
@@ -729,7 +729,7 @@ LaunchResult LaunchSoftmaxStyleCycleStats(FunctionalExecutionMode mode) {
 LaunchResult LaunchSoftmaxStyleCase(ExecutionMode mode,
                                     FunctionalExecutionMode functional_mode =
                                         FunctionalExecutionMode::SingleThreaded) {
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   if (mode == ExecutionMode::Functional) {
     if (functional_mode == FunctionalExecutionMode::MultiThreaded) {
       runtime.SetFunctionalExecutionConfig(
@@ -867,7 +867,7 @@ TEST(ExecutedFlowProgramCycleStatsTest,
 
 TEST(ExecutedFlowProgramCycleStatsTest,
      RuntimePureVectorAluKernelReportsAggregatedProgramCycleStatsOnly) {
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
 
   InstructionBuilder builder;

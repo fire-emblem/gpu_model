@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/exec_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -204,7 +204,7 @@ ExecutableKernel BuildStencil2DKernel() {
 TEST(RepresentativeFunctionalKernelsTest, SaxpyProducesExpectedOutput) {
   constexpr uint32_t n = 130;
   constexpr int32_t alpha = 3;
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   const auto kernel = BuildSaxpyKernel();
 
   const uint64_t x_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
@@ -236,7 +236,7 @@ TEST(RepresentativeFunctionalKernelsTest, SaxpyProducesExpectedOutput) {
 
 TEST(RepresentativeFunctionalKernelsTest, Stencil1DHandlesInteriorAndEdges) {
   constexpr uint32_t n = 100;
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   const auto kernel = BuildStencil1DKernel();
 
   const uint64_t in_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
@@ -266,7 +266,7 @@ TEST(RepresentativeFunctionalKernelsTest, Stencil1DHandlesInteriorAndEdges) {
 
 TEST(RepresentativeFunctionalKernelsTest, GatherLoadsIndirectElements) {
   constexpr uint32_t n = 96;
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   const auto kernel = BuildGatherKernel();
 
   const uint64_t src_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
@@ -301,7 +301,7 @@ TEST(RepresentativeFunctionalKernelsTest, BlockReductionProducesPerBlockSums) {
   constexpr uint32_t n = 320;
   constexpr uint32_t block_dim = 128;
   constexpr uint32_t grid_dim = 3;
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   const auto kernel = BuildBlockReductionKernel();
 
   const uint64_t in_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
@@ -343,7 +343,7 @@ TEST(RepresentativeFunctionalKernelsTest, Stencil2DProducesFivePointSums) {
   constexpr uint32_t width = 17;
   constexpr uint32_t height = 11;
   constexpr uint32_t total = width * height;
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   const auto kernel = BuildStencil2DKernel();
 
   const uint64_t in_addr = runtime.memory().AllocateGlobal(total * sizeof(int32_t));

@@ -6,7 +6,7 @@
 
 namespace gpu_model {
 
-HipRuntime::HipRuntime(RuntimeEngine* runtime) : model_runtime_(runtime) {}
+HipRuntime::HipRuntime(ExecEngine* runtime) : model_runtime_(runtime) {}
 
 uint64_t HipRuntime::Malloc(size_t bytes) {
   return model_runtime_.Malloc(bytes);

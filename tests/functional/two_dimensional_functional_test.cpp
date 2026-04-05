@@ -3,7 +3,7 @@
 #include <cstdint>
 
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/exec_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -47,7 +47,7 @@ ExecutableKernel BuildLocal2DWriteKernel() {
 }
 
 TEST(TwoDimensionalFunctionalTest, Global2DWriteUsesGlobalXAndYBuiltins) {
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   const auto kernel = BuildGlobal2DWriteKernel();
   constexpr uint32_t grid_x = 3;
   constexpr uint32_t grid_y = 2;
@@ -78,7 +78,7 @@ TEST(TwoDimensionalFunctionalTest, Global2DWriteUsesGlobalXAndYBuiltins) {
 }
 
 TEST(TwoDimensionalFunctionalTest, Local2DWriteUsesLocalXAndYBuiltins) {
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   const auto kernel = BuildLocal2DWriteKernel();
   constexpr uint32_t grid_x = 2;
   constexpr uint32_t grid_y = 2;

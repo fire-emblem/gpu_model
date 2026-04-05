@@ -5,7 +5,7 @@
 #include <ostream>
 
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/exec_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -101,7 +101,7 @@ TEST_P(VecAddCycleScalingTest, ProducesCorrectOutputAcrossRequestedScales) {
   const uint32_t n = ActiveElementCount(shape);
   ASSERT_GT(n, 0u);
 
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   runtime.SetFixedGlobalMemoryLatency(8);
   const auto kernel = BuildVecAddCycleScalingKernel();
   const uint64_t a_addr = runtime.memory().AllocateGlobal(static_cast<uint64_t>(n) * sizeof(int32_t));
@@ -152,7 +152,7 @@ TEST_P(FmaCycleScalingTest, ProducesCorrectOutputAcrossRequestedScales) {
   constexpr int32_t mul1 = 3;
   constexpr int32_t add1 = 2;
 
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   runtime.SetFixedGlobalMemoryLatency(8);
   const auto kernel = BuildFmaLoopCycleScalingKernel();
   const uint64_t out_addr = runtime.memory().AllocateGlobal(static_cast<uint64_t>(n) * sizeof(int32_t));

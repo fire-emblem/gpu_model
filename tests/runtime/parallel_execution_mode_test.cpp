@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/exec_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -133,13 +133,13 @@ ExecutableKernel BuildGlobal2DWriteKernelForModeTest() {
 TEST(ParallelExecutionModeTest, RuntimeEngineDefaultsToSingleThreadedFunctionalMode) {
   ScopedEnvUnset unset_mode("GPU_MODEL_FUNCTIONAL_MODE");
   ScopedEnvUnset unset_workers("GPU_MODEL_FUNCTIONAL_WORKERS");
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   EXPECT_EQ(runtime.functional_execution_config().mode,
             FunctionalExecutionMode::SingleThreaded);
 }
 
 TEST(ParallelExecutionModeTest, RuntimeEngineCanSwitchToMultiThreadedMode) {
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   runtime.SetFunctionalExecutionConfig(
       FunctionalExecutionConfig{
           .mode = FunctionalExecutionMode::MultiThreaded,
@@ -153,7 +153,7 @@ TEST(ParallelExecutionModeTest, RuntimeEngineCanSwitchToMultiThreadedMode) {
 TEST(ParallelExecutionModeTest, RuntimeEngineDefaultsMarlWorkersToNinetyPercentOfCpuCount) {
   ScopedEnvSet set_mode("GPU_MODEL_FUNCTIONAL_MODE", "mt");
   ScopedEnvUnset unset_workers("GPU_MODEL_FUNCTIONAL_WORKERS");
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   const uint32_t cpu_count = std::max(1u, std::thread::hardware_concurrency());
   const uint32_t expected_workers = std::max(1u, (cpu_count * 9u) / 10u);
   EXPECT_EQ(runtime.functional_execution_config().mode,
@@ -166,7 +166,7 @@ TEST(ParallelExecutionModeTest, MultiThreadedModeProducesSameFunctionalResults) 
   constexpr uint32_t n = 96;
 
   auto run_mode = [&](FunctionalExecutionMode mode) {
-    RuntimeEngine runtime;
+    ExecEngine runtime;
     runtime.SetFunctionalExecutionMode(mode);
     const uint64_t out_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
     for (uint32_t i = 0; i < n; ++i) {
@@ -198,7 +198,7 @@ TEST(ParallelExecutionModeTest, SingleThreadedMatchesMultiThreadedSingleWorker) 
   const auto kernel = BuildSharedAtomicReductionKernelForModeTest();
 
   auto run_mode = [&](FunctionalExecutionMode mode, uint32_t worker_threads) {
-    RuntimeEngine runtime;
+    ExecEngine runtime;
     runtime.SetFunctionalExecutionConfig(
         FunctionalExecutionConfig{.mode = mode, .worker_threads = worker_threads});
     const uint64_t out_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
@@ -226,7 +226,7 @@ TEST(ParallelExecutionModeTest, MultiThreadedModeMatchesSingleThreadForSharedAto
   const auto kernel = BuildSharedAtomicReductionKernelForModeTest();
 
   auto run_mode = [&](FunctionalExecutionMode mode) {
-    RuntimeEngine runtime;
+    ExecEngine runtime;
     runtime.SetFunctionalExecutionMode(mode);
     const uint64_t out_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
     runtime.memory().StoreGlobalValue<int32_t>(out_addr, -1);
@@ -258,7 +258,7 @@ TEST(ParallelExecutionModeTest, MultiThreadedModeMatchesSingleThreadForTwoDimens
   constexpr uint32_t total = grid_x * grid_y * block_x * block_y;
 
   auto run_mode = [&](FunctionalExecutionMode mode) {
-    RuntimeEngine runtime;
+    ExecEngine runtime;
     runtime.SetFunctionalExecutionMode(mode);
     const uint64_t out_addr = runtime.memory().AllocateGlobal(total * sizeof(int32_t));
 

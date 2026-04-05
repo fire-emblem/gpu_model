@@ -8,7 +8,7 @@
 
 #include "gpu_model/program/program_object.h"
 #include "gpu_model/program/object_reader.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/exec_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -64,7 +64,7 @@ TEST(ProgramSourceReaderTest, LoadsProgramObjectFromFilesAndLaunchesIt) {
   EXPECT_EQ(image.metadata().values.at("entry"), "const_image");
   EXPECT_EQ(image.const_segment().bytes.size(), table.size() * sizeof(int32_t));
 
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   const uint64_t out_addr = runtime.memory().AllocateGlobal(table.size() * sizeof(int32_t));
   for (uint32_t i = 0; i < table.size(); ++i) {
     runtime.memory().StoreGlobalValue<int32_t>(out_addr + i * sizeof(int32_t), -1);

@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "gpu_model/loader/program_bundle_io.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/exec_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -57,7 +57,7 @@ TEST(ProgramBundleIOTest, RoundTripsProgramObjectAndLaunchesLoadedBundle) {
   EXPECT_EQ(format_it->second, "bundle");
   EXPECT_EQ(loaded.const_segment().bytes.size(), original.const_segment().bytes.size());
 
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   const uint64_t out_addr = runtime.memory().AllocateGlobal(table.size() * sizeof(int32_t));
   LaunchRequest request;
   request.arch_name.clear();

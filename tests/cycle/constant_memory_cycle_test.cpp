@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/exec_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -37,7 +37,7 @@ ExecutableKernel BuildScalarBufferCycleKernel(ConstSegment const_segment) {
 
 TEST(ConstantMemoryCycleTest, ConstantLoadUsesOnlyFixedIssueCost) {
   const auto kernel = BuildConstCycleKernel(MakeConstSegment({42}));
-  RuntimeEngine runtime;
+  ExecEngine runtime;
 
   LaunchRequest request;
   request.kernel = &kernel;
@@ -52,7 +52,7 @@ TEST(ConstantMemoryCycleTest, ConstantLoadUsesOnlyFixedIssueCost) {
 
 TEST(ConstantMemoryCycleTest, ScalarBufferLoadUsesScalarDestination) {
   const auto kernel = BuildScalarBufferCycleKernel(MakeConstSegment({42}));
-  RuntimeEngine runtime;
+  ExecEngine runtime;
 
   LaunchRequest request;
   request.kernel = &kernel;

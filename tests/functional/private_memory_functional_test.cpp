@@ -3,7 +3,7 @@
 #include <cstdint>
 
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/exec_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -32,7 +32,7 @@ ExecutableKernel BuildPrivateCopyKernel() {
 
 TEST(PrivateMemoryFunctionalTest, StoresAndLoadsPerLanePrivateValues) {
   constexpr uint32_t n = 192;
-  RuntimeEngine runtime;
+  ExecEngine runtime;
 
   const uint64_t in_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
   const uint64_t out_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));

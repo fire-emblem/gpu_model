@@ -11,7 +11,7 @@
 #include "gpu_model/execution/sync_ops.h"
 #include "gpu_model/execution/wave_context.h"
 #include "gpu_model/execution/wave_context_builder.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/exec_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -33,8 +33,8 @@ TEST(ExecutionNamingTest, ExecutionHeadersDeclarePrimaryTypes) {
   using CycleRunSignature = uint64_t (CycleExecEngine::*)(ExecutionContext&);
   static_assert(std::is_same_v<decltype(&CycleExecEngine::Run), CycleRunSignature>);
   using RuntimeSetIssuePolicySignature =
-      void (RuntimeEngine::*)(const ArchitecturalIssuePolicy&);
-  static_assert(std::is_same_v<decltype(&RuntimeEngine::SetCycleIssuePolicy),
+      void (ExecEngine::*)(const ArchitecturalIssuePolicy&);
+  static_assert(std::is_same_v<decltype(&ExecEngine::SetCycleIssuePolicy),
                                RuntimeSetIssuePolicySignature>);
 
   using EncodedRunSignature = LaunchResult (EncodedExecEngine::*)(const EncodedProgramObject&,

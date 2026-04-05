@@ -3,7 +3,7 @@
 #include <cstdint>
 
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/exec_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -49,7 +49,7 @@ ExecutableKernel BuildBitwiseBucketKernel() {
 
 TEST(LocalBitwiseFunctionalTest, LocalIdWriteEmitsThreadIndexWithinBlock) {
   constexpr uint32_t n = 130;
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   const auto kernel = BuildLocalIdWriteKernel();
   const uint64_t out_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
   for (uint32_t i = 0; i < n; ++i) {
@@ -74,7 +74,7 @@ TEST(LocalBitwiseFunctionalTest, LocalIdWriteEmitsThreadIndexWithinBlock) {
 
 TEST(LocalBitwiseFunctionalTest, BitwiseBucketUsesAndOrXorAndShift) {
   constexpr uint32_t n = 64;
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   const auto kernel = BuildBitwiseBucketKernel();
   const uint64_t in_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
   const uint64_t out_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));

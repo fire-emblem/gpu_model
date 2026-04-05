@@ -13,7 +13,7 @@
 #include "gpu_model/debug/trace/sink.h"
 #include "gpu_model/isa/instruction_builder.h"
 #include "gpu_model/isa/opcode.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/exec_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -116,7 +116,7 @@ std::vector<ParsedWaveStatsSnapshot> RunBarrierKernelAndCollectWaveStats(
     FunctionalExecutionMode mode) {
   constexpr uint32_t block_dim = 128;
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFunctionalExecutionMode(mode);
 
   const uint64_t in_addr = runtime.memory().AllocateGlobal(block_dim * sizeof(int32_t));
@@ -179,7 +179,7 @@ TEST(SharedBarrierFunctionalTest, ReversesValuesWithinEachBlock) {
   constexpr uint32_t grid_dim = 2;
   constexpr uint32_t n = block_dim * grid_dim;
 
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   const uint64_t in_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
   const uint64_t out_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
   for (uint32_t i = 0; i < n; ++i) {
@@ -214,7 +214,7 @@ TEST(SharedBarrierFunctionalTest, ReversesValuesWithinEachBlock) {
 TEST(SharedBarrierFunctionalTest, EmitsBarrierTraceEvents) {
   constexpr uint32_t block_dim = 128;
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
 
   const uint64_t in_addr = runtime.memory().AllocateGlobal(block_dim * sizeof(int32_t));
   const uint64_t out_addr = runtime.memory().AllocateGlobal(block_dim * sizeof(int32_t));
@@ -242,7 +242,7 @@ TEST(SharedBarrierFunctionalTest, EmitsBarrierTraceEvents) {
 TEST(SharedBarrierFunctionalTest, EmitsWaveStatsDuringBarrierProgress) {
   constexpr uint32_t block_dim = 128;
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
 
   const uint64_t in_addr = runtime.memory().AllocateGlobal(block_dim * sizeof(int32_t));
@@ -327,7 +327,7 @@ TEST(SharedBarrierFunctionalTest, MatchesResultsAcrossSingleThreadedAndMultiThre
     SCOPED_TRACE(mode == FunctionalExecutionMode::SingleThreaded
                      ? "mode=SingleThreaded"
                      : "mode=MultiThreaded");
-    RuntimeEngine runtime;
+    ExecEngine runtime;
     runtime.SetFunctionalExecutionMode(mode);
     const uint64_t in_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
     const uint64_t out_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
@@ -380,7 +380,7 @@ TEST(SharedBarrierFunctionalTest, MatchesResultsAcrossSingleThreadedAndMultiThre
 TEST(SharedBarrierFunctionalTest, ReleaseResumesAllBarrierBlockedWaves) {
   constexpr uint32_t block_dim = 128;
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
 
   const uint64_t in_addr = runtime.memory().AllocateGlobal(block_dim * sizeof(int32_t));
@@ -421,7 +421,7 @@ TEST(SharedBarrierFunctionalTest, ReleaseResumesAllBarrierBlockedWaves) {
 TEST(SharedBarrierFunctionalTest, MultiThreadedReleaseResumesAllBarrierBlockedWaves) {
   constexpr uint32_t block_dim = 128;
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::MultiThreaded);
 
   const uint64_t in_addr = runtime.memory().AllocateGlobal(block_dim * sizeof(int32_t));

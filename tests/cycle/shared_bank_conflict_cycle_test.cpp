@@ -3,7 +3,7 @@
 #include <cstdint>
 
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/exec_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -17,7 +17,7 @@ ExecutableKernel BuildSharedBankConflictKernel() {
 }
 
 TEST(SharedBankConflictCycleTest, SharedLoadPenaltyReflectsBankConflicts) {
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   runtime.SetSharedBankConflictModel(/*bank_count=*/32, /*bank_width_bytes=*/4);
 
   const auto kernel = BuildSharedBankConflictKernel();

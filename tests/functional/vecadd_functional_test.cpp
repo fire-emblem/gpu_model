@@ -5,7 +5,7 @@
 
 #include "gpu_model/debug/trace/sink.h"
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/exec_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -42,7 +42,7 @@ bool ContainsEvent(const std::vector<TraceEvent>& events, TraceEventKind kind) {
 
 TEST(FunctionalVecAddTest, RunsMultiBlockMultiThreadKernel) {
   constexpr uint32_t n = 300;
-  RuntimeEngine runtime;
+  ExecEngine runtime;
 
   const uint64_t a_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
   const uint64_t b_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
@@ -80,7 +80,7 @@ TEST(FunctionalVecAddTest, RunsMultiBlockMultiThreadKernel) {
 TEST(FunctionalVecAddTest, EmitsMemoryAndWaveExitTrace) {
   constexpr uint32_t n = 128;
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
 
   const uint64_t a_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
   const uint64_t b_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));

@@ -10,7 +10,7 @@
 #include "gpu_model/debug/trace/event_factory.h"
 #include "gpu_model/debug/trace/sink.h"
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/exec_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -123,7 +123,7 @@ bool HasStallReason(const std::vector<TraceEvent>& events, TraceStallReason reas
 
 TEST(SharedBarrierCycleTest, BarrierReleaseAllowsWaitingWaveToResume) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFixedGlobalMemoryLatency(20);
 
   const auto kernel = BuildSharedBarrierCycleKernel();

@@ -23,7 +23,7 @@
 #include "gpu_model/debug/trace/sink.h"
 #include "gpu_model/isa/instruction_builder.h"
 #include "gpu_model/program/object_reader.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/exec_engine.h"
 #include "tests/test_utils/llvm_mc_test_support.h"
 
 namespace gpu_model {
@@ -477,7 +477,7 @@ std::vector<ParsedPerfettoTrackEvent> ParseTrackEvents(std::string_view bytes) {
 
 TEST(TraceTest, EmitsLaunchAndBlockPlacementEvents) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
 
   InstructionBuilder builder;
   builder.BExit();
@@ -1167,7 +1167,7 @@ TEST(TraceTest, EncodedTraceUsesCanonicalArriveAndBarrierReleaseMessages) {
   } cleanup{out_dir};
 
   TraceArtifactRecorder trace(out_dir);
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFixedGlobalMemoryLatency(20);
 
   const auto obj_path = AssembleLlvmMcFixture(
@@ -1200,7 +1200,7 @@ TEST(TraceTest, EncodedTraceUsesCanonicalArriveAndBarrierReleaseMessages) {
 
 TEST(TraceTest, EmitsWaveLaunchEventWithInitialWaveStateSummary) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
 
   InstructionBuilder builder;
   builder.BExit();
@@ -1232,7 +1232,7 @@ TEST(TraceTest, EmitsWaveLaunchEventWithInitialWaveStateSummary) {
 
 TEST(TraceTest, CycleExecutionEmitsCanonicalLifecycleAndStallMessagesViaFactories) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
 
   InstructionBuilder builder;
   builder.BExit();
@@ -1265,7 +1265,7 @@ TEST(TraceTest, CycleExecutionEmitsCanonicalLifecycleAndStallMessagesViaFactorie
 
 TEST(TraceTest, EmitsWaveStatsSnapshotsForFunctionalLaunch) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::MultiThreaded);
 
   InstructionBuilder builder;
@@ -1310,7 +1310,7 @@ TEST(TraceTest, EmitsWaveStatsSnapshotsForFunctionalLaunch) {
 
 TEST(TraceTest, EmitsWaveStatsStateSplitForFunctionalLaunch) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::MultiThreaded);
 
   InstructionBuilder builder;
@@ -1339,7 +1339,7 @@ TEST(TraceTest, EmitsWaveStatsStateSplitForFunctionalLaunch) {
 
 TEST(TraceTest, EmitsUnifiedWaitStateMachineTraceForWaitcnt) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
 
   const auto kernel = BuildWaitcntTraceKernel();
@@ -1377,7 +1377,7 @@ TEST(TraceTest, WritesHumanReadableTraceFile) {
       std::filesystem::temp_directory_path() / "gpu_model_trace.txt";
   {
     FileTraceSink trace(path);
-    RuntimeEngine runtime(&trace);
+    ExecEngine runtime(&trace);
 
     InstructionBuilder builder;
     builder.BExit();
@@ -1408,7 +1408,7 @@ TEST(TraceTest, WritesJsonTraceFile) {
       std::filesystem::temp_directory_path() / "gpu_model_trace.jsonl";
   {
     JsonTraceSink trace(path);
-    RuntimeEngine runtime(&trace);
+    ExecEngine runtime(&trace);
 
     InstructionBuilder builder;
     builder.BExit();
@@ -1662,7 +1662,7 @@ TEST(TraceTest, PerfettoDumpContainsTraceEventsAndRequiredFields) {
   } cleanup{out_dir};
 
   TraceArtifactRecorder trace(out_dir);
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
 
   InstructionBuilder builder;
   builder.BExit();
@@ -1760,7 +1760,7 @@ TEST(TraceTest, PerfettoDumpForMultiThreadedWaitKernelShowsWaitingAndResumeOrder
   } cleanup{out_dir};
 
   TraceArtifactRecorder trace(out_dir);
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::MultiThreaded);
 
   const auto kernel = BuildWaitcntTraceKernel();
@@ -1803,7 +1803,7 @@ TEST(TraceTest, PerfettoDumpForSingleThreadedWaitKernelUsesSharedSlotSchema) {
   } cleanup{out_dir};
 
   TraceArtifactRecorder trace(out_dir);
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
 
   const auto kernel = BuildWaitcntTraceKernel();
@@ -2012,7 +2012,7 @@ TEST(TraceTest, NativePerfettoProtoContainsHierarchicalTracksAndEvents) {
   } cleanup{out_dir};
 
   TraceArtifactRecorder trace(out_dir);
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFixedGlobalMemoryLatency(20);
 
   const auto kernel = BuildWaitcntTraceKernel();
@@ -2101,7 +2101,7 @@ TEST(TraceTest, NativePerfettoProtoShowsVisibleWaitcntBubbleInCycleMode) {
   } cleanup{out_dir};
 
   TraceArtifactRecorder trace(out_dir);
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFixedGlobalMemoryLatency(20);
 
   const auto kernel = BuildWaitcntTraceKernel();
@@ -2163,7 +2163,7 @@ TEST(TraceTest, NativePerfettoProtoShowsCycleSamePeuResidentSlotsAcrossPeus) {
   } cleanup{out_dir};
 
   TraceArtifactRecorder trace(out_dir);
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFixedGlobalMemoryLatency(20);
 
   constexpr uint32_t kBlockDim = 64 * 16;
@@ -2227,7 +2227,7 @@ TEST(TraceTest, NativePerfettoProtoShowsSwitchAwayOnEveryCyclePeu) {
   } cleanup{out_dir};
 
   TraceArtifactRecorder trace(out_dir);
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFixedGlobalMemoryLatency(20);
 
   constexpr uint32_t kBlockDim = 64 * 16;
@@ -2294,7 +2294,7 @@ TEST(TraceTest, NativePerfettoProtoShowsFunctionalLogicalUnboundedSlotsOnPeu0) {
   } cleanup{out_dir};
 
   TraceArtifactRecorder trace(out_dir);
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
   runtime.SetFixedGlobalMemoryLatency(20);
 
@@ -2355,7 +2355,7 @@ TEST(TraceTest, NativePerfettoProtoShowsMultiThreadedLogicalUnboundedSlotsOnPeu0
   } cleanup{out_dir};
 
   TraceArtifactRecorder trace(out_dir);
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::MultiThreaded);
   runtime.SetFixedGlobalMemoryLatency(20);
 
@@ -2425,7 +2425,7 @@ TEST(TraceTest, NativePerfettoProtoShowsEncodedFunctionalLogicalUnboundedSlotsOn
   const auto image = ObjectReader{}.LoadEncodedObject(obj_path, "asm_kernarg_aggregate_by_value");
 
   TraceArtifactRecorder trace(out_dir);
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
 
   struct AggregateArg {
     int32_t x;
@@ -2489,7 +2489,7 @@ TEST(TraceTest, NativePerfettoProtoShowsEncodedCycleResidentSlotsAcrossPeus) {
   const auto image = ObjectReader{}.LoadEncodedObject(obj_path, "asm_kernarg_aggregate_by_value");
 
   TraceArtifactRecorder trace(out_dir);
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
 
   struct AggregateArg {
     int32_t x;
@@ -2562,7 +2562,7 @@ TEST(TraceTest, NativePerfettoProtoShowsFunctionalSamePeuSwitchAwayInSingleThrea
   } cleanup{out_dir};
 
   TraceArtifactRecorder trace(out_dir);
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
   constexpr uint32_t kBlockDim = 64 * 33;
   const auto kernel = BuildCycleMultiWaveWaitcntKernelForTraceTest();
@@ -2607,7 +2607,7 @@ TEST(TraceTest, NativePerfettoProtoShowsFunctionalSamePeuSwitchAwayInMultiThread
   } cleanup{out_dir};
 
   TraceArtifactRecorder trace(out_dir);
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFunctionalExecutionConfig(FunctionalExecutionConfig{
       .mode = FunctionalExecutionMode::MultiThreaded,
       .worker_threads = 2,
@@ -2655,7 +2655,7 @@ TEST(TraceTest, NativePerfettoProtoShowsFunctionalTimelineGapWaitArriveInMultiTh
   } cleanup{out_dir};
 
   TraceArtifactRecorder trace(out_dir);
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFunctionalExecutionConfig(FunctionalExecutionConfig{
       .mode = FunctionalExecutionMode::MultiThreaded,
       .worker_threads = 2,
@@ -2766,7 +2766,7 @@ amdhsa.kernels:
 )");
 
   TraceArtifactRecorder trace(out_dir);
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFunctionalExecutionConfig(FunctionalExecutionConfig{
       .mode = FunctionalExecutionMode::MultiThreaded,
       .worker_threads = 2,
@@ -2867,7 +2867,7 @@ amdhsa.kernels:
 )");
 
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFixedGlobalMemoryLatency(40);
 
   const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
@@ -2976,7 +2976,7 @@ amdhsa.kernels:
 )");
 
   TraceArtifactRecorder trace(out_dir);
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFunctionalExecutionConfig(FunctionalExecutionConfig{
       .mode = FunctionalExecutionMode::MultiThreaded,
       .worker_threads = 2,
@@ -3025,7 +3025,7 @@ TEST(TraceTest, NativePerfettoProtoShowsWaitcntArrivalProgressMarkersAndBubble) 
   } cleanup{out_dir};
 
   TraceArtifactRecorder trace(out_dir);
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
   runtime.SetFixedGlobalMemoryLatency(20);
 

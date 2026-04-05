@@ -3,7 +3,7 @@
 #include <cstdint>
 
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/exec_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -100,7 +100,7 @@ TEST(SoftmaxSharedFunctionalTest, ComputesPerBlockMaxAndSumUsingSharedMemoryAndB
   constexpr uint32_t grid_dim = 2;
   constexpr uint32_t n = block_dim * grid_dim;
 
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   const auto kernel = BuildSoftmaxStyleBlockStatsKernel();
 
   const uint64_t in_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));

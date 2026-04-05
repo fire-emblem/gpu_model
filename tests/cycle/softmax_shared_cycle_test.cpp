@@ -5,7 +5,7 @@
 
 #include "gpu_model/debug/trace/sink.h"
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/exec_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -134,7 +134,7 @@ TEST(SoftmaxSharedCycleTest, EmitsSharedAndBarrierActivityForSoftmaxStyleReducti
   constexpr uint32_t n = block_dim * grid_dim;
 
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFixedGlobalMemoryLatency(8);
 
   const auto kernel = BuildSoftmaxStyleBlockStatsKernel();

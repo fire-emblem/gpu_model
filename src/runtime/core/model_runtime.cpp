@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "gpu_model/arch/arch_registry.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/exec_engine.h"
 
 namespace gpu_model {
 
@@ -37,7 +37,7 @@ RuntimeDeviceProperties BuildRuntimeDeviceProperties(const GpuArchSpec& spec) {
 
 }  // namespace
 
-ModelRuntime::ModelRuntime(RuntimeEngine* runtime)
+ModelRuntime::ModelRuntime(ExecEngine* runtime)
     : runtime_engine_(runtime != nullptr ? runtime : &owned_runtime_),
       owns_runtime_(runtime == nullptr) {}
 
@@ -94,7 +94,7 @@ void ModelRuntime::MemsetD32(uint64_t addr, uint32_t value, size_t count) {
 
 void ModelRuntime::Reset() {
   if (owns_runtime_) {
-    owned_runtime_ = RuntimeEngine{};
+    owned_runtime_ = ExecEngine{};
     runtime_engine_ = &owned_runtime_;
   } else {
     runtime_engine_->ResetDeviceCycle();
@@ -121,11 +121,11 @@ bool ModelRuntime::SetDevice(int device_id) {
   return true;
 }
 
-RuntimeEngine& ModelRuntime::runtime() {
+ExecEngine& ModelRuntime::runtime() {
   return *runtime_engine_;
 }
 
-const RuntimeEngine& ModelRuntime::runtime() const {
+const ExecEngine& ModelRuntime::runtime() const {
   return *runtime_engine_;
 }
 

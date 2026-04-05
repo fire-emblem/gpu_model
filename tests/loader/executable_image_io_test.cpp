@@ -9,7 +9,7 @@
 #include "gpu_model/debug/info/debug_info.h"
 #include "gpu_model/isa/instruction_builder.h"
 #include "gpu_model/loader/executable_image_io.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/exec_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -58,7 +58,7 @@ TEST(ExecutableImageIOTest, RoundTripsSectionedImageAndLaunchesIt) {
   ASSERT_NE(format_it, loaded.metadata().values.end());
   EXPECT_EQ(format_it->second, "sectioned");
 
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   const uint64_t out_addr = runtime.memory().AllocateGlobal(table.size() * sizeof(int32_t));
   LaunchRequest request;
   request.arch_name.clear();

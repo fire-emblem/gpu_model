@@ -3,7 +3,7 @@
 #include <cstdint>
 
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/exec_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -75,7 +75,7 @@ ExecutableKernel BuildHistogramKernel() {
 
 TEST(AdvancedSyntaxFunctionalTest, ClampUsesMinAndMax) {
   constexpr uint32_t n = 9;
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   const auto kernel = BuildClampKernel();
   const uint64_t in_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
   const uint64_t out_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
@@ -105,7 +105,7 @@ TEST(AdvancedSyntaxFunctionalTest, ClampUsesMinAndMax) {
 
 TEST(AdvancedSyntaxFunctionalTest, DiffOrZeroUsesSubEqAndSelect) {
   constexpr uint32_t n = 8;
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   const auto kernel = BuildDiffOrZeroKernel();
   const uint64_t a_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
   const uint64_t b_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
@@ -138,7 +138,7 @@ TEST(AdvancedSyntaxFunctionalTest, DiffOrZeroUsesSubEqAndSelect) {
 TEST(AdvancedSyntaxFunctionalTest, HistogramUsesGlobalAtomicAdd) {
   constexpr uint32_t n = 16;
   constexpr uint32_t bins = 4;
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   const auto kernel = BuildHistogramKernel();
   const uint64_t in_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
   const uint64_t hist_addr = runtime.memory().AllocateGlobal(bins * sizeof(int32_t));

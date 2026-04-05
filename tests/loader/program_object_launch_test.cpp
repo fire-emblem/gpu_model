@@ -5,7 +5,7 @@
 #include <cstring>
 #include <vector>
 
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/exec_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -44,7 +44,7 @@ TEST(ProgramObjectLaunchTest, LaunchesProgramObjectDirectlyWithConstSegment) {
       {},
       MakeConstSegment(table));
 
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   const uint64_t out_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
   for (uint32_t i = 0; i < n; ++i) {
     runtime.memory().StoreGlobalValue<int32_t>(out_addr + i * sizeof(int32_t), -1);

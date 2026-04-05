@@ -9,7 +9,7 @@
 
 #include "gpu_model/debug/trace/sink.h"
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/exec_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -114,7 +114,7 @@ bool HasStallReason(const std::vector<TraceEvent>& events, TraceStallReason reas
 
 TEST(AsyncMemoryCycleTest, LoadUsesIssuePlusArriveLatency) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFixedGlobalMemoryLatency(20);
 
   const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
@@ -144,7 +144,7 @@ TEST(AsyncMemoryCycleTest, LoadUsesIssuePlusArriveLatency) {
 
 TEST(AsyncMemoryCycleTest, ResidentSlotsIssueIndependentlyWithinSamePeu) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   ArchitecturalIssueLimits widened_limits = DefaultArchitecturalIssueLimits();
   widened_limits.scalar_alu_or_memory = 2;
   runtime.SetCycleIssueLimits(widened_limits);
@@ -172,7 +172,7 @@ TEST(AsyncMemoryCycleTest, ResidentSlotsIssueIndependentlyWithinSamePeu) {
 
 TEST(AsyncMemoryCycleTest, ResidentSlotsStillHonorIssueLimitsPerPeu) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
 
   ArchitecturalIssueLimits scalar_limited = DefaultArchitecturalIssueLimits();
   scalar_limited.scalar_alu_or_memory = 2;
@@ -198,7 +198,7 @@ TEST(AsyncMemoryCycleTest, ResidentSlotsStillHonorIssueLimitsPerPeu) {
 
 TEST(AsyncMemoryCycleTest, ResidentSlotsDoNotBypassPeuIssueTiming) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
 
   InstructionBuilder builder;
   builder.SMov("s0", 1);
@@ -227,7 +227,7 @@ TEST(AsyncMemoryCycleTest, ResidentSlotsDoNotBypassPeuIssueTiming) {
 
 TEST(AsyncMemoryCycleTest, ResidentSlotBundlesUsePeuWideMaxTiming) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
                                  /*kernel_launch_cycles=*/0,
                                  /*block_launch_cycles=*/0,
@@ -264,7 +264,7 @@ TEST(AsyncMemoryCycleTest, ResidentSlotBundlesUsePeuWideMaxTiming) {
 
 TEST(AsyncMemoryCycleTest, ResidentSlotDoesNotIssueBeforeDelayedWaveLaunch) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
                                  /*kernel_launch_cycles=*/0,
                                  /*block_launch_cycles=*/0,
@@ -299,7 +299,7 @@ TEST(AsyncMemoryCycleTest, ResidentSlotDoesNotIssueBeforeDelayedWaveLaunch) {
 
 TEST(AsyncMemoryCycleTest, LoadAllowsIndependentScalarIssueBeforeArrive) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFixedGlobalMemoryLatency(20);
 
   const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
@@ -330,7 +330,7 @@ TEST(AsyncMemoryCycleTest, LoadAllowsIndependentScalarIssueBeforeArrive) {
 
 TEST(AsyncMemoryCycleTest, IndependentGlobalLoadsIssueBeforeExplicitWaitcnt) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFixedGlobalMemoryLatency(20);
 
   const uint64_t base_addr = runtime.memory().AllocateGlobal(2 * sizeof(int32_t));
@@ -373,7 +373,7 @@ TEST(AsyncMemoryCycleTest, IndependentGlobalLoadsIssueBeforeExplicitWaitcnt) {
 
 TEST(AsyncMemoryCycleTest, WaitCntCanWaitForGlobalMemoryOnly) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFixedGlobalMemoryLatency(20);
 
   const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
@@ -405,7 +405,7 @@ TEST(AsyncMemoryCycleTest, WaitCntCanWaitForGlobalMemoryOnly) {
 
 TEST(AsyncMemoryCycleTest, WaitCntIgnoresGlobalWhenWaitingSharedOnly) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFixedGlobalMemoryLatency(20);
 
   const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
@@ -439,7 +439,7 @@ TEST(AsyncMemoryCycleTest, WaitCntIgnoresGlobalWhenWaitingSharedOnly) {
 
 TEST(AsyncMemoryCycleTest, WaitCntCanWaitForScalarBufferOnly) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
 
   ConstSegment const_segment;
   const_segment.bytes.resize(sizeof(int32_t));
@@ -472,7 +472,7 @@ TEST(AsyncMemoryCycleTest, WaitCntCanWaitForScalarBufferOnly) {
 
 TEST(AsyncMemoryCycleTest, WaitCntCanWaitForScalarBufferScalarLoadOnly) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
 
   ConstSegment const_segment;
   const_segment.bytes.resize(sizeof(int32_t));
@@ -505,7 +505,7 @@ TEST(AsyncMemoryCycleTest, WaitCntCanWaitForScalarBufferScalarLoadOnly) {
 
 TEST(AsyncMemoryCycleTest, BufferLoadUsesImmediateOffset) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFixedGlobalMemoryLatency(20);
 
   const uint64_t base_addr = runtime.memory().AllocateGlobal(2 * sizeof(int32_t));

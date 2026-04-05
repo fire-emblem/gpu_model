@@ -9,15 +9,15 @@
 
 #include "gpu_model/loader/device_image_loader.h"
 #include "gpu_model/runtime/device_properties.h"
+#include "gpu_model/runtime/exec_engine.h"
 #include "gpu_model/runtime/launch_request.h"
 #include "gpu_model/runtime/module_registry.h"
-#include "gpu_model/runtime/runtime_engine.h"
 
 namespace gpu_model {
 
 class ModelRuntime {
  public:
-  explicit ModelRuntime(RuntimeEngine* runtime = nullptr);
+  explicit ModelRuntime(ExecEngine* runtime = nullptr);
 
   uint64_t Malloc(size_t bytes);
   uint64_t MallocManaged(size_t bytes);
@@ -87,15 +87,15 @@ class ModelRuntime {
   }
   void Reset();
 
-  RuntimeEngine& runtime();
-  const RuntimeEngine& runtime() const;
+  ExecEngine& runtime();
+  const ExecEngine& runtime() const;
   LaunchResult Launch(const LaunchRequest& request);
 
  private:
   DeviceLoadResult MaterializeLoadPlan(const DeviceLoadPlan& plan);
 
-  RuntimeEngine owned_runtime_;
-  RuntimeEngine* runtime_engine_ = &owned_runtime_;
+  ExecEngine owned_runtime_;
+  ExecEngine* runtime_engine_ = &owned_runtime_;
   bool owns_runtime_ = true;
   int current_device_ = 0;
   std::unordered_map<uint64_t, size_t> allocations_;

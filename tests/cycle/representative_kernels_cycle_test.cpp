@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/exec_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -184,7 +184,7 @@ ExecutableKernel BuildStencil2DKernel() {
 TEST(RepresentativeCycleKernelsTest, SaxpyProducesExpectedOutput) {
   constexpr uint32_t n = 32;
   constexpr int32_t alpha = 4;
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   runtime.SetFixedGlobalMemoryLatency(8);
   const auto kernel = BuildSaxpyKernel();
 
@@ -219,7 +219,7 @@ TEST(RepresentativeCycleKernelsTest, SaxpyProducesExpectedOutput) {
 
 TEST(RepresentativeCycleKernelsTest, GatherProducesExpectedOutput) {
   constexpr uint32_t n = 32;
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   runtime.SetFixedGlobalMemoryLatency(8);
   const auto kernel = BuildGatherKernel();
 
@@ -257,7 +257,7 @@ TEST(RepresentativeCycleKernelsTest, BlockReductionProducesPerBlockSums) {
   constexpr uint32_t n = 320;
   constexpr uint32_t block_dim = 128;
   constexpr uint32_t grid_dim = 3;
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   runtime.SetFixedGlobalMemoryLatency(8);
   const auto kernel = BuildBlockReductionKernel();
 
@@ -302,7 +302,7 @@ TEST(RepresentativeCycleKernelsTest, Stencil2DProducesFivePointSums) {
   constexpr uint32_t width = 17;
   constexpr uint32_t height = 11;
   constexpr uint32_t total = width * height;
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   runtime.SetFixedGlobalMemoryLatency(8);
   const auto kernel = BuildStencil2DKernel();
 
