@@ -1568,7 +1568,8 @@ class EncodedExecutionCore {
               .dispatch_enabled = raw_wave->dispatch_enabled,
               .wave = &wave,
               .instruction = &decoded,
-              .descriptor = &descriptor,
+              .descriptor = descriptor,
+              .has_descriptor = true,
               .barrier_slots_in_use = ap_state_it == cycle_ap_states_.end()
                                            ? 0u
                                            : ap_state_it->second.barrier_slots_in_use,

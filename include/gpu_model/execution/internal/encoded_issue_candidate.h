@@ -15,7 +15,8 @@ struct EncodedIssueCandidateInput {
   bool dispatch_enabled = false;
   const WaveContext* wave = nullptr;
   const DecodedInstruction* instruction = nullptr;
-  const EncodedInstructionDescriptor* descriptor = nullptr;
+  EncodedInstructionDescriptor descriptor{};
+  bool has_descriptor = false;
   uint32_t barrier_slots_in_use = 0;
   uint32_t barrier_slot_capacity = 0;
   bool barrier_slot_acquired = false;
@@ -28,8 +29,8 @@ inline std::vector<IssueSchedulerCandidate> BuildEncodedIssueCandidates(
   for (const auto& input : inputs) {
     bool ready = false;
     auto issue_type = ArchitecturalIssueType::Special;
-    if (input.wave != nullptr && input.instruction != nullptr && input.descriptor != nullptr) {
-      issue_type = ArchitecturalIssueTypeForEncodedInstruction(*input.instruction, *input.descriptor);
+    if (input.wave != nullptr && input.instruction != nullptr && input.has_descriptor) {
+      issue_type = ArchitecturalIssueTypeForEncodedInstruction(*input.instruction, input.descriptor);
       ready = input.dispatch_enabled &&
               input.wave->status == WaveStatus::Active &&
               input.wave->run_state == WaveRunState::Runnable &&

@@ -26,7 +26,8 @@ TEST(EncodedIssueCandidateTest, MarksRunnableScalarAndVectorInputsReady) {
           .dispatch_enabled = true,
           .wave = &scalar_wave,
           .instruction = &scalar_inst,
-          .descriptor = &scalar_desc,
+          .descriptor = scalar_desc,
+          .has_descriptor = true,
       },
       EncodedIssueCandidateInput{
           .candidate_index = 1,
@@ -34,7 +35,8 @@ TEST(EncodedIssueCandidateTest, MarksRunnableScalarAndVectorInputsReady) {
           .dispatch_enabled = true,
           .wave = &vector_wave,
           .instruction = &vector_inst,
-          .descriptor = &vector_desc,
+          .descriptor = vector_desc,
+          .has_descriptor = true,
       },
   });
 
@@ -60,7 +62,8 @@ TEST(EncodedIssueCandidateTest, MarksBarrierNotReadyWhenBarrierSlotsAreFull) {
           .dispatch_enabled = true,
           .wave = &wave,
           .instruction = &inst,
-          .descriptor = &desc,
+          .descriptor = desc,
+          .has_descriptor = true,
           .barrier_slots_in_use = 16,
           .barrier_slot_capacity = 16,
           .barrier_slot_acquired = false,
@@ -88,7 +91,8 @@ TEST(EncodedIssueCandidateTest, MarksWaitingWaveNotReady) {
           .dispatch_enabled = true,
           .wave = &wave,
           .instruction = &inst,
-          .descriptor = &desc,
+          .descriptor = desc,
+          .has_descriptor = true,
       },
   });
 
