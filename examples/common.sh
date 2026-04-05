@@ -13,6 +13,26 @@ gpu_model_detect_build_dir() {
   echo "$root/build"
 }
 
+gpu_model_detect_results_dir() {
+  local root="$1"
+  local case_dir="$2"
+  local case_name
+  case_name="$(basename "$case_dir")"
+
+  case "${GPU_MODEL_EXAMPLE_RESULTS_MODE:-local}" in
+    repo)
+      echo "$case_dir/results"
+      ;;
+    local)
+      echo "$root/.cache/example-results/$case_name"
+      ;;
+    *)
+      echo "unsupported GPU_MODEL_EXAMPLE_RESULTS_MODE=${GPU_MODEL_EXAMPLE_RESULTS_MODE}" >&2
+      return 1
+      ;;
+  esac
+}
+
 gpu_model_require_cmd() {
   local tool="$1"
   if ! command -v "$tool" >/dev/null 2>&1; then
@@ -40,6 +60,17 @@ gpu_model_detect_rocm_lib_dir() {
   if [[ -d /opt/rocm/lib64 ]]; then
     echo "/opt/rocm/lib64"
     return
+  fi
+}
+
+gpu_model_ld_preload_value() {
+  local so_path="$1"
+  local asan_path=""
+  asan_path="$(ldd "$so_path" 2>/dev/null | awk '/libasan/ && /=>/ {print $3; exit}')"
+  if [[ -n "$asan_path" && -f "$asan_path" ]]; then
+    echo "$asan_path:$so_path"
+  else
+    echo "$so_path"
   fi
 }
 
@@ -86,13 +117,15 @@ gpu_model_run_interposed_mode() {
 
   local rocm_lib
   rocm_lib="$(gpu_model_detect_rocm_lib_dir)"
+  local preload_value
+  preload_value="$(gpu_model_ld_preload_value "$so_path")"
 
   local -a env_args=(
     "GPU_MODEL_EXECUTION_MODE=$exec_mode"
     "GPU_MODEL_FUNCTIONAL_MODE=$functional_mode"
     "GPU_MODEL_TRACE_DIR=$mode_dir"
     "GPU_MODEL_HIP_INTERPOSER_DEBUG=1"
-    "LD_PRELOAD=$so_path"
+    "LD_PRELOAD=$preload_value"
   )
   if [[ -n "$worker_threads" ]]; then
     env_args+=("GPU_MODEL_FUNCTIONAL_WORKERS=$worker_threads")

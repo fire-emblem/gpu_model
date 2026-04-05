@@ -83,6 +83,17 @@
   - `docs/superpowers/specs/*`
   - `docs/plans/*`
 
+### 阶段 7：Example 结果产物管理
+- **状态：** in_progress
+- 执行的操作：
+  - 将 examples 默认结果目录改到 `.cache/example-results/<example-name>/`
+  - 为 ASan build 下的 example preload 路径补充 `libasan` 预加载
+  - 保留 `GPU_MODEL_EXAMPLE_RESULTS_MODE=repo` 作为显式快照刷新模式
+- 创建/修改的文件：
+  - `examples/common.sh`
+  - `examples/*/run.sh`
+  - `examples/README.md`
+
 ## 测试结果
 | 测试 | 输入 | 预期结果 | 实际结果 | 状态 |
 |------|------|---------|---------|------|

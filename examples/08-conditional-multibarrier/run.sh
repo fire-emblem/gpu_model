@@ -6,7 +6,7 @@ ROOT="$(cd "$CASE_DIR/../.." && pwd)"
 source "$ROOT/examples/common.sh"
 
 BUILD_DIR="$(gpu_model_detect_build_dir "$ROOT")"
-OUT_DIR="$CASE_DIR/results"
+OUT_DIR="$(gpu_model_detect_results_dir "$ROOT" "$CASE_DIR")"
 mkdir -p "$OUT_DIR"
 
 gpu_model_require_cmd hipcc

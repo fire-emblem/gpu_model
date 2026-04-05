@@ -33,6 +33,10 @@
 - 当前 docs 命中分析显示：
   - 对外文档基本已收口
   - 剩余旧名主要集中在 `docs/superpowers/plans`、`docs/superpowers/specs`、`docs/plans`
+- example runner 默认写回仓库内 `examples/*/results` 是工作树反复变脏的根因
+- 已收口为：
+  - 默认写到 `.cache/example-results/<example-name>/`
+  - 只有显式设置 `GPU_MODEL_EXAMPLE_RESULTS_MODE=repo` 才写回仓库快照目录
 
 ## 技术决策
 | 决策 | 理由 |
@@ -43,6 +47,7 @@
 | 保留 `runtime_engine.h` 兼容 shim | 降低一次性全仓重命名风险 |
 | 轻量 pre-push + 手动 full gate | 平衡开发效率与验证覆盖 |
 | 历史存档文档中的旧名也开始统一替换 | 当前主线已经稳定，继续保留旧名的成本高于保留原貌的收益 |
+| example 默认结果改写到 `.cache/example-results` | 避免日常运行污染工作树，同时保留显式快照刷新模式 |
 | 当前对外架构文档不再把 `hip_interposer` 当模块名 | 文件名可以保留历史字样，但架构语义必须归到 `HipRuntime` |
 | 暂不系统清理 docs 存档中的历史旧名 | 历史计划/spec 属于存档信息，优先保证主代码和关键文档收口 |
 

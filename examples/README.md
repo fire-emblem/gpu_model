@@ -48,7 +48,9 @@
 
 关于 `results/`：
 
-- 仓库中已有的 `results/` 可能来自较早一次运行
+- 默认情况下，`run.sh` 会把结果写到仓库根目录下的 `.cache/example-results/<example-name>/`
+- 若需要显式刷新仓库内快照，可设置 `GPU_MODEL_EXAMPLE_RESULTS_MODE=repo`
+- 仓库中已有的 `results/` 更适合作为快照参考，不应再作为日常运行默认落盘位置
 - README 中描述的“预期结果”以当前 `run.sh` 重新生成的产物为准
 
 关于并行运行：
