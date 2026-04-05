@@ -66,7 +66,7 @@ const MemorySystem& ModelRuntime::memory() const {
 }
 
 void ModelRuntime::DeviceSynchronize() const {
-  // ModelRuntime currently has no asynchronous device work queue outside RuntimeEngine launches.
+  // ModelRuntime currently has no asynchronous device work queue outside ExecEngine launches.
 }
 
 void ModelRuntime::StreamSynchronize(RuntimeSubmissionContext submission_context) const {
