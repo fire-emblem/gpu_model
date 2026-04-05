@@ -18,6 +18,7 @@
 #include "gpu_model/loader/device_image_loader.h"
 #include "gpu_model/loader/asm_parser.h"
 #include "gpu_model/program/encoded_program_object.h"
+#include "gpu_model/util/logging.h"
 
 namespace gpu_model {
 
@@ -137,12 +138,13 @@ std::optional<FunctionalExecutionConfig> FunctionalExecutionConfigFromEnv() {
 }  // namespace
 
 RuntimeEngineImpl::RuntimeEngineImpl(TraceSink* default_trace) : default_trace_(default_trace) {
+  logging::EnsureInitialized();
   if (const auto config = FunctionalExecutionConfigFromEnv(); config.has_value()) {
     functional_execution_config_ = *config;
-    std::fprintf(stderr,
-                 "[gpu_model] functional_mode=%s workers=%u\n",
-                 ToEnvModeName(functional_execution_config_.mode),
-                 functional_execution_config_.worker_threads);
+    GPU_MODEL_LOG_INFO("runtime",
+                       "functional_mode=%s workers=%u",
+                       ToEnvModeName(functional_execution_config_.mode),
+                       functional_execution_config_.worker_threads);
   }
 }
 
@@ -235,6 +237,18 @@ LaunchResult RuntimeEngineImpl::Launch(const LaunchRequest& request) {
     result.error_message = "grid and block dimensions must be non-zero";
     return result;
   }
+
+  GPU_MODEL_LOG_INFO("runtime",
+                     "launch begin mode=%s encoded=%d arch=%s grid=(%u,%u,%u) block=(%u,%u,%u)",
+                     request.mode == ExecutionMode::Cycle ? "cycle" : "functional",
+                     use_encoded_program_object ? 1 : 0,
+                     arch_name.c_str(),
+                     request.config.grid_dim_x,
+                     request.config.grid_dim_y,
+                     request.config.grid_dim_z,
+                     request.config.block_dim_x,
+                     request.config.block_dim_y,
+                     request.config.block_dim_z);
 
   const MetadataBlob& launch_metadata_source =
       use_encoded_program_object ? encoded_program_object->metadata

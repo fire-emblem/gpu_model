@@ -10,11 +10,15 @@
 #include <limits>
 #include <memory>
 #include <optional>
+#include <mutex>
 #include <string>
 #include <string_view>
 #include <unordered_map>
 
+#include <loguru.hpp>
+
 #include "gpu_model/debug/trace/artifact_recorder.h"
+#include "gpu_model/util/logging.h"
 #include "gpu_model/runtime/hip_interposer_state.h"
 
 using gpu_model::HipInterposerState;
@@ -38,9 +42,9 @@ std::unordered_map<uintptr_t, EventState> g_events;
 std::unique_ptr<TraceArtifactRecorder> g_trace_artifacts;
 std::string g_trace_artifacts_dir;
 uint64_t g_launch_index = 0;
-
 bool DebugEnabled() {
-  return std::getenv("GPU_MODEL_HIP_INTERPOSER_DEBUG") != nullptr;
+  return std::getenv("GPU_MODEL_HIP_INTERPOSER_DEBUG") != nullptr ||
+         gpu_model::logging::ShouldLog("hip_interposer", loguru::Verbosity_INFO);
 }
 
 const char* ToFunctionalModeName(gpu_model::FunctionalExecutionMode mode) {
@@ -116,10 +120,10 @@ void DebugLog(const char* fmt, ...) {
   }
   va_list args;
   va_start(args, fmt);
-  std::fputs("[gpu_model_hip_interposer] ", stderr);
-  std::vfprintf(stderr, fmt, args);
-  std::fputc('\n', stderr);
+  char buffer[2048];
+  std::vsnprintf(buffer, sizeof(buffer), fmt, args);
   va_end(args);
+  GPU_MODEL_LOG_INFO("hip_interposer", "%s", buffer);
 }
 
 hipError_t Remember(hipError_t error) {

@@ -1,4 +1,5 @@
 add_executable(gpu_model_tests
+  test_main.cpp
   test_utils/llvm_mc_test_support.cpp
   instruction/internal/generated_encoded_gcn_full_opcode_table_test.cpp
   instruction/internal/generated_encoded_gcn_inst_db_test.cpp
@@ -113,7 +114,7 @@ add_executable(gpu_model_tests
 target_link_libraries(gpu_model_tests
   PRIVATE
     gpu_model
-    GTest::gtest_main
+    GTest::gtest
 )
 
 target_include_directories(gpu_model_tests

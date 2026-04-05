@@ -12,6 +12,9 @@
 #include <string>
 #include <vector>
 
+#include <loguru.hpp>
+
+#include "gpu_model/util/logging.h"
 #include "gpu_model/instruction/encoded/internal/encoded_gcn_encoding_def.h"
 #include "gpu_model/instruction/encoded/internal/encoded_gcn_db_lookup.h"
 #include "gpu_model/execution/sync_ops.h"
@@ -78,7 +81,8 @@ float BFloat16ToFloat(uint16_t bits) {
 }
 
 bool DebugEnabled() {
-  return std::getenv("GPU_MODEL_ENCODED_EXEC_DEBUG") != nullptr;
+  return std::getenv("GPU_MODEL_ENCODED_EXEC_DEBUG") != nullptr ||
+         logging::ShouldLog("encoded_exec", loguru::Verbosity_INFO);
 }
 
 void DebugLog(const char* fmt, ...) {
@@ -87,10 +91,10 @@ void DebugLog(const char* fmt, ...) {
   }
   va_list args;
   va_start(args, fmt);
-  std::fputs("[gpu_model_encoded_exec] ", stderr);
-  std::vfprintf(stderr, fmt, args);
-  std::fputc('\n', stderr);
+  char buffer[2048];
+  std::vsnprintf(buffer, sizeof(buffer), fmt, args);
   va_end(args);
+  GPU_MODEL_LOG_INFO("encoded_exec", "%s", buffer);
 }
 
 uint32_t RequireScalarIndex(const DecodedInstructionOperand& operand) {
