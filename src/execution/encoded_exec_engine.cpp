@@ -2075,6 +2075,8 @@ class EncodedExecutionCore {
     const uint64_t commit_cycle = trace_cycle + std::max<uint64_t>(1u, issue_cycles);
     TraceEventLocked(MakeRawWaveTraceEvent(
         raw_wave, TraceEventKind::WaveStep, trace_cycle, FormatRawWaveStepMessage(decoded, object, wave)));
+    TraceEventLocked(
+        MakeTraceCommitEvent(MakeRawTraceWaveView(raw_wave), commit_cycle, TraceSlotModel()));
 
     if (decoded.mnemonic == "s_waitcnt") {
       std::lock_guard<std::mutex> lock(*block.wave_state_mutex);

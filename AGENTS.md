@@ -127,16 +127,13 @@
 
 约束：
 
-- examples 默认结果目录应写入：
-  - `.cache/example-results/<example-name>/`
-- 只有显式设置：
-  - `GPU_MODEL_EXAMPLE_RESULTS_MODE=repo`
-  时，才允许写回仓库内 `examples/<name>/results/`
+- examples 结果目录直接写回各自 example 下的 `results/`
+- 不再使用仓库根目录 `.cache/example-results/` 作为默认落盘位置
 
 目的：
 
-- 避免日常运行污染工作树。
-- 将“本地调试结果”和“仓库快照结果”明确区分。
+- 避免“默认结果”和“实际检查结果”分叉造成误读。
+- README、脚本输出、测试断言都应与 `results/` 实际路径保持一致。
 
 ## 9. Push 门禁
 

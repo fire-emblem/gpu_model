@@ -60,7 +60,6 @@ host 会构造每个 block 的期望逆序结果，然后逐元素比较。
 
 重跑到新主线后，也可能看到：
 
-- `timeline.perfetto.pb`
 
 ## 预期结果
 
@@ -91,7 +90,7 @@ host 会构造每个 block 的期望逆序结果，然后逐元素比较。
    看 barrier 前后 shared memory 访问顺序
 3. `results/<mode>/launch_summary.txt`
    确认是否正常结束
-4. `timeline.perfetto.*`
+4. `timeline.perfetto.json`
    用于观察 shared / barrier 相关切片是否连贯
 
 ## 结果解读
@@ -103,6 +102,3 @@ host 会构造每个 block 的期望逆序结果，然后逐元素比较。
 ## 备注
 
 - 仓库中的旧 `results/` 主要作为快照参考
-- 默认重新运行 `run.sh` 会把结果写到 `.cache/example-results/03-shared-reverse/`
-- 若需要刷新仓库内快照，显式设置 `GPU_MODEL_EXAMPLE_RESULTS_MODE=repo`
-- 若结果目录里没有 `.pb`，请以重跑后的结果为准

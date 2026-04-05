@@ -1873,25 +1873,20 @@ TEST(TraceTest, TraceArtifactRecorderWritesTraceAndPerfettoFiles) {
   const auto text_path = out_dir / "trace.txt";
   const auto json_path = out_dir / "trace.jsonl";
   const auto timeline_path = out_dir / "timeline.perfetto.json";
-  const auto timeline_proto_path = out_dir / "timeline.perfetto.pb";
 
   std::ifstream text_in(text_path);
   std::ifstream json_in(json_path);
   std::ifstream timeline_in(timeline_path);
-  std::ifstream timeline_proto_in(timeline_proto_path, std::ios::binary);
   ASSERT_TRUE(static_cast<bool>(text_in));
   ASSERT_TRUE(static_cast<bool>(json_in));
   ASSERT_TRUE(static_cast<bool>(timeline_in));
-  ASSERT_TRUE(static_cast<bool>(timeline_proto_in));
 
   std::ostringstream text_buffer;
   std::ostringstream json_buffer;
   std::ostringstream timeline_buffer;
-  std::ostringstream timeline_proto_buffer;
   text_buffer << text_in.rdbuf();
   json_buffer << json_in.rdbuf();
   timeline_buffer << timeline_in.rdbuf();
-  timeline_proto_buffer << timeline_proto_in.rdbuf();
 
   EXPECT_NE(text_buffer.str().find("kind=Launch"), std::string::npos);
   EXPECT_NE(json_buffer.str().find("\"kind\":\"Launch\""), std::string::npos);
@@ -1915,10 +1910,6 @@ TEST(TraceTest, TraceArtifactRecorderWritesTraceAndPerfettoFiles) {
   EXPECT_NE(timeline_buffer.str().find("\"perfetto_format\":\"chrome_json\""),
             std::string::npos);
   EXPECT_NE(timeline_buffer.str().find("\"name\":\"stall_waitcnt_global\""), std::string::npos);
-  EXPECT_FALSE(timeline_proto_buffer.str().empty());
-  EXPECT_NE(timeline_proto_buffer.str().find("Device"), std::string::npos);
-  EXPECT_NE(timeline_proto_buffer.str().find("WAVE_SLOT_02"), std::string::npos);
-  EXPECT_NE(timeline_proto_buffer.str().find("wave_exit"), std::string::npos);
 
   std::filesystem::remove_all(out_dir);
 }
@@ -2030,7 +2021,7 @@ TEST(TraceTest, NativePerfettoProtoContainsHierarchicalTracksAndEvents) {
   ASSERT_TRUE(result.ok) << result.error_message;
   trace.FlushTimeline();
 
-  const std::string bytes = ReadTextFile(out_dir / "timeline.perfetto.pb");
+  const std::string bytes = CycleTimelineRenderer::RenderPerfettoTraceProto(trace.recorder());
   ASSERT_FALSE(bytes.empty());
 
   const auto descriptors = ParseTrackDescriptors(bytes);
@@ -2126,7 +2117,7 @@ TEST(TraceTest, NativePerfettoProtoShowsBlockAdmitGenerateDispatchAndSlotBindOrd
   ASSERT_TRUE(result.ok) << result.error_message;
   trace.FlushTimeline();
 
-  const std::string bytes = ReadTextFile(out_dir / "timeline.perfetto.pb");
+  const std::string bytes = CycleTimelineRenderer::RenderPerfettoTraceProto(trace.recorder());
   const auto events = ParseTrackEvents(bytes);
   ASSERT_FALSE(events.empty());
 
@@ -2208,7 +2199,7 @@ TEST(TraceTest, NativePerfettoProtoShowsVisibleWaitcntBubbleInCycleMode) {
   ASSERT_TRUE(result.ok) << result.error_message;
   trace.FlushTimeline();
 
-  const std::string bytes = ReadTextFile(out_dir / "timeline.perfetto.pb");
+  const std::string bytes = CycleTimelineRenderer::RenderPerfettoTraceProto(trace.recorder());
   const auto descriptors = ParseTrackDescriptors(bytes);
   const auto events = ParseTrackEvents(bytes);
   ASSERT_FALSE(descriptors.empty());
@@ -2274,7 +2265,7 @@ TEST(TraceTest, NativePerfettoProtoShowsCycleSamePeuResidentSlotsAcrossPeus) {
   ASSERT_TRUE(result.ok) << result.error_message;
   trace.FlushTimeline();
 
-  const std::string bytes = ReadTextFile(out_dir / "timeline.perfetto.pb");
+  const std::string bytes = CycleTimelineRenderer::RenderPerfettoTraceProto(trace.recorder());
   const auto descriptors = ParseTrackDescriptors(bytes);
   const auto events = ParseTrackEvents(bytes);
   ASSERT_FALSE(descriptors.empty());
@@ -2338,7 +2329,7 @@ TEST(TraceTest, NativePerfettoProtoShowsSwitchAwayOnEveryCyclePeu) {
   ASSERT_TRUE(result.ok) << result.error_message;
   trace.FlushTimeline();
 
-  const std::string bytes = ReadTextFile(out_dir / "timeline.perfetto.pb");
+  const std::string bytes = CycleTimelineRenderer::RenderPerfettoTraceProto(trace.recorder());
   const auto descriptors = ParseTrackDescriptors(bytes);
   const auto events = ParseTrackEvents(bytes);
   ASSERT_FALSE(descriptors.empty());
@@ -2412,7 +2403,7 @@ TEST(TraceTest, NativePerfettoProtoShowsFunctionalLogicalUnboundedSlotsOnPeu0) {
   const std::string timeline = ReadTextFile(out_dir / "timeline.perfetto.json");
   EXPECT_NE(timeline.find("\"slot_model\":\"logical_unbounded\""), std::string::npos);
 
-  const std::string bytes = ReadTextFile(out_dir / "timeline.perfetto.pb");
+  const std::string bytes = CycleTimelineRenderer::RenderPerfettoTraceProto(trace.recorder());
   const auto descriptors = ParseTrackDescriptors(bytes);
   ASSERT_FALSE(descriptors.empty());
 
@@ -2473,7 +2464,7 @@ TEST(TraceTest, NativePerfettoProtoShowsMultiThreadedLogicalUnboundedSlotsOnPeu0
   const std::string timeline = ReadTextFile(out_dir / "timeline.perfetto.json");
   EXPECT_NE(timeline.find("\"slot_model\":\"logical_unbounded\""), std::string::npos);
 
-  const std::string bytes = ReadTextFile(out_dir / "timeline.perfetto.pb");
+  const std::string bytes = CycleTimelineRenderer::RenderPerfettoTraceProto(trace.recorder());
   const auto descriptors = ParseTrackDescriptors(bytes);
   ASSERT_FALSE(descriptors.empty());
 
@@ -2541,7 +2532,7 @@ TEST(TraceTest, NativePerfettoProtoShowsEncodedFunctionalLogicalUnboundedSlotsOn
   const std::string timeline = ReadTextFile(out_dir / "timeline.perfetto.json");
   EXPECT_NE(timeline.find("\"slot_model\":\"logical_unbounded\""), std::string::npos);
 
-  const std::string bytes = ReadTextFile(out_dir / "timeline.perfetto.pb");
+  const std::string bytes = CycleTimelineRenderer::RenderPerfettoTraceProto(trace.recorder());
   const auto descriptors = ParseTrackDescriptors(bytes);
   ASSERT_FALSE(descriptors.empty());
 
@@ -2605,7 +2596,7 @@ TEST(TraceTest, NativePerfettoProtoShowsEncodedCycleResidentSlotsAcrossPeus) {
   const std::string timeline = ReadTextFile(out_dir / "timeline.perfetto.json");
   EXPECT_NE(timeline.find("\"slot_model\":\"resident_fixed\""), std::string::npos);
 
-  const std::string bytes = ReadTextFile(out_dir / "timeline.perfetto.pb");
+  const std::string bytes = CycleTimelineRenderer::RenderPerfettoTraceProto(trace.recorder());
   const auto descriptors = ParseTrackDescriptors(bytes);
   const auto events = ParseTrackEvents(bytes);
   ASSERT_FALSE(descriptors.empty());
@@ -2676,7 +2667,7 @@ TEST(TraceTest, NativePerfettoProtoShowsFunctionalSamePeuSwitchAwayInSingleThrea
   EXPECT_NE(timeline.find("\"name\":\"wave_switch_away\""), std::string::npos);
   EXPECT_NE(timeline.find("\"slot_model\":\"logical_unbounded\""), std::string::npos);
 
-  const std::string bytes = ReadTextFile(out_dir / "timeline.perfetto.pb");
+  const std::string bytes = CycleTimelineRenderer::RenderPerfettoTraceProto(trace.recorder());
   const auto events = ParseTrackEvents(bytes);
   bool saw_switch_away = false;
   for (const auto& event : events) {
@@ -2724,7 +2715,7 @@ TEST(TraceTest, NativePerfettoProtoShowsFunctionalSamePeuSwitchAwayInMultiThread
   EXPECT_NE(timeline.find("\"name\":\"wave_switch_away\""), std::string::npos);
   EXPECT_NE(timeline.find("\"slot_model\":\"logical_unbounded\""), std::string::npos);
 
-  const std::string bytes = ReadTextFile(out_dir / "timeline.perfetto.pb");
+  const std::string bytes = CycleTimelineRenderer::RenderPerfettoTraceProto(trace.recorder());
   const auto events = ParseTrackEvents(bytes);
   bool saw_switch_away = false;
   for (const auto& event : events) {
@@ -2770,7 +2761,7 @@ TEST(TraceTest, NativePerfettoProtoShowsFunctionalTimelineGapWaitArriveInMultiTh
   EXPECT_NE(timeline.find("load_arrive"), std::string::npos);
   EXPECT_NE(timeline.find("\"slot_model\":\"logical_unbounded\""), std::string::npos);
 
-  const std::string bytes = ReadTextFile(out_dir / "timeline.perfetto.pb");
+  const std::string bytes = CycleTimelineRenderer::RenderPerfettoTraceProto(trace.recorder());
   const auto events = ParseTrackEvents(bytes);
   bool saw_waitcnt_stall = false;
   bool saw_load_arrive = false;
@@ -2881,7 +2872,7 @@ amdhsa.kernels:
   EXPECT_NE(timeline.find("load_arrive"), std::string::npos);
   EXPECT_NE(timeline.find("\"slot_model\":\"logical_unbounded\""), std::string::npos);
 
-  const std::string bytes = ReadTextFile(out_dir / "timeline.perfetto.pb");
+  const std::string bytes = CycleTimelineRenderer::RenderPerfettoTraceProto(trace.recorder());
   const auto events = ParseTrackEvents(bytes);
   bool saw_load_arrive = false;
   for (const auto& event : events) {
@@ -2997,6 +2988,85 @@ amdhsa.kernels:
   EXPECT_LT(waitcnt_index, stall_index);
 }
 
+TEST(TraceTest, EncodedFunctionalPerfettoJsonShowsInstructionSlicesWithFourCycleDuration) {
+  if (!test_utils::HasLlvmMcAmdgpuToolchain()) {
+    GTEST_SKIP() << "required llvm-mc/LLVM/binutils tools not available";
+  }
+
+  const auto out_dir = MakeUniqueTempDir("gpu_model_perfetto_mt_encoded_instruction_slices");
+  const struct Cleanup {
+    std::filesystem::path path;
+    ~Cleanup() { std::filesystem::remove_all(path); }
+  } cleanup{out_dir};
+
+  const auto assembled = test_utils::AssembleAndDecodeLlvmMcModule(
+      "gpu_model_perfetto_mt_encoded_instruction_slices",
+      "encoded_instruction_slice_kernel",
+      R"(.amdgcn_target "amdgcn-amd-amdhsa--gfx900"
+
+.text
+.globl encoded_instruction_slice_kernel
+.p2align 8
+.type encoded_instruction_slice_kernel,@function
+encoded_instruction_slice_kernel:
+  v_mov_b32_e32 v1, 1
+  v_add_u32_e32 v2, v1, v1
+  s_endpgm
+.Lfunc_end0:
+  .size encoded_instruction_slice_kernel, .Lfunc_end0-encoded_instruction_slice_kernel
+
+.rodata
+.p2align 6
+.amdhsa_kernel encoded_instruction_slice_kernel
+  .amdhsa_next_free_vgpr 3
+  .amdhsa_next_free_sgpr 0
+.end_amdhsa_kernel
+
+.amdgpu_metadata
+---
+amdhsa.version:
+  - 1
+  - 0
+amdhsa.kernels:
+  - .name: encoded_instruction_slice_kernel
+    .symbol: encoded_instruction_slice_kernel.kd
+    .kernarg_segment_size: 0
+    .group_segment_fixed_size: 0
+    .private_segment_fixed_size: 0
+    .kernarg_segment_align: 8
+    .wavefront_size: 64
+    .sgpr_count: 0
+    .vgpr_count: 3
+    .max_flat_workgroup_size: 256
+...
+.end_amdgpu_metadata
+)");
+
+  TraceArtifactRecorder trace(out_dir);
+  ExecEngine runtime(&trace);
+  runtime.SetFunctionalExecutionConfig(FunctionalExecutionConfig{
+      .mode = FunctionalExecutionMode::MultiThreaded,
+      .worker_threads = 2,
+  });
+
+  LaunchRequest request;
+  request.arch_name = "c500";
+  request.encoded_program_object = &assembled.image;
+  request.mode = ExecutionMode::Functional;
+  request.config.grid_dim_x = 2;
+  request.config.block_dim_x = 64;
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+  trace.FlushTimeline();
+
+  const std::string timeline = ReadTextFile(out_dir / "timeline.perfetto.json");
+  EXPECT_NE(timeline.find("\"ph\":\"X\""), std::string::npos) << timeline;
+  EXPECT_NE(timeline.find("\"name\":\"v_mov_b32_e32\""), std::string::npos) << timeline;
+  EXPECT_NE(timeline.find("\"name\":\"v_add_u32_e32\""), std::string::npos) << timeline;
+  EXPECT_NE(timeline.find("\"dur\":4"), std::string::npos) << timeline;
+}
+
 TEST(TraceTest, NativePerfettoProtoShowsEncodedFunctionalWaitcntStallWhenLoadLatencyIsHigh) {
   if (!test_utils::HasLlvmMcAmdgpuToolchain()) {
     GTEST_SKIP() << "required llvm-mc/LLVM/binutils tools not available";
@@ -3091,7 +3161,7 @@ amdhsa.kernels:
   EXPECT_NE(timeline.find("\"name\":\"stall_waitcnt_global\""), std::string::npos);
   EXPECT_NE(timeline.find("\"name\":\"load_arrive_resume\""), std::string::npos);
 
-  const std::string bytes = ReadTextFile(out_dir / "timeline.perfetto.pb");
+  const std::string bytes = CycleTimelineRenderer::RenderPerfettoTraceProto(trace.recorder());
   const auto events = ParseTrackEvents(bytes);
   bool saw_waitcnt_stall = false;
   bool saw_load_arrive = false;
@@ -3141,7 +3211,7 @@ TEST(TraceTest, NativePerfettoProtoShowsWaitcntArrivalProgressMarkersAndBubble) 
   EXPECT_NE(timeline.find("\"name\":\"load_arrive_resume\""), std::string::npos) << timeline;
   EXPECT_EQ(timeline.find("\"name\":\"s_waitcnt\""), std::string::npos) << timeline;
 
-  const std::string bytes = ReadTextFile(out_dir / "timeline.perfetto.pb");
+  const std::string bytes = CycleTimelineRenderer::RenderPerfettoTraceProto(trace.recorder());
   const auto events = ParseTrackEvents(bytes);
   size_t stall_index = std::numeric_limits<size_t>::max();
   size_t still_blocked_index = std::numeric_limits<size_t>::max();

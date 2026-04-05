@@ -1,7 +1,6 @@
 Perfetto waitcnt slots demo guide
 
-Open timeline.perfetto.pb first when you want native collapsible hierarchy.
-Use timeline.perfetto.json when you want grep-friendly structure and metadata.
+Use timeline.perfetto.json for timeline inspection, grep-friendly structure, and metadata.
 
 Recommended order:
 1. cycle/timeline_gap

@@ -7,7 +7,7 @@
 
 #include "gpu_model/debug/trace/artifact_recorder.h"
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/exec_engine.h"
 
 namespace {
 
@@ -91,7 +91,7 @@ std::string FunctionalModeName(gm::FunctionalExecutionMode mode) {
   return "unknown";
 }
 
-void ConfigureTimelineGapRuntime(gm::RuntimeEngine& runtime,
+void ConfigureTimelineGapRuntime(gm::ExecEngine& runtime,
                                  gm::ExecutionMode execution_mode) {
   runtime.SetFixedGlobalMemoryLatency(execution_mode == gm::ExecutionMode::Cycle ? 40 : 20);
   if (execution_mode == gm::ExecutionMode::Cycle) {
@@ -104,7 +104,7 @@ void ConfigureTimelineGapRuntime(gm::RuntimeEngine& runtime,
   }
 }
 
-void ConfigureSamePeuSlotsRuntime(gm::RuntimeEngine& runtime,
+void ConfigureSamePeuSlotsRuntime(gm::ExecEngine& runtime,
                                   gm::ExecutionMode execution_mode) {
   runtime.SetFixedGlobalMemoryLatency(execution_mode == gm::ExecutionMode::Cycle ? 36 : 20);
   if (execution_mode == gm::ExecutionMode::Cycle) {
@@ -117,7 +117,7 @@ void ConfigureSamePeuSlotsRuntime(gm::RuntimeEngine& runtime,
   }
 }
 
-void ConfigureSwitchAwayHeavyRuntime(gm::RuntimeEngine& runtime,
+void ConfigureSwitchAwayHeavyRuntime(gm::ExecEngine& runtime,
                                      gm::ExecutionMode execution_mode) {
   runtime.SetFixedGlobalMemoryLatency(12);
   if (execution_mode == gm::ExecutionMode::Cycle) {
@@ -173,8 +173,7 @@ void WriteResultsGuide(const std::filesystem::path& out_root) {
   }
   out << "Perfetto waitcnt slots demo guide\n"
       << '\n'
-      << "Open timeline.perfetto.pb first when you want native collapsible hierarchy.\n"
-      << "Use timeline.perfetto.json when you want grep-friendly structure and metadata.\n"
+      << "Use timeline.perfetto.json for timeline inspection, grep-friendly structure, and metadata.\n"
       << '\n'
       << "Recommended order:\n"
       << "1. cycle/timeline_gap\n"
@@ -208,7 +207,7 @@ void RunTimelineGapCase(const std::filesystem::path& out_dir,
                         gm::ExecutionMode execution_mode,
                         gm::FunctionalExecutionMode functional_mode) {
   gm::TraceArtifactRecorder trace(out_dir);
-  gm::RuntimeEngine runtime(&trace);
+  gm::ExecEngine runtime(&trace);
   runtime.SetFunctionalExecutionMode(functional_mode);
   ConfigureTimelineGapRuntime(runtime, execution_mode);
 
@@ -244,7 +243,7 @@ void RunSamePeuSlotsCase(const std::filesystem::path& out_dir,
   constexpr uint32_t kElementCount = kBlockDim;
 
   gm::TraceArtifactRecorder trace(out_dir);
-  gm::RuntimeEngine runtime(&trace);
+  gm::ExecEngine runtime(&trace);
   runtime.SetFunctionalExecutionMode(functional_mode);
   ConfigureSamePeuSlotsRuntime(runtime, execution_mode);
 
@@ -294,7 +293,7 @@ void RunCycleResidentSlotsCase(const std::filesystem::path& out_dir) {
   constexpr uint32_t kElementCount = kBlockDim;
 
   gm::TraceArtifactRecorder trace(out_dir);
-  gm::RuntimeEngine runtime(&trace);
+  gm::ExecEngine runtime(&trace);
   ConfigureSamePeuSlotsRuntime(runtime, gm::ExecutionMode::Cycle);
 
   const auto kernel = BuildCycleMultiWaveWaitcntKernel();
@@ -335,7 +334,7 @@ void RunSwitchAwayHeavyCase(const std::filesystem::path& out_dir,
   const uint32_t element_count = block_dim;
 
   gm::TraceArtifactRecorder trace(out_dir);
-  gm::RuntimeEngine runtime(&trace);
+  gm::ExecEngine runtime(&trace);
   runtime.SetFunctionalExecutionMode(functional_mode);
   ConfigureSwitchAwayHeavyRuntime(runtime, execution_mode);
 

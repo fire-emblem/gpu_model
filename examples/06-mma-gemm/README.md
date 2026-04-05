@@ -102,7 +102,7 @@
    再看：
    - `launch_summary.txt`
    - `trace.txt`
-   - `timeline.perfetto.*`
+   - `timeline.perfetto.json`
 
 ## 结果解读
 

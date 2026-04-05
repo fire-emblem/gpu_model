@@ -63,7 +63,6 @@ kernel 会在每个 block 内：
 
 重跑到当前主线后，还可能看到：
 
-- `timeline.perfetto.pb`
 
 ## 预期结果
 
@@ -94,7 +93,7 @@ kernel 会在每个 block 内：
    看 shared 写入、barrier、最终求和阶段
 3. `results/<mode>/launch_summary.txt`
    看运行是否完整结束
-4. `timeline.perfetto.*`
+4. `timeline.perfetto.json`
    需要从时间线理解 shared 阶段时再打开
 
 ## 结果解读
@@ -106,6 +105,3 @@ kernel 会在每个 block 内：
 ## 备注
 
 - 当前仓库中的 `results/` 主要作为快照参考
-- 默认重新运行 `run.sh` 会把结果写到 `.cache/example-results/09-dynamic-shared-sum/`
-- 若需要刷新仓库内快照，显式设置 `GPU_MODEL_EXAMPLE_RESULTS_MODE=repo`
-- 若旧结果里没有 `.pb`，请以重跑后的结果为准

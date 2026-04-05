@@ -1,20 +1,29 @@
 # 发现与决策
 
 ## 需求
-- 将项目架构收口为用户认可的目标：
-  - `HipRuntime`：与 AMD HIP runtime 对齐的兼容层
-  - `ModelRuntime`：项目核心实现
-  - `ExecEngine`：执行核心
-- 不再把 `interposer` 当作独立架构层。
-- push 前门禁改成轻量 smoke，全量 gate 保留手动执行。
-- cycle model 后续要进一步贴近真实前端行为，并能通过 trace / perfetto 正面验证：
-  - AP 接收 block
-  - wave generate / dispatch
-  - resident slot / active slot
-  - PEU 轮转 issue
-  - wait / arrive / resume
+- 先暂停继续扩张 cycle 前端建模，切回 examples 主题。
+- 需要对 `examples` 下的任务做全量、分批检查。
+- 当前用户明确指出：
+  - `08` 的 `mt` Perfetto 显示不正确
+  - `11` 编译不过
+  - Perfetto 必须显示每条指令的 `4 cycle` 区间
 
 ## 研究发现
+- `examples/08-conditional-multibarrier` 的 `mt` Perfetto 异常不是单一问题：
+  - example 构造本身不适合展示“同一 PEU 上多 slot/多 wave 并发”
+  - 真实 HIP functional encoded 路径还存在事件生产缺口，导致之前完全没有 instruction slice
+- `examples/08` 的真实根因已经定位：
+  - `ExecEngine` 在 `ExecutionMode::Functional + encoded_program_object` 时走 `EncodedExecEngine`
+  - `EncodedExecEngine::ExecuteWave()` 原先只发 `WaveStep`，没有发 `Commit`
+  - `CycleTimelineRenderer` 依赖 `WaveStep + Commit` 配对生成 instruction segment
+  - 因此 functional `st/mt` 的 `timeline.perfetto.json/.pb` 只有 marker，没有 `ph:"X"` 指令区间
+- 修复后已验证：
+  - `08 mt` 的 `trace.jsonl` 从 `Commit=0` 变为 `Commit=872`
+  - `08 mt` 的 `timeline.perfetto.json` 从 `X_count=0` 变为 `X_count=728`
+  - 所有 instruction slice 的 `dur` 都是 `4`
+- `examples/11-perfetto-waitcnt-slots` 编译失败根因已确认：
+  - example 代码仍引用旧的 `gpu_model/runtime/runtime_engine.h` 和 `gm::RuntimeEngine`
+  - 当前仓库正式接口已是 `gpu_model/runtime/exec_engine.h` 与 `gm::ExecEngine`
 - `HipInterposerState` 原本只是对 `RuntimeSession` 的薄包装，已经不值得单独保留。
 - `hip_interposer.cpp` 中的多数关键路径可以安全收口到 `HipRuntime`：
   - kernel 注册
@@ -39,10 +48,13 @@
 - 当前 docs 命中分析显示：
   - 对外文档基本已收口
   - 剩余旧名主要集中在 `docs/superpowers/plans`、`docs/superpowers/specs`、`docs/plans`
-- example runner 默认写回仓库内 `examples/*/results` 是工作树反复变脏的根因
-- 已收口为：
-  - 默认写到 `.cache/example-results/<example-name>/`
-  - 只有显式设置 `GPU_MODEL_EXAMPLE_RESULTS_MODE=repo` 才写回仓库快照目录
+- example runner 默认写 `.cache/example-results` 会让用户很容易误读旧 `results/` 快照
+- 当前已改回：
+  - example 结果直接写回各自目录下的 `results/`
+  - 不再保留 `.cache/example-results` 这条默认路径
+- 当前已停止生成 `timeline.perfetto.pb`
+  - 正式保留的时间线产物只有 `timeline.perfetto.json`
+  - 现有手写 `.pb` exporter 只保留内部代码与测试，不再对用户暴露为正式产物
 
 ## 技术决策
 | 决策 | 理由 |
@@ -53,7 +65,8 @@
 | 保留 `runtime_engine.h` 兼容 shim | 降低一次性全仓重命名风险 |
 | 轻量 pre-push + 手动 full gate | 平衡开发效率与验证覆盖 |
 | 历史存档文档中的旧名也开始统一替换 | 当前主线已经稳定，继续保留旧名的成本高于保留原貌的收益 |
-| example 默认结果改写到 `.cache/example-results` | 避免日常运行污染工作树，同时保留显式快照刷新模式 |
+| example 结果重新固定写回 `results/` | 避免默认结果与仓库快照分叉，降低误读成本 |
+| 停止生成 `timeline.perfetto.pb` artifact | 当前 `.pb` 不是可靠的官方 Perfetto 兼容产物，对用户暴露会造成误导 |
 | cycle 业务逻辑只放在 engine / state machine，trace 只做消费序列化 | 保证行为事实和展示分层清晰 |
 | 当前对外架构文档不再把 `hip_interposer` 当模块名 | 文件名可以保留历史字样，但架构语义必须归到 `HipRuntime` |
 | 暂不系统清理 docs 存档中的历史旧名 | 历史计划/spec 属于存档信息，优先保证主代码和关键文档收口 |
@@ -78,7 +91,8 @@
 
 ## 视觉/浏览器发现
 - 本阶段无浏览器/视觉外部信息输入。
-- 当前 cycle model 的正确定义应是：
+- 当前 cycle model 的正确定义仍然保持：
   - 唯一 cycle 模式，不区分 `st/mt`
   - 通过资源、时序、issue policy、slot 约束来表达不同硬件行为
   - 不是通过宿主执行模式表达
+- 但本轮优先级已切到 examples/Perfetto 正确性，而不是继续扩 cycle 范围

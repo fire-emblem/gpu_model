@@ -60,7 +60,6 @@ kernel 做的事情非常直接：
 
 如果当前运行脚本已经接入了新的 native Perfetto 导出，重新运行后还应看到：
 
-- `timeline.perfetto.pb`
 
 ## 预期结果
 
@@ -77,9 +76,7 @@ kernel 做的事情非常直接：
   - `Commit`
   - `WaveExit`
 
-如果重新生成了 `.pb`：
 
-- `timeline.perfetto.pb` 应能在 Perfetto 中正常打开
 - `timeline.perfetto.json` 应能作为文本检查版本正常解析
 
 ## 建议观察项
@@ -106,7 +103,6 @@ kernel 做的事情非常直接：
    确认 `ok`、`begin_cycle`、`end_cycle`、`total_cycles`
 3. 看 `results/<mode>/trace.txt`
    确认是否连 `Launch` / `WaveStep` 都没有产生
-4. 再看 `timeline.perfetto.json` 或 `timeline.perfetto.pb`
    只在需要看时间线时使用
 
 ## 结果解读
@@ -118,6 +114,3 @@ kernel 做的事情非常直接：
 ## 备注
 
 - 仓库中现有 `results/` 主要作为快照参考
-- 默认重新运行 `run.sh` 会把结果写到 `.cache/example-results/01-vecadd-basic/`
-- 若需要刷新仓库内快照，显式设置 `GPU_MODEL_EXAMPLE_RESULTS_MODE=repo`
-- 如果旧结果里只有 `timeline.perfetto.json` 而没有 `.pb`，不表示功能缺失，只表示结果目录还没按新逻辑重跑

@@ -60,7 +60,6 @@ kernel 的核心逻辑是：
 
 重新按当前主线运行后，也可能出现：
 
-- `timeline.perfetto.pb`
 
 ## 预期结果
 
@@ -77,7 +76,7 @@ kernel 的核心逻辑是：
 
 - `trace.txt` 中同一 wave 的连续计算序列
 - `launch_summary.txt` 的 `total_cycles`
-- `timeline.perfetto.json` 或 `.pb` 中更密集的计算切片
+- `timeline.perfetto.json` 中更密集的计算切片
 
 它适合作为“最小控制流样例”看循环成本，但不适合看 barrier、atomic 或复杂调度。
 
@@ -91,7 +90,7 @@ kernel 的核心逻辑是：
    看循环体对应的计算序列是否被截断或顺序异常
 3. `results/<mode>/launch_summary.txt`
    对比不同模式的 `total_cycles`
-4. `timeline.perfetto.*`
+4. `timeline.perfetto.json`
    只在需要看时间线密度和片段分布时使用
 
 ## 结果解读
@@ -103,6 +102,3 @@ kernel 的核心逻辑是：
 ## 备注
 
 - 仓库中现有 `results/` 主要作为快照参考
-- 默认重新运行 `run.sh` 会把结果写到 `.cache/example-results/02-fma-loop/`
-- 若需要刷新仓库内快照，显式设置 `GPU_MODEL_EXAMPLE_RESULTS_MODE=repo`
-- 如果旧结果没有 `.pb`，以重跑后的结果目录为准

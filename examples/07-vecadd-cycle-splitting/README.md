@@ -62,7 +62,6 @@
 
 重新按当前主线运行后，还应看到：
 
-- `timeline.perfetto.pb`
 
 ## 预期结果
 
@@ -88,7 +87,6 @@
    例如 `vecadd_grid_stride` 或 `vecadd_chunk2`
 4. 打开对应的：
    - `trace.txt`
-   - `timeline.perfetto.pb`
    - `timeline.perfetto.json`
 
 重点看：
@@ -109,7 +107,6 @@
    看单个变体是否校验通过
 4. `results/<mode>/<variant>/trace.txt`
    看具体指令与阶段分布
-5. `timeline.perfetto.pb`
    需要看层级和时间线时再打开
 
 ## 结果解读
@@ -120,7 +117,4 @@
 
 ## 备注
 
-- 当前仓库中的旧 `results/` 主要作为快照参考，可能只有 `timeline.perfetto.json`，没有 `.pb`
-- 默认重新运行 `run.sh` 会把结果写到 `.cache/example-results/07-vecadd-cycle-splitting/`
-- 若需要刷新仓库内快照，显式设置 `GPU_MODEL_EXAMPLE_RESULTS_MODE=repo`
 - 这不代表功能缺失，只代表结果目录还没用当前脚本重跑

@@ -13,8 +13,8 @@
 
 补充说明：
 
-- 凡是通过 `TraceArtifactRecorder` 落盘 trace 的例子，都会同时产出 `timeline.perfetto.pb` 和 `timeline.perfetto.json`
-- 优先打开 `timeline.perfetto.pb` 看 Perfetto 原生层级；`timeline.perfetto.json` 更适合文本检查、grep 和回归 diff
+- 凡是通过 `TraceArtifactRecorder` 落盘 trace 的例子，都会产出 `timeline.perfetto.json`
+- `timeline.perfetto.json` 是当前唯一正式支持的时间线产物，适合文本检查、grep、回归 diff 和后续格式转换
 - 目前统一的 slot 语义是：
   `cycle` 使用 `resident_fixed`，只展示真实 resident slot；
   `st/mt` 使用 `logical_unbounded`，同一个 `PEU` 上有多少 wave 就展示多少逻辑 `S*` 轨道
@@ -48,9 +48,7 @@
 
 关于 `results/`：
 
-- 默认情况下，`run.sh` 会把结果写到仓库根目录下的 `.cache/example-results/<example-name>/`
-- 若需要显式刷新仓库内快照，可设置 `GPU_MODEL_EXAMPLE_RESULTS_MODE=repo`
-- 仓库中已有的 `results/` 更适合作为快照参考，不应再作为日常运行默认落盘位置
+- `run.sh` 会直接把结果写回当前 example 目录下的 `results/`
 - README 中描述的“预期结果”以当前 `run.sh` 重新生成的产物为准
 
 关于并行运行：

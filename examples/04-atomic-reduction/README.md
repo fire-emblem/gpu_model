@@ -62,7 +62,6 @@ host 最终检查：
 
 按新主线重跑后，也可能看到：
 
-- `timeline.perfetto.pb`
 
 ## 预期结果
 
@@ -94,7 +93,7 @@ host 最终检查：
    看 atomic 指令和 memory 相关事件
 3. `results/<mode>/launch_summary.txt`
    确认 kernel 是否正常结束
-4. `timeline.perfetto.*`
+4. `timeline.perfetto.json`
    用于观察 atomic 对时间线的影响
 
 ## 结果解读
@@ -106,6 +105,3 @@ host 最终检查：
 ## 备注
 
 - 当前仓库中的 `results/` 主要作为快照参考
-- 默认重新运行 `run.sh` 会把结果写到 `.cache/example-results/04-atomic-reduction/`
-- 若需要刷新仓库内快照，显式设置 `GPU_MODEL_EXAMPLE_RESULTS_MODE=repo`
-- 如果旧结果里还没有 `.pb`，属于结果目录未重跑，不代表功能缺失

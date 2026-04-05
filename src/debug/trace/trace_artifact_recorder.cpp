@@ -29,7 +29,6 @@ std::filesystem::path PrepareTraceOutputDir(std::filesystem::path path) {
 struct TraceArtifactRecorder::Impl {
   std::filesystem::path output_dir;
   std::filesystem::path timeline_path;
-  std::filesystem::path timeline_proto_path;
   CycleTimelineOptions timeline_options;
   Recorder recorder;
   std::unique_ptr<TraceSink> sink;
@@ -41,7 +40,6 @@ TraceArtifactRecorder::TraceArtifactRecorder(std::filesystem::path output_dir,
     : impl_(std::make_unique<Impl>()) {
   impl_->output_dir = PrepareTraceOutputDir(std::move(output_dir));
   impl_->timeline_path = impl_->output_dir / "timeline.perfetto.json";
-  impl_->timeline_proto_path = impl_->output_dir / "timeline.perfetto.pb";
   impl_->timeline_options = timeline_options;
   impl_->sink = std::make_unique<RecorderTraceSink>(impl_->recorder);
   auto text_serializer = MakeTextRecorderSerializer();
@@ -82,16 +80,7 @@ void TraceArtifactRecorder::FlushTimeline() {
   if (!out) {
     throw std::runtime_error("failed to open timeline artifact");
   }
-  // Keep every execution mode on the shared slot-centric Perfetto export path.
   out << CycleTimelineRenderer::RenderGoogleTrace(impl_->recorder, impl_->timeline_options);
-
-  std::ofstream proto_out(impl_->timeline_proto_path, std::ios::binary);
-  if (!proto_out) {
-    throw std::runtime_error("failed to open native perfetto timeline artifact");
-  }
-  const std::string proto =
-      CycleTimelineRenderer::RenderPerfettoTraceProto(impl_->recorder, impl_->timeline_options);
-  proto_out.write(proto.data(), static_cast<std::streamsize>(proto.size()));
 }
 
 const std::filesystem::path& TraceArtifactRecorder::output_dir() const {

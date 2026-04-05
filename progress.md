@@ -86,26 +86,51 @@
 ### 阶段 7：Example 结果产物管理
 - **状态：** complete
 - 执行的操作：
-  - 将 examples 默认结果目录改到 `.cache/example-results/<example-name>/`
+  - 将 examples 结果目录重新固定回各自 example 下的 `results/`
   - 为 ASan build 下的 example preload 路径补充 `libasan` 预加载
-  - 保留 `GPU_MODEL_EXAMPLE_RESULTS_MODE=repo` 作为显式快照刷新模式
-  - 将多个 example README 的 `results/` 描述改成“快照参考 + 本地默认落盘”口径
+  - 删除 `.cache/example-results` 默认路径和同步脚本
+  - 停止生成 `timeline.perfetto.pb` artifact，仅保留 `timeline.perfetto.json`
+  - 清理 examples README / run.sh / guide 文案中的 `.pb` 与 `.cache` 描述
 - 创建/修改的文件：
   - `examples/common.sh`
   - `examples/*/run.sh`
   - `examples/README.md`
   - `examples/*/README.md`
+  - `src/debug/trace/trace_artifact_recorder.cpp`
+  - `scripts/README.md`
 
 ### 阶段 8：Cycle 完备性增强设计
-- **状态：** in_progress
+- **状态：** paused
 - 执行的操作：
   - 明确 cycle model 保持单一模式，不引入 cycle `st/mt`
   - 明确 trace 只消费 typed event，不承担业务逻辑
-  - 开始整理 cycle 前端状态机和前端延迟设计
+  - 已落地一批前端增强：generation / dispatch latency 与 block/wave frontend events
+- 创建/修改的文件：
+  - `include/gpu_model/arch/gpu_arch_spec.h`
+  - `src/arch/c500_spec.cpp`
+  - `src/execution/cycle_exec_engine.cpp`
+  - `tests/runtime/trace_test.cpp`
+  - `tests/cycle/cycle_smoke_test.cpp`
+
+### 阶段 9：Examples / Perfetto 正确性检查
+- **状态：** in_progress
+- 执行的操作：
+  - 切换主题到 examples 全量分批检查
+  - 记录用户指出的高优先级问题：`08` mt Perfetto 不正确、`11` 编译不过
+  - 记录 “Perfetto 必须显示每条指令 4 cycle 区间” 约束
+  - 定位 `08 mt` 的两层问题：example 构造不适合展示多 slot，同时 functional encoded 路径缺失 `Commit`
+  - 为 encoded functional Perfetto instruction slice 添加失败回归测试
+  - 修复 `src/execution/encoded_exec_engine.cpp` functional `ExecuteWave()` 漏发 `Commit`
+  - 重跑定向 trace tests，确认 encoded functional 指令区间恢复且 `dur=4`
+  - 重跑 `examples/08-conditional-multibarrier/run.sh`，确认 `mt` 出现 `728` 个 instruction slice
+  - 重跑 `examples/11-perfetto-waitcnt-slots/run.sh`，确认编译与 9 个 mode/case 组合全部通过
 - 创建/修改的文件：
   - `task_plan.md`
   - `findings.md`
   - `progress.md`
+  - `tests/runtime/trace_test.cpp`
+  - `src/execution/encoded_exec_engine.cpp`
+  - `examples/11-perfetto-waitcnt-slots/perfetto_waitcnt_slots_demo.cpp`
 
 ## 测试结果
 | 测试 | 输入 | 预期结果 | 实际结果 | 状态 |
@@ -114,6 +139,9 @@
 | asan preload 定向 | 5 个 `HipInterposerStateTest.*LdPreloadInterposer` | 全部通过 | 5 tests passed | 通过 |
 | full gate | `scripts/run_push_gate.sh` | release/debug/examples 全绿 | 通过 | 通过 |
 | light gate | `scripts/run_push_gate_light.sh` | release/debug smoke 全绿 | 通过 | 通过 |
+| encoded functional perfetto 回归 | `TraceTest.EncodedFunctionalPerfettoJsonShowsInstructionSlicesWithFourCycleDuration:TraceTest.NativePerfettoProtoShowsEncodedFunctionalLoadArriveInMultiThreadedMode:TraceTest.NativePerfettoProtoShowsEncodedFunctionalWaitcntStallWhenLoadLatencyIsHigh` | 全部通过 | 3 tests passed | 通过 |
+| example 08 重跑 | `examples/08-conditional-multibarrier/run.sh` | st/mt/cycle 全部成功且 mt 指令切片恢复 | `mismatches=0` 且 mt `Commit=872`/`X_count=728` | 通过 |
+| example 11 重跑 | `examples/11-perfetto-waitcnt-slots/run.sh` | 编译成功并跑完 9 个 mode/case | 通过 | 通过 |
 
 ## 错误日志
 | 时间戳 | 错误 | 尝试次数 | 解决方案 |
@@ -125,8 +153,8 @@
 ## 五问重启检查
 | 问题 | 答案 |
 |------|------|
-| 我在哪里？ | 阶段 6 |
-| 我要去哪里？ | 提交并推送历史文档清理结果 |
-| 目标是什么？ | 完成历史文档旧命名清理批次 |
-| 我学到了什么？ | `HipInterposerState` 已不再需要，`ExecEngine` 渐进改名可行 |
+| 我在哪里？ | 阶段 9 |
+| 我要去哪里？ | 开始 examples 分批检查与 Perfetto 修复 |
+| 目标是什么？ | 修复 `08` / `11` 并锁定 4-cycle 指令展示约束 |
+| 我学到了什么？ | 当前 cycle 增强已阶段性可用，但当前优先级应回到 examples 正确性 |
 | 我做了什么？ | 见上方阶段记录 |

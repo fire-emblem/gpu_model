@@ -66,7 +66,6 @@ kernel 的逻辑是：
 
 按当前主线重跑后，还可能看到：
 
-- `timeline.perfetto.pb`
 
 ## 预期结果
 
@@ -97,7 +96,7 @@ kernel 的逻辑是：
    看 reduction 阶段和最后写回
 3. `results/<mode>/launch_summary.txt`
    确认是否正常结束
-4. `timeline.perfetto.*`
+4. `timeline.perfetto.json`
    需要按时间轴看 reduction 阶段时再使用
 
 ## 结果解读
@@ -109,6 +108,3 @@ kernel 的逻辑是：
 ## 备注
 
 - 仓库中的旧 `results/` 主要作为快照参考
-- 默认重新运行 `run.sh` 会把结果写到 `.cache/example-results/10-block-reduce-sum/`
-- 若需要刷新仓库内快照，显式设置 `GPU_MODEL_EXAMPLE_RESULTS_MODE=repo`
-- 如果重跑后出现 `.pb`，优先用 `.pb` 看 Perfetto 层级

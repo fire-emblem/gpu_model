@@ -48,12 +48,6 @@
 - `run_scaling_regression.sh`
   - 形状/线程规模回归
 
-- `sync_example_results.sh`
-  - 将 `.cache/example-results/<example-name>/` 的本地结果同步回仓库内 `examples/<example-name>/results/`
-  - 默认同步全部 examples
-  - 也可只同步指定 example，例如：
-    - `scripts/sync_example_results.sh 01-vecadd-basic`
-
 生成类脚本：
 
 - `gen_gcn_isa_db.py`

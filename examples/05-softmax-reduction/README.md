@@ -65,7 +65,6 @@
 
 如果当前脚本已经走到新的导出路径，重新运行后还可能看到：
 
-- `timeline.perfetto.pb`
 
 ## 预期结果
 
@@ -96,7 +95,7 @@
    确认最大值归约和求和归约阶段是否完整
 3. `results/<mode>/launch_summary.txt`
    看 kernel 是否完整结束
-4. `timeline.perfetto.*`
+4. `timeline.perfetto.json`
    需要看分阶段时间线时再打开
 
 ## 结果解读
@@ -108,6 +107,3 @@
 ## 备注
 
 - 仓库中的已有 `results/` 主要作为快照参考
-- 默认重新运行 `run.sh` 会把结果写到 `.cache/example-results/05-softmax-reduction/`
-- 若需要刷新仓库内快照，显式设置 `GPU_MODEL_EXAMPLE_RESULTS_MODE=repo`
-- 如果重跑后出现 `.pb`，优先用它做 Perfetto 层级观察

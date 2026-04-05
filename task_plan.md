@@ -1,65 +1,47 @@
-# 任务计划：Runtime 架构收口、命名统一与 Cycle 完备性增强
+# 任务计划：Examples 分批检查与 Perfetto 正确性修复
 
 ## 目标
-将当前项目收口到 `HipRuntime / ModelRuntime / ExecEngine` 三个清晰概念，完成门禁轻量化、关键文档同步、历史命名清理，并启动 cycle model 与真实硬件前端行为对齐的增强计划。
+完成 examples 全量分批检查，优先修复 `08` 的 `mt` Perfetto 显示问题、`11` 编译问题，并锁定“Perfetto 必须显示每条指令 4 cycle 区间”的约束。
 
 ## 当前阶段
-阶段 7
+阶段 1
 
 ## 各阶段
 
 ### 阶段 1：需求与发现
-- [x] 理解用户意图
-- [x] 确定约束条件和需求
-- [x] 将发现记录到 findings.md
+- [x] 记录当前 cycle 增强已到的阶段性结果
+- [x] 切换到 examples/Perfetto 新主题
+- [x] 记录用户明确问题：`08` mt Perfetto 不正确，`11` 编译不过
 - **状态：** complete
 
-### 阶段 2：规划与结构
-- [x] 确定技术方案
-- [x] 明确两层 runtime 主线与 `ExecEngine` 目标名
-- [x] 记录关键决策及理由
-- **状态：** complete
-
-### 阶段 3：实现
-- [x] 删除 `HipInterposerState`
-- [x] 将兼容职责收口到 `HipRuntime`
-- [x] 引入 `ExecEngine` 公开命名与兼容别名
-- [x] 将实现文件切到 `src/runtime/exec_engine.cpp`
-- [x] 引入轻量 pre-push 门禁
-- **状态：** complete
-
-### 阶段 4：测试与验证
-- [x] 验证关键 interposer/CTS/feature CTS 回归
-- [x] 验证轻量门禁脚本
-- [x] 多次通过 pre-push smoke / full gate
-- [x] 确认当前无需继续补充一轮 examples 结果审阅
-- **状态：** complete
-
-### 阶段 5：交付
-- [x] 检查剩余工作树是否仅包含 examples 产物与构建噪音
-- [x] 完成关键文档的 `ExecEngine` 命名收口
-- [x] 判断当前不继续系统清理历史文档中的旧命名
-- [x] 向用户交付当前阶段总结与后续选项
-- **状态：** complete
-
-### 阶段 6：历史文档清理
-- [x] 盘点 docs 中剩余旧命名引用并区分当前文档与历史存档
-- [x] 确认当前对外文档基本已收口
-- [x] 开始对历史 plans/spec 存档做机械术语替换
-- [x] 提交并推送历史文档清理结果
-- **状态：** complete
-
-### 阶段 7：Cycle 完备性增强计划
-- [x] 确认 cycle model 不区分 `st/mt`，保持单一硬件时序模型
-- [x] 确认 trace 只负责消费 typed event，不承担业务推断
-- [ ] 明确 block admit / wave generate / wave dispatch / slot bind / issue / wait / arrive / resume 的状态机边界
-- [ ] 设计 `wave_generation_latency` 与 `wave_dispatch_latency` 的配置和事件落点
-- [ ] 拆分实现清单，按 engine / state machine / trace regression 组织
+### 阶段 2：规划与分批检查
+- [ ] 枚举 examples 全量检查批次
+- [x] 先定位 `08` mt Perfetto 现状与预期偏差
+- [x] 先定位 `11` 编译失败根因
+- [x] 明确 “每条指令显示 4 cycle 区间” 的实现边界与回归方式
 - **状态：** in_progress
 
+### 阶段 3：实现修复
+- [x] 修复 `08` mt Perfetto 显示
+- [x] 修复 `11` 编译问题
+- [x] 收口指令 4-cycle Perfetto 表现
+- **状态：** complete
+
+### 阶段 4：分批验证
+- [ ] 对 examples 全量分批检查
+- [ ] 更新对应 results / 结论
+- [ ] 记录仍存在的问题与例外
+- **状态：** pending
+
+### 阶段 5：交付
+- [ ] 汇总本轮 examples 检查结论
+- [ ] 给出后续是否继续扩大 cycle 前端增强的建议
+- **状态：** pending
+
 ## 关键问题
-1. cycle 前端状态机应先落在哪几个结构体/模块中，才能最少改动现有逻辑。
-2. `wave_generation_latency` / `wave_dispatch_latency` 是否和现有 `block_launch_cycles` / `wave_launch_cycles` 合并还是独立保留。
+1. `08` 的 `mt` Perfetto 不正确，根因是在事件生产、timeline 序列化，还是 example 构造本身。
+2. `11` 编译失败是否来自 example 代码、build target、还是环境假设。
+3. `08` 即使修好指令 slice，也仍不适合作为“单 PEU 多 slot 并发”展示样例，因为其工作分布天然分散到多个 AP/PEU 且都落在 `slot=0`。
 
 ## 已做决策
 | 决策 | 理由 |
@@ -72,6 +54,7 @@
 | 对历史存档文档采用机械术语替换 | 当前主线已稳定，继续保留旧名只会增加理解成本 |
 | cycle model 保持唯一模式，不再引入 cycle st/mt | `st/mt` 属于 functional 执行策略，不属于硬件时序模型 |
 | trace 只消费 typed event，不做业务推断 | 避免展示层反向定义业务语义 |
+| 本轮优先切回 examples/Perfetto 正确性 | 这是用户当前最高优先级问题 |
 
 ## 遇到的错误
 | 错误 | 尝试次数 | 解决方案 |
@@ -82,18 +65,4 @@
 | 提交时残留 `.git/index.lock` | 1 | 确认无活跃 git 进程后清理 stale lock |
 
 ## 备注
-- 当前主分支最新已推送提交包含：
-  - `Fold interposer state into hip runtime`
-  - `Align runtime docs with hip runtime architecture`
-  - `Switch pre-push hook to lightweight gate`
-  - `Promote ExecEngine as runtime execution type`
-  - `Remove RuntimeEngine shim and finalize ExecEngine rename`
-  - `Update docs to use ExecEngine terminology`
-  - `Normalize archived docs to ExecEngine naming`
-  - `Default example outputs to local cache by default`
-  - `Ignore local gate and example output directories`
-- 当前剩余未提交内容主要是：
-  - examples 结果产物
-  - build/log/results 噪音
-  - 历史文档清理结果
-- 仍需避免把 examples 结果产物与构建目录噪音误提交。
+- 当前 cycle 前端阶段性增强已落地但本轮不继续扩张，先回头处理 examples/Perfetto 问题。

@@ -16,21 +16,7 @@ gpu_model_detect_build_dir() {
 gpu_model_detect_results_dir() {
   local root="$1"
   local case_dir="$2"
-  local case_name
-  case_name="$(basename "$case_dir")"
-
-  case "${GPU_MODEL_EXAMPLE_RESULTS_MODE:-local}" in
-    repo)
-      echo "$case_dir/results"
-      ;;
-    local)
-      echo "$root/.cache/example-results/$case_name"
-      ;;
-    *)
-      echo "unsupported GPU_MODEL_EXAMPLE_RESULTS_MODE=${GPU_MODEL_EXAMPLE_RESULTS_MODE}" >&2
-      return 1
-      ;;
-  esac
+  echo "$case_dir/results"
 }
 
 gpu_model_require_cmd() {
@@ -142,12 +128,10 @@ gpu_model_assert_trace_artifacts() {
   [[ -f "$mode_dir/trace.txt" ]]
   [[ -f "$mode_dir/trace.jsonl" ]]
   [[ -f "$mode_dir/timeline.perfetto.json" ]]
-  [[ -f "$mode_dir/timeline.perfetto.pb" ]]
   [[ -f "$mode_dir/launch_summary.txt" ]]
   grep -q "kind=Launch" "$mode_dir/trace.txt"
   grep -q '"kind":"Launch"' "$mode_dir/trace.jsonl"
   grep -q '"traceEvents"' "$mode_dir/timeline.perfetto.json"
-  [[ -s "$mode_dir/timeline.perfetto.pb" ]]
   grep -q 'execution_mode=' "$mode_dir/launch_summary.txt"
 }
 

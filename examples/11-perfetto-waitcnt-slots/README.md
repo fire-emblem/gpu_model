@@ -72,7 +72,6 @@
 - `stdout.txt`
 - `trace.txt`
 - `trace.jsonl`
-- `timeline.perfetto.pb`
 - `timeline.perfetto.json`
 - `launch_summary.txt`
 
@@ -85,19 +84,12 @@
 
 优先顺序：
 
-1. `timeline.perfetto.pb`
-   这是 native Perfetto protobuf，支持真正的层级 track
-2. `timeline.perfetto.json`
+1. `timeline.perfetto.json`
    这是 Chrome trace JSON，主要用于文本检查、grep、diff
-3. `trace.jsonl`
+2. `trace.jsonl`
    适合看逐事件字段
-4. `trace.txt`
+3. `trace.txt`
    适合人肉快速浏览
-
-为什么优先 `.pb`：
-
-- `.pb` 能表达 `Device -> DPC -> AP -> PEU -> Slot` 的折叠层级
-- `.json` 只能近似成 `process/thread` 两级，层级要靠路径标签模拟
 
 ## 预期结果
 
@@ -105,7 +97,6 @@
 
 - `summary.txt` 应出现 `perfetto_waitcnt_slots_demo ok`
 - 9 个 case 目录的 `stdout.txt` 都应包含 `ok=1`
-- 每个 case 目录的 `.pb` 都应是非空文件
 
 具体到三个子 case：
 
@@ -173,18 +164,12 @@
 当前仓库已有 `summary.txt` 给出的 quick-start 顺序就是合理入口：
 
 1. `results/guide.txt`
-2. `results/cycle/timeline_gap/timeline.perfetto.pb`
-3. `results/cycle/same_peu_slots/timeline.perfetto.pb`
-4. `results/st/same_peu_slots/timeline.perfetto.pb`
-5. `results/mt/same_peu_slots/timeline.perfetto.pb`
-6. `results/cycle/switch_away_heavy/timeline.perfetto.pb`
 
 ## 调试建议
 
 - 如果你关心“空泡是不是足够明显”，先看 `cycle/timeline_gap`
 - 如果你关心“st/mt 多个 wave 是否真的同时可见”，先看 `st/mt/same_peu_slots`
 - 如果你关心“调度切换是否被稳定观测到”，先看 `cycle/switch_away_heavy`
-- 如果 `.json` 看不出层级，不要怀疑 example 构造；先切回 `.pb`
 - 看 `st/mt/same_peu_slots` 时，不要只看 thread 名。
   同名 `WAVE_SLOT_00..08` 会在不同 `PEU` 下重复出现，必须结合 `process_name`
   一起理解层级。
