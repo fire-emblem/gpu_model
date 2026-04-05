@@ -4,6 +4,18 @@
 
 当前比较关键的入口：
 
+- `install_git_hooks.sh`
+  - 安装仓库内 git hooks
+  - 会把 `core.hooksPath` 指到仓库里的 `.githooks`
+
+- `run_push_gate.sh`
+  - `git push` 前的统一门禁
+  - 默认并行跑三条 pipeline：
+    - `Debug + ASan` 全量 `gpu_model_tests`
+    - `Release` 全量 `gpu_model_tests`
+    - `Release` 全部 `examples/01-11/run.sh`
+  - 三条 pipeline 各自使用独立 build 目录，避免互相影响
+
 - `run_exec_checks.sh`
   - 最小基础执行检查
 - `run_shared_heavy_regression.sh`
