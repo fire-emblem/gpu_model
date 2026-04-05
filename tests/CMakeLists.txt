@@ -118,9 +118,18 @@ target_link_libraries(gpu_model_tests
     GTest::gtest
 )
 
+get_filename_component(GPU_MODEL_TEST_REPO_ROOT_REAL
+  "${CMAKE_CURRENT_SOURCE_DIR}/.."
+  REALPATH
+)
+
 target_include_directories(gpu_model_tests
   PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/..
+)
+target_compile_definitions(gpu_model_tests
+  PRIVATE
+    GPU_MODEL_TEST_REPO_ROOT="${GPU_MODEL_TEST_REPO_ROOT_REAL}"
 )
 
 gpu_model_enable_warnings(gpu_model_tests)

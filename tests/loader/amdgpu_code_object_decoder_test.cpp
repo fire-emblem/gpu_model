@@ -7,6 +7,7 @@
 #include <fstream>
 
 #include "gpu_model/program/object_reader.h"
+#include "tests/test_utils/hipcc_cache_test_utils.h"
 
 namespace gpu_model {
 namespace {
@@ -84,7 +85,7 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesRawInstructionsFromHipExecutable) {
            "}\n"
            "int main() { return 0; }\n";
   }
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "vecadd");
@@ -152,7 +153,7 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesRawInstructionsFromHipFmaLoopExecutable
            "}\n"
            "int main() { return 0; }\n";
   }
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "fma_loop");
@@ -209,7 +210,7 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesRawInstructionsFromHipBiasChainExecutab
            "}\n"
            "int main() { return 0; }\n";
   }
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "bias_chain");
@@ -256,7 +257,7 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipByValueAggregateExecutable) {
            "}\n"
            "int main() { return 0; }\n";
   }
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "by_value_aggregate");
@@ -292,7 +293,7 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipThreeDimensionalHiddenArgsExecutable
            "}\n"
            "int main() { return 0; }\n";
   }
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "three_dimensional_hidden_args");
@@ -322,7 +323,7 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipThreeDimensionalBuiltinIdsExecutable
            "}\n"
            "int main() { return 0; }\n";
   }
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "three_dimensional_builtin_ids");
@@ -349,7 +350,7 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesRawInstructionsFromHipAtomicCountExecut
            "}\n"
            "int main() { return 0; }\n";
   }
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "atomic_count");
@@ -401,7 +402,7 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipSoftmaxExecutableWithoutUnknownInstr
            "}\n"
            "int main() { return 0; }\n";
   }
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "softmax_row");
@@ -454,7 +455,7 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipMfmaExecutableWithoutUnknownInstruct
            "int main() { return 0; }\n";
   }
   const std::string command =
-      "hipcc --offload-arch=gfx90a " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " --offload-arch=gfx90a " + src_path.string() + " -o " + exe_path.string();
   if (std::system(command.c_str()) != 0) {
     GTEST_SKIP() << "gfx90a mfma compilation not available";
   }
@@ -506,7 +507,7 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipMfmaFp16ExecutableWithoutUnknownInst
            "int main() { return 0; }\n";
   }
   const std::string command =
-      "hipcc --offload-arch=gfx90a " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " --offload-arch=gfx90a " + src_path.string() + " -o " + exe_path.string();
   if (std::system(command.c_str()) != 0) {
     GTEST_SKIP() << "gfx90a mfma fp16 compilation not available";
   }
@@ -554,7 +555,7 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipMfmaI8ExecutableWithoutUnknownInstru
            "int main() { return 0; }\n";
   }
   const std::string command =
-      "hipcc --offload-arch=gfx90a " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " --offload-arch=gfx90a " + src_path.string() + " -o " + exe_path.string();
   if (std::system(command.c_str()) != 0) {
     GTEST_SKIP() << "gfx90a mfma i8 compilation not available";
   }
@@ -605,7 +606,7 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipMfmaBf16ExecutableWithoutUnknownInst
            "int main() { return 0; }\n";
   }
   const std::string command =
-      "hipcc --offload-arch=gfx90a " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " --offload-arch=gfx90a " + src_path.string() + " -o " + exe_path.string();
   if (std::system(command.c_str()) != 0) {
     GTEST_SKIP() << "gfx90a mfma bf16 compilation not available";
   }
@@ -650,7 +651,7 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipSharedReverseExecutable) {
            "}\n"
            "int main() { return 0; }\n";
   }
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "shared_reverse");
@@ -696,7 +697,7 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipDynamicSharedExecutableWithoutUnknow
            "}\n"
            "int main() { return 0; }\n";
   }
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "dynamic_shared_sum");
@@ -753,7 +754,7 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipBlockReduceExecutableWithoutUnknownI
            "}\n"
            "int main() { return 0; }\n";
   }
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "block_reduce_sum");

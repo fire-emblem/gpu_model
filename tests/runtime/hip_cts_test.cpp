@@ -13,6 +13,7 @@
 #include "gpu_model/program/object_reader.h"
 #include "gpu_model/runtime/hip_interposer_state.h"
 #include "gpu_model/runtime/model_runtime.h"
+#include "tests/test_utils/hipcc_cache_test_utils.h"
 #include "test_matrix_profile.h"
 
 namespace gpu_model {
@@ -177,7 +178,7 @@ int main() { return 0; }
 )";
     }
     const std::string command =
-        "hipcc " + src_path.string() + " -o " + artifact.exe_path.string();
+        test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + artifact.exe_path.string();
     if (std::system(command.c_str()) != 0) {
       throw std::runtime_error("failed to build common HIP CTS artifact");
     }
@@ -210,7 +211,7 @@ int main() { return 0; }
 )";
     }
     const std::string command =
-        "hipcc --offload-arch=gfx90a " + src_path.string() + " -o " + artifact.exe_path.string();
+        test_utils::HipccCacheCommand() + " --offload-arch=gfx90a " + src_path.string() + " -o " + artifact.exe_path.string();
     if (std::system(command.c_str()) != 0) {
       throw std::runtime_error("failed to build mfma HIP CTS artifact");
     }

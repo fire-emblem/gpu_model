@@ -7,6 +7,7 @@
 #include <string>
 
 #include "gpu_model/program/object_reader.h"
+#include "tests/test_utils/hipcc_cache_test_utils.h"
 
 namespace gpu_model {
 namespace {
@@ -82,7 +83,7 @@ TEST(AmdgpuObjLoaderTest, LoadsExecutableKernelFromHipHostObjectWithFatbin) {
   }
 
   const std::string command =
-      "hipcc -c " + src_path.string() + " -o " + obj_path.string();
+      test_utils::HipccCacheCommand() + " -c " + src_path.string() + " -o " + obj_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   const auto image = ObjectReader{}.LoadEncodedObject(obj_path, "empty_kernel");

@@ -12,6 +12,7 @@
 #include "gpu_model/debug/trace/artifact_recorder.h"
 #include "gpu_model/program/object_reader.h"
 #include "gpu_model/runtime/model_runtime.h"
+#include "tests/test_utils/hipcc_cache_test_utils.h"
 #include "gpu_model/runtime/runtime_engine.h"
 #include "gpu_model/util/logging.h"
 
@@ -146,7 +147,7 @@ TEST(HipccParallelExecutionTest, ThreeDimensionalVecaddAddsMatchesBetweenStAndMt
            "int main() { return 0; }\n";
   }
 
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   StageTiming timings;
   timings.compile_ms = MeasureElapsedMs([&] { ASSERT_EQ(std::system(command.c_str()), 0); });
   EncodedProgramObject image;
@@ -273,7 +274,7 @@ TEST(HipccParallelExecutionTest, MultiWaveHeavyKernelShowsMtSpeedupWithDefaultWo
            "int main() { return 0; }\n";
   }
 
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   StageTiming timings;
   timings.compile_ms = MeasureElapsedMs([&] { ASSERT_EQ(std::system(command.c_str()), 0); });
   EncodedProgramObject image;
@@ -389,7 +390,7 @@ TEST(HipccParallelExecutionTest,
            "int main() { return 0; }\n";
   }
 
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   StageTiming timings;
   timings.compile_ms = MeasureElapsedMs([&] { ASSERT_EQ(std::system(command.c_str()), 0); });
 
@@ -475,7 +476,7 @@ TEST(HipccParallelExecutionTest,
            "int main() { return 0; }\n";
   }
 
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   constexpr uint32_t block_dim = 128;
@@ -601,7 +602,7 @@ TEST(HipccParallelExecutionTest,
            "int main() { return 0; }\n";
   }
 
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   constexpr uint32_t n = 64;
@@ -694,7 +695,7 @@ TEST(HipccParallelExecutionTest,
            "int main() { return 0; }\n";
   }
 
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   constexpr uint32_t n = 257;
@@ -776,7 +777,7 @@ TEST(HipccParallelExecutionTest,
            "int main() { return 0; }\n";
   }
 
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   constexpr uint32_t n = 30u * 1024u;
@@ -873,7 +874,7 @@ TEST(HipccParallelExecutionTest,
            "int main() { return 0; }\n";
   }
 
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
   const auto image = LoadHipccImage(exe_path, "vecadd");
 
@@ -1036,7 +1037,7 @@ TEST(HipccParallelExecutionTest,
       out << test_case.source;
     }
 
-    const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+    const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
     ASSERT_EQ(std::system(command.c_str()), 0);
     const auto image = LoadHipccImage(exe_path, test_case.name);
 
@@ -1139,7 +1140,7 @@ TEST(HipccParallelExecutionTest,
            "int main() { return 0; }\n";
   }
 
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
   const auto image = LoadHipccImage(exe_path, "fma_loop");
 
@@ -1247,7 +1248,7 @@ TEST(HipccParallelExecutionTest,
   }
 
   const std::string command =
-      "hipcc --offload-arch=gfx90a " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " --offload-arch=gfx90a " + src_path.string() + " -o " + exe_path.string();
   if (std::system(command.c_str()) != 0) {
     GTEST_SKIP() << "gfx90a mfma compilation not available";
   }
@@ -1330,7 +1331,7 @@ TEST(HipccParallelExecutionTest,
            "int main() { return 0; }\n";
   }
 
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   const auto image = LoadHipccImage(exe_path, "waitcnt_global_pair_sum");
@@ -1437,7 +1438,7 @@ TEST(HipccParallelExecutionTest,
            "int main() { return 0; }\n";
   }
 
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   const auto image = LoadHipccImage(exe_path, "waitcnt_shared_rotate");
@@ -1556,7 +1557,7 @@ TEST(HipccParallelExecutionTest,
            "int main() { return 0; }\n";
   }
 
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   const auto image = LoadHipccImage(exe_path, "waitcnt_global_pair_sum");
@@ -1727,7 +1728,7 @@ TEST(HipccParallelExecutionTest,
       out << test_case.source;
     }
 
-    const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+    const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
     ASSERT_EQ(std::system(command.c_str()), 0);
     const auto image = LoadHipccImage(exe_path, test_case.name);
 
@@ -1861,7 +1862,7 @@ TEST(HipccParallelExecutionTest,
            "int main() { return 0; }\n";
   }
 
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
   const auto image = LoadHipccImage(exe_path, "barrier_blocks");
 
@@ -1989,7 +1990,7 @@ TEST(HipccParallelExecutionTest,
            "int main() { return 0; }\n";
   }
 
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
   const auto image = LoadHipccImage(exe_path, "conditional_multibarrier");
 
@@ -2246,7 +2247,7 @@ TEST(HipccParallelExecutionTest,
            "int main() { return 0; }\n";
   }
 
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
   const auto image = LoadHipccImage(exe_path, "conditional_multibarrier");
 

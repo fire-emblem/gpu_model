@@ -19,6 +19,7 @@
 #include "gpu_model/program/program_object.h"
 #include "gpu_model/runtime/hip_runtime.h"
 #include "gpu_model/runtime/model_runtime.h"
+#include "tests/test_utils/hipcc_cache_test_utils.h"
 
 namespace gpu_model {
 namespace {
@@ -826,7 +827,7 @@ TEST(ModelRuntimeCoreTest, LaunchesHipExecutableWithEmbeddedFatbin) {
   }
 
   const std::string command =
-      "hipcc " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   ModelRuntime runtime_api;
@@ -867,7 +868,7 @@ TEST(ModelRuntimeCoreTest, BuildsLoadPlanFromHipSharedReverseExecutable) {
   }
 
   const std::string command =
-      "hipcc " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "shared_reverse");
@@ -907,7 +908,7 @@ TEST(ModelRuntimeCoreTest, MaterializesHipSharedReverseCodeIntoDeviceMemory) {
   }
 
   const std::string command =
-      "hipcc " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   ModelRuntime runtime_api;
@@ -956,7 +957,7 @@ TEST(ModelRuntimeCoreTest, LaunchesRegisteredEncodedObjectModule) {
            "int main() { return 0; }\n";
   }
 
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   constexpr uint32_t width = 9;
@@ -1040,7 +1041,7 @@ TEST(HipRuntimeTest, LaunchEncodedProgramObjectPopulatesLastLoadResult) {
   }
 
   const std::string command =
-      "hipcc " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   HipRuntime hooks;
@@ -1111,7 +1112,7 @@ TEST(HipRuntimeTest, EncodedCycleLaunchEmitsAdvancingTraceCycles) {
   }
 
   const std::string command =
-      "hipcc " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   constexpr uint32_t n = 128;
@@ -1178,7 +1179,7 @@ TEST(HipRuntimeTest, EncodedCycleLaunchReportsCacheAndSharedBankStats) {
   }
 
   const std::string command =
-      "hipcc " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   constexpr uint32_t n = 128;
@@ -1240,7 +1241,7 @@ TEST(HipRuntimeTest, EncodedCycleLaunchEmitsArriveTraceForMemoryOps) {
   }
 
   const std::string command =
-      "hipcc " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   constexpr uint32_t n = 128;
@@ -1305,7 +1306,7 @@ TEST(HipRuntimeTest, EncodedCycleRespectsApResidentBlockLimit) {
   }
 
   const std::string command =
-      "hipcc " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   HipRuntime hooks;
@@ -1364,7 +1365,7 @@ TEST(HipRuntimeTest, EncodedCycleDelaysBackfillByBlockLaunchTiming) {
   }
 
   const std::string command =
-      "hipcc " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   HipRuntime hooks;
@@ -1416,7 +1417,7 @@ TEST(HipRuntimeTest, EncodedCycleEmitsWarpSwitchStallBetweenTwoWaves) {
   }
 
   const std::string command =
-      "hipcc " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   HipRuntime hooks;
@@ -1478,7 +1479,7 @@ TEST(HipRuntimeTest, EncodedCycleStandbyBlockDoesNotLaunchUntilActiveSlotOpens) 
   }
 
   const std::string command =
-      "hipcc " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   std::vector<int32_t> out(2 * spec->total_ap_count() + 1, 0);
@@ -1538,7 +1539,7 @@ TEST(HipRuntimeTest, EncodedCycleStandbyWavePromotesAfterActiveWaveExits) {
   }
 
   const std::string command =
-      "hipcc " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   std::vector<int32_t> out(spec->total_ap_count() + 1, 0);
@@ -1593,7 +1594,7 @@ TEST(HipRuntimeTest, EncodedCycleBarrierWaitingWaveYieldsActiveSlotUntilRelease)
   }
 
   const std::string command =
-      "hipcc " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   std::vector<int32_t> out(spec->peu_per_ap * (spec->max_issuable_waves + 1) * 64, 0);
@@ -1656,7 +1657,7 @@ TEST(ModelRuntimeCoreTest, LaunchesHipVecAddExecutableAndValidatesOutput) {
   }
 
   const std::string command =
-      "hipcc " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   constexpr uint32_t n = 257;
@@ -1727,7 +1728,7 @@ TEST(ModelRuntimeCoreTest, LaunchesHipFmaLoopExecutableAndValidatesOutput) {
   }
 
   const std::string command =
-      "hipcc " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   constexpr uint32_t n = 257;
@@ -1800,7 +1801,7 @@ TEST(ModelRuntimeCoreTest, LaunchesHipBiasChainExecutableAndValidatesOutput) {
   }
 
   const std::string command =
-      "hipcc " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   constexpr uint32_t n = 129;
@@ -1871,7 +1872,7 @@ TEST(ModelRuntimeCoreTest, LaunchesHipVecAddExecutableAtLargeScaleAndValidatesOu
   }
 
   const std::string command =
-      "hipcc " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   constexpr uint32_t n = 30u * 1024u;
@@ -1935,7 +1936,7 @@ TEST(ModelRuntimeCoreTest, LaunchesHipVecAddExecutableAcrossLaunchShapes) {
   }
 
   const std::string command =
-      "hipcc " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   struct LaunchCase {
@@ -2021,7 +2022,7 @@ TEST(ModelRuntimeCoreTest, LaunchesHipTwoDimensionalExecutable) {
   }
 
   const std::string command =
-      "hipcc " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   constexpr uint32_t width = 16;
@@ -2075,7 +2076,7 @@ TEST(ModelRuntimeCoreTest, LaunchesHipThreeDimensionalHiddenArgsExecutable) {
   }
 
   const std::string command =
-      "hipcc " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   ModelRuntime runtime_api;
@@ -2137,7 +2138,7 @@ TEST(ModelRuntimeCoreTest, LaunchesHipThreeDimensionalBuiltinIdsExecutable) {
   }
 
   const std::string command =
-      "hipcc " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   ModelRuntime runtime_api;
@@ -2220,7 +2221,7 @@ TEST(ModelRuntimeCoreTest, LaunchesHipMixedArgsAggregateExecutable) {
   }
 
   const std::string command =
-      "hipcc " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   ModelRuntime runtime_api;
@@ -2291,7 +2292,7 @@ TEST(ModelRuntimeCoreTest, LaunchesHipDynamicSharedExecutable) {
   }
 
   const std::string command =
-      "hipcc " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   ModelRuntime runtime_api;
@@ -2348,7 +2349,7 @@ TEST(ModelRuntimeCoreTest, LaunchesHipAtomicCountExecutable) {
            "int main() { return 0; }\n";
   }
 
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   struct AtomicCase {
@@ -2569,7 +2570,7 @@ TEST(ModelRuntimeCoreTest, LaunchesHipSoftmaxExecutable) {
   }
 
   const std::string command =
-      "hipcc " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   constexpr uint32_t n = 64;
@@ -2638,7 +2639,7 @@ TEST(ModelRuntimeCoreTest, LaunchesHipBlockReduceExecutable) {
   }
 
   const std::string command =
-      "hipcc " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   constexpr uint32_t n = 1024;
@@ -2701,7 +2702,7 @@ TEST(ModelRuntimeCoreTest, LaunchesHipMfmaExecutable) {
   }
 
   const std::string command =
-      "hipcc --offload-arch=gfx90a " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " --offload-arch=gfx90a " + src_path.string() + " -o " + exe_path.string();
   if (std::system(command.c_str()) != 0) {
     GTEST_SKIP() << "gfx90a mfma compilation not available";
   }
@@ -2785,7 +2786,7 @@ TEST(ModelRuntimeCoreTest, DescribesHipMfmaExecutableWithTypedTensorAbi) {
   }
 
   const std::string command =
-      "hipcc --offload-arch=gfx90a " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " --offload-arch=gfx90a " + src_path.string() + " -o " + exe_path.string();
   if (std::system(command.c_str()) != 0) {
     GTEST_SKIP() << "gfx90a mfma compilation not available";
   }
@@ -2824,7 +2825,7 @@ TEST(ModelRuntimeCoreTest, LaunchesHipSharedReverseExecutableAndValidatesOutput)
   }
 
   const std::string command =
-      "hipcc " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   constexpr uint32_t n = 128;

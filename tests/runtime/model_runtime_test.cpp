@@ -9,6 +9,7 @@
 #include "gpu_model/loader/program_bundle_io.h"
 #include "gpu_model/program/object_reader.h"
 #include "gpu_model/runtime/model_runtime.h"
+#include "tests/test_utils/hipcc_cache_test_utils.h"
 
 namespace gpu_model {
 namespace {
@@ -270,7 +271,7 @@ TEST(ModelRuntimeTest, DescribesHipMfmaExecutableWithTypedTensorAbi) {
   }
 
   const std::string command =
-      "hipcc --offload-arch=gfx90a " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " --offload-arch=gfx90a " + src_path.string() + " -o " + exe_path.string();
   if (std::system(command.c_str()) != 0) {
     GTEST_SKIP() << "gfx90a mfma compilation not available";
   }
@@ -311,7 +312,7 @@ TEST(ModelRuntimeTest, LaunchesEncodedProgramObjectFromAmdgpuObject) {
            "int main() { return 0; }\n";
   }
 
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   constexpr uint32_t width = 9;
@@ -393,7 +394,7 @@ TEST(ModelRuntimeTest, LaunchesRegisteredEncodedObjectModule) {
            "int main() { return 0; }\n";
   }
 
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   constexpr uint32_t width = 9;

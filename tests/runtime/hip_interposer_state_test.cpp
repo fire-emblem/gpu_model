@@ -13,6 +13,7 @@
 
 #include "gpu_model/program/object_reader.h"
 #include "gpu_model/runtime/hip_interposer_state.h"
+#include "tests/test_utils/hipcc_cache_test_utils.h"
 
 namespace gpu_model {
 namespace {
@@ -69,7 +70,7 @@ TEST(HipInterposerStateTest, LaunchesHipVecAddExecutableThroughRegisteredHostFun
            "int main() { return 0; }\n";
   }
 
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   auto& state = HipInterposerState::Instance();
@@ -124,7 +125,7 @@ TEST(HipInterposerStateTest, LaunchesHipVecAddExecutableInCycleModeThroughRegist
            "int main() { return 0; }\n";
   }
 
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   auto& state = HipInterposerState::Instance();
@@ -191,7 +192,7 @@ TEST(HipInterposerStateTest, BuildsExecutableLoadPlanThroughRegisteredHostFuncti
            "int main() { return 0; }\n";
   }
 
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   auto& state = HipInterposerState::Instance();
@@ -237,7 +238,7 @@ TEST(HipInterposerStateTest, LaunchesHipFmaLoopExecutableThroughRegisteredHostFu
            "int main() { return 0; }\n";
   }
 
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   auto& state = HipInterposerState::Instance();
@@ -302,7 +303,7 @@ TEST(HipInterposerStateTest, LaunchesHipBiasChainExecutableThroughRegisteredHost
            "int main() { return 0; }\n";
   }
 
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   auto& state = HipInterposerState::Instance();
@@ -371,7 +372,7 @@ TEST(HipInterposerStateTest, LaunchesHipByValueAggregateExecutableThroughRegiste
            "int main() { return 0; }\n";
   }
 
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   auto& state = HipInterposerState::Instance();
@@ -424,7 +425,7 @@ TEST(HipInterposerStateTest, LaunchesHipThreeDimensionalHiddenArgsExecutableThro
            "int main() { return 0; }\n";
   }
 
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   auto& state = HipInterposerState::Instance();
@@ -478,7 +479,7 @@ TEST(HipInterposerStateTest, LaunchesHipThreeDimensionalBuiltinIdsExecutableThro
            "int main() { return 0; }\n";
   }
 
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   auto& state = HipInterposerState::Instance();
@@ -534,7 +535,7 @@ TEST(HipInterposerStateTest, LaunchesHipVecAddExecutableThroughRegisteredHostFun
            "int main() { return 0; }\n";
   }
 
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   auto& state = HipInterposerState::Instance();
@@ -590,7 +591,7 @@ TEST(HipInterposerStateTest, LaunchesHipVecAddExecutableThroughManagedAllocation
            "int main() { return 0; }\n";
   }
 
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   auto& state = HipInterposerState::Instance();
@@ -706,7 +707,7 @@ int main() {
 )";
   }
 
-  const std::string compile_command = "env -u LD_PRELOAD hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string compile_command = "env -u LD_PRELOAD " + test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(compile_command.c_str()), 0);
 
   const std::string run_command =
@@ -804,7 +805,7 @@ int main() {
   }
 
   const std::string compile_command =
-      "env -u LD_PRELOAD hipcc " + src_path.string() + " -o " + exe_path.string();
+      "env -u LD_PRELOAD " + test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(compile_command.c_str()), 0);
 
   const std::string run_command =
@@ -870,7 +871,7 @@ int main() {
   }
 
   const std::string compile_command =
-      "env -u LD_PRELOAD hipcc " + src_path.string() + " -o " + exe_path.string();
+      "env -u LD_PRELOAD " + test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(compile_command.c_str()), 0);
 
   const std::string run_command =
@@ -928,7 +929,7 @@ int main() {
   }
 
   const std::string compile_command =
-      "env -u LD_PRELOAD hipcc " + src_path.string() + " -o " + exe_path.string();
+      "env -u LD_PRELOAD " + test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(compile_command.c_str()), 0);
 
   const std::string run_command =
@@ -992,7 +993,7 @@ int main() {
   }
 
   const std::string compile_command =
-      "env -u LD_PRELOAD hipcc " + src_path.string() + " -o " + exe_path.string();
+      "env -u LD_PRELOAD " + test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(compile_command.c_str()), 0);
 
   const std::string run_command =
@@ -1033,7 +1034,7 @@ TEST(HipInterposerStateTest, LaunchesHipSharedReverseExecutableThroughRegistered
            "int main() { return 0; }\n";
   }
 
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   auto& state = HipInterposerState::Instance();
@@ -1099,7 +1100,7 @@ TEST(HipInterposerStateTest, LaunchesHipDynamicSharedExecutableThroughRegistered
            "int main() { return 0; }\n";
   }
 
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   auto& state = HipInterposerState::Instance();
@@ -1150,7 +1151,7 @@ TEST(HipInterposerStateTest, LaunchesHipAtomicCountExecutableThroughRegisteredHo
            "int main() { return 0; }\n";
   }
 
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   auto& state = HipInterposerState::Instance();
@@ -1229,7 +1230,7 @@ TEST(HipInterposerStateTest, LaunchesHipSoftmaxExecutableThroughRegisteredHostFu
            "int main() { return 0; }\n";
   }
 
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   auto& state = HipInterposerState::Instance();
@@ -1292,7 +1293,7 @@ TEST(HipInterposerStateTest, LaunchesHipBlockReduceExecutableThroughRegisteredHo
            "int main() { return 0; }\n";
   }
 
-  const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
+  const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   auto& state = HipInterposerState::Instance();
@@ -1352,7 +1353,7 @@ TEST(HipInterposerStateTest, LaunchesHipMfmaExecutableThroughRegisteredHostFunct
   }
 
   const std::string command =
-      "hipcc --offload-arch=gfx90a " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " --offload-arch=gfx90a " + src_path.string() + " -o " + exe_path.string();
   if (std::system(command.c_str()) != 0) {
     GTEST_SKIP() << "gfx90a mfma compilation not available";
   }
@@ -1404,7 +1405,7 @@ TEST(HipInterposerStateTest, BuildsExecutableLoadPlanForHipMfmaWithTypedTensorAb
   }
 
   const std::string command =
-      "hipcc --offload-arch=gfx90a " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " --offload-arch=gfx90a " + src_path.string() + " -o " + exe_path.string();
   if (std::system(command.c_str()) != 0) {
     GTEST_SKIP() << "gfx90a mfma compilation not available";
   }
