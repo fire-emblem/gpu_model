@@ -678,6 +678,7 @@ class FunctionalExecutionCoreImpl {
   std::condition_variable scheduler_cv_;
   std::vector<ApSchedulerState> ap_schedulers_;
   size_t next_ap_rr_ = 0;
+  size_t waiting_ap_rr_ = 0;
   size_t total_waves_ = 0;
   size_t completed_waves_ = 0;
   size_t active_wave_tasks_ = 0;
@@ -849,6 +850,7 @@ class FunctionalExecutionCoreImpl {
   void BuildParallelWaveSchedulerState() {
     std::lock_guard<std::mutex> lock(scheduler_mutex_);
     next_ap_rr_ = 0;
+    waiting_ap_rr_ = 0;
     completed_waves_ = 0;
     total_waves_ = 0;
     active_wave_tasks_ = 0;
@@ -896,6 +898,15 @@ class FunctionalExecutionCoreImpl {
     return false;
   }
 
+  bool HasRunnableWaveLocked() const {
+    for (const auto& ap : ap_schedulers_) {
+      if (!ap.runnable.empty()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   void EnqueueWaveLocked(const WaveTaskRef& task) {
     ap_schedulers_[task.global_ap_id].runnable.push_back(task);
   }
@@ -933,13 +944,21 @@ class FunctionalExecutionCoreImpl {
   }
 
   bool AdvanceWaitingWavesLocked() {
-    bool progressed = false;
-    for (auto& ap : ap_schedulers_) {
+    if (ap_schedulers_.empty()) {
+      return false;
+    }
+    for (size_t ap_offset = 0; ap_offset < ap_schedulers_.size(); ++ap_offset) {
+      const size_t ap_index = (waiting_ap_rr_ + ap_offset) % ap_schedulers_.size();
+      auto& ap = ap_schedulers_[ap_index];
       for (const size_t block_index : ap.block_indices) {
-        progressed = AdvanceWaitingWavesForBlockLocked(block_index) || progressed;
+        if (AdvanceWaitingWavesForBlockLocked(block_index)) {
+          waiting_ap_rr_ = (ap_index + 1) % ap_schedulers_.size();
+          return true;
+        }
       }
     }
-    return progressed;
+    waiting_ap_rr_ = (waiting_ap_rr_ + 1) % ap_schedulers_.size();
+    return false;
   }
 
   bool AllParallelWavesCompletedLocked() const {
@@ -995,17 +1014,35 @@ class FunctionalExecutionCoreImpl {
         }
       }
 
-      ExecuteWave(blocks_[task.block_index], task.wave_index, stats);
+      while (true) {
+        ExecuteWave(blocks_[task.block_index], task.wave_index, stats);
 
-      {
-        std::lock_guard<std::mutex> lock(scheduler_mutex_);
-        if (active_wave_tasks_ > 0) {
-          --active_wave_tasks_;
+        bool claimed_next_task = false;
+        {
+          std::lock_guard<std::mutex> lock(scheduler_mutex_);
+          if (active_wave_tasks_ > 0) {
+            --active_wave_tasks_;
+          }
+          ReconcileWaveTaskLocked(task);
+          (void)AdvanceWaitingWavesForBlockLocked(task.block_index);
+          if (AllParallelWavesCompletedLocked()) {
+            scheduler_cv_.notify_all();
+            return;
+          }
+          if (PopRunnableWaveLocked(task)) {
+            ++active_wave_tasks_;
+            claimed_next_task = true;
+          } else {
+            const bool has_runnable = HasRunnableWaveLocked();
+            if (has_runnable || active_wave_tasks_ == 0) {
+              scheduler_cv_.notify_one();
+            }
+          }
         }
-        ReconcileWaveTaskLocked(task);
-        (void)AdvanceWaitingWavesForBlockLocked(task.block_index);
+        if (!claimed_next_task) {
+          break;
+        }
       }
-      scheduler_cv_.notify_all();
     }
   }
 
