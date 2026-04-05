@@ -15,6 +15,12 @@
     - `Release` 全量 `gpu_model_tests`
     - `Release` 全部 `examples/01-11/run.sh`
   - 三条 pipeline 各自使用独立 build 目录，避免互相影响
+  - 完整日志默认落到 `results/push-gate/`
+  - 其中 release/debug 的 `gpu_model_tests` 还会额外生成
+    `*.slowest.txt`，列出最慢测试 Top 20
+  - 同时会保存：
+    - `release.gpu_model_tests.xml`
+    - `debug_asan.gpu_model_tests.xml`
 
 - `run_exec_checks.sh`
   - 最小基础执行检查
