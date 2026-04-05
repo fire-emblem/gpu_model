@@ -50,3 +50,10 @@
 
 - 仓库中已有的 `results/` 可能来自较早一次运行
 - README 中描述的“预期结果”以当前 `run.sh` 重新生成的产物为准
+
+关于并行运行：
+
+- `examples/common.sh` 里的构建步骤现在已经带文件锁
+- 可以并行启动多个 `run.sh`
+- 它们会串行进入同一个 build 目录的 `cmake --build`，避免破坏 `build-ninja`
+  的 `.ninja_log` / `.ninja_deps`

@@ -118,6 +118,13 @@
   - `load_arrive`
   - 恢复后的下一条指令
 
+按当前仓库这次重跑结果：
+
+- `cycle/timeline_gap`
+  - `total_cycles = 60`
+  - 第一段明显空泡约为 `36 cycles`
+  - trace 中可见 `stall_waitcnt_global`、`load_arrive`、`wave_exit`
+
 `same_peu_slots`
 
 - `cycle` 下预期看到：
@@ -130,12 +137,38 @@
   - `wave_switch_away`
   - `wave_exit`
 
+按当前仓库这次重跑结果：
+
+- `st/same_peu_slots`
+  - `total_cycles = 1032`
+  - 可见 `4` 个 `PEU` process
+  - 总 thread track 数为 `33`
+  - `wave_switch_away = 194`
+  - `load_arrive = 33`
+  - `wave_exit = 33`
+- `mt/same_peu_slots`
+  - `total_cycles = 1032`
+  - 可见 `4` 个 `PEU` process
+  - 总 thread track 数为 `33`
+  - `wave_switch_away = 193`
+  - `load_arrive = 33`
+  - `wave_exit = 33`
+
 `switch_away_heavy`
 
 - 预期看到：
   - 高频 `wave_switch_away`
   - waitcnt 事件不是主角
   - timeline 更像调度轮转图，而不是内存等待图
+
+按当前仓库这次重跑结果：
+
+- `cycle/switch_away_heavy`
+  - `total_cycles = 524`
+  - `4` 个 `PEU` process
+  - 每个 `PEU` 都有 `50` 次 `wave_switch_away`
+  - `load_arrive = 16`
+  - `wave_exit = 16`
 
 当前仓库已有 `summary.txt` 给出的 quick-start 顺序就是合理入口：
 
@@ -152,6 +185,11 @@
 - 如果你关心“st/mt 多个 wave 是否真的同时可见”，先看 `st/mt/same_peu_slots`
 - 如果你关心“调度切换是否被稳定观测到”，先看 `cycle/switch_away_heavy`
 - 如果 `.json` 看不出层级，不要怀疑 example 构造；先切回 `.pb`
+- 看 `st/mt/same_peu_slots` 时，不要只看 thread 名。
+  同名 `WAVE_SLOT_00..08` 会在不同 `PEU` 下重复出现，必须结合 `process_name`
+  一起理解层级。
+- `timeline_gap` 里的“空泡”并不是完全没有 trace event，而是没有 instruction slice。
+  trace.txt 中仍会看到一串 `stall_waitcnt_global` 事件，这是当前导出语义的一部分。
 
 ## 结果解读
 
