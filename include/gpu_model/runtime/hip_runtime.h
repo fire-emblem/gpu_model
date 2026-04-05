@@ -2,24 +2,9 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <filesystem>
 #include <optional>
-#include <span>
-#include <string>
-#include <unordered_map>
-#include <variant>
-#include <vector>
 
-#include "gpu_model/loader/device_image_loader.h"
-#include "gpu_model/loader/device_segment_image.h"
-#include "gpu_model/program/encoded_program_object.h"
-#include "gpu_model/program/executable_kernel.h"
-#include "gpu_model/program/program_object.h"
-#include "gpu_model/runtime/device_properties.h"
-#include "gpu_model/runtime/module_registry.h"
-#include "gpu_model/runtime/module_load.h"
-#include "gpu_model/runtime/runtime_submission_context.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/model_runtime.h"
 
 namespace gpu_model {
 
@@ -77,8 +62,7 @@ class HipRuntime {
                                           RuntimeSubmissionContext submission_context = {});
   void LoadModule(const ModuleLoadRequest& request);
   const std::optional<DeviceLoadResult>& last_load_result(uint64_t context_id = 0) const {
-    (void)context_id;
-    return last_load_result_;
+    return model_runtime_.last_load_result(context_id);
   }
   void UnloadModule(const std::string& module_name, uint64_t context_id = 0);
   void Reset();
@@ -98,19 +82,11 @@ class HipRuntime {
                                       TraceSink* trace = nullptr,
                                       RuntimeSubmissionContext submission_context = {});
 
- RuntimeEngine& runtime() { return *runtime_engine_; }
-  const RuntimeEngine& runtime() const { return *runtime_engine_; }
+  RuntimeEngine& runtime() { return model_runtime_.runtime(); }
+  const RuntimeEngine& runtime() const { return model_runtime_.runtime(); }
 
  private:
-  DeviceLoadResult MaterializeLoadPlan(const DeviceLoadPlan& plan);
-
-  RuntimeEngine owned_runtime_;
-  RuntimeEngine* runtime_engine_ = &owned_runtime_;
-  bool owns_runtime_ = true;
-  int current_device_ = 0;
-  std::unordered_map<uint64_t, size_t> allocations_;
-  RuntimeModuleRegistry module_registry_;
-  std::optional<DeviceLoadResult> last_load_result_;
+  ModelRuntime model_runtime_;
 };
 
 }  // namespace gpu_model

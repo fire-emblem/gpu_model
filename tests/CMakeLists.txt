@@ -96,6 +96,7 @@ add_executable(gpu_model_tests
   runtime/hipcc_parallel_execution_test.cpp
   runtime/encoded_program_object_launch_test.cpp
   runtime/model_runtime_test.cpp
+  runtime/logging_runtime_test.cpp
   runtime/runtime_naming_test.cpp
   runtime/compatibility_alias_test.cpp
   runtime/debug_info_io_test.cpp

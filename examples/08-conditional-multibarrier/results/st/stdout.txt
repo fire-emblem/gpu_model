@@ -1,12 +1,16 @@
-[gpu_model_hip_interposer] __hipRegisterFatBinary
-[gpu_model] functional_mode=st workers=0
-[gpu_model_hip_interposer] __hipRegisterFunction host=0x200e70 device=conditional_multibarrier
-[gpu_model_hip_interposer] hipMalloc size=4096 -> 0x100000000
-[gpu_model_hip_interposer] hipMemset dst=0x100000000 value=0 bytes=4096
-[gpu_model_hip_interposer] __hipPushCallConfiguration grid=(8,1,1) block=(128,1,1) shared=0
-[gpu_model_hip_interposer] __hipPopCallConfiguration
-[gpu_model_hip_interposer] hipLaunchKernel host=0x200e70 grid=(8,1,1) block=(128,1,1) shared=0
-[gpu_model_hip_interposer] hipLaunchKernel result ok=1 err=
-[gpu_model_hip_interposer] hipDeviceSynchronize
-[gpu_model_hip_interposer] hipMemcpy kind=2 bytes=4096 dst=0x1293210 src=0x100000000
+[hip_interposer] __hipRegisterFatBinary
+[0m[2mdate       time         ( uptime  ) [ thread name/id ]                   file:line     v| 
+[0m[2m2026-04-05 16:03:03.894 (   0.000s) [main thread     ]             loguru.cpp:606   INFO| [0marguments: conditional_multibarrier.out[0m
+[0m[2m2026-04-05 16:03:03.894 (   0.000s) [main thread     ]             loguru.cpp:609   INFO| [0mCurrent dir: /data/gpu_model[0m
+[0m[2m2026-04-05 16:03:03.894 (   0.000s) [main thread     ]             loguru.cpp:611   INFO| [0mstderr verbosity: 0[0m
+[0m[2m2026-04-05 16:03:03.894 (   0.000s) [main thread     ]             loguru.cpp:612   INFO| [0m-----------------------------------[0m
+[hip_interposer] __hipRegisterFunction host=0x200e70 device=conditional_multibarrier
+[hip_interposer] hipMalloc size=4096 -> 0x7fbaa2bbf000
+[hip_interposer] hipMemset dst=0x7fbaa2bbf000 value=0 bytes=4096
+[hip_interposer] __hipPushCallConfiguration grid=(8,1,1) block=(128,1,1) shared=0
+[hip_interposer] __hipPopCallConfiguration
+[hip_interposer] hipLaunchKernel host=0x200e70 grid=(8,1,1) block=(128,1,1) shared=0
+[hip_interposer] hipLaunchKernel result ok=1 err=
+[hip_interposer] hipDeviceSynchronize
+[hip_interposer] hipMemcpy kind=2 bytes=4096 dst=0x1963b40 src=0x7fbaa2bbf000
 conditional_multibarrier mismatches=0 n=1024

@@ -1,1 +1,1 @@
-launch_index=0 kernel=cycle_multi_wave_waitcnt execution_mode=functional functional_mode=mt ok=1 submit_cycle=0 begin_cycle=0 end_cycle=1035 total_cycles=1035 program_total_cycles=1035
+launch_index=0 kernel=cycle_multi_wave_waitcnt execution_mode=functional functional_mode=mt ok=1 submit_cycle=0 begin_cycle=0 end_cycle=1032 total_cycles=1032 program_total_cycles=1032

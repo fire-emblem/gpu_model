@@ -11,6 +11,7 @@
 #include <mutex>
 #include <string>
 #include <string_view>
+#include <unistd.h>
 #include <vector>
 
 namespace gpu_model {
@@ -64,6 +65,12 @@ int ParseFileVerbosityFromEnv() {
 }
 
 std::string ProgramName() {
+  std::array<char, 4096> exe_path{};
+  const ssize_t length = ::readlink("/proc/self/exe", exe_path.data(), exe_path.size() - 1);
+  if (length > 0) {
+    exe_path[static_cast<size_t>(length)] = '\0';
+    return std::filesystem::path(exe_path.data()).filename().string();
+  }
   const char* raw = std::getenv("GPU_MODEL_LOG_PROGRAM");
   if (raw != nullptr && raw[0] != '\0') {
     return raw;
@@ -76,10 +83,11 @@ bool ShouldDisableLoguru() {
   if (raw != nullptr && raw[0] != '\0' && std::string_view(raw) != "0") {
     return true;
   }
-  if (std::getenv("GPU_MODEL_HIP_INTERPOSER_DEBUG") != nullptr) {
-    return true;
-  }
   return false;
+}
+
+bool IsChattyModule(std::string_view module) {
+  return module == "encoded_exec" || module == "encoded_mt";
 }
 
 std::string LogFilePath() {
@@ -87,7 +95,10 @@ std::string LogFilePath() {
   if (raw != nullptr && raw[0] != '\0') {
     return raw;
   }
-  return "logs/gpu_model.log";
+  const std::filesystem::path program_path(ProgramName());
+  const std::string stem =
+      program_path.stem().empty() ? std::string("gpu_model") : program_path.stem().string();
+  return "logs/" + stem + "." + std::to_string(::getpid()) + ".log";
 }
 
 void LoadModulesFromEnv() {
@@ -123,6 +134,13 @@ void LoadModulesFromEnv() {
     }
     if (comma == std::string::npos) break;
     start = comma + 1;
+  }
+
+  if (std::getenv("GPU_MODEL_HIP_INTERPOSER_DEBUG") != nullptr) {
+    if (std::find(enabled_modules.begin(), enabled_modules.end(), "hip_interposer") ==
+        enabled_modules.end()) {
+      enabled_modules.push_back("hip_interposer");
+    }
   }
 }
 
@@ -173,6 +191,9 @@ bool RuntimeLogService::ShouldLog(std::string_view module, int verbosity) {
   }
   const auto& enabled_modules = State().enabled_modules;
   if (enabled_modules.empty()) {
+    if (IsChattyModule(module)) {
+      return false;
+    }
     return IsInitialized() && verbosity <= loguru::g_stderr_verbosity;
   }
   std::string lowered(module);

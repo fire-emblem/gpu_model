@@ -24,6 +24,11 @@ gpu_model_require_cmd() {
 gpu_model_ensure_targets() {
   local build_dir="$1"
   shift
+  local lock_dir="$build_dir/.gpu_model_build.lock"
+  mkdir -p "$lock_dir"
+  local lock_file="$lock_dir/build.lock"
+  exec 9>"$lock_file"
+  flock 9
   cmake --build "$build_dir" --target "$@" -j "${JOBS:-8}"
 }
 
