@@ -124,10 +124,17 @@
   - 重跑定向 trace tests，确认 encoded functional 指令区间恢复且 `dur=4`
   - 重跑 `examples/08-conditional-multibarrier/run.sh`，确认 `mt` 出现 `728` 个 instruction slice
   - 重跑 `examples/11-perfetto-waitcnt-slots/run.sh`，确认编译与 9 个 mode/case 组合全部通过
+  - 将“当前所有模型 trace 的 cycle 都只是模型计数时间，不是物理真实执行时间戳”写入工程约束
+  - 打通 `GPU_MODEL_DISABLE_TRACE=1` 全局开关，并用 focused UT 验证关闭 trace 后非 trace 语义仍正确
 - 创建/修改的文件：
   - `task_plan.md`
   - `findings.md`
   - `progress.md`
+  - `AGENTS.md`
+  - `src/runtime/config/runtime_env_config.cpp`
+  - `src/runtime/exec_engine.cpp`
+  - `src/runtime/core/runtime_session.cpp`
+  - `tests/runtime/execution_stats_test.cpp`
   - `tests/runtime/trace_test.cpp`
   - `src/execution/encoded_exec_engine.cpp`
   - `examples/11-perfetto-waitcnt-slots/perfetto_waitcnt_slots_demo.cpp`
@@ -142,6 +149,7 @@
 | encoded functional perfetto 回归 | `TraceTest.EncodedFunctionalPerfettoJsonShowsInstructionSlicesWithFourCycleDuration:TraceTest.NativePerfettoProtoShowsEncodedFunctionalLoadArriveInMultiThreadedMode:TraceTest.NativePerfettoProtoShowsEncodedFunctionalWaitcntStallWhenLoadLatencyIsHigh` | 全部通过 | 3 tests passed | 通过 |
 | example 08 重跑 | `examples/08-conditional-multibarrier/run.sh` | st/mt/cycle 全部成功且 mt 指令切片恢复 | `mismatches=0` 且 mt `Commit=872`/`X_count=728` | 通过 |
 | example 11 重跑 | `examples/11-perfetto-waitcnt-slots/run.sh` | 编译成功并跑完 9 个 mode/case | 通过 | 通过 |
+| disable trace focused 回归 | `ExecutionStatsTest.GlobalDisableTraceEnvForcesNullTraceSinkWithoutBreakingCycles` | 关闭 trace 后 cycles 与 stats 仍正常 | 1 test passed | 通过 |
 
 ## 错误日志
 | 时间戳 | 错误 | 尝试次数 | 解决方案 |

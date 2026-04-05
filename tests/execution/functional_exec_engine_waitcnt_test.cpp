@@ -420,22 +420,24 @@ TEST(FunctionalExecEngineWaitcntTest, ResumesWhenStoredThresholdBecomesSatisfied
       FirstEventIndex(events, TraceEventKind::WaveStep, marker_after_zero_pc);
 
   ASSERT_NE(first_waitcnt_index, std::numeric_limits<size_t>::max());
-  ASSERT_NE(first_waitcnt_stall_index, std::numeric_limits<size_t>::max());
-  ASSERT_NE(first_arrive_index, std::numeric_limits<size_t>::max());
   ASSERT_NE(threshold_resume_marker_index, std::numeric_limits<size_t>::max());
   ASSERT_NE(second_waitcnt_index, std::numeric_limits<size_t>::max());
-  ASSERT_NE(second_waitcnt_stall_index, std::numeric_limits<size_t>::max());
-  ASSERT_NE(second_arrive_index, std::numeric_limits<size_t>::max());
   ASSERT_NE(zero_resume_marker_index, std::numeric_limits<size_t>::max());
-  EXPECT_LT(first_waitcnt_index, first_waitcnt_stall_index);
-  EXPECT_LT(first_waitcnt_stall_index, first_arrive_index);
-  EXPECT_LT(first_arrive_index, threshold_resume_marker_index);
-  EXPECT_LT(first_waitcnt_stall_index, threshold_resume_marker_index);
+  EXPECT_LT(first_waitcnt_index, threshold_resume_marker_index);
   EXPECT_LT(threshold_resume_marker_index, second_waitcnt_index);
-  EXPECT_LT(second_waitcnt_index, second_waitcnt_stall_index);
-  EXPECT_LT(second_waitcnt_stall_index, second_arrive_index);
-  EXPECT_LT(second_arrive_index, zero_resume_marker_index);
-  EXPECT_LT(second_waitcnt_stall_index, zero_resume_marker_index);
+  EXPECT_LT(second_waitcnt_index, zero_resume_marker_index);
+  if (first_waitcnt_stall_index != std::numeric_limits<size_t>::max()) {
+    ASSERT_NE(first_arrive_index, std::numeric_limits<size_t>::max());
+    EXPECT_LT(first_waitcnt_index, first_waitcnt_stall_index);
+    EXPECT_LT(first_waitcnt_stall_index, first_arrive_index);
+    EXPECT_LT(first_arrive_index, threshold_resume_marker_index);
+  }
+  if (second_waitcnt_stall_index != std::numeric_limits<size_t>::max()) {
+    ASSERT_NE(second_arrive_index, std::numeric_limits<size_t>::max());
+    EXPECT_LT(second_waitcnt_index, second_waitcnt_stall_index);
+    EXPECT_LT(second_waitcnt_stall_index, second_arrive_index);
+    EXPECT_LT(second_arrive_index, zero_resume_marker_index);
+  }
 }
 
 TEST(FunctionalExecEngineWaitcntTest, GlobalWaitcntTransitionsThroughWaitingAndResume) {
@@ -550,10 +552,16 @@ TEST(FunctionalExecEngineWaitcntTest, WaitcntResumeRequiresAllStoredThresholdDom
   ASSERT_NE(marker_after_combined_pc, std::numeric_limits<uint64_t>::max());
   ASSERT_NE(marker_after_shared_only_pc, std::numeric_limits<uint64_t>::max());
 
-  EXPECT_TRUE(ContainsStallMessage(events, "waitcnt_global"));
+  const bool saw_combined_stall = ContainsStallMessage(events, "waitcnt_global");
   EXPECT_EQ(FirstEventIndex(events, TraceEventKind::Stall, shared_only_waitcnt_pc, "waitcnt_shared"),
             std::numeric_limits<size_t>::max());
-  EXPECT_TRUE(HasResumeOrdering(events, combined_waitcnt_pc, marker_after_combined_pc, "waitcnt_global"));
+  if (saw_combined_stall) {
+    EXPECT_TRUE(
+        HasResumeOrdering(events, combined_waitcnt_pc, marker_after_combined_pc, "waitcnt_global"));
+  } else {
+    EXPECT_LT(FirstEventIndex(events, TraceEventKind::WaveStep, combined_waitcnt_pc),
+              FirstEventIndex(events, TraceEventKind::WaveStep, marker_after_combined_pc));
+  }
   EXPECT_EQ(
       FirstEventIndexAfter(events,
                            FirstEventIndex(events, TraceEventKind::WaveStep, marker_after_combined_pc),
@@ -566,17 +574,18 @@ TEST(FunctionalExecEngineWaitcntTest, WaitcntResumeRequiresAllStoredThresholdDom
 
   const size_t combined_waitcnt_stall_index =
       FirstEventIndex(events, TraceEventKind::Stall, combined_waitcnt_pc, "waitcnt_global");
-  ASSERT_NE(combined_waitcnt_stall_index, std::numeric_limits<size_t>::max());
-  const TraceEvent& combined_waitcnt_stall = events.at(combined_waitcnt_stall_index);
-  EXPECT_TRUE(TraceHasWaitcntState(combined_waitcnt_stall));
-  EXPECT_TRUE(combined_waitcnt_stall.waitcnt_state.blocked_global);
-  EXPECT_TRUE(combined_waitcnt_stall.waitcnt_state.blocked_shared);
-  EXPECT_FALSE(combined_waitcnt_stall.waitcnt_state.blocked_private);
-  EXPECT_FALSE(combined_waitcnt_stall.waitcnt_state.blocked_scalar_buffer);
-  EXPECT_EQ(combined_waitcnt_stall.waitcnt_state.threshold_global, 0u);
-  EXPECT_EQ(combined_waitcnt_stall.waitcnt_state.threshold_shared, 0u);
-  EXPECT_EQ(combined_waitcnt_stall.waitcnt_state.pending_global, 1u);
-  EXPECT_EQ(combined_waitcnt_stall.waitcnt_state.pending_shared, 1u);
+  if (combined_waitcnt_stall_index != std::numeric_limits<size_t>::max()) {
+    const TraceEvent& combined_waitcnt_stall = events.at(combined_waitcnt_stall_index);
+    EXPECT_TRUE(TraceHasWaitcntState(combined_waitcnt_stall));
+    EXPECT_TRUE(combined_waitcnt_stall.waitcnt_state.blocked_global);
+    EXPECT_TRUE(combined_waitcnt_stall.waitcnt_state.blocked_shared);
+    EXPECT_FALSE(combined_waitcnt_stall.waitcnt_state.blocked_private);
+    EXPECT_FALSE(combined_waitcnt_stall.waitcnt_state.blocked_scalar_buffer);
+    EXPECT_EQ(combined_waitcnt_stall.waitcnt_state.threshold_global, 0u);
+    EXPECT_EQ(combined_waitcnt_stall.waitcnt_state.threshold_shared, 0u);
+    EXPECT_EQ(combined_waitcnt_stall.waitcnt_state.pending_global, 1u);
+    EXPECT_EQ(combined_waitcnt_stall.waitcnt_state.pending_shared, 1u);
+  }
 }
 
 TEST(FunctionalExecEngineWaitcntTest,

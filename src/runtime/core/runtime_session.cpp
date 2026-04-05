@@ -466,6 +466,13 @@ DeviceLoadPlan RuntimeSession::BuildExecutableLoadPlan(const std::filesystem::pa
 }
 
 TraceArtifactRecorder* RuntimeSession::ResolveTraceArtifactRecorderFromEnv() {
+  const char* disable_trace = std::getenv("GPU_MODEL_DISABLE_TRACE");
+  if (disable_trace != nullptr && disable_trace[0] != '\0' &&
+      std::string_view(disable_trace) != "0") {
+    trace_artifact_recorder_.reset();
+    trace_artifacts_dir_.clear();
+    return nullptr;
+  }
   const char* env = std::getenv("GPU_MODEL_TRACE_DIR");
   if (env == nullptr || env[0] == '\0') {
     trace_artifact_recorder_.reset();

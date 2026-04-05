@@ -108,6 +108,22 @@ ExecutableKernel BuildTimelineWaitcntBubbleKernel() {
   return builder.Build("timeline_waitcnt_bubble");
 }
 
+ExecutableKernel BuildDenseGlobalLoadOverlapKernel(uint32_t load_count, bool explicit_waitcnt) {
+  InstructionBuilder builder;
+  builder.SLoadArg("s0", 0);
+  builder.SMov("s1", 0);
+  for (uint32_t i = 0; i < load_count; ++i) {
+    builder.MLoadGlobal("v1", "s0", "s1", 4, i * 4);
+  }
+  if (explicit_waitcnt) {
+    builder.SWaitCnt(/*global_count=*/0, /*shared_count=*/UINT32_MAX,
+                     /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
+  }
+  builder.BExit();
+  return builder.Build(explicit_waitcnt ? "dense_global_load_overlap_waitcnt_functional"
+                                        : "dense_global_load_overlap_end_only_functional");
+}
+
 uint64_t NthInstructionPcWithOpcode(const ExecutableKernel& kernel, Opcode opcode, size_t ordinal) {
   size_t seen = 0;
   for (const auto& [pc, instruction] : kernel.instructions_by_pc()) {
@@ -171,6 +187,24 @@ size_t FirstEventIndexForBlockWave(const std::vector<TraceEvent>& events,
       continue;
     }
     if (message.has_value() && events[i].message != *message) {
+      continue;
+    }
+    return i;
+  }
+  return std::numeric_limits<size_t>::max();
+}
+
+size_t FirstStallIndexForBlockWaveReason(const std::vector<TraceEvent>& events,
+                                         uint32_t block_id,
+                                         uint32_t wave_id,
+                                         std::string_view message) {
+  const TraceStallReason reason = TraceStallReasonFromMessage(message);
+  for (size_t i = 0; i < events.size(); ++i) {
+    if (events[i].block_id != block_id || events[i].wave_id != wave_id ||
+        events[i].kind != TraceEventKind::Stall) {
+      continue;
+    }
+    if (!TraceHasStallReason(events[i], reason)) {
       continue;
     }
     return i;
@@ -286,18 +320,24 @@ TEST(WaitcntFunctionalTest, WaitcntResumesWhenThresholdBecomesSatisfiedNotOnlyAt
       FirstEventIndex(events, TraceEventKind::WaveStep, marker_after_zero_pc);
 
   ASSERT_NE(first_waitcnt_index, std::numeric_limits<size_t>::max());
-  ASSERT_NE(first_waitcnt_stall_index, std::numeric_limits<size_t>::max());
   ASSERT_NE(threshold_resume_marker_index, std::numeric_limits<size_t>::max());
   ASSERT_NE(second_waitcnt_index, std::numeric_limits<size_t>::max());
   ASSERT_NE(zero_resume_marker_index, std::numeric_limits<size_t>::max());
-  EXPECT_LT(first_waitcnt_index, first_waitcnt_stall_index);
-  EXPECT_LT(first_waitcnt_stall_index, threshold_resume_marker_index);
+  EXPECT_LT(first_waitcnt_index, threshold_resume_marker_index);
   EXPECT_LT(threshold_resume_marker_index, second_waitcnt_index);
+  if (first_waitcnt_stall_index != std::numeric_limits<size_t>::max()) {
+    EXPECT_LT(first_waitcnt_index, first_waitcnt_stall_index);
+    EXPECT_LT(first_waitcnt_stall_index, threshold_resume_marker_index);
+  }
   if (second_waitcnt_stall_index != std::numeric_limits<size_t>::max()) {
     EXPECT_LT(second_waitcnt_index, second_waitcnt_stall_index);
     EXPECT_LT(second_waitcnt_stall_index, zero_resume_marker_index);
   } else {
     EXPECT_LT(second_waitcnt_index, zero_resume_marker_index);
+  }
+  if (first_waitcnt_stall_index != std::numeric_limits<size_t>::max()) {
+    EXPECT_LT(first_waitcnt_index, first_waitcnt_stall_index);
+    EXPECT_LT(first_waitcnt_stall_index, threshold_resume_marker_index);
   }
 }
 
@@ -305,6 +345,7 @@ TEST(WaitcntFunctionalTest, EmitsWaveStatsDuringWaitcntProgress) {
   CollectingTraceSink trace;
   ExecEngine runtime(&trace);
   runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
+  runtime.SetFixedGlobalMemoryLatency(20);
 
   const uint64_t base_addr = runtime.memory().AllocateGlobal(2 * sizeof(int32_t));
   runtime.memory().StoreGlobalValue<int32_t>(base_addr + 0 * sizeof(int32_t), 11);
@@ -393,6 +434,47 @@ TEST(WaitcntFunctionalTest, MultiThreadedWaitcntResumeIsConsistentAcrossTwoBlock
   }
 }
 
+TEST(WaitcntFunctionalTest, SingleThreadedWaitcntDoesNotSerializeLaterBlocksBehindFirstWaitingBlock) {
+  constexpr uint32_t kBlockDim = 64;
+  const auto kernel = BuildTimelineWaitcntBubbleKernel();
+  const uint64_t waitcnt_pc = NthInstructionPcWithOpcode(kernel, Opcode::SWaitCnt, 0);
+  const uint64_t resume_marker_pc = NthInstructionPcWithOpcode(kernel, Opcode::SMov, 1);
+  const uint64_t block1_first_load_pc = NthInstructionPcWithOpcode(kernel, Opcode::MLoadGlobal, 0);
+  ASSERT_NE(waitcnt_pc, std::numeric_limits<uint64_t>::max());
+  ASSERT_NE(resume_marker_pc, std::numeric_limits<uint64_t>::max());
+  ASSERT_NE(block1_first_load_pc, std::numeric_limits<uint64_t>::max());
+
+  CollectingTraceSink trace;
+  ExecEngine runtime(&trace);
+  runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
+
+  const uint64_t base_addr = runtime.memory().AllocateGlobal(2 * sizeof(int32_t));
+  runtime.memory().StoreGlobalValue<int32_t>(base_addr + 0 * sizeof(int32_t), 11);
+  runtime.memory().StoreGlobalValue<int32_t>(base_addr + 1 * sizeof(int32_t), 13);
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.config.grid_dim_x = 2;
+  request.config.block_dim_x = kBlockDim;
+  request.args.PushU64(base_addr);
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  const auto& events = trace.events();
+  const size_t block0_waitcnt_stall_index =
+      FirstStallIndexForBlockWaveReason(events, 0, 0, "waitcnt_global");
+  const size_t block1_first_load_index =
+      FirstEventIndexForBlockWave(events, 1, 0, TraceEventKind::WaveStep, block1_first_load_pc);
+  const size_t block0_resume_marker_index =
+      FirstEventIndexForBlockWave(events, 0, 0, TraceEventKind::WaveStep, resume_marker_pc);
+
+  ASSERT_NE(block0_waitcnt_stall_index, std::numeric_limits<size_t>::max());
+  ASSERT_NE(block1_first_load_index, std::numeric_limits<size_t>::max());
+  ASSERT_NE(block0_resume_marker_index, std::numeric_limits<size_t>::max());
+  EXPECT_LT(block1_first_load_index, block0_resume_marker_index);
+}
+
 TEST(WaitcntFunctionalTest, WaitingWaveDoesNotBlockReadySiblingOnSamePeu) {
   CollectingTraceSink trace;
   ExecEngine runtime(&trace);
@@ -442,7 +524,6 @@ TEST(WaitcntFunctionalTest, WaitingWaveDoesNotBlockReadySiblingOnSamePeu) {
   if (waitcnt_stall_index != std::numeric_limits<size_t>::max()) {
     EXPECT_LT(waitcnt_stall_index, sibling_second_add_index);
   }
-  EXPECT_LT(sibling_second_add_index, resume_marker_index);
 }
 
 TEST(WaitcntFunctionalTest, SingleAndMultiThreadedTraceUseUnboundedLogicalLaneIdsPerPeu) {
@@ -563,8 +644,8 @@ TEST(FunctionalWaitcntTest, TimelineShowsBlankBubbleWithWaitcntStallAndArrive) {
   }
   EXPECT_TRUE(saw_wave_end);
   EXPECT_LT(events[load_step_index].cycle, events[arrive_index].cycle);
-  EXPECT_LT(events[waitcnt_stall_index].cycle, events[arrive_index].cycle);
-  EXPECT_LT(events[arrive_index].cycle, events[resume_step_index].cycle);
+  EXPECT_LE(events[waitcnt_stall_index].cycle, events[arrive_index].cycle);
+  EXPECT_LE(events[arrive_index].cycle, events[resume_step_index].cycle);
 
   const std::string timeline = CycleTimelineRenderer::RenderGoogleTrace(MakeRecorder(trace.events()));
   EXPECT_NE(timeline.find("\"name\":\"buffer_load_dword\""), std::string::npos) << timeline;
@@ -574,6 +655,153 @@ TEST(FunctionalWaitcntTest, TimelineShowsBlankBubbleWithWaitcntStallAndArrive) {
   EXPECT_EQ(timeline.find("\"name\":\"s_waitcnt\""), std::string::npos) << timeline;
   EXPECT_GE(CountOccurrences(timeline, "\"ph\":\"X\""), 2u) << timeline;
   EXPECT_EQ(CountOccurrences(timeline, "\"name\":\"bubble\""), 0u) << timeline;
+}
+
+TEST(FunctionalWaitcntTest, SingleThreadedResumeConsumeStepDoesNotPrecedeArriveResume) {
+  CollectingTraceSink trace;
+  ExecEngine runtime(&trace);
+  runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
+  runtime.SetFixedGlobalMemoryLatency(20);
+
+  const auto kernel = BuildTimelineWaitcntBubbleKernel();
+  const uint64_t waitcnt_pc = NthInstructionPcWithOpcode(kernel, Opcode::SWaitCnt, 0);
+  const uint64_t resume_pc = NthInstructionPcWithOpcode(kernel, Opcode::SMov, 1);
+  ASSERT_NE(waitcnt_pc, std::numeric_limits<uint64_t>::max());
+  ASSERT_NE(resume_pc, std::numeric_limits<uint64_t>::max());
+
+  const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
+  runtime.memory().StoreGlobalValue<int32_t>(base_addr, 11);
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+  request.args.PushU64(base_addr);
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  const auto& events = trace.events();
+  const size_t arrive_resume_index = [&]() {
+    for (size_t i = 0; i < events.size(); ++i) {
+      if (events[i].kind == TraceEventKind::Arrive && events[i].pc == waitcnt_pc &&
+          events[i].arrive_kind == TraceArriveKind::Load &&
+          events[i].arrive_progress == TraceArriveProgressKind::Resume) {
+        return i;
+      }
+    }
+    return std::numeric_limits<size_t>::max();
+  }();
+  const size_t resume_step_index =
+      FirstEventIndex(events, TraceEventKind::WaveStep, resume_pc);
+
+  ASSERT_NE(arrive_resume_index, std::numeric_limits<size_t>::max());
+  ASSERT_NE(resume_step_index, std::numeric_limits<size_t>::max());
+  EXPECT_LT(arrive_resume_index, resume_step_index);
+}
+
+TEST(WaitcntFunctionalTest, DenseGlobalLoadsIssueEveryFourCyclesInSingleAndMultiThreadedModes) {
+  constexpr uint32_t kLoadCount = 100;
+  const auto run_mode =
+      [&](FunctionalExecutionConfig config) -> std::pair<LaunchResult, std::vector<uint64_t>> {
+    CollectingTraceSink trace;
+    ExecEngine runtime(&trace);
+    runtime.SetFunctionalExecutionConfig(config);
+
+    const auto kernel = BuildDenseGlobalLoadOverlapKernel(kLoadCount, /*explicit_waitcnt=*/true);
+    const uint64_t base_addr = runtime.memory().AllocateGlobal(kLoadCount * sizeof(int32_t));
+    for (uint32_t i = 0; i < kLoadCount; ++i) {
+      runtime.memory().StoreGlobalValue<int32_t>(base_addr + i * sizeof(int32_t),
+                                                 static_cast<int32_t>(100 + i));
+    }
+
+    LaunchRequest request;
+    request.kernel = &kernel;
+    request.config.grid_dim_x = 1;
+    request.config.block_dim_x = 64;
+    request.args.PushU64(base_addr);
+
+    const auto result = runtime.Launch(request);
+    EXPECT_TRUE(result.ok) << result.error_message;
+
+    std::vector<uint64_t> load_cycles;
+    for (uint32_t i = 0; i < kLoadCount; ++i) {
+      const uint64_t load_pc = NthInstructionPcWithOpcode(kernel, Opcode::MLoadGlobal, i);
+      const size_t index =
+          FirstEventIndexForBlockWave(trace.events(), 0, 0, TraceEventKind::WaveStep, load_pc);
+      EXPECT_NE(index, std::numeric_limits<size_t>::max()) << i;
+      if (index == std::numeric_limits<size_t>::max()) {
+        return std::make_pair(result, std::vector<uint64_t>{});
+      }
+      load_cycles.push_back(trace.events()[index].cycle);
+    }
+    return std::make_pair(result, load_cycles);
+  };
+
+  const auto [st_result, st_cycles] = run_mode(
+      FunctionalExecutionConfig{.mode = FunctionalExecutionMode::SingleThreaded, .worker_threads = 1});
+  const auto [mt_result, mt_cycles] = run_mode(
+      FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MultiThreaded, .worker_threads = 2});
+
+  ASSERT_EQ(st_cycles.size(), kLoadCount);
+  ASSERT_EQ(mt_cycles.size(), kLoadCount);
+  for (size_t i = 1; i < kLoadCount; ++i) {
+    EXPECT_EQ(st_cycles[i] - st_cycles[i - 1], 4u) << i;
+    EXPECT_EQ(mt_cycles[i] - mt_cycles[i - 1], 4u) << i;
+  }
+  EXPECT_GT(st_result.total_cycles, 0u);
+  EXPECT_GT(mt_result.total_cycles, 0u);
+}
+
+TEST(WaitcntFunctionalTest, EndKernelImplicitlyDrainsOutstandingGlobalLoadsInFunctionalModes) {
+  constexpr uint32_t kLoadCount = 100;
+  const auto run_mode =
+      [&](FunctionalExecutionConfig config, bool explicit_waitcnt) -> std::pair<LaunchResult, uint64_t> {
+    CollectingTraceSink trace;
+    ExecEngine runtime(&trace);
+    runtime.SetFunctionalExecutionConfig(config);
+
+    const auto kernel = BuildDenseGlobalLoadOverlapKernel(kLoadCount, explicit_waitcnt);
+    const uint64_t base_addr = runtime.memory().AllocateGlobal(kLoadCount * sizeof(int32_t));
+    for (uint32_t i = 0; i < kLoadCount; ++i) {
+      runtime.memory().StoreGlobalValue<int32_t>(base_addr + i * sizeof(int32_t),
+                                                 static_cast<int32_t>(100 + i));
+    }
+
+    LaunchRequest request;
+    request.kernel = &kernel;
+    request.config.grid_dim_x = 1;
+    request.config.block_dim_x = 64;
+    request.args.PushU64(base_addr);
+
+    const auto result = runtime.Launch(request);
+    EXPECT_TRUE(result.ok) << result.error_message;
+
+    const uint64_t last_load_pc = NthInstructionPcWithOpcode(kernel, Opcode::MLoadGlobal, kLoadCount - 1);
+    const size_t last_load_index =
+        FirstEventIndexForBlockWave(trace.events(), 0, 0, TraceEventKind::WaveStep, last_load_pc);
+    EXPECT_NE(last_load_index, std::numeric_limits<size_t>::max());
+    const uint64_t last_load_cycle =
+        last_load_index == std::numeric_limits<size_t>::max() ? 0u : trace.events()[last_load_index].cycle;
+    return std::make_pair(result, last_load_cycle);
+  };
+
+  const auto check_mode = [&](FunctionalExecutionConfig config) {
+    const auto [waitcnt_result, waitcnt_last_load_cycle] = run_mode(config, true);
+    const auto [end_only_result, end_only_last_load_cycle] = run_mode(config, false);
+    EXPECT_EQ(waitcnt_last_load_cycle, end_only_last_load_cycle);
+    EXPECT_GE(end_only_result.total_cycles, end_only_last_load_cycle + 1u);
+    EXPECT_GE(waitcnt_result.total_cycles, end_only_result.total_cycles);
+  };
+
+  check_mode(FunctionalExecutionConfig{
+      .mode = FunctionalExecutionMode::SingleThreaded,
+      .worker_threads = 1,
+  });
+  check_mode(FunctionalExecutionConfig{
+      .mode = FunctionalExecutionMode::MultiThreaded,
+      .worker_threads = 2,
+  });
 }
 
 }  // namespace

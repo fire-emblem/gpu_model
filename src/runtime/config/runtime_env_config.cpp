@@ -13,6 +13,11 @@ uint32_t DefaultMtWorkerThreadCountForEnv() {
 
 RuntimeEnvConfig LoadRuntimeEnvConfig() {
   RuntimeEnvConfig config;
+  if (const char* disable_trace_env = std::getenv("GPU_MODEL_DISABLE_TRACE");
+      disable_trace_env != nullptr && disable_trace_env[0] != '\0' &&
+      std::string_view(disable_trace_env) != "0") {
+    config.disable_trace = true;
+  }
   const char* mode_env = std::getenv("GPU_MODEL_FUNCTIONAL_MODE");
   if (mode_env == nullptr) {
     return config;

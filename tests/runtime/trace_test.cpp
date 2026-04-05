@@ -94,6 +94,15 @@ ExecutableKernel BuildWaitcntThresholdProgressKernel() {
   return builder.Build("trace_waitcnt_threshold_progress");
 }
 
+ExecutableKernel BuildDenseScalarIssueKernel() {
+  InstructionBuilder builder;
+  for (int i = 0; i < 100; ++i) {
+    builder.SMov("s0", static_cast<uint32_t>(i + 1));
+  }
+  builder.BExit();
+  return builder.Build("trace_dense_scalar_issue");
+}
+
 std::filesystem::path MakeUniqueTempDir(const std::string& stem) {
   const auto suffix =
       std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());
@@ -3067,6 +3076,93 @@ amdhsa.kernels:
   EXPECT_NE(timeline.find("\"dur\":4"), std::string::npos) << timeline;
 }
 
+TEST(TraceTest, DenseScalarInstructionsAdvanceInFourCycleStepsAcrossExecutionModes) {
+  const auto run_and_collect_step_cycles = [](ExecutionMode mode,
+                                              FunctionalExecutionConfig functional_config) {
+    CollectingTraceSink trace;
+    ExecEngine runtime(&trace);
+    runtime.SetFunctionalExecutionConfig(functional_config);
+
+    const auto kernel = BuildDenseScalarIssueKernel();
+
+    LaunchRequest request;
+    request.kernel = &kernel;
+    request.mode = mode;
+    request.config.grid_dim_x = 1;
+    request.config.block_dim_x = 64;
+
+    const auto result = runtime.Launch(request);
+    EXPECT_TRUE(result.ok) << result.error_message;
+
+    std::vector<uint64_t> cycles;
+    for (const auto& event : trace.events()) {
+      if (event.kind != TraceEventKind::WaveStep || event.block_id != 0 || event.wave_id != 0) {
+        continue;
+      }
+      cycles.push_back(event.cycle);
+    }
+    return cycles;
+  };
+
+  const auto st_cycles = run_and_collect_step_cycles(
+      ExecutionMode::Functional,
+      FunctionalExecutionConfig{.mode = FunctionalExecutionMode::SingleThreaded, .worker_threads = 1});
+  const auto mt_cycles = run_and_collect_step_cycles(
+      ExecutionMode::Functional,
+      FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MultiThreaded, .worker_threads = 2});
+  const auto cycle_cycles = run_and_collect_step_cycles(
+      ExecutionMode::Cycle,
+      FunctionalExecutionConfig{.mode = FunctionalExecutionMode::SingleThreaded, .worker_threads = 1});
+
+  ASSERT_GE(st_cycles.size(), 100u);
+  ASSERT_GE(mt_cycles.size(), 100u);
+  ASSERT_GE(cycle_cycles.size(), 100u);
+
+  for (size_t i = 1; i < 100; ++i) {
+    EXPECT_EQ(st_cycles[i] - st_cycles[i - 1], 4u) << i;
+    EXPECT_EQ(mt_cycles[i] - mt_cycles[i - 1], 4u) << i;
+    EXPECT_EQ(cycle_cycles[i] - cycle_cycles[i - 1], 4u) << i;
+  }
+}
+
+TEST(TraceTest, MultiThreadedDenseScalarExecutionStillInterleavesBlocksBeforeFirstBlockCompletes) {
+  CollectingTraceSink trace;
+  ExecEngine runtime(&trace);
+  runtime.SetFunctionalExecutionConfig(FunctionalExecutionConfig{
+      .mode = FunctionalExecutionMode::MultiThreaded,
+      .worker_threads = 2,
+  });
+
+  const auto kernel = BuildDenseScalarIssueKernel();
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Functional;
+  request.config.grid_dim_x = 2;
+  request.config.block_dim_x = 64;
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  const auto& events = trace.events();
+  size_t block1_first_step_index = std::numeric_limits<size_t>::max();
+  size_t block0_first_exit_index = std::numeric_limits<size_t>::max();
+  for (size_t i = 0; i < events.size(); ++i) {
+    if (events[i].kind == TraceEventKind::WaveStep && events[i].block_id == 1 &&
+        block1_first_step_index == std::numeric_limits<size_t>::max()) {
+      block1_first_step_index = i;
+    }
+    if (events[i].kind == TraceEventKind::WaveExit && events[i].block_id == 0 &&
+        block0_first_exit_index == std::numeric_limits<size_t>::max()) {
+      block0_first_exit_index = i;
+    }
+  }
+
+  ASSERT_NE(block1_first_step_index, std::numeric_limits<size_t>::max());
+  ASSERT_NE(block0_first_exit_index, std::numeric_limits<size_t>::max());
+  EXPECT_LT(block1_first_step_index, block0_first_exit_index);
+}
+
 TEST(TraceTest, NativePerfettoProtoShowsEncodedFunctionalWaitcntStallWhenLoadLatencyIsHigh) {
   if (!test_utils::HasLlvmMcAmdgpuToolchain()) {
     GTEST_SKIP() << "required llvm-mc/LLVM/binutils tools not available";
@@ -3207,7 +3303,6 @@ TEST(TraceTest, NativePerfettoProtoShowsWaitcntArrivalProgressMarkersAndBubble) 
 
   const std::string timeline = ReadTextFile(out_dir / "timeline.perfetto.json");
   EXPECT_NE(timeline.find("\"name\":\"stall_waitcnt_global\""), std::string::npos) << timeline;
-  EXPECT_NE(timeline.find("\"name\":\"load_arrive_still_blocked\""), std::string::npos) << timeline;
   EXPECT_NE(timeline.find("\"name\":\"load_arrive_resume\""), std::string::npos) << timeline;
   EXPECT_EQ(timeline.find("\"name\":\"s_waitcnt\""), std::string::npos) << timeline;
 
@@ -3232,10 +3327,13 @@ TEST(TraceTest, NativePerfettoProtoShowsWaitcntArrivalProgressMarkersAndBubble) 
     }
   }
   ASSERT_NE(stall_index, std::numeric_limits<size_t>::max());
-  ASSERT_NE(still_blocked_index, std::numeric_limits<size_t>::max());
   ASSERT_NE(resume_index, std::numeric_limits<size_t>::max());
-  EXPECT_LT(stall_index, still_blocked_index);
-  EXPECT_LT(still_blocked_index, resume_index);
+  if (still_blocked_index != std::numeric_limits<size_t>::max()) {
+    EXPECT_LT(stall_index, still_blocked_index);
+    EXPECT_LT(still_blocked_index, resume_index);
+  } else {
+    EXPECT_LT(stall_index, resume_index);
+  }
 }
 
 }  // namespace

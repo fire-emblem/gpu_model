@@ -47,6 +47,14 @@
   - 覆盖 by-value aggregate、`3D hidden args / builtin ids` 和 llvm-mc ABI fixture
 - `run_scaling_regression.sh`
   - 形状/线程规模回归
+- `run_disable_trace_smoke.sh`
+  - 关闭 trace 的非 trace 冒烟回归
+  - 统一使用：
+    - `GPU_MODEL_DISABLE_TRACE=1`
+  - 适合在快速推进模型语义时验证：
+    - runtime / execution / cycle stats 不依赖 trace 仍然正确
+  - 默认使用 `build-ninja`
+  - 可用环境变量 `GPU_MODEL_DISABLE_TRACE_GTEST_FILTER` 覆盖测试集合
 
 生成类脚本：
 

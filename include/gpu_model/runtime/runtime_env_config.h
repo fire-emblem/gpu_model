@@ -7,6 +7,7 @@ namespace gpu_model {
 struct RuntimeEnvConfig {
   bool has_functional_mode = false;
   FunctionalExecutionConfig functional{};
+  bool disable_trace = false;
 };
 
 RuntimeEnvConfig LoadRuntimeEnvConfig();

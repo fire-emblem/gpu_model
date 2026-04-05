@@ -121,8 +121,8 @@ class GlobalFunctionalWorkerPool {
 
 struct PendingMemoryOp {
   MemoryWaitDomain domain = MemoryWaitDomain::None;
-  uint8_t turns_until_complete = kFunctionalPendingMemoryCompletionTurns;
   TraceMemoryArriveKind arrive_kind = TraceMemoryArriveKind::Load;
+  uint64_t ready_cycle = 0;
 };
 
 enum class ExecutedFlowEventKind {
@@ -145,6 +145,12 @@ struct ExecutedFlowEvent {
 struct FunctionalWaveState {
   std::deque<PendingMemoryOp> pending_memory_ops;
   std::optional<WaitCntThresholds> waiting_waitcnt_thresholds;
+  // Wave-local modeled time: total includes waiting/idle time that belongs to this wave's
+  // lifecycle; active only counts effective instruction progress.
+  uint64_t wave_cycle_total = 0;
+  uint64_t wave_cycle_active = 0;
+  uint64_t last_issue_cycle = 0;
+  uint64_t next_issue_cycle = 0;
 };
 
 struct WaveStatsSnapshot {
@@ -227,10 +233,7 @@ bool AdvancePendingMemoryOps(FunctionalWaveState& state,
   bool advanced = false;
   for (auto it = state.pending_memory_ops.begin(); it != state.pending_memory_ops.end();) {
     advanced = true;
-    if (it->turns_until_complete > 0) {
-      --it->turns_until_complete;
-    }
-    if (it->turns_until_complete == 0) {
+    if (it->ready_cycle <= state.wave_cycle_total) {
       if (completed_ops != nullptr) {
         completed_ops->push_back(*it);
       }
@@ -425,15 +428,16 @@ ProgramCycleStats CollectProgramCycleStatsFromExecutedFlow(
 void RecordPendingMemoryOp(FunctionalWaveState& state,
                            WaveContext& wave,
                            MemoryWaitDomain domain,
-                           TraceMemoryArriveKind arrive_kind) {
+                           TraceMemoryArriveKind arrive_kind,
+                           uint64_t ready_cycle) {
   if (domain == MemoryWaitDomain::None) {
     return;
   }
   IncrementPendingMemoryOps(wave, domain);
   state.pending_memory_ops.push_back(PendingMemoryOp{
       .domain = domain,
-      .turns_until_complete = kFunctionalPendingMemoryCompletionTurns,
       .arrive_kind = arrive_kind,
+      .ready_cycle = ready_cycle,
   });
 }
 
@@ -606,17 +610,7 @@ class FunctionalExecutionCoreImpl {
   }
 
   uint64_t RunSequential() {
-    EmitWaveLaunchEvents();
-    EmitWaveStatsSnapshot();
-    for (auto& block : blocks_) {
-      ExecutionStats block_stats;
-      ExecuteBlock(block, block_stats);
-      CommitStats(block_stats);
-    }
-    EmitWaveStatsSnapshot();
-    program_cycle_stats_ =
-        CollectProgramCycleStatsFromExecutedFlow(executed_flow_events_, cycle_stats_config_);
-    return program_cycle_stats_->total_cycles;
+    return RunParallelBlocks(1);
   }
 
   uint64_t RunParallelBlocks(uint32_t worker_threads) {
@@ -1154,12 +1148,14 @@ class FunctionalExecutionCoreImpl {
     return true;
   }
 
-  void RecordWaitingWaveTicks(const ExecutableBlock& block) {
+  void RecordWaitingWaveTicks(ExecutableBlock& block) {
     std::lock_guard<std::mutex> state_lock(*block.wave_state_mutex);
-    for (const auto& wave : block.waves) {
+    for (size_t i = 0; i < block.waves.size(); ++i) {
+      const auto& wave = block.waves[i];
       if (wave.run_state != WaveRunState::Waiting) {
         continue;
       }
+      block.wave_states[i].wave_cycle_total += 1;
       if (wave.wait_reason == WaveWaitReason::BlockBarrier) {
         RecordExecutedWorkEvent(wave, ExecutedStepClass::Barrier, 1);
       } else if (IsMemoryWaitReason(wave.wait_reason)) {
@@ -1194,7 +1190,7 @@ class FunctionalExecutionCoreImpl {
       for (const auto& op : completed_ops) {
         TraceEvent event = MakeTraceMemoryArriveEvent(
             MakeTraceWaveView(block.waves[i]),
-            NextTraceCycle(),
+            op.ready_cycle,
             op.arrive_kind,
             TraceSlotModelKind::LogicalUnbounded);
         const AsyncArriveResult arrive_result = MakeAsyncArriveResult(
@@ -1234,7 +1230,7 @@ class FunctionalExecutionCoreImpl {
       }
       TraceEventLocked(MakeTraceWaitStallEvent(
           MakeTraceWaveView(wave),
-          NextTraceCycle(),
+          block.wave_states[i].next_issue_cycle,
           TraceStallReasonForWaitReason(wave.wait_reason),
           TraceSlotModelKind::LogicalUnbounded,
           std::numeric_limits<uint64_t>::max(),
@@ -1276,7 +1272,16 @@ class FunctionalExecutionCoreImpl {
     ++stats.wave_steps;
     ++stats.instructions_issued;
     MaybeEmitWaveSwitchAwayEvent(block, wave, wave.pc);
-    const uint64_t issue_cycle = NextTraceCycle();
+    ExecutionContext block_context = context_;
+    block_context.stats = nullptr;
+    const OpPlan plan = semantics_.BuildPlan(instruction, wave, block_context);
+    const uint64_t issue_duration = std::max<uint64_t>(1u, plan.issue_cycles);
+    const uint64_t issue_cycle = std::max(wave_state.next_issue_cycle, wave_state.wave_cycle_total);
+    const uint64_t commit_cycle = issue_cycle + issue_duration;
+    wave_state.last_issue_cycle = issue_cycle;
+    wave_state.next_issue_cycle = commit_cycle;
+    wave_state.wave_cycle_total += issue_duration;
+    wave_state.wave_cycle_active += issue_duration;
     const uint64_t issue_pc = wave.pc;
     TraceEventLocked(MakeTraceWaveStepEvent(
         MakeTraceWaveView(wave),
@@ -1284,10 +1289,6 @@ class FunctionalExecutionCoreImpl {
         TraceSlotModelKind::LogicalUnbounded,
         FormatWaveStepMessage(instruction, wave),
         issue_pc));
-
-    ExecutionContext block_context = context_;
-    block_context.stats = nullptr;
-    const OpPlan plan = semantics_.BuildPlan(instruction, wave, block_context);
     if (const auto step_class = ClassifyExecutedInstruction(instruction, plan); step_class.has_value()) {
       RecordExecutedWorkEvent(wave, *step_class,
                               CostForExecutedStep(plan, *step_class, cycle_stats_config_));
@@ -1304,7 +1305,8 @@ class FunctionalExecutionCoreImpl {
         RecordPendingMemoryOp(wave_state,
                               wave,
                               MemoryDomainForOpcode(instruction.opcode),
-                              TraceMemoryArriveKindForMemoryRequest(*plan.memory));
+                              TraceMemoryArriveKindForMemoryRequest(*plan.memory),
+                              commit_cycle + kFunctionalPendingMemoryCompletionTurns);
       }
       const auto& request = *plan.memory;
       ++stats.memory_ops;
@@ -1427,12 +1429,12 @@ class FunctionalExecutionCoreImpl {
       ++stats.barriers;
       TraceEventLocked(MakeTraceCommitEvent(
           MakeTraceWaveView(wave),
-          NextTraceCycle(),
+          commit_cycle,
           TraceSlotModelKind::LogicalUnbounded,
           issue_pc));
       TraceEventLocked(MakeTraceBarrierWaveEvent(
           MakeTraceWaveView(wave),
-          NextTraceCycle(),
+          commit_cycle,
           TraceSlotModelKind::LogicalUnbounded,
           issue_pc));
       {
@@ -1451,12 +1453,12 @@ class FunctionalExecutionCoreImpl {
       }
       TraceEventLocked(MakeTraceCommitEvent(
           MakeTraceWaveView(wave),
-          NextTraceCycle(),
+          commit_cycle,
           TraceSlotModelKind::LogicalUnbounded,
           issue_pc));
       TraceEventLocked(MakeTraceBarrierArriveEvent(
           MakeTraceWaveView(wave),
-          NextTraceCycle(),
+          commit_cycle,
           TraceSlotModelKind::LogicalUnbounded,
           issue_pc));
       EmitWaveStatsSnapshot();
@@ -1466,7 +1468,7 @@ class FunctionalExecutionCoreImpl {
       }
       if (released_barrier) {
         TraceEventLocked(MakeTraceBarrierReleaseEvent(
-            wave.dpc_id, wave.ap_id, wave.block_id, NextTraceCycle()));
+            wave.dpc_id, wave.ap_id, wave.block_id, commit_cycle));
         EmitWaveStatsSnapshot();
       }
     } else if (plan.exit_wave) {
@@ -1485,12 +1487,12 @@ class FunctionalExecutionCoreImpl {
       }
       TraceEventLocked(MakeTraceCommitEvent(
           MakeTraceWaveView(wave),
-          NextTraceCycle(),
+          commit_cycle,
           TraceSlotModelKind::LogicalUnbounded,
           issue_pc));
       TraceEventLocked(MakeTraceWaveExitEvent(
           MakeTraceWaveView(wave),
-          NextTraceCycle(),
+          commit_cycle,
           TraceSlotModelKind::LogicalUnbounded,
           issue_pc));
       if (wave_completed) {
@@ -1505,12 +1507,12 @@ class FunctionalExecutionCoreImpl {
               MakeTraceWaitcntState(wave, *wave_state.waiting_waitcnt_thresholds);
           TraceEventLocked(MakeTraceCommitEvent(
               MakeTraceWaveView(wave),
-              NextTraceCycle(),
+              commit_cycle,
               TraceSlotModelKind::LogicalUnbounded,
               issue_pc));
           TraceEventLocked(MakeTraceWaitStallEvent(
               MakeTraceWaveView(wave),
-              NextTraceCycle(),
+              commit_cycle,
               TraceStallReasonForWaitReason(wave.wait_reason),
               TraceSlotModelKind::LogicalUnbounded,
               issue_pc,
@@ -1530,7 +1532,7 @@ class FunctionalExecutionCoreImpl {
       }
       TraceEventLocked(MakeTraceCommitEvent(
           MakeTraceWaveView(wave),
-          NextTraceCycle(),
+          commit_cycle,
           TraceSlotModelKind::LogicalUnbounded,
           issue_pc));
     }

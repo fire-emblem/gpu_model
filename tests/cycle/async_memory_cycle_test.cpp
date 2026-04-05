@@ -535,5 +535,107 @@ TEST(AsyncMemoryCycleTest, BufferLoadUsesImmediateOffset) {
   EXPECT_EQ(result.total_cycles, 40u);
 }
 
+TEST(AsyncMemoryCycleTest, DenseGlobalLoadsIssueEveryFourCyclesAndOverlapLatency) {
+  CollectingTraceSink trace;
+  ExecEngine runtime(&trace);
+  runtime.SetFixedGlobalMemoryLatency(20);
+
+  constexpr uint32_t kLoadCount = 100;
+  const uint64_t base_addr = runtime.memory().AllocateGlobal(kLoadCount * sizeof(int32_t));
+  for (uint32_t i = 0; i < kLoadCount; ++i) {
+    runtime.memory().StoreGlobalValue<int32_t>(base_addr + i * sizeof(int32_t),
+                                               static_cast<int32_t>(100 + i));
+  }
+
+  InstructionBuilder builder;
+  builder.SMov("s0", base_addr);
+  builder.SMov("s1", 0);
+  for (uint32_t i = 0; i < kLoadCount; ++i) {
+    builder.MLoadGlobal("v1", "s0", "s1", 4, i * 4);
+  }
+  builder.SWaitCnt(/*global_count=*/0, /*shared_count=*/UINT32_MAX,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
+  builder.BExit();
+  const auto kernel = builder.Build("dense_global_load_overlap_waitcnt");
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  const uint64_t first_load_cycle = FirstWaveStepCycle(trace.events(), "buffer_load_dword");
+  ASSERT_NE(first_load_cycle, std::numeric_limits<uint64_t>::max());
+  for (size_t i = 1; i < kLoadCount; ++i) {
+    const uint64_t prior = NthWaveStepCycle(trace.events(), "buffer_load_dword", i - 1);
+    const uint64_t current = NthWaveStepCycle(trace.events(), "buffer_load_dword", i);
+    ASSERT_NE(prior, std::numeric_limits<uint64_t>::max());
+    ASSERT_NE(current, std::numeric_limits<uint64_t>::max());
+    EXPECT_EQ(current - prior, 4u) << i;
+  }
+
+  const uint64_t last_load_cycle = NthWaveStepCycle(trace.events(), "buffer_load_dword", kLoadCount - 1);
+  ASSERT_NE(last_load_cycle, std::numeric_limits<uint64_t>::max());
+  EXPECT_LT(result.total_cycles, static_cast<uint64_t>(kLoadCount) * 20u);
+  EXPECT_GE(result.total_cycles, last_load_cycle + 24u);
+  EXPECT_LE(result.total_cycles, last_load_cycle + 40u);
+}
+
+TEST(AsyncMemoryCycleTest, EndKernelImplicitlyDrainsOutstandingGlobalLoads) {
+  auto run_dense_load_kernel = [](bool explicit_waitcnt) {
+    CollectingTraceSink trace;
+    ExecEngine runtime(&trace);
+    runtime.SetFixedGlobalMemoryLatency(20);
+
+    constexpr uint32_t kLoadCount = 100;
+    const uint64_t base_addr = runtime.memory().AllocateGlobal(kLoadCount * sizeof(int32_t));
+    for (uint32_t i = 0; i < kLoadCount; ++i) {
+      runtime.memory().StoreGlobalValue<int32_t>(base_addr + i * sizeof(int32_t),
+                                                 static_cast<int32_t>(100 + i));
+    }
+
+    InstructionBuilder builder;
+    builder.SMov("s0", base_addr);
+    builder.SMov("s1", 0);
+    for (uint32_t i = 0; i < kLoadCount; ++i) {
+      builder.MLoadGlobal("v1", "s0", "s1", 4, i * 4);
+    }
+    if (explicit_waitcnt) {
+      builder.SWaitCnt(/*global_count=*/0, /*shared_count=*/UINT32_MAX,
+                       /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
+    }
+    builder.BExit();
+    const auto kernel = builder.Build(explicit_waitcnt ? "dense_global_load_overlap_waitcnt_end"
+                                                       : "dense_global_load_overlap_end_only");
+
+    LaunchRequest request;
+    request.kernel = &kernel;
+    request.mode = ExecutionMode::Cycle;
+    request.config.grid_dim_x = 1;
+    request.config.block_dim_x = 64;
+
+    const auto result = runtime.Launch(request);
+    EXPECT_TRUE(result.ok) << result.error_message;
+
+    const uint64_t last_load_cycle =
+        NthWaveStepCycle(trace.events(), "buffer_load_dword", kLoadCount - 1);
+    return std::make_pair(result, last_load_cycle);
+  };
+
+  const auto [waitcnt_result, waitcnt_last_load_cycle] = run_dense_load_kernel(true);
+  const auto [end_only_result, end_only_last_load_cycle] = run_dense_load_kernel(false);
+
+  ASSERT_NE(waitcnt_last_load_cycle, std::numeric_limits<uint64_t>::max());
+  ASSERT_NE(end_only_last_load_cycle, std::numeric_limits<uint64_t>::max());
+  EXPECT_EQ(waitcnt_last_load_cycle, end_only_last_load_cycle);
+
+  EXPECT_GE(end_only_result.total_cycles, end_only_last_load_cycle + 24u);
+  EXPECT_GE(waitcnt_result.total_cycles, end_only_result.total_cycles);
+  EXPECT_LE(waitcnt_result.total_cycles - end_only_result.total_cycles, 4u);
+}
+
 }  // namespace
 }  // namespace gpu_model

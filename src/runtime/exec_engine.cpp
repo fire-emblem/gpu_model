@@ -90,6 +90,7 @@ class ExecEngineImpl {
   std::optional<ArchitecturalIssueLimits> issue_limits_override_;
   std::optional<ArchitecturalIssuePolicy> issue_policy_override_;
   FunctionalExecutionConfig functional_execution_config_{};
+  bool disable_trace_ = false;
   uint64_t device_cycle_ = 0;
   bool has_cycle_launch_history_ = false;
 };
@@ -111,6 +112,7 @@ const char* ToEnvModeName(FunctionalExecutionMode mode) {
 ExecEngineImpl::ExecEngineImpl(TraceSink* default_trace) : default_trace_(default_trace) {
   logging::EnsureInitialized();
   const auto env_config = LoadRuntimeEnvConfig();
+  disable_trace_ = env_config.disable_trace;
   if (env_config.has_functional_mode) {
     functional_execution_config_ = env_config.functional;
     GPU_MODEL_LOG_INFO("runtime",
@@ -497,6 +499,9 @@ CycleTimingConfig ExecEngineImpl::ResolveCycleTimingConfig(const GpuArchSpec& sp
 }
 
 TraceSink& ExecEngineImpl::ResolveTraceSink(TraceSink* request_trace) {
+  if (disable_trace_) {
+    return null_trace_sink_;
+  }
   if (request_trace != nullptr) {
     return *request_trace;
   }

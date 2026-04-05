@@ -67,6 +67,8 @@
 | 历史存档文档中的旧名也开始统一替换 | 当前主线已经稳定，继续保留旧名的成本高于保留原貌的收益 |
 | example 结果重新固定写回 `results/` | 避免默认结果与仓库快照分叉，降低误读成本 |
 | 停止生成 `timeline.perfetto.pb` artifact | 当前 `.pb` 不是可靠的官方 Perfetto 兼容产物，对用户暴露会造成误导 |
+| 当前所有模型 trace 的 `cycle` 都明确定义为模型计数时间，不是物理真实执行时间戳 | 避免用 `st/mt/cycle` 的 trace 时间误判 AP 并行性、resume 时点和真实性能结论 |
+| 提供 `GPU_MODEL_DISABLE_TRACE=1` 全局开关 | 便于在快速推进模型时彻底关闭 trace 干扰，并验证非 trace 模块语义不受影响 |
 | cycle 业务逻辑只放在 engine / state machine，trace 只做消费序列化 | 保证行为事实和展示分层清晰 |
 | 当前对外架构文档不再把 `hip_interposer` 当模块名 | 文件名可以保留历史字样，但架构语义必须归到 `HipRuntime` |
 | 暂不系统清理 docs 存档中的历史旧名 | 历史计划/spec 属于存档信息，优先保证主代码和关键文档收口 |

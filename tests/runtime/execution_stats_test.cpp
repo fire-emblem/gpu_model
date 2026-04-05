@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "gpu_model/debug/trace/sink.h"
 #include "gpu_model/isa/instruction_builder.h"
 #include "gpu_model/runtime/exec_engine.h"
 
@@ -100,6 +101,34 @@ TEST(ExecutionStatsTest, FunctionalLaunchReportsProgramCycleStats) {
   EXPECT_EQ(result.total_cycles, result.program_cycle_stats->total_cycles);
   EXPECT_GE(result.program_cycle_stats->total_issued_work_cycles,
             result.program_cycle_stats->total_cycles);
+}
+
+TEST(ExecutionStatsTest, GlobalDisableTraceEnvForcesNullTraceSinkWithoutBreakingCycles) {
+  setenv("GPU_MODEL_DISABLE_TRACE", "1", 1);
+
+  CollectingTraceSink trace;
+  ExecEngine runtime(&trace);
+  runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
+
+  InstructionBuilder builder;
+  builder.SMov("s0", 1);
+  builder.SMov("s1", 2);
+  builder.BExit();
+  const auto kernel = builder.Build("stats_disable_trace_env");
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+
+  const auto result = runtime.Launch(request);
+  unsetenv("GPU_MODEL_DISABLE_TRACE");
+
+  ASSERT_TRUE(result.ok) << result.error_message;
+  ASSERT_TRUE(result.program_cycle_stats.has_value());
+  EXPECT_GT(result.total_cycles, 0u);
+  EXPECT_EQ(result.total_cycles, result.program_cycle_stats->total_cycles);
+  EXPECT_TRUE(trace.events().empty());
 }
 
 TEST(ExecutionStatsTest, CycleLaunchReportsCacheAndBankPenaltyCounts) {
