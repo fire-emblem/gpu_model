@@ -52,6 +52,4 @@ class ExecEngine {
   std::unique_ptr<ExecEngineImpl> impl_;
 };
 
-using RuntimeEngine = ExecEngine;
-
 }  // namespace gpu_model

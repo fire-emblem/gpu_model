@@ -17,7 +17,6 @@ TEST(RuntimeNamingTest, NewRuntimeTypesAreConcreteAndUsable) {
   static_assert(std::is_class_v<ModelRuntime>);
   static_assert(std::is_class_v<HipRuntime>);
   static_assert(std::is_class_v<ExecEngine>);
-  static_assert(std::is_same_v<RuntimeEngine, ExecEngine>);
   static_assert(std::is_constructible_v<HipRuntime, ExecEngine*>);
   static_assert(std::is_constructible_v<ModelRuntime, ExecEngine*>);
   static_assert(std::is_default_constructible_v<EncodedProgramObject>);
@@ -28,10 +27,6 @@ TEST(RuntimeNamingTest, NewRuntimeTypesAreConcreteAndUsable) {
   ModelRuntime model(&engine);
   EXPECT_EQ(hip.GetDeviceCount(), 1);
   EXPECT_EQ(model.GetDeviceCount(), 1);
-}
-
-TEST(RuntimeNamingTest, RuntimeEngineHeaderRemainsCompatibilityAliasForExecEngine) {
-  static_assert(std::is_same_v<RuntimeEngine, ExecEngine>);
 }
 
 TEST(RuntimeNamingTest, ResetReinitializesOwnedRuntimeState) {
