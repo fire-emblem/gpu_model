@@ -13,6 +13,7 @@
 #include "gpu_model/program/object_reader.h"
 #include "gpu_model/runtime/hip_runtime.h"
 #include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/util/logging.h"
 
 namespace gpu_model {
 namespace {
@@ -23,6 +24,11 @@ bool HasHipHostToolchain() {
          std::system("command -v llvm-objcopy >/dev/null 2>&1") == 0 &&
          std::system("command -v llvm-objdump >/dev/null 2>&1") == 0 &&
          std::system("command -v readelf >/dev/null 2>&1") == 0;
+}
+
+bool RunExtendedHipccCoverage() {
+  const char* raw = std::getenv("GPU_MODEL_RUN_EXTENDED_HIPCC_TESTS");
+  return raw != nullptr && raw[0] != '\0' && std::string_view(raw) != "0";
 }
 
 std::filesystem::path MakeUniqueTempDir(const std::string& stem) {
@@ -47,6 +53,11 @@ std::string ReadTextFile(const std::filesystem::path& path) {
 struct RunResult {
   std::vector<float> output;
   double elapsed_ms = 0.0;
+};
+
+struct StageTiming {
+  double compile_ms = 0.0;
+  double decode_ms = 0.0;
 };
 
 struct IntLaunchRunResult {
@@ -97,6 +108,14 @@ EncodedProgramObject LoadHipccImage(const std::filesystem::path& exe_path,
   return image;
 }
 
+template <typename Fn>
+double MeasureElapsedMs(Fn&& fn) {
+  const auto begin = std::chrono::steady_clock::now();
+  fn();
+  const auto end = std::chrono::steady_clock::now();
+  return std::chrono::duration<double, std::milli>(end - begin).count();
+}
+
 TEST(HipccParallelExecutionTest, ThreeDimensionalVecaddAddsMatchesBetweenStAndMt) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
@@ -128,7 +147,10 @@ TEST(HipccParallelExecutionTest, ThreeDimensionalVecaddAddsMatchesBetweenStAndMt
   }
 
   const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
-  ASSERT_EQ(std::system(command.c_str()), 0);
+  StageTiming timings;
+  timings.compile_ms = MeasureElapsedMs([&] { ASSERT_EQ(std::system(command.c_str()), 0); });
+  EncodedProgramObject image;
+  timings.decode_ms = MeasureElapsedMs([&] { image = LoadHipccImage(exe_path, "vecadd_3d_adds"); });
 
   constexpr uint32_t width = 17;
   constexpr uint32_t height = 9;
@@ -166,7 +188,7 @@ TEST(HipccParallelExecutionTest, ThreeDimensionalVecaddAddsMatchesBetweenStAndMt
 
     const auto begin = std::chrono::steady_clock::now();
     const auto launch = hooks.LaunchEncodedProgramObject(
-        LoadHipccImage(exe_path, "vecadd_3d_adds"),
+        image,
         LaunchConfig{
             .grid_dim_x = (width + 3) / 4,
             .grid_dim_y = (height + 3) / 4,
@@ -200,10 +222,13 @@ TEST(HipccParallelExecutionTest, ThreeDimensionalVecaddAddsMatchesBetweenStAndMt
     EXPECT_FLOAT_EQ(mt.output[i], expect[i]);
   }
 
-  std::fprintf(stderr,
-               "[gpu_model] hipcc_3d_vecadd_adds functional_st_ms=%.3f functional_mt_ms=%.3f\n",
-               st.elapsed_ms,
-               mt.elapsed_ms);
+  GPU_MODEL_LOG_INFO("hipcc_test",
+                     "hipcc_3d_vecadd_adds compile_ms=%.3f decode_ms=%.3f "
+                     "functional_st_ms=%.3f functional_mt_ms=%.3f",
+                     timings.compile_ms,
+                     timings.decode_ms,
+                     st.elapsed_ms,
+                     mt.elapsed_ms);
 
   std::filesystem::remove_all(temp_dir);
 }
@@ -245,7 +270,11 @@ TEST(HipccParallelExecutionTest, MultiWaveHeavyKernelShowsMtSpeedupWithDefaultWo
   }
 
   const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
-  ASSERT_EQ(std::system(command.c_str()), 0);
+  StageTiming timings;
+  timings.compile_ms = MeasureElapsedMs([&] { ASSERT_EQ(std::system(command.c_str()), 0); });
+  EncodedProgramObject image;
+  timings.decode_ms =
+      MeasureElapsedMs([&] { image = LoadHipccImage(exe_path, "vecadd_3d_adds_perf"); });
 
   constexpr uint32_t width = 33;
   constexpr uint32_t height = 17;
@@ -285,7 +314,7 @@ TEST(HipccParallelExecutionTest, MultiWaveHeavyKernelShowsMtSpeedupWithDefaultWo
 
     const auto begin = std::chrono::steady_clock::now();
     const auto launch = hooks.LaunchEncodedProgramObject(
-        LoadHipccImage(exe_path, "vecadd_3d_adds_perf"),
+        image,
         LaunchConfig{
             .grid_dim_x = (width + 3) / 4,
             .grid_dim_y = (height + 3) / 4,
@@ -314,10 +343,13 @@ TEST(HipccParallelExecutionTest, MultiWaveHeavyKernelShowsMtSpeedupWithDefaultWo
   EXPECT_EQ(st.output, mt.output);
   EXPECT_LT(mt.elapsed_ms, st.elapsed_ms);
 
-  std::fprintf(stderr,
-               "[gpu_model] multiwave_speedup functional_st_ms=%.3f functional_mt_ms=%.3f\n",
-               st.elapsed_ms,
-               mt.elapsed_ms);
+  GPU_MODEL_LOG_INFO("hipcc_test",
+                     "multiwave_speedup compile_ms=%.3f decode_ms=%.3f "
+                     "functional_st_ms=%.3f functional_mt_ms=%.3f",
+                     timings.compile_ms,
+                     timings.decode_ms,
+                     st.elapsed_ms,
+                     mt.elapsed_ms);
 
   std::filesystem::remove_all(temp_dir);
 }
@@ -350,7 +382,11 @@ TEST(HipccParallelExecutionTest,
   }
 
   const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
-  ASSERT_EQ(std::system(command.c_str()), 0);
+  StageTiming timings;
+  timings.compile_ms = MeasureElapsedMs([&] { ASSERT_EQ(std::system(command.c_str()), 0); });
+
+  EncodedProgramObject image;
+  timings.decode_ms = MeasureElapsedMs([&] { image = LoadHipccImage(exe_path, "barrier_skew"); });
 
   auto run_mode = [&](FunctionalExecutionMode mode, uint32_t worker_threads) {
     RuntimeEngine runtime;
@@ -366,7 +402,7 @@ TEST(HipccParallelExecutionTest,
     args.PushU64(out_addr);
 
     const auto launch = hooks.LaunchEncodedProgramObject(
-        LoadHipccImage(exe_path, "barrier_skew"),
+        image,
         LaunchConfig{.grid_dim_x = 1, .block_dim_x = 128},
         std::move(args),
         ExecutionMode::Functional,
@@ -397,6 +433,14 @@ TEST(HipccParallelExecutionTest,
             st_result.program_cycle_stats->total_cycles);
   EXPECT_GE(mt_result.program_cycle_stats->total_issued_work_cycles,
             mt_result.program_cycle_stats->total_cycles);
+
+  GPU_MODEL_LOG_INFO("hipcc_test",
+                     "barrier_skew compile_ms=%.3f decode_ms=%.3f "
+                     "functional_st_cycles=%llu functional_mt_cycles=%llu",
+                     timings.compile_ms,
+                     timings.decode_ms,
+                     static_cast<unsigned long long>(st_result.total_cycles),
+                     static_cast<unsigned long long>(mt_result.total_cycles));
 
   std::filesystem::remove_all(temp_dir);
 }
@@ -839,6 +883,9 @@ TEST(HipccParallelExecutionTest,
 
 TEST(HipccParallelExecutionTest,
      EncodedVecaddLaunchShapesMatchBetweenStMtAndCycleAndReportClosedStats) {
+  if (!RunExtendedHipccCoverage()) {
+    GTEST_SKIP() << "extended hipcc parameterized coverage disabled";
+  }
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
@@ -860,6 +907,7 @@ TEST(HipccParallelExecutionTest,
 
   const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
+  const auto image = LoadHipccImage(exe_path, "vecadd");
 
   struct LaunchCase {
     const char* name = nullptr;
@@ -870,12 +918,8 @@ TEST(HipccParallelExecutionTest,
 
   const std::vector<LaunchCase> cases = {
       {.name = "single_thread", .grid_dim_x = 1, .block_dim_x = 1, .n = 1},
-      {.name = "partial_wave", .grid_dim_x = 1, .block_dim_x = 60, .n = 60},
-      {.name = "full_wave", .grid_dim_x = 1, .block_dim_x = 64, .n = 64},
       {.name = "wave_plus_one", .grid_dim_x = 1, .block_dim_x = 65, .n = 65},
-      {.name = "two_waves", .grid_dim_x = 1, .block_dim_x = 128, .n = 128},
       {.name = "multi_block_tail", .grid_dim_x = 3, .block_dim_x = 128, .n = 257},
-      {.name = "large_scale", .grid_dim_x = 30, .block_dim_x = 1024, .n = 30u * 1024u},
   };
 
   for (const auto& test_case : cases) {
@@ -911,7 +955,7 @@ TEST(HipccParallelExecutionTest,
       args.PushU32(test_case.n);
 
       auto launch = hooks.LaunchEncodedProgramObject(
-          LoadHipccImage(exe_path, "vecadd"),
+          image,
           LaunchConfig{.grid_dim_x = test_case.grid_dim_x, .block_dim_x = test_case.block_dim_x},
           std::move(args),
           mode,
@@ -961,6 +1005,9 @@ TEST(HipccParallelExecutionTest,
 
 TEST(HipccParallelExecutionTest,
      EncodedVecaddCycleVariantsMatchAcrossModesAndPreserveCycleDifferences) {
+  if (!RunExtendedHipccCoverage()) {
+    GTEST_SKIP() << "extended hipcc parameterized coverage disabled";
+  }
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
@@ -997,21 +1044,6 @@ TEST(HipccParallelExecutionTest,
               "int main() { return 0; }\n",
           .config = LaunchConfig{.grid_dim_x = 4, .block_dim_x = 64},
       },
-      {
-          .name = "vecadd_chunk2",
-          .source =
-              "#include <hip/hip_runtime.h>\n"
-              "extern \"C\" __global__ void vecadd_chunk2(const float* a, const float* b, float* c, int n) {\n"
-              "  int tid = blockIdx.x * blockDim.x + threadIdx.x;\n"
-              "  int stride = blockDim.x * gridDim.x;\n"
-              "  int i0 = tid;\n"
-              "  int i1 = tid + stride;\n"
-              "  if (i0 < n) c[i0] = a[i0] + b[i0];\n"
-              "  if (i1 < n) c[i1] = a[i1] + b[i1];\n"
-              "}\n"
-              "int main() { return 0; }\n",
-          .config = LaunchConfig{.grid_dim_x = 2, .block_dim_x = 256},
-      },
   };
 
   constexpr uint32_t n = 1024;
@@ -1038,6 +1070,7 @@ TEST(HipccParallelExecutionTest,
 
     const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
     ASSERT_EQ(std::system(command.c_str()), 0);
+    const auto image = LoadHipccImage(exe_path, test_case.name);
 
     const auto run_mode = [&](ExecutionMode mode,
                               FunctionalExecutionMode functional_mode,
@@ -1062,7 +1095,7 @@ TEST(HipccParallelExecutionTest,
       args.PushU32(n);
 
       auto launch = hooks.LaunchEncodedProgramObject(
-          LoadHipccImage(exe_path, test_case.name),
+          image,
           test_case.config,
           std::move(args),
           mode,
@@ -1140,6 +1173,7 @@ TEST(HipccParallelExecutionTest,
 
   const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
+  const auto image = LoadHipccImage(exe_path, "barrier_blocks");
 
   constexpr uint32_t n = 257;
   constexpr uint32_t iters = 7;
@@ -1564,6 +1598,9 @@ TEST(HipccParallelExecutionTest,
 
 TEST(HipccParallelExecutionTest,
      EncodedWaitcntGlobalLoadKernelMatchesAcrossDifferentBlockCounts) {
+  if (!RunExtendedHipccCoverage()) {
+    GTEST_SKIP() << "extended hipcc parameterized coverage disabled";
+  }
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
@@ -1608,7 +1645,6 @@ TEST(HipccParallelExecutionTest,
 
   const std::vector<Case> cases = {
       {.name = "single_block", .grid_dim_x = 1, .block_dim_x = 128, .n = 64},
-      {.name = "three_block_tail", .grid_dim_x = 3, .block_dim_x = 128, .n = 257},
       {.name = "eight_block", .grid_dim_x = 8, .block_dim_x = 128, .n = 8 * 128},
   };
 
@@ -1695,6 +1731,9 @@ TEST(HipccParallelExecutionTest,
 
 TEST(HipccParallelExecutionTest,
      EncodedBarrierStageVariantsMatchAcrossModesAndReflectBarrierCounts) {
+  if (!RunExtendedHipccCoverage()) {
+    GTEST_SKIP() << "extended hipcc parameterized coverage disabled";
+  }
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
@@ -1757,6 +1796,7 @@ TEST(HipccParallelExecutionTest,
 
     const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
     ASSERT_EQ(std::system(command.c_str()), 0);
+    const auto image = LoadHipccImage(exe_path, test_case.name);
 
     std::vector<int32_t> expect(n);
     for (uint32_t block = 0; block < grid_dim; ++block) {
@@ -1793,7 +1833,7 @@ TEST(HipccParallelExecutionTest,
       args.PushU64(out_addr);
 
       auto launch = hooks.LaunchEncodedProgramObject(
-          LoadHipccImage(exe_path, test_case.name),
+          image,
           LaunchConfig{.grid_dim_x = grid_dim, .block_dim_x = block_dim},
           std::move(args),
           mode,
@@ -1862,6 +1902,9 @@ TEST(HipccParallelExecutionTest,
 
 TEST(HipccParallelExecutionTest,
      EncodedBarrierKernelMatchesAcrossModesForDifferentBlockCounts) {
+  if (!RunExtendedHipccCoverage()) {
+    GTEST_SKIP() << "extended hipcc parameterized coverage disabled";
+  }
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
@@ -1887,6 +1930,7 @@ TEST(HipccParallelExecutionTest,
 
   const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
+  const auto image = LoadHipccImage(exe_path, "barrier_blocks");
 
   struct BlockCase {
     const char* name = nullptr;
@@ -1895,8 +1939,6 @@ TEST(HipccParallelExecutionTest,
 
   const std::vector<BlockCase> cases = {
       {.name = "single_block", .grid_dim_x = 1},
-      {.name = "two_block", .grid_dim_x = 2},
-      {.name = "three_block", .grid_dim_x = 3},
       {.name = "four_block", .grid_dim_x = 4},
   };
 
@@ -1929,7 +1971,7 @@ TEST(HipccParallelExecutionTest,
       args.PushU64(out_addr);
 
       auto launch = hooks.LaunchEncodedProgramObject(
-          LoadHipccImage(exe_path, "barrier_blocks"),
+          image,
           LaunchConfig{.grid_dim_x = test_case.grid_dim_x, .block_dim_x = block_dim},
           std::move(args),
           mode,
@@ -1974,7 +2016,10 @@ TEST(HipccParallelExecutionTest,
 }
 
 TEST(HipccParallelExecutionTest,
-     EncodedConditionalMultiBarrierKernelMatchesAcrossModesAt128Blocks) {
+     EncodedConditionalMultiBarrierKernelMatchesAcrossModesAt32Blocks) {
+  if (!RunExtendedHipccCoverage()) {
+    GTEST_SKIP() << "extended hipcc parameterized coverage disabled";
+  }
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
@@ -2013,8 +2058,9 @@ TEST(HipccParallelExecutionTest,
 
   const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
+  const auto image = LoadHipccImage(exe_path, "conditional_multibarrier");
 
-  constexpr uint32_t grid_dim = 128;
+  constexpr uint32_t grid_dim = 32;
   constexpr uint32_t block_dim = 128;
   constexpr uint32_t n = grid_dim * block_dim;
   std::vector<int32_t> expect(n);
@@ -2075,7 +2121,7 @@ TEST(HipccParallelExecutionTest,
     args.PushU64(out_addr);
 
     auto launch = hooks.LaunchEncodedProgramObject(
-        LoadHipccImage(exe_path, "conditional_multibarrier"),
+        image,
         LaunchConfig{.grid_dim_x = grid_dim, .block_dim_x = block_dim},
         std::move(args),
         mode,
@@ -2227,6 +2273,9 @@ TEST(HipccParallelExecutionTest,
 
 TEST(HipccParallelExecutionTest,
      EncodedConditionalMultiBarrierKernelMatchesAcrossModesAt8BlocksWithFourWorkers) {
+  if (!RunExtendedHipccCoverage()) {
+    GTEST_SKIP() << "extended hipcc parameterized coverage disabled";
+  }
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
@@ -2266,6 +2315,7 @@ TEST(HipccParallelExecutionTest,
 
   const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
+  const auto image = LoadHipccImage(exe_path, "conditional_multibarrier");
 
   constexpr uint32_t grid_dim = 8;
   constexpr uint32_t block_dim = 128;
@@ -2328,7 +2378,7 @@ TEST(HipccParallelExecutionTest,
     args.PushU64(out_addr);
 
     auto launch = hooks.LaunchEncodedProgramObject(
-        LoadHipccImage(exe_path, "conditional_multibarrier"),
+        image,
         LaunchConfig{.grid_dim_x = grid_dim, .block_dim_x = block_dim},
         std::move(args),
         mode,

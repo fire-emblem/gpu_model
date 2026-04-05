@@ -706,6 +706,18 @@ class FunctionalExecutionCoreImpl {
     return it == logical_slot_ids_.end() ? 0u : it->second;
   }
 
+  TraceWaveView MakeTraceWaveView(const WaveContext& wave) const {
+    return TraceWaveView{
+        .dpc_id = wave.dpc_id,
+        .ap_id = wave.ap_id,
+        .peu_id = wave.peu_id,
+        .slot_id = TraceSlotId(wave),
+        .block_id = wave.block_id,
+        .wave_id = wave.wave_id,
+        .pc = wave.pc,
+    };
+  }
+
   void MaybeEmitWaveSwitchAwayEvent(const ExecutableBlock& block,
                                     const WaveContext& wave,
                                     uint64_t pc) {
@@ -724,13 +736,7 @@ class FunctionalExecutionCoreImpl {
 
     if (emit_switch_away) {
       TraceEventLocked(MakeTraceWaveSwitchStallEvent(
-          TraceWaveView{.dpc_id = wave.dpc_id,
-                        .ap_id = wave.ap_id,
-                        .peu_id = wave.peu_id,
-                        .slot_id = TraceSlotId(wave),
-                        .block_id = wave.block_id,
-                        .wave_id = wave.wave_id,
-                        .pc = wave.pc},
+          MakeTraceWaveView(wave),
           NextTraceCycle(),
           TraceSlotModelKind::LogicalUnbounded,
           pc));
@@ -743,13 +749,7 @@ class FunctionalExecutionCoreImpl {
                                 std::string message,
                                 uint64_t pc = std::numeric_limits<uint64_t>::max()) const {
     return MakeTraceWaveEvent(
-        TraceWaveView{.dpc_id = wave.dpc_id,
-                      .ap_id = wave.ap_id,
-                      .peu_id = wave.peu_id,
-                      .slot_id = TraceSlotId(wave),
-                      .block_id = wave.block_id,
-                      .wave_id = wave.wave_id,
-                      .pc = wave.pc},
+        MakeTraceWaveView(wave),
         kind,
         cycle,
         TraceSlotModelKind::LogicalUnbounded,
@@ -802,13 +802,7 @@ class FunctionalExecutionCoreImpl {
     for (const auto& block : blocks_) {
       for (const auto& wave : block.waves) {
         TraceEventLocked(MakeTraceWaveLaunchEvent(
-            TraceWaveView{.dpc_id = wave.dpc_id,
-                          .ap_id = wave.ap_id,
-                          .peu_id = wave.peu_id,
-                          .slot_id = TraceSlotId(wave),
-                          .block_id = wave.block_id,
-                          .wave_id = wave.wave_id,
-                          .pc = wave.pc},
+            MakeTraceWaveView(wave),
             NextTraceCycle(),
             FormatWaveLaunchTraceMessage(wave),
             TraceSlotModelKind::LogicalUnbounded));
@@ -1132,45 +1126,6 @@ class FunctionalExecutionCoreImpl {
     return false;
   }
 
-  bool IsBlockComplete(const ExecutableBlock& block) const {
-    std::lock_guard<std::mutex> state_lock(*block.wave_state_mutex);
-    for (size_t i = 0; i < block.waves.size(); ++i) {
-      if (block.wave_busy[i]) {
-        return false;
-      }
-      if (block.waves[i].status != WaveStatus::Exited) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  std::string FormatBlockState(const ExecutableBlock& block) const {
-    std::ostringstream oss;
-    oss << "block=" << block.block_id
-        << " barrier_gen=" << block.barrier_state->generation.load()
-        << " barrier_arrivals=" << block.barrier_state->arrived_wave_count.load();
-    for (size_t i = 0; i < block.waves.size(); ++i) {
-      const auto& wave = block.waves[i];
-      oss << " | wave=" << i << " peu=" << wave.peu_id << " pc=" << wave.pc
-          << " busy=" << (block.wave_busy[i] ? 1 : 0)
-          << " wait_barrier=" << (wave.waiting_at_barrier ? 1 : 0)
-          << " barrier_gen=" << wave.barrier_generation << " status=";
-      switch (wave.status) {
-        case WaveStatus::Active:
-          oss << "active";
-          break;
-        case WaveStatus::Exited:
-          oss << "exited";
-          break;
-        case WaveStatus::Stalled:
-          oss << "stalled";
-          break;
-      }
-    }
-    return oss.str();
-  }
-
   bool ReleaseBlockBarrierIfReady(ExecutableBlock& block) {
     std::lock_guard<std::mutex> state_lock(*block.wave_state_mutex);
     const uint32_t arrived = block.barrier_state->arrived_wave_count.load();
@@ -1238,13 +1193,7 @@ class FunctionalExecutionCoreImpl {
                  advanced;
       for (const auto& op : completed_ops) {
         TraceEvent event = MakeTraceMemoryArriveEvent(
-            TraceWaveView{.dpc_id = block.waves[i].dpc_id,
-                          .ap_id = block.waves[i].ap_id,
-                          .peu_id = block.waves[i].peu_id,
-                          .slot_id = TraceSlotId(block.waves[i]),
-                          .block_id = block.waves[i].block_id,
-                          .wave_id = block.waves[i].wave_id,
-                          .pc = block.waves[i].pc},
+            MakeTraceWaveView(block.waves[i]),
             NextTraceCycle(),
             op.arrive_kind,
             TraceSlotModelKind::LogicalUnbounded);
@@ -1284,13 +1233,7 @@ class FunctionalExecutionCoreImpl {
         continue;
       }
       TraceEventLocked(MakeTraceWaitStallEvent(
-          TraceWaveView{.dpc_id = wave.dpc_id,
-                        .ap_id = wave.ap_id,
-                        .peu_id = wave.peu_id,
-                        .slot_id = TraceSlotId(wave),
-                        .block_id = wave.block_id,
-                        .wave_id = wave.wave_id,
-                        .pc = wave.pc},
+          MakeTraceWaveView(wave),
           NextTraceCycle(),
           TraceStallReasonForWaitReason(wave.wait_reason),
           TraceSlotModelKind::LogicalUnbounded,
@@ -1336,13 +1279,7 @@ class FunctionalExecutionCoreImpl {
     const uint64_t issue_cycle = NextTraceCycle();
     const uint64_t issue_pc = wave.pc;
     TraceEventLocked(MakeTraceWaveStepEvent(
-        TraceWaveView{.dpc_id = wave.dpc_id,
-                      .ap_id = wave.ap_id,
-                      .peu_id = wave.peu_id,
-                      .slot_id = TraceSlotId(wave),
-                      .block_id = wave.block_id,
-                      .wave_id = wave.wave_id,
-                      .pc = wave.pc},
+        MakeTraceWaveView(wave),
         issue_cycle,
         TraceSlotModelKind::LogicalUnbounded,
         FormatWaveStepMessage(instruction, wave),
@@ -1489,24 +1426,12 @@ class FunctionalExecutionCoreImpl {
     if (plan.sync_wave_barrier) {
       ++stats.barriers;
       TraceEventLocked(MakeTraceCommitEvent(
-          TraceWaveView{.dpc_id = wave.dpc_id,
-                        .ap_id = wave.ap_id,
-                        .peu_id = wave.peu_id,
-                        .slot_id = TraceSlotId(wave),
-                        .block_id = wave.block_id,
-                        .wave_id = wave.wave_id,
-                        .pc = wave.pc},
+          MakeTraceWaveView(wave),
           NextTraceCycle(),
           TraceSlotModelKind::LogicalUnbounded,
           issue_pc));
       TraceEventLocked(MakeTraceBarrierWaveEvent(
-          TraceWaveView{.dpc_id = wave.dpc_id,
-                        .ap_id = wave.ap_id,
-                        .peu_id = wave.peu_id,
-                        .slot_id = TraceSlotId(wave),
-                        .block_id = wave.block_id,
-                        .wave_id = wave.wave_id,
-                        .pc = wave.pc},
+          MakeTraceWaveView(wave),
           NextTraceCycle(),
           TraceSlotModelKind::LogicalUnbounded,
           issue_pc));
@@ -1525,24 +1450,12 @@ class FunctionalExecutionCoreImpl {
         block.barrier_state->arrived_wave_count.fetch_add(1);
       }
       TraceEventLocked(MakeTraceCommitEvent(
-          TraceWaveView{.dpc_id = wave.dpc_id,
-                        .ap_id = wave.ap_id,
-                        .peu_id = wave.peu_id,
-                        .slot_id = TraceSlotId(wave),
-                        .block_id = wave.block_id,
-                        .wave_id = wave.wave_id,
-                        .pc = wave.pc},
+          MakeTraceWaveView(wave),
           NextTraceCycle(),
           TraceSlotModelKind::LogicalUnbounded,
           issue_pc));
       TraceEventLocked(MakeTraceBarrierArriveEvent(
-          TraceWaveView{.dpc_id = wave.dpc_id,
-                        .ap_id = wave.ap_id,
-                        .peu_id = wave.peu_id,
-                        .slot_id = TraceSlotId(wave),
-                        .block_id = wave.block_id,
-                        .wave_id = wave.wave_id,
-                        .pc = wave.pc},
+          MakeTraceWaveView(wave),
           NextTraceCycle(),
           TraceSlotModelKind::LogicalUnbounded,
           issue_pc));
@@ -1571,24 +1484,12 @@ class FunctionalExecutionCoreImpl {
         wave_completed = true;
       }
       TraceEventLocked(MakeTraceCommitEvent(
-          TraceWaveView{.dpc_id = wave.dpc_id,
-                        .ap_id = wave.ap_id,
-                        .peu_id = wave.peu_id,
-                        .slot_id = TraceSlotId(wave),
-                        .block_id = wave.block_id,
-                        .wave_id = wave.wave_id,
-                        .pc = wave.pc},
+          MakeTraceWaveView(wave),
           NextTraceCycle(),
           TraceSlotModelKind::LogicalUnbounded,
           issue_pc));
       TraceEventLocked(MakeTraceWaveExitEvent(
-          TraceWaveView{.dpc_id = wave.dpc_id,
-                        .ap_id = wave.ap_id,
-                        .peu_id = wave.peu_id,
-                        .slot_id = TraceSlotId(wave),
-                        .block_id = wave.block_id,
-                        .wave_id = wave.wave_id,
-                        .pc = wave.pc},
+          MakeTraceWaveView(wave),
           NextTraceCycle(),
           TraceSlotModelKind::LogicalUnbounded,
           issue_pc));
@@ -1603,24 +1504,12 @@ class FunctionalExecutionCoreImpl {
           const TraceWaitcntState waitcnt_state =
               MakeTraceWaitcntState(wave, *wave_state.waiting_waitcnt_thresholds);
           TraceEventLocked(MakeTraceCommitEvent(
-              TraceWaveView{.dpc_id = wave.dpc_id,
-                            .ap_id = wave.ap_id,
-                            .peu_id = wave.peu_id,
-                            .slot_id = TraceSlotId(wave),
-                            .block_id = wave.block_id,
-                            .wave_id = wave.wave_id,
-                            .pc = wave.pc},
+              MakeTraceWaveView(wave),
               NextTraceCycle(),
               TraceSlotModelKind::LogicalUnbounded,
               issue_pc));
           TraceEventLocked(MakeTraceWaitStallEvent(
-              TraceWaveView{.dpc_id = wave.dpc_id,
-                            .ap_id = wave.ap_id,
-                            .peu_id = wave.peu_id,
-                            .slot_id = TraceSlotId(wave),
-                            .block_id = wave.block_id,
-                            .wave_id = wave.wave_id,
-                            .pc = wave.pc},
+              MakeTraceWaveView(wave),
               NextTraceCycle(),
               TraceStallReasonForWaitReason(wave.wait_reason),
               TraceSlotModelKind::LogicalUnbounded,
@@ -1640,13 +1529,7 @@ class FunctionalExecutionCoreImpl {
         return;
       }
       TraceEventLocked(MakeTraceCommitEvent(
-          TraceWaveView{.dpc_id = wave.dpc_id,
-                        .ap_id = wave.ap_id,
-                        .peu_id = wave.peu_id,
-                        .slot_id = TraceSlotId(wave),
-                        .block_id = wave.block_id,
-                        .wave_id = wave.wave_id,
-                        .pc = wave.pc},
+          MakeTraceWaveView(wave),
           NextTraceCycle(),
           TraceSlotModelKind::LogicalUnbounded,
           issue_pc));

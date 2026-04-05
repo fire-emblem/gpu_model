@@ -6,6 +6,8 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+find_package(Threads REQUIRED)
+
 find_program(CCACHE_PROGRAM ccache)
 if(CCACHE_PROGRAM)
   set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE_PROGRAM}" CACHE STRING "" FORCE)
@@ -26,6 +28,20 @@ FetchContent_Declare(
   URL https://github.com/google/googletest/archive/refs/tags/v1.15.2.zip
 )
 FetchContent_MakeAvailable(googletest)
+
+add_library(gpu_model_loguru STATIC
+  third_party/loguru/loguru.cpp
+)
+set_target_properties(gpu_model_loguru PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_include_directories(gpu_model_loguru
+  PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/loguru
+)
+target_link_libraries(gpu_model_loguru
+  PUBLIC
+    Threads::Threads
+    dl
+)
 
 add_library(gpu_model STATIC
   src/arch/arch_registry.cpp
@@ -78,6 +94,7 @@ add_library(gpu_model STATIC
   src/runtime/runtime_engine.cpp
   src/runtime/hip_interposer_state.cpp
   src/runtime/hip_runtime.cpp
+  src/util/logging.cpp
   src/debug/trace/instruction_trace.cpp
   src/debug/recorder/recorder.cpp
   src/debug/recorder/recorder_export.cpp
@@ -101,6 +118,11 @@ set_target_properties(gpu_model PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_include_directories(gpu_model
   PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_link_libraries(gpu_model
+  PUBLIC
+    gpu_model_loguru
 )
 
 gpu_model_enable_warnings(gpu_model)

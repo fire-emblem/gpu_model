@@ -194,6 +194,34 @@ TEST(ParallelExecutionModeTest, MultiThreadedModeProducesSameFunctionalResults) 
   EXPECT_EQ(parallel, single);
 }
 
+TEST(ParallelExecutionModeTest, SingleThreadedMatchesMultiThreadedSingleWorker) {
+  const auto kernel = BuildSharedAtomicReductionKernelForModeTest();
+
+  auto run_mode = [&](FunctionalExecutionMode mode, uint32_t worker_threads) {
+    RuntimeEngine runtime;
+    runtime.SetFunctionalExecutionConfig(
+        FunctionalExecutionConfig{.mode = mode, .worker_threads = worker_threads});
+    const uint64_t out_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
+    runtime.memory().StoreGlobalValue<int32_t>(out_addr, -1);
+
+    LaunchRequest request;
+    request.kernel = &kernel;
+    request.config.grid_dim_x = 1;
+    request.config.block_dim_x = 128;
+    request.config.shared_memory_bytes = 4;
+    request.args.PushU64(out_addr);
+
+    const auto result = runtime.Launch(request);
+    EXPECT_TRUE(result.ok) << result.error_message;
+    return runtime.memory().LoadGlobalValue<int32_t>(out_addr);
+  };
+
+  const auto st = run_mode(FunctionalExecutionMode::SingleThreaded, 0);
+  const auto mt_single_worker = run_mode(FunctionalExecutionMode::MultiThreaded, 1);
+  EXPECT_EQ(st, 128);
+  EXPECT_EQ(mt_single_worker, st);
+}
+
 TEST(ParallelExecutionModeTest, MultiThreadedModeMatchesSingleThreadForSharedAtomicReduction) {
   const auto kernel = BuildSharedAtomicReductionKernelForModeTest();
 
