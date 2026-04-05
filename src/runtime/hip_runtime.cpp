@@ -1,19 +1,12 @@
 #include "gpu_model/runtime/hip_runtime.h"
 
-#include <algorithm>
-#include <array>
 #include <cstring>
-#include <filesystem>
-#include <fstream>
 #include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "gpu_model/arch/arch_registry.h"
-#include "gpu_model/loader/executable_image_io.h"
-#include "gpu_model/loader/program_bundle_io.h"
-#include "gpu_model/program/object_reader.h"
 #include "gpu_model/util/logging.h"
 
 namespace gpu_model {
@@ -39,51 +32,6 @@ RuntimeDeviceProperties BuildRuntimeDeviceProperties(const GpuArchSpec& spec) {
       std::max<int>(8 * 1024 * 1024,
                     static_cast<int>(spec.cache_model.l2_line_capacity * spec.cache_model.line_bytes));
   return props;
-}
-
-bool HasMagicPrefix(const std::filesystem::path& path, std::string_view magic) {
-  std::ifstream input(path, std::ios::binary);
-  if (!input) {
-    return false;
-  }
-  std::string bytes(magic.size(), '\0');
-  input.read(bytes.data(), static_cast<std::streamsize>(bytes.size()));
-  if (!input && input.gcount() < static_cast<std::streamsize>(bytes.size())) {
-    return false;
-  }
-  return bytes == magic;
-}
-
-bool IsElfBinary(const std::filesystem::path& path) {
-  std::ifstream input(path, std::ios::binary);
-  if (!input) {
-    return false;
-  }
-  std::array<unsigned char, 4> bytes{};
-  input.read(reinterpret_cast<char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
-  return input.good() && bytes == std::array<unsigned char, 4>{0x7f, 'E', 'L', 'F'};
-}
-
-ModuleLoadFormat DetectModuleLoadFormat(const std::filesystem::path& path) {
-  if (!std::filesystem::exists(path)) {
-    throw std::runtime_error("module path does not exist: " + path.string());
-  }
-
-  const auto ext = path.extension().string();
-  if (ext == ".gasm" || ext == ".asm" || ext == ".s") {
-    return ModuleLoadFormat::ProgramFileStem;
-  }
-  if (HasMagicPrefix(path, "GPUBIN1")) {
-    return ModuleLoadFormat::ProgramBundle;
-  }
-  if (HasMagicPrefix(path, "GPUSEC1")) {
-    return ModuleLoadFormat::ExecutableImage;
-  }
-  if (IsElfBinary(path)) {
-    return ModuleLoadFormat::AmdgpuObject;
-  }
-
-  throw std::runtime_error("unable to detect module format: " + path.string());
 }
 
 }  // namespace
@@ -274,43 +222,11 @@ DeviceLoadResult HipRuntime::MaterializeLoadPlan(const DeviceLoadPlan& plan) {
 }
 
 void HipRuntime::LoadModule(const ModuleLoadRequest& request) {
-  if (request.module_name.empty()) {
-    throw std::invalid_argument("module_name must not be empty");
-  }
-  if (request.path.empty()) {
-    throw std::invalid_argument("module path must not be empty");
-  }
-  (void)request.context_id;
-
-  const ModuleLoadFormat format =
-      request.format == ModuleLoadFormat::Auto ? DetectModuleLoadFormat(request.path) : request.format;
-  switch (format) {
-    case ModuleLoadFormat::Auto:
-      throw std::logic_error("auto format must be resolved before load");
-    case ModuleLoadFormat::AmdgpuObject: {
-      auto image = ObjectReader{}.LoadEncodedObject(request.path, request.kernel_name);
-      modules_[request.module_name][image.kernel_name] = std::move(image);
-      return;
-    }
-    case ModuleLoadFormat::ProgramBundle:
-      RegisterProgramImage(request.module_name, ProgramBundleIO::Read(request.path));
-      return;
-    case ModuleLoadFormat::ExecutableImage:
-      RegisterProgramImage(request.module_name, ExecutableImageIO::Read(request.path));
-      return;
-    case ModuleLoadFormat::ProgramFileStem:
-      RegisterProgramImage(request.module_name, ObjectReader{}.LoadFromStem(request.path));
-      return;
-  }
-}
-
-void HipRuntime::RegisterProgramImage(std::string module_name, ProgramObject image) {
-  modules_[module_name][image.kernel_name()] = std::move(image);
+  module_registry_.LoadModule(request);
 }
 
 void HipRuntime::UnloadModule(const std::string& module_name, uint64_t context_id) {
-  (void)context_id;
-  modules_.erase(module_name);
+  module_registry_.UnloadModule(module_name, context_id);
 }
 
 void HipRuntime::Reset() {
@@ -322,53 +238,27 @@ void HipRuntime::Reset() {
   }
   current_device_ = 0;
   allocations_.clear();
-  modules_.clear();
+  module_registry_.Reset();
   last_load_result_.reset();
 }
 
 bool HipRuntime::HasModule(const std::string& module_name, uint64_t context_id) const {
-  (void)context_id;
-  return modules_.find(module_name) != modules_.end();
+  return module_registry_.HasModule(module_name, context_id);
 }
 
 bool HipRuntime::HasKernel(const std::string& module_name,
                            const std::string& kernel_name,
                            uint64_t context_id) const {
-  (void)context_id;
-  const auto module_it = modules_.find(module_name);
-  if (module_it == modules_.end()) {
-    return false;
-  }
-  return module_it->second.find(kernel_name) != module_it->second.end();
+  return module_registry_.HasKernel(module_name, kernel_name, context_id);
 }
 
 std::vector<std::string> HipRuntime::ListModules(uint64_t context_id) const {
-  (void)context_id;
-  std::vector<std::string> names;
-  names.reserve(modules_.size());
-  for (const auto& [name, kernels] : modules_) {
-    (void)kernels;
-    names.push_back(name);
-  }
-  std::sort(names.begin(), names.end());
-  return names;
+  return module_registry_.ListModules(context_id);
 }
 
 std::vector<std::string> HipRuntime::ListKernels(const std::string& module_name,
                                                  uint64_t context_id) const {
-  (void)context_id;
-  std::vector<std::string> names;
-  const auto module_it = modules_.find(module_name);
-  if (module_it == modules_.end()) {
-    return names;
-  }
-  names.reserve(module_it->second.size());
-  for (const auto& [name, entry] : module_it->second) {
-    (void)entry;
-    names.push_back(name);
-  }
-  std::sort(names.begin(), names.end());
-  return names;
+  return module_registry_.ListKernels(module_name, context_id);
 }
 
 LaunchResult HipRuntime::LaunchEncodedProgramObject(const EncodedProgramObject& image,
@@ -415,25 +305,19 @@ LaunchResult HipRuntime::LaunchRegisteredKernel(const std::string& module_name,
                                                 std::string arch_name,
                                                 TraceSink* trace,
                                                 RuntimeSubmissionContext submission_context) {
-  const auto module_it = modules_.find(module_name);
-  if (module_it == modules_.end()) {
+  const auto* kernel_image = module_registry_.FindKernelImage(module_name, kernel_name);
+  if (kernel_image == nullptr) {
     LaunchResult result;
     result.ok = false;
-    result.error_message = "unknown module: " + module_name;
+    result.error_message = module_registry_.HasModule(module_name) ? "unknown kernel in module: " + kernel_name
+                                                                   : "unknown module: " + module_name;
     return result;
   }
-  const auto kernel_it = module_it->second.find(kernel_name);
-  if (kernel_it == module_it->second.end()) {
-    LaunchResult result;
-    result.ok = false;
-    result.error_message = "unknown kernel in module: " + kernel_name;
-    return result;
-  }
-  if (const auto* image = std::get_if<ProgramObject>(&kernel_it->second)) {
+  if (const auto* image = std::get_if<ProgramObject>(kernel_image)) {
     return LaunchProgramObject(*image, std::move(config), std::move(args), mode,
                                std::move(arch_name), trace, submission_context);
   }
-  return LaunchEncodedProgramObject(std::get<EncodedProgramObject>(kernel_it->second),
+  return LaunchEncodedProgramObject(std::get<EncodedProgramObject>(*kernel_image),
                                     std::move(config),
                                     std::move(args),
                                     mode,

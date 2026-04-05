@@ -11,7 +11,7 @@
 
 #include "gpu_model/debug/trace/artifact_recorder.h"
 #include "gpu_model/program/object_reader.h"
-#include "gpu_model/runtime/hip_runtime.h"
+#include "gpu_model/runtime/model_runtime.h"
 #include "gpu_model/runtime/runtime_engine.h"
 #include "gpu_model/util/logging.h"
 
@@ -172,7 +172,7 @@ TEST(HipccParallelExecutionTest, ThreeDimensionalVecaddAddsMatchesBetweenStAndMt
     RuntimeEngine runtime;
     runtime.SetFunctionalExecutionConfig(
         FunctionalExecutionConfig{.mode = mode, .worker_threads = worker_threads});
-    HipRuntime hooks(&runtime);
+    ModelRuntime hooks(&runtime);
 
     const uint64_t a_addr = hooks.Malloc(total * sizeof(float));
     const uint64_t b_addr = hooks.Malloc(total * sizeof(float));
@@ -303,7 +303,7 @@ TEST(HipccParallelExecutionTest, MultiWaveHeavyKernelShowsMtSpeedupWithDefaultWo
     RuntimeEngine runtime;
     runtime.SetFunctionalExecutionConfig(
         FunctionalExecutionConfig{.mode = mode, .worker_threads = 0});
-    HipRuntime hooks(&runtime);
+    ModelRuntime hooks(&runtime);
 
     const uint64_t a_addr = hooks.Malloc(n * sizeof(float));
     const uint64_t b_addr = hooks.Malloc(n * sizeof(float));
@@ -404,7 +404,7 @@ TEST(HipccParallelExecutionTest,
     RuntimeEngine runtime;
     runtime.SetFunctionalExecutionConfig(
         FunctionalExecutionConfig{.mode = mode, .worker_threads = worker_threads});
-    HipRuntime hooks(&runtime);
+    ModelRuntime hooks(&runtime);
 
     std::vector<int32_t> out(128, -1);
     const uint64_t out_addr = hooks.Malloc(out.size() * sizeof(int32_t));
@@ -507,7 +507,7 @@ TEST(HipccParallelExecutionTest,
     RuntimeEngine runtime(trace ? static_cast<TraceSink*>(&*trace) : nullptr);
     runtime.SetFunctionalExecutionConfig(
         FunctionalExecutionConfig{.mode = functional_mode, .worker_threads = worker_threads});
-    HipRuntime hooks(&runtime);
+    ModelRuntime hooks(&runtime);
 
     std::vector<int32_t> out(total, -1);
     const uint64_t in_addr = hooks.Malloc(total * sizeof(int32_t));
@@ -614,7 +614,7 @@ TEST(HipccParallelExecutionTest,
     RuntimeEngine runtime;
     runtime.SetFunctionalExecutionConfig(
         FunctionalExecutionConfig{.mode = functional_mode, .worker_threads = worker_threads});
-    HipRuntime hooks(&runtime);
+    ModelRuntime hooks(&runtime);
 
     std::vector<float> output(n, 0.0f);
     const uint64_t in_addr = hooks.Malloc(n * sizeof(float));
@@ -705,7 +705,7 @@ TEST(HipccParallelExecutionTest,
     RuntimeEngine runtime;
     runtime.SetFunctionalExecutionConfig(
         FunctionalExecutionConfig{.mode = functional_mode, .worker_threads = worker_threads});
-    HipRuntime hooks(&runtime);
+    ModelRuntime hooks(&runtime);
 
     int32_t zero = 0;
     const uint64_t out_addr = hooks.Malloc(sizeof(int32_t));
@@ -793,7 +793,7 @@ TEST(HipccParallelExecutionTest,
     RuntimeEngine runtime;
     runtime.SetFunctionalExecutionConfig(
         FunctionalExecutionConfig{.mode = functional_mode, .worker_threads = worker_threads});
-    HipRuntime hooks(&runtime);
+    ModelRuntime hooks(&runtime);
 
     std::vector<float> c(n, -1.0f);
     const uint64_t a_addr = hooks.Malloc(n * sizeof(float));
@@ -906,7 +906,7 @@ TEST(HipccParallelExecutionTest,
       RuntimeEngine runtime;
       runtime.SetFunctionalExecutionConfig(
           FunctionalExecutionConfig{.mode = functional_mode, .worker_threads = worker_threads});
-      HipRuntime hooks(&runtime);
+      ModelRuntime hooks(&runtime);
 
       std::vector<float> c(test_case.n, -1.0f);
       const uint64_t a_addr = hooks.Malloc(test_case.n * sizeof(float));
@@ -1046,7 +1046,7 @@ TEST(HipccParallelExecutionTest,
       RuntimeEngine runtime;
       runtime.SetFunctionalExecutionConfig(
           FunctionalExecutionConfig{.mode = functional_mode, .worker_threads = worker_threads});
-      HipRuntime hooks(&runtime);
+      ModelRuntime hooks(&runtime);
 
       std::vector<float> c(n, -1.0f);
       const uint64_t a_addr = hooks.Malloc(n * sizeof(float));
@@ -1162,7 +1162,7 @@ TEST(HipccParallelExecutionTest,
     RuntimeEngine runtime;
     runtime.SetFunctionalExecutionConfig(
         FunctionalExecutionConfig{.mode = functional_mode, .worker_threads = worker_threads});
-    HipRuntime hooks(&runtime);
+    ModelRuntime hooks(&runtime);
 
     std::vector<float> c(n, -1.0f);
     const uint64_t a_addr = hooks.Malloc(n * sizeof(float));
@@ -1258,7 +1258,7 @@ TEST(HipccParallelExecutionTest,
     RuntimeEngine runtime;
     runtime.SetFunctionalExecutionConfig(
         FunctionalExecutionConfig{.mode = functional_mode, .worker_threads = worker_threads});
-    HipRuntime hooks(&runtime);
+    ModelRuntime hooks(&runtime);
 
     float init = 0.0f;
     float output = 0.0f;
@@ -1358,7 +1358,7 @@ TEST(HipccParallelExecutionTest,
     RuntimeEngine runtime;
     runtime.SetFunctionalExecutionConfig(
         FunctionalExecutionConfig{.mode = functional_mode, .worker_threads = worker_threads});
-    HipRuntime hooks(&runtime);
+    ModelRuntime hooks(&runtime);
 
     std::vector<int32_t> output(n, -1);
     const uint64_t in_addr = hooks.Malloc(n * sizeof(int32_t));
@@ -1470,7 +1470,7 @@ TEST(HipccParallelExecutionTest,
     RuntimeEngine runtime;
     runtime.SetFunctionalExecutionConfig(
         FunctionalExecutionConfig{.mode = functional_mode, .worker_threads = worker_threads});
-    HipRuntime hooks(&runtime);
+    ModelRuntime hooks(&runtime);
 
     std::vector<int32_t> output(n, -1);
     const uint64_t in_addr = hooks.Malloc(n * sizeof(int32_t));
@@ -1605,7 +1605,7 @@ TEST(HipccParallelExecutionTest,
       RuntimeEngine runtime(trace ? static_cast<TraceSink*>(&*trace) : nullptr);
       runtime.SetFunctionalExecutionConfig(
           FunctionalExecutionConfig{.mode = functional_mode, .worker_threads = worker_threads});
-      HipRuntime hooks(&runtime);
+      ModelRuntime hooks(&runtime);
 
       std::vector<int32_t> output(test_case.n, -1);
       const uint64_t in_addr = hooks.Malloc(test_case.n * sizeof(int32_t));
@@ -1756,7 +1756,7 @@ TEST(HipccParallelExecutionTest,
       RuntimeEngine runtime(trace ? static_cast<TraceSink*>(&*trace) : nullptr);
       runtime.SetFunctionalExecutionConfig(
           FunctionalExecutionConfig{.mode = functional_mode, .worker_threads = worker_threads});
-      HipRuntime hooks(&runtime);
+      ModelRuntime hooks(&runtime);
 
       std::vector<int32_t> out(n, -1);
       const uint64_t out_addr = hooks.Malloc(n * sizeof(int32_t));
@@ -1894,7 +1894,7 @@ TEST(HipccParallelExecutionTest,
       RuntimeEngine runtime;
       runtime.SetFunctionalExecutionConfig(
           FunctionalExecutionConfig{.mode = functional_mode, .worker_threads = worker_threads});
-      HipRuntime hooks(&runtime);
+      ModelRuntime hooks(&runtime);
 
       std::vector<int32_t> out(n, -1);
       const uint64_t out_addr = hooks.Malloc(n * sizeof(int32_t));
@@ -2044,7 +2044,7 @@ TEST(HipccParallelExecutionTest,
     RuntimeEngine runtime;
     runtime.SetFunctionalExecutionConfig(
         FunctionalExecutionConfig{.mode = functional_mode, .worker_threads = worker_threads});
-    HipRuntime hooks(&runtime);
+    ModelRuntime hooks(&runtime);
 
     std::vector<int32_t> out(n, -1);
     const uint64_t out_addr = hooks.Malloc(n * sizeof(int32_t));
@@ -2301,7 +2301,7 @@ TEST(HipccParallelExecutionTest,
     RuntimeEngine runtime;
     runtime.SetFunctionalExecutionConfig(
         FunctionalExecutionConfig{.mode = functional_mode, .worker_threads = worker_threads});
-    HipRuntime hooks(&runtime);
+    ModelRuntime hooks(&runtime);
 
     std::vector<int32_t> out(n, -1);
     const uint64_t out_addr = hooks.Malloc(n * sizeof(int32_t));

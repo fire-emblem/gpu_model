@@ -16,6 +16,7 @@
 #include "gpu_model/program/executable_kernel.h"
 #include "gpu_model/program/program_object.h"
 #include "gpu_model/runtime/device_properties.h"
+#include "gpu_model/runtime/module_registry.h"
 #include "gpu_model/runtime/module_load.h"
 #include "gpu_model/runtime/runtime_submission_context.h"
 #include "gpu_model/runtime/runtime_engine.h"
@@ -101,16 +102,14 @@ class HipRuntime {
   const RuntimeEngine& runtime() const { return *runtime_engine_; }
 
  private:
-  using ModuleImage = std::variant<ProgramObject, EncodedProgramObject>;
   DeviceLoadResult MaterializeLoadPlan(const DeviceLoadPlan& plan);
-  void RegisterProgramImage(std::string module_name, ProgramObject image);
 
   RuntimeEngine owned_runtime_;
   RuntimeEngine* runtime_engine_ = &owned_runtime_;
   bool owns_runtime_ = true;
   int current_device_ = 0;
   std::unordered_map<uint64_t, size_t> allocations_;
-  std::unordered_map<std::string, std::unordered_map<std::string, ModuleImage>> modules_;
+  RuntimeModuleRegistry module_registry_;
   std::optional<DeviceLoadResult> last_load_result_;
 };
 

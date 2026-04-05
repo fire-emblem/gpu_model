@@ -1,4 +1,4 @@
-#include "gpu_model/util/logging.h"
+#include "gpu_model/logging/runtime_log_service.h"
 
 #include <algorithm>
 #include <array>
@@ -6,15 +6,14 @@
 #include <cctype>
 #include <cstdlib>
 #include <cstdarg>
+#include <cstdio>
 #include <filesystem>
 #include <mutex>
 #include <string>
 #include <string_view>
 #include <vector>
 
-#include <loguru.hpp>
-
-namespace gpu_model::logging {
+namespace gpu_model {
 namespace {
 
 struct LoggingState {
@@ -35,27 +34,15 @@ int ParseVerbosityFromEnv() {
   if (raw == nullptr || raw[0] == '\0') {
     return loguru::Verbosity_WARNING;
   }
-
   std::string level(raw);
   std::transform(level.begin(), level.end(), level.begin(), [](unsigned char ch) {
     return static_cast<char>(std::tolower(ch));
   });
-
-  if (level == "error") {
-    return loguru::Verbosity_ERROR;
-  }
-  if (level == "warning" || level == "warn") {
-    return loguru::Verbosity_WARNING;
-  }
-  if (level == "info") {
-    return loguru::Verbosity_INFO;
-  }
-  if (level == "debug") {
-    return 1;
-  }
-  if (level == "trace") {
-    return 2;
-  }
+  if (level == "error") return loguru::Verbosity_ERROR;
+  if (level == "warning" || level == "warn") return loguru::Verbosity_WARNING;
+  if (level == "info") return loguru::Verbosity_INFO;
+  if (level == "debug") return 1;
+  if (level == "trace") return 2;
   return loguru::Verbosity_WARNING;
 }
 
@@ -64,27 +51,15 @@ int ParseFileVerbosityFromEnv() {
   if (raw == nullptr || raw[0] == '\0') {
     return loguru::Verbosity_INFO;
   }
-
   std::string level(raw);
   std::transform(level.begin(), level.end(), level.begin(), [](unsigned char ch) {
     return static_cast<char>(std::tolower(ch));
   });
-
-  if (level == "error") {
-    return loguru::Verbosity_ERROR;
-  }
-  if (level == "warning" || level == "warn") {
-    return loguru::Verbosity_WARNING;
-  }
-  if (level == "info") {
-    return loguru::Verbosity_INFO;
-  }
-  if (level == "debug") {
-    return 1;
-  }
-  if (level == "trace") {
-    return 2;
-  }
+  if (level == "error") return loguru::Verbosity_ERROR;
+  if (level == "warning" || level == "warn") return loguru::Verbosity_WARNING;
+  if (level == "info") return loguru::Verbosity_INFO;
+  if (level == "debug") return 1;
+  if (level == "trace") return 2;
   return loguru::Verbosity_INFO;
 }
 
@@ -94,6 +69,17 @@ std::string ProgramName() {
     return raw;
   }
   return "gpu_model";
+}
+
+bool ShouldDisableLoguru() {
+  const char* raw = std::getenv("GPU_MODEL_DISABLE_LOGURU");
+  if (raw != nullptr && raw[0] != '\0' && std::string_view(raw) != "0") {
+    return true;
+  }
+  if (std::getenv("GPU_MODEL_HIP_INTERPOSER_DEBUG") != nullptr) {
+    return true;
+  }
+  return false;
 }
 
 std::string LogFilePath() {
@@ -118,10 +104,8 @@ void LoadModulesFromEnv() {
   while (start < modules.size()) {
     const size_t comma = modules.find(',', start);
     const std::string_view token =
-        comma == std::string::npos
-            ? std::string_view(modules).substr(start)
-            : std::string_view(modules).substr(start, comma - start);
-
+        comma == std::string::npos ? std::string_view(modules).substr(start)
+                                   : std::string_view(modules).substr(start, comma - start);
     size_t first = 0;
     while (first < token.size() && std::isspace(static_cast<unsigned char>(token[first]))) {
       ++first;
@@ -137,18 +121,25 @@ void LoadModulesFromEnv() {
       });
       enabled_modules.push_back(std::move(value));
     }
-    if (comma == std::string::npos) {
-      break;
-    }
+    if (comma == std::string::npos) break;
     start = comma + 1;
   }
 }
 
 }  // namespace
 
-void EnsureInitialized() {
+RuntimeLogService& GetRuntimeLogService() {
+  static RuntimeLogService service;
+  return service;
+}
+
+void RuntimeLogService::EnsureInitialized() {
   auto& state = State();
   std::call_once(state.init_once, [&state] {
+    if (ShouldDisableLoguru()) {
+      state.initialized.store(false, std::memory_order_release);
+      return;
+    }
     state.program_name = ProgramName();
     int argc = 1;
     char* argv[] = {state.program_name.data(), nullptr};
@@ -171,21 +162,19 @@ void EnsureInitialized() {
   });
 }
 
-bool IsInitialized() {
+bool RuntimeLogService::IsInitialized() const {
   return State().initialized.load(std::memory_order_acquire);
 }
 
-bool ShouldLog(std::string_view module, int verbosity) {
+bool RuntimeLogService::ShouldLog(std::string_view module, int verbosity) {
   EnsureInitialized();
   if (verbosity <= loguru::Verbosity_WARNING) {
     return true;
   }
-
   const auto& enabled_modules = State().enabled_modules;
   if (enabled_modules.empty()) {
-    return verbosity <= loguru::g_stderr_verbosity;
+    return IsInitialized() && verbosity <= loguru::g_stderr_verbosity;
   }
-
   std::string lowered(module);
   std::transform(lowered.begin(), lowered.end(), lowered.begin(), [](unsigned char ch) {
     return static_cast<char>(std::tolower(ch));
@@ -194,33 +183,55 @@ bool ShouldLog(std::string_view module, int verbosity) {
          enabled_modules.end();
 }
 
-void LogMessage(int verbosity, std::string_view module, const char* fmt, ...) {
+void RuntimeLogService::LogMessage(int verbosity, std::string_view module, const char* fmt, ...) {
   if (!ShouldLog(module, verbosity)) {
     return;
   }
-
   std::array<char, 4096> buffer{};
   va_list args;
   va_start(args, fmt);
   std::vsnprintf(buffer.data(), buffer.size(), fmt, args);
   va_end(args);
-
   loguru::log(verbosity, __FILE__, __LINE__, "[%.*s] %s",
               static_cast<int>(module.size()), module.data(), buffer.data());
 }
 
-void LogMessageForced(int verbosity, std::string_view module, const char* fmt, ...) {
+void RuntimeLogService::LogMessageForced(int verbosity, std::string_view module, const char* fmt, ...) {
   EnsureInitialized();
   std::array<char, 4096> buffer{};
   va_list args;
   va_start(args, fmt);
   std::vsnprintf(buffer.data(), buffer.size(), fmt, args);
   va_end(args);
-
   std::fprintf(stderr, "[%.*s] %s\n",
                static_cast<int>(module.size()), module.data(), buffer.data());
+  if (!IsInitialized()) {
+    return;
+  }
   loguru::log(verbosity, __FILE__, __LINE__, "[%.*s] %s",
               static_cast<int>(module.size()), module.data(), buffer.data());
 }
 
-}  // namespace gpu_model::logging
+namespace logging {
+
+void LogMessage(int verbosity, std::string_view module, const char* fmt, ...) {
+  std::array<char, 4096> buffer{};
+  va_list args;
+  va_start(args, fmt);
+  std::vsnprintf(buffer.data(), buffer.size(), fmt, args);
+  va_end(args);
+  GetRuntimeLogService().LogMessage(verbosity, module, "%s", buffer.data());
+}
+
+void LogMessageForced(int verbosity, std::string_view module, const char* fmt, ...) {
+  std::array<char, 4096> buffer{};
+  va_list args;
+  va_start(args, fmt);
+  std::vsnprintf(buffer.data(), buffer.size(), fmt, args);
+  va_end(args);
+  GetRuntimeLogService().LogMessageForced(verbosity, module, "%s", buffer.data());
+}
+
+}  // namespace logging
+
+}  // namespace gpu_model

@@ -608,7 +608,7 @@ TEST(HipInterposerStateTest, LaunchesHipVecAddExecutableThroughManagedAllocation
   void* a_dev = state.AllocateManaged(n * sizeof(float));
   void* b_dev = state.AllocateManaged(n * sizeof(float));
   void* c_dev = state.AllocateManaged(n * sizeof(float));
-  EXPECT_EQ(state.hooks().runtime().memory().pool_memory_size(MemoryPoolKind::Managed),
+  EXPECT_EQ(state.memory().pool_memory_size(MemoryPoolKind::Managed),
             3u * n * sizeof(float));
   state.MemcpyHostToDevice(a_dev, a.data(), n * sizeof(float));
   state.MemcpyHostToDevice(b_dev, b.data(), n * sizeof(float));

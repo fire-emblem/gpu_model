@@ -94,7 +94,12 @@ add_library(gpu_model STATIC
   src/runtime/runtime_engine.cpp
   src/runtime/hip_interposer_state.cpp
   src/runtime/hip_runtime.cpp
-  src/util/logging.cpp
+  src/runtime/core/module_registry.cpp
+  src/runtime/core/model_runtime.cpp
+  src/runtime/core/runtime_session.cpp
+  src/runtime/config/runtime_env_config.cpp
+  src/runtime/interposer/hip_api_interposer.cpp
+  src/runtime/logging/runtime_log_service.cpp
   src/debug/trace/instruction_trace.cpp
   src/debug/recorder/recorder.cpp
   src/debug/recorder/recorder_export.cpp

@@ -1,18 +1,6 @@
 #pragma once
 
-#include <string_view>
-
-#include <loguru.hpp>
-
-namespace gpu_model::logging {
-
-void EnsureInitialized();
-bool IsInitialized();
-bool ShouldLog(std::string_view module, int verbosity);
-void LogMessage(int verbosity, std::string_view module, const char* fmt, ...);
-void LogMessageForced(int verbosity, std::string_view module, const char* fmt, ...);
-
-}  // namespace gpu_model::logging
+#include "gpu_model/logging/runtime_log_service.h"
 
 #define GPU_MODEL_LOG_INFO(module, fmt, ...) \
   ::gpu_model::logging::LogMessage(loguru::Verbosity_INFO, module, fmt, ##__VA_ARGS__)

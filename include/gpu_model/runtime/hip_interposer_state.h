@@ -3,27 +3,16 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
-#include <memory>
 #include <optional>
 #include <string>
-#include <unordered_map>
-#include <vector>
 
 #include "gpu_model/debug/trace/sink.h"
-#include "gpu_model/runtime/model_runtime.h"
+#include "gpu_model/loader/device_segment_image.h"
+#include "gpu_model/memory/memory_system.h"
+#include "gpu_model/runtime/runtime_session.h"
 #include "gpu_model/runtime/runtime_submission_context.h"
 
 namespace gpu_model {
-
-enum class HipInterposerArgKind {
-  GlobalBuffer,
-  ByValue,
-};
-
-struct HipInterposerArgDesc {
-  HipInterposerArgKind kind = HipInterposerArgKind::ByValue;
-  uint32_t size = 0;
-};
 
 class HipInterposerState {
  public:
@@ -59,34 +48,10 @@ class HipInterposerState {
       const void* host_function) const;
   void PushLaunchConfiguration(LaunchConfig config, uint64_t shared_memory_bytes);
   std::optional<LaunchConfig> PopLaunchConfiguration();
-
-  HipRuntime& hooks() { return model_runtime_.hooks(); }
-  const HipRuntime& hooks() const { return model_runtime_.hooks(); }
-  ModelRuntime& model_runtime() { return model_runtime_; }
-  const ModelRuntime& model_runtime() const { return model_runtime_; }
+  MemorySystem& memory() { return GetRuntimeSession().memory(); }
+  const MemorySystem& memory() const { return GetRuntimeSession().memory(); }
 
   static std::filesystem::path CurrentExecutablePath();
-
- private:
-  struct Allocation {
-    uint64_t model_addr = 0;
-    size_t bytes = 0;
-    MemoryPoolKind pool = MemoryPoolKind::Global;
-    std::unique_ptr<std::byte[]> host_backing;
-  };
-
-  std::vector<HipInterposerArgDesc> ParseArgLayout(const MetadataBlob& metadata) const;
-  KernelArgPack PackArgs(const MetadataBlob& metadata, void** args) const;
-  EncodedProgramObject LoadExecutableImage(const std::filesystem::path& executable_path,
-                                           const void* host_function) const;
-  Allocation* FindAllocation(const void* ptr);
-  const Allocation* FindAllocation(const void* ptr) const;
-
-  ModelRuntime model_runtime_;
-  std::unordered_map<const void*, std::string> kernel_symbols_;
-  std::unordered_map<uintptr_t, Allocation> allocations_;
-  uint64_t next_fake_device_ptr_ = 0x100000000ULL;
-  std::optional<LaunchConfig> pending_launch_config_;
 };
 
 }  // namespace gpu_model

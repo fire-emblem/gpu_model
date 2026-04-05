@@ -18,6 +18,7 @@
 #include "gpu_model/program/object_reader.h"
 #include "gpu_model/program/program_object.h"
 #include "gpu_model/runtime/hip_runtime.h"
+#include "gpu_model/runtime/model_runtime.h"
 
 namespace gpu_model {
 namespace {
@@ -171,7 +172,7 @@ size_t FirstPostIndexWaveProgressEvent(const std::vector<TraceEvent>& events,
   return std::numeric_limits<size_t>::max();
 }
 
-TEST(HipRuntimeTest, SimulatesMallocMemcpyLaunchAndSynchronizeFlow) {
+TEST(ModelRuntimeCoreTest, SimulatesMallocMemcpyLaunchAndSynchronizeFlow) {
   constexpr uint32_t n = 64;
   ProgramObject image(
       "vecadd_runtime_image",
@@ -201,14 +202,14 @@ TEST(HipRuntimeTest, SimulatesMallocMemcpyLaunchAndSynchronizeFlow) {
     b[i] = static_cast<int32_t>(100 + i);
   }
 
-  HipRuntime hooks;
-  const uint64_t a_addr = hooks.Malloc(n * sizeof(int32_t));
-  const uint64_t b_addr = hooks.Malloc(n * sizeof(int32_t));
-  const uint64_t c_addr = hooks.Malloc(n * sizeof(int32_t));
+  ModelRuntime runtime_api;
+  const uint64_t a_addr = runtime_api.Malloc(n * sizeof(int32_t));
+  const uint64_t b_addr = runtime_api.Malloc(n * sizeof(int32_t));
+  const uint64_t c_addr = runtime_api.Malloc(n * sizeof(int32_t));
 
-  hooks.MemcpyHtoD<int32_t>(a_addr, std::span<const int32_t>(a));
-  hooks.MemcpyHtoD<int32_t>(b_addr, std::span<const int32_t>(b));
-  hooks.MemcpyHtoD<int32_t>(c_addr, std::span<const int32_t>(c));
+  runtime_api.MemcpyHtoD<int32_t>(a_addr, std::span<const int32_t>(a));
+  runtime_api.MemcpyHtoD<int32_t>(b_addr, std::span<const int32_t>(b));
+  runtime_api.MemcpyHtoD<int32_t>(c_addr, std::span<const int32_t>(c));
 
   KernelArgPack args;
   args.PushU64(a_addr);
@@ -217,31 +218,31 @@ TEST(HipRuntimeTest, SimulatesMallocMemcpyLaunchAndSynchronizeFlow) {
   args.PushU32(n);
 
   const auto result =
-      hooks.LaunchProgramObject(image, LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64}, args);
+      runtime_api.LaunchProgramObject(image, LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64}, args);
   ASSERT_TRUE(result.ok) << result.error_message;
-  hooks.DeviceSynchronize();
+  runtime_api.DeviceSynchronize();
 
-  hooks.MemcpyDtoH<int32_t>(c_addr, std::span<int32_t>(c));
+  runtime_api.MemcpyDtoH<int32_t>(c_addr, std::span<int32_t>(c));
   for (uint32_t i = 0; i < n; ++i) {
     EXPECT_EQ(c[i], a[i] + b[i]);
   }
 }
 
-TEST(HipRuntimeTest, MallocManagedUsesManagedPool) {
-  HipRuntime hooks;
-  const uint64_t addr = hooks.MallocManaged(64);
-  EXPECT_EQ(hooks.runtime().memory().pool_memory_size(MemoryPoolKind::Managed), 64u);
+TEST(ModelRuntimeCoreTest, MallocManagedUsesManagedPool) {
+  ModelRuntime runtime_api;
+  const uint64_t addr = runtime_api.MallocManaged(64);
+  EXPECT_EQ(runtime_api.memory().pool_memory_size(MemoryPoolKind::Managed), 64u);
   EXPECT_NE(addr & 0xF000000000000000ull, 0ull);
 }
 
-TEST(HipRuntimeTest, ExposesModelDevicePropertiesAndAttributes) {
-  HipRuntime hooks;
-  EXPECT_EQ(hooks.GetDeviceCount(), 1);
-  EXPECT_EQ(hooks.GetDevice(), 0);
-  EXPECT_TRUE(hooks.SetDevice(0));
-  EXPECT_FALSE(hooks.SetDevice(1));
+TEST(ModelRuntimeCoreTest, ExposesModelDevicePropertiesAndAttributes) {
+  ModelRuntime runtime_api;
+  EXPECT_EQ(runtime_api.GetDeviceCount(), 1);
+  EXPECT_EQ(runtime_api.GetDevice(), 0);
+  EXPECT_TRUE(runtime_api.SetDevice(0));
+  EXPECT_FALSE(runtime_api.SetDevice(1));
 
-  const auto props = hooks.GetDeviceProperties(0);
+  const auto props = runtime_api.GetDeviceProperties(0);
   EXPECT_EQ(props.name, "c500");
   EXPECT_EQ(props.warp_size, 64);
   EXPECT_EQ(props.max_threads_per_block, 1024);
@@ -274,7 +275,7 @@ TEST(HipRuntimeTest, ExposesModelDevicePropertiesAndAttributes) {
   EXPECT_EQ(props.compute_capability_minor, 0);
 
   const auto assert_attr = [&](RuntimeDeviceAttribute attr, int expected) {
-    const auto value = hooks.GetDeviceAttribute(attr);
+    const auto value = runtime_api.GetDeviceAttribute(attr);
     ASSERT_TRUE(value.has_value());
     EXPECT_EQ(*value, expected);
   };
@@ -310,12 +311,12 @@ TEST(HipRuntimeTest, ExposesModelDevicePropertiesAndAttributes) {
   assert_attr(RuntimeDeviceAttribute::ComputeCapabilityMajor, 9);
   assert_attr(RuntimeDeviceAttribute::ComputeCapabilityMinor, 0);
 
-  EXPECT_THROW((void)hooks.GetDeviceProperties(1), std::out_of_range);
-  EXPECT_THROW((void)hooks.GetDeviceAttribute(RuntimeDeviceAttribute::WarpSize, 1),
+  EXPECT_THROW((void)runtime_api.GetDeviceProperties(1), std::out_of_range);
+  EXPECT_THROW((void)runtime_api.GetDeviceAttribute(RuntimeDeviceAttribute::WarpSize, 1),
                std::out_of_range);
 }
 
-TEST(HipRuntimeTest, RegistersProgramObjectsAndLaunchesByModuleAndKernelName) {
+TEST(ModelRuntimeCoreTest, RegistersProgramObjectsAndLaunchesByModuleAndKernelName) {
   constexpr uint32_t n = 32;
   const auto temp_dir = MakeUniqueTempDir("gpu_model_register_program_objects");
   const auto image_path = temp_dir / "const_from_registry.gpusec";
@@ -349,26 +350,26 @@ TEST(HipRuntimeTest, RegistersProgramObjectsAndLaunchesByModuleAndKernelName) {
                                 std::move(const_segment));
   ExecutableImageIO::Write(image_path, image_with_const);
 
-  HipRuntime hooks;
-  hooks.LoadModule(ModuleLoadRequest{
+  ModelRuntime runtime_api;
+  runtime_api.LoadModule(ModuleLoadRequest{
       .module_name = "demo_module",
       .path = image_path,
       .format = ModuleLoadFormat::ExecutableImage,
   });
 
-  const uint64_t out_addr = hooks.Malloc(n * sizeof(int32_t));
+  const uint64_t out_addr = runtime_api.Malloc(n * sizeof(int32_t));
   std::vector<int32_t> out(n, -1);
-  hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(out));
+  runtime_api.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(out));
 
   KernelArgPack args;
   args.PushU64(out_addr);
   args.PushU32(n);
 
-  const auto result = hooks.LaunchRegisteredKernel(
+  const auto result = runtime_api.LaunchRegisteredKernel(
       "demo_module", "const_from_registry", LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64}, args);
   ASSERT_TRUE(result.ok) << result.error_message;
 
-  hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(out));
+  runtime_api.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(out));
   for (uint32_t i = 0; i < n; ++i) {
     EXPECT_EQ(out[i], table[i]);
   }
@@ -376,7 +377,7 @@ TEST(HipRuntimeTest, RegistersProgramObjectsAndLaunchesByModuleAndKernelName) {
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipRuntimeTest, BuildsLoadPlanForProgramObject) {
+TEST(ModelRuntimeCoreTest, BuildsLoadPlanForProgramObject) {
   ConstSegment const_segment;
   const_segment.bytes = {std::byte{0x11}, std::byte{0x22}, std::byte{0x33}, std::byte{0x44}};
   ProgramObject image("plan_kernel", "s_endpgm\n",
@@ -384,7 +385,6 @@ TEST(HipRuntimeTest, BuildsLoadPlanForProgramObject) {
                                              {"arg_layout", "global_buffer:8,by_value:4"}}},
                      std::move(const_segment));
 
-  HipRuntime hooks;
   const auto plan = BuildDeviceLoadPlan(image);
   ASSERT_EQ(plan.segments.size(), 3u);
   EXPECT_EQ(plan.segments[0].pool, MemoryPoolKind::Code);
@@ -394,7 +394,7 @@ TEST(HipRuntimeTest, BuildsLoadPlanForProgramObject) {
   EXPECT_EQ(plan.preferred_kernarg_bytes, 128u);
 }
 
-TEST(HipRuntimeTest, MaterializesProgramObjectLoadPlanIntoDeviceMemory) {
+TEST(ModelRuntimeCoreTest, MaterializesProgramObjectLoadPlanIntoDeviceMemory) {
   ConstSegment const_segment;
   const_segment.bytes = {std::byte{0x11}, std::byte{0x22}, std::byte{0x33}, std::byte{0x44}};
   ProgramObject image("plan_kernel", "s_endpgm\n",
@@ -402,24 +402,24 @@ TEST(HipRuntimeTest, MaterializesProgramObjectLoadPlanIntoDeviceMemory) {
                                              {"arg_layout", "global_buffer:8,by_value:4"}}},
                      std::move(const_segment));
 
-  HipRuntime hooks;
+  ModelRuntime runtime_api;
   const auto result = DeviceImageLoader{}.Materialize(BuildDeviceLoadPlan(image),
-                                                      hooks.runtime().memory());
+                                                      runtime_api.memory());
   ASSERT_EQ(result.segments.size(), 3u);
   EXPECT_EQ(result.required_shared_bytes, 128u);
   EXPECT_EQ(result.preferred_kernarg_bytes, 128u);
   EXPECT_EQ(result.segments[0].allocation.pool, MemoryPoolKind::Code);
   EXPECT_EQ(result.segments[1].allocation.pool, MemoryPoolKind::Constant);
   EXPECT_EQ(result.segments[2].allocation.pool, MemoryPoolKind::Kernarg);
-  EXPECT_EQ(hooks.runtime().memory().LoadValue<uint8_t>(
+  EXPECT_EQ(runtime_api.memory().LoadValue<uint8_t>(
                 MemoryPoolKind::Constant, result.segments[1].allocation.range.base + 0),
             0x11u);
-  EXPECT_EQ(hooks.runtime().memory().LoadValue<uint8_t>(
+  EXPECT_EQ(runtime_api.memory().LoadValue<uint8_t>(
                 MemoryPoolKind::Constant, result.segments[1].allocation.range.base + 3),
             0x44u);
-  EXPECT_GT(hooks.runtime().memory().pool_memory_size(MemoryPoolKind::Code), 0u);
-  EXPECT_GT(hooks.runtime().memory().pool_memory_size(MemoryPoolKind::Constant), 0u);
-  EXPECT_EQ(hooks.runtime().memory().pool_memory_size(MemoryPoolKind::Kernarg), 128u);
+  EXPECT_GT(runtime_api.memory().pool_memory_size(MemoryPoolKind::Code), 0u);
+  EXPECT_GT(runtime_api.memory().pool_memory_size(MemoryPoolKind::Constant), 0u);
+  EXPECT_EQ(runtime_api.memory().pool_memory_size(MemoryPoolKind::Kernarg), 128u);
 }
 
 TEST(HipRuntimeTest, LaunchProgramObjectPopulatesLastLoadResult) {
@@ -451,7 +451,7 @@ TEST(HipRuntimeTest, LaunchProgramObjectPopulatesLastLoadResult) {
             DeviceSegmentKind::KernargTemplate);
 }
 
-TEST(HipRuntimeTest, LaunchProgramObjectUsesLatestConstantPoolResidency) {
+TEST(ModelRuntimeCoreTest, LaunchProgramObjectUsesLatestConstantPoolResidency) {
   auto make_image = [](const std::string& kernel_name, std::vector<int32_t> table) {
     ConstSegment const_segment;
     const_segment.bytes.resize(table.size() * sizeof(int32_t));
@@ -476,28 +476,28 @@ TEST(HipRuntimeTest, LaunchProgramObjectUsesLatestConstantPoolResidency) {
         MetadataBlob{.values = {{"arch", "c500"}}}, std::move(const_segment));
   };
 
-  HipRuntime hooks;
+  ModelRuntime runtime_api;
   auto first = make_image("const_kernel_a", {1, 2, 3, 4});
   auto second = make_image("const_kernel_b", {9, 8, 7, 6});
 
-  const uint64_t out_addr = hooks.Malloc(4 * sizeof(int32_t));
+  const uint64_t out_addr = runtime_api.Malloc(4 * sizeof(int32_t));
   std::vector<int32_t> out(4, 0);
 
   KernelArgPack args_a;
   args_a.PushU64(out_addr);
   args_a.PushU32(4);
-  const auto result_a = hooks.LaunchProgramObject(
+  const auto result_a = runtime_api.LaunchProgramObject(
       first, LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64}, std::move(args_a));
   ASSERT_TRUE(result_a.ok) << result_a.error_message;
 
   KernelArgPack args_b;
   args_b.PushU64(out_addr);
   args_b.PushU32(4);
-  const auto result_b = hooks.LaunchProgramObject(
+  const auto result_b = runtime_api.LaunchProgramObject(
       second, LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64}, std::move(args_b));
   ASSERT_TRUE(result_b.ok) << result_b.error_message;
 
-  hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(out));
+  runtime_api.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(out));
   EXPECT_EQ(out[0], 9);
   EXPECT_EQ(out[1], 8);
   EXPECT_EQ(out[2], 7);
@@ -588,7 +588,7 @@ TEST(HipRuntimeTest, LaunchKernelCanReadAndWriteManagedPool) {
   EXPECT_EQ(output, input);
 }
 
-TEST(HipRuntimeTest, LoadsSectionedExecutableImageAndLaunchesRegisteredKernel) {
+TEST(ModelRuntimeCoreTest, LoadsSectionedExecutableImageAndLaunchesRegisteredKernel) {
   const std::filesystem::path path =
       std::filesystem::temp_directory_path() / "gpu_model_runtime_sectioned.gpusec";
   ProgramObject image(
@@ -612,28 +612,28 @@ TEST(HipRuntimeTest, LoadsSectionedExecutableImageAndLaunchesRegisteredKernel) {
 
   ExecutableImageIO::Write(path, image);
 
-  HipRuntime hooks;
-  hooks.LoadModule(ModuleLoadRequest{
+  ModelRuntime runtime_api;
+  runtime_api.LoadModule(ModuleLoadRequest{
       .module_name = "file_module",
       .path = path,
       .format = ModuleLoadFormat::ExecutableImage,
   });
 
   constexpr uint32_t n = 20;
-  const uint64_t out_addr = hooks.Malloc(n * sizeof(int32_t));
+  const uint64_t out_addr = runtime_api.Malloc(n * sizeof(int32_t));
   std::vector<int32_t> out(n, -1);
-  hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(out));
+  runtime_api.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(out));
 
   KernelArgPack args;
   args.PushU64(out_addr);
   args.PushU32(n);
 
-  const auto result = hooks.LaunchRegisteredKernel(
+  const auto result = runtime_api.LaunchRegisteredKernel(
       "file_module", "sectioned_registry_kernel",
       LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64}, args);
   ASSERT_TRUE(result.ok) << result.error_message;
 
-  hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(out));
+  runtime_api.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(out));
   for (uint32_t i = 0; i < n; ++i) {
     EXPECT_EQ(out[i], 9);
   }
@@ -743,8 +743,8 @@ TEST(HipRuntimeTest, LoadsBundleAndLooseFilesByModuleAndCanUnload) {
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipRuntimeTest, SupportsDeviceToDeviceCopyAndMemsetOperations) {
-  HipRuntime hooks;
+TEST(ModelRuntimeCoreTest, SupportsDeviceToDeviceCopyAndMemsetOperations) {
+  ModelRuntime runtime_api;
 
   constexpr uint32_t count = 8;
   std::vector<uint32_t> src(count);
@@ -754,24 +754,24 @@ TEST(HipRuntimeTest, SupportsDeviceToDeviceCopyAndMemsetOperations) {
   std::vector<uint32_t> dst(count, 0);
   std::vector<uint32_t> fill(count, 0);
 
-  const uint64_t src_addr = hooks.Malloc(count * sizeof(uint32_t));
-  const uint64_t dst_addr = hooks.Malloc(count * sizeof(uint32_t));
-  const uint64_t fill_addr = hooks.Malloc(count * sizeof(uint32_t));
+  const uint64_t src_addr = runtime_api.Malloc(count * sizeof(uint32_t));
+  const uint64_t dst_addr = runtime_api.Malloc(count * sizeof(uint32_t));
+  const uint64_t fill_addr = runtime_api.Malloc(count * sizeof(uint32_t));
 
-  hooks.MemcpyHtoD<uint32_t>(src_addr, std::span<const uint32_t>(src));
-  hooks.MemsetD8(dst_addr, 0, count * sizeof(uint32_t));
-  hooks.MemcpyDeviceToDevice(dst_addr, src_addr, count * sizeof(uint32_t));
-  hooks.MemcpyDtoH<uint32_t>(dst_addr, std::span<uint32_t>(dst));
+  runtime_api.MemcpyHtoD<uint32_t>(src_addr, std::span<const uint32_t>(src));
+  runtime_api.MemsetD8(dst_addr, 0, count * sizeof(uint32_t));
+  runtime_api.MemcpyDeviceToDevice(dst_addr, src_addr, count * sizeof(uint32_t));
+  runtime_api.MemcpyDtoH<uint32_t>(dst_addr, std::span<uint32_t>(dst));
   EXPECT_EQ(dst, src);
 
-  hooks.MemsetD32(fill_addr, 0xdeadbeefu, count);
-  hooks.MemcpyDtoH<uint32_t>(fill_addr, std::span<uint32_t>(fill));
+  runtime_api.MemsetD32(fill_addr, 0xdeadbeefu, count);
+  runtime_api.MemcpyDtoH<uint32_t>(fill_addr, std::span<uint32_t>(fill));
   for (uint32_t value : fill) {
     EXPECT_EQ(value, 0xdeadbeefu);
   }
 }
 
-TEST(HipRuntimeTest, LaunchesAmdgpuObjectFileThroughObjectReaderPath) {
+TEST(ModelRuntimeCoreTest, LaunchesAmdgpuObjectFileThroughObjectReaderPath) {
   if (std::system("command -v llc >/dev/null 2>&1") != 0 ||
       std::system("command -v llvm-objdump >/dev/null 2>&1") != 0 ||
       std::system("command -v readelf >/dev/null 2>&1") != 0) {
@@ -796,8 +796,8 @@ TEST(HipRuntimeTest, LaunchesAmdgpuObjectFileThroughObjectReaderPath) {
       "llc -march=amdgcn -mcpu=gfx900 -filetype=obj " + ir_path.string() + " -o " + obj_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  HipRuntime hooks;
-  const auto result = hooks.LaunchEncodedProgramObject(
+  ModelRuntime runtime_api;
+  const auto result = runtime_api.LaunchEncodedProgramObject(
       ObjectReader{}.LoadEncodedObject(obj_path),
       LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
       {});
@@ -806,7 +806,7 @@ TEST(HipRuntimeTest, LaunchesAmdgpuObjectFileThroughObjectReaderPath) {
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipRuntimeTest, LaunchesHipExecutableWithEmbeddedFatbin) {
+TEST(ModelRuntimeCoreTest, LaunchesHipExecutableWithEmbeddedFatbin) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
@@ -829,8 +829,8 @@ TEST(HipRuntimeTest, LaunchesHipExecutableWithEmbeddedFatbin) {
       "hipcc " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  HipRuntime hooks;
-  const auto result = hooks.LaunchEncodedProgramObject(
+  ModelRuntime runtime_api;
+  const auto result = runtime_api.LaunchEncodedProgramObject(
       ObjectReader{}.LoadEncodedObject(exe_path, "empty_kernel"),
       LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
       {},
@@ -842,7 +842,7 @@ TEST(HipRuntimeTest, LaunchesHipExecutableWithEmbeddedFatbin) {
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipRuntimeTest, BuildsLoadPlanFromHipSharedReverseExecutable) {
+TEST(ModelRuntimeCoreTest, BuildsLoadPlanFromHipSharedReverseExecutable) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
@@ -870,7 +870,6 @@ TEST(HipRuntimeTest, BuildsLoadPlanFromHipSharedReverseExecutable) {
       "hipcc " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  HipRuntime hooks;
   const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "shared_reverse");
   const auto plan = BuildDeviceLoadPlan(image);
   ASSERT_EQ(plan.segments.size(), 2u);
@@ -883,7 +882,7 @@ TEST(HipRuntimeTest, BuildsLoadPlanFromHipSharedReverseExecutable) {
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipRuntimeTest, MaterializesHipSharedReverseCodeIntoDeviceMemory) {
+TEST(ModelRuntimeCoreTest, MaterializesHipSharedReverseCodeIntoDeviceMemory) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
@@ -911,23 +910,23 @@ TEST(HipRuntimeTest, MaterializesHipSharedReverseCodeIntoDeviceMemory) {
       "hipcc " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  HipRuntime hooks;
+  ModelRuntime runtime_api;
   const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "shared_reverse");
   const auto result = DeviceImageLoader{}.Materialize(BuildDeviceLoadPlan(image),
-                                                      hooks.runtime().memory());
+                                                      runtime_api.memory());
   ASSERT_EQ(result.segments.size(), 2u);
   EXPECT_EQ(result.required_shared_bytes, 256u);
   EXPECT_EQ(result.preferred_kernarg_bytes, 280u);
   EXPECT_EQ(result.segments[0].allocation.pool, MemoryPoolKind::Code);
   EXPECT_EQ(result.segments[1].allocation.pool, MemoryPoolKind::Kernarg);
   EXPECT_GT(result.segments[0].allocation.range.size, 0u);
-  EXPECT_GT(hooks.runtime().memory().pool_memory_size(MemoryPoolKind::Code), 0u);
-  EXPECT_EQ(hooks.runtime().memory().pool_memory_size(MemoryPoolKind::Kernarg), 280u);
+  EXPECT_GT(runtime_api.memory().pool_memory_size(MemoryPoolKind::Code), 0u);
+  EXPECT_EQ(runtime_api.memory().pool_memory_size(MemoryPoolKind::Kernarg), 280u);
 
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipRuntimeTest, LaunchesRegisteredEncodedObjectModule) {
+TEST(ModelRuntimeCoreTest, LaunchesRegisteredEncodedObjectModule) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
@@ -970,19 +969,19 @@ TEST(HipRuntimeTest, LaunchesRegisteredEncodedObjectModule) {
     b[i] = 1.0f + 0.25f * static_cast<float>(i % 7);
   }
 
-  HipRuntime hooks;
-  hooks.LoadModule(ModuleLoadRequest{
+  ModelRuntime runtime_api;
+  runtime_api.LoadModule(ModuleLoadRequest{
       .module_name = "raw_mod",
       .path = exe_path,
       .format = ModuleLoadFormat::AmdgpuObject,
       .kernel_name = "vecadd_3d_adds_registered",
   });
-  const uint64_t a_addr = hooks.Malloc(total * sizeof(float));
-  const uint64_t b_addr = hooks.Malloc(total * sizeof(float));
-  const uint64_t c_addr = hooks.Malloc(total * sizeof(float));
-  hooks.MemcpyHtoD<float>(a_addr, std::span<const float>(a));
-  hooks.MemcpyHtoD<float>(b_addr, std::span<const float>(b));
-  hooks.MemcpyHtoD<float>(c_addr, std::span<const float>(c));
+  const uint64_t a_addr = runtime_api.Malloc(total * sizeof(float));
+  const uint64_t b_addr = runtime_api.Malloc(total * sizeof(float));
+  const uint64_t c_addr = runtime_api.Malloc(total * sizeof(float));
+  runtime_api.MemcpyHtoD<float>(a_addr, std::span<const float>(a));
+  runtime_api.MemcpyHtoD<float>(b_addr, std::span<const float>(b));
+  runtime_api.MemcpyHtoD<float>(c_addr, std::span<const float>(c));
 
   KernelArgPack args;
   args.PushU64(a_addr);
@@ -992,7 +991,7 @@ TEST(HipRuntimeTest, LaunchesRegisteredEncodedObjectModule) {
   args.PushU32(height);
   args.PushU32(depth);
 
-  const auto result = hooks.LaunchRegisteredKernel(
+  const auto result = runtime_api.LaunchRegisteredKernel(
       "raw_mod",
       "vecadd_3d_adds_registered",
       LaunchConfig{
@@ -1008,7 +1007,7 @@ TEST(HipRuntimeTest, LaunchesRegisteredEncodedObjectModule) {
       "c500");
   ASSERT_TRUE(result.ok) << result.error_message;
 
-  hooks.MemcpyDtoH<float>(c_addr, std::span<float>(c));
+  runtime_api.MemcpyDtoH<float>(c_addr, std::span<float>(c));
   for (uint32_t i = 0; i < total; ++i) {
     EXPECT_FLOAT_EQ(c[i], a[i] + b[i] + 0.125f + 0.25f + 0.5f);
   }
@@ -1634,7 +1633,7 @@ TEST(HipRuntimeTest, EncodedCycleBarrierWaitingWaveYieldsActiveSlotUntilRelease)
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipRuntimeTest, LaunchesHipVecAddExecutableAndValidatesOutput) {
+TEST(ModelRuntimeCoreTest, LaunchesHipVecAddExecutableAndValidatesOutput) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
@@ -1667,13 +1666,13 @@ TEST(HipRuntimeTest, LaunchesHipVecAddExecutableAndValidatesOutput) {
     b[i] = static_cast<float>(100 + i) * 0.25f;
   }
 
-  HipRuntime hooks;
-  const uint64_t a_addr = hooks.Malloc(n * sizeof(float));
-  const uint64_t b_addr = hooks.Malloc(n * sizeof(float));
-  const uint64_t c_addr = hooks.Malloc(n * sizeof(float));
-  hooks.MemcpyHtoD<float>(a_addr, std::span<const float>(a));
-  hooks.MemcpyHtoD<float>(b_addr, std::span<const float>(b));
-  hooks.MemcpyHtoD<float>(c_addr, std::span<const float>(c));
+  ModelRuntime runtime_api;
+  const uint64_t a_addr = runtime_api.Malloc(n * sizeof(float));
+  const uint64_t b_addr = runtime_api.Malloc(n * sizeof(float));
+  const uint64_t c_addr = runtime_api.Malloc(n * sizeof(float));
+  runtime_api.MemcpyHtoD<float>(a_addr, std::span<const float>(a));
+  runtime_api.MemcpyHtoD<float>(b_addr, std::span<const float>(b));
+  runtime_api.MemcpyHtoD<float>(c_addr, std::span<const float>(c));
 
   KernelArgPack args;
   args.PushU64(a_addr);
@@ -1681,7 +1680,7 @@ TEST(HipRuntimeTest, LaunchesHipVecAddExecutableAndValidatesOutput) {
   args.PushU64(c_addr);
   args.PushU32(n);
 
-  const auto result = hooks.LaunchEncodedProgramObject(
+  const auto result = runtime_api.LaunchEncodedProgramObject(
       ObjectReader{}.LoadEncodedObject(exe_path, "vecadd"),
       LaunchConfig{.grid_dim_x = 3, .block_dim_x = 128},
       std::move(args),
@@ -1690,7 +1689,7 @@ TEST(HipRuntimeTest, LaunchesHipVecAddExecutableAndValidatesOutput) {
       nullptr);
   ASSERT_TRUE(result.ok) << result.error_message;
 
-  hooks.MemcpyDtoH<float>(c_addr, std::span<float>(c));
+  runtime_api.MemcpyDtoH<float>(c_addr, std::span<float>(c));
   for (uint32_t i = 0; i < n; ++i) {
     EXPECT_FLOAT_EQ(c[i], a[i] + b[i]);
   }
@@ -1698,7 +1697,7 @@ TEST(HipRuntimeTest, LaunchesHipVecAddExecutableAndValidatesOutput) {
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipRuntimeTest, LaunchesHipFmaLoopExecutableAndValidatesOutput) {
+TEST(ModelRuntimeCoreTest, LaunchesHipFmaLoopExecutableAndValidatesOutput) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
@@ -1744,13 +1743,13 @@ TEST(HipRuntimeTest, LaunchesHipFmaLoopExecutableAndValidatesOutput) {
     expect[i] = acc;
   }
 
-  HipRuntime hooks;
-  const uint64_t a_addr = hooks.Malloc(n * sizeof(float));
-  const uint64_t b_addr = hooks.Malloc(n * sizeof(float));
-  const uint64_t c_addr = hooks.Malloc(n * sizeof(float));
-  hooks.MemcpyHtoD<float>(a_addr, std::span<const float>(a));
-  hooks.MemcpyHtoD<float>(b_addr, std::span<const float>(b));
-  hooks.MemcpyHtoD<float>(c_addr, std::span<const float>(c));
+  ModelRuntime runtime_api;
+  const uint64_t a_addr = runtime_api.Malloc(n * sizeof(float));
+  const uint64_t b_addr = runtime_api.Malloc(n * sizeof(float));
+  const uint64_t c_addr = runtime_api.Malloc(n * sizeof(float));
+  runtime_api.MemcpyHtoD<float>(a_addr, std::span<const float>(a));
+  runtime_api.MemcpyHtoD<float>(b_addr, std::span<const float>(b));
+  runtime_api.MemcpyHtoD<float>(c_addr, std::span<const float>(c));
 
   KernelArgPack args;
   args.PushU64(a_addr);
@@ -1759,7 +1758,7 @@ TEST(HipRuntimeTest, LaunchesHipFmaLoopExecutableAndValidatesOutput) {
   args.PushU32(n);
   args.PushU32(iters);
 
-  const auto result = hooks.LaunchEncodedProgramObject(
+  const auto result = runtime_api.LaunchEncodedProgramObject(
       ObjectReader{}.LoadEncodedObject(exe_path, "fma_loop"),
       LaunchConfig{.grid_dim_x = 3, .block_dim_x = 128},
       std::move(args),
@@ -1768,7 +1767,7 @@ TEST(HipRuntimeTest, LaunchesHipFmaLoopExecutableAndValidatesOutput) {
       nullptr);
   ASSERT_TRUE(result.ok) << result.error_message;
 
-  hooks.MemcpyDtoH<float>(c_addr, std::span<float>(c));
+  runtime_api.MemcpyDtoH<float>(c_addr, std::span<float>(c));
   for (uint32_t i = 0; i < n; ++i) {
     EXPECT_FLOAT_EQ(c[i], expect[i]);
   }
@@ -1776,7 +1775,7 @@ TEST(HipRuntimeTest, LaunchesHipFmaLoopExecutableAndValidatesOutput) {
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipRuntimeTest, LaunchesHipBiasChainExecutableAndValidatesOutput) {
+TEST(ModelRuntimeCoreTest, LaunchesHipBiasChainExecutableAndValidatesOutput) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
@@ -1815,13 +1814,13 @@ TEST(HipRuntimeTest, LaunchesHipBiasChainExecutableAndValidatesOutput) {
     expect[i] = a[i] + b[i] + b0 + b1 + b2;
   }
 
-  HipRuntime hooks;
-  const uint64_t a_addr = hooks.Malloc(n * sizeof(float));
-  const uint64_t b_addr = hooks.Malloc(n * sizeof(float));
-  const uint64_t c_addr = hooks.Malloc(n * sizeof(float));
-  hooks.MemcpyHtoD<float>(a_addr, std::span<const float>(a));
-  hooks.MemcpyHtoD<float>(b_addr, std::span<const float>(b));
-  hooks.MemcpyHtoD<float>(c_addr, std::span<const float>(c));
+  ModelRuntime runtime_api;
+  const uint64_t a_addr = runtime_api.Malloc(n * sizeof(float));
+  const uint64_t b_addr = runtime_api.Malloc(n * sizeof(float));
+  const uint64_t c_addr = runtime_api.Malloc(n * sizeof(float));
+  runtime_api.MemcpyHtoD<float>(a_addr, std::span<const float>(a));
+  runtime_api.MemcpyHtoD<float>(b_addr, std::span<const float>(b));
+  runtime_api.MemcpyHtoD<float>(c_addr, std::span<const float>(c));
 
   KernelArgPack args;
   args.PushU64(a_addr);
@@ -1832,7 +1831,7 @@ TEST(HipRuntimeTest, LaunchesHipBiasChainExecutableAndValidatesOutput) {
   args.PushF32(b1);
   args.PushF32(b2);
 
-  const auto result = hooks.LaunchEncodedProgramObject(
+  const auto result = runtime_api.LaunchEncodedProgramObject(
       ObjectReader{}.LoadEncodedObject(exe_path, "bias_chain"),
       LaunchConfig{.grid_dim_x = 3, .block_dim_x = 64},
       std::move(args),
@@ -1841,7 +1840,7 @@ TEST(HipRuntimeTest, LaunchesHipBiasChainExecutableAndValidatesOutput) {
       nullptr);
   ASSERT_TRUE(result.ok) << result.error_message;
 
-  hooks.MemcpyDtoH<float>(c_addr, std::span<float>(c));
+  runtime_api.MemcpyDtoH<float>(c_addr, std::span<float>(c));
   for (uint32_t i = 0; i < n; ++i) {
     EXPECT_FLOAT_EQ(c[i], expect[i]);
   }
@@ -1849,7 +1848,7 @@ TEST(HipRuntimeTest, LaunchesHipBiasChainExecutableAndValidatesOutput) {
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipRuntimeTest, LaunchesHipVecAddExecutableAtLargeScaleAndValidatesOutput) {
+TEST(ModelRuntimeCoreTest, LaunchesHipVecAddExecutableAtLargeScaleAndValidatesOutput) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
@@ -1882,13 +1881,13 @@ TEST(HipRuntimeTest, LaunchesHipVecAddExecutableAtLargeScaleAndValidatesOutput) 
     b[i] = static_cast<float>(100 + i) * 0.25f;
   }
 
-  HipRuntime hooks;
-  const uint64_t a_addr = hooks.Malloc(n * sizeof(float));
-  const uint64_t b_addr = hooks.Malloc(n * sizeof(float));
-  const uint64_t c_addr = hooks.Malloc(n * sizeof(float));
-  hooks.MemcpyHtoD<float>(a_addr, std::span<const float>(a));
-  hooks.MemcpyHtoD<float>(b_addr, std::span<const float>(b));
-  hooks.MemcpyHtoD<float>(c_addr, std::span<const float>(c));
+  ModelRuntime runtime_api;
+  const uint64_t a_addr = runtime_api.Malloc(n * sizeof(float));
+  const uint64_t b_addr = runtime_api.Malloc(n * sizeof(float));
+  const uint64_t c_addr = runtime_api.Malloc(n * sizeof(float));
+  runtime_api.MemcpyHtoD<float>(a_addr, std::span<const float>(a));
+  runtime_api.MemcpyHtoD<float>(b_addr, std::span<const float>(b));
+  runtime_api.MemcpyHtoD<float>(c_addr, std::span<const float>(c));
 
   KernelArgPack args;
   args.PushU64(a_addr);
@@ -1896,7 +1895,7 @@ TEST(HipRuntimeTest, LaunchesHipVecAddExecutableAtLargeScaleAndValidatesOutput) 
   args.PushU64(c_addr);
   args.PushU32(n);
 
-  const auto result = hooks.LaunchEncodedProgramObject(
+  const auto result = runtime_api.LaunchEncodedProgramObject(
       ObjectReader{}.LoadEncodedObject(exe_path, "vecadd"),
       LaunchConfig{.grid_dim_x = 30, .block_dim_x = 1024},
       std::move(args),
@@ -1905,7 +1904,7 @@ TEST(HipRuntimeTest, LaunchesHipVecAddExecutableAtLargeScaleAndValidatesOutput) 
       nullptr);
   ASSERT_TRUE(result.ok) << result.error_message;
 
-  hooks.MemcpyDtoH<float>(c_addr, std::span<float>(c));
+  runtime_api.MemcpyDtoH<float>(c_addr, std::span<float>(c));
   for (uint32_t i = 0; i < n; ++i) {
     EXPECT_FLOAT_EQ(c[i], a[i] + b[i]);
   }
@@ -1913,7 +1912,7 @@ TEST(HipRuntimeTest, LaunchesHipVecAddExecutableAtLargeScaleAndValidatesOutput) 
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipRuntimeTest, LaunchesHipVecAddExecutableAcrossLaunchShapes) {
+TEST(ModelRuntimeCoreTest, LaunchesHipVecAddExecutableAcrossLaunchShapes) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
@@ -1964,13 +1963,13 @@ TEST(HipRuntimeTest, LaunchesHipVecAddExecutableAcrossLaunchShapes) {
       b[i] = static_cast<float>(100 + i) * 0.25f;
     }
 
-    HipRuntime hooks;
-    const uint64_t a_addr = hooks.Malloc(test_case.n * sizeof(float));
-    const uint64_t b_addr = hooks.Malloc(test_case.n * sizeof(float));
-    const uint64_t c_addr = hooks.Malloc(test_case.n * sizeof(float));
-    hooks.MemcpyHtoD<float>(a_addr, std::span<const float>(a));
-    hooks.MemcpyHtoD<float>(b_addr, std::span<const float>(b));
-    hooks.MemcpyHtoD<float>(c_addr, std::span<const float>(c));
+    ModelRuntime runtime_api;
+    const uint64_t a_addr = runtime_api.Malloc(test_case.n * sizeof(float));
+    const uint64_t b_addr = runtime_api.Malloc(test_case.n * sizeof(float));
+    const uint64_t c_addr = runtime_api.Malloc(test_case.n * sizeof(float));
+    runtime_api.MemcpyHtoD<float>(a_addr, std::span<const float>(a));
+    runtime_api.MemcpyHtoD<float>(b_addr, std::span<const float>(b));
+    runtime_api.MemcpyHtoD<float>(c_addr, std::span<const float>(c));
 
     KernelArgPack args;
     args.PushU64(a_addr);
@@ -1978,7 +1977,7 @@ TEST(HipRuntimeTest, LaunchesHipVecAddExecutableAcrossLaunchShapes) {
     args.PushU64(c_addr);
     args.PushU32(test_case.n);
 
-    const auto result = hooks.LaunchEncodedProgramObject(
+    const auto result = runtime_api.LaunchEncodedProgramObject(
         ObjectReader{}.LoadEncodedObject(exe_path, "vecadd"),
         LaunchConfig{.grid_dim_x = test_case.grid_dim_x, .block_dim_x = test_case.block_dim_x},
         std::move(args),
@@ -1987,7 +1986,7 @@ TEST(HipRuntimeTest, LaunchesHipVecAddExecutableAcrossLaunchShapes) {
         nullptr);
     ASSERT_TRUE(result.ok) << result.error_message;
 
-    hooks.MemcpyDtoH<float>(c_addr, std::span<float>(c));
+    runtime_api.MemcpyDtoH<float>(c_addr, std::span<float>(c));
     for (uint32_t i = 0; i < test_case.n; ++i) {
       EXPECT_FLOAT_EQ(c[i], a[i] + b[i]);
     }
@@ -1996,7 +1995,7 @@ TEST(HipRuntimeTest, LaunchesHipVecAddExecutableAcrossLaunchShapes) {
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipRuntimeTest, LaunchesHipTwoDimensionalExecutableInRawGcnPath) {
+TEST(ModelRuntimeCoreTest, LaunchesHipTwoDimensionalExecutable) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
@@ -2027,17 +2026,17 @@ TEST(HipRuntimeTest, LaunchesHipTwoDimensionalExecutableInRawGcnPath) {
 
   constexpr uint32_t width = 16;
   constexpr uint32_t height = 8;
-  HipRuntime hooks;
-  const uint64_t out_addr = hooks.Malloc(width * height * sizeof(float));
+  ModelRuntime runtime_api;
+  const uint64_t out_addr = runtime_api.Malloc(width * height * sizeof(float));
   std::vector<float> out(width * height, -1.0f);
-  hooks.MemcpyHtoD<float>(out_addr, std::span<const float>(out));
+  runtime_api.MemcpyHtoD<float>(out_addr, std::span<const float>(out));
 
   KernelArgPack args;
   args.PushU64(out_addr);
   args.PushU32(width);
   args.PushU32(height);
 
-  const auto result = hooks.LaunchEncodedProgramObject(
+  const auto result = runtime_api.LaunchEncodedProgramObject(
       ObjectReader{}.LoadEncodedObject(exe_path, "two_dimensional"),
       LaunchConfig{.grid_dim_x = 2, .grid_dim_y = 2, .block_dim_x = 8, .block_dim_y = 4},
       std::move(args),
@@ -2046,7 +2045,7 @@ TEST(HipRuntimeTest, LaunchesHipTwoDimensionalExecutableInRawGcnPath) {
       nullptr);
   ASSERT_TRUE(result.ok) << result.error_message;
 
-  hooks.MemcpyDtoH<float>(out_addr, std::span<float>(out));
+  runtime_api.MemcpyDtoH<float>(out_addr, std::span<float>(out));
   for (uint32_t y = 0; y < height; ++y) {
     for (uint32_t x = 0; x < width; ++x) {
       EXPECT_FLOAT_EQ(out[y * width + x], static_cast<float>(x + y));
@@ -2056,7 +2055,7 @@ TEST(HipRuntimeTest, LaunchesHipTwoDimensionalExecutableInRawGcnPath) {
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipRuntimeTest, LaunchesHipThreeDimensionalHiddenArgsExecutableInRawGcnPath) {
+TEST(ModelRuntimeCoreTest, LaunchesHipThreeDimensionalHiddenArgsExecutable) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
@@ -2079,7 +2078,7 @@ TEST(HipRuntimeTest, LaunchesHipThreeDimensionalHiddenArgsExecutableInRawGcnPath
       "hipcc " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  HipRuntime hooks;
+  ModelRuntime runtime_api;
   const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "three_dimensional_hidden_args");
   ASSERT_TRUE(image.metadata.values.contains("hidden_arg_layout"));
   EXPECT_NE(image.metadata.values.at("hidden_arg_layout").find("hidden_block_count_z"),
@@ -2087,14 +2086,14 @@ TEST(HipRuntimeTest, LaunchesHipThreeDimensionalHiddenArgsExecutableInRawGcnPath
   EXPECT_NE(image.metadata.values.at("hidden_arg_layout").find("hidden_group_size_z"),
             std::string::npos);
 
-  const uint64_t out_addr = hooks.Malloc(sizeof(int32_t));
+  const uint64_t out_addr = runtime_api.Malloc(sizeof(int32_t));
   int32_t zero = 0;
-  hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(&zero, 1));
+  runtime_api.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(&zero, 1));
 
   KernelArgPack args;
   args.PushU64(out_addr);
 
-  const auto result = hooks.LaunchEncodedProgramObject(
+  const auto result = runtime_api.LaunchEncodedProgramObject(
       image,
       LaunchConfig{
           .grid_dim_x = 1,
@@ -2111,13 +2110,13 @@ TEST(HipRuntimeTest, LaunchesHipThreeDimensionalHiddenArgsExecutableInRawGcnPath
   ASSERT_TRUE(result.ok) << result.error_message;
 
   int32_t output = 0;
-  hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(&output, 1));
+  runtime_api.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(&output, 1));
   EXPECT_EQ(output, 4 + 32);
 
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipRuntimeTest, LaunchesHipThreeDimensionalBuiltinIdsExecutableInRawGcnPath) {
+TEST(ModelRuntimeCoreTest, LaunchesHipThreeDimensionalBuiltinIdsExecutable) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
@@ -2141,21 +2140,21 @@ TEST(HipRuntimeTest, LaunchesHipThreeDimensionalBuiltinIdsExecutableInRawGcnPath
       "hipcc " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  HipRuntime hooks;
+  ModelRuntime runtime_api;
   const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "three_dimensional_builtin_ids");
   EXPECT_TRUE(image.kernel_descriptor.enable_sgpr_workgroup_id_z);
   EXPECT_GE(image.kernel_descriptor.enable_vgpr_workitem_id, 2u);
 
   constexpr uint32_t depth = 64;
   CollectingTraceSink trace;
-  const uint64_t out_addr = hooks.Malloc(depth * sizeof(int32_t));
+  const uint64_t out_addr = runtime_api.Malloc(depth * sizeof(int32_t));
   std::vector<int32_t> out(depth, -1);
-  hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(out));
+  runtime_api.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(out));
 
   KernelArgPack args;
   args.PushU64(out_addr);
 
-  const auto result = hooks.LaunchEncodedProgramObject(
+  const auto result = runtime_api.LaunchEncodedProgramObject(
       image,
       LaunchConfig{
           .grid_dim_x = 1,
@@ -2171,7 +2170,7 @@ TEST(HipRuntimeTest, LaunchesHipThreeDimensionalBuiltinIdsExecutableInRawGcnPath
       &trace);
   ASSERT_TRUE(result.ok) << result.error_message;
 
-  hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(out));
+  runtime_api.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(out));
   for (uint32_t i = 0; i < depth; ++i) {
     EXPECT_EQ(out[i], static_cast<int32_t>(i));
   }
@@ -2192,7 +2191,7 @@ TEST(HipRuntimeTest, LaunchesHipThreeDimensionalBuiltinIdsExecutableInRawGcnPath
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipRuntimeTest, LaunchesHipMixedArgsAggregateExecutableInRawGcnPath) {
+TEST(ModelRuntimeCoreTest, LaunchesHipMixedArgsAggregateExecutable) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
@@ -2224,17 +2223,17 @@ TEST(HipRuntimeTest, LaunchesHipMixedArgsAggregateExecutableInRawGcnPath) {
       "hipcc " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  HipRuntime hooks;
+  ModelRuntime runtime_api;
   const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "mixed_args_aggregate");
   ASSERT_TRUE(image.metadata.values.contains("arg_layout"));
   EXPECT_NE(image.metadata.values.at("arg_layout").find("by_value"), std::string::npos);
 
-  const uint64_t in_addr = hooks.Malloc(sizeof(int32_t));
-  const uint64_t out_addr = hooks.Malloc(sizeof(int32_t));
+  const uint64_t in_addr = runtime_api.Malloc(sizeof(int32_t));
+  const uint64_t out_addr = runtime_api.Malloc(sizeof(int32_t));
   int32_t input = 7;
   int32_t output = 0;
-  hooks.MemcpyHtoD<int32_t>(in_addr, std::span<const int32_t>(&input, 1));
-  hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(&output, 1));
+  runtime_api.MemcpyHtoD<int32_t>(in_addr, std::span<const int32_t>(&input, 1));
+  runtime_api.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(&output, 1));
 
   struct MixedPayloadHost {
     int32_t a;
@@ -2249,7 +2248,7 @@ TEST(HipRuntimeTest, LaunchesHipMixedArgsAggregateExecutableInRawGcnPath) {
   args.PushI32(5);
   args.PushBytes(&payload, sizeof(payload));
 
-  const auto result = hooks.LaunchEncodedProgramObject(
+  const auto result = runtime_api.LaunchEncodedProgramObject(
       image,
       LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
       std::move(args),
@@ -2258,13 +2257,13 @@ TEST(HipRuntimeTest, LaunchesHipMixedArgsAggregateExecutableInRawGcnPath) {
       nullptr);
   ASSERT_TRUE(result.ok) << result.error_message;
 
-  hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(&output, 1));
+  runtime_api.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(&output, 1));
   EXPECT_EQ(output, 7 + 5 + 11 + 13 + 17 + 19);
 
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipRuntimeTest, LaunchesHipDynamicSharedExecutableInRawGcnPath) {
+TEST(ModelRuntimeCoreTest, LaunchesHipDynamicSharedExecutable) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
@@ -2295,21 +2294,21 @@ TEST(HipRuntimeTest, LaunchesHipDynamicSharedExecutableInRawGcnPath) {
       "hipcc " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  HipRuntime hooks;
+  ModelRuntime runtime_api;
   const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "dynamic_shared_sum");
   ASSERT_TRUE(image.metadata.values.contains("hidden_arg_layout"));
   EXPECT_NE(image.metadata.values.at("hidden_arg_layout").find("hidden_dynamic_lds_size"),
             std::string::npos);
 
-  const uint64_t out_addr = hooks.Malloc(sizeof(int32_t));
+  const uint64_t out_addr = runtime_api.Malloc(sizeof(int32_t));
   int32_t zero = 0;
-  hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(&zero, 1));
+  runtime_api.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(&zero, 1));
 
   constexpr uint32_t block_dim = 64;
   KernelArgPack args;
   args.PushU64(out_addr);
 
-  const auto result = hooks.LaunchEncodedProgramObject(
+  const auto result = runtime_api.LaunchEncodedProgramObject(
       image,
       LaunchConfig{
           .grid_dim_x = 1,
@@ -2323,13 +2322,13 @@ TEST(HipRuntimeTest, LaunchesHipDynamicSharedExecutableInRawGcnPath) {
   ASSERT_TRUE(result.ok) << result.error_message;
 
   int32_t output = 0;
-  hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(&output, 1));
+  runtime_api.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(&output, 1));
   EXPECT_EQ(output, static_cast<int32_t>(block_dim * (block_dim + 1) / 2));
 
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipRuntimeTest, LaunchesHipAtomicCountExecutableInRawGcnPath) {
+TEST(ModelRuntimeCoreTest, LaunchesHipAtomicCountExecutable) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
@@ -2368,16 +2367,16 @@ TEST(HipRuntimeTest, LaunchesHipAtomicCountExecutableInRawGcnPath) {
 
   for (const auto& test_case : cases) {
     SCOPED_TRACE(test_case.name);
-    HipRuntime hooks;
-    const uint64_t out_addr = hooks.Malloc(sizeof(int32_t));
+    ModelRuntime runtime_api;
+    const uint64_t out_addr = runtime_api.Malloc(sizeof(int32_t));
     int32_t zero = 0;
-    hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(&zero, 1));
+    runtime_api.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(&zero, 1));
 
     KernelArgPack args;
     args.PushU64(out_addr);
     args.PushU32(test_case.n);
 
-    const auto result = hooks.LaunchEncodedProgramObject(
+    const auto result = runtime_api.LaunchEncodedProgramObject(
         ObjectReader{}.LoadEncodedObject(exe_path, "atomic_count"),
         LaunchConfig{.grid_dim_x = test_case.grid_dim_x, .block_dim_x = test_case.block_dim_x},
         std::move(args),
@@ -2387,14 +2386,14 @@ TEST(HipRuntimeTest, LaunchesHipAtomicCountExecutableInRawGcnPath) {
     ASSERT_TRUE(result.ok) << result.error_message;
 
     int32_t value = -1;
-    hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(&value, 1));
+    runtime_api.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(&value, 1));
     EXPECT_EQ(value, static_cast<int32_t>(test_case.n));
   }
 
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipRuntimeTest, LaunchesLlvmMcAggregateByValueObjectInRawGcnPath) {
+TEST(ModelRuntimeCoreTest, LaunchesLlvmMcAggregateByValueObject) {
   if (!HasLlvmMcAmdgpuToolchain()) {
     GTEST_SKIP() << "required llvm-mc/LLVM/binutils tools not available";
   }
@@ -2403,14 +2402,14 @@ TEST(HipRuntimeTest, LaunchesLlvmMcAggregateByValueObjectInRawGcnPath) {
       "gpu_model_kernarg_aggregate_by_value",
       std::filesystem::path("tests/asm_cases/loader/kernarg_aggregate_by_value.s"));
 
-  HipRuntime hooks;
+  ModelRuntime runtime_api;
   const auto image = ObjectReader{}.LoadEncodedObject(obj_path, "asm_kernarg_aggregate_by_value");
   EXPECT_EQ(image.metadata.values.at("arg_layout"), "global_buffer:8,by_value:16:12");
   EXPECT_EQ(image.metadata.values.at("kernarg_segment_size"), "28");
 
-  const uint64_t out_addr = hooks.Malloc(sizeof(int32_t));
+  const uint64_t out_addr = runtime_api.Malloc(sizeof(int32_t));
   int32_t zero = 0;
-  hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(&zero, 1));
+  runtime_api.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(&zero, 1));
 
   struct AggregateArg {
     int32_t x;
@@ -2422,7 +2421,7 @@ TEST(HipRuntimeTest, LaunchesLlvmMcAggregateByValueObjectInRawGcnPath) {
   args.PushU64(out_addr);
   args.PushBytes(&aggregate, sizeof(aggregate));
 
-  const auto result = hooks.LaunchEncodedProgramObject(
+  const auto result = runtime_api.LaunchEncodedProgramObject(
       image,
       LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
       std::move(args),
@@ -2432,13 +2431,13 @@ TEST(HipRuntimeTest, LaunchesLlvmMcAggregateByValueObjectInRawGcnPath) {
   ASSERT_TRUE(result.ok) << result.error_message;
 
   int32_t output = 0;
-  hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(&output, 1));
+  runtime_api.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(&output, 1));
   EXPECT_EQ(output, aggregate.x + aggregate.y + aggregate.z);
 
   std::filesystem::remove_all(obj_path.parent_path());
 }
 
-TEST(HipRuntimeTest, LaunchesLlvmMcThreeDimensionalHiddenArgsObjectInRawGcnPath) {
+TEST(ModelRuntimeCoreTest, LaunchesLlvmMcThreeDimensionalHiddenArgsObject) {
   if (!HasLlvmMcAmdgpuToolchain()) {
     GTEST_SKIP() << "required llvm-mc/LLVM/binutils tools not available";
   }
@@ -2447,15 +2446,15 @@ TEST(HipRuntimeTest, LaunchesLlvmMcThreeDimensionalHiddenArgsObjectInRawGcnPath)
       "gpu_model_hidden_args_3d",
       std::filesystem::path("tests/asm_cases/loader/hidden_args_3d.s"));
 
-  HipRuntime hooks;
+  ModelRuntime runtime_api;
   const auto image = ObjectReader{}.LoadEncodedObject(obj_path, "asm_hidden_args_3d");
   EXPECT_EQ(image.metadata.values.at("arg_layout"), "global_buffer:8");
   EXPECT_EQ(image.metadata.values.at("hidden_arg_layout"),
             "hidden_block_count_z:8:4,hidden_group_size_z:12:4,hidden_grid_dims:16:4");
 
-  const uint64_t out_addr = hooks.Malloc(sizeof(int32_t));
+  const uint64_t out_addr = runtime_api.Malloc(sizeof(int32_t));
   int32_t zero = 0;
-  hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(&zero, 1));
+  runtime_api.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(&zero, 1));
 
   KernelArgPack args;
   args.PushU64(out_addr);
@@ -2468,7 +2467,7 @@ TEST(HipRuntimeTest, LaunchesLlvmMcThreeDimensionalHiddenArgsObjectInRawGcnPath)
       .block_dim_y = 1,
       .block_dim_z = 32,
   };
-  const auto result = hooks.LaunchEncodedProgramObject(
+  const auto result = runtime_api.LaunchEncodedProgramObject(
       image,
       config,
       std::move(args),
@@ -2478,13 +2477,13 @@ TEST(HipRuntimeTest, LaunchesLlvmMcThreeDimensionalHiddenArgsObjectInRawGcnPath)
   ASSERT_TRUE(result.ok) << result.error_message;
 
   int32_t output = 0;
-  hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(&output, 1));
+  runtime_api.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(&output, 1));
   EXPECT_EQ(output, 4 + 32 + 3);
 
   std::filesystem::remove_all(obj_path.parent_path());
 }
 
-TEST(HipRuntimeTest, LaunchesLlvmMcFallbackAbiObjectInRawGcnPath) {
+TEST(ModelRuntimeCoreTest, LaunchesLlvmMcFallbackAbiObject) {
   if (!HasLlvmMcAmdgpuToolchain()) {
     GTEST_SKIP() << "required llvm-mc/LLVM/binutils tools not available";
   }
@@ -2493,16 +2492,16 @@ TEST(HipRuntimeTest, LaunchesLlvmMcFallbackAbiObjectInRawGcnPath) {
       "gpu_model_fallback_abi_kernarg",
       std::filesystem::path("tests/asm_cases/loader/fallback_abi_kernarg.s"));
 
-  HipRuntime hooks;
+  ModelRuntime runtime_api;
   CollectingTraceSink trace;
-  const uint64_t out_addr = hooks.Malloc(sizeof(int32_t));
+  const uint64_t out_addr = runtime_api.Malloc(sizeof(int32_t));
   int32_t zero = 0;
-  hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(&zero, 1));
+  runtime_api.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(&zero, 1));
 
   KernelArgPack args;
   args.PushU64(out_addr);
 
-  const auto result = hooks.LaunchEncodedProgramObject(
+  const auto result = runtime_api.LaunchEncodedProgramObject(
       ObjectReader{}.LoadEncodedObject(obj_path, "asm_fallback_abi_kernarg"),
       LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
       std::move(args),
@@ -2512,7 +2511,7 @@ TEST(HipRuntimeTest, LaunchesLlvmMcFallbackAbiObjectInRawGcnPath) {
   ASSERT_TRUE(result.ok) << result.error_message;
 
   int32_t output = 0;
-  hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(&output, 1));
+  runtime_api.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(&output, 1));
   EXPECT_EQ(output, 99);
 
   bool saw_wave_launch = false;
@@ -2531,7 +2530,7 @@ TEST(HipRuntimeTest, LaunchesLlvmMcFallbackAbiObjectInRawGcnPath) {
   std::filesystem::remove_all(obj_path.parent_path());
 }
 
-TEST(HipRuntimeTest, LaunchesHipSoftmaxExecutableInRawGcnPath) {
+TEST(ModelRuntimeCoreTest, LaunchesHipSoftmaxExecutable) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
@@ -2574,20 +2573,20 @@ TEST(HipRuntimeTest, LaunchesHipSoftmaxExecutableInRawGcnPath) {
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   constexpr uint32_t n = 64;
-  HipRuntime hooks;
-  const uint64_t in_addr = hooks.Malloc(n * sizeof(float));
-  const uint64_t out_addr = hooks.Malloc(n * sizeof(float));
+  ModelRuntime runtime_api;
+  const uint64_t in_addr = runtime_api.Malloc(n * sizeof(float));
+  const uint64_t out_addr = runtime_api.Malloc(n * sizeof(float));
   std::vector<float> input(n, 1.0f);
   std::vector<float> output(n, 0.0f);
-  hooks.MemcpyHtoD<float>(in_addr, std::span<const float>(input));
-  hooks.MemcpyHtoD<float>(out_addr, std::span<const float>(output));
+  runtime_api.MemcpyHtoD<float>(in_addr, std::span<const float>(input));
+  runtime_api.MemcpyHtoD<float>(out_addr, std::span<const float>(output));
 
   KernelArgPack args;
   args.PushU64(in_addr);
   args.PushU64(out_addr);
   args.PushU32(n);
 
-  const auto result = hooks.LaunchEncodedProgramObject(
+  const auto result = runtime_api.LaunchEncodedProgramObject(
       ObjectReader{}.LoadEncodedObject(exe_path, "softmax_row"),
       LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
       std::move(args),
@@ -2596,7 +2595,7 @@ TEST(HipRuntimeTest, LaunchesHipSoftmaxExecutableInRawGcnPath) {
       nullptr);
   ASSERT_TRUE(result.ok) << result.error_message;
 
-  hooks.MemcpyDtoH<float>(out_addr, std::span<float>(output));
+  runtime_api.MemcpyDtoH<float>(out_addr, std::span<float>(output));
   constexpr float expected = 1.0f / 64.0f;
   for (uint32_t i = 0; i < n; ++i) {
     EXPECT_NEAR(output[i], expected, 1.0e-4f);
@@ -2605,7 +2604,7 @@ TEST(HipRuntimeTest, LaunchesHipSoftmaxExecutableInRawGcnPath) {
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipRuntimeTest, LaunchesHipBlockReduceExecutableInRawGcnPath) {
+TEST(ModelRuntimeCoreTest, LaunchesHipBlockReduceExecutable) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
@@ -2645,20 +2644,20 @@ TEST(HipRuntimeTest, LaunchesHipBlockReduceExecutableInRawGcnPath) {
   constexpr uint32_t n = 1024;
   constexpr uint32_t grid_dim = 4;
   constexpr uint32_t block_dim = 256;
-  HipRuntime hooks;
-  const uint64_t in_addr = hooks.Malloc(n * sizeof(float));
-  const uint64_t out_addr = hooks.Malloc(grid_dim * sizeof(float));
+  ModelRuntime runtime_api;
+  const uint64_t in_addr = runtime_api.Malloc(n * sizeof(float));
+  const uint64_t out_addr = runtime_api.Malloc(grid_dim * sizeof(float));
   std::vector<float> input(n, 1.0f);
   std::vector<float> output(grid_dim, 0.0f);
-  hooks.MemcpyHtoD<float>(in_addr, std::span<const float>(input));
-  hooks.MemcpyHtoD<float>(out_addr, std::span<const float>(output));
+  runtime_api.MemcpyHtoD<float>(in_addr, std::span<const float>(input));
+  runtime_api.MemcpyHtoD<float>(out_addr, std::span<const float>(output));
 
   KernelArgPack args;
   args.PushU64(in_addr);
   args.PushU64(out_addr);
   args.PushU32(n);
 
-  const auto result = hooks.LaunchEncodedProgramObject(
+  const auto result = runtime_api.LaunchEncodedProgramObject(
       ObjectReader{}.LoadEncodedObject(exe_path, "block_reduce_sum"),
       LaunchConfig{.grid_dim_x = grid_dim, .block_dim_x = block_dim},
       std::move(args),
@@ -2667,7 +2666,7 @@ TEST(HipRuntimeTest, LaunchesHipBlockReduceExecutableInRawGcnPath) {
       nullptr);
   ASSERT_TRUE(result.ok) << result.error_message;
 
-  hooks.MemcpyDtoH<float>(out_addr, std::span<float>(output));
+  runtime_api.MemcpyDtoH<float>(out_addr, std::span<float>(output));
   for (uint32_t i = 0; i < grid_dim; ++i) {
     EXPECT_NEAR(output[i], 256.0f, 1.0e-4f);
   }
@@ -2675,7 +2674,7 @@ TEST(HipRuntimeTest, LaunchesHipBlockReduceExecutableInRawGcnPath) {
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipRuntimeTest, LaunchesHipMfmaExecutableInRawGcnPath) {
+TEST(ModelRuntimeCoreTest, LaunchesHipMfmaExecutable) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
@@ -2707,17 +2706,17 @@ TEST(HipRuntimeTest, LaunchesHipMfmaExecutableInRawGcnPath) {
     GTEST_SKIP() << "gfx90a mfma compilation not available";
   }
 
-  HipRuntime hooks;
+  ModelRuntime runtime_api;
   CollectingTraceSink trace;
-  const uint64_t out_addr = hooks.Malloc(sizeof(float));
+  const uint64_t out_addr = runtime_api.Malloc(sizeof(float));
   float init = 0.0f;
   float output = 0.0f;
-  hooks.MemcpyHtoD<float>(out_addr, std::span<const float>(&init, 1));
+  runtime_api.MemcpyHtoD<float>(out_addr, std::span<const float>(&init, 1));
 
   KernelArgPack args;
   args.PushU64(out_addr);
 
-  const auto result = hooks.LaunchEncodedProgramObject(
+  const auto result = runtime_api.LaunchEncodedProgramObject(
       ObjectReader{}.LoadEncodedObject(exe_path, "mfma_probe"),
       LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
       std::move(args),
@@ -2725,7 +2724,7 @@ TEST(HipRuntimeTest, LaunchesHipMfmaExecutableInRawGcnPath) {
       "c500",
       &trace);
   ASSERT_TRUE(result.ok) << result.error_message;
-  hooks.MemcpyDtoH<float>(out_addr, std::span<float>(&output, 1));
+  runtime_api.MemcpyDtoH<float>(out_addr, std::span<float>(&output, 1));
   EXPECT_NEAR(output, 4.0f, 1.0e-5f);
 
   bool saw_tensor_launch = false;
@@ -2759,7 +2758,7 @@ TEST(HipRuntimeTest, LaunchesHipMfmaExecutableInRawGcnPath) {
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipRuntimeTest, DescribesHipMfmaExecutableWithTypedTensorAbi) {
+TEST(ModelRuntimeCoreTest, DescribesHipMfmaExecutableWithTypedTensorAbi) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
@@ -2791,7 +2790,6 @@ TEST(HipRuntimeTest, DescribesHipMfmaExecutableWithTypedTensorAbi) {
     GTEST_SKIP() << "gfx90a mfma compilation not available";
   }
 
-  HipRuntime hooks;
   const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "mfma_describe_probe");
   EXPECT_EQ(image.kernel_name, "mfma_describe_probe");
   EXPECT_GE(image.kernel_descriptor.accum_offset, 4u);
@@ -2801,7 +2799,7 @@ TEST(HipRuntimeTest, DescribesHipMfmaExecutableWithTypedTensorAbi) {
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipRuntimeTest, LaunchesHipSharedReverseExecutableAndValidatesOutput) {
+TEST(ModelRuntimeCoreTest, LaunchesHipSharedReverseExecutableAndValidatesOutput) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
@@ -2841,18 +2839,18 @@ TEST(HipRuntimeTest, LaunchesHipSharedReverseExecutableAndValidatesOutput) {
     }
   }
 
-  HipRuntime hooks;
-  const uint64_t in_addr = hooks.Malloc(n * sizeof(int32_t));
-  const uint64_t out_addr = hooks.Malloc(n * sizeof(int32_t));
-  hooks.MemcpyHtoD<int32_t>(in_addr, std::span<const int32_t>(in));
-  hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(out));
+  ModelRuntime runtime_api;
+  const uint64_t in_addr = runtime_api.Malloc(n * sizeof(int32_t));
+  const uint64_t out_addr = runtime_api.Malloc(n * sizeof(int32_t));
+  runtime_api.MemcpyHtoD<int32_t>(in_addr, std::span<const int32_t>(in));
+  runtime_api.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(out));
 
   KernelArgPack args;
   args.PushU64(in_addr);
   args.PushU64(out_addr);
   args.PushU32(n);
 
-  const auto result = hooks.LaunchEncodedProgramObject(
+  const auto result = runtime_api.LaunchEncodedProgramObject(
       ObjectReader{}.LoadEncodedObject(exe_path, "shared_reverse"),
       LaunchConfig{.grid_dim_x = 2, .block_dim_x = 64},
       std::move(args),
@@ -2861,7 +2859,7 @@ TEST(HipRuntimeTest, LaunchesHipSharedReverseExecutableAndValidatesOutput) {
       nullptr);
   ASSERT_TRUE(result.ok) << result.error_message;
 
-  hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(out));
+  runtime_api.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(out));
   for (uint32_t i = 0; i < n; ++i) {
     EXPECT_EQ(out[i], expect[i]);
   }
@@ -2869,7 +2867,7 @@ TEST(HipRuntimeTest, LaunchesHipSharedReverseExecutableAndValidatesOutput) {
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipRuntimeTest, ListsModulesAndKernels) {
+TEST(ModelRuntimeCoreTest, ListsModulesAndKernels) {
   const auto temp_dir = MakeUniqueTempDir("gpu_model_list_modules");
   const auto mod_b_path = temp_dir / "mod_b_k2.gpusec";
   const auto mod_a_k1_path = temp_dir / "mod_a_k1.gpusec";
@@ -2888,33 +2886,33 @@ TEST(HipRuntimeTest, ListsModulesAndKernels) {
       ProgramObject("k0", "s_endpgm\n",
                     MetadataBlob{.values = {{"module_name", "mod_a"}, {"module_kernels", "k0,k1"}}}));
 
-  HipRuntime hooks;
-  hooks.LoadModule(ModuleLoadRequest{
+  ModelRuntime runtime_api;
+  runtime_api.LoadModule(ModuleLoadRequest{
       .module_name = "mod_b",
       .path = mod_b_path,
       .format = ModuleLoadFormat::ExecutableImage,
   });
-  hooks.LoadModule(ModuleLoadRequest{
+  runtime_api.LoadModule(ModuleLoadRequest{
       .module_name = "mod_a",
       .path = mod_a_k1_path,
       .format = ModuleLoadFormat::ExecutableImage,
   });
-  hooks.LoadModule(ModuleLoadRequest{
+  runtime_api.LoadModule(ModuleLoadRequest{
       .module_name = "mod_a",
       .path = mod_a_k0_path,
       .format = ModuleLoadFormat::ExecutableImage,
   });
 
-  EXPECT_TRUE(hooks.HasModule("mod_a"));
-  EXPECT_TRUE(hooks.HasKernel("mod_a", "k1"));
-  EXPECT_FALSE(hooks.HasKernel("mod_a", "missing"));
+  EXPECT_TRUE(runtime_api.HasModule("mod_a"));
+  EXPECT_TRUE(runtime_api.HasKernel("mod_a", "k1"));
+  EXPECT_FALSE(runtime_api.HasKernel("mod_a", "missing"));
 
-  const auto modules = hooks.ListModules();
+  const auto modules = runtime_api.ListModules();
   ASSERT_EQ(modules.size(), 2u);
   EXPECT_EQ(modules[0], "mod_a");
   EXPECT_EQ(modules[1], "mod_b");
 
-  const auto kernels = hooks.ListKernels("mod_a");
+  const auto kernels = runtime_api.ListKernels("mod_a");
   ASSERT_EQ(kernels.size(), 2u);
   EXPECT_EQ(kernels[0], "k0");
   EXPECT_EQ(kernels[1], "k1");

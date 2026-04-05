@@ -1081,6 +1081,7 @@ class EncodedExecutionCore {
   std::vector<RawBlock> raw_blocks_;
   ProgramCycleStatsConfig cycle_stats_config_{};
   std::unordered_map<uint64_t, std::deque<EncodedExecutedWaveStep>> executed_flow_steps_;
+  std::mutex executed_flow_steps_mutex_;
   std::map<std::pair<uint32_t, uint32_t>, CacheModel> l1_caches_;
   CacheModel l2_cache_;
   SharedBankModel shared_bank_model_;
@@ -2033,6 +2034,7 @@ class EncodedExecutionCore {
     if (cost_cycles == 0) {
       return;
     }
+    std::lock_guard<std::mutex> lock(executed_flow_steps_mutex_);
     executed_flow_steps_[StableWaveKey(wave)].push_back(EncodedExecutedWaveStep{
         .step_class = step_class,
         .cost_cycles = cost_cycles,

@@ -18,6 +18,7 @@
 #include "gpu_model/loader/device_image_loader.h"
 #include "gpu_model/loader/asm_parser.h"
 #include "gpu_model/program/encoded_program_object.h"
+#include "gpu_model/runtime/runtime_env_config.h"
 #include "gpu_model/util/logging.h"
 
 namespace gpu_model {
@@ -91,11 +92,6 @@ class RuntimeEngineImpl {
 
 namespace {
 
-uint32_t DefaultMtWorkerThreadCount() {
-  const uint32_t cpu_count = std::max(1u, std::thread::hardware_concurrency());
-  return std::max(1u, (cpu_count * 9u) / 10u);
-}
-
 const char* ToEnvModeName(FunctionalExecutionMode mode) {
   switch (mode) {
     case FunctionalExecutionMode::SingleThreaded:
@@ -106,41 +102,13 @@ const char* ToEnvModeName(FunctionalExecutionMode mode) {
   return "unknown";
 }
 
-std::optional<FunctionalExecutionConfig> FunctionalExecutionConfigFromEnv() {
-  const char* mode_env = std::getenv("GPU_MODEL_FUNCTIONAL_MODE");
-  if (mode_env == nullptr) {
-    return std::nullopt;
-  }
-
-  FunctionalExecutionConfig config;
-  const std::string_view mode(mode_env);
-  if (mode == "mt" || mode == "parallel" || mode == "multi_threaded") {
-    config.mode = FunctionalExecutionMode::MultiThreaded;
-  } else if (mode == "st" || mode == "single" || mode == "single_threaded") {
-    config.mode = FunctionalExecutionMode::SingleThreaded;
-  } else {
-    return std::nullopt;
-  }
-
-  if (const char* workers_env = std::getenv("GPU_MODEL_FUNCTIONAL_WORKERS");
-      workers_env != nullptr && workers_env[0] != '\0') {
-    try {
-      config.worker_threads = static_cast<uint32_t>(std::stoul(workers_env));
-    } catch (const std::exception&) {
-      return std::nullopt;
-    }
-  } else if (config.mode == FunctionalExecutionMode::MultiThreaded) {
-    config.worker_threads = DefaultMtWorkerThreadCount();
-  }
-  return config;
-}
-
 }  // namespace
 
 RuntimeEngineImpl::RuntimeEngineImpl(TraceSink* default_trace) : default_trace_(default_trace) {
   logging::EnsureInitialized();
-  if (const auto config = FunctionalExecutionConfigFromEnv(); config.has_value()) {
-    functional_execution_config_ = *config;
+  const auto env_config = LoadRuntimeEnvConfig();
+  if (env_config.has_functional_mode) {
+    functional_execution_config_ = env_config.functional;
     GPU_MODEL_LOG_INFO("runtime",
                        "functional_mode=%s workers=%u",
                        ToEnvModeName(functional_execution_config_.mode),
@@ -370,7 +338,7 @@ LaunchResult RuntimeEngineImpl::Launch(const LaunchRequest& request) {
           FunctionalExecEngine executor(context);
           const uint32_t workers =
               functional_execution_config_.worker_threads == 0
-                  ? DefaultMtWorkerThreadCount()
+                  ? DefaultMtWorkerThreadCountForEnv()
                   : functional_execution_config_.worker_threads;
           result.total_cycles = executor.RunParallelBlocks(workers);
           result.program_cycle_stats = executor.TakeProgramCycleStats();
