@@ -24,10 +24,18 @@ std::string_view TraceEventKindName(TraceEventKind kind) {
       return "Launch";
     case TraceEventKind::BlockPlaced:
       return "BlockPlaced";
+    case TraceEventKind::BlockAdmit:
+      return "BlockAdmit";
     case TraceEventKind::BlockLaunch:
       return "BlockLaunch";
     case TraceEventKind::WaveLaunch:
       return "WaveLaunch";
+    case TraceEventKind::WaveGenerate:
+      return "WaveGenerate";
+    case TraceEventKind::WaveDispatch:
+      return "WaveDispatch";
+    case TraceEventKind::SlotBind:
+      return "SlotBind";
     case TraceEventKind::WaveStats:
       return "WaveStats";
     case TraceEventKind::WaveStep:

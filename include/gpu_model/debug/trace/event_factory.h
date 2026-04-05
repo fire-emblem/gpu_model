@@ -199,6 +199,17 @@ inline TraceEvent MakeTraceBlockPlacedEvent(uint32_t dpc_id,
                              std::move(message));
 }
 
+inline TraceEvent MakeTraceBlockAdmitEvent(uint32_t dpc_id,
+                                           uint32_t ap_id,
+                                           uint32_t block_id,
+                                           uint64_t cycle,
+                                           std::string message) {
+  TraceEvent event = MakeTraceBlockEvent(
+      dpc_id, ap_id, block_id, TraceEventKind::BlockAdmit, cycle, std::move(message));
+  event.display_name = "block_admit";
+  return event;
+}
+
 inline TraceEvent MakeTraceWaveLaunchEvent(const TraceWaveView& wave,
                                            uint64_t cycle,
                                            std::string detail,
@@ -207,6 +218,33 @@ inline TraceEvent MakeTraceWaveLaunchEvent(const TraceWaveView& wave,
                                         MakeTraceWaveStartMessage(detail));
   event.lifecycle_stage = TraceLifecycleStage::Launch;
   event.display_name = MakeTraceLifecycleDisplayName(event.lifecycle_stage);
+  return event;
+}
+
+inline TraceEvent MakeTraceWaveGenerateEvent(const TraceWaveView& wave,
+                                             uint64_t cycle,
+                                             TraceSlotModelKind slot_model) {
+  TraceEvent event = MakeTraceWaveEvent(
+      wave, TraceEventKind::WaveGenerate, cycle, slot_model, "wave_generate");
+  event.display_name = "wave_generate";
+  return event;
+}
+
+inline TraceEvent MakeTraceWaveDispatchEvent(const TraceWaveView& wave,
+                                             uint64_t cycle,
+                                             TraceSlotModelKind slot_model) {
+  TraceEvent event = MakeTraceWaveEvent(
+      wave, TraceEventKind::WaveDispatch, cycle, slot_model, "wave_dispatch");
+  event.display_name = "wave_dispatch";
+  return event;
+}
+
+inline TraceEvent MakeTraceSlotBindEvent(const TraceWaveView& wave,
+                                         uint64_t cycle,
+                                         TraceSlotModelKind slot_model) {
+  TraceEvent event =
+      MakeTraceWaveEvent(wave, TraceEventKind::SlotBind, cycle, slot_model, "slot_bind");
+  event.display_name = "slot_bind";
   return event;
 }
 

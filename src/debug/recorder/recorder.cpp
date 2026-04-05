@@ -49,6 +49,9 @@ RecorderWave& GetOrCreateWave(std::vector<RecorderWave>& waves, const TraceEvent
 bool EventBelongsToWave(const TraceEvent& event) {
   switch (event.kind) {
     case TraceEventKind::WaveLaunch:
+    case TraceEventKind::WaveGenerate:
+    case TraceEventKind::WaveDispatch:
+    case TraceEventKind::SlotBind:
     case TraceEventKind::WaveStats:
     case TraceEventKind::WaveStep:
     case TraceEventKind::Commit:
@@ -73,6 +76,8 @@ RecorderProgramEventKind ProgramEventKindFromTraceEvent(const TraceEvent& event)
       return RecorderProgramEventKind::Launch;
     case TraceEventKind::BlockPlaced:
       return RecorderProgramEventKind::BlockPlaced;
+    case TraceEventKind::BlockAdmit:
+      return RecorderProgramEventKind::BlockAdmit;
     case TraceEventKind::BlockLaunch:
       return RecorderProgramEventKind::BlockLaunch;
     case TraceEventKind::WaveLaunch:
@@ -94,6 +99,12 @@ RecorderEntryKind EntryKindFromTraceEvent(const TraceEvent& event) {
   switch (event.kind) {
     case TraceEventKind::WaveLaunch:
       return RecorderEntryKind::WaveLaunch;
+    case TraceEventKind::WaveGenerate:
+      return RecorderEntryKind::WaveGenerate;
+    case TraceEventKind::WaveDispatch:
+      return RecorderEntryKind::WaveDispatch;
+    case TraceEventKind::SlotBind:
+      return RecorderEntryKind::SlotBind;
     case TraceEventKind::WaveStats:
       return RecorderEntryKind::WaveStats;
     case TraceEventKind::WaveStep:

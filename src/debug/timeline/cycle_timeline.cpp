@@ -156,7 +156,8 @@ TimelineData BuildTimelineData(const Recorder& recorder) {
       continue;
     }
 
-    if (program_event.kind != RecorderProgramEventKind::BlockLaunch) {
+    if (program_event.kind != RecorderProgramEventKind::BlockLaunch &&
+        program_event.kind != RecorderProgramEventKind::BlockAdmit) {
       continue;
     }
 
@@ -228,7 +229,10 @@ TimelineData BuildTimelineData(const Recorder& recorder) {
 
       if (entry.kind == RecorderEntryKind::Arrive || entry.kind == RecorderEntryKind::Barrier ||
           entry.kind == RecorderEntryKind::WaveExit || entry.kind == RecorderEntryKind::Stall ||
-          entry.kind == RecorderEntryKind::WaveLaunch) {
+          entry.kind == RecorderEntryKind::WaveLaunch ||
+          entry.kind == RecorderEntryKind::WaveGenerate ||
+          entry.kind == RecorderEntryKind::WaveDispatch ||
+          entry.kind == RecorderEntryKind::SlotBind) {
         char symbol = '.';
         if (entry.kind == RecorderEntryKind::Arrive) {
           symbol = 'R';
@@ -240,6 +244,12 @@ TimelineData BuildTimelineData(const Recorder& recorder) {
           symbol = 'S';
         } else if (entry.kind == RecorderEntryKind::WaveLaunch) {
           symbol = 'L';
+        } else if (entry.kind == RecorderEntryKind::WaveGenerate) {
+          symbol = 'G';
+        } else if (entry.kind == RecorderEntryKind::WaveDispatch) {
+          symbol = 'D';
+        } else if (entry.kind == RecorderEntryKind::SlotBind) {
+          symbol = 'P';
         }
         data.markers[slot_key].push_back(Marker{
             .symbol = symbol,

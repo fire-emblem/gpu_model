@@ -37,6 +37,8 @@ class ExecEngineImpl {
   void SetLaunchTimingProfile(uint64_t kernel_launch_gap_cycles,
                               uint64_t kernel_launch_cycles,
                               uint64_t block_launch_cycles,
+                              uint64_t wave_generation_cycles,
+                              uint64_t wave_dispatch_cycles,
                               uint64_t wave_launch_cycles,
                               uint64_t warp_switch_cycles,
                               uint64_t arg_load_cycles);
@@ -78,6 +80,8 @@ class ExecEngineImpl {
   std::optional<uint64_t> kernel_launch_gap_cycles_override_;
   std::optional<uint64_t> kernel_launch_cycles_override_;
   std::optional<uint64_t> block_launch_cycles_override_;
+  std::optional<uint64_t> wave_generation_cycles_override_;
+  std::optional<uint64_t> wave_dispatch_cycles_override_;
   std::optional<uint64_t> wave_launch_cycles_override_;
   std::optional<uint64_t> warp_switch_cycles_override_;
   std::optional<uint64_t> arg_load_cycles_override_;
@@ -140,12 +144,16 @@ void ExecEngineImpl::SetSharedBankConflictModel(uint32_t bank_count, uint32_t ba
 void ExecEngineImpl::SetLaunchTimingProfile(uint64_t kernel_launch_gap_cycles,
                                             uint64_t kernel_launch_cycles,
                                             uint64_t block_launch_cycles,
+                                            uint64_t wave_generation_cycles,
+                                            uint64_t wave_dispatch_cycles,
                                             uint64_t wave_launch_cycles,
                                             uint64_t warp_switch_cycles,
                                             uint64_t arg_load_cycles) {
   kernel_launch_gap_cycles_override_ = kernel_launch_gap_cycles;
   kernel_launch_cycles_override_ = kernel_launch_cycles;
   block_launch_cycles_override_ = block_launch_cycles;
+  wave_generation_cycles_override_ = wave_generation_cycles;
+  wave_dispatch_cycles_override_ = wave_dispatch_cycles;
   wave_launch_cycles_override_ = wave_launch_cycles;
   warp_switch_cycles_override_ = warp_switch_cycles;
   arg_load_cycles_override_ = arg_load_cycles;
@@ -451,6 +459,12 @@ CycleTimingConfig ExecEngineImpl::ResolveCycleTimingConfig(const GpuArchSpec& sp
   if (block_launch_cycles_override_.has_value()) {
     config.launch_timing.block_launch_cycles = *block_launch_cycles_override_;
   }
+  if (wave_generation_cycles_override_.has_value()) {
+    config.launch_timing.wave_generation_cycles = *wave_generation_cycles_override_;
+  }
+  if (wave_dispatch_cycles_override_.has_value()) {
+    config.launch_timing.wave_dispatch_cycles = *wave_dispatch_cycles_override_;
+  }
   if (wave_launch_cycles_override_.has_value()) {
     config.launch_timing.wave_launch_cycles = *wave_launch_cycles_override_;
   }
@@ -530,6 +544,26 @@ void ExecEngine::SetLaunchTimingProfile(uint64_t kernel_launch_gap_cycles,
   impl_->SetLaunchTimingProfile(kernel_launch_gap_cycles,
                                 kernel_launch_cycles,
                                 block_launch_cycles,
+                                /*wave_generation_cycles=*/0,
+                                /*wave_dispatch_cycles=*/0,
+                                wave_launch_cycles,
+                                warp_switch_cycles,
+                                arg_load_cycles);
+}
+
+void ExecEngine::SetLaunchTimingProfile(uint64_t kernel_launch_gap_cycles,
+                                        uint64_t kernel_launch_cycles,
+                                        uint64_t block_launch_cycles,
+                                        uint64_t wave_generation_cycles,
+                                        uint64_t wave_dispatch_cycles,
+                                        uint64_t wave_launch_cycles,
+                                        uint64_t warp_switch_cycles,
+                                        uint64_t arg_load_cycles) {
+  impl_->SetLaunchTimingProfile(kernel_launch_gap_cycles,
+                                kernel_launch_cycles,
+                                block_launch_cycles,
+                                wave_generation_cycles,
+                                wave_dispatch_cycles,
                                 wave_launch_cycles,
                                 warp_switch_cycles,
                                 arg_load_cycles);

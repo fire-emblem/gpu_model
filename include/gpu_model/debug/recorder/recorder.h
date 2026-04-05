@@ -11,11 +11,15 @@ namespace gpu_model {
 enum class RecorderProgramEventKind {
   Launch,
   BlockPlaced,
+  BlockAdmit,
   BlockLaunch,
 };
 
 enum class RecorderEntryKind {
   WaveLaunch,
+  WaveGenerate,
+  WaveDispatch,
+  SlotBind,
   WaveStats,
   InstructionIssue,
   Commit,

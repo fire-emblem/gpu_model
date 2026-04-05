@@ -2093,6 +2093,80 @@ TEST(TraceTest, NativePerfettoProtoContainsHierarchicalTracksAndEvents) {
   EXPECT_TRUE(saw_load_arrive);
 }
 
+TEST(TraceTest, NativePerfettoProtoShowsBlockAdmitGenerateDispatchAndSlotBindOrdering) {
+  const auto out_dir = MakeUniqueTempDir("gpu_model_perfetto_cycle_frontend_latency");
+  const struct Cleanup {
+    std::filesystem::path path;
+    ~Cleanup() { std::filesystem::remove_all(path); }
+  } cleanup{out_dir};
+
+  TraceArtifactRecorder trace(out_dir);
+  ExecEngine runtime(&trace);
+  runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
+                                 /*kernel_launch_cycles=*/0,
+                                 /*block_launch_cycles=*/0,
+                                 /*wave_generation_cycles=*/128,
+                                 /*wave_dispatch_cycles=*/256,
+                                 /*wave_launch_cycles=*/0,
+                                 /*warp_switch_cycles=*/1,
+                                 /*arg_load_cycles=*/4);
+
+  const auto kernel = BuildWaitcntTraceKernel();
+  const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
+  runtime.memory().StoreGlobalValue<int32_t>(base_addr, 17);
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+  request.args.PushU64(base_addr);
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+  trace.FlushTimeline();
+
+  const std::string bytes = ReadTextFile(out_dir / "timeline.perfetto.pb");
+  const auto events = ParseTrackEvents(bytes);
+  ASSERT_FALSE(events.empty());
+
+  std::optional<uint64_t> block_admit_cycle;
+  std::optional<uint64_t> wave_generate_cycle;
+  std::optional<uint64_t> wave_dispatch_cycle;
+  std::optional<uint64_t> slot_bind_cycle;
+  std::optional<uint64_t> wave_launch_cycle;
+
+  for (const auto& event : events) {
+    if (event.type != 3u) {
+      continue;
+    }
+    if (!block_admit_cycle.has_value() && event.name == "block_admit") {
+      block_admit_cycle = event.timestamp;
+    } else if (!wave_generate_cycle.has_value() && event.name == "wave_generate") {
+      wave_generate_cycle = event.timestamp;
+    } else if (!wave_dispatch_cycle.has_value() && event.name == "wave_dispatch") {
+      wave_dispatch_cycle = event.timestamp;
+    } else if (!slot_bind_cycle.has_value() && event.name == "slot_bind") {
+      slot_bind_cycle = event.timestamp;
+    } else if (!wave_launch_cycle.has_value() && event.name == "wave_launch") {
+      wave_launch_cycle = event.timestamp;
+    }
+  }
+
+  ASSERT_TRUE(block_admit_cycle.has_value());
+  ASSERT_TRUE(wave_generate_cycle.has_value());
+  ASSERT_TRUE(wave_dispatch_cycle.has_value());
+  ASSERT_TRUE(slot_bind_cycle.has_value());
+  ASSERT_TRUE(wave_launch_cycle.has_value());
+
+  EXPECT_LT(*block_admit_cycle, *wave_generate_cycle);
+  EXPECT_LT(*wave_generate_cycle, *wave_dispatch_cycle);
+  EXPECT_LE(*wave_dispatch_cycle, *slot_bind_cycle);
+  EXPECT_LE(*slot_bind_cycle, *wave_launch_cycle);
+  EXPECT_EQ(*wave_generate_cycle - *block_admit_cycle, 128u);
+  EXPECT_EQ(*wave_dispatch_cycle - *wave_generate_cycle, 256u);
+}
+
 TEST(TraceTest, NativePerfettoProtoShowsVisibleWaitcntBubbleInCycleMode) {
   const auto out_dir = MakeUniqueTempDir("gpu_model_perfetto_cycle_gap_visible_bubble");
   const struct Cleanup {

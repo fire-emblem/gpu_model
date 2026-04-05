@@ -29,6 +29,8 @@ std::shared_ptr<const GpuArchSpec> MakeC500Spec() {
   spec->launch_timing.kernel_launch_gap_cycles = 8;
   spec->launch_timing.kernel_launch_cycles = 0;
   spec->launch_timing.block_launch_cycles = 0;
+  spec->launch_timing.wave_generation_cycles = 128;
+  spec->launch_timing.wave_dispatch_cycles = 256;
   spec->launch_timing.wave_launch_cycles = 0;
   spec->launch_timing.warp_switch_cycles = 1;
   spec->launch_timing.arg_load_cycles = 4;

@@ -54,8 +54,12 @@ enum class TraceLifecycleStage {
 enum class TraceEventKind {
   Launch,
   BlockPlaced,
+  BlockAdmit,
   BlockLaunch,
   WaveLaunch,
+  WaveGenerate,
+  WaveDispatch,
+  SlotBind,
   WaveStats,
   WaveStep,
   Commit,

@@ -36,6 +36,14 @@ class ExecEngine {
                               uint64_t wave_launch_cycles,
                               uint64_t warp_switch_cycles,
                               uint64_t arg_load_cycles);
+  void SetLaunchTimingProfile(uint64_t kernel_launch_gap_cycles,
+                              uint64_t kernel_launch_cycles,
+                              uint64_t block_launch_cycles,
+                              uint64_t wave_generation_cycles,
+                              uint64_t wave_dispatch_cycles,
+                              uint64_t wave_launch_cycles,
+                              uint64_t warp_switch_cycles,
+                              uint64_t arg_load_cycles);
   void SetIssueCycleClassOverrides(const IssueCycleClassOverridesSpec& overrides);
   void SetIssueCycleOpOverrides(const IssueCycleOpOverridesSpec& overrides);
   void SetCycleIssueLimits(const ArchitecturalIssueLimits& limits);

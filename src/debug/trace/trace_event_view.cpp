@@ -177,6 +177,8 @@ std::string CanonicalNameFromRuntimeKind(TraceEventKind kind) {
       return "launch";
     case TraceEventKind::BlockPlaced:
       return "block_placed";
+    case TraceEventKind::BlockAdmit:
+      return "block_admit";
     case TraceEventKind::BlockLaunch:
       return "block_launch";
     default:
@@ -206,6 +208,7 @@ std::string CategoryFromView(TraceEventKind kind,
   switch (kind) {
     case TraceEventKind::Launch:
     case TraceEventKind::BlockPlaced:
+    case TraceEventKind::BlockAdmit:
       return "runtime";
     case TraceEventKind::BlockLaunch:
       return "launch/block";
@@ -244,6 +247,9 @@ std::string CategoryFromView(TraceEventKind kind,
     case TraceEventKind::ExecMaskUpdate:
       return "instruction";
     case TraceEventKind::WaveLaunch:
+    case TraceEventKind::WaveGenerate:
+    case TraceEventKind::WaveDispatch:
+    case TraceEventKind::SlotBind:
       return "launch/wave";
     case TraceEventKind::WaveExit:
       return "control/exit";

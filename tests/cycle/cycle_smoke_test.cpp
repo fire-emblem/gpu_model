@@ -64,6 +64,34 @@ TEST(CycleSmokeTest, ConsecutiveKernelLaunchesIncludeDeviceGap) {
   EXPECT_EQ(runtime.device_cycle(), second.end_cycle);
 }
 
+TEST(CycleSmokeTest, FrontendLatenciesAdvanceCycleWithoutTraceSink) {
+  InstructionBuilder builder;
+  builder.BExit();
+  const auto kernel = builder.Build("frontend_latency_kernel");
+
+  ExecEngine runtime;
+  runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
+                                 /*kernel_launch_cycles=*/0,
+                                 /*block_launch_cycles=*/0,
+                                 /*wave_generation_cycles=*/128,
+                                 /*wave_dispatch_cycles=*/256,
+                                 /*wave_launch_cycles=*/0,
+                                 /*warp_switch_cycles=*/1,
+                                 /*arg_load_cycles=*/4);
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+  EXPECT_EQ(result.begin_cycle, 0u);
+  EXPECT_EQ(result.total_cycles, 388u);
+  EXPECT_EQ(result.end_cycle, 388u);
+}
+
 TEST(CycleSmokeTest, QueuesBlocksWhenGridExceedsPhysicalApCount) {
   const auto spec = ArchRegistry::Get("c500");
   ASSERT_NE(spec, nullptr);

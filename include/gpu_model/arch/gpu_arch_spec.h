@@ -36,6 +36,8 @@ struct LaunchTimingSpec {
   uint64_t kernel_launch_gap_cycles = 8;
   uint64_t kernel_launch_cycles = 0;
   uint64_t block_launch_cycles = 0;
+  uint64_t wave_generation_cycles = 0;
+  uint64_t wave_dispatch_cycles = 0;
   uint64_t wave_launch_cycles = 0;
   uint64_t warp_switch_cycles = 1;
   uint64_t arg_load_cycles = 4;
