@@ -505,18 +505,18 @@ TEST(ModelRuntimeCoreTest, LaunchProgramObjectUsesLatestConstantPoolResidency) {
   EXPECT_EQ(out[3], 6);
 }
 
-TEST(HipRuntimeTest, LaunchKernelCanReadMaterializedRawDataPool) {
+TEST(HipRuntimeTest, LaunchKernelCanReadMaterializedDataPool) {
   std::vector<int32_t> table = {11, 22, 33, 44};
-  RawDataSegment raw_data;
-  raw_data.bytes.resize(table.size() * sizeof(int32_t));
-  std::memcpy(raw_data.bytes.data(), table.data(), raw_data.bytes.size());
-  ProgramObject image("raw_data_holder", "s_endpgm\n", MetadataBlob{}, {}, std::move(raw_data));
+  DataSegment data_segment;
+  data_segment.bytes.resize(table.size() * sizeof(int32_t));
+  std::memcpy(data_segment.bytes.data(), table.data(), data_segment.bytes.size());
+  ProgramObject image("data_holder", "s_endpgm\n", MetadataBlob{}, {}, std::move(data_segment));
 
   HipRuntime hooks;
   const auto loaded = DeviceImageLoader{}.Materialize(BuildDeviceLoadPlan(image),
                                                       hooks.runtime().memory());
-  const auto* raw_segment = loaded.FindByKind(DeviceSegmentKind::RawData);
-  ASSERT_NE(raw_segment, nullptr);
+  const auto* data_segment_image = loaded.FindByKind(DeviceSegmentKind::RawData);
+  ASSERT_NE(data_segment_image, nullptr);
 
   InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
@@ -532,14 +532,14 @@ TEST(HipRuntimeTest, LaunchKernelCanReadMaterializedRawDataPool) {
   builder.Label("exit");
   builder.MaskRestoreExec("s10");
   builder.BExit();
-  const auto kernel = builder.Build("raw_data_reader");
+  const auto kernel = builder.Build("data_reader");
 
   const uint64_t out_addr = hooks.Malloc(table.size() * sizeof(int32_t));
   std::vector<int32_t> out(table.size(), -1);
   hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(out));
 
   KernelArgPack args;
-  args.PushU64(raw_segment->allocation.range.base);
+  args.PushU64(data_segment_image->allocation.range.base);
   args.PushU64(out_addr);
   args.PushU32(static_cast<uint32_t>(table.size()));
 

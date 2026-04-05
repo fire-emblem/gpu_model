@@ -78,22 +78,22 @@ TEST(ProgramBundleIOTest, RoundTripsProgramObjectAndLaunchesLoadedBundle) {
   std::filesystem::remove(bundle_path);
 }
 
-TEST(ProgramBundleIOTest, RoundTripsRawDataSegment) {
+TEST(ProgramBundleIOTest, RoundTripsDataSegment) {
   const std::filesystem::path bundle_path =
-      std::filesystem::temp_directory_path() / "gpu_model_roundtrip_rawdata.gpubin";
+      std::filesystem::temp_directory_path() / "gpu_model_roundtrip_data.gpubin";
 
   ProgramObject original(
-      "bundle_rawdata_kernel", "s_endpgm\n",
+      "bundle_data_kernel", "s_endpgm\n",
       MetadataBlob{.values = {{"arch", "c500"}, {"format", "bundle_raw"}}}, {},
-      RawDataSegment{.bytes = {std::byte{0xde}, std::byte{0xad}, std::byte{0xbe}, std::byte{0xef}}});
+      DataSegment{.bytes = {std::byte{0xde}, std::byte{0xad}, std::byte{0xbe}, std::byte{0xef}}});
 
   ProgramBundleIO::Write(bundle_path, original);
   const ProgramObject loaded = ProgramBundleIO::Read(bundle_path);
 
   EXPECT_EQ(loaded.kernel_name(), original.kernel_name());
-  EXPECT_EQ(loaded.raw_data_segment().bytes.size(), 4u);
-  EXPECT_EQ(loaded.raw_data_segment().bytes[0], std::byte{0xde});
-  EXPECT_EQ(loaded.raw_data_segment().bytes[3], std::byte{0xef});
+  EXPECT_EQ(loaded.data_segment().bytes.size(), 4u);
+  EXPECT_EQ(loaded.data_segment().bytes[0], std::byte{0xde});
+  EXPECT_EQ(loaded.data_segment().bytes[3], std::byte{0xef});
 
   std::filesystem::remove(bundle_path);
 }

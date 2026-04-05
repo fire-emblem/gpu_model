@@ -31,15 +31,15 @@ DeviceSegmentImage MakeConstSegment(const ConstSegment& const_segment) {
   };
 }
 
-DeviceSegmentImage MakeRawDataSegment(const RawDataSegment& raw_data_segment) {
+DeviceSegmentImage MakeDataSegment(const DataSegment& data_segment) {
   return DeviceSegmentImage{
       .kind = DeviceSegmentKind::RawData,
       .pool = MemoryPoolKind::RawData,
       .mapping = MemoryMappingKind::Copy,
-      .name = "raw_data_segment",
+      .name = "data_segment",
       .alignment = 16,
-      .bytes = raw_data_segment.bytes,
-      .required_bytes = raw_data_segment.bytes.size(),
+      .bytes = data_segment.bytes,
+      .required_bytes = data_segment.bytes.size(),
   };
 }
 
@@ -55,8 +55,8 @@ DeviceLoadPlan BuildDeviceLoadPlan(const ProgramObject& image) {
   if (!image.const_segment().bytes.empty()) {
     plan.segments.push_back(MakeConstSegment(image.const_segment()));
   }
-  if (!image.raw_data_segment().bytes.empty()) {
-    plan.segments.push_back(MakeRawDataSegment(image.raw_data_segment()));
+  if (!image.data_segment().bytes.empty()) {
+    plan.segments.push_back(MakeDataSegment(image.data_segment()));
   }
   plan.required_shared_bytes = metadata.required_shared_bytes.value_or(0);
   plan.preferred_kernarg_bytes = RequiredKernargTemplateBytes(metadata);

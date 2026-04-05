@@ -11,7 +11,7 @@ TEST(DeviceSegmentImageTest, BuildsPlanForProgramObjectWithConstAndSharedMetadat
                       MetadataBlob{.values = {{"required_shared_bytes", "256"},
                                               {"arg_layout", "global_buffer:8,by_value:4"}}},
                       ConstSegment{.bytes = {std::byte{0x1}, std::byte{0x2}}},
-                      RawDataSegment{.bytes = {std::byte{0x9}, std::byte{0xa}, std::byte{0xb}}});
+                      DataSegment{.bytes = {std::byte{0x9}, std::byte{0xa}, std::byte{0xb}}});
 
   const auto plan = BuildDeviceLoadPlan(image);
   ASSERT_EQ(plan.segments.size(), 4u);

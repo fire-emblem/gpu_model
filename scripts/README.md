@@ -11,7 +11,10 @@
 - `run_push_gate.sh`
   - `git push` 前的统一门禁
   - 默认并行跑三条 pipeline：
-    - `Debug + ASan` 全量 `gpu_model_tests`
+    - `Debug + ASan` 快速功能覆盖 `gpu_model_tests`
+      - 默认排除 `RequestedShapes/*`
+      - 默认排除 `RequestedThreadScales/*`
+      - 可用环境变量 `GPU_MODEL_GATE_DEBUG_ASAN_GTEST_FILTER` 覆盖
     - `Release` 全量 `gpu_model_tests`
     - `Release` 全部 `examples/01-11/run.sh`
   - 三条 pipeline 各自使用独立 build 目录，避免互相影响

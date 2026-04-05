@@ -61,10 +61,10 @@ void ProgramBundleIO::Write(const std::filesystem::path& path, const ProgramObje
     out.write(reinterpret_cast<const char*>(image.const_segment().bytes.data()),
               static_cast<std::streamsize>(image.const_segment().bytes.size()));
   }
-  WriteU32(out, static_cast<uint32_t>(image.raw_data_segment().bytes.size()));
-  if (!image.raw_data_segment().bytes.empty()) {
-    out.write(reinterpret_cast<const char*>(image.raw_data_segment().bytes.data()),
-              static_cast<std::streamsize>(image.raw_data_segment().bytes.size()));
+  WriteU32(out, static_cast<uint32_t>(image.data_segment().bytes.size()));
+  if (!image.data_segment().bytes.empty()) {
+    out.write(reinterpret_cast<const char*>(image.data_segment().bytes.data()),
+              static_cast<std::streamsize>(image.data_segment().bytes.size()));
   }
 }
 
@@ -101,19 +101,19 @@ ProgramObject ProgramBundleIO::Read(const std::filesystem::path& path) {
     }
   }
 
-  RawDataSegment raw_data_segment;
-  const uint32_t raw_data_size = ReadU32(in);
-  raw_data_segment.bytes.resize(raw_data_size);
-  if (raw_data_size > 0) {
-    in.read(reinterpret_cast<char*>(raw_data_segment.bytes.data()),
-            static_cast<std::streamsize>(raw_data_size));
+  DataSegment data_segment;
+  const uint32_t data_segment_size = ReadU32(in);
+  data_segment.bytes.resize(data_segment_size);
+  if (data_segment_size > 0) {
+    in.read(reinterpret_cast<char*>(data_segment.bytes.data()),
+            static_cast<std::streamsize>(data_segment_size));
     if (!in) {
-      throw std::runtime_error("failed to read raw data segment");
+      throw std::runtime_error("failed to read data segment");
     }
   }
 
   return ProgramObject(kernel_name, assembly_text, std::move(metadata), std::move(const_segment),
-                       std::move(raw_data_segment));
+                       std::move(data_segment));
 }
 
 }  // namespace gpu_model

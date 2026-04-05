@@ -8,6 +8,7 @@ RELEASE_BUILD_DIR="${GPU_MODEL_GATE_RELEASE_BUILD_DIR:-$ROOT/build-gate-release}
 EXAMPLES_BUILD_DIR="${GPU_MODEL_GATE_EXAMPLES_BUILD_DIR:-$ROOT/build-gate-examples}"
 GATE_LOG_DIR="${GPU_MODEL_GATE_LOG_DIR:-$ROOT/results/push-gate}"
 JOBS="${JOBS:-8}"
+DEBUG_ASAN_GTEST_FILTER="${GPU_MODEL_GATE_DEBUG_ASAN_GTEST_FILTER:-*-RequestedShapes/*:RequestedThreadScales/*}"
 
 mkdir -p "$GATE_LOG_DIR"
 
@@ -71,8 +72,9 @@ run_debug_asan_tests() {
   echo "[push-gate] build debug+asan targets"
   cmake --build "$DEBUG_BUILD_DIR" --target gpu_model_tests gpu_model_hip_interposer gpu_model_perfetto_waitcnt_slots_demo -j "$JOBS" \
     2>&1 | tee "$GATE_LOG_DIR/debug_asan.build.log"
-  echo "[push-gate] run debug+asan gpu_model_tests"
+  echo "[push-gate] run debug+asan gpu_model_tests filter=$DEBUG_ASAN_GTEST_FILTER"
   "$DEBUG_BUILD_DIR/tests/gpu_model_tests" \
+    --gtest_filter="$DEBUG_ASAN_GTEST_FILTER" \
     --gtest_output="xml:$GATE_LOG_DIR/debug_asan.gpu_model_tests.xml" \
     2>&1 | tee "$GATE_LOG_DIR/debug_asan.gpu_model_tests.log"
   summarize_slowest_gtests "$GATE_LOG_DIR/debug_asan.gpu_model_tests.log" \

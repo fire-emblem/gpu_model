@@ -103,19 +103,19 @@ TEST(ExecutableImageIOTest, RoundTripsEmbeddedDebugInfoSection) {
   std::filesystem::remove(path);
 }
 
-TEST(ExecutableImageIOTest, RoundTripsRawDataSection) {
+TEST(ExecutableImageIOTest, RoundTripsDataSection) {
   const std::filesystem::path path =
-      std::filesystem::temp_directory_path() / "gpu_model_rawdata_image.gpusec";
+      std::filesystem::temp_directory_path() / "gpu_model_data_image.gpusec";
 
   ProgramObject image(
-      "rawdata_kernel", "s_endpgm\n", MetadataBlob{.values = {{"arch", "c500"}}}, {},
-      RawDataSegment{.bytes = {std::byte{0x41}, std::byte{0x42}, std::byte{0x43}}});
+      "data_kernel", "s_endpgm\n", MetadataBlob{.values = {{"arch", "c500"}}}, {},
+      DataSegment{.bytes = {std::byte{0x41}, std::byte{0x42}, std::byte{0x43}}});
   ExecutableImageIO::Write(path, image);
 
   const ProgramObject loaded = ExecutableImageIO::Read(path);
-  ASSERT_EQ(loaded.raw_data_segment().bytes.size(), 3u);
-  EXPECT_EQ(loaded.raw_data_segment().bytes[0], std::byte{0x41});
-  EXPECT_EQ(loaded.raw_data_segment().bytes[2], std::byte{0x43});
+  ASSERT_EQ(loaded.data_segment().bytes.size(), 3u);
+  EXPECT_EQ(loaded.data_segment().bytes[0], std::byte{0x41});
+  EXPECT_EQ(loaded.data_segment().bytes[2], std::byte{0x43});
 
   std::filesystem::remove(path);
 }

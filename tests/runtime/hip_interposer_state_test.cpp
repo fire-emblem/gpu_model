@@ -2,10 +2,12 @@
 
 #include <array>
 #include <chrono>
+#include <cstdio>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <unistd.h>
@@ -48,6 +50,68 @@ std::filesystem::path CurrentTestBinaryPath() {
 
 std::filesystem::path BuildDirPath() {
   return CurrentTestBinaryPath().parent_path().parent_path();
+}
+
+std::string ShellQuote(const std::string& text) {
+  std::string quoted = "'";
+  for (char ch : text) {
+    if (ch == '\'') {
+      quoted += "'\\''";
+    } else {
+      quoted.push_back(ch);
+    }
+  }
+  quoted.push_back('\'');
+  return quoted;
+}
+
+std::filesystem::path ResolveAsanRuntimePath(
+    const std::filesystem::path& interposer_path) {
+  const std::string command =
+      "ldd " + ShellQuote(interposer_path.string()) + " 2>/dev/null";
+  std::array<char, 4096> buffer{};
+  std::string output;
+  FILE* pipe = popen(command.c_str(), "r");
+  if (pipe == nullptr) {
+    return {};
+  }
+  while (fgets(buffer.data(), static_cast<int>(buffer.size()), pipe) != nullptr) {
+    output += buffer.data();
+  }
+  const int status = pclose(pipe);
+  if (status != 0) {
+    return {};
+  }
+
+  std::istringstream input(output);
+  std::string line;
+  while (std::getline(input, line)) {
+    if (line.find("libasan") == std::string::npos) {
+      continue;
+    }
+    const auto arrow = line.find("=>");
+    if (arrow == std::string::npos) {
+      continue;
+    }
+    const auto begin = line.find_first_not_of(' ', arrow + 2);
+    if (begin == std::string::npos) {
+      continue;
+    }
+    const auto end = line.find(' ', begin);
+    const auto path = line.substr(begin, end == std::string::npos ? std::string::npos : end - begin);
+    if (!path.empty() && std::filesystem::exists(path)) {
+      return path;
+    }
+  }
+  return {};
+}
+
+std::string MakeLdPreloadValue(const std::filesystem::path& interposer_path) {
+  const auto asan_runtime = ResolveAsanRuntimePath(interposer_path);
+  if (asan_runtime.empty()) {
+    return interposer_path.string();
+  }
+  return asan_runtime.string() + ":" + interposer_path.string();
 }
 
 TEST(HipInterposerStateTest, LaunchesHipVecAddExecutableThroughRegisteredHostFunction) {
@@ -711,7 +775,7 @@ int main() {
   ASSERT_EQ(std::system(compile_command.c_str()), 0);
 
   const std::string run_command =
-      "env LD_PRELOAD=" + interposer_path.string() +
+      "env LD_PRELOAD=" + MakeLdPreloadValue(interposer_path) +
       " GPU_MODEL_HIP_INTERPOSER_DEBUG=1 " + exe_path.string() + " > " + stdout_path.string() + " 2>&1";
   ASSERT_EQ(std::system(run_command.c_str()), 0);
 
@@ -809,7 +873,7 @@ int main() {
   ASSERT_EQ(std::system(compile_command.c_str()), 0);
 
   const std::string run_command =
-      "env LD_PRELOAD=" + interposer_path.string() +
+      "env LD_PRELOAD=" + MakeLdPreloadValue(interposer_path) +
       " GPU_MODEL_HIP_INTERPOSER_DEBUG=1 " + exe_path.string() + " > " + stdout_path.string() +
       " 2>&1";
   ASSERT_EQ(std::system(run_command.c_str()), 0);
@@ -875,7 +939,7 @@ int main() {
   ASSERT_EQ(std::system(compile_command.c_str()), 0);
 
   const std::string run_command =
-      "env LD_PRELOAD=" + interposer_path.string() +
+      "env LD_PRELOAD=" + MakeLdPreloadValue(interposer_path) +
       " GPU_MODEL_HIP_INTERPOSER_DEBUG=1 " + exe_path.string() + " > " + stdout_path.string() +
       " 2>&1";
   ASSERT_EQ(std::system(run_command.c_str()), 0);
@@ -933,7 +997,7 @@ int main() {
   ASSERT_EQ(std::system(compile_command.c_str()), 0);
 
   const std::string run_command =
-      "env LD_PRELOAD=" + interposer_path.string() +
+      "env LD_PRELOAD=" + MakeLdPreloadValue(interposer_path) +
       " GPU_MODEL_HIP_INTERPOSER_DEBUG=1 " + exe_path.string() + " > " + stdout_path.string() +
       " 2>&1";
   ASSERT_EQ(std::system(run_command.c_str()), 0);
@@ -997,7 +1061,7 @@ int main() {
   ASSERT_EQ(std::system(compile_command.c_str()), 0);
 
   const std::string run_command =
-      "env LD_PRELOAD=" + interposer_path.string() +
+      "env LD_PRELOAD=" + MakeLdPreloadValue(interposer_path) +
       " GPU_MODEL_HIP_INTERPOSER_DEBUG=1 " + exe_path.string() + " > " + stdout_path.string() +
       " 2>&1";
   ASSERT_EQ(std::system(run_command.c_str()), 0);
