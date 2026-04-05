@@ -992,6 +992,8 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
         WaveContext& wave = candidate->wave;
         const Instruction instruction = context.kernel.InstructionAtPc(wave.pc);
         const uint32_t slot_id = TraceSlotId(*candidate);
+        context.trace.OnEvent(MakeTraceIssueSelectEvent(
+            MakeTraceWaveView(*candidate, slot_id), cycle, TraceSlotModelKind::ResidentFixed));
         if (context.stats != nullptr) {
           ++context.stats->wave_steps;
           ++context.stats->instructions_issued;
@@ -1440,14 +1442,16 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                     if (ap_state_it != ap_states.end()) {
                       const bool removed =
                           RetireResidentBlock(ap_state_it->second, candidate->block);
-                    if (removed && CanScheduleDelayedReadmit(ap_state_it->second)) {
-                      context.trace.OnEvent(MakeTraceBlockRetireEvent(
-                          candidate->block->dpc_id,
-                          candidate->block->ap_id,
-                          candidate->block->block_id,
-                          commit_cycle,
-                          "ap=" + std::to_string(candidate->block->ap_id)));
-                      ++ap_state_it->second.scheduled_readmit_count;
+                      if (removed) {
+                        context.trace.OnEvent(MakeTraceBlockRetireEvent(
+                            candidate->block->dpc_id,
+                            candidate->block->ap_id,
+                            candidate->block->block_id,
+                            commit_cycle,
+                            "ap=" + std::to_string(candidate->block->ap_id)));
+                      }
+                      if (removed && CanScheduleDelayedReadmit(ap_state_it->second)) {
+                        ++ap_state_it->second.scheduled_readmit_count;
                       events.Schedule(TimedEvent{
                             .cycle = commit_cycle + timing_config_.launch_timing.block_launch_cycles,
                             .action =

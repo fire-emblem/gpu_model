@@ -52,6 +52,7 @@ bool EventBelongsToWave(const TraceEvent& event) {
     case TraceEventKind::WaveGenerate:
     case TraceEventKind::WaveDispatch:
     case TraceEventKind::SlotBind:
+    case TraceEventKind::IssueSelect:
     case TraceEventKind::WaveStats:
     case TraceEventKind::WaveStep:
     case TraceEventKind::Commit:
@@ -90,6 +91,7 @@ RecorderProgramEventKind ProgramEventKindFromTraceEvent(const TraceEvent& event)
     case TraceEventKind::WaveGenerate:
     case TraceEventKind::WaveDispatch:
     case TraceEventKind::SlotBind:
+    case TraceEventKind::IssueSelect:
     case TraceEventKind::WaveLaunch:
     case TraceEventKind::WaveStats:
     case TraceEventKind::WaveStep:
@@ -115,6 +117,8 @@ RecorderEntryKind EntryKindFromTraceEvent(const TraceEvent& event) {
       return RecorderEntryKind::WaveDispatch;
     case TraceEventKind::SlotBind:
       return RecorderEntryKind::SlotBind;
+    case TraceEventKind::IssueSelect:
+      return RecorderEntryKind::IssueSelect;
     case TraceEventKind::BlockAdmit:
       break;
     case TraceEventKind::WaveStats:

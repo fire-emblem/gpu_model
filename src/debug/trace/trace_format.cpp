@@ -40,6 +40,8 @@ std::string_view TraceEventKindName(TraceEventKind kind) {
       return "WaveDispatch";
     case TraceEventKind::SlotBind:
       return "SlotBind";
+    case TraceEventKind::IssueSelect:
+      return "IssueSelect";
     case TraceEventKind::WaveStats:
       return "WaveStats";
     case TraceEventKind::WaveStep:

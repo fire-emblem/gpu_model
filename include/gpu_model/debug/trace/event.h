@@ -62,6 +62,7 @@ enum class TraceEventKind {
   WaveGenerate,
   WaveDispatch,
   SlotBind,
+  IssueSelect,
   WaveStats,
   WaveStep,
   Commit,

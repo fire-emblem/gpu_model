@@ -270,6 +270,15 @@ inline TraceEvent MakeTraceSlotBindEvent(const TraceWaveView& wave,
   return event;
 }
 
+inline TraceEvent MakeTraceIssueSelectEvent(const TraceWaveView& wave,
+                                            uint64_t cycle,
+                                            TraceSlotModelKind slot_model) {
+  TraceEvent event =
+      MakeTraceWaveEvent(wave, TraceEventKind::IssueSelect, cycle, slot_model, "issue_select");
+  event.display_name = "issue_select";
+  return event;
+}
+
 inline TraceEvent MakeTraceWaveStepEvent(const TraceWaveView& wave,
                                          uint64_t cycle,
                                          TraceSlotModelKind slot_model,

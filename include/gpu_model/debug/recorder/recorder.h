@@ -22,6 +22,7 @@ enum class RecorderEntryKind {
   WaveGenerate,
   WaveDispatch,
   SlotBind,
+  IssueSelect,
   WaveStats,
   InstructionIssue,
   Commit,

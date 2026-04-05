@@ -256,6 +256,7 @@ std::string CategoryFromView(TraceEventKind kind,
     case TraceEventKind::WaveGenerate:
     case TraceEventKind::WaveDispatch:
     case TraceEventKind::SlotBind:
+    case TraceEventKind::IssueSelect:
       return "launch/wave";
     case TraceEventKind::WaveExit:
       return "control/exit";

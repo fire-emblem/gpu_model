@@ -2136,6 +2136,7 @@ TEST(TraceTest, NativePerfettoProtoShowsBlockAdmitGenerateDispatchAndSlotBindOrd
   std::optional<uint64_t> wave_dispatch_cycle;
   std::optional<uint64_t> slot_bind_cycle;
   std::optional<uint64_t> wave_launch_cycle;
+  std::optional<uint64_t> issue_select_cycle;
   std::optional<uint64_t> block_retire_cycle;
 
   for (const auto& event : events) {
@@ -2154,6 +2155,8 @@ TEST(TraceTest, NativePerfettoProtoShowsBlockAdmitGenerateDispatchAndSlotBindOrd
       slot_bind_cycle = event.timestamp;
     } else if (!wave_launch_cycle.has_value() && event.name == "wave_launch") {
       wave_launch_cycle = event.timestamp;
+    } else if (!issue_select_cycle.has_value() && event.name == "issue_select") {
+      issue_select_cycle = event.timestamp;
     } else if (!block_retire_cycle.has_value() && event.name == "block_retire") {
       block_retire_cycle = event.timestamp;
     }
@@ -2165,6 +2168,7 @@ TEST(TraceTest, NativePerfettoProtoShowsBlockAdmitGenerateDispatchAndSlotBindOrd
   ASSERT_TRUE(wave_dispatch_cycle.has_value());
   ASSERT_TRUE(slot_bind_cycle.has_value());
   ASSERT_TRUE(wave_launch_cycle.has_value());
+  ASSERT_TRUE(issue_select_cycle.has_value());
   ASSERT_TRUE(block_retire_cycle.has_value());
 
   EXPECT_LT(*block_admit_cycle, *wave_generate_cycle);
@@ -2172,6 +2176,7 @@ TEST(TraceTest, NativePerfettoProtoShowsBlockAdmitGenerateDispatchAndSlotBindOrd
   EXPECT_LT(*wave_generate_cycle, *wave_dispatch_cycle);
   EXPECT_LE(*wave_dispatch_cycle, *slot_bind_cycle);
   EXPECT_LE(*slot_bind_cycle, *wave_launch_cycle);
+  EXPECT_LE(*wave_launch_cycle, *issue_select_cycle);
   EXPECT_GT(*block_retire_cycle, *wave_launch_cycle);
   EXPECT_EQ(*wave_generate_cycle - *block_admit_cycle, 128u);
   EXPECT_EQ(*wave_dispatch_cycle - *wave_generate_cycle, 256u);

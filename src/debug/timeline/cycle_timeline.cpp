@@ -148,7 +148,10 @@ TimelineData BuildTimelineData(const Recorder& recorder) {
     }
 
     if (program_event.kind == RecorderProgramEventKind::Launch ||
-        program_event.kind == RecorderProgramEventKind::BlockPlaced) {
+        program_event.kind == RecorderProgramEventKind::BlockPlaced ||
+        program_event.kind == RecorderProgramEventKind::BlockAdmit ||
+        program_event.kind == RecorderProgramEventKind::BlockActivate ||
+        program_event.kind == RecorderProgramEventKind::BlockRetire) {
       data.runtime_events.push_back(TimelineSemanticEvent{
           .view = view,
           .fields = fields,
@@ -232,7 +235,8 @@ TimelineData BuildTimelineData(const Recorder& recorder) {
           entry.kind == RecorderEntryKind::WaveLaunch ||
           entry.kind == RecorderEntryKind::WaveGenerate ||
           entry.kind == RecorderEntryKind::WaveDispatch ||
-          entry.kind == RecorderEntryKind::SlotBind) {
+          entry.kind == RecorderEntryKind::SlotBind ||
+          entry.kind == RecorderEntryKind::IssueSelect) {
         char symbol = '.';
         if (entry.kind == RecorderEntryKind::Arrive) {
           symbol = 'R';
@@ -250,6 +254,8 @@ TimelineData BuildTimelineData(const Recorder& recorder) {
           symbol = 'D';
         } else if (entry.kind == RecorderEntryKind::SlotBind) {
           symbol = 'P';
+        } else if (entry.kind == RecorderEntryKind::IssueSelect) {
+          symbol = 'I';
         }
         data.markers[slot_key].push_back(Marker{
             .symbol = symbol,
