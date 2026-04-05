@@ -151,6 +151,10 @@ TEST(HipccParallelExecutionTest, ThreeDimensionalVecaddAddsMatchesBetweenStAndMt
   timings.compile_ms = MeasureElapsedMs([&] { ASSERT_EQ(std::system(command.c_str()), 0); });
   EncodedProgramObject image;
   timings.decode_ms = MeasureElapsedMs([&] { image = LoadHipccImage(exe_path, "vecadd_3d_adds"); });
+  GPU_MODEL_LOG_INFO("hipcc_test",
+                     "hipcc_3d_vecadd_adds compile_ms=%.3f decode_ms=%.3f",
+                     timings.compile_ms,
+                     timings.decode_ms);
 
   constexpr uint32_t width = 17;
   constexpr uint32_t height = 9;
@@ -275,6 +279,10 @@ TEST(HipccParallelExecutionTest, MultiWaveHeavyKernelShowsMtSpeedupWithDefaultWo
   EncodedProgramObject image;
   timings.decode_ms =
       MeasureElapsedMs([&] { image = LoadHipccImage(exe_path, "vecadd_3d_adds_perf"); });
+  GPU_MODEL_LOG_INFO("hipcc_test",
+                     "multiwave_speedup compile_ms=%.3f decode_ms=%.3f",
+                     timings.compile_ms,
+                     timings.decode_ms);
 
   constexpr uint32_t width = 33;
   constexpr uint32_t height = 17;
@@ -387,6 +395,10 @@ TEST(HipccParallelExecutionTest,
 
   EncodedProgramObject image;
   timings.decode_ms = MeasureElapsedMs([&] { image = LoadHipccImage(exe_path, "barrier_skew"); });
+  GPU_MODEL_LOG_INFO("hipcc_test",
+                     "barrier_skew compile_ms=%.3f decode_ms=%.3f",
+                     timings.compile_ms,
+                     timings.decode_ms);
 
   auto run_mode = [&](FunctionalExecutionMode mode, uint32_t worker_threads) {
     RuntimeEngine runtime;
