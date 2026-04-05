@@ -426,32 +426,24 @@ TEST(HipccParallelExecutionTest,
     return std::pair<LaunchResult, std::vector<int32_t>>(launch, out);
   };
 
-  const auto [st_result, st_out] = run_mode(FunctionalExecutionMode::SingleThreaded, 0);
   const auto [mt_result, mt_out] = run_mode(FunctionalExecutionMode::MultiThreaded, 2);
 
   for (int i = 0; i < 128; ++i) {
     const int32_t expected = i < 64 ? (1 + ((63 * 64) / 2)) : 1;
-    EXPECT_EQ(st_out[i], expected);
     EXPECT_EQ(mt_out[i], expected);
   }
 
-  ASSERT_TRUE(st_result.program_cycle_stats.has_value());
   ASSERT_TRUE(mt_result.program_cycle_stats.has_value());
-  EXPECT_GT(st_result.program_cycle_stats->total_cycles, 0u);
   EXPECT_GT(mt_result.program_cycle_stats->total_cycles, 0u);
-  EXPECT_EQ(st_result.total_cycles, st_result.program_cycle_stats->total_cycles);
   EXPECT_EQ(mt_result.total_cycles, mt_result.program_cycle_stats->total_cycles);
-  EXPECT_GE(st_result.program_cycle_stats->total_issued_work_cycles,
-            st_result.program_cycle_stats->total_cycles);
   EXPECT_GE(mt_result.program_cycle_stats->total_issued_work_cycles,
             mt_result.program_cycle_stats->total_cycles);
 
   GPU_MODEL_LOG_INFO("hipcc_test",
                      "barrier_skew compile_ms=%.3f decode_ms=%.3f "
-                     "functional_st_cycles=%llu functional_mt_cycles=%llu",
+                     "functional_mt_cycles=%llu",
                      timings.compile_ms,
                      timings.decode_ms,
-                     static_cast<unsigned long long>(st_result.total_cycles),
                      static_cast<unsigned long long>(mt_result.total_cycles));
 
   std::filesystem::remove_all(temp_dir);
@@ -540,41 +532,32 @@ TEST(HipccParallelExecutionTest,
     return IntLaunchRunResult{.launch = std::move(launch), .output = std::move(out)};
   };
 
-  const auto st = run_mode(ExecutionMode::Functional, FunctionalExecutionMode::SingleThreaded, 0);
   const auto mt = run_mode(ExecutionMode::Functional, FunctionalExecutionMode::MultiThreaded, 2);
   const auto cycle = run_mode(ExecutionMode::Cycle, FunctionalExecutionMode::SingleThreaded, 0);
 
   for (uint32_t i = 0; i < total; ++i) {
-    EXPECT_EQ(st.output[i], expect[i]);
     EXPECT_EQ(mt.output[i], expect[i]);
     EXPECT_EQ(cycle.output[i], expect[i]);
   }
 
-  ASSERT_TRUE(st.launch.program_cycle_stats.has_value());
   ASSERT_TRUE(mt.launch.program_cycle_stats.has_value());
   ASSERT_TRUE(cycle.launch.program_cycle_stats.has_value());
 
-  EXPECT_EQ(st.launch.total_cycles, st.launch.program_cycle_stats->total_cycles);
   EXPECT_EQ(mt.launch.total_cycles, mt.launch.program_cycle_stats->total_cycles);
   EXPECT_EQ(cycle.launch.total_cycles, cycle.launch.program_cycle_stats->total_cycles);
 
-  EXPECT_GT(st.launch.program_cycle_stats->total_issued_work_cycles, 0u);
   EXPECT_GT(mt.launch.program_cycle_stats->total_issued_work_cycles, 0u);
   EXPECT_GT(cycle.launch.program_cycle_stats->total_issued_work_cycles, 0u);
 
-  EXPECT_EQ(st.launch.stats.barriers, mt.launch.stats.barriers);
-  EXPECT_EQ(st.launch.stats.barriers, cycle.launch.stats.barriers);
-  EXPECT_EQ(st.launch.stats.shared_loads, mt.launch.stats.shared_loads);
-  EXPECT_EQ(st.launch.stats.shared_loads, cycle.launch.stats.shared_loads);
-  EXPECT_EQ(st.launch.stats.shared_stores, mt.launch.stats.shared_stores);
-  EXPECT_EQ(st.launch.stats.shared_stores, cycle.launch.stats.shared_stores);
-  EXPECT_EQ(st.launch.stats.wave_exits, mt.launch.stats.wave_exits);
-  EXPECT_EQ(st.launch.stats.wave_exits, cycle.launch.stats.wave_exits);
+  EXPECT_EQ(mt.launch.stats.barriers, cycle.launch.stats.barriers);
+  EXPECT_EQ(mt.launch.stats.shared_loads, cycle.launch.stats.shared_loads);
+  EXPECT_EQ(mt.launch.stats.shared_stores, cycle.launch.stats.shared_stores);
+  EXPECT_EQ(mt.launch.stats.wave_exits, cycle.launch.stats.wave_exits);
 
-  EXPECT_GT(st.launch.stats.barriers, 0u);
-  EXPECT_GT(st.launch.stats.shared_loads, 0u);
-  EXPECT_GT(st.launch.stats.shared_stores, 0u);
-  EXPECT_GT(st.launch.stats.wave_exits, 0u);
+  EXPECT_GT(mt.launch.stats.barriers, 0u);
+  EXPECT_GT(mt.launch.stats.shared_loads, 0u);
+  EXPECT_GT(mt.launch.stats.shared_stores, 0u);
+  EXPECT_GT(mt.launch.stats.wave_exits, 0u);
 
   std::filesystem::remove_all(temp_dir);
 }
@@ -656,47 +639,36 @@ TEST(HipccParallelExecutionTest,
     return FloatLaunchRunResult{.launch = std::move(launch), .output = std::move(output)};
   };
 
-  const auto st = run_mode(ExecutionMode::Functional, FunctionalExecutionMode::SingleThreaded, 0);
   const auto mt = run_mode(ExecutionMode::Functional, FunctionalExecutionMode::MultiThreaded, 2);
   const auto cycle = run_mode(ExecutionMode::Cycle, FunctionalExecutionMode::SingleThreaded, 0);
 
   for (uint32_t i = 0; i < n; ++i) {
-    EXPECT_NEAR(st.output[i], expected, 1.0e-4f);
     EXPECT_NEAR(mt.output[i], expected, 1.0e-4f);
     EXPECT_NEAR(cycle.output[i], expected, 1.0e-4f);
   }
 
-  ASSERT_TRUE(st.launch.program_cycle_stats.has_value());
   ASSERT_TRUE(mt.launch.program_cycle_stats.has_value());
   ASSERT_TRUE(cycle.launch.program_cycle_stats.has_value());
 
-  EXPECT_EQ(st.launch.total_cycles, st.launch.program_cycle_stats->total_cycles);
   EXPECT_EQ(mt.launch.total_cycles, mt.launch.program_cycle_stats->total_cycles);
   EXPECT_EQ(cycle.launch.total_cycles, cycle.launch.program_cycle_stats->total_cycles);
 
-  EXPECT_GT(st.launch.program_cycle_stats->total_issued_work_cycles, 0u);
   EXPECT_GT(mt.launch.program_cycle_stats->total_issued_work_cycles, 0u);
   EXPECT_GT(cycle.launch.program_cycle_stats->total_issued_work_cycles, 0u);
 
-  EXPECT_EQ(st.launch.stats.barriers, mt.launch.stats.barriers);
-  EXPECT_EQ(st.launch.stats.barriers, cycle.launch.stats.barriers);
-  EXPECT_EQ(st.launch.stats.shared_loads, mt.launch.stats.shared_loads);
-  EXPECT_EQ(st.launch.stats.shared_loads, cycle.launch.stats.shared_loads);
-  EXPECT_EQ(st.launch.stats.shared_stores, mt.launch.stats.shared_stores);
-  EXPECT_EQ(st.launch.stats.shared_stores, cycle.launch.stats.shared_stores);
-  EXPECT_EQ(st.launch.stats.global_loads, mt.launch.stats.global_loads);
-  EXPECT_EQ(st.launch.stats.global_loads, cycle.launch.stats.global_loads);
-  EXPECT_EQ(st.launch.stats.global_stores, mt.launch.stats.global_stores);
-  EXPECT_EQ(st.launch.stats.global_stores, cycle.launch.stats.global_stores);
-  EXPECT_EQ(st.launch.stats.wave_exits, mt.launch.stats.wave_exits);
-  EXPECT_EQ(st.launch.stats.wave_exits, cycle.launch.stats.wave_exits);
+  EXPECT_EQ(mt.launch.stats.barriers, cycle.launch.stats.barriers);
+  EXPECT_EQ(mt.launch.stats.shared_loads, cycle.launch.stats.shared_loads);
+  EXPECT_EQ(mt.launch.stats.shared_stores, cycle.launch.stats.shared_stores);
+  EXPECT_EQ(mt.launch.stats.global_loads, cycle.launch.stats.global_loads);
+  EXPECT_EQ(mt.launch.stats.global_stores, cycle.launch.stats.global_stores);
+  EXPECT_EQ(mt.launch.stats.wave_exits, cycle.launch.stats.wave_exits);
 
-  EXPECT_GT(st.launch.stats.barriers, 0u);
-  EXPECT_GT(st.launch.stats.shared_loads, 0u);
-  EXPECT_GT(st.launch.stats.shared_stores, 0u);
-  EXPECT_GT(st.launch.stats.global_loads, 0u);
-  EXPECT_GT(st.launch.stats.global_stores, 0u);
-  EXPECT_GT(st.launch.stats.wave_exits, 0u);
+  EXPECT_GT(mt.launch.stats.barriers, 0u);
+  EXPECT_GT(mt.launch.stats.shared_loads, 0u);
+  EXPECT_GT(mt.launch.stats.shared_stores, 0u);
+  EXPECT_GT(mt.launch.stats.global_loads, 0u);
+  EXPECT_GT(mt.launch.stats.global_stores, 0u);
+  EXPECT_GT(mt.launch.stats.wave_exits, 0u);
 
   std::filesystem::remove_all(temp_dir);
 }
@@ -757,36 +729,28 @@ TEST(HipccParallelExecutionTest,
     return std::pair<LaunchResult, int32_t>(std::move(launch), value);
   };
 
-  const auto [st_launch, st_value] =
-      run_mode(ExecutionMode::Functional, FunctionalExecutionMode::SingleThreaded, 0);
   const auto [mt_launch, mt_value] =
       run_mode(ExecutionMode::Functional, FunctionalExecutionMode::MultiThreaded, 2);
   const auto [cycle_launch, cycle_value] =
       run_mode(ExecutionMode::Cycle, FunctionalExecutionMode::SingleThreaded, 0);
 
-  EXPECT_EQ(st_value, static_cast<int32_t>(n));
   EXPECT_EQ(mt_value, static_cast<int32_t>(n));
   EXPECT_EQ(cycle_value, static_cast<int32_t>(n));
 
-  ASSERT_TRUE(st_launch.program_cycle_stats.has_value());
   ASSERT_TRUE(mt_launch.program_cycle_stats.has_value());
   ASSERT_TRUE(cycle_launch.program_cycle_stats.has_value());
 
-  EXPECT_EQ(st_launch.total_cycles, st_launch.program_cycle_stats->total_cycles);
   EXPECT_EQ(mt_launch.total_cycles, mt_launch.program_cycle_stats->total_cycles);
   EXPECT_EQ(cycle_launch.total_cycles, cycle_launch.program_cycle_stats->total_cycles);
 
-  EXPECT_GT(st_launch.program_cycle_stats->total_issued_work_cycles, 0u);
   EXPECT_GT(mt_launch.program_cycle_stats->total_issued_work_cycles, 0u);
   EXPECT_GT(cycle_launch.program_cycle_stats->total_issued_work_cycles, 0u);
 
-  EXPECT_EQ(st_launch.stats.global_stores, mt_launch.stats.global_stores);
-  EXPECT_EQ(st_launch.stats.global_stores, cycle_launch.stats.global_stores);
-  EXPECT_EQ(st_launch.stats.wave_exits, mt_launch.stats.wave_exits);
-  EXPECT_EQ(st_launch.stats.wave_exits, cycle_launch.stats.wave_exits);
+  EXPECT_EQ(mt_launch.stats.global_stores, cycle_launch.stats.global_stores);
+  EXPECT_EQ(mt_launch.stats.wave_exits, cycle_launch.stats.wave_exits);
 
-  EXPECT_GT(st_launch.stats.global_stores, 0u);
-  EXPECT_GT(st_launch.stats.wave_exits, 0u);
+  EXPECT_GT(mt_launch.stats.global_stores, 0u);
+  EXPECT_GT(mt_launch.stats.wave_exits, 0u);
 
   std::filesystem::remove_all(temp_dir);
 }
@@ -857,38 +821,30 @@ TEST(HipccParallelExecutionTest,
     return FloatLaunchRunResult{.launch = std::move(launch), .output = std::move(c)};
   };
 
-  const auto st = run_mode(ExecutionMode::Functional, FunctionalExecutionMode::SingleThreaded, 0);
   const auto mt = run_mode(ExecutionMode::Functional, FunctionalExecutionMode::MultiThreaded, 2);
   const auto cycle = run_mode(ExecutionMode::Cycle, FunctionalExecutionMode::SingleThreaded, 0);
 
   for (uint32_t i = 0; i < n; ++i) {
-    EXPECT_FLOAT_EQ(st.output[i], expect[i]);
     EXPECT_FLOAT_EQ(mt.output[i], expect[i]);
     EXPECT_FLOAT_EQ(cycle.output[i], expect[i]);
   }
 
-  ASSERT_TRUE(st.launch.program_cycle_stats.has_value());
   ASSERT_TRUE(mt.launch.program_cycle_stats.has_value());
   ASSERT_TRUE(cycle.launch.program_cycle_stats.has_value());
 
-  EXPECT_EQ(st.launch.total_cycles, st.launch.program_cycle_stats->total_cycles);
   EXPECT_EQ(mt.launch.total_cycles, mt.launch.program_cycle_stats->total_cycles);
   EXPECT_EQ(cycle.launch.total_cycles, cycle.launch.program_cycle_stats->total_cycles);
 
-  EXPECT_GT(st.launch.program_cycle_stats->total_issued_work_cycles, 0u);
   EXPECT_GT(mt.launch.program_cycle_stats->total_issued_work_cycles, 0u);
   EXPECT_GT(cycle.launch.program_cycle_stats->total_issued_work_cycles, 0u);
 
-  EXPECT_EQ(st.launch.stats.global_loads, mt.launch.stats.global_loads);
-  EXPECT_EQ(st.launch.stats.global_loads, cycle.launch.stats.global_loads);
-  EXPECT_EQ(st.launch.stats.global_stores, mt.launch.stats.global_stores);
-  EXPECT_EQ(st.launch.stats.global_stores, cycle.launch.stats.global_stores);
-  EXPECT_EQ(st.launch.stats.wave_exits, mt.launch.stats.wave_exits);
-  EXPECT_EQ(st.launch.stats.wave_exits, cycle.launch.stats.wave_exits);
+  EXPECT_EQ(mt.launch.stats.global_loads, cycle.launch.stats.global_loads);
+  EXPECT_EQ(mt.launch.stats.global_stores, cycle.launch.stats.global_stores);
+  EXPECT_EQ(mt.launch.stats.wave_exits, cycle.launch.stats.wave_exits);
 
-  EXPECT_GT(st.launch.stats.global_loads, 0u);
-  EXPECT_GT(st.launch.stats.global_stores, 0u);
-  EXPECT_GT(st.launch.stats.wave_exits, 0u);
+  EXPECT_GT(mt.launch.stats.global_loads, 0u);
+  EXPECT_GT(mt.launch.stats.global_stores, 0u);
+  EXPECT_GT(mt.launch.stats.wave_exits, 0u);
 
   std::filesystem::remove_all(temp_dir);
 }
@@ -1235,38 +1191,30 @@ TEST(HipccParallelExecutionTest,
     return FloatLaunchRunResult{.launch = std::move(launch), .output = std::move(c)};
   };
 
-  const auto st = run_mode(ExecutionMode::Functional, FunctionalExecutionMode::SingleThreaded, 0);
   const auto mt = run_mode(ExecutionMode::Functional, FunctionalExecutionMode::MultiThreaded, 2);
   const auto cycle = run_mode(ExecutionMode::Cycle, FunctionalExecutionMode::SingleThreaded, 0);
 
   for (uint32_t i = 0; i < n; ++i) {
-    EXPECT_NEAR(st.output[i], expect[i], 1.0e-5f);
     EXPECT_NEAR(mt.output[i], expect[i], 1.0e-5f);
     EXPECT_NEAR(cycle.output[i], expect[i], 1.0e-5f);
   }
 
-  ASSERT_TRUE(st.launch.program_cycle_stats.has_value());
   ASSERT_TRUE(mt.launch.program_cycle_stats.has_value());
   ASSERT_TRUE(cycle.launch.program_cycle_stats.has_value());
 
-  EXPECT_EQ(st.launch.total_cycles, st.launch.program_cycle_stats->total_cycles);
   EXPECT_EQ(mt.launch.total_cycles, mt.launch.program_cycle_stats->total_cycles);
   EXPECT_EQ(cycle.launch.total_cycles, cycle.launch.program_cycle_stats->total_cycles);
 
-  EXPECT_GT(st.launch.program_cycle_stats->total_issued_work_cycles, 0u);
   EXPECT_GT(mt.launch.program_cycle_stats->total_issued_work_cycles, 0u);
   EXPECT_GT(cycle.launch.program_cycle_stats->total_issued_work_cycles, 0u);
 
-  EXPECT_EQ(st.launch.stats.global_loads, mt.launch.stats.global_loads);
-  EXPECT_EQ(st.launch.stats.global_loads, cycle.launch.stats.global_loads);
-  EXPECT_EQ(st.launch.stats.global_stores, mt.launch.stats.global_stores);
-  EXPECT_EQ(st.launch.stats.global_stores, cycle.launch.stats.global_stores);
-  EXPECT_EQ(st.launch.stats.wave_exits, mt.launch.stats.wave_exits);
-  EXPECT_EQ(st.launch.stats.wave_exits, cycle.launch.stats.wave_exits);
+  EXPECT_EQ(mt.launch.stats.global_loads, cycle.launch.stats.global_loads);
+  EXPECT_EQ(mt.launch.stats.global_stores, cycle.launch.stats.global_stores);
+  EXPECT_EQ(mt.launch.stats.wave_exits, cycle.launch.stats.wave_exits);
 
-  EXPECT_GT(st.launch.stats.global_loads, 0u);
-  EXPECT_GT(st.launch.stats.global_stores, 0u);
-  EXPECT_GT(st.launch.stats.wave_exits, 0u);
+  EXPECT_GT(mt.launch.stats.global_loads, 0u);
+  EXPECT_GT(mt.launch.stats.global_stores, 0u);
+  EXPECT_GT(mt.launch.stats.wave_exits, 0u);
 
   std::filesystem::remove_all(temp_dir);
 }
@@ -1332,36 +1280,28 @@ TEST(HipccParallelExecutionTest,
     return std::pair<LaunchResult, float>(std::move(launch), output);
   };
 
-  const auto [st_launch, st_output] =
-      run_mode(ExecutionMode::Functional, FunctionalExecutionMode::SingleThreaded, 0);
   const auto [mt_launch, mt_output] =
       run_mode(ExecutionMode::Functional, FunctionalExecutionMode::MultiThreaded, 2);
   const auto [cycle_launch, cycle_output] =
       run_mode(ExecutionMode::Cycle, FunctionalExecutionMode::SingleThreaded, 0);
 
-  EXPECT_NEAR(st_output, 4.0f, 1.0e-5f);
   EXPECT_NEAR(mt_output, 4.0f, 1.0e-5f);
   EXPECT_NEAR(cycle_output, 4.0f, 1.0e-5f);
 
-  ASSERT_TRUE(st_launch.program_cycle_stats.has_value());
   ASSERT_TRUE(mt_launch.program_cycle_stats.has_value());
   ASSERT_TRUE(cycle_launch.program_cycle_stats.has_value());
 
-  EXPECT_EQ(st_launch.total_cycles, st_launch.program_cycle_stats->total_cycles);
   EXPECT_EQ(mt_launch.total_cycles, mt_launch.program_cycle_stats->total_cycles);
   EXPECT_EQ(cycle_launch.total_cycles, cycle_launch.program_cycle_stats->total_cycles);
 
-  EXPECT_GT(st_launch.program_cycle_stats->total_issued_work_cycles, 0u);
   EXPECT_GT(mt_launch.program_cycle_stats->total_issued_work_cycles, 0u);
   EXPECT_GT(cycle_launch.program_cycle_stats->total_issued_work_cycles, 0u);
 
-  EXPECT_EQ(st_launch.stats.global_stores, mt_launch.stats.global_stores);
-  EXPECT_EQ(st_launch.stats.global_stores, cycle_launch.stats.global_stores);
-  EXPECT_EQ(st_launch.stats.wave_exits, mt_launch.stats.wave_exits);
-  EXPECT_EQ(st_launch.stats.wave_exits, cycle_launch.stats.wave_exits);
+  EXPECT_EQ(mt_launch.stats.global_stores, cycle_launch.stats.global_stores);
+  EXPECT_EQ(mt_launch.stats.wave_exits, cycle_launch.stats.wave_exits);
 
-  EXPECT_GT(st_launch.stats.global_stores, 0u);
-  EXPECT_GT(st_launch.stats.wave_exits, 0u);
+  EXPECT_GT(mt_launch.stats.global_stores, 0u);
+  EXPECT_GT(mt_launch.stats.wave_exits, 0u);
 
   std::filesystem::remove_all(temp_dir);
 }
@@ -1443,38 +1383,30 @@ TEST(HipccParallelExecutionTest,
     return IntLaunchRunResult{.launch = std::move(launch), .output = std::move(output)};
   };
 
-  const auto st = run_mode(ExecutionMode::Functional, FunctionalExecutionMode::SingleThreaded, 0);
   const auto mt = run_mode(ExecutionMode::Functional, FunctionalExecutionMode::MultiThreaded, 2);
   const auto cycle = run_mode(ExecutionMode::Cycle, FunctionalExecutionMode::SingleThreaded, 0);
 
   for (uint32_t i = 0; i < n; ++i) {
-    EXPECT_EQ(st.output[i], expect[i]);
     EXPECT_EQ(mt.output[i], expect[i]);
     EXPECT_EQ(cycle.output[i], expect[i]);
   }
 
-  ASSERT_TRUE(st.launch.program_cycle_stats.has_value());
   ASSERT_TRUE(mt.launch.program_cycle_stats.has_value());
   ASSERT_TRUE(cycle.launch.program_cycle_stats.has_value());
 
-  EXPECT_EQ(st.launch.total_cycles, st.launch.program_cycle_stats->total_cycles);
   EXPECT_EQ(mt.launch.total_cycles, mt.launch.program_cycle_stats->total_cycles);
   EXPECT_EQ(cycle.launch.total_cycles, cycle.launch.program_cycle_stats->total_cycles);
 
-  EXPECT_GT(st.launch.program_cycle_stats->total_issued_work_cycles, 0u);
   EXPECT_GT(mt.launch.program_cycle_stats->total_issued_work_cycles, 0u);
   EXPECT_GT(cycle.launch.program_cycle_stats->total_issued_work_cycles, 0u);
 
-  EXPECT_EQ(st.launch.stats.global_loads, mt.launch.stats.global_loads);
-  EXPECT_EQ(st.launch.stats.global_loads, cycle.launch.stats.global_loads);
-  EXPECT_EQ(st.launch.stats.global_stores, mt.launch.stats.global_stores);
-  EXPECT_EQ(st.launch.stats.global_stores, cycle.launch.stats.global_stores);
-  EXPECT_EQ(st.launch.stats.wave_exits, mt.launch.stats.wave_exits);
-  EXPECT_EQ(st.launch.stats.wave_exits, cycle.launch.stats.wave_exits);
+  EXPECT_EQ(mt.launch.stats.global_loads, cycle.launch.stats.global_loads);
+  EXPECT_EQ(mt.launch.stats.global_stores, cycle.launch.stats.global_stores);
+  EXPECT_EQ(mt.launch.stats.wave_exits, cycle.launch.stats.wave_exits);
 
-  EXPECT_GT(st.launch.stats.global_loads, 0u);
-  EXPECT_GT(st.launch.stats.global_stores, 0u);
-  EXPECT_GT(st.launch.stats.wave_exits, 0u);
+  EXPECT_GT(mt.launch.stats.global_loads, 0u);
+  EXPECT_GT(mt.launch.stats.global_stores, 0u);
+  EXPECT_GT(mt.launch.stats.wave_exits, 0u);
 
   std::filesystem::remove_all(temp_dir);
 }
@@ -1563,47 +1495,36 @@ TEST(HipccParallelExecutionTest,
     return IntLaunchRunResult{.launch = std::move(launch), .output = std::move(output)};
   };
 
-  const auto st = run_mode(ExecutionMode::Functional, FunctionalExecutionMode::SingleThreaded, 0);
   const auto mt = run_mode(ExecutionMode::Functional, FunctionalExecutionMode::MultiThreaded, 2);
   const auto cycle = run_mode(ExecutionMode::Cycle, FunctionalExecutionMode::SingleThreaded, 0);
 
   for (uint32_t i = 0; i < n; ++i) {
-    EXPECT_EQ(st.output[i], expect[i]);
     EXPECT_EQ(mt.output[i], expect[i]);
     EXPECT_EQ(cycle.output[i], expect[i]);
   }
 
-  ASSERT_TRUE(st.launch.program_cycle_stats.has_value());
   ASSERT_TRUE(mt.launch.program_cycle_stats.has_value());
   ASSERT_TRUE(cycle.launch.program_cycle_stats.has_value());
 
-  EXPECT_EQ(st.launch.total_cycles, st.launch.program_cycle_stats->total_cycles);
   EXPECT_EQ(mt.launch.total_cycles, mt.launch.program_cycle_stats->total_cycles);
   EXPECT_EQ(cycle.launch.total_cycles, cycle.launch.program_cycle_stats->total_cycles);
 
-  EXPECT_GT(st.launch.program_cycle_stats->total_issued_work_cycles, 0u);
   EXPECT_GT(mt.launch.program_cycle_stats->total_issued_work_cycles, 0u);
   EXPECT_GT(cycle.launch.program_cycle_stats->total_issued_work_cycles, 0u);
 
-  EXPECT_EQ(st.launch.stats.global_loads, mt.launch.stats.global_loads);
-  EXPECT_EQ(st.launch.stats.global_loads, cycle.launch.stats.global_loads);
-  EXPECT_EQ(st.launch.stats.global_stores, mt.launch.stats.global_stores);
-  EXPECT_EQ(st.launch.stats.global_stores, cycle.launch.stats.global_stores);
-  EXPECT_EQ(st.launch.stats.shared_loads, mt.launch.stats.shared_loads);
-  EXPECT_EQ(st.launch.stats.shared_loads, cycle.launch.stats.shared_loads);
-  EXPECT_EQ(st.launch.stats.shared_stores, mt.launch.stats.shared_stores);
-  EXPECT_EQ(st.launch.stats.shared_stores, cycle.launch.stats.shared_stores);
-  EXPECT_EQ(st.launch.stats.barriers, mt.launch.stats.barriers);
-  EXPECT_EQ(st.launch.stats.barriers, cycle.launch.stats.barriers);
-  EXPECT_EQ(st.launch.stats.wave_exits, mt.launch.stats.wave_exits);
-  EXPECT_EQ(st.launch.stats.wave_exits, cycle.launch.stats.wave_exits);
+  EXPECT_EQ(mt.launch.stats.global_loads, cycle.launch.stats.global_loads);
+  EXPECT_EQ(mt.launch.stats.global_stores, cycle.launch.stats.global_stores);
+  EXPECT_EQ(mt.launch.stats.shared_loads, cycle.launch.stats.shared_loads);
+  EXPECT_EQ(mt.launch.stats.shared_stores, cycle.launch.stats.shared_stores);
+  EXPECT_EQ(mt.launch.stats.barriers, cycle.launch.stats.barriers);
+  EXPECT_EQ(mt.launch.stats.wave_exits, cycle.launch.stats.wave_exits);
 
-  EXPECT_GT(st.launch.stats.global_loads, 0u);
-  EXPECT_GT(st.launch.stats.global_stores, 0u);
-  EXPECT_GT(st.launch.stats.shared_loads, 0u);
-  EXPECT_GT(st.launch.stats.shared_stores, 0u);
-  EXPECT_GT(st.launch.stats.barriers, 0u);
-  EXPECT_GT(st.launch.stats.wave_exits, 0u);
+  EXPECT_GT(mt.launch.stats.global_loads, 0u);
+  EXPECT_GT(mt.launch.stats.global_stores, 0u);
+  EXPECT_GT(mt.launch.stats.shared_loads, 0u);
+  EXPECT_GT(mt.launch.stats.shared_stores, 0u);
+  EXPECT_GT(mt.launch.stats.barriers, 0u);
+  EXPECT_GT(mt.launch.stats.wave_exits, 0u);
 
   std::filesystem::remove_all(temp_dir);
 }
