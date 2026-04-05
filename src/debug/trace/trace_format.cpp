@@ -28,6 +28,10 @@ std::string_view TraceEventKindName(TraceEventKind kind) {
       return "BlockAdmit";
     case TraceEventKind::BlockLaunch:
       return "BlockLaunch";
+    case TraceEventKind::BlockActivate:
+      return "BlockActivate";
+    case TraceEventKind::BlockRetire:
+      return "BlockRetire";
     case TraceEventKind::WaveLaunch:
       return "WaveLaunch";
     case TraceEventKind::WaveGenerate:

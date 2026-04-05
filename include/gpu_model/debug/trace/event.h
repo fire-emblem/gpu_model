@@ -56,6 +56,8 @@ enum class TraceEventKind {
   BlockPlaced,
   BlockAdmit,
   BlockLaunch,
+  BlockActivate,
+  BlockRetire,
   WaveLaunch,
   WaveGenerate,
   WaveDispatch,

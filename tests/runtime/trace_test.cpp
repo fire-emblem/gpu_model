@@ -2131,10 +2131,12 @@ TEST(TraceTest, NativePerfettoProtoShowsBlockAdmitGenerateDispatchAndSlotBindOrd
   ASSERT_FALSE(events.empty());
 
   std::optional<uint64_t> block_admit_cycle;
+  std::optional<uint64_t> block_activate_cycle;
   std::optional<uint64_t> wave_generate_cycle;
   std::optional<uint64_t> wave_dispatch_cycle;
   std::optional<uint64_t> slot_bind_cycle;
   std::optional<uint64_t> wave_launch_cycle;
+  std::optional<uint64_t> block_retire_cycle;
 
   for (const auto& event : events) {
     if (event.type != 3u) {
@@ -2142,6 +2144,8 @@ TEST(TraceTest, NativePerfettoProtoShowsBlockAdmitGenerateDispatchAndSlotBindOrd
     }
     if (!block_admit_cycle.has_value() && event.name == "block_admit") {
       block_admit_cycle = event.timestamp;
+    } else if (!block_activate_cycle.has_value() && event.name == "block_activate") {
+      block_activate_cycle = event.timestamp;
     } else if (!wave_generate_cycle.has_value() && event.name == "wave_generate") {
       wave_generate_cycle = event.timestamp;
     } else if (!wave_dispatch_cycle.has_value() && event.name == "wave_dispatch") {
@@ -2150,19 +2154,25 @@ TEST(TraceTest, NativePerfettoProtoShowsBlockAdmitGenerateDispatchAndSlotBindOrd
       slot_bind_cycle = event.timestamp;
     } else if (!wave_launch_cycle.has_value() && event.name == "wave_launch") {
       wave_launch_cycle = event.timestamp;
+    } else if (!block_retire_cycle.has_value() && event.name == "block_retire") {
+      block_retire_cycle = event.timestamp;
     }
   }
 
   ASSERT_TRUE(block_admit_cycle.has_value());
+  ASSERT_TRUE(block_activate_cycle.has_value());
   ASSERT_TRUE(wave_generate_cycle.has_value());
   ASSERT_TRUE(wave_dispatch_cycle.has_value());
   ASSERT_TRUE(slot_bind_cycle.has_value());
   ASSERT_TRUE(wave_launch_cycle.has_value());
+  ASSERT_TRUE(block_retire_cycle.has_value());
 
   EXPECT_LT(*block_admit_cycle, *wave_generate_cycle);
+  EXPECT_LE(*block_admit_cycle, *block_activate_cycle);
   EXPECT_LT(*wave_generate_cycle, *wave_dispatch_cycle);
   EXPECT_LE(*wave_dispatch_cycle, *slot_bind_cycle);
   EXPECT_LE(*slot_bind_cycle, *wave_launch_cycle);
+  EXPECT_GT(*block_retire_cycle, *wave_launch_cycle);
   EXPECT_EQ(*wave_generate_cycle - *block_admit_cycle, 128u);
   EXPECT_EQ(*wave_dispatch_cycle - *wave_generate_cycle, 256u);
 }

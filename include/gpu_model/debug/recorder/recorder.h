@@ -13,6 +13,8 @@ enum class RecorderProgramEventKind {
   BlockPlaced,
   BlockAdmit,
   BlockLaunch,
+  BlockActivate,
+  BlockRetire,
 };
 
 enum class RecorderEntryKind {

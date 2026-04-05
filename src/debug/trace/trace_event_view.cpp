@@ -181,6 +181,10 @@ std::string CanonicalNameFromRuntimeKind(TraceEventKind kind) {
       return "block_admit";
     case TraceEventKind::BlockLaunch:
       return "block_launch";
+    case TraceEventKind::BlockActivate:
+      return "block_activate";
+    case TraceEventKind::BlockRetire:
+      return "block_retire";
     default:
       break;
   }
@@ -211,6 +215,8 @@ std::string CategoryFromView(TraceEventKind kind,
     case TraceEventKind::BlockAdmit:
       return "runtime";
     case TraceEventKind::BlockLaunch:
+    case TraceEventKind::BlockActivate:
+    case TraceEventKind::BlockRetire:
       return "launch/block";
     case TraceEventKind::Barrier:
       return "sync/barrier";

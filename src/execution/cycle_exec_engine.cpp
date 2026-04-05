@@ -646,6 +646,11 @@ void ActivateBlock(ExecutableBlock& block,
                                     TraceEventKind::BlockLaunch,
                                     cycle,
                                     "ap=" + std::to_string(block.ap_id)));
+  trace.OnEvent(MakeTraceBlockActivateEvent(block.dpc_id,
+                                            block.ap_id,
+                                            block.block_id,
+                                            cycle,
+                                            "ap=" + std::to_string(block.ap_id)));
   for (auto& scheduled_wave : block.waves) {
     scheduled_wave.wave.status = WaveStatus::Stalled;
     scheduled_wave.dispatch_enabled = false;
@@ -1435,9 +1440,15 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                     if (ap_state_it != ap_states.end()) {
                       const bool removed =
                           RetireResidentBlock(ap_state_it->second, candidate->block);
-                      if (removed && CanScheduleDelayedReadmit(ap_state_it->second)) {
-                        ++ap_state_it->second.scheduled_readmit_count;
-                        events.Schedule(TimedEvent{
+                    if (removed && CanScheduleDelayedReadmit(ap_state_it->second)) {
+                      context.trace.OnEvent(MakeTraceBlockRetireEvent(
+                          candidate->block->dpc_id,
+                          candidate->block->ap_id,
+                          candidate->block->block_id,
+                          commit_cycle,
+                          "ap=" + std::to_string(candidate->block->ap_id)));
+                      ++ap_state_it->second.scheduled_readmit_count;
+                      events.Schedule(TimedEvent{
                             .cycle = commit_cycle + timing_config_.launch_timing.block_launch_cycles,
                             .action =
                                 [&, global_ap_id, commit_cycle]() {

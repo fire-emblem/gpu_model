@@ -64,7 +64,10 @@ bool EventBelongsToWave(const TraceEvent& event) {
       return true;
     case TraceEventKind::Launch:
     case TraceEventKind::BlockPlaced:
+    case TraceEventKind::BlockAdmit:
     case TraceEventKind::BlockLaunch:
+    case TraceEventKind::BlockActivate:
+    case TraceEventKind::BlockRetire:
       return false;
   }
   return false;
@@ -80,6 +83,13 @@ RecorderProgramEventKind ProgramEventKindFromTraceEvent(const TraceEvent& event)
       return RecorderProgramEventKind::BlockAdmit;
     case TraceEventKind::BlockLaunch:
       return RecorderProgramEventKind::BlockLaunch;
+    case TraceEventKind::BlockActivate:
+      return RecorderProgramEventKind::BlockActivate;
+    case TraceEventKind::BlockRetire:
+      return RecorderProgramEventKind::BlockRetire;
+    case TraceEventKind::WaveGenerate:
+    case TraceEventKind::WaveDispatch:
+    case TraceEventKind::SlotBind:
     case TraceEventKind::WaveLaunch:
     case TraceEventKind::WaveStats:
     case TraceEventKind::WaveStep:
@@ -105,6 +115,8 @@ RecorderEntryKind EntryKindFromTraceEvent(const TraceEvent& event) {
       return RecorderEntryKind::WaveDispatch;
     case TraceEventKind::SlotBind:
       return RecorderEntryKind::SlotBind;
+    case TraceEventKind::BlockAdmit:
+      break;
     case TraceEventKind::WaveStats:
       return RecorderEntryKind::WaveStats;
     case TraceEventKind::WaveStep:

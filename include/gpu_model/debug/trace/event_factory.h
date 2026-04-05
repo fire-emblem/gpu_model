@@ -210,6 +210,28 @@ inline TraceEvent MakeTraceBlockAdmitEvent(uint32_t dpc_id,
   return event;
 }
 
+inline TraceEvent MakeTraceBlockActivateEvent(uint32_t dpc_id,
+                                              uint32_t ap_id,
+                                              uint32_t block_id,
+                                              uint64_t cycle,
+                                              std::string message) {
+  TraceEvent event = MakeTraceBlockEvent(
+      dpc_id, ap_id, block_id, TraceEventKind::BlockActivate, cycle, std::move(message));
+  event.display_name = "block_activate";
+  return event;
+}
+
+inline TraceEvent MakeTraceBlockRetireEvent(uint32_t dpc_id,
+                                            uint32_t ap_id,
+                                            uint32_t block_id,
+                                            uint64_t cycle,
+                                            std::string message) {
+  TraceEvent event = MakeTraceBlockEvent(
+      dpc_id, ap_id, block_id, TraceEventKind::BlockRetire, cycle, std::move(message));
+  event.display_name = "block_retire";
+  return event;
+}
+
 inline TraceEvent MakeTraceWaveLaunchEvent(const TraceWaveView& wave,
                                            uint64_t cycle,
                                            std::string detail,
