@@ -8,8 +8,17 @@
   - 安装仓库内 git hooks
   - 会把 `core.hooksPath` 指到仓库里的 `.githooks`
 
+- `run_push_gate_light.sh`
+  - `git push` 前的轻量门禁
+  - 默认只并行跑两条 smoke pipeline：
+    - `Debug + ASan` smoke filter
+    - `Release` smoke filter
+  - 默认不跑全量 `gpu_model_tests`
+  - 默认不跑 `examples`
+  - 可用环境变量 `GPU_MODEL_GATE_LIGHT_GTEST_FILTER` 覆盖 smoke filter
+
 - `run_push_gate.sh`
-  - `git push` 前的统一门禁
+  - 手动执行的全量门禁
   - 默认并行跑三条 pipeline：
     - `Debug + ASan` 快速功能覆盖 `gpu_model_tests`
       - 默认排除 `RequestedShapes/*`
