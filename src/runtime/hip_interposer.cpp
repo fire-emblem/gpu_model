@@ -123,7 +123,7 @@ void DebugLog(const char* fmt, ...) {
   char buffer[2048];
   std::vsnprintf(buffer, sizeof(buffer), fmt, args);
   va_end(args);
-  GPU_MODEL_LOG_INFO("hip_interposer", "%s", buffer);
+  GPU_MODEL_LOG_INFO_FORCED("hip_interposer", "%s", buffer);
 }
 
 hipError_t Remember(hipError_t error) {

@@ -22,6 +22,7 @@ struct LoggingState {
   std::atomic<bool> initialized = false;
   std::vector<std::string> enabled_modules;
   std::string file_path;
+  std::string program_name;
 };
 
 LoggingState& State() {
@@ -148,9 +149,9 @@ void LoadModulesFromEnv() {
 void EnsureInitialized() {
   auto& state = State();
   std::call_once(state.init_once, [&state] {
-    std::string program_name = ProgramName();
+    state.program_name = ProgramName();
     int argc = 1;
-    char* argv[] = {program_name.data(), nullptr};
+    char* argv[] = {state.program_name.data(), nullptr};
     loguru::init(argc, argv);
     loguru::g_stderr_verbosity = ParseVerbosityFromEnv();
     loguru::g_preamble_date = true;
@@ -204,6 +205,20 @@ void LogMessage(int verbosity, std::string_view module, const char* fmt, ...) {
   std::vsnprintf(buffer.data(), buffer.size(), fmt, args);
   va_end(args);
 
+  loguru::log(verbosity, __FILE__, __LINE__, "[%.*s] %s",
+              static_cast<int>(module.size()), module.data(), buffer.data());
+}
+
+void LogMessageForced(int verbosity, std::string_view module, const char* fmt, ...) {
+  EnsureInitialized();
+  std::array<char, 4096> buffer{};
+  va_list args;
+  va_start(args, fmt);
+  std::vsnprintf(buffer.data(), buffer.size(), fmt, args);
+  va_end(args);
+
+  std::fprintf(stderr, "[%.*s] %s\n",
+               static_cast<int>(module.size()), module.data(), buffer.data());
   loguru::log(verbosity, __FILE__, __LINE__, "[%.*s] %s",
               static_cast<int>(module.size()), module.data(), buffer.data());
 }

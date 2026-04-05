@@ -40,6 +40,7 @@
 #include "gpu_model/runtime/kernarg_packer.h"
 #include "gpu_model/runtime/mapper.h"
 #include "gpu_model/runtime/program_cycle_tracker.h"
+#include "gpu_model/util/logging.h"
 
 namespace gpu_model {
 
@@ -75,15 +76,9 @@ struct EncodedWaveState {
   uint64_t waiting_resume_pc_increment = 0;
 };
 
-struct WaveTaskRef {
+struct ParallelWaveRef {
   size_t block_index = 0;
   size_t wave_index = 0;
-  uint32_t global_ap_id = 0;
-};
-
-struct ApSchedulerState {
-  std::deque<WaveTaskRef> runnable;
-  std::vector<size_t> block_indices;
 };
 
 struct EncodedPeuSlot {
@@ -1092,17 +1087,15 @@ class EncodedExecutionCore {
   std::mutex trace_mutex_;
   std::mutex stats_mutex_;
   std::mutex global_memory_mutex_;
-  std::mutex scheduler_mutex_;
-  std::condition_variable scheduler_cv_;
   std::atomic<uint64_t> functional_trace_cycle_{0};
-  std::vector<ApSchedulerState> ap_schedulers_;
+  std::mutex waiting_progress_mutex_;
+  std::vector<ParallelWaveRef> parallel_waves_;
+  std::atomic<size_t> total_waves_{0};
+  std::atomic<size_t> completed_waves_{0};
+  std::atomic<size_t> active_wave_tasks_{0};
+  size_t waiting_block_rr_ = 0;
   std::vector<EncodedPeuSlot> cycle_peu_slots_;
   std::unordered_map<uint32_t, EncodedApResidentState> cycle_ap_states_;
-  size_t next_ap_rr_ = 0;
-  size_t waiting_ap_rr_ = 0;
-  size_t total_waves_ = 0;
-  size_t completed_waves_ = 0;
-  size_t active_wave_tasks_ = 0;
   uint64_t cycle_total_cycles_ = 0;
   uint64_t max_trace_cycle_ = 0;
 
@@ -1192,7 +1185,7 @@ class EncodedExecutionCore {
   }
 
   void RunParallel() {
-    BuildParallelWaveSchedulerState();
+    BuildParallelWaveScanState();
     const uint32_t worker_threads = functional_execution_config_.worker_threads == 0
                                         ? std::max(1u, std::thread::hardware_concurrency())
                                         : functional_execution_config_.worker_threads;
@@ -1205,16 +1198,14 @@ class EncodedExecutionCore {
     std::mutex failure_mutex;
     for (uint32_t worker = 0; worker < worker_threads; ++worker) {
       futures.push_back(pool.Submit([&, worker] {
-        (void)worker;
         try {
-          WorkerRunParallelWaves(failure, failure_mutex);
+          WorkerRunParallelWaves(worker, failure, failure_mutex);
         } catch (...) {
           std::lock_guard<std::mutex> lock(failure_mutex);
           if (failure == nullptr) {
             failure = std::current_exception();
           }
         }
-        scheduler_cv_.notify_all();
       }));
     }
     for (auto& future : futures) {
@@ -1688,196 +1679,180 @@ class EncodedExecutionCore {
     return std::nullopt;
   }
 
-  void BuildParallelWaveSchedulerState() {
-    std::lock_guard<std::mutex> lock(scheduler_mutex_);
-    next_ap_rr_ = 0;
-    waiting_ap_rr_ = 0;
-    total_waves_ = 0;
-    completed_waves_ = 0;
-    active_wave_tasks_ = 0;
+  void BuildParallelWaveScanState() {
+    parallel_waves_.clear();
+    waiting_block_rr_ = 0;
+    total_waves_.store(0, std::memory_order_relaxed);
+    completed_waves_.store(0, std::memory_order_relaxed);
+    active_wave_tasks_.store(0, std::memory_order_relaxed);
 
-    uint32_t max_global_ap_id = 0;
-    for (const auto& block : raw_blocks_) {
-      max_global_ap_id = std::max(max_global_ap_id, block.global_ap_id);
-      total_waves_ += block.waves.size();
-    }
-
-    ap_schedulers_.clear();
-    ap_schedulers_.resize(static_cast<size_t>(max_global_ap_id) + 1);
+    size_t total = 0;
+    size_t completed = 0;
     for (size_t block_index = 0; block_index < raw_blocks_.size(); ++block_index) {
       auto& block = raw_blocks_[block_index];
-      ap_schedulers_[block.global_ap_id].block_indices.push_back(block_index);
       std::lock_guard<std::mutex> wave_lock(*block.wave_state_mutex);
       for (size_t wave_index = 0; wave_index < block.waves.size(); ++wave_index) {
+        parallel_waves_.push_back(ParallelWaveRef{
+            .block_index = block_index,
+            .wave_index = wave_index,
+        });
         if (block.waves[wave_index].wave.run_state == WaveRunState::Completed ||
             block.waves[wave_index].wave.status == WaveStatus::Exited) {
-          ++completed_waves_;
+          ++completed;
         }
         block.wave_busy[wave_index] = false;
+        ++total;
       }
     }
-    for (size_t block_index = 0; block_index < raw_blocks_.size(); ++block_index) {
-      (void)RequeueRunnableWavesForBlockLocked(block_index);
-    }
+    total_waves_.store(total, std::memory_order_relaxed);
+    completed_waves_.store(completed, std::memory_order_relaxed);
+    GPU_MODEL_LOG_INFO("encoded_mt",
+                       "scheduler_init total_waves=%zu completed=%zu blocks=%zu",
+                       total,
+                       completed,
+                       raw_blocks_.size());
   }
 
-  bool PopRunnableWaveLocked(WaveTaskRef& task) {
-    if (ap_schedulers_.empty()) {
-      return false;
-    }
-    for (size_t offset = 0; offset < ap_schedulers_.size(); ++offset) {
-      const size_t ap_index = (next_ap_rr_ + offset) % ap_schedulers_.size();
-      auto& ap = ap_schedulers_[ap_index];
-      if (ap.runnable.empty()) {
-        continue;
-      }
-      task = ap.runnable.front();
-      ap.runnable.pop_front();
-      next_ap_rr_ = (ap_index + 1) % ap_schedulers_.size();
-      return true;
-    }
-    return false;
-  }
-
-  bool HasRunnableWaveLocked() const {
-    for (const auto& ap : ap_schedulers_) {
-      if (!ap.runnable.empty()) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  void EnqueueWaveLocked(const WaveTaskRef& task) {
-    ap_schedulers_[task.global_ap_id].runnable.push_back(task);
-  }
-
-  bool RequeueRunnableWavesForBlockLocked(size_t block_index) {
-    auto& block = raw_blocks_[block_index];
-    std::lock_guard<std::mutex> lock(*block.wave_state_mutex);
-    bool enqueued = false;
-    for (size_t wave_index = 0; wave_index < block.waves.size(); ++wave_index) {
-      const auto& wave = block.waves[wave_index].wave;
-      if (block.wave_busy[wave_index]) {
-        continue;
-      }
-      if (wave.status != WaveStatus::Active ||
-          wave.run_state != WaveRunState::Runnable ||
-          wave.waiting_at_barrier) {
-        continue;
-      }
-      block.wave_busy[wave_index] = true;
-      EnqueueWaveLocked(WaveTaskRef{
-          .block_index = block_index,
-          .wave_index = wave_index,
-          .global_ap_id = block.global_ap_id,
-      });
-      enqueued = true;
-    }
-    return enqueued;
-  }
-
-  bool AdvanceWaitingWavesForBlockLocked(size_t block_index) {
-    const bool progressed = ProcessWaitingWaves(raw_blocks_[block_index]);
-    const bool requeued = RequeueRunnableWavesForBlockLocked(block_index);
-    return progressed || requeued;
-  }
-
-  bool AdvanceWaitingWavesLocked() {
-    if (ap_schedulers_.empty()) {
-      return false;
-    }
-    for (size_t ap_offset = 0; ap_offset < ap_schedulers_.size(); ++ap_offset) {
-      const size_t ap_index = (waiting_ap_rr_ + ap_offset) % ap_schedulers_.size();
-      auto& ap = ap_schedulers_[ap_index];
-      for (size_t block_index : ap.block_indices) {
-        if (AdvanceWaitingWavesForBlockLocked(block_index)) {
-          waiting_ap_rr_ = (ap_index + 1) % ap_schedulers_.size();
-          return true;
-        }
-      }
-    }
-    waiting_ap_rr_ = (waiting_ap_rr_ + 1) % ap_schedulers_.size();
-    return false;
-  }
-
-  bool AllParallelWavesCompletedLocked() const {
-    return completed_waves_ >= total_waves_;
-  }
-
-  void ReconcileWaveTaskLocked(const WaveTaskRef& task) {
+  bool TryClaimParallelWave(const ParallelWaveRef& task) {
     auto& block = raw_blocks_[task.block_index];
-    std::lock_guard<std::mutex> lock(*block.wave_state_mutex);
+    std::lock_guard<std::mutex> control_lock(*block.control_mutex);
+    std::lock_guard<std::mutex> wave_lock(*block.wave_state_mutex);
+    auto& raw_wave = block.waves[task.wave_index];
+    const auto& wave = raw_wave.wave;
+    if (block.wave_busy[task.wave_index]) {
+      return false;
+    }
+    if (wave.run_state == WaveRunState::Completed || wave.status == WaveStatus::Exited) {
+      return false;
+    }
+    if (wave.status != WaveStatus::Active ||
+        wave.run_state != WaveRunState::Runnable ||
+        wave.waiting_at_barrier) {
+      return false;
+    }
+    block.wave_busy[task.wave_index] = true;
+    return true;
+  }
+
+  void ReconcileParallelWave(const ParallelWaveRef& task) {
+    auto& block = raw_blocks_[task.block_index];
+    std::lock_guard<std::mutex> control_lock(*block.control_mutex);
+    std::lock_guard<std::mutex> wave_lock(*block.wave_state_mutex);
     const auto& wave = block.waves[task.wave_index].wave;
+    if (active_wave_tasks_.load(std::memory_order_relaxed) > 0) {
+      active_wave_tasks_.fetch_sub(1, std::memory_order_relaxed);
+    }
     if (wave.run_state == WaveRunState::Completed || wave.status == WaveStatus::Exited) {
       if (block.wave_busy[task.wave_index]) {
         block.wave_busy[task.wave_index] = false;
-        ++completed_waves_;
+        const size_t completed =
+            completed_waves_.fetch_add(1, std::memory_order_relaxed) + 1;
+        GPU_MODEL_LOG_DEBUG("encoded_mt",
+                            "wave_complete block=%zu wave=%zu completed=%zu/%zu",
+                            task.block_index,
+                            task.wave_index,
+                            completed,
+                            total_waves_.load(std::memory_order_relaxed));
       }
-    } else {
-      block.wave_busy[task.wave_index] = false;
+      return;
     }
-    (void)RequeueRunnableWavesForBlockLocked(task.block_index);
+    block.wave_busy[task.wave_index] = false;
   }
 
-  void WorkerRunParallelWaves(std::exception_ptr& failure, std::mutex& failure_mutex) {
-    while (true) {
-      WaveTaskRef task;
-      {
-        std::unique_lock<std::mutex> lock(scheduler_mutex_);
-        for (;;) {
-          {
-            std::lock_guard<std::mutex> failure_lock(failure_mutex);
-            if (failure != nullptr) {
-              return;
-            }
-          }
-          if (AllParallelWavesCompletedLocked()) {
-            return;
-          }
-          if (PopRunnableWaveLocked(task)) {
-            ++active_wave_tasks_;
-            break;
-          }
-          if (active_wave_tasks_ > 0) {
-            scheduler_cv_.wait(lock);
-            continue;
-          }
-          if (AdvanceWaitingWavesLocked()) {
-            continue;
-          }
-          scheduler_cv_.wait(lock);
+  bool AdvanceWaitingWavesForParallelScan(size_t block_index) {
+    auto& block = raw_blocks_[block_index];
+    {
+      std::lock_guard<std::mutex> control_lock(*block.control_mutex);
+      for (bool busy : block.wave_busy) {
+        if (busy) {
+          return false;
         }
       }
+    }
+    return ProcessWaitingWaves(block);
+  }
 
-      while (true) {
-        ExecuteWave(raw_blocks_[task.block_index], task.wave_index);
+  void WorkerRunParallelWaves(uint32_t worker,
+                              std::exception_ptr& failure,
+                              std::mutex& failure_mutex) {
+    size_t scan_cursor = parallel_waves_.empty() ? 0 : (worker % parallel_waves_.size());
+    while (true) {
+      {
+        std::lock_guard<std::mutex> failure_lock(failure_mutex);
+        if (failure != nullptr) {
+          return;
+        }
+      }
+      if (completed_waves_.load(std::memory_order_relaxed) >=
+          total_waves_.load(std::memory_order_relaxed)) {
+        return;
+      }
 
-        bool claimed_next_task = false;
-        {
-          std::lock_guard<std::mutex> lock(scheduler_mutex_);
-          if (active_wave_tasks_ > 0) {
-            --active_wave_tasks_;
+      bool executed_wave = false;
+      for (size_t offset = 0; offset < parallel_waves_.size(); ++offset) {
+        const size_t index = (scan_cursor + offset) % parallel_waves_.size();
+        const auto& task = parallel_waves_[index];
+        if (!TryClaimParallelWave(task)) {
+          continue;
+        }
+        const size_t active =
+            active_wave_tasks_.fetch_add(1, std::memory_order_relaxed) + 1;
+        GPU_MODEL_LOG_DEBUG("encoded_mt",
+                            "claim worker=%u block=%zu wave=%zu active=%zu completed=%zu/%zu",
+                            worker,
+                            task.block_index,
+                            task.wave_index,
+                            active,
+                            completed_waves_.load(std::memory_order_relaxed),
+                            total_waves_.load(std::memory_order_relaxed));
+        try {
+          ExecuteWave(raw_blocks_[task.block_index], task.wave_index);
+        } catch (...) {
+          ReconcileParallelWave(task);
+          std::lock_guard<std::mutex> lock(failure_mutex);
+          if (failure == nullptr) {
+            failure = std::current_exception();
           }
-          ReconcileWaveTaskLocked(task);
-          (void)AdvanceWaitingWavesForBlockLocked(task.block_index);
-          if (AllParallelWavesCompletedLocked()) {
-            scheduler_cv_.notify_all();
-            return;
-          }
-          if (PopRunnableWaveLocked(task)) {
-            ++active_wave_tasks_;
-            claimed_next_task = true;
-          } else {
-            const bool has_runnable = HasRunnableWaveLocked();
-            if (has_runnable || active_wave_tasks_ == 0) {
-              scheduler_cv_.notify_one();
+          return;
+        }
+        ReconcileParallelWave(task);
+        scan_cursor = (index + 1) % parallel_waves_.size();
+        executed_wave = true;
+        break;
+      }
+      if (executed_wave) {
+        continue;
+      }
+
+      bool progressed = false;
+      {
+        std::lock_guard<std::mutex> progress_lock(waiting_progress_mutex_);
+        if (!raw_blocks_.empty()) {
+          for (size_t offset = 0; offset < raw_blocks_.size(); ++offset) {
+            const size_t block_index = (waiting_block_rr_ + offset) % raw_blocks_.size();
+            if (AdvanceWaitingWavesForParallelScan(block_index)) {
+              GPU_MODEL_LOG_DEBUG("encoded_mt",
+                                  "waiting_progress worker=%u block_index=%zu completed=%zu/%zu active=%zu",
+                                  worker,
+                                  block_index,
+                                  completed_waves_.load(std::memory_order_relaxed),
+                                  total_waves_.load(std::memory_order_relaxed),
+                                  active_wave_tasks_.load(std::memory_order_relaxed));
+              waiting_block_rr_ = (block_index + 1) % raw_blocks_.size();
+              progressed = true;
+              break;
             }
           }
         }
-        if (!claimed_next_task) {
-          break;
-        }
+      }
+      if (!progressed) {
+        GPU_MODEL_LOG_DEBUG("encoded_mt",
+                            "sleep_no_runnable worker=%u completed=%zu/%zu active=%zu",
+                            worker,
+                            completed_waves_.load(std::memory_order_relaxed),
+                            total_waves_.load(std::memory_order_relaxed),
+                            active_wave_tasks_.load(std::memory_order_relaxed));
+        std::this_thread::yield();
       }
     }
   }

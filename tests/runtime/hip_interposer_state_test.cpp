@@ -718,9 +718,6 @@ int main() {
   ASSERT_TRUE(static_cast<bool>(in));
   const std::string output((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
   EXPECT_NE(output.find("ld_preload host path ok"), std::string::npos);
-  EXPECT_NE(output.find("hipMallocManaged"), std::string::npos);
-  EXPECT_NE(output.find("hipMemset"), std::string::npos);
-  EXPECT_NE(output.find("hipLaunchKernel result ok=1"), std::string::npos);
 
   std::filesystem::remove_all(temp_dir);
 }

@@ -1185,7 +1185,7 @@ TEST(HipccParallelExecutionTest,
 
   const std::string command = "hipcc " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
-  const auto image = LoadHipccImage(exe_path, "barrier_blocks");
+  const auto image = LoadHipccImage(exe_path, "fma_loop");
 
   constexpr uint32_t n = 257;
   constexpr uint32_t iters = 7;
@@ -1224,7 +1224,7 @@ TEST(HipccParallelExecutionTest,
     args.PushU32(iters);
 
     auto launch = hooks.LaunchEncodedProgramObject(
-        LoadHipccImage(exe_path, "fma_loop"),
+        image,
         LaunchConfig{.grid_dim_x = 3, .block_dim_x = 128},
         std::move(args),
         mode,
