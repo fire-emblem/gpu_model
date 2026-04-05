@@ -15,7 +15,7 @@
 
 当前主线术语按下面 5 层统一：
 
-- `runtime`: `HipRuntime -> ModelRuntime -> RuntimeEngine`
+- `runtime`: `HipRuntime -> ModelRuntime -> ExecEngine`
 - `program`: `ProgramObject / ExecutableKernel / EncodedProgramObject`
 - `instruction`: decode 后的 instruction object 与语义分发
 - `execution`: `FunctionalExecEngine / CycleExecEngine / EncodedExecEngine / WaveContext`
@@ -25,7 +25,7 @@
 
 - 文档主线已切到上述术语
 - 历史旧名 `ModelRuntimeApi / RuntimeHooks / HostRuntime` 已从主线术语移除
-- 阅读旧记录时请按 `ModelRuntime / HipRuntime / RuntimeEngine` 对照理解
+- 阅读旧记录时请按 `ModelRuntime / HipRuntime / ExecEngine` 对照理解
 
 ## 当前能力
 
@@ -83,7 +83,7 @@
 - `exec/`
   issue model、semantic handlers、functional/cycle executor、parallel-wave executor scaffold
 - `runtime/`
-  HipRuntime、ModelRuntime、RuntimeEngine
+  HipRuntime、ModelRuntime、ExecEngine
 - `debug/`
   trace、timeline、debug info
 
@@ -97,13 +97,13 @@ runtime 侧主线按三层理解：
 - model-native runtime layer
   - `ModelRuntime`
 - runtime core layer
-  - `RuntimeEngine`
+  - `ExecEngine`
 
 历史已删除名（仅用于阅读旧记录）：
 
 - `ModelRuntimeApi` -> `ModelRuntime`
 - `RuntimeHooks` -> `HipRuntime`
-- `HostRuntime` -> `RuntimeEngine`
+- `HostRuntime` -> `ExecEngine`
 
 详细说明见：
 
@@ -151,6 +151,8 @@ runtime 侧主线按三层理解：
 - 部分 loader 路径仍保留了 `llvm-objdump` / tool-assisted 提取作为兼容入口
 - runtime API 还没有补齐到“任意 HIP 程序”所需的完整子集
 - cycle model 已经可用，但仍然是用于相对比较的 naive 近似模型，不是硬件精确模型
+- 当前 `trace.txt` / `trace.jsonl` / `timeline.perfetto.json` 中的 `cycle` 统一表示模型时间，不是物理真实执行时间戳
+- `Functional st` 与 `Functional mt` 共用同一套 modeled time 规则，但 `mt` 保留 runnable wave 竞争，不能把 `mt` 的 `cycle` 直接理解成硬件真实时间
 
 所以现阶段更准确的理解是：
 
@@ -158,6 +160,15 @@ runtime 侧主线按三层理解：
 - descriptor + metadata 驱动的 encoded binary launch 已打通
 - compute-focused HIP kernel 覆盖已经较广
 - 剩余工作重点在完整 ISA 覆盖、graphics family、runtime completeness 和更系统的 cycle 建模
+
+## 当前时间语义
+
+- `Functional st`
+  - 作为确定性的语义参考模型，`arrive_resume` 后消费者指令在下一 issue quantum 起点发出
+- `Functional mt`
+  - 与 `st` 共用同一套 modeled time 规则，但保留异步调度与 runnable wave 竞争
+- `Cycle`
+  - `arrive_resume` 只表示 wave 达到 ready/eligible 状态，不保证同 cycle 或固定延迟后立刻 issue
 
 ## 构建
 
