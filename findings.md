@@ -7,6 +7,12 @@
   - `ExecEngine`：执行核心
 - 不再把 `interposer` 当作独立架构层。
 - push 前门禁改成轻量 smoke，全量 gate 保留手动执行。
+- cycle model 后续要进一步贴近真实前端行为，并能通过 trace / perfetto 正面验证：
+  - AP 接收 block
+  - wave generate / dispatch
+  - resident slot / active slot
+  - PEU 轮转 issue
+  - wait / arrive / resume
 
 ## 研究发现
 - `HipInterposerState` 原本只是对 `RuntimeSession` 的薄包装，已经不值得单独保留。
@@ -48,6 +54,7 @@
 | 轻量 pre-push + 手动 full gate | 平衡开发效率与验证覆盖 |
 | 历史存档文档中的旧名也开始统一替换 | 当前主线已经稳定，继续保留旧名的成本高于保留原貌的收益 |
 | example 默认结果改写到 `.cache/example-results` | 避免日常运行污染工作树，同时保留显式快照刷新模式 |
+| cycle 业务逻辑只放在 engine / state machine，trace 只做消费序列化 | 保证行为事实和展示分层清晰 |
 | 当前对外架构文档不再把 `hip_interposer` 当模块名 | 文件名可以保留历史字样，但架构语义必须归到 `HipRuntime` |
 | 暂不系统清理 docs 存档中的历史旧名 | 历史计划/spec 属于存档信息，优先保证主代码和关键文档收口 |
 
@@ -71,3 +78,7 @@
 
 ## 视觉/浏览器发现
 - 本阶段无浏览器/视觉外部信息输入。
+- 当前 cycle model 的正确定义应是：
+  - 唯一 cycle 模式，不区分 `st/mt`
+  - 通过资源、时序、issue policy、slot 约束来表达不同硬件行为
+  - 不是通过宿主执行模式表达

@@ -84,7 +84,7 @@
   - `docs/plans/*`
 
 ### 阶段 7：Example 结果产物管理
-- **状态：** in_progress
+- **状态：** complete
 - 执行的操作：
   - 将 examples 默认结果目录改到 `.cache/example-results/<example-name>/`
   - 为 ASan build 下的 example preload 路径补充 `libasan` 预加载
@@ -95,6 +95,17 @@
   - `examples/*/run.sh`
   - `examples/README.md`
   - `examples/*/README.md`
+
+### 阶段 8：Cycle 完备性增强设计
+- **状态：** in_progress
+- 执行的操作：
+  - 明确 cycle model 保持单一模式，不引入 cycle `st/mt`
+  - 明确 trace 只消费 typed event，不承担业务逻辑
+  - 开始整理 cycle 前端状态机和前端延迟设计
+- 创建/修改的文件：
+  - `task_plan.md`
+  - `findings.md`
+  - `progress.md`
 
 ## 测试结果
 | 测试 | 输入 | 预期结果 | 实际结果 | 状态 |

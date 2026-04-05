@@ -1,10 +1,10 @@
-# 任务计划：Runtime 架构收口与命名统一
+# 任务计划：Runtime 架构收口、命名统一与 Cycle 完备性增强
 
 ## 目标
-将当前项目收口到 `HipRuntime / ModelRuntime / ExecEngine` 三个清晰概念，完成门禁轻量化、关键文档同步，并按独立批次清理历史存档中的旧命名。
+将当前项目收口到 `HipRuntime / ModelRuntime / ExecEngine` 三个清晰概念，完成门禁轻量化、关键文档同步、历史命名清理，并启动 cycle model 与真实硬件前端行为对齐的增强计划。
 
 ## 当前阶段
-附加批次：历史文档清理
+阶段 7
 
 ## 各阶段
 
@@ -46,12 +46,20 @@
 - [x] 盘点 docs 中剩余旧命名引用并区分当前文档与历史存档
 - [x] 确认当前对外文档基本已收口
 - [x] 开始对历史 plans/spec 存档做机械术语替换
-- [ ] 提交并推送历史文档清理结果
+- [x] 提交并推送历史文档清理结果
+- **状态：** complete
+
+### 阶段 7：Cycle 完备性增强计划
+- [x] 确认 cycle model 不区分 `st/mt`，保持单一硬件时序模型
+- [x] 确认 trace 只负责消费 typed event，不承担业务推断
+- [ ] 明确 block admit / wave generate / wave dispatch / slot bind / issue / wait / arrive / resume 的状态机边界
+- [ ] 设计 `wave_generation_latency` 与 `wave_dispatch_latency` 的配置和事件落点
+- [ ] 拆分实现清单，按 engine / state machine / trace regression 组织
 - **状态：** in_progress
 
 ## 关键问题
-1. `runtime_engine.h` 兼容 shim 是否长期保留，还是后续版本删除。
-2. 是否在本轮就提交全部历史存档文档清理结果。
+1. cycle 前端状态机应先落在哪几个结构体/模块中，才能最少改动现有逻辑。
+2. `wave_generation_latency` / `wave_dispatch_latency` 是否和现有 `block_launch_cycles` / `wave_launch_cycles` 合并还是独立保留。
 
 ## 已做决策
 | 决策 | 理由 |
@@ -62,6 +70,8 @@
 | `hip_interposer.cpp` 视为 `HipRuntime` 的 C ABI 入口实现载体 | 不再把 interposer 当独立模块 |
 | pre-push 改为轻量门禁 | 缩短 push 阻塞时间，同时保留基本保护 |
 | 对历史存档文档采用机械术语替换 | 当前主线已稳定，继续保留旧名只会增加理解成本 |
+| cycle model 保持唯一模式，不再引入 cycle st/mt | `st/mt` 属于 functional 执行策略，不属于硬件时序模型 |
+| trace 只消费 typed event，不做业务推断 | 避免展示层反向定义业务语义 |
 
 ## 遇到的错误
 | 错误 | 尝试次数 | 解决方案 |
@@ -77,7 +87,11 @@
   - `Align runtime docs with hip runtime architecture`
   - `Switch pre-push hook to lightweight gate`
   - `Promote ExecEngine as runtime execution type`
+  - `Remove RuntimeEngine shim and finalize ExecEngine rename`
   - `Update docs to use ExecEngine terminology`
+  - `Normalize archived docs to ExecEngine naming`
+  - `Default example outputs to local cache by default`
+  - `Ignore local gate and example output directories`
 - 当前剩余未提交内容主要是：
   - examples 结果产物
   - build/log/results 噪音
