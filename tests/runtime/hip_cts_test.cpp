@@ -11,7 +11,7 @@
 #include <vector>
 
 #include "gpu_model/program/object_reader.h"
-#include "gpu_model/runtime/hip_interposer_state.h"
+#include "gpu_model/runtime/hip_runtime.h"
 #include "gpu_model/runtime/model_runtime.h"
 #include "tests/test_utils/hipcc_cache_test_utils.h"
 #include "test_matrix_profile.h"
@@ -948,8 +948,8 @@ TEST_P(HipCtsInterposerStateTest, ExecutesHipOutThroughRegisteredHostFunctionAnd
   }
 
   const HipCtsCase& c = GetParam();
-  auto& state = HipInterposerState::Instance();
-  state.ResetForTest();
+  HipRuntime state;
+  state.ResetCompatibilityState();
   static int host_vecadd = 0;
   static int host_fma = 0;
   static int host_bias = 0;

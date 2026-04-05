@@ -14,7 +14,7 @@
 #include <vector>
 
 #include "gpu_model/program/object_reader.h"
-#include "gpu_model/runtime/hip_interposer_state.h"
+#include "gpu_model/runtime/hip_runtime.h"
 #include "tests/test_utils/hipcc_cache_test_utils.h"
 
 namespace gpu_model {
@@ -137,8 +137,8 @@ TEST(HipInterposerStateTest, LaunchesHipVecAddExecutableThroughRegisteredHostFun
   const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  auto& state = HipInterposerState::Instance();
-  state.ResetForTest();
+  HipRuntime state;
+  state.ResetCompatibilityState();
   static int host_symbol = 0;
   state.RegisterFunction(&host_symbol, "vecadd");
 
@@ -192,8 +192,8 @@ TEST(HipInterposerStateTest, LaunchesHipVecAddExecutableInCycleModeThroughRegist
   const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  auto& state = HipInterposerState::Instance();
-  state.ResetForTest();
+  HipRuntime state;
+  state.ResetCompatibilityState();
   static int host_symbol = 0;
   state.RegisterFunction(&host_symbol, "vecadd_cycle");
 
@@ -259,8 +259,8 @@ TEST(HipInterposerStateTest, BuildsExecutableLoadPlanThroughRegisteredHostFuncti
   const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  auto& state = HipInterposerState::Instance();
-  state.ResetForTest();
+  HipRuntime state;
+  state.ResetCompatibilityState();
   static int host_symbol = 0;
   state.RegisterFunction(&host_symbol, "shared_reverse");
 
@@ -305,8 +305,8 @@ TEST(HipInterposerStateTest, LaunchesHipFmaLoopExecutableThroughRegisteredHostFu
   const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  auto& state = HipInterposerState::Instance();
-  state.ResetForTest();
+  HipRuntime state;
+  state.ResetCompatibilityState();
   static int host_symbol = 0;
   state.RegisterFunction(&host_symbol, "fma_loop");
 
@@ -370,8 +370,8 @@ TEST(HipInterposerStateTest, LaunchesHipBiasChainExecutableThroughRegisteredHost
   const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  auto& state = HipInterposerState::Instance();
-  state.ResetForTest();
+  HipRuntime state;
+  state.ResetCompatibilityState();
   static int host_symbol = 0;
   state.RegisterFunction(&host_symbol, "bias_chain");
 
@@ -439,8 +439,8 @@ TEST(HipInterposerStateTest, LaunchesHipByValueAggregateExecutableThroughRegiste
   const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  auto& state = HipInterposerState::Instance();
-  state.ResetForTest();
+  HipRuntime state;
+  state.ResetCompatibilityState();
   static int host_symbol = 0;
   state.RegisterFunction(&host_symbol, "by_value_aggregate");
 
@@ -492,8 +492,8 @@ TEST(HipInterposerStateTest, LaunchesHipThreeDimensionalHiddenArgsExecutableThro
   const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  auto& state = HipInterposerState::Instance();
-  state.ResetForTest();
+  HipRuntime state;
+  state.ResetCompatibilityState();
   static int host_symbol = 0;
   state.RegisterFunction(&host_symbol, "three_dimensional_hidden_args");
 
@@ -546,8 +546,8 @@ TEST(HipInterposerStateTest, LaunchesHipThreeDimensionalBuiltinIdsExecutableThro
   const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  auto& state = HipInterposerState::Instance();
-  state.ResetForTest();
+  HipRuntime state;
+  state.ResetCompatibilityState();
   static int host_symbol = 0;
   state.RegisterFunction(&host_symbol, "three_dimensional_builtin_ids");
 
@@ -602,8 +602,8 @@ TEST(HipInterposerStateTest, LaunchesHipVecAddExecutableThroughRegisteredHostFun
   const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  auto& state = HipInterposerState::Instance();
-  state.ResetForTest();
+  HipRuntime state;
+  state.ResetCompatibilityState();
   static int host_symbol = 0;
   state.RegisterFunction(&host_symbol, "vecadd");
 
@@ -658,8 +658,8 @@ TEST(HipInterposerStateTest, LaunchesHipVecAddExecutableThroughManagedAllocation
   const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  auto& state = HipInterposerState::Instance();
-  state.ResetForTest();
+  HipRuntime state;
+  state.ResetCompatibilityState();
   static int host_symbol = 0;
   state.RegisterFunction(&host_symbol, "vecadd");
 
@@ -673,7 +673,7 @@ TEST(HipInterposerStateTest, LaunchesHipVecAddExecutableThroughManagedAllocation
   void* a_dev = state.AllocateManaged(n * sizeof(float));
   void* b_dev = state.AllocateManaged(n * sizeof(float));
   void* c_dev = state.AllocateManaged(n * sizeof(float));
-  EXPECT_EQ(state.memory().pool_memory_size(MemoryPoolKind::Managed),
+  EXPECT_EQ(state.compatibility_memory().pool_memory_size(MemoryPoolKind::Managed),
             3u * n * sizeof(float));
   state.MemcpyHostToDevice(a_dev, a.data(), n * sizeof(float));
   state.MemcpyHostToDevice(b_dev, b.data(), n * sizeof(float));
@@ -1101,8 +1101,8 @@ TEST(HipInterposerStateTest, LaunchesHipSharedReverseExecutableThroughRegistered
   const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  auto& state = HipInterposerState::Instance();
-  state.ResetForTest();
+  HipRuntime state;
+  state.ResetCompatibilityState();
   static int host_symbol = 0;
   state.RegisterFunction(&host_symbol, "shared_reverse");
 
@@ -1167,8 +1167,8 @@ TEST(HipInterposerStateTest, LaunchesHipDynamicSharedExecutableThroughRegistered
   const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  auto& state = HipInterposerState::Instance();
-  state.ResetForTest();
+  HipRuntime state;
+  state.ResetCompatibilityState();
   static int host_symbol = 0;
   state.RegisterFunction(&host_symbol, "dynamic_shared_sum");
 
@@ -1218,8 +1218,8 @@ TEST(HipInterposerStateTest, LaunchesHipAtomicCountExecutableThroughRegisteredHo
   const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  auto& state = HipInterposerState::Instance();
-  state.ResetForTest();
+  HipRuntime state;
+  state.ResetCompatibilityState();
   static int host_symbol = 0;
   state.RegisterFunction(&host_symbol, "atomic_count");
 
@@ -1297,8 +1297,8 @@ TEST(HipInterposerStateTest, LaunchesHipSoftmaxExecutableThroughRegisteredHostFu
   const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  auto& state = HipInterposerState::Instance();
-  state.ResetForTest();
+  HipRuntime state;
+  state.ResetCompatibilityState();
   static int host_symbol = 0;
   state.RegisterFunction(&host_symbol, "softmax_row");
 
@@ -1360,8 +1360,8 @@ TEST(HipInterposerStateTest, LaunchesHipBlockReduceExecutableThroughRegisteredHo
   const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  auto& state = HipInterposerState::Instance();
-  state.ResetForTest();
+  HipRuntime state;
+  state.ResetCompatibilityState();
   static int host_symbol = 0;
   state.RegisterFunction(&host_symbol, "block_reduce_sum");
 
@@ -1422,8 +1422,8 @@ TEST(HipInterposerStateTest, LaunchesHipMfmaExecutableThroughRegisteredHostFunct
     GTEST_SKIP() << "gfx90a mfma compilation not available";
   }
 
-  auto& state = HipInterposerState::Instance();
-  state.ResetForTest();
+  HipRuntime state;
+  state.ResetCompatibilityState();
   static int host_symbol = 0;
   state.RegisterFunction(&host_symbol, "mfma_probe");
 
@@ -1474,8 +1474,8 @@ TEST(HipInterposerStateTest, BuildsExecutableLoadPlanForHipMfmaWithTypedTensorAb
     GTEST_SKIP() << "gfx90a mfma compilation not available";
   }
 
-  auto& state = HipInterposerState::Instance();
-  state.ResetForTest();
+  HipRuntime state;
+  state.ResetCompatibilityState();
   static int host_symbol = 0;
   state.RegisterFunction(&host_symbol, "mfma_plan_probe");
 

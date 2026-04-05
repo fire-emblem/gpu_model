@@ -2,11 +2,14 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <optional>
 
 #include "gpu_model/runtime/model_runtime.h"
 
 namespace gpu_model {
+
+class TraceArtifactRecorder;
 
 class HipRuntime {
  public:
@@ -27,6 +30,49 @@ class HipRuntime {
   RuntimeDeviceProperties GetDeviceProperties(int device_id = 0) const;
   std::optional<int> GetDeviceAttribute(RuntimeDeviceAttribute attribute,
                                         int device_id = 0) const;
+  void ResetCompatibilityState();
+  void RegisterFunction(const void* host_function, std::string kernel_name);
+  std::optional<std::string> ResolveKernelName(const void* host_function) const;
+  void* AllocateDevice(size_t bytes);
+  void* AllocateManaged(size_t bytes);
+  bool FreeDevice(void* device_ptr);
+  bool IsDevicePointer(const void* ptr) const;
+  uint64_t ResolveDeviceAddress(const void* ptr) const;
+  void MemcpyHostToDevice(void* dst_device_ptr, const void* src_host_ptr, size_t bytes);
+  void MemcpyDeviceToHost(void* dst_host_ptr, const void* src_device_ptr, size_t bytes) const;
+  void MemcpyDeviceToDevice(void* dst_device_ptr, const void* src_device_ptr, size_t bytes);
+  void MemsetDevice(void* device_ptr, uint8_t value, size_t bytes);
+  void MemsetDeviceD32(void* device_ptr, uint32_t value, size_t count);
+  void SyncManagedHostToDevice();
+  void SyncManagedDeviceToHost();
+  LaunchResult LaunchExecutableKernel(const std::filesystem::path& executable_path,
+                                      const void* host_function,
+                                      LaunchConfig config,
+                                      void** args,
+                                      ExecutionMode mode = ExecutionMode::Functional,
+                                      const std::string& arch_name = "c500",
+                                      TraceSink* trace = nullptr,
+                                      RuntimeSubmissionContext submission_context = {});
+  DeviceLoadPlan BuildExecutableLoadPlan(const std::filesystem::path& executable_path,
+                                         const void* host_function) const;
+  void PushLaunchConfiguration(LaunchConfig config, uint64_t shared_memory_bytes);
+  std::optional<LaunchConfig> PopLaunchConfiguration();
+  static std::filesystem::path CurrentExecutablePath();
+  void SetLastError(int error);
+  int PeekLastError() const;
+  int ConsumeLastError();
+  std::optional<uintptr_t> active_stream_id() const;
+  bool IsValidStream(std::optional<uintptr_t> stream_id) const;
+  std::optional<uintptr_t> CreateStream();
+  bool DestroyStream(uintptr_t stream_id);
+  void StreamSynchronizeCompatibility(RuntimeSubmissionContext submission_context);
+  uintptr_t CreateEvent();
+  bool HasEvent(uintptr_t event_id) const;
+  bool DestroyEvent(uintptr_t event_id);
+  bool RecordEvent(uintptr_t event_id, std::optional<uintptr_t> stream_id);
+  TraceArtifactRecorder* ResolveTraceArtifactRecorderFromEnv();
+  uint64_t NextLaunchIndex();
+  FunctionalExecutionMode functional_execution_mode() const;
 
   template <typename T>
   void MemcpyHtoD(uint64_t dst_addr, std::span<const T> values) {
@@ -82,6 +128,10 @@ class HipRuntime {
                                       TraceSink* trace = nullptr,
                                       RuntimeSubmissionContext submission_context = {});
 
+  MemorySystem& compatibility_memory();
+  const MemorySystem& compatibility_memory() const;
+  MemorySystem& memory() { return runtime().memory(); }
+  const MemorySystem& memory() const { return runtime().memory(); }
   RuntimeEngine& runtime() { return model_runtime_.runtime(); }
   const RuntimeEngine& runtime() const { return model_runtime_.runtime(); }
 

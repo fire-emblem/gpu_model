@@ -18,6 +18,7 @@
 #include <loguru.hpp>
 
 #include "gpu_model/debug/trace/artifact_recorder.h"
+#include "gpu_model/runtime/hip_runtime.h"
 #include "gpu_model/runtime/runtime_session.h"
 #include "gpu_model/util/logging.h"
 
@@ -25,6 +26,8 @@ using gpu_model::LaunchConfig;
 using gpu_model::TraceArtifactRecorder;
 
 namespace {
+
+gpu_model::HipRuntime& HipApi();
 
 bool DebugEnabled() {
   return std::getenv("GPU_MODEL_HIP_INTERPOSER_DEBUG") != nullptr ||
@@ -55,7 +58,12 @@ gpu_model::ExecutionMode ResolveExecutionModeFromEnv() {
 }
 
 TraceArtifactRecorder* ResolveTraceArtifactRecorder() {
-  return gpu_model::GetRuntimeSession().ResolveTraceArtifactRecorderFromEnv();
+  return HipApi().ResolveTraceArtifactRecorderFromEnv();
+}
+
+gpu_model::HipRuntime& HipApi() {
+  static gpu_model::HipRuntime runtime;
+  return runtime;
 }
 
 void AppendLaunchSummary(const std::filesystem::path& output_dir,
@@ -68,7 +76,7 @@ void AppendLaunchSummary(const std::filesystem::path& output_dir,
     throw std::runtime_error("failed to open launch summary file");
   }
 
-  out << "launch_index=" << gpu_model::GetRuntimeSession().NextLaunchIndex()
+  out << "launch_index=" << HipApi().NextLaunchIndex()
       << " kernel=" << kernel_name
       << " execution_mode="
       << (execution_mode == gpu_model::ExecutionMode::Cycle ? "cycle" : "functional")
@@ -100,7 +108,7 @@ void DebugLog(const char* fmt, ...) {
 }
 
 hipError_t Remember(hipError_t error) {
-  gpu_model::GetRuntimeSession().SetLastError(static_cast<int>(error));
+  HipApi().SetLastError(static_cast<int>(error));
   return error;
 }
 
@@ -109,13 +117,13 @@ bool IsValidStream(hipStream_t stream) {
   if (stream != nullptr) {
     stream_id = reinterpret_cast<uintptr_t>(stream);
   }
-  return gpu_model::GetRuntimeSession().IsValidStream(stream_id);
+  return HipApi().IsValidStream(stream_id);
 }
 
 gpu_model::RuntimeSubmissionContext CurrentSubmissionContext() {
   gpu_model::RuntimeSubmissionContext submission_context;
-  submission_context.device_id = gpu_model::GetRuntimeSession().GetDevice();
-  if (const auto stream_id = gpu_model::GetRuntimeSession().active_stream_id();
+  submission_context.device_id = HipApi().GetDevice();
+  if (const auto stream_id = HipApi().active_stream_id();
       stream_id.has_value()) {
     submission_context.stream_id = *stream_id;
   }
@@ -144,8 +152,7 @@ void __hipUnregisterFatBinary(void**) {}
 
 void __hipRegisterFunction(void**, const void* hostFunction, char*, const char* deviceName, int,
                            void*, void*, dim3*, dim3*, int*) {
-  gpu_model::GetRuntimeSession().RegisterKernelSymbol(
-      hostFunction, deviceName != nullptr ? deviceName : "");
+  HipApi().RegisterFunction(hostFunction, deviceName != nullptr ? deviceName : "");
   DebugLog("__hipRegisterFunction host=%p device=%s", hostFunction,
            deviceName != nullptr ? deviceName : "<null>");
 }
@@ -164,7 +171,7 @@ hipError_t __hipPushCallConfiguration(dim3 gridDim, dim3 blockDim, size_t shared
       .block_dim_z = blockDim.z,
       .shared_memory_bytes = static_cast<uint32_t>(sharedMemBytes),
   };
-  gpu_model::GetRuntimeSession().PushLaunchConfig(config);
+  HipApi().PushLaunchConfiguration(config, sharedMemBytes);
   DebugLog("__hipPushCallConfiguration grid=(%u,%u,%u) block=(%u,%u,%u) shared=%zu", gridDim.x,
            gridDim.y, gridDim.z, blockDim.x, blockDim.y, blockDim.z, sharedMemBytes);
   return Remember(hipSuccess);
@@ -172,7 +179,7 @@ hipError_t __hipPushCallConfiguration(dim3 gridDim, dim3 blockDim, size_t shared
 
 hipError_t __hipPopCallConfiguration(dim3* gridDim, dim3* blockDim, size_t* sharedMemBytes,
                                      hipStream_t* stream) {
-  const auto config = gpu_model::GetRuntimeSession().PopLaunchConfig();
+  const auto config = HipApi().PopLaunchConfiguration();
   if (!config.has_value()) {
     return hipErrorInvalidValue;
   }
@@ -196,7 +203,7 @@ hipError_t hipMalloc(void** devPtr, size_t size) {
   if (devPtr == nullptr) {
     return Remember(hipErrorInvalidValue);
   }
-  *devPtr = gpu_model::GetRuntimeSession().AllocateDevice(size);
+  *devPtr = HipApi().AllocateDevice(size);
   DebugLog("hipMalloc size=%zu -> %p", size, *devPtr);
   return Remember(hipSuccess);
 }
@@ -205,27 +212,26 @@ hipError_t hipMallocManaged(void** devPtr, size_t size, unsigned int flags) {
   if (devPtr == nullptr) {
     return Remember(hipErrorInvalidValue);
   }
-  *devPtr = gpu_model::GetRuntimeSession().AllocateManaged(size);
+  *devPtr = HipApi().AllocateManaged(size);
   DebugLog("hipMallocManaged size=%zu flags=%u -> %p", size, flags, *devPtr);
   return Remember(hipSuccess);
 }
 
 hipError_t hipFree(void* ptr) {
-  return Remember(gpu_model::GetRuntimeSession().FreeDevice(ptr) ? hipSuccess : hipErrorInvalidValue);
+  return Remember(HipApi().FreeDevice(ptr) ? hipSuccess : hipErrorInvalidValue);
 }
 
 hipError_t hipMemcpy(void* dst, const void* src, size_t sizeBytes, hipMemcpyKind kind) {
-  auto& session = gpu_model::GetRuntimeSession();
   DebugLog("hipMemcpy kind=%d bytes=%zu dst=%p src=%p", static_cast<int>(kind), sizeBytes, dst, src);
   switch (kind) {
     case hipMemcpyHostToDevice:
-      session.MemcpyHostToDevice(dst, src, sizeBytes);
+      HipApi().MemcpyHostToDevice(dst, src, sizeBytes);
       return Remember(hipSuccess);
     case hipMemcpyDeviceToHost:
-      session.MemcpyDeviceToHost(dst, src, sizeBytes);
+      HipApi().MemcpyDeviceToHost(dst, src, sizeBytes);
       return Remember(hipSuccess);
     case hipMemcpyDeviceToDevice:
-      session.MemcpyDeviceToDevice(dst, src, sizeBytes);
+      HipApi().MemcpyDeviceToDevice(dst, src, sizeBytes);
       return Remember(hipSuccess);
     default:
       return Remember(hipErrorInvalidValue);
@@ -244,11 +250,10 @@ hipError_t hipMemcpyAsync(void* dst,
 }
 
 hipError_t hipMemset(void* dst, int value, size_t sizeBytes) {
-  auto& session = gpu_model::GetRuntimeSession();
-  if (!session.IsDevicePointer(dst)) {
+  if (!HipApi().IsDevicePointer(dst)) {
     return Remember(hipErrorInvalidValue);
   }
-  session.MemsetDevice(dst, static_cast<uint8_t>(value), sizeBytes);
+  HipApi().MemsetDevice(dst, static_cast<uint8_t>(value), sizeBytes);
   DebugLog("hipMemset dst=%p value=%d bytes=%zu", dst, value, sizeBytes);
   return Remember(hipSuccess);
 }
@@ -261,30 +266,28 @@ hipError_t hipMemsetAsync(void* dst, int value, size_t sizeBytes, hipStream_t st
 }
 
 hipError_t hipMemsetD8(hipDeviceptr_t dest, unsigned char value, size_t count) {
-  auto& session = gpu_model::GetRuntimeSession();
   void* ptr = reinterpret_cast<void*>(dest);
-  if (!session.IsDevicePointer(ptr)) {
+  if (!HipApi().IsDevicePointer(ptr)) {
     return Remember(hipErrorInvalidValue);
   }
-  session.MemsetDevice(ptr, value, count);
+  HipApi().MemsetDevice(ptr, value, count);
   DebugLog("hipMemsetD8 dst=%p value=%u count=%zu", ptr, static_cast<unsigned>(value), count);
   return Remember(hipSuccess);
 }
 
 hipError_t hipMemsetD32(hipDeviceptr_t dest, int value, size_t count) {
-  auto& session = gpu_model::GetRuntimeSession();
   void* ptr = reinterpret_cast<void*>(dest);
-  if (!session.IsDevicePointer(ptr)) {
+  if (!HipApi().IsDevicePointer(ptr)) {
     return Remember(hipErrorInvalidValue);
   }
-  session.MemsetDeviceD32(ptr, static_cast<uint32_t>(value), count);
+  HipApi().MemsetDeviceD32(ptr, static_cast<uint32_t>(value), count);
   DebugLog("hipMemsetD32 dst=%p value=%d count=%zu", ptr, value, count);
   return Remember(hipSuccess);
 }
 
 hipError_t hipDeviceSynchronize() {
-  gpu_model::GetRuntimeSession().DeviceSynchronize();
-  gpu_model::GetRuntimeSession().SyncManagedDeviceToHost();
+  HipApi().DeviceSynchronize();
+  HipApi().SyncManagedDeviceToHost();
   DebugLog("hipDeviceSynchronize");
   return Remember(hipSuccess);
 }
@@ -293,7 +296,7 @@ hipError_t hipGetDeviceCount(int* count) {
   if (count == nullptr) {
     return Remember(hipErrorInvalidValue);
   }
-  *count = gpu_model::GetRuntimeSession().GetDeviceCount();
+  *count = HipApi().GetDeviceCount();
   return Remember(hipSuccess);
 }
 
@@ -301,12 +304,12 @@ hipError_t hipGetDevice(int* deviceId) {
   if (deviceId == nullptr) {
     return Remember(hipErrorInvalidValue);
   }
-  *deviceId = gpu_model::GetRuntimeSession().GetDevice();
+  *deviceId = HipApi().GetDevice();
   return Remember(hipSuccess);
 }
 
 hipError_t hipSetDevice(int deviceId) {
-  if (!gpu_model::GetRuntimeSession().SetDevice(deviceId)) {
+  if (!HipApi().SetDevice(deviceId)) {
     return Remember(hipErrorInvalidDevice);
   }
   return Remember(hipSuccess);
@@ -316,11 +319,10 @@ hipError_t hipGetDevicePropertiesR0600(hipDeviceProp_tR0600* prop, int deviceId)
   if (prop == nullptr) {
     return Remember(hipErrorInvalidValue);
   }
-  auto& session = gpu_model::GetRuntimeSession();
-  if (deviceId < 0 || deviceId >= session.GetDeviceCount()) {
+  if (deviceId < 0 || deviceId >= HipApi().GetDeviceCount()) {
     return Remember(hipErrorInvalidDevice);
   }
-  const auto props = session.GetDeviceProperties(deviceId);
+  const auto props = HipApi().GetDeviceProperties(deviceId);
   std::memset(prop, 0, sizeof(*prop));
   std::snprintf(prop->name, sizeof(prop->name), "%s", props.name.c_str());
   prop->totalGlobalMem = props.total_global_mem;
@@ -366,102 +368,101 @@ hipError_t hipDeviceGetAttribute(int* value, hipDeviceAttribute_t attr, int devi
   if (value == nullptr) {
     return Remember(hipErrorInvalidValue);
   }
-  auto& session = gpu_model::GetRuntimeSession();
-  if (deviceId < 0 || deviceId >= session.GetDeviceCount()) {
+  if (deviceId < 0 || deviceId >= HipApi().GetDeviceCount()) {
     return Remember(hipErrorInvalidDevice);
   }
   using A = gpu_model::RuntimeDeviceAttribute;
   std::optional<int> resolved;
   switch (attr) {
     case hipDeviceAttributeWarpSize:
-      resolved = session.GetDeviceAttribute(A::WarpSize, deviceId);
+      resolved = HipApi().GetDeviceAttribute(A::WarpSize, deviceId);
       break;
     case hipDeviceAttributeMaxThreadsPerBlock:
-      resolved = session.GetDeviceAttribute(A::MaxThreadsPerBlock, deviceId);
+      resolved = HipApi().GetDeviceAttribute(A::MaxThreadsPerBlock, deviceId);
       break;
     case hipDeviceAttributeMaxBlockDimX:
-      resolved = session.GetDeviceAttribute(A::MaxBlockDimX, deviceId);
+      resolved = HipApi().GetDeviceAttribute(A::MaxBlockDimX, deviceId);
       break;
     case hipDeviceAttributeMaxBlockDimY:
-      resolved = session.GetDeviceAttribute(A::MaxBlockDimY, deviceId);
+      resolved = HipApi().GetDeviceAttribute(A::MaxBlockDimY, deviceId);
       break;
     case hipDeviceAttributeMaxBlockDimZ:
-      resolved = session.GetDeviceAttribute(A::MaxBlockDimZ, deviceId);
+      resolved = HipApi().GetDeviceAttribute(A::MaxBlockDimZ, deviceId);
       break;
     case hipDeviceAttributeMaxGridDimX:
-      resolved = session.GetDeviceAttribute(A::MaxGridDimX, deviceId);
+      resolved = HipApi().GetDeviceAttribute(A::MaxGridDimX, deviceId);
       break;
     case hipDeviceAttributeMaxGridDimY:
-      resolved = session.GetDeviceAttribute(A::MaxGridDimY, deviceId);
+      resolved = HipApi().GetDeviceAttribute(A::MaxGridDimY, deviceId);
       break;
     case hipDeviceAttributeMaxGridDimZ:
-      resolved = session.GetDeviceAttribute(A::MaxGridDimZ, deviceId);
+      resolved = HipApi().GetDeviceAttribute(A::MaxGridDimZ, deviceId);
       break;
     case hipDeviceAttributeMultiprocessorCount:
-      resolved = session.GetDeviceAttribute(A::MultiprocessorCount, deviceId);
+      resolved = HipApi().GetDeviceAttribute(A::MultiprocessorCount, deviceId);
       break;
     case hipDeviceAttributeMaxThreadsPerMultiProcessor:
-      resolved = session.GetDeviceAttribute(A::MaxThreadsPerMultiprocessor, deviceId);
+      resolved = HipApi().GetDeviceAttribute(A::MaxThreadsPerMultiprocessor, deviceId);
       break;
     case hipDeviceAttributeMaxSharedMemoryPerBlock:
-      resolved = session.GetDeviceAttribute(A::SharedMemPerBlock, deviceId);
+      resolved = HipApi().GetDeviceAttribute(A::SharedMemPerBlock, deviceId);
       break;
     case hipDeviceAttributeSharedMemPerMultiprocessor:
-      resolved = session.GetDeviceAttribute(A::SharedMemPerMultiprocessor, deviceId);
+      resolved = HipApi().GetDeviceAttribute(A::SharedMemPerMultiprocessor, deviceId);
       break;
     case hipDeviceAttributeMaxSharedMemoryPerMultiprocessor:
-      resolved = session.GetDeviceAttribute(A::MaxSharedMemPerMultiprocessor, deviceId);
+      resolved = HipApi().GetDeviceAttribute(A::MaxSharedMemPerMultiprocessor, deviceId);
       break;
     case hipDeviceAttributeMaxRegistersPerBlock:
-      resolved = session.GetDeviceAttribute(A::RegistersPerBlock, deviceId);
+      resolved = HipApi().GetDeviceAttribute(A::RegistersPerBlock, deviceId);
       break;
     case hipDeviceAttributeMaxRegistersPerMultiprocessor:
-      resolved = session.GetDeviceAttribute(A::RegistersPerMultiprocessor, deviceId);
+      resolved = HipApi().GetDeviceAttribute(A::RegistersPerMultiprocessor, deviceId);
       break;
     case hipDeviceAttributeTotalConstantMemory:
-      resolved = session.GetDeviceAttribute(A::TotalConstantMemory, deviceId);
+      resolved = HipApi().GetDeviceAttribute(A::TotalConstantMemory, deviceId);
       break;
     case hipDeviceAttributeL2CacheSize:
-      resolved = session.GetDeviceAttribute(A::L2CacheSize, deviceId);
+      resolved = HipApi().GetDeviceAttribute(A::L2CacheSize, deviceId);
       break;
     case hipDeviceAttributeClockRate:
-      resolved = session.GetDeviceAttribute(A::ClockRateKHz, deviceId);
+      resolved = HipApi().GetDeviceAttribute(A::ClockRateKHz, deviceId);
       break;
     case hipDeviceAttributeMemoryClockRate:
-      resolved = session.GetDeviceAttribute(A::MemoryClockRateKHz, deviceId);
+      resolved = HipApi().GetDeviceAttribute(A::MemoryClockRateKHz, deviceId);
       break;
     case hipDeviceAttributeMemoryBusWidth:
-      resolved = session.GetDeviceAttribute(A::MemoryBusWidthBits, deviceId);
+      resolved = HipApi().GetDeviceAttribute(A::MemoryBusWidthBits, deviceId);
       break;
     case hipDeviceAttributeIntegrated:
-      resolved = session.GetDeviceAttribute(A::Integrated, deviceId);
+      resolved = HipApi().GetDeviceAttribute(A::Integrated, deviceId);
       break;
     case hipDeviceAttributeConcurrentKernels:
-      resolved = session.GetDeviceAttribute(A::ConcurrentKernels, deviceId);
+      resolved = HipApi().GetDeviceAttribute(A::ConcurrentKernels, deviceId);
       break;
     case hipDeviceAttributeCooperativeLaunch:
-      resolved = session.GetDeviceAttribute(A::CooperativeLaunch, deviceId);
+      resolved = HipApi().GetDeviceAttribute(A::CooperativeLaunch, deviceId);
       break;
     case hipDeviceAttributeCanMapHostMemory:
-      resolved = session.GetDeviceAttribute(A::CanMapHostMemory, deviceId);
+      resolved = HipApi().GetDeviceAttribute(A::CanMapHostMemory, deviceId);
       break;
     case hipDeviceAttributeManagedMemory:
-      resolved = session.GetDeviceAttribute(A::ManagedMemory, deviceId);
+      resolved = HipApi().GetDeviceAttribute(A::ManagedMemory, deviceId);
       break;
     case hipDeviceAttributeConcurrentManagedAccess:
-      resolved = session.GetDeviceAttribute(A::ConcurrentManagedAccess, deviceId);
+      resolved = HipApi().GetDeviceAttribute(A::ConcurrentManagedAccess, deviceId);
       break;
     case hipDeviceAttributeHostRegisterSupported:
-      resolved = session.GetDeviceAttribute(A::HostRegisterSupported, deviceId);
+      resolved = HipApi().GetDeviceAttribute(A::HostRegisterSupported, deviceId);
       break;
     case hipDeviceAttributeUnifiedAddressing:
-      resolved = session.GetDeviceAttribute(A::UnifiedAddressing, deviceId);
+      resolved = HipApi().GetDeviceAttribute(A::UnifiedAddressing, deviceId);
       break;
     case hipDeviceAttributeComputeCapabilityMajor:
-      resolved = session.GetDeviceAttribute(A::ComputeCapabilityMajor, deviceId);
+      resolved = HipApi().GetDeviceAttribute(A::ComputeCapabilityMajor, deviceId);
       break;
     case hipDeviceAttributeComputeCapabilityMinor:
-      resolved = session.GetDeviceAttribute(A::ComputeCapabilityMinor, deviceId);
+      resolved = HipApi().GetDeviceAttribute(A::ComputeCapabilityMinor, deviceId);
       break;
     default:
       return Remember(hipErrorInvalidValue);
@@ -474,18 +475,18 @@ hipError_t hipDeviceGetAttribute(int* value, hipDeviceAttribute_t attr, int devi
 }
 
 hipError_t hipGetLastError() {
-  return static_cast<hipError_t>(gpu_model::GetRuntimeSession().ConsumeLastError());
+  return static_cast<hipError_t>(HipApi().ConsumeLastError());
 }
 
 hipError_t hipPeekAtLastError() {
-  return static_cast<hipError_t>(gpu_model::GetRuntimeSession().PeekLastError());
+  return static_cast<hipError_t>(HipApi().PeekLastError());
 }
 
 hipError_t hipStreamCreate(hipStream_t* stream) {
   if (stream == nullptr) {
     return Remember(hipErrorInvalidValue);
   }
-  const auto stream_id = gpu_model::GetRuntimeSession().CreateStream();
+  const auto stream_id = HipApi().CreateStream();
   if (!stream_id.has_value()) {
     return Remember(hipErrorInvalidValue);
   }
@@ -495,7 +496,7 @@ hipError_t hipStreamCreate(hipStream_t* stream) {
 
 hipError_t hipStreamDestroy(hipStream_t stream) {
   if (stream == nullptr ||
-      !gpu_model::GetRuntimeSession().DestroyStream(reinterpret_cast<uintptr_t>(stream))) {
+      !HipApi().DestroyStream(reinterpret_cast<uintptr_t>(stream))) {
     return Remember(hipErrorInvalidHandle);
   }
   return Remember(hipSuccess);
@@ -505,7 +506,7 @@ hipError_t hipStreamSynchronize(hipStream_t stream) {
   if (!IsValidStream(stream)) {
     return Remember(hipErrorInvalidHandle);
   }
-  gpu_model::GetRuntimeSession().StreamSynchronize(SubmissionContextForStream(stream));
+  HipApi().StreamSynchronizeCompatibility(SubmissionContextForStream(stream));
   return Remember(hipSuccess);
 }
 
@@ -513,7 +514,7 @@ hipError_t hipStreamWaitEvent(hipStream_t stream, hipEvent_t event, unsigned int
   if (!IsValidStream(stream)) {
     return Remember(hipErrorInvalidHandle);
   }
-  if (!gpu_model::GetRuntimeSession().HasEvent(reinterpret_cast<uintptr_t>(event))) {
+  if (!HipApi().HasEvent(reinterpret_cast<uintptr_t>(event))) {
     return Remember(hipErrorInvalidHandle);
   }
   return Remember(hipSuccess);
@@ -523,7 +524,7 @@ hipError_t hipEventCreate(hipEvent_t* event) {
   if (event == nullptr) {
     return Remember(hipErrorInvalidValue);
   }
-  *event = reinterpret_cast<hipEvent_t>(gpu_model::GetRuntimeSession().CreateEvent());
+  *event = reinterpret_cast<hipEvent_t>(HipApi().CreateEvent());
   return Remember(hipSuccess);
 }
 
@@ -532,7 +533,7 @@ hipError_t hipEventCreateWithFlags(hipEvent_t* event, unsigned) {
 }
 
 hipError_t hipEventDestroy(hipEvent_t event) {
-  if (!gpu_model::GetRuntimeSession().DestroyEvent(reinterpret_cast<uintptr_t>(event))) {
+  if (!HipApi().DestroyEvent(reinterpret_cast<uintptr_t>(event))) {
     return Remember(hipErrorInvalidHandle);
   }
   return Remember(hipSuccess);
@@ -546,7 +547,7 @@ hipError_t hipEventRecord(hipEvent_t event, hipStream_t stream) {
   if (stream != nullptr) {
     stream_id = reinterpret_cast<uintptr_t>(stream);
   }
-  if (!gpu_model::GetRuntimeSession().RecordEvent(reinterpret_cast<uintptr_t>(event), stream_id)) {
+  if (!HipApi().RecordEvent(reinterpret_cast<uintptr_t>(event), stream_id)) {
     return Remember(hipErrorInvalidHandle);
   }
   return Remember(hipSuccess);
@@ -557,7 +558,7 @@ hipError_t hipEventRecordWithFlags(hipEvent_t event, hipStream_t stream, unsigne
 }
 
 hipError_t hipEventSynchronize(hipEvent_t event) {
-  if (!gpu_model::GetRuntimeSession().HasEvent(reinterpret_cast<uintptr_t>(event))) {
+  if (!HipApi().HasEvent(reinterpret_cast<uintptr_t>(event))) {
     return Remember(hipErrorInvalidHandle);
   }
   return Remember(hipSuccess);
@@ -567,8 +568,8 @@ hipError_t hipEventElapsedTime(float* ms, hipEvent_t start, hipEvent_t stop) {
   if (ms == nullptr) {
     return Remember(hipErrorInvalidValue);
   }
-  if (!gpu_model::GetRuntimeSession().HasEvent(reinterpret_cast<uintptr_t>(start)) ||
-      !gpu_model::GetRuntimeSession().HasEvent(reinterpret_cast<uintptr_t>(stop))) {
+  if (!HipApi().HasEvent(reinterpret_cast<uintptr_t>(start)) ||
+      !HipApi().HasEvent(reinterpret_cast<uintptr_t>(stop))) {
     return Remember(hipErrorInvalidHandle);
   }
   *ms = 0.0f;
@@ -598,9 +599,9 @@ hipError_t hipLaunchKernel(const void* function_address,
   };
   const auto execution_mode = ResolveExecutionModeFromEnv();
   auto* trace = ResolveTraceArtifactRecorder();
-  const auto kernel_name = gpu_model::GetRuntimeSession().ResolveKernelSymbol(function_address);
-  const auto result = gpu_model::GetRuntimeSession().LaunchExecutableKernel(
-      gpu_model::RuntimeSession::CurrentExecutablePath(),
+  const auto kernel_name = HipApi().ResolveKernelName(function_address);
+  const auto result = HipApi().LaunchExecutableKernel(
+      gpu_model::HipRuntime::CurrentExecutablePath(),
       function_address,
       config,
       args,
@@ -613,7 +614,7 @@ hipError_t hipLaunchKernel(const void* function_address,
     AppendLaunchSummary(trace->output_dir(),
                         kernel_name.value_or("<unregistered>"),
                         execution_mode,
-                        gpu_model::GetRuntimeSession().functional_execution_mode(),
+                        HipApi().functional_execution_mode(),
                         result);
   }
   DebugLog("hipLaunchKernel result ok=%d err=%s", result.ok ? 1 : 0,
