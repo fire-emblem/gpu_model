@@ -62,6 +62,7 @@
   - 保留 `runtime_engine.h` 兼容 shim
   - 检查工作树，确认当前代码变更已提交并推送，剩余主要是 examples 产物与构建噪音
   - 确认当前不继续系统清理历史存档文档中的旧命名
+  - 进一步修正 `runtime-layering.md`，明确 `hip_interposer.cpp` 仅是 `HipRuntime` 的 C ABI 入口实现载体，不是模块名
 - 创建/修改的文件：
   - `docs/runtime-layering.md`
   - `docs/module-development-status.md`

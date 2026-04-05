@@ -30,7 +30,8 @@ runtime 侧主线按两层来理解：
 
 - 这层不应该拥有独立的 kernel 执行逻辑
 - 这层不应该重复实现 program load / launch / memory 语义
-- `src/runtime/hip_interposer.cpp` 只是 `HipRuntime` 的 C ABI 入口实现载体，不再作为独立“interposer 模块”理解
+- `src/runtime/hip_interposer.cpp` 只是 `HipRuntime` 的 C ABI 入口实现载体
+- 当前仓库中文件名仍保留历史 `hip_interposer.cpp`，但它不代表一个独立模块名
 
 ## Layer 2: ModelRuntime
 
