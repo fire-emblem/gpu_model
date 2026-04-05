@@ -38,7 +38,7 @@ Add a new focused runtime trace test:
 ```cpp
 TEST(TraceTest, EmitsWaveStatsStateSplitForFunctionalLaunch) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::MarlParallel);
 
   InstructionBuilder builder;
@@ -218,7 +218,7 @@ Add a new or extended regression that proves `waiting > 0` during explicit `s_wa
 ```cpp
 TEST(WaitcntFunctionalTest, EmitsWaveStatsDuringWaitcntProgress) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
 
   // existing waitcnt setup and launch
 

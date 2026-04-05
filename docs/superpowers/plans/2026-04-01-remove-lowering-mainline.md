@@ -6,7 +6,7 @@
 
 **Architecture:** Raw artifacts stop auto-bridging into modeled asm and instead stay in the encoded domain for both functional and cycle launch modes. Internal hand-written `ExecutableKernel` inputs remain temporarily for unit tests only; runtime artifact routing no longer depends on `ProgramLoweringRegistry` or `ExecutionRoute::LoweredModeled`.
 
-**Tech Stack:** C++20, existing `EncodedExecEngine`, `RuntimeEngine`, `HipRuntime`, example bash framework, gtest
+**Tech Stack:** C++20, existing `EncodedExecEngine`, `ExecEngine`, `HipRuntime`, example bash framework, gtest
 
 ---
 
@@ -15,12 +15,12 @@
 **Files:**
 - Modify: `include/gpu_model/program/execution_route.h`
 - Modify: `src/program/execution_route.cpp`
-- Modify: `src/runtime/runtime_engine.cpp`
+- Modify: `src/runtime/exec_engine.cpp`
 - Modify: `src/runtime/hip_runtime.cpp`
 
 - [ ] Remove `ExecutionRoute::LoweredModeled`.
 - [ ] Make raw artifact `AutoSelect` resolve only to encoded/raw.
-- [ ] Stop `RuntimeEngine` from including or calling `ProgramLoweringRegistry`.
+- [ ] Stop `ExecEngine` from including or calling `ProgramLoweringRegistry`.
 - [ ] For non-raw `ProgramObject` paths, use direct asm parsing only where still needed for internal non-artifact program images.
 - [ ] Rebuild and run a focused runtime compile/test ring.
 
@@ -31,14 +31,14 @@ Run: `cmake --build build-ninja --target gpu_model_tests gpu_model_hip_interpose
 **Files:**
 - Modify: `include/gpu_model/execution/encoded_exec_engine.h`
 - Modify: `src/execution/encoded_exec_engine.cpp`
-- Modify: `src/runtime/runtime_engine.cpp`
+- Modify: `src/runtime/exec_engine.cpp`
 
 - [ ] Extend the encoded raw execution path so cycle launches no longer error or depend on lowering.
 - [ ] Provide a stable minimal `total_cycles` / `end_cycle` contract for raw encoded cycle launches.
 - [ ] Keep existing kernel-based `CycleExecEngine` tests untouched for now.
 - [ ] Re-run focused raw-artifact cycle and trace tests.
 
-Run: `./build-ninja/tests/gpu_model_tests --gtest_filter='HipInterposerStateTest.*Cycle*:TraceTest.*'`
+Run: `./build-ninja/tests/gpu_model_tests --gtest_filter='HipRuntimeTest.*Cycle*:TraceTest.*'`
 
 ### Task 3: Remove Lowering-Bound Tests And Route Users To Encoded Mainline
 
@@ -82,7 +82,7 @@ Run:
 ```bash
 git add include/gpu_model/program/execution_route.h \
         src/program/execution_route.cpp \
-        src/runtime/runtime_engine.cpp \
+        src/runtime/exec_engine.cpp \
         src/runtime/hip_runtime.cpp \
         include/gpu_model/execution/encoded_exec_engine.h \
         src/execution/encoded_exec_engine.cpp \

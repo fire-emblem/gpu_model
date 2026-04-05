@@ -17,7 +17,7 @@
 - Modify: `tests/functional/shared_sync_functional_test.cpp`
 - Modify: `tests/functional/waitcnt_functional_test.cpp`
 - Modify: `tests/runtime/parallel_execution_mode_test.cpp`
-- Modify: `src/runtime/runtime_engine.cpp`
+- Modify: `src/runtime/exec_engine.cpp`
 
 - [ ] **Step 1: Add a failing same-AP cross-block progress regression**
 
@@ -121,7 +121,7 @@ Do not loosen correctness around:
 ### Task 3: Update Marl Default Worker Budget To 90 Percent Of CPU Cores
 
 **Files:**
-- Modify: `src/runtime/runtime_engine.cpp`
+- Modify: `src/runtime/exec_engine.cpp`
 
 - [ ] **Step 1: Change the default worker heuristic**
 
@@ -175,7 +175,7 @@ Run:
 git add docs/superpowers/specs/2026-04-02-functional-mt-wave-scheduler-design.md \
         docs/superpowers/plans/2026-04-02-functional-mt-wave-scheduler.md \
         src/execution/functional_exec_engine.cpp \
-        src/runtime/runtime_engine.cpp \
+        src/runtime/exec_engine.cpp \
         tests/functional/shared_barrier_functional_test.cpp \
         tests/functional/shared_sync_functional_test.cpp \
         tests/functional/waitcnt_functional_test.cpp \

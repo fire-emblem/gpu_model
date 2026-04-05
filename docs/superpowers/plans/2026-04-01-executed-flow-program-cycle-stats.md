@@ -8,7 +8,7 @@
 
 **Architecture:** Keep executed-flow sampling internal to `FunctionalExecEngine`, but do not let the cycle-stats path logic depend on functional-only internals. Instead, introduce a shared `ProgramCycleTracker` and event-source abstraction so the current executed-flow cycle stats and future true `CycleExecEngine` can both project into the same `ProgramCycleStats` result shape while detailed executed-flow events remain internal and hidden from `LaunchResult`.
 
-**Tech Stack:** C++20, gtest, existing `RuntimeEngine`, `FunctionalExecEngine`, `LaunchResult`, cycle tests, execution stats
+**Tech Stack:** C++20, gtest, existing `ExecEngine`, `FunctionalExecEngine`, `LaunchResult`, cycle tests, execution stats
 
 ---
 
@@ -18,7 +18,7 @@
   - Own public result/config types exposed through runtime APIs.
 - Modify: `include/gpu_model/runtime/launch_request.h`
   - Add optional `ProgramCycleStats` to `LaunchResult`.
-- Modify: `src/runtime/runtime_engine.cpp`
+- Modify: `src/runtime/exec_engine.cpp`
   - Populate `LaunchResult` with program cycle stats for functional `st/mt`.
 - Create: `include/gpu_model/runtime/program_cycle_tracker.h`
   - Own the shared program-level cycle aggregation interface.
@@ -27,7 +27,7 @@
 - Modify: `src/execution/functional_exec_engine.cpp`
   - Own internal structured executed-flow sampling and the executed-flow event-source implementation.
 - Modify: `include/gpu_model/execution/functional_exec_engine.h`
-  - Expose only the minimal internal hook/result path needed by `RuntimeEngine`.
+  - Expose only the minimal internal hook/result path needed by `ExecEngine`.
 - Modify: `tests/runtime/execution_stats_test.cpp`
   - Lock public-facing stats/result behavior.
 - Create: `tests/runtime/executed_flow_program_cycle_stats_test.cpp`
@@ -48,7 +48,7 @@ Add a failing test in `tests/runtime/execution_stats_test.cpp` that proves funct
 
 ```cpp
 TEST(ExecutionStatsTest, FunctionalLaunchReportsProgramCycleStats) {
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
 
   const auto kernel = BuildStatsFunctionalKernel();
@@ -273,7 +273,7 @@ Extend `tests/runtime/executed_flow_program_cycle_stats_test.cpp` with an initia
 
 ```cpp
 TEST(ExecutedFlowProgramCycleStatsTest, PureAluKernelProducesExpectedProgramCycleStats) {
-  RuntimeEngine runtime;
+  ExecEngine runtime;
   runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
 
   InstructionBuilder builder;
@@ -436,10 +436,10 @@ git add src/execution/functional_exec_engine.cpp tests/runtime/executed_flow_pro
 git commit -m "feat: add executed flow program cycle stats"
 ```
 
-## Task 5: Wire program cycle stats output into `RuntimeEngine` and compare with cycle-mode shape
+## Task 5: Wire program cycle stats output into `ExecEngine` and compare with cycle-mode shape
 
 **Files:**
-- Modify: `src/runtime/runtime_engine.cpp`
+- Modify: `src/runtime/exec_engine.cpp`
 - Modify: `tests/runtime/execution_stats_test.cpp`
 - Modify: `tests/runtime/executed_flow_program_cycle_stats_test.cpp`
 
@@ -469,11 +469,11 @@ Run:
 
 Expected:
 
-- FAIL because `RuntimeEngine` does not yet populate the program cycle stats result
+- FAIL because `ExecEngine` does not yet populate the program cycle stats result
 
 - [ ] **Step 3: Populate `LaunchResult::program_cycle_stats` for functional launches**
 
-In `src/runtime/runtime_engine.cpp`, after functional execution returns:
+In `src/runtime/exec_engine.cpp`, after functional execution returns:
 
 ```cpp
 if (request.mode == ExecutionMode::Functional) {
@@ -499,7 +499,7 @@ Expected:
 - [ ] **Step 5: Commit the runtime wiring slice**
 
 ```bash
-git add src/runtime/runtime_engine.cpp tests/runtime/execution_stats_test.cpp tests/runtime/executed_flow_program_cycle_stats_test.cpp
+git add src/runtime/exec_engine.cpp tests/runtime/execution_stats_test.cpp tests/runtime/executed_flow_program_cycle_stats_test.cpp
 git commit -m "feat: expose executed flow cycle stats through runtime"
 ```
 

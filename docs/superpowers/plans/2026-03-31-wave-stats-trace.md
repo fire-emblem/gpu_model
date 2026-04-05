@@ -140,7 +140,7 @@ Add a new runtime trace regression:
 ```cpp
 TEST(TraceTest, EmitsWaveStatsSnapshotsForFunctionalLaunch) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
 
   InstructionBuilder builder;
   builder.BExit();
@@ -244,7 +244,7 @@ Add a shared-barrier regression:
 TEST(SharedBarrierFunctionalTest, EmitsWaveStatsDuringBarrierProgress) {
   constexpr uint32_t block_dim = 128;
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
 
   const uint64_t in_addr = runtime.memory().AllocateGlobal(block_dim * sizeof(int32_t));
   const uint64_t out_addr = runtime.memory().AllocateGlobal(block_dim * sizeof(int32_t));

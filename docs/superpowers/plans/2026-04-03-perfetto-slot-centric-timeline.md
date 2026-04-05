@@ -334,7 +334,7 @@ In `tests/runtime/cycle_timeline_test.cpp`, add a new runtime-driven test using 
 ```cpp
 TEST(CycleTimelineTest, RuntimePerfettoDumpCarriesWaveLifecycleOnSlotTracks) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFixedGlobalMemoryLatency(20);
   const auto kernel = BuildSharedBarrierCycleKernel();
   LaunchRequest request;
@@ -495,7 +495,7 @@ TEST(TraceTest, PerfettoDumpForSingleThreadedWaitKernelUsesSharedSlotSchema) {
   const auto out_dir = MakeUniqueTempDir("gpu_model_perfetto_st_wait");
   const struct Cleanup { std::filesystem::path path; ~Cleanup() { std::filesystem::remove_all(path); } } cleanup{out_dir};
   TraceArtifactRecorder trace(out_dir);
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
   const auto kernel = BuildWaitcntTraceKernel();
   const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));

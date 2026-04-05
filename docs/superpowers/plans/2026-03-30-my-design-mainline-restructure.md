@@ -18,7 +18,7 @@
 
 - `include/gpu_model/runtime/model_runtime.h`
 - `include/gpu_model/runtime/hip_runtime.h`
-- `include/gpu_model/runtime/runtime_engine.h`
+- `include/gpu_model/runtime/exec_engine.h`
 - `include/gpu_model/program/program_object.h`
 - `include/gpu_model/program/executable_kernel.h`
 - `include/gpu_model/program/encoded_program_object.h`
@@ -93,7 +93,7 @@
 **Files:**
 - Create: `include/gpu_model/runtime/model_runtime.h`
 - Create: `include/gpu_model/runtime/hip_runtime.h`
-- Create: `include/gpu_model/runtime/runtime_engine.h`
+- Create: `include/gpu_model/runtime/exec_engine.h`
 - Modify: `include/gpu_model/runtime/model_runtime_api.h`
 - Modify: `include/gpu_model/runtime/runtime_hooks.h`
 - Modify: `include/gpu_model/runtime/host_runtime.h`
@@ -105,7 +105,7 @@
 ```cpp
 #include "gpu_model/runtime/model_runtime.h"
 #include "gpu_model/runtime/hip_runtime.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/exec_engine.h"
 
 #include <type_traits>
 
@@ -117,7 +117,7 @@ namespace {
 TEST(RuntimeNamingTest, NewRuntimeNamesResolveToCurrentImplementations) {
   static_assert(std::is_default_constructible_v<ModelRuntime>);
   static_assert(std::is_default_constructible_v<HipRuntime>);
-  static_assert(std::is_default_constructible_v<RuntimeEngine>);
+  static_assert(std::is_default_constructible_v<ExecEngine>);
 }
 
 }  // namespace
@@ -127,7 +127,7 @@ TEST(RuntimeNamingTest, NewRuntimeNamesResolveToCurrentImplementations) {
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `cmake --build build-ninja --target gpu_model_tests && ./build-ninja/tests/gpu_model_tests --gtest_filter='RuntimeNamingTest.NewRuntimeNamesResolveToCurrentImplementations'`
-Expected: FAIL with missing headers `gpu_model/runtime/model_runtime.h`, `hip_runtime.h`, or `runtime_engine.h`
+Expected: FAIL with missing headers `gpu_model/runtime/model_runtime.h`, `hip_runtime.h`, or `exec_engine.h`
 
 - [ ] **Step 3: Add new runtime headers with Phase 1 aliases**
 
@@ -158,14 +158,14 @@ using HipRuntime = RuntimeHooks;
 ```
 
 ```cpp
-// include/gpu_model/runtime/runtime_engine.h
+// include/gpu_model/runtime/exec_engine.h
 #pragma once
 
 #include "gpu_model/runtime/host_runtime.h"
 
 namespace gpu_model {
 
-using RuntimeEngine = HostRuntime;
+using ExecEngine = HostRuntime;
 
 }  // namespace gpu_model
 ```
@@ -210,7 +210,7 @@ class HostRuntime {
   // existing implementation remains unchanged in Phase 1
 };
 
-using RuntimeEngine = HostRuntime;
+using ExecEngine = HostRuntime;
 
 }  // namespace gpu_model
 ```
@@ -225,7 +225,7 @@ Expected: PASS
 ```bash
 git add include/gpu_model/runtime/model_runtime.h \
         include/gpu_model/runtime/hip_runtime.h \
-        include/gpu_model/runtime/runtime_engine.h \
+        include/gpu_model/runtime/exec_engine.h \
         include/gpu_model/runtime/model_runtime_api.h \
         include/gpu_model/runtime/runtime_hooks.h \
         include/gpu_model/runtime/host_runtime.h \
@@ -672,7 +672,7 @@ git commit -m "refactor: add phase1 execution public names"
 
 ```cpp
 #include "gpu_model/runtime/model_runtime.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/exec_engine.h"
 #include "gpu_model/program/program_object.h"
 #include "gpu_model/execution/encoded_exec_engine.h"
 
@@ -730,7 +730,7 @@ LaunchResult RuntimeHooks::LaunchProgramImage(const ProgramObject& image,
 
 - [ ] **Step 4: Run runtime-focused regression tests**
 
-Run: `cmake --build build-ninja --target gpu_model_tests && ./build-ninja/tests/gpu_model_tests --gtest_filter='RuntimeMainlineNamingTest.*:RawCodeObjectLaunchTest.*:HipInterposerStateTest.*:ModelRuntimeApiTest.*:RuntimeHooksTest.*'`
+Run: `cmake --build build-ninja --target gpu_model_tests && ./build-ninja/tests/gpu_model_tests --gtest_filter='RuntimeMainlineNamingTest.*:RawCodeObjectLaunchTest.*:HipRuntimeTest.*:ModelRuntimeApiTest.*:RuntimeHooksTest.*'`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -832,7 +832,7 @@ Expected: matches found in files that still need terminology cleanup
 ```md
 - `ModelRuntimeApi` -> `ModelRuntime`
 - `RuntimeHooks` -> `HipRuntime` (Phase 1 compatibility name retained where needed)
-- `HostRuntime` -> `RuntimeEngine`
+- `HostRuntime` -> `ExecEngine`
 - `ProgramImage` -> `ProgramObject`
 - `KernelProgram` -> `ExecutableKernel`
 - `RawGcnExecutor` -> `EncodedExecEngine`
@@ -961,7 +961,7 @@ This plan consistently uses:
 
 - `ModelRuntime`
 - `HipRuntime`
-- `RuntimeEngine`
+- `ExecEngine`
 - `ProgramObject`
 - `ExecutableKernel`
 - `EncodedProgramObject`

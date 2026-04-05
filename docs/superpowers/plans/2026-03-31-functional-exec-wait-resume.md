@@ -8,7 +8,7 @@
 
 **Architecture:** Keep the refactor inside the execution layer. Add explicit wave run-state data to `WaveContext`, move barrier resume into a single `FunctionalExecEngine` recovery point, and prove behavior with execution-unit tests plus `st/mt` functional regression on existing shared-memory kernels.
 
-**Tech Stack:** C++20, CMake, gtest, existing `RuntimeEngine`, `FunctionalExecEngine`, `sync_ops`
+**Tech Stack:** C++20, CMake, gtest, existing `ExecEngine`, `FunctionalExecEngine`, `sync_ops`
 
 ---
 
@@ -218,7 +218,7 @@ git commit -m "refactor: unify functional barrier wait resume"
 
 **Files:**
 - Modify: `tests/functional/shared_barrier_functional_test.cpp`
-- Read: `include/gpu_model/runtime/runtime_engine.h`
+- Read: `include/gpu_model/runtime/exec_engine.h`
 
 - [ ] **Step 1: Write failing `st/mt` parity tests using the existing shared barrier kernel**
 
@@ -229,7 +229,7 @@ TEST(SharedBarrierFunctionalTest, MatchesResultsAcrossSingleThreadedAndMarlParal
   constexpr uint32_t n = block_dim * grid_dim;
 
   auto run_mode = [&](FunctionalExecutionMode mode) {
-    RuntimeEngine runtime;
+    ExecEngine runtime;
     runtime.SetFunctionalExecutionMode(mode);
     const uint64_t in_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
     const uint64_t out_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));

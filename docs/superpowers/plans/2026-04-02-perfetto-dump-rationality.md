@@ -35,7 +35,7 @@ TEST(TraceTest, PerfettoDumpContainsTraceEventsAndRequiredFields) {
   std::filesystem::remove_all(out_dir);
 
   TraceArtifactRecorder trace(out_dir);
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
 
   InstructionBuilder builder;
   builder.BExit();
@@ -132,7 +132,7 @@ TEST(TraceTest, PerfettoDumpForMultiThreadedWaitKernelShowsWaitingAndResumeOrder
   std::filesystem::remove_all(out_dir);
 
   TraceArtifactRecorder trace(out_dir);
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::MultiThreaded);
 
   const auto kernel = BuildWaitcntTraceKernel();
@@ -218,7 +218,7 @@ Add a new test in `tests/runtime/cycle_timeline_test.cpp`:
 ```cpp
 TEST(CycleTimelineTest, PerfettoDumpPreservesCycleIssueAndCommitOrdering) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetGlobalMemoryLatencyProfile(/*dram=*/40, /*l2=*/20, /*l1=*/8);
 
   const auto kernel = BuildTimelineKernel();
@@ -299,7 +299,7 @@ Inside `HipccParallelExecutionTest.EncodedConditionalMultiBarrierKernelMatchesAc
 const auto artifact_dir =
     MakeUniqueTempDir("gpu_model_hipcc_parallel_conditional_multibarrier_perfetto");
 TraceArtifactRecorder trace(artifact_dir);
-RuntimeEngine runtime(&trace);
+ExecEngine runtime(&trace);
 ```
 
 Then after launch:

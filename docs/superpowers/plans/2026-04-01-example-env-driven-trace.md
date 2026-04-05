@@ -18,11 +18,11 @@
 
 - [ ] **Step 1: Write a failing `.out` cycle interposer regression**
 
-Add a new test in `tests/runtime/hip_interposer_state_test.cpp` that compiles a minimal HIP vecadd `.out`, launches it through `HipInterposerState::LaunchExecutableKernel(..., ExecutionMode::Cycle)`, and expects `result.ok` plus `result.total_cycles > 0`.
+Add a new test in `tests/runtime/hip_interposer_state_test.cpp` that compiles a minimal HIP vecadd `.out`, launches it through `HipRuntime::LaunchExecutableKernel(..., ExecutionMode::Cycle)`, and expects `result.ok` plus `result.total_cycles > 0`.
 
 - [ ] **Step 2: Run the focused test to verify it fails for the intended gap**
 
-Run: `./build-ninja/tests/gpu_model_tests --gtest_filter='HipInterposerStateTest.*Cycle*'`
+Run: `./build-ninja/tests/gpu_model_tests --gtest_filter='HipRuntimeTest.*Cycle*'`
 
 Expected: either missing test symbol at compile time or behavioral failure because the current path is not yet wired for the new env-driven cycle launch contract.
 
@@ -56,7 +56,7 @@ Expected: compile failure or test failure because the recorder does not yet exis
 - [ ] **Step 4: Emit `launch_summary.txt` alongside trace artifacts after each launch**
 - [ ] **Step 5: Re-run focused runtime and trace tests**
 
-Run: `./build-ninja/tests/gpu_model_tests --gtest_filter='HipInterposerStateTest.*Cycle*:TraceTest.*Artifact*:TraceTest.WritesHumanReadableTraceFile:TraceTest.WritesJsonTraceFile'`
+Run: `./build-ninja/tests/gpu_model_tests --gtest_filter='HipRuntimeTest.*Cycle*:TraceTest.*Artifact*:TraceTest.WritesHumanReadableTraceFile:TraceTest.WritesJsonTraceFile'`
 
 Expected: PASS
 
@@ -93,7 +93,7 @@ Expected: each script leaves `results/st`, `results/mt`, `results/cycle` populat
 
 - [ ] **Step 1: Run the focused verification ring**
 
-Run: `./build-ninja/tests/gpu_model_tests --gtest_filter='ParallelExecutionModeTest.*:HipccParallelExecutionTest.*:HipInterposerStateTest.*:TraceTest.*:ExecutionStatsTest.*:CycleSmokeTest.*'`
+Run: `./build-ninja/tests/gpu_model_tests --gtest_filter='ParallelExecutionModeTest.*:HipccParallelExecutionTest.*:HipRuntimeTest.*:TraceTest.*:ExecutionStatsTest.*:CycleSmokeTest.*'`
 
 Expected: PASS
 

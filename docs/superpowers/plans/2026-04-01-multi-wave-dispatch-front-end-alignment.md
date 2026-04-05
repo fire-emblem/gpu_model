@@ -8,7 +8,7 @@
 
 **Architecture:** Keep the current block-level resident-wave pool shape, but tighten the shared `issue_eligibility` contract so waiting waves, barrier-blocked waves, `valid_entry` stalls, and explicit `waitcnt` stalls are all represented consistently before a `PEU` chooses its next wave. Then make `FunctionalExecEngine::SelectNextWaveIndexForPeu()` instruction-aware by consulting that shared contract instead of only checking `status/run_state/busy`. Do not add active-window/standby-window yet, because with the current `Mapper` and `1024-thread` block limit, one block still reaches at most `4 waves/PEU`.
 
-**Tech Stack:** C++20, gtest, existing `FunctionalExecEngine`, `CycleExecEngine`, `issue_eligibility`, `RuntimeEngine`, trace-based functional regressions
+**Tech Stack:** C++20, gtest, existing `FunctionalExecEngine`, `CycleExecEngine`, `issue_eligibility`, `ExecEngine`, trace-based functional regressions
 
 ---
 
@@ -248,7 +248,7 @@ Then add a regression that checks `wave 4` advances while `wave 0` is stalled on
 ```cpp
 TEST(WaitcntFunctionalTest, WaitingWaveDoesNotBlockReadySiblingOnSamePeu) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
 
   constexpr uint32_t kBlockDim = 320;
@@ -380,7 +380,7 @@ size_t FirstBarrierReleaseIndex(const std::vector<TraceEvent>& events) {
 
 TEST(SharedSyncFunctionalTest, BarrierReleaseReturnsEarlyWaveToDispatch) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::MarlParallel);
 
   constexpr uint32_t kBlockDim = 320;

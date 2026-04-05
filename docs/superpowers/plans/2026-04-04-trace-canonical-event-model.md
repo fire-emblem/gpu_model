@@ -557,7 +557,7 @@ git commit -m "refactor: normalize timeline trace interpretation"
 - Modify: `src/execution/cycle_exec_engine.cpp`
 - Modify: `src/execution/functional_exec_engine.cpp`
 - Modify: `src/execution/encoded_exec_engine.cpp`
-- Modify: `src/runtime/runtime_engine.cpp`
+- Modify: `src/runtime/exec_engine.cpp`
 - Test: `tests/runtime/trace_test.cpp`
 - Test: `tests/execution/functional_exec_engine_waitcnt_test.cpp`
 
@@ -568,7 +568,7 @@ Add these tests:
 ```cpp
 TEST(TraceTest, CycleExecutionPopulatesBarrierAndLifecycleTypedFields) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
 
   InstructionBuilder builder;
   builder.SyncBarrier();
@@ -657,7 +657,7 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/execution/cycle_exec_engine.cpp src/execution/functional_exec_engine.cpp src/execution/encoded_exec_engine.cpp src/runtime/runtime_engine.cpp tests/runtime/trace_test.cpp tests/execution/functional_exec_engine_waitcnt_test.cpp
+git add src/execution/cycle_exec_engine.cpp src/execution/functional_exec_engine.cpp src/execution/encoded_exec_engine.cpp src/runtime/exec_engine.cpp tests/runtime/trace_test.cpp tests/execution/functional_exec_engine_waitcnt_test.cpp
 git commit -m "refactor: populate canonical trace semantics"
 ```
 

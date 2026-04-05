@@ -8,7 +8,7 @@
 
 **Architecture:** Start by triaging the current local worktree so the execution work runs on a known base. Then reuse the existing `issue_eligibility` waitcnt-domain knowledge to map explicit wait semantics into `WaveWaitReason`, keep the ownership split clean (`semantics` describes what to wait for, `FunctionalExecEngine` changes run-state), and prove behavior with execution-unit and wait-driven functional regressions in both `st` and `mt`.
 
-**Tech Stack:** C++20, CMake, gtest, existing `FunctionalExecEngine`, `WaveContext`, `issue_eligibility`, `RuntimeEngine`
+**Tech Stack:** C++20, CMake, gtest, existing `FunctionalExecEngine`, `WaveContext`, `issue_eligibility`, `ExecEngine`
 
 ---
 
@@ -345,7 +345,7 @@ git commit -m "refactor: add waitcnt memory wait reasons"
 
 **Files:**
 - Modify: `tests/functional/shared_sync_functional_test.cpp` or create a new focused wait-driven functional test file if the existing file is the cleanest home
-- Read: `include/gpu_model/runtime/runtime_engine.h`
+- Read: `include/gpu_model/runtime/exec_engine.h`
 
 - [ ] **Step 1: Write a failing functional regression that executes an explicit wait path**
 
@@ -356,7 +356,7 @@ Representative test shape:
 ```cpp
 TEST(SharedSyncFunctionalTest, WaitcntDrivenKernelMatchesAcrossSingleThreadedAndMarlParallelModes) {
   auto run_mode = [&](FunctionalExecutionMode mode) {
-    RuntimeEngine runtime;
+    ExecEngine runtime;
     runtime.SetFunctionalExecutionMode(mode);
     // initialize memory
     // launch a kernel that executes explicit wait/waitcnt before dependent use

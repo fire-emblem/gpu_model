@@ -82,7 +82,7 @@ Primary long-term types:
 
 - `HipRuntime`
 - `ModelRuntime`
-- `RuntimeEngine`
+- `ExecEngine`
 
 ### `program`
 
@@ -161,7 +161,7 @@ The first-phase refactor should converge on these names:
 
 - `ModelRuntimeApi` -> `ModelRuntime`
 - `RuntimeHooks` -> `HipRuntime`
-- `HostRuntime` -> `RuntimeEngine`
+- `HostRuntime` -> `ExecEngine`
 - `ProgramImage` -> `ProgramObject`
 - `KernelProgram` -> `ExecutableKernel`
 - `AmdgpuCodeObjectImage` -> `EncodedProgramObject`
@@ -367,7 +367,7 @@ Phase 1 is complete only when all of the following are true:
 2. Runtime boundaries are clear:
    - `HipRuntime` handles HIP compatibility concerns only
    - `ModelRuntime` handles project-native entrypoints
-   - `RuntimeEngine` handles load/launch/dispatch orchestration
+   - `ExecEngine` handles load/launch/dispatch orchestration
 
 3. Program object boundaries are clear:
    - `ProgramObject`

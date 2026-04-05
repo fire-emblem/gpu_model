@@ -6,7 +6,7 @@
 
 **Architecture:** Reuse the existing `HipccParallelExecutionTest.EncodedConditionalMultiBarrierKernelMatchesAcrossModesAt128Blocks` coverage rather than creating a duplicate kernel. Add host-side theoretical accounting helpers and assertions that compare the current `ProgramCycleStats` shape against a deterministic per-block/per-wave approximation, while keeping exact output validation and block-level auxiliary checks.
 
-**Tech Stack:** C++20, gtest, `hipcc`, existing `RuntimeEngine` / `HipRuntime`, existing `ProgramCycleStats`
+**Tech Stack:** C++20, gtest, `hipcc`, existing `ExecEngine` / `HipRuntime`, existing `ProgramCycleStats`
 
 ---
 

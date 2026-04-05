@@ -8,7 +8,7 @@
 
 **Architecture:** Keep `Mapper` unchanged and treat `block -> global_ap_id` / `wave -> peu_id` as static placement only. Implement all new runtime residency in `CycleExecEngine`: first add `ApResidentState` for `pending -> resident -> retired` block lifecycle, then add `PEU`-local `resident_waves / active_window / standby_waves` so `dispatch_enabled` means “currently in the active window”, not merely “belongs to an active block”. `waitcnt/dependency/front_end_wait` blocked waves stay in-window; `block barrier` waiting waves stay resident but must yield the active slot so overflow waves can continue toward the barrier.
 
-**Tech Stack:** C++20, gtest, existing `CycleExecEngine`, trace events, `RuntimeEngine`, cycle smoke tests
+**Tech Stack:** C++20, gtest, existing `CycleExecEngine`, trace events, `ExecEngine`, cycle smoke tests
 
 ---
 
@@ -43,7 +43,7 @@ Create `tests/cycle/cycle_ap_resident_blocks_test.cpp` with local helpers and th
 #include "gpu_model/arch/arch_registry.h"
 #include "gpu_model/debug/trace_sink.h"
 #include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/exec_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -79,7 +79,7 @@ size_t FirstWaveExitIndex(const std::vector<TraceEvent>& events, uint32_t block_
 
 TEST(CycleApResidentBlocksTest, SingleApAdmitsTwoResidentBlocksBeforeBackfillingThird) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
                                  /*kernel_launch_cycles=*/0,
                                  /*block_launch_cycles=*/0,
@@ -114,7 +114,7 @@ TEST(CycleApResidentBlocksTest, SingleApAdmitsTwoResidentBlocksBeforeBackfilling
 
 TEST(CycleApResidentBlocksTest, RetiredBlockBackfillsPendingBlockOnSameAp) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
                                  /*kernel_launch_cycles=*/0,
                                  /*block_launch_cycles=*/0,
@@ -332,7 +332,7 @@ Add these tests:
 ```cpp
 TEST(CycleApResidentBlocksTest, ResidentStandbyBlockDoesNotLaunchWavesUntilActiveSlotOpens) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFixedGlobalMemoryLatency(40);
   runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
                                  /*kernel_launch_cycles=*/0,
@@ -366,7 +366,7 @@ TEST(CycleApResidentBlocksTest, ResidentStandbyBlockDoesNotLaunchWavesUntilActiv
 
 TEST(CycleApResidentBlocksTest, StandbyWavePromotesAfterActiveWaveExits) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFixedGlobalMemoryLatency(40);
   runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
                                  /*kernel_launch_cycles=*/0,

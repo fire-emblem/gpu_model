@@ -169,7 +169,7 @@ This is the key shift:
 - `src/execution/functional_exec_engine.cpp`
 - `src/execution/cycle_exec_engine.cpp`
 - `src/execution/encoded_exec_engine.cpp`
-- `src/runtime/runtime_engine.cpp`
+- `src/runtime/exec_engine.cpp`
 - trace-related runtime/timeline tests
 - helper tests that construct trace events directly
 

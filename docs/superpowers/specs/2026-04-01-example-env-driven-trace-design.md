@@ -31,9 +31,9 @@
 
 - Keep `GPU_MODEL_FUNCTIONAL_MODE=st|mt` as the existing functional scheduler selector.
 - Add `GPU_MODEL_EXECUTION_MODE=functional|cycle` for the higher-level execution backend.
-- The HIP interposer resolves the execution mode before forwarding the kernel launch into `HipInterposerState::LaunchExecutableKernel(...)`.
+- The HIP interposer resolves the execution mode before forwarding the kernel launch into `HipRuntime::LaunchExecutableKernel(...)`.
 - Functional launches continue to use the current runtime path.
-- Cycle launches reuse the same `.out -> ProgramObject -> RuntimeEngine` path, only with `ExecutionMode::Cycle`.
+- Cycle launches reuse the same `.out -> ProgramObject -> ExecEngine` path, only with `ExecutionMode::Cycle`.
 
 ### Trace Artifact Emission
 

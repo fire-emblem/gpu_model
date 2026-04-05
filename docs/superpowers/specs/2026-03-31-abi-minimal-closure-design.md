@@ -83,7 +83,7 @@
 
 保留现有职责：
 
-- `RuntimeEngine`
+- `ExecEngine`
 - `ModelRuntime`
 - `ObjectReader`
 - `EncodedProgramObject`

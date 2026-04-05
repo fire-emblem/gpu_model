@@ -363,7 +363,7 @@ Add this test in `tests/runtime/trace_test.cpp`:
 ```cpp
 TEST(TraceTest, CycleExecutionEmitsCanonicalLifecycleAndStallMessagesViaFactories) {
   CollectingTraceSink trace;
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
 
   InstructionBuilder builder;
   builder.BExit();
@@ -573,7 +573,7 @@ git commit -m "refactor: migrate functional trace emission to semantic factories
 
 **Files:**
 - Modify: `src/execution/encoded_exec_engine.cpp`
-- Modify: `src/runtime/runtime_engine.cpp`
+- Modify: `src/runtime/exec_engine.cpp`
 - Test: `tests/runtime/trace_test.cpp`
 
 - [ ] **Step 1: Write the failing encoded/runtime regression tests**
@@ -600,7 +600,7 @@ TEST(TraceTest, EncodedTraceUsesCanonicalArriveAndBarrierReleaseMessages) {
   } cleanup{out_dir};
 
   TraceArtifactRecorder trace(out_dir);
-  RuntimeEngine runtime(&trace);
+  ExecEngine runtime(&trace);
   runtime.SetFixedGlobalMemoryLatency(20);
 
   const auto obj_path = AssembleLlvmMcFixture(
@@ -651,7 +651,7 @@ Expected: FAIL for missing runtime launch factory API or encoded canonical relea
 
 - [ ] **Step 3: Convert runtime and encoded producers**
 
-In `src/runtime/runtime_engine.cpp`, route launch and block-placement events through semantic factories:
+In `src/runtime/exec_engine.cpp`, route launch and block-placement events through semantic factories:
 
 ```cpp
 trace.OnEvent(MakeTraceRuntimeLaunchEvent(0, launch_message.str()));
@@ -702,7 +702,7 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/execution/encoded_exec_engine.cpp src/runtime/runtime_engine.cpp tests/runtime/trace_test.cpp
+git add src/execution/encoded_exec_engine.cpp src/runtime/exec_engine.cpp tests/runtime/trace_test.cpp
 git commit -m "refactor: migrate encoded and runtime trace emission to semantic factories"
 ```
 

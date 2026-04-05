@@ -72,6 +72,17 @@
   - `include/gpu_model/runtime/runtime_engine.h`
   - `src/runtime/exec_engine.cpp`
 
+### 阶段 6：历史文档清理
+- **状态：** in_progress
+- 执行的操作：
+  - 盘点 docs 中旧命名引用
+  - 判断当前对外文档已基本收口，剩余主要是历史存档
+  - 开始对 `docs/superpowers/plans`、`docs/superpowers/specs`、`docs/plans` 做机械术语替换
+- 创建/修改的文件：
+  - `docs/superpowers/plans/*`
+  - `docs/superpowers/specs/*`
+  - `docs/plans/*`
+
 ## 测试结果
 | 测试 | 输入 | 预期结果 | 实际结果 | 状态 |
 |------|------|---------|---------|------|
@@ -90,8 +101,8 @@
 ## 五问重启检查
 | 问题 | 答案 |
 |------|------|
-| 我在哪里？ | 所有阶段已完成 |
-| 我要去哪里？ | 等待下一轮用户指令 |
-| 目标是什么？ | 完成当前架构收口与计划归档 |
+| 我在哪里？ | 阶段 6 |
+| 我要去哪里？ | 提交并推送历史文档清理结果 |
+| 目标是什么？ | 完成历史文档旧命名清理批次 |
 | 我学到了什么？ | `HipInterposerState` 已不再需要，`ExecEngine` 渐进改名可行 |
 | 我做了什么？ | 见上方阶段记录 |

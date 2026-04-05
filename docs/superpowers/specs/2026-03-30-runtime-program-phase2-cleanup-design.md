@@ -8,7 +8,7 @@ Complete the `runtime/program` transition from Phase 1 compatibility mode into t
 
 - `HipRuntime`
 - `ModelRuntime`
-- `RuntimeEngine`
+- `ExecEngine`
 - `ProgramObject`
 - `ExecutableKernel`
 - `EncodedProgramObject`
@@ -47,7 +47,7 @@ After this cleanup, the runtime/program slice should expose only these public en
 
 - `include/gpu_model/runtime/hip_runtime.h`
 - `include/gpu_model/runtime/model_runtime.h`
-- `include/gpu_model/runtime/runtime_engine.h`
+- `include/gpu_model/runtime/exec_engine.h`
 - `include/gpu_model/runtime/module_load.h`
 - `include/gpu_model/runtime/launch_request.h`
 - `include/gpu_model/runtime/launch_config.h`
@@ -55,7 +55,7 @@ After this cleanup, the runtime/program slice should expose only these public en
 - `include/gpu_model/runtime/hip_interposer_state.h`
 - `src/runtime/hip_runtime.cpp`
 - `src/runtime/model_runtime.cpp` if needed
-- `src/runtime/runtime_engine.cpp`
+- `src/runtime/exec_engine.cpp`
 - `src/runtime/hip_interposer.cpp`
 - `src/runtime/hip_interposer_state.cpp`
 
@@ -78,7 +78,7 @@ The following names are the only allowed public names for this slice:
 
 - `HipRuntime`
 - `ModelRuntime`
-- `RuntimeEngine`
+- `ExecEngine`
 - `ProgramObject`
 - `ExecutableKernel`
 - `EncodedProgramObject`
@@ -134,7 +134,7 @@ The replacement files must become the source of truth, not wrappers:
 
 - `include/gpu_model/runtime/hip_runtime.h`
 - `include/gpu_model/runtime/model_runtime.h`
-- `include/gpu_model/runtime/runtime_engine.h`
+- `include/gpu_model/runtime/exec_engine.h`
 - `include/gpu_model/program/program_object.h`
 - `include/gpu_model/program/executable_kernel.h`
 - `include/gpu_model/program/encoded_program_object.h`
@@ -171,7 +171,7 @@ Does not own:
 - runtime core logic directly
 - separate loader semantics
 
-### `RuntimeEngine`
+### `ExecEngine`
 
 Owns:
 
@@ -290,7 +290,7 @@ This cleanup package is complete only when all of the following are true:
 1. The only public runtime/program type names are:
    - `HipRuntime`
    - `ModelRuntime`
-   - `RuntimeEngine`
+   - `ExecEngine`
    - `ProgramObject`
    - `ExecutableKernel`
    - `EncodedProgramObject`

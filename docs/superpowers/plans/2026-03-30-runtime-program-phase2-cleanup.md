@@ -4,7 +4,7 @@
 >
 > **Status (2026-04-01):** Historical cleanup plan. The runtime/program rename has already landed, `tests/runtime/compatibility_alias_test.cpp` now covers only non-runtime/program aliases, and the intermediate header name `include/gpu_model/program/program_execution_route.h` is not part of the live tree.
 
-**Goal:** Delete the legacy runtime/program framework surface and leave only the new `HipRuntime / ModelRuntime / RuntimeEngine / ProgramObject / ExecutableKernel / EncodedProgramObject / ObjectReader / ExecutionRoute` architecture.
+**Goal:** Delete the legacy runtime/program framework surface and leave only the new `HipRuntime / ModelRuntime / ExecEngine / ProgramObject / ExecutableKernel / EncodedProgramObject / ObjectReader / ExecutionRoute` architecture.
 
 **Architecture:** This cleanup is a hard cut, not another compatibility phase. First make the new public headers the only declaration source, then replace all runtime/program includes and type names, then rename implementation files and remove legacy headers and sources, and finally clean tests and docs so no legacy public names remain.
 
@@ -17,14 +17,14 @@
 ### New source-of-truth files that must remain
 - `include/gpu_model/runtime/hip_runtime.h`
 - `include/gpu_model/runtime/model_runtime.h`
-- `include/gpu_model/runtime/runtime_engine.h`
+- `include/gpu_model/runtime/exec_engine.h`
 - `include/gpu_model/program/program_object.h`
 - `include/gpu_model/program/executable_kernel.h`
 - `include/gpu_model/program/encoded_program_object.h`
 - `include/gpu_model/program/object_reader.h`
 - `include/gpu_model/program/execution_route.h`
 - `src/runtime/hip_runtime.cpp`
-- `src/runtime/runtime_engine.cpp`
+- `src/runtime/exec_engine.cpp`
 - `src/program/object_reader.cpp`
 - `src/program/execution_route.cpp`
 
@@ -52,7 +52,7 @@
 **Files:**
 - Modify: `include/gpu_model/runtime/hip_runtime.h`
 - Modify: `include/gpu_model/runtime/model_runtime.h`
-- Modify: `include/gpu_model/runtime/runtime_engine.h`
+- Modify: `include/gpu_model/runtime/exec_engine.h`
 - Modify: `include/gpu_model/program/program_object.h`
 - Modify: `include/gpu_model/program/executable_kernel.h`
 - Modify: `include/gpu_model/program/encoded_program_object.h`
@@ -68,11 +68,11 @@
 // tests/runtime/runtime_naming_test.cpp
 #include "gpu_model/runtime/hip_runtime.h"
 #include "gpu_model/runtime/model_runtime.h"
-#include "gpu_model/runtime/runtime_engine.h"
+#include "gpu_model/runtime/exec_engine.h"
 
 static_assert(std::is_class_v<ModelRuntime>);
 static_assert(std::is_class_v<HipRuntime>);
-static_assert(std::is_class_v<RuntimeEngine>);
+static_assert(std::is_class_v<ExecEngine>);
 ```
 
 ```cpp
@@ -170,7 +170,7 @@ git commit -m "refactor: promote runtime and program headers to source of truth"
 
 **Files:**
 - Modify: `src/runtime/hip_interposer_state.cpp`
-- Modify: `src/runtime/runtime_engine.cpp` (from renamed file in Task 3 if already done, otherwise current runtime file)
+- Modify: `src/runtime/exec_engine.cpp` (from renamed file in Task 3 if already done, otherwise current runtime file)
 - Modify: `src/runtime/hip_runtime.cpp`
 - Modify: `src/program/execution_route.cpp`
 - Modify: runtime/program related tests under `tests/runtime/*` and `tests/program/*`
@@ -217,7 +217,7 @@ git commit -m "refactor: replace legacy runtime-program names in code and tests"
 
 **Files:**
 - Move: `src/runtime/runtime_hooks.cpp` -> `src/runtime/hip_runtime.cpp`
-- Move: `src/runtime/host_runtime.cpp` -> `src/runtime/runtime_engine.cpp`
+- Move: `src/runtime/host_runtime.cpp` -> `src/runtime/exec_engine.cpp`
 - Move: `src/runtime/program_execution.cpp` -> `src/program/execution_route.cpp`
 - Move: `src/loader/program_file_loader.cpp` -> `src/program/object_reader.cpp`
 - Modify: top-level `CMakeLists.txt`
@@ -226,7 +226,7 @@ git commit -m "refactor: replace legacy runtime-program names in code and tests"
 
 ```bash
 mv src/runtime/runtime_hooks.cpp src/runtime/hip_runtime.cpp
-mv src/runtime/host_runtime.cpp src/runtime/runtime_engine.cpp
+mv src/runtime/host_runtime.cpp src/runtime/exec_engine.cpp
 mv src/runtime/program_execution.cpp src/program/execution_route.cpp
 mv src/loader/program_file_loader.cpp src/program/object_reader.cpp
 ```
@@ -236,7 +236,7 @@ mv src/loader/program_file_loader.cpp src/program/object_reader.cpp
 ```cmake
 # CMakeLists.txt
 src/runtime/hip_runtime.cpp
-src/runtime/runtime_engine.cpp
+src/runtime/exec_engine.cpp
 src/program/execution_route.cpp
 src/program/object_reader.cpp
 ```
@@ -359,7 +359,7 @@ Expected: matches found before cleanup.
 
 ```md
 - remove all “legacy/compatibility alias” notes for removed names
-- describe only `HipRuntime / ModelRuntime / RuntimeEngine`
+- describe only `HipRuntime / ModelRuntime / ExecEngine`
 - describe only `ProgramObject / ExecutableKernel / EncodedProgramObject`
 ```
 
@@ -415,7 +415,7 @@ No `TODO`, `TBD`, or “similar to previous task” placeholders are used.
 The plan consistently treats the final public names as:
 - `HipRuntime`
 - `ModelRuntime`
-- `RuntimeEngine`
+- `ExecEngine`
 - `ProgramObject`
 - `ExecutableKernel`
 - `EncodedProgramObject`
