@@ -30,6 +30,10 @@ TEST(RuntimeNamingTest, NewRuntimeTypesAreConcreteAndUsable) {
   EXPECT_EQ(model.GetDeviceCount(), 1);
 }
 
+TEST(RuntimeNamingTest, RuntimeEngineHeaderRemainsCompatibilityAliasForExecEngine) {
+  static_assert(std::is_same_v<RuntimeEngine, ExecEngine>);
+}
+
 TEST(RuntimeNamingTest, ResetReinitializesOwnedRuntimeState) {
   HipRuntime hip;
   const uint64_t hip_first = hip.Malloc(16);
