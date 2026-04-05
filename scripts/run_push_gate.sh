@@ -59,7 +59,8 @@ run_all_examples() {
   )
   for name in "${examples[@]}"; do
     echo "[push-gate] example $name"
-    GPU_MODEL_BUILD_DIR="$EXAMPLES_BUILD_DIR" "$ROOT/examples/$name/run.sh"
+    GPU_MODEL_BUILD_DIR="$EXAMPLES_BUILD_DIR" GPU_MODEL_USE_HIPCC_CACHE=0 \
+      "$ROOT/examples/$name/run.sh"
   done
 }
 

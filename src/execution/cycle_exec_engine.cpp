@@ -1064,7 +1064,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                     events.Schedule(TimedEvent{
                         .cycle = ready_cycle,
                         .action =
-                            [&, candidate, request, ready_cycle, plan]() {
+                            [&, candidate, request, ready_cycle, plan, slot_id]() {
                               context.cycle = ready_cycle;
                               if (request.kind == AccessKind::Load) {
                                 if (!request.dst.has_value()) {
