@@ -126,6 +126,9 @@
   - 重跑 `examples/11-perfetto-waitcnt-slots/run.sh`，确认编译与 9 个 mode/case 组合全部通过
   - 将“当前所有模型 trace 的 cycle 都只是模型计数时间，不是物理真实执行时间戳”写入工程约束
   - 打通 `GPU_MODEL_DISABLE_TRACE=1` 全局开关，并用 focused UT 验证关闭 trace 后非 trace 语义仍正确
+  - 明确 `Functional` 的恢复语义改为“下一 issue quantum 起点消费”，`Cycle` 只表达 ready 不承诺 issue 时刻
+  - 将 `Functional` 纯 scalar `100` 指令、dense global load overlap、implicit drain、wait/resume quantum 语义全部用 focused UT 锁定
+  - 将 `Cycle` 的 front-end latency、resident/backfill/promote、dense global load overlap、implicit drain、ready!=selected!=issue 用结果型测试锁定
 - 创建/修改的文件：
   - `task_plan.md`
   - `findings.md`
@@ -150,6 +153,9 @@
 | example 08 重跑 | `examples/08-conditional-multibarrier/run.sh` | st/mt/cycle 全部成功且 mt 指令切片恢复 | `mismatches=0` 且 mt `Commit=872`/`X_count=728` | 通过 |
 | example 11 重跑 | `examples/11-perfetto-waitcnt-slots/run.sh` | 编译成功并跑完 9 个 mode/case | 通过 | 通过 |
 | disable trace focused 回归 | `ExecutionStatsTest.GlobalDisableTraceEnvForcesNullTraceSinkWithoutBreakingCycles` | 关闭 trace 后 cycles 与 stats 仍正常 | 1 test passed | 通过 |
+| functional wait 语义回归 | `FunctionalExecEngineWaitcntTest.*:WaitcntFunctionalTest.*:FunctionalWaitcntTest.*` | 全部通过 | 20 tests passed | 通过 |
+| cycle 结果型回归 | `CycleSmokeTest.*:AsyncMemoryCycleTest.*:CycleApResidentBlocksTest.*:SharedBarrierCycleTest.*` | 全部通过 | 33 tests passed | 通过 |
+| disable trace smoke | `scripts/run_disable_trace_smoke.sh` | curated 非 trace 测试通过 | 33 tests passed | 通过 |
 
 ## 错误日志
 | 时间戳 | 错误 | 尝试次数 | 解决方案 |

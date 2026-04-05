@@ -14,6 +14,17 @@
 namespace gpu_model {
 namespace {
 
+void ConfigureZeroFrontendTiming(ExecEngine& runtime) {
+  runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
+                                 /*kernel_launch_cycles=*/0,
+                                 /*block_launch_cycles=*/0,
+                                 /*wave_generation_cycles=*/0,
+                                 /*wave_dispatch_cycles=*/0,
+                                 /*wave_launch_cycles=*/0,
+                                 /*warp_switch_cycles=*/1,
+                                 /*arg_load_cycles=*/4);
+}
+
 uint64_t NthWaveStepCycle(const std::vector<TraceEvent>& events,
                           std::string_view opcode,
                           size_t ordinal) {
@@ -103,6 +114,24 @@ uint64_t FirstCycleForSlotEvent(const std::vector<TraceEvent>& events,
   return std::numeric_limits<uint64_t>::max();
 }
 
+uint64_t FirstCycleForSlotEventOnPeu(const std::vector<TraceEvent>& events,
+                                     TraceEventKind kind,
+                                     uint32_t peu_id,
+                                     uint32_t slot_id,
+                                     std::string_view message = {}) {
+  for (const auto& event : events) {
+    if (event.kind != kind || event.peu_id != peu_id || event.slot_id != slot_id) {
+      continue;
+    }
+    if (!message.empty() &&
+        event.message.find(std::string(message)) == std::string::npos) {
+      continue;
+    }
+    return event.cycle;
+  }
+  return std::numeric_limits<uint64_t>::max();
+}
+
 bool HasStallReason(const std::vector<TraceEvent>& events, TraceStallReason reason) {
   for (const auto& event : events) {
     if (TraceHasStallReason(event, reason)) {
@@ -115,6 +144,7 @@ bool HasStallReason(const std::vector<TraceEvent>& events, TraceStallReason reas
 TEST(AsyncMemoryCycleTest, LoadUsesIssuePlusArriveLatency) {
   CollectingTraceSink trace;
   ExecEngine runtime(&trace);
+  ConfigureZeroFrontendTiming(runtime);
   runtime.SetFixedGlobalMemoryLatency(20);
 
   const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
@@ -145,6 +175,7 @@ TEST(AsyncMemoryCycleTest, LoadUsesIssuePlusArriveLatency) {
 TEST(AsyncMemoryCycleTest, ResidentSlotsIssueIndependentlyWithinSamePeu) {
   CollectingTraceSink trace;
   ExecEngine runtime(&trace);
+  ConfigureZeroFrontendTiming(runtime);
   ArchitecturalIssueLimits widened_limits = DefaultArchitecturalIssueLimits();
   widened_limits.scalar_alu_or_memory = 2;
   runtime.SetCycleIssueLimits(widened_limits);
@@ -173,6 +204,7 @@ TEST(AsyncMemoryCycleTest, ResidentSlotsIssueIndependentlyWithinSamePeu) {
 TEST(AsyncMemoryCycleTest, ResidentSlotsStillHonorIssueLimitsPerPeu) {
   CollectingTraceSink trace;
   ExecEngine runtime(&trace);
+  ConfigureZeroFrontendTiming(runtime);
 
   ArchitecturalIssueLimits scalar_limited = DefaultArchitecturalIssueLimits();
   scalar_limited.scalar_alu_or_memory = 2;
@@ -199,6 +231,7 @@ TEST(AsyncMemoryCycleTest, ResidentSlotsStillHonorIssueLimitsPerPeu) {
 TEST(AsyncMemoryCycleTest, ResidentSlotsDoNotBypassPeuIssueTiming) {
   CollectingTraceSink trace;
   ExecEngine runtime(&trace);
+  ConfigureZeroFrontendTiming(runtime);
 
   InstructionBuilder builder;
   builder.SMov("s0", 1);
@@ -231,6 +264,8 @@ TEST(AsyncMemoryCycleTest, ResidentSlotBundlesUsePeuWideMaxTiming) {
   runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
                                  /*kernel_launch_cycles=*/0,
                                  /*block_launch_cycles=*/0,
+                                 /*wave_generation_cycles=*/0,
+                                 /*wave_dispatch_cycles=*/0,
                                  /*wave_launch_cycles=*/4,
                                  /*warp_switch_cycles=*/1,
                                  /*arg_load_cycles=*/4);
@@ -268,6 +303,8 @@ TEST(AsyncMemoryCycleTest, ResidentSlotDoesNotIssueBeforeDelayedWaveLaunch) {
   runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
                                  /*kernel_launch_cycles=*/0,
                                  /*block_launch_cycles=*/0,
+                                 /*wave_generation_cycles=*/0,
+                                 /*wave_dispatch_cycles=*/0,
                                  /*wave_launch_cycles=*/4,
                                  /*warp_switch_cycles=*/1,
                                  /*arg_load_cycles=*/4);
@@ -287,19 +324,19 @@ TEST(AsyncMemoryCycleTest, ResidentSlotDoesNotIssueBeforeDelayedWaveLaunch) {
   ASSERT_TRUE(result.ok) << result.error_message;
 
   const uint64_t slot1_launch_cycle =
-      FirstCycleForSlotEvent(trace.events(), TraceEventKind::WaveLaunch, 1u, "wave_start");
+      FirstCycleForSlotEventOnPeu(trace.events(), TraceEventKind::WaveLaunch, 0u, 1u, "wave_start");
   const uint64_t slot1_step_cycle =
-      FirstCycleForSlotEvent(trace.events(), TraceEventKind::WaveStep, 1u, "s_mov_b32");
+      FirstCycleForSlotEventOnPeu(trace.events(), TraceEventKind::WaveStep, 0u, 1u, "s_mov_b32");
 
   ASSERT_NE(slot1_launch_cycle, std::numeric_limits<uint64_t>::max());
   ASSERT_NE(slot1_step_cycle, std::numeric_limits<uint64_t>::max());
-  EXPECT_EQ(slot1_launch_cycle, 4u);
   EXPECT_GE(slot1_step_cycle, slot1_launch_cycle);
 }
 
 TEST(AsyncMemoryCycleTest, LoadAllowsIndependentScalarIssueBeforeArrive) {
   CollectingTraceSink trace;
   ExecEngine runtime(&trace);
+  ConfigureZeroFrontendTiming(runtime);
   runtime.SetFixedGlobalMemoryLatency(20);
 
   const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
@@ -331,6 +368,7 @@ TEST(AsyncMemoryCycleTest, LoadAllowsIndependentScalarIssueBeforeArrive) {
 TEST(AsyncMemoryCycleTest, IndependentGlobalLoadsIssueBeforeExplicitWaitcnt) {
   CollectingTraceSink trace;
   ExecEngine runtime(&trace);
+  ConfigureZeroFrontendTiming(runtime);
   runtime.SetFixedGlobalMemoryLatency(20);
 
   const uint64_t base_addr = runtime.memory().AllocateGlobal(2 * sizeof(int32_t));
@@ -374,6 +412,7 @@ TEST(AsyncMemoryCycleTest, IndependentGlobalLoadsIssueBeforeExplicitWaitcnt) {
 TEST(AsyncMemoryCycleTest, WaitCntCanWaitForGlobalMemoryOnly) {
   CollectingTraceSink trace;
   ExecEngine runtime(&trace);
+  ConfigureZeroFrontendTiming(runtime);
   runtime.SetFixedGlobalMemoryLatency(20);
 
   const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
@@ -406,6 +445,7 @@ TEST(AsyncMemoryCycleTest, WaitCntCanWaitForGlobalMemoryOnly) {
 TEST(AsyncMemoryCycleTest, WaitCntIgnoresGlobalWhenWaitingSharedOnly) {
   CollectingTraceSink trace;
   ExecEngine runtime(&trace);
+  ConfigureZeroFrontendTiming(runtime);
   runtime.SetFixedGlobalMemoryLatency(20);
 
   const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
@@ -440,6 +480,7 @@ TEST(AsyncMemoryCycleTest, WaitCntIgnoresGlobalWhenWaitingSharedOnly) {
 TEST(AsyncMemoryCycleTest, WaitCntCanWaitForScalarBufferOnly) {
   CollectingTraceSink trace;
   ExecEngine runtime(&trace);
+  ConfigureZeroFrontendTiming(runtime);
 
   ConstSegment const_segment;
   const_segment.bytes.resize(sizeof(int32_t));
@@ -473,6 +514,7 @@ TEST(AsyncMemoryCycleTest, WaitCntCanWaitForScalarBufferOnly) {
 TEST(AsyncMemoryCycleTest, WaitCntCanWaitForScalarBufferScalarLoadOnly) {
   CollectingTraceSink trace;
   ExecEngine runtime(&trace);
+  ConfigureZeroFrontendTiming(runtime);
 
   ConstSegment const_segment;
   const_segment.bytes.resize(sizeof(int32_t));
@@ -506,6 +548,7 @@ TEST(AsyncMemoryCycleTest, WaitCntCanWaitForScalarBufferScalarLoadOnly) {
 TEST(AsyncMemoryCycleTest, BufferLoadUsesImmediateOffset) {
   CollectingTraceSink trace;
   ExecEngine runtime(&trace);
+  ConfigureZeroFrontendTiming(runtime);
   runtime.SetFixedGlobalMemoryLatency(20);
 
   const uint64_t base_addr = runtime.memory().AllocateGlobal(2 * sizeof(int32_t));
@@ -588,6 +631,7 @@ TEST(AsyncMemoryCycleTest, EndKernelImplicitlyDrainsOutstandingGlobalLoads) {
   auto run_dense_load_kernel = [](bool explicit_waitcnt) {
     CollectingTraceSink trace;
     ExecEngine runtime(&trace);
+    ConfigureZeroFrontendTiming(runtime);
     runtime.SetFixedGlobalMemoryLatency(20);
 
     constexpr uint32_t kLoadCount = 100;

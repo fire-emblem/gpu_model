@@ -171,6 +171,43 @@
   - `next_issue_earliest_global_cycle`
 - 不允许通过 `wave_cycle` 反推当前全局真时间。
 
+## 6.2 Functional 与 Cycle 的 Resume / Ready 语义
+
+这是硬约束。
+
+约束：
+
+- `Cycle` 模型中：
+  - `arrive_resume` 只表示 wave 达到可恢复、可被调度的 `ready/eligible` 状态。
+  - `arrive_resume` 不保证同 cycle 或下一个固定 cycle 一定发生 issue。
+  - `ready -> selected -> issue` 之间允许存在真实调度间隔。
+
+- `Functional` 模型中：
+  - 不展开 `ready -> selected` 之间的额外硬件调度空档。
+  - 采用 `4-cycle issue quantum` 语义。
+  - `arrive_resume` 发生后，恢复 wave 的消费者指令应在**下一个 issue quantum 起点**发出。
+  - 不要求同 cycle issue。
+
+- `Functional st`：
+  - 作为单线程、确定性的语义参考模型，必须满足上面的“下一 quantum issue”保证。
+
+- `Functional mt`：
+  - 与 `st` 共用同一套 modeled time 规则。
+  - 仍保留异步调度和 runnable wave 竞争。
+  - 不要求像 `st` 一样对每个恢复 wave 做强同步保证；允许恢复 wave 被其他 runnable wave 抢占。
+
+禁止：
+
+- 不允许在 `Functional` 模型里继续引入额外的 `wave_resume` 基础状态机事件。
+- 不允许把 `arrive_resume` 误解为“该 wave 已经被 scheduler 选中 issue”。
+
+统一原则：
+
+- `arrive_resume` 表示条件满足。
+- `WaveStep` 表示真正 issue。
+- 如果需要观察“恢复后何时真正被消费”，在 `Functional` 中看 `arrive_resume -> next WaveStep`；
+  在 `Cycle` 中保留真实调度间隔。
+
 ## 7. 前端增强方向
 
 当前 cycle model 后续增强应优先补：

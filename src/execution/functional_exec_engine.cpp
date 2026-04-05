@@ -41,6 +41,15 @@ namespace gpu_model {
 namespace {
 
 constexpr uint8_t kFunctionalPendingMemoryCompletionTurns = 5;
+constexpr uint64_t kFunctionalIssueQuantumCycles = 4;
+
+uint64_t QuantizeToNextIssueQuantum(uint64_t cycle) {
+  const uint64_t remainder = cycle % kFunctionalIssueQuantumCycles;
+  if (remainder == 0) {
+    return cycle;
+  }
+  return cycle + (kFunctionalIssueQuantumCycles - remainder);
+}
 
 uint32_t DefaultFunctionalParallelWorkerCount() {
   const uint32_t cpu_count = std::max(1u, std::thread::hardware_concurrency());
@@ -480,6 +489,7 @@ struct WaveTaskRef {
 };
 
 struct ApSchedulerState {
+  std::deque<WaveTaskRef> resumed;
   std::deque<WaveTaskRef> runnable;
   std::vector<size_t> block_indices;
 };
@@ -875,6 +885,12 @@ class FunctionalExecutionCoreImpl {
     for (size_t offset = 0; offset < ap_schedulers_.size(); ++offset) {
       const size_t ap_index = (next_ap_rr_ + offset) % ap_schedulers_.size();
       auto& ap = ap_schedulers_[ap_index];
+      if (!ap.resumed.empty()) {
+        task = ap.resumed.front();
+        ap.resumed.pop_front();
+        next_ap_rr_ = (ap_index + 1) % ap_schedulers_.size();
+        return true;
+      }
       if (ap.runnable.empty()) {
         continue;
       }
@@ -888,6 +904,9 @@ class FunctionalExecutionCoreImpl {
 
   bool HasRunnableWaveLocked() const {
     for (const auto& ap : ap_schedulers_) {
+      if (!ap.resumed.empty()) {
+        return true;
+      }
       if (!ap.runnable.empty()) {
         return true;
       }
@@ -897,6 +916,10 @@ class FunctionalExecutionCoreImpl {
 
   void EnqueueWaveLocked(const WaveTaskRef& task) {
     ap_schedulers_[task.global_ap_id].runnable.push_back(task);
+  }
+
+  void EnqueueResumedWaveLocked(const WaveTaskRef& task) {
+    ap_schedulers_[task.global_ap_id].resumed.push_back(task);
   }
 
   bool RequeueRunnableWavesForBlockLocked(size_t block_index) {
@@ -1188,6 +1211,8 @@ class FunctionalExecutionCoreImpl {
       advanced = ::gpu_model::AdvancePendingMemoryOps(block.wave_states[i], block.waves[i], &completed_ops) ||
                  advanced;
       for (const auto& op : completed_ops) {
+        block.wave_states[i].next_issue_cycle =
+            std::max(block.wave_states[i].next_issue_cycle, QuantizeToNextIssueQuantum(op.ready_cycle));
         TraceEvent event = MakeTraceMemoryArriveEvent(
             MakeTraceWaveView(block.waves[i]),
             op.ready_cycle,
@@ -1212,6 +1237,13 @@ class FunctionalExecutionCoreImpl {
         if (!ResumeWaveIfWaitSatisfied(context_.kernel, block.wave_states[i], wave)) {
           continue;
         }
+        block.wave_busy[i] = true;
+        const size_t block_index = static_cast<size_t>(&block - blocks_.data());
+        EnqueueResumedWaveLocked(WaveTaskRef{
+            .block_index = block_index,
+            .wave_index = i,
+            .global_ap_id = block.global_ap_id,
+        });
         resumed = true;
       }
     }
@@ -1276,7 +1308,7 @@ class FunctionalExecutionCoreImpl {
     block_context.stats = nullptr;
     const OpPlan plan = semantics_.BuildPlan(instruction, wave, block_context);
     const uint64_t issue_duration = std::max<uint64_t>(1u, plan.issue_cycles);
-    const uint64_t issue_cycle = std::max(wave_state.next_issue_cycle, wave_state.wave_cycle_total);
+    const uint64_t issue_cycle = wave_state.next_issue_cycle;
     const uint64_t commit_cycle = issue_cycle + issue_duration;
     wave_state.last_issue_cycle = issue_cycle;
     wave_state.next_issue_cycle = commit_cycle;

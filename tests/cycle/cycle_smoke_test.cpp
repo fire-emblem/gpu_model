@@ -11,10 +11,46 @@
 namespace gpu_model {
 namespace {
 
+void ConfigureZeroFrontendTiming(ExecEngine& runtime) {
+  runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
+                                 /*kernel_launch_cycles=*/0,
+                                 /*block_launch_cycles=*/0,
+                                 /*wave_generation_cycles=*/0,
+                                 /*wave_dispatch_cycles=*/0,
+                                 /*wave_launch_cycles=*/0,
+                                 /*warp_switch_cycles=*/1,
+                                 /*arg_load_cycles=*/4);
+}
+
 bool HasStallReason(const std::vector<TraceEvent>& events, TraceStallReason reason) {
   return std::any_of(events.begin(), events.end(), [reason](const TraceEvent& event) {
     return TraceHasStallReason(event, reason);
   });
+}
+
+ExecutableKernel BuildSamePeuReadyNotSelectedKernel() {
+  InstructionBuilder builder;
+  builder.SLoadArg("s0", 0);
+  builder.SLoadArg("s1", 1);
+  builder.SysGlobalIdX("v0");
+
+  builder.SMov("s2", 64);
+  builder.VCmpLtCmask("v0", "s2");
+  builder.MaskSaveExec("s10");
+  builder.MaskAndExecCmask();
+  builder.BIfNoexec("after_wait_wave");
+  builder.MLoadGlobal("v1", "s0", "v0", 4);
+  builder.SWaitCnt(/*global_count=*/0, /*shared_count=*/UINT32_MAX,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
+  builder.Label("after_wait_wave");
+  builder.MaskRestoreExec("s10");
+
+  builder.VMov("v4", 21);
+  builder.VAdd("v5", "v4", "v4");
+  builder.VAdd("v6", "v5", "v4");
+  builder.MStoreGlobal("s1", "v0", "v6", 4);
+  builder.BExit();
+  return builder.Build("cycle_same_peu_ready_not_selected");
 }
 
 TEST(CycleSmokeTest, ScalarAndVectorOpsConsumeFourCyclesEach) {
@@ -25,6 +61,7 @@ TEST(CycleSmokeTest, ScalarAndVectorOpsConsumeFourCyclesEach) {
   const auto kernel = builder.Build("tiny_cycle_kernel");
 
   ExecEngine runtime;
+  ConfigureZeroFrontendTiming(runtime);
   LaunchRequest request;
   request.kernel = &kernel;
   request.mode = ExecutionMode::Cycle;
@@ -42,6 +79,7 @@ TEST(CycleSmokeTest, ConsecutiveKernelLaunchesIncludeDeviceGap) {
   const auto kernel = builder.Build("launch_gap_kernel");
 
   ExecEngine runtime;
+  ConfigureZeroFrontendTiming(runtime);
   LaunchRequest request;
   request.kernel = &kernel;
   request.mode = ExecutionMode::Cycle;
@@ -98,6 +136,7 @@ TEST(CycleSmokeTest, QueuesBlocksWhenGridExceedsPhysicalApCount) {
 
   CollectingTraceSink trace;
   ExecEngine runtime(&trace);
+  ConfigureZeroFrontendTiming(runtime);
 
   InstructionBuilder builder;
   builder.BExit();
@@ -223,18 +262,57 @@ TEST(CycleSmokeTest, ReadyWavesIssueRoundRobinWithinPeu) {
   EXPECT_EQ(issued_waves[5], 1u);
 }
 
+TEST(CycleSmokeTest, ReadyDoesNotGuaranteeImmediateConsumerIssue) {
+  CollectingTraceSink trace;
+  ExecEngine runtime(&trace);
+  runtime.SetFixedGlobalMemoryLatency(20);
+
+  const auto kernel = BuildSamePeuReadyNotSelectedKernel();
+  constexpr uint32_t kBlockDim = 320;
+  constexpr uint32_t kElementCount = kBlockDim;
+  const uint64_t in_addr = runtime.memory().AllocateGlobal(kElementCount * sizeof(int32_t));
+  const uint64_t out_addr = runtime.memory().AllocateGlobal(kElementCount * sizeof(int32_t));
+  for (uint32_t i = 0; i < kElementCount; ++i) {
+    runtime.memory().StoreGlobalValue<int32_t>(in_addr + i * sizeof(int32_t),
+                                               static_cast<int32_t>(100 + i));
+    runtime.memory().StoreGlobalValue<int32_t>(out_addr + i * sizeof(int32_t), -1);
+  }
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = kBlockDim;
+  request.args.PushU64(in_addr);
+  request.args.PushU64(out_addr);
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+  uint64_t resumed_wave0_cycle = std::numeric_limits<uint64_t>::max();
+  uint64_t resumed_wave0_consumer_cycle = std::numeric_limits<uint64_t>::max();
+  for (const auto& event : trace.events()) {
+    if (event.kind == TraceEventKind::Arrive && event.wave_id == 0 && event.peu_id == 0 &&
+        event.arrive_progress == TraceArriveProgressKind::Resume) {
+      resumed_wave0_cycle = std::min(resumed_wave0_cycle, event.cycle);
+    }
+    if (event.kind == TraceEventKind::WaveStep && event.wave_id == 0 && event.peu_id == 0 &&
+        event.message.find("v_add_i32") != std::string::npos) {
+      resumed_wave0_consumer_cycle = std::min(resumed_wave0_consumer_cycle, event.cycle);
+    }
+  }
+
+  ASSERT_NE(resumed_wave0_cycle, std::numeric_limits<uint64_t>::max());
+  ASSERT_NE(resumed_wave0_consumer_cycle, std::numeric_limits<uint64_t>::max());
+  EXPECT_GT(resumed_wave0_consumer_cycle, resumed_wave0_cycle);
+}
+
 TEST(CycleSmokeTest, VectorIssueLimitOverrideAllowsTwoWaveBundleIssue) {
   const auto spec = ArchRegistry::Get("c500");
   ASSERT_NE(spec, nullptr);
 
   CollectingTraceSink baseline_trace;
   ExecEngine runtime(&baseline_trace);
-  runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
-                                 /*kernel_launch_cycles=*/0,
-                                 /*block_launch_cycles=*/0,
-                                 /*wave_launch_cycles=*/0,
-                                 /*warp_switch_cycles=*/1,
-                                 /*arg_load_cycles=*/4);
+  ConfigureZeroFrontendTiming(runtime);
 
   InstructionBuilder builder;
   builder.VMov("v0", 1);
@@ -301,23 +379,13 @@ TEST(CycleSmokeTest, IssuePolicyOverrideCanWidenVectorBundleWithoutSeparateLimit
 
   CollectingTraceSink baseline_trace;
   ExecEngine baseline_runtime(&baseline_trace);
-  baseline_runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
-                                          /*kernel_launch_cycles=*/0,
-                                          /*block_launch_cycles=*/0,
-                                          /*wave_launch_cycles=*/0,
-                                          /*warp_switch_cycles=*/1,
-                                          /*arg_load_cycles=*/4);
+  ConfigureZeroFrontendTiming(baseline_runtime);
   const auto baseline = baseline_runtime.Launch(request);
   ASSERT_TRUE(baseline.ok) << baseline.error_message;
 
   CollectingTraceSink grouped_trace;
   ExecEngine grouped_runtime(&grouped_trace);
-  grouped_runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
-                                         /*kernel_launch_cycles=*/0,
-                                         /*block_launch_cycles=*/0,
-                                         /*wave_launch_cycles=*/0,
-                                         /*warp_switch_cycles=*/1,
-                                         /*arg_load_cycles=*/4);
+  ConfigureZeroFrontendTiming(grouped_runtime);
   ArchitecturalIssueLimits widened_limits = DefaultArchitecturalIssueLimits();
   widened_limits.vector_alu = 2;
   auto grouped_policy = ArchitecturalIssuePolicyFromLimits(widened_limits);
@@ -361,23 +429,13 @@ TEST(CycleSmokeTest, IssueLimitOverrideTakesPriorityOverIssuePolicyTypeLimits) {
 
   CollectingTraceSink baseline_trace;
   ExecEngine baseline_runtime(&baseline_trace);
-  baseline_runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
-                                          /*kernel_launch_cycles=*/0,
-                                          /*block_launch_cycles=*/0,
-                                          /*wave_launch_cycles=*/0,
-                                          /*warp_switch_cycles=*/1,
-                                          /*arg_load_cycles=*/4);
+  ConfigureZeroFrontendTiming(baseline_runtime);
   const auto baseline = baseline_runtime.Launch(request);
   ASSERT_TRUE(baseline.ok) << baseline.error_message;
 
   CollectingTraceSink limited_trace;
   ExecEngine limited_runtime(&limited_trace);
-  limited_runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
-                                         /*kernel_launch_cycles=*/0,
-                                         /*block_launch_cycles=*/0,
-                                         /*wave_launch_cycles=*/0,
-                                         /*warp_switch_cycles=*/1,
-                                         /*arg_load_cycles=*/4);
+  ConfigureZeroFrontendTiming(limited_runtime);
   ArchitecturalIssueLimits widened_limits = DefaultArchitecturalIssueLimits();
   widened_limits.vector_alu = 2;
   limited_runtime.SetCycleIssuePolicy(ArchitecturalIssuePolicyFromLimits(widened_limits));
@@ -418,6 +476,7 @@ TEST(CycleSmokeTest, IssueCycleClassOverrideChangesSelectedInstructionCategory) 
   const auto kernel = builder.Build("class_override_kernel", {}, std::move(const_segment));
 
   ExecEngine runtime;
+  ConfigureZeroFrontendTiming(runtime);
   IssueCycleClassOverridesSpec class_overrides;
   class_overrides.scalar_memory = 6;
   runtime.SetIssueCycleClassOverrides(class_overrides);
@@ -446,6 +505,7 @@ TEST(CycleSmokeTest, IssueCycleOpOverrideTakesPriorityOverClassOverride) {
   const auto kernel = builder.Build("op_override_kernel", {}, std::move(const_segment));
 
   ExecEngine runtime;
+  ConfigureZeroFrontendTiming(runtime);
   IssueCycleClassOverridesSpec class_overrides;
   class_overrides.scalar_memory = 6;
   runtime.SetIssueCycleClassOverrides(class_overrides);

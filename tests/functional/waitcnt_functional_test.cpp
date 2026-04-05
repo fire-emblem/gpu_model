@@ -657,7 +657,7 @@ TEST(FunctionalWaitcntTest, TimelineShowsBlankBubbleWithWaitcntStallAndArrive) {
   EXPECT_EQ(CountOccurrences(timeline, "\"name\":\"bubble\""), 0u) << timeline;
 }
 
-TEST(FunctionalWaitcntTest, SingleThreadedResumeConsumeStepDoesNotPrecedeArriveResume) {
+TEST(FunctionalWaitcntTest, SingleThreadedResumeConsumeStepStartsAtNextIssueQuantum) {
   CollectingTraceSink trace;
   ExecEngine runtime(&trace);
   runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
@@ -698,6 +698,11 @@ TEST(FunctionalWaitcntTest, SingleThreadedResumeConsumeStepDoesNotPrecedeArriveR
   ASSERT_NE(arrive_resume_index, std::numeric_limits<size_t>::max());
   ASSERT_NE(resume_step_index, std::numeric_limits<size_t>::max());
   EXPECT_LT(arrive_resume_index, resume_step_index);
+  const uint64_t arrive_cycle = events[arrive_resume_index].cycle;
+  const uint64_t resume_cycle = events[resume_step_index].cycle;
+  const uint64_t expected_resume_cycle =
+      arrive_cycle % 4u == 0u ? arrive_cycle : arrive_cycle + (4u - (arrive_cycle % 4u));
+  EXPECT_EQ(resume_cycle, expected_resume_cycle);
 }
 
 TEST(WaitcntFunctionalTest, DenseGlobalLoadsIssueEveryFourCyclesInSingleAndMultiThreadedModes) {

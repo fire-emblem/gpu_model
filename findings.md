@@ -55,6 +55,17 @@
 - 当前已停止生成 `timeline.perfetto.pb`
   - 正式保留的时间线产物只有 `timeline.perfetto.json`
   - 现有手写 `.pb` exporter 只保留内部代码与测试，不再对用户暴露为正式产物
+- `Functional` 时间轴当前已从“trace 事件计数器”收口为“执行状态推进时间”：
+  - 纯 scalar `100` 指令在 `st/mt/cycle` 下都已由 focused test 锁定为相邻 issue 差 `4 cycle`
+  - `Functional` 的 dense global load overlap 与 implicit drain 也已由 focused test 锁定
+- `Functional` 的恢复语义已明确：
+  - `st`：`arrive_resume` 后，消费者指令在下一 issue quantum 起点发出
+  - `mt`：共用同一 modeled time 规则，但保留 runnable wave 竞争，不保证强同步恢复
+- `Cycle` 的结果型证明当前已形成闭环：
+  - front-end latency 推进不依赖 trace
+  - resident/standby/promote/backfill 行为通过
+  - dense global load overlap 与 `endk` 隐式 drain 通过
+  - `ready != selected != issue` 已由结果型测试证明
 
 ## 技术决策
 | 决策 | 理由 |
@@ -69,6 +80,7 @@
 | 停止生成 `timeline.perfetto.pb` artifact | 当前 `.pb` 不是可靠的官方 Perfetto 兼容产物，对用户暴露会造成误导 |
 | 当前所有模型 trace 的 `cycle` 都明确定义为模型计数时间，不是物理真实执行时间戳 | 避免用 `st/mt/cycle` 的 trace 时间误判 AP 并行性、resume 时点和真实性能结论 |
 | 提供 `GPU_MODEL_DISABLE_TRACE=1` 全局开关 | 便于在快速推进模型时彻底关闭 trace 干扰，并验证非 trace 模块语义不受影响 |
+| `Functional` 恢复语义采用“下一 issue quantum 起点消费”，`Cycle` 只表达 ready 不保证 issue 时刻 | 让 `st` 成为确定性语义参考，同时保留 `mt/cycle` 的调度竞争差异 |
 | cycle 业务逻辑只放在 engine / state machine，trace 只做消费序列化 | 保证行为事实和展示分层清晰 |
 | 当前对外架构文档不再把 `hip_interposer` 当模块名 | 文件名可以保留历史字样，但架构语义必须归到 `HipRuntime` |
 | 暂不系统清理 docs 存档中的历史旧名 | 历史计划/spec 属于存档信息，优先保证主代码和关键文档收口 |
