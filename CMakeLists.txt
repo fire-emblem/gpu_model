@@ -111,7 +111,7 @@ add_library(gpu_model STATIC
   src/runtime/mapper.cpp
   src/runtime/kernarg_packer.cpp
   src/runtime/program_cycle_tracker.cpp
-  src/runtime/runtime_engine.cpp
+  src/runtime/exec_engine.cpp
   src/runtime/hip_runtime.cpp
   src/runtime/core/module_registry.cpp
   src/runtime/core/model_runtime.cpp
