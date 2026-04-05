@@ -105,5 +105,7 @@ host 最终检查：
 
 ## 备注
 
-- 当前仓库中的 `results/` 可能是旧产物，以重新运行 `run.sh` 为准
+- 当前仓库中的 `results/` 主要作为快照参考
+- 默认重新运行 `run.sh` 会把结果写到 `.cache/example-results/04-atomic-reduction/`
+- 若需要刷新仓库内快照，显式设置 `GPU_MODEL_EXAMPLE_RESULTS_MODE=repo`
 - 如果旧结果里还没有 `.pb`，属于结果目录未重跑，不代表功能缺失

@@ -120,5 +120,7 @@
 
 ## 备注
 
-- 当前仓库中的旧 `results/` 可能只有 `timeline.perfetto.json`，没有 `.pb`
+- 当前仓库中的旧 `results/` 主要作为快照参考，可能只有 `timeline.perfetto.json`，没有 `.pb`
+- 默认重新运行 `run.sh` 会把结果写到 `.cache/example-results/07-vecadd-cycle-splitting/`
+- 若需要刷新仓库内快照，显式设置 `GPU_MODEL_EXAMPLE_RESULTS_MODE=repo`
 - 这不代表功能缺失，只代表结果目录还没用当前脚本重跑

@@ -105,5 +105,7 @@ kernel 会在每个 block 内：
 
 ## 备注
 
-- 当前仓库中的 `results/` 可能是旧产物
+- 当前仓库中的 `results/` 主要作为快照参考
+- 默认重新运行 `run.sh` 会把结果写到 `.cache/example-results/09-dynamic-shared-sum/`
+- 若需要刷新仓库内快照，显式设置 `GPU_MODEL_EXAMPLE_RESULTS_MODE=repo`
 - 若旧结果里没有 `.pb`，请以重跑后的结果为准

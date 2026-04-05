@@ -102,5 +102,7 @@ kernel 的核心逻辑是：
 
 ## 备注
 
-- 仓库中现有 `results/` 可能是旧产物，以重新运行 `run.sh` 为准
+- 仓库中现有 `results/` 主要作为快照参考
+- 默认重新运行 `run.sh` 会把结果写到 `.cache/example-results/02-fma-loop/`
+- 若需要刷新仓库内快照，显式设置 `GPU_MODEL_EXAMPLE_RESULTS_MODE=repo`
 - 如果旧结果没有 `.pb`，以重跑后的结果目录为准

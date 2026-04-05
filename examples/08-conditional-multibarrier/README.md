@@ -108,3 +108,5 @@
 
 - 如果当前 `results/` 目录不存在，说明这个例子在本地还没被重新运行过
 - README 中写的是**预期结果**，不是当前仓库快照里一定已经存在的结果文件
+- 默认重新运行 `run.sh` 会把结果写到 `.cache/example-results/08-conditional-multibarrier/`
+- 若需要刷新仓库内快照，显式设置 `GPU_MODEL_EXAMPLE_RESULTS_MODE=repo`

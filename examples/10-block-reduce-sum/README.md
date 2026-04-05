@@ -108,5 +108,7 @@ kernel 的逻辑是：
 
 ## 备注
 
-- 仓库中的旧 `results/` 可能是旧版本生成的快照
+- 仓库中的旧 `results/` 主要作为快照参考
+- 默认重新运行 `run.sh` 会把结果写到 `.cache/example-results/10-block-reduce-sum/`
+- 若需要刷新仓库内快照，显式设置 `GPU_MODEL_EXAMPLE_RESULTS_MODE=repo`
 - 如果重跑后出现 `.pb`，优先用 `.pb` 看 Perfetto 层级

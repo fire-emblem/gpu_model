@@ -117,5 +117,7 @@ kernel 做的事情非常直接：
 
 ## 备注
 
-- 仓库中现有 `results/` 可能是旧产物，以重新运行 `run.sh` 生成的结果为准
+- 仓库中现有 `results/` 主要作为快照参考
+- 默认重新运行 `run.sh` 会把结果写到 `.cache/example-results/01-vecadd-basic/`
+- 若需要刷新仓库内快照，显式设置 `GPU_MODEL_EXAMPLE_RESULTS_MODE=repo`
 - 如果旧结果里只有 `timeline.perfetto.json` 而没有 `.pb`，不表示功能缺失，只表示结果目录还没按新逻辑重跑

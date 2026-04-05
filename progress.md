@@ -89,10 +89,12 @@
   - 将 examples 默认结果目录改到 `.cache/example-results/<example-name>/`
   - 为 ASan build 下的 example preload 路径补充 `libasan` 预加载
   - 保留 `GPU_MODEL_EXAMPLE_RESULTS_MODE=repo` 作为显式快照刷新模式
+  - 将多个 example README 的 `results/` 描述改成“快照参考 + 本地默认落盘”口径
 - 创建/修改的文件：
   - `examples/common.sh`
   - `examples/*/run.sh`
   - `examples/README.md`
+  - `examples/*/README.md`
 
 ## 测试结果
 | 测试 | 输入 | 预期结果 | 实际结果 | 状态 |
