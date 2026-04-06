@@ -849,6 +849,48 @@ TEST(TraceTest, TraceEventViewProvidesPresentationNamesForSwitchAwayRendering) {
   EXPECT_EQ(view.category, "wave/switch_away");
 }
 
+TEST(TraceTest, TraceEventViewProvidesStableCanonicalNamesForWaveSchedulingMarkers) {
+  const TraceWaveView wave{
+      .dpc_id = 0,
+      .ap_id = 0,
+      .peu_id = 0,
+      .slot_id = 0,
+      .block_id = 0,
+      .wave_id = 1,
+      .pc = 0x40,
+  };
+
+  const TraceEvent issue_select = MakeTraceWaveEvent(
+      wave, TraceEventKind::IssueSelect, /*cycle=*/3, TraceSlotModelKind::ResidentFixed, "selected");
+  const TraceEvent slot_bind = MakeTraceWaveEvent(
+      wave, TraceEventKind::SlotBind, /*cycle=*/4, TraceSlotModelKind::ResidentFixed, "bound");
+  const TraceEvent dispatch = MakeTraceWaveEvent(
+      wave, TraceEventKind::WaveDispatch, /*cycle=*/5, TraceSlotModelKind::ResidentFixed, "dispatch");
+  const TraceEvent generate = MakeTraceWaveEvent(
+      wave, TraceEventKind::WaveGenerate, /*cycle=*/6, TraceSlotModelKind::ResidentFixed, "generate");
+
+  const TraceEventView issue_select_view = MakeTraceEventView(issue_select);
+  const TraceEventView slot_bind_view = MakeTraceEventView(slot_bind);
+  const TraceEventView dispatch_view = MakeTraceEventView(dispatch);
+  const TraceEventView generate_view = MakeTraceEventView(generate);
+
+  EXPECT_EQ(issue_select_view.canonical_name, "issue_select");
+  EXPECT_EQ(issue_select_view.presentation_name, "issue_select");
+  EXPECT_EQ(issue_select_view.category, "launch/wave");
+
+  EXPECT_EQ(slot_bind_view.canonical_name, "slot_bind");
+  EXPECT_EQ(slot_bind_view.presentation_name, "slot_bind");
+  EXPECT_EQ(slot_bind_view.category, "launch/wave");
+
+  EXPECT_EQ(dispatch_view.canonical_name, "wave_dispatch");
+  EXPECT_EQ(dispatch_view.presentation_name, "wave_dispatch");
+  EXPECT_EQ(dispatch_view.category, "launch/wave");
+
+  EXPECT_EQ(generate_view.canonical_name, "wave_generate");
+  EXPECT_EQ(generate_view.presentation_name, "wave_generate");
+  EXPECT_EQ(generate_view.category, "launch/wave");
+}
+
 TEST(TraceTest, TraceEventExportFieldsMirrorTypedViewFields) {
   const TraceWaveView wave{
       .dpc_id = 0,

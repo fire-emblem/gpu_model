@@ -159,8 +159,7 @@ TimelineData BuildTimelineData(const Recorder& recorder) {
       continue;
     }
 
-    if (program_event.kind != RecorderProgramEventKind::BlockLaunch &&
-        program_event.kind != RecorderProgramEventKind::BlockAdmit) {
+    if (program_event.kind != RecorderProgramEventKind::BlockLaunch) {
       continue;
     }
 

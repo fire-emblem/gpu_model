@@ -405,6 +405,50 @@ TEST(CycleTimelineTest, GoogleTraceDoesNotRenderBubbleAsDurationSlice) {
   EXPECT_NE(trace.find("\"name\":\"stall_waitcnt_global\""), std::string::npos);
 }
 
+TEST(CycleTimelineTest, GoogleTraceDoesNotRenderInstructionSliceWithoutCommit) {
+  const TraceWaveView wave = MakeWaveView(/*slot_id=*/0);
+  std::vector<TraceEvent> events{
+      MakeResidentWaveEvent(wave, TraceEventKind::WaveStep, 10, "pc=0x100 op=v_add_i32"),
+  };
+
+  const std::string trace = CycleTimelineRenderer::RenderGoogleTrace(MakeRecorder(events));
+  EXPECT_EQ(CountOccurrences(trace, "\"ph\":\"X\""), 0u);
+  EXPECT_EQ(trace.find("\"name\":\"v_add_i32\""), std::string::npos);
+}
+
+TEST(CycleTimelineTest, GoogleTraceRendersIssueSelectAsMarkerNotInstructionSlice) {
+  const TraceWaveView wave = MakeWaveView(/*slot_id=*/2);
+  std::vector<TraceEvent> events{
+      MakeTraceWaveEvent(wave,
+                         TraceEventKind::IssueSelect,
+                         /*cycle=*/7,
+                         TraceSlotModelKind::ResidentFixed,
+                         "selected",
+                         wave.pc),
+  };
+
+  const std::string trace = CycleTimelineRenderer::RenderGoogleTrace(MakeRecorder(events));
+  EXPECT_EQ(CountOccurrences(trace, "\"ph\":\"X\""), 0u);
+  EXPECT_NE(trace.find("\"name\":\"issue_select\""), std::string::npos);
+}
+
+TEST(CycleTimelineTest, GoogleTraceDoesNotRenderArriveBarrierOrStallAsInstructionSlice) {
+  const TraceWaveView wave = MakeWaveView(/*slot_id=*/1);
+  std::vector<TraceEvent> events{
+      MakeTypedStallEvent(wave, 5, TraceSlotModelKind::ResidentFixed,
+                          TraceStallReason::WaitCntGlobal),
+      MakeTraceMemoryArriveEvent(
+          wave, 6, TraceMemoryArriveKind::Load, TraceSlotModelKind::ResidentFixed),
+      MakeTraceBarrierArriveEvent(wave, 7, TraceSlotModelKind::ResidentFixed),
+  };
+
+  const std::string trace = CycleTimelineRenderer::RenderGoogleTrace(MakeRecorder(events));
+  EXPECT_EQ(CountOccurrences(trace, "\"ph\":\"X\""), 0u);
+  EXPECT_NE(trace.find("\"name\":\"stall_waitcnt_global\""), std::string::npos);
+  EXPECT_NE(trace.find("\"name\":\"load_arrive\""), std::string::npos);
+  EXPECT_NE(trace.find("\"name\":\"barrier_arrive\""), std::string::npos);
+}
+
 TEST(CycleTimelineTest, GoogleTracePrefersTypedSchemaFieldsWhenLegacyStringsAreEmpty) {
   const TraceWaveView wave = MakeWaveView(/*slot_id=*/2, /*pc=*/0x80, /*wave_id=*/3);
   std::vector<TraceEvent> events{

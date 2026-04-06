@@ -185,6 +185,14 @@ std::string CanonicalNameFromRuntimeKind(TraceEventKind kind) {
       return "block_activate";
     case TraceEventKind::BlockRetire:
       return "block_retire";
+    case TraceEventKind::WaveGenerate:
+      return "wave_generate";
+    case TraceEventKind::WaveDispatch:
+      return "wave_dispatch";
+    case TraceEventKind::SlotBind:
+      return "slot_bind";
+    case TraceEventKind::IssueSelect:
+      return "issue_select";
     default:
       break;
   }
