@@ -117,6 +117,88 @@ double MeasureElapsedMs(Fn&& fn) {
   return std::chrono::duration<double, std::milli>(end - begin).count();
 }
 
+void WriteHeavyVecaddPerfSource(const std::filesystem::path& src_path,
+                                std::string_view kernel_name) {
+  std::ofstream out(src_path);
+  ASSERT_TRUE(static_cast<bool>(out));
+  out << "#include <hip/hip_runtime.h>\n"
+         "extern \"C\" __global__ void "
+      << kernel_name
+      << "(const float* a, const float* b, float* c,\n"
+         "                                                 int width, int height, int depth) {\n"
+         "  int x = blockIdx.x * blockDim.x + threadIdx.x;\n"
+         "  int y = blockIdx.y * blockDim.y + threadIdx.y;\n"
+         "  int z = blockIdx.z * blockDim.z + threadIdx.z;\n"
+         "  if (x < width && y < height && z < depth) {\n"
+         "    int idx = (z * height + y) * width + x;\n"
+         "    float acc = a[idx] + b[idx];\n"
+         "    #pragma unroll 1\n"
+         "    for (int i = 0; i < 512; ++i) {\n"
+         "      acc = acc + 0.125f;\n"
+         "      acc = acc + 0.25f;\n"
+         "      acc = acc + 0.5f;\n"
+         "    }\n"
+         "    c[idx] = acc;\n"
+         "  }\n"
+         "}\n"
+         "int main() { return 0; }\n";
+}
+
+float ComputeHeavyVecaddPerfExpected(float a, float b) {
+  return a + b + static_cast<float>(512) * (0.125f + 0.25f + 0.5f);
+}
+
+FloatLaunchRunResult RunHeavyVecaddPerfMode(const EncodedProgramObject& image,
+                                            std::span<const float> input_a,
+                                            std::span<const float> input_b,
+                                            uint32_t width,
+                                            uint32_t height,
+                                            uint32_t depth,
+                                            FunctionalExecutionMode mode,
+                                            uint32_t worker_threads) {
+  const uint32_t n = width * height * depth;
+  std::vector<float> scratch(n, -1.0f);
+
+  ExecEngine runtime;
+  runtime.SetFunctionalExecutionConfig(
+      FunctionalExecutionConfig{.mode = mode, .worker_threads = worker_threads});
+  ModelRuntime hooks(&runtime);
+
+  const uint64_t a_addr = hooks.Malloc(n * sizeof(float));
+  const uint64_t b_addr = hooks.Malloc(n * sizeof(float));
+  const uint64_t c_addr = hooks.Malloc(n * sizeof(float));
+  hooks.MemcpyHtoD<float>(a_addr, input_a);
+  hooks.MemcpyHtoD<float>(b_addr, input_b);
+  hooks.MemcpyHtoD<float>(c_addr, std::span<const float>(scratch));
+
+  KernelArgPack args;
+  args.PushU64(a_addr);
+  args.PushU64(b_addr);
+  args.PushU64(c_addr);
+  args.PushU32(width);
+  args.PushU32(height);
+  args.PushU32(depth);
+
+  auto launch = hooks.LaunchEncodedProgramObject(
+      image,
+      LaunchConfig{
+          .grid_dim_x = (width + 3) / 4,
+          .grid_dim_y = (height + 3) / 4,
+          .grid_dim_z = (depth + 3) / 4,
+          .block_dim_x = 4,
+          .block_dim_y = 4,
+          .block_dim_z = 4,
+      },
+      std::move(args),
+      ExecutionMode::Functional,
+      "c500",
+      nullptr);
+
+  std::vector<float> output(n);
+  hooks.MemcpyDtoH<float>(c_addr, std::span<float>(output));
+  return FloatLaunchRunResult{.launch = std::move(launch), .output = std::move(output)};
+}
+
 TEST(HipccParallelExecutionTest, ThreeDimensionalVecaddAddsMatchesBetweenStAndMt) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
@@ -359,6 +441,51 @@ TEST(HipccParallelExecutionTest, MultiWaveHeavyKernelShowsMtSpeedupWithDefaultWo
                      timings.decode_ms,
                      st.elapsed_ms,
                      mt.elapsed_ms);
+
+  std::filesystem::remove_all(temp_dir);
+}
+
+TEST(HipccParallelExecutionTest, MultiWaveHeavyKernelMatchesResultsWithDefaultWorkers) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hipcc_parallel_multiwave_correctness");
+  const auto src_path = temp_dir / "vecadd_3d_adds_correctness.cpp";
+  const auto exe_path = temp_dir / "vecadd_3d_adds_correctness.out";
+
+  WriteHeavyVecaddPerfSource(src_path, "vecadd_3d_adds_correctness");
+
+  const std::string command =
+      test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
+  ASSERT_EQ(std::system(command.c_str()), 0);
+
+  auto image = LoadHipccImage(exe_path, "vecadd_3d_adds_correctness");
+
+  constexpr uint32_t width = 33;
+  constexpr uint32_t height = 17;
+  constexpr uint32_t depth = 17;
+  constexpr uint32_t n = width * height * depth;
+  std::vector<float> input_a(n), input_b(n), expect(n);
+  for (uint32_t i = 0; i < n; ++i) {
+    input_a[i] = 0.5f * static_cast<float>(i % 97);
+    input_b[i] = 1.25f + 0.25f * static_cast<float>(i % 13);
+    expect[i] = ComputeHeavyVecaddPerfExpected(input_a[i], input_b[i]);
+  }
+
+  const auto mt_single =
+      RunHeavyVecaddPerfMode(image, input_a, input_b, width, height, depth,
+                             FunctionalExecutionMode::MultiThreaded, 1);
+  const auto mt_default =
+      RunHeavyVecaddPerfMode(image, input_a, input_b, width, height, depth,
+                             FunctionalExecutionMode::MultiThreaded, 0);
+
+  EXPECT_TRUE(mt_single.launch.ok) << mt_single.launch.error_message;
+  EXPECT_TRUE(mt_default.launch.ok) << mt_default.launch.error_message;
+
+  EXPECT_EQ(mt_single.output, expect);
+  EXPECT_EQ(mt_default.output, expect);
+  EXPECT_EQ(mt_default.output, mt_single.output);
 
   std::filesystem::remove_all(temp_dir);
 }
