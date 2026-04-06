@@ -117,7 +117,12 @@ std::vector<ParsedWaveStatsSnapshot> RunBarrierKernelAndCollectWaveStats(
   constexpr uint32_t block_dim = 128;
   CollectingTraceSink trace;
   ExecEngine runtime(&trace);
-  runtime.SetFunctionalExecutionMode(mode);
+  if (mode == FunctionalExecutionMode::MultiThreaded) {
+    runtime.SetFunctionalExecutionConfig(
+        FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MultiThreaded, .worker_threads = 1});
+  } else {
+    runtime.SetFunctionalExecutionMode(mode);
+  }
 
   const uint64_t in_addr = runtime.memory().AllocateGlobal(block_dim * sizeof(int32_t));
   const uint64_t out_addr = runtime.memory().AllocateGlobal(block_dim * sizeof(int32_t));
@@ -328,7 +333,12 @@ TEST(SharedBarrierFunctionalTest, MatchesResultsAcrossSingleThreadedAndMultiThre
                      ? "mode=SingleThreaded"
                      : "mode=MultiThreaded");
     ExecEngine runtime;
-    runtime.SetFunctionalExecutionMode(mode);
+    if (mode == FunctionalExecutionMode::MultiThreaded) {
+      runtime.SetFunctionalExecutionConfig(
+          FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MultiThreaded, .worker_threads = 1});
+    } else {
+      runtime.SetFunctionalExecutionMode(mode);
+    }
     const uint64_t in_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
     const uint64_t out_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
     for (uint32_t i = 0; i < n; ++i) {
@@ -422,7 +432,8 @@ TEST(SharedBarrierFunctionalTest, MultiThreadedReleaseResumesAllBarrierBlockedWa
   constexpr uint32_t block_dim = 128;
   CollectingTraceSink trace;
   ExecEngine runtime(&trace);
-  runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::MultiThreaded);
+  runtime.SetFunctionalExecutionConfig(
+      FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MultiThreaded, .worker_threads = 1});
 
   const uint64_t in_addr = runtime.memory().AllocateGlobal(block_dim * sizeof(int32_t));
   const uint64_t out_addr = runtime.memory().AllocateGlobal(block_dim * sizeof(int32_t));

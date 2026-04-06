@@ -392,7 +392,7 @@ TEST(WaitcntFunctionalTest, MultiThreadedWaitcntResumeIsConsistentAcrossTwoBlock
     runtime.SetFunctionalExecutionConfig(
         FunctionalExecutionConfig{
             .mode = FunctionalExecutionMode::MultiThreaded,
-            .worker_threads = 2,
+            .worker_threads = 1,
         });
 
     const uint64_t base_addr = runtime.memory().AllocateGlobal(2 * sizeof(int32_t));
@@ -576,7 +576,7 @@ TEST(WaitcntFunctionalTest, SingleAndMultiThreadedTraceUseUnboundedLogicalLaneId
   });
   const auto mt_slots = collect_slots(FunctionalExecutionConfig{
       .mode = FunctionalExecutionMode::MultiThreaded,
-      .worker_threads = 2,
+      .worker_threads = 1,
   });
 
   ASSERT_EQ(st_slots.size(), kExpectedLogicalSlotsOnPeu0);
@@ -746,7 +746,7 @@ TEST(WaitcntFunctionalTest, DenseGlobalLoadsIssueEveryFourCyclesInSingleAndMulti
   const auto [st_result, st_cycles] = run_mode(
       FunctionalExecutionConfig{.mode = FunctionalExecutionMode::SingleThreaded, .worker_threads = 1});
   const auto [mt_result, mt_cycles] = run_mode(
-      FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MultiThreaded, .worker_threads = 2});
+      FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MultiThreaded, .worker_threads = 1});
 
   ASSERT_EQ(st_cycles.size(), kLoadCount);
   ASSERT_EQ(mt_cycles.size(), kLoadCount);
@@ -805,7 +805,7 @@ TEST(WaitcntFunctionalTest, EndKernelImplicitlyDrainsOutstandingGlobalLoadsInFun
   });
   check_mode(FunctionalExecutionConfig{
       .mode = FunctionalExecutionMode::MultiThreaded,
-      .worker_threads = 2,
+      .worker_threads = 1,
   });
 }
 

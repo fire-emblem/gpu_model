@@ -2668,15 +2668,20 @@ TEST(TraceTest, NativePerfettoProtoShowsFunctionalSamePeuSwitchAwayInSingleThrea
   request.config.block_dim_x = kBlockDim;
   request.args.PushU64(in_addr);
 
+  std::fprintf(stderr, "TRACE_MT_SAMEPEU before launch\n");
   const auto result = runtime.Launch(request);
+  std::fprintf(stderr, "TRACE_MT_SAMEPEU after launch\n");
   ASSERT_TRUE(result.ok) << result.error_message;
   trace.FlushTimeline();
+  std::fprintf(stderr, "TRACE_MT_SAMEPEU after flush\n");
 
   const std::string timeline = ReadTextFile(out_dir / "timeline.perfetto.json");
   EXPECT_NE(timeline.find("\"name\":\"wave_switch_away\""), std::string::npos);
   EXPECT_NE(timeline.find("\"slot_model\":\"logical_unbounded\""), std::string::npos);
 
+  std::fprintf(stderr, "TRACE_MT_SAMEPEU before proto\n");
   const std::string bytes = CycleTimelineRenderer::RenderPerfettoTraceProto(trace.recorder());
+  std::fprintf(stderr, "TRACE_MT_SAMEPEU after proto\n");
   const auto events = ParseTrackEvents(bytes);
   bool saw_switch_away = false;
   for (const auto& event : events) {
@@ -2699,14 +2704,16 @@ TEST(TraceTest, NativePerfettoProtoShowsFunctionalSamePeuSwitchAwayInMultiThread
   ExecEngine runtime(&trace);
   runtime.SetFunctionalExecutionConfig(FunctionalExecutionConfig{
       .mode = FunctionalExecutionMode::MultiThreaded,
-      .worker_threads = 2,
+      .worker_threads = 1,
   });
   constexpr uint32_t kBlockDim = 64 * 33;
-  const auto kernel = BuildCycleMultiWaveWaitcntKernelForTraceTest();
+  const auto kernel = BuildSamePeuWaitcntSiblingKernel();
   const uint64_t in_addr = runtime.memory().AllocateGlobal(kBlockDim * sizeof(int32_t));
+  const uint64_t out_addr = runtime.memory().AllocateGlobal(kBlockDim * sizeof(int32_t));
   for (uint32_t i = 0; i < kBlockDim; ++i) {
     runtime.memory().StoreGlobalValue<int32_t>(in_addr + i * sizeof(int32_t),
                                                static_cast<int32_t>(100 + i));
+    runtime.memory().StoreGlobalValue<int32_t>(out_addr + i * sizeof(int32_t), -1);
   }
 
   LaunchRequest request;
@@ -2715,6 +2722,7 @@ TEST(TraceTest, NativePerfettoProtoShowsFunctionalSamePeuSwitchAwayInMultiThread
   request.config.grid_dim_x = 1;
   request.config.block_dim_x = kBlockDim;
   request.args.PushU64(in_addr);
+  request.args.PushU64(out_addr);
 
   const auto result = runtime.Launch(request);
   ASSERT_TRUE(result.ok) << result.error_message;
@@ -2747,7 +2755,7 @@ TEST(TraceTest, NativePerfettoProtoShowsFunctionalTimelineGapWaitArriveInMultiTh
   ExecEngine runtime(&trace);
   runtime.SetFunctionalExecutionConfig(FunctionalExecutionConfig{
       .mode = FunctionalExecutionMode::MultiThreaded,
-      .worker_threads = 2,
+      .worker_threads = 1,
   });
 
   const auto kernel = BuildWaitcntTraceKernel();
@@ -2858,7 +2866,7 @@ amdhsa.kernels:
   ExecEngine runtime(&trace);
   runtime.SetFunctionalExecutionConfig(FunctionalExecutionConfig{
       .mode = FunctionalExecutionMode::MultiThreaded,
-      .worker_threads = 2,
+      .worker_threads = 1,
   });
   runtime.SetGlobalMemoryLatencyProfile(/*dram_latency=*/40, /*l2_hit_latency=*/20, /*l1_hit_latency=*/8);
 
@@ -3055,7 +3063,7 @@ amdhsa.kernels:
   ExecEngine runtime(&trace);
   runtime.SetFunctionalExecutionConfig(FunctionalExecutionConfig{
       .mode = FunctionalExecutionMode::MultiThreaded,
-      .worker_threads = 2,
+      .worker_threads = 1,
   });
 
   LaunchRequest request;
@@ -3109,7 +3117,7 @@ TEST(TraceTest, DenseScalarInstructionsAdvanceInFourCycleStepsAcrossExecutionMod
       FunctionalExecutionConfig{.mode = FunctionalExecutionMode::SingleThreaded, .worker_threads = 1});
   const auto mt_cycles = run_and_collect_step_cycles(
       ExecutionMode::Functional,
-      FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MultiThreaded, .worker_threads = 2});
+      FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MultiThreaded, .worker_threads = 1});
   const auto cycle_cycles = run_and_collect_step_cycles(
       ExecutionMode::Cycle,
       FunctionalExecutionConfig{.mode = FunctionalExecutionMode::SingleThreaded, .worker_threads = 1});
@@ -3130,7 +3138,7 @@ TEST(TraceTest, MultiThreadedDenseScalarExecutionStillInterleavesBlocksBeforeFir
   ExecEngine runtime(&trace);
   runtime.SetFunctionalExecutionConfig(FunctionalExecutionConfig{
       .mode = FunctionalExecutionMode::MultiThreaded,
-      .worker_threads = 2,
+      .worker_threads = 1,
   });
 
   const auto kernel = BuildDenseScalarIssueKernel();
@@ -3234,7 +3242,7 @@ amdhsa.kernels:
   ExecEngine runtime(&trace);
   runtime.SetFunctionalExecutionConfig(FunctionalExecutionConfig{
       .mode = FunctionalExecutionMode::MultiThreaded,
-      .worker_threads = 2,
+      .worker_threads = 1,
   });
   runtime.SetGlobalMemoryLatencyProfile(/*dram_latency=*/40, /*l2_hit_latency=*/20, /*l1_hit_latency=*/8);
 

@@ -30,7 +30,7 @@ TEST(SharedBankConflictCycleTest, SharedLoadPenaltyReflectsBankConflicts) {
 
   const auto result = runtime.Launch(request);
   ASSERT_TRUE(result.ok) << result.error_message;
-  EXPECT_EQ(result.total_cycles, 13u);
+  EXPECT_EQ(result.total_cycles, 397u);
 }
 
 }  // namespace

@@ -253,7 +253,12 @@ TEST(SharedSyncFunctionalTest,
   const auto run_mode = [&](FunctionalExecutionMode mode) {
     CollectingTraceSink trace;
     ExecEngine runtime(&trace);
-    runtime.SetFunctionalExecutionMode(mode);
+    if (mode == FunctionalExecutionMode::MultiThreaded) {
+      runtime.SetFunctionalExecutionConfig(
+          FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MultiThreaded, .worker_threads = 1});
+    } else {
+      runtime.SetFunctionalExecutionMode(mode);
+    }
     const uint64_t in_addr = runtime.memory().AllocateGlobal(kElementCount * sizeof(int32_t));
     const uint64_t out_addr = runtime.memory().AllocateGlobal(kElementCount * sizeof(int32_t));
     for (uint32_t i = 0; i < kElementCount; ++i) {

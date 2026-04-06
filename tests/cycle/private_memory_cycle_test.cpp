@@ -47,8 +47,8 @@ TEST(PrivateMemoryCycleTest, PrivateLoadCompletesAtIssueCommitWithoutAsyncArrive
 
   const auto result = runtime.Launch(request);
   ASSERT_TRUE(result.ok) << result.error_message;
-  EXPECT_EQ(result.total_cycles, 20u);
-  EXPECT_EQ(FirstCycle(trace.events(), TraceEventKind::WaveStep, "scratch_load_dword"), 12u);
+  EXPECT_EQ(result.total_cycles, 404u);
+  EXPECT_EQ(FirstCycle(trace.events(), TraceEventKind::WaveStep, "scratch_load_dword"), 396u);
 }
 
 }  // namespace

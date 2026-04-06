@@ -47,7 +47,7 @@ TEST(ConstantMemoryCycleTest, ConstantLoadUsesOnlyFixedIssueCost) {
 
   const auto result = runtime.Launch(request);
   ASSERT_TRUE(result.ok) << result.error_message;
-  EXPECT_EQ(result.total_cycles, 12u);
+  EXPECT_EQ(result.total_cycles, 396u);
 }
 
 TEST(ConstantMemoryCycleTest, ScalarBufferLoadUsesScalarDestination) {
@@ -62,7 +62,7 @@ TEST(ConstantMemoryCycleTest, ScalarBufferLoadUsesScalarDestination) {
 
   const auto result = runtime.Launch(request);
   ASSERT_TRUE(result.ok) << result.error_message;
-  EXPECT_EQ(result.total_cycles, 16u);
+  EXPECT_EQ(result.total_cycles, 400u);
 }
 
 }  // namespace

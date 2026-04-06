@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstring>
 #include <deque>
+#include <chrono>
 #include <exception>
 #include <functional>
 #include <future>
@@ -1039,14 +1040,10 @@ class FunctionalExecutionCoreImpl {
             ++active_wave_tasks_;
             break;
           }
-          if (active_wave_tasks_ > 0) {
-            scheduler_cv_.wait(lock);
-            continue;
-          }
           if (AdvanceWaitingWavesLocked()) {
             continue;
           }
-          scheduler_cv_.wait(lock);
+          scheduler_cv_.wait_for(lock, std::chrono::milliseconds(1));
         }
       }
 
@@ -1196,13 +1193,15 @@ class FunctionalExecutionCoreImpl {
     return true;
   }
 
-  void RecordWaitingWaveTicks(ExecutableBlock& block) {
+  bool RecordWaitingWaveTicks(ExecutableBlock& block) {
     std::lock_guard<std::mutex> state_lock(*block.wave_state_mutex);
+    bool any_waiting = false;
     for (size_t i = 0; i < block.waves.size(); ++i) {
       const auto& wave = block.waves[i];
       if (wave.run_state != WaveRunState::Waiting) {
         continue;
       }
+      any_waiting = true;
       block.wave_states[i].wave_cycle_total += 1;
       if (wave.wait_reason == WaveWaitReason::BlockBarrier) {
         RecordExecutedWorkEvent(wave, ExecutedStepClass::Barrier, 1);
@@ -1210,11 +1209,12 @@ class FunctionalExecutionCoreImpl {
         RecordExecutedWorkEvent(wave, ExecutedStepClass::Wait, 1);
       }
     }
+    return any_waiting;
   }
 
   bool ProcessWaitingWaves(ExecutableBlock& block) {
     bool progressed = false;
-    RecordWaitingWaveTicks(block);
+    progressed = RecordWaitingWaveTicks(block) || progressed;
     progressed = AdvancePendingMemoryOps(block) || progressed;
     progressed = ResumeMemoryWaitingWaves(block) || progressed;
     const bool released_barrier = ReleaseBlockBarrierIfReady(block);
