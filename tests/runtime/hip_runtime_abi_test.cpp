@@ -1074,6 +1074,94 @@ int main() {
   std::filesystem::remove_all(temp_dir);
 }
 
+TEST(HipRuntimeAbiTest, RunsHipHostExecutableWithPureMemoryApisThroughLdPreloadHipRuntimeAbi) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto build_dir = BuildDirPath();
+  const auto abi_library_path = build_dir / "libgpu_model_hip_runtime_abi.so";
+  if (!std::filesystem::exists(abi_library_path)) {
+    GTEST_SKIP() << "missing hip runtime abi library: " << abi_library_path;
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_ld_preload_memory_only");
+  const auto src_path = temp_dir / "hip_ld_preload_memory_only.cpp";
+  const auto exe_path = temp_dir / "hip_ld_preload_memory_only.out";
+  const auto stdout_path = temp_dir / "stdout.txt";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << R"(
+#include <hip/hip_runtime.h>
+#include <cstdio>
+#include <vector>
+
+int main() {
+  constexpr int count = 16;
+  std::vector<unsigned int> input(count);
+  std::vector<unsigned int> output(count, 0);
+  std::vector<unsigned int> copied(count, 0);
+  std::vector<unsigned int> filled(count, 0);
+  for (int i = 0; i < count; ++i) {
+    input[i] = 100u + static_cast<unsigned int>(i) * 9u;
+  }
+
+  void* src = nullptr;
+  void* dst = nullptr;
+  void* fill = nullptr;
+  if (hipMalloc(&src, count * sizeof(unsigned int)) != hipSuccess) return 10;
+  if (hipMalloc(&dst, count * sizeof(unsigned int)) != hipSuccess) return 11;
+  if (hipMalloc(&fill, count * sizeof(unsigned int)) != hipSuccess) return 12;
+
+  if (hipMemcpy(src, input.data(), count * sizeof(unsigned int), hipMemcpyHostToDevice) != hipSuccess) return 13;
+  if (hipMemset(dst, 0, count * sizeof(unsigned int)) != hipSuccess) return 14;
+  if (hipMemcpy(dst, src, count * sizeof(unsigned int), hipMemcpyDeviceToDevice) != hipSuccess) return 15;
+  if (hipMemcpy(output.data(), dst, count * sizeof(unsigned int), hipMemcpyDeviceToHost) != hipSuccess) return 16;
+  for (int i = 0; i < count; ++i) {
+    if (output[i] != input[i]) return 20;
+  }
+
+  if (hipMemsetD32(reinterpret_cast<hipDeviceptr_t>(fill), 0xdeadbeef, count) != hipSuccess) return 21;
+  if (hipMemcpy(filled.data(), fill, count * sizeof(unsigned int), hipMemcpyDeviceToHost) != hipSuccess) return 22;
+  for (int i = 0; i < count; ++i) {
+    if (filled[i] != 0xdeadbeefu) return 23;
+  }
+
+  if (hipMemcpy(copied.data(), src, count * sizeof(unsigned int), hipMemcpyDeviceToHost) != hipSuccess) return 24;
+  for (int i = 0; i < count; ++i) {
+    if (copied[i] != input[i]) return 25;
+  }
+
+  if (hipFree(src) != hipSuccess) return 30;
+  if (hipFree(dst) != hipSuccess) return 31;
+  if (hipFree(fill) != hipSuccess) return 32;
+  std::puts("ld_preload pure memory api ok");
+  return 0;
+}
+)";
+  }
+
+  const std::string compile_command =
+      "env -u LD_PRELOAD " + test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " +
+      exe_path.string();
+  ASSERT_EQ(std::system(compile_command.c_str()), 0);
+
+  const std::string run_command =
+      "env LD_PRELOAD=" + MakeLdPreloadValue(abi_library_path) +
+      " GPU_MODEL_HIP_RUNTIME_ABI_DEBUG=1 " + exe_path.string() + " > " + stdout_path.string() +
+      " 2>&1";
+  ASSERT_EQ(std::system(run_command.c_str()), 0);
+
+  std::ifstream in(stdout_path);
+  ASSERT_TRUE(static_cast<bool>(in));
+  const std::string output((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+  EXPECT_NE(output.find("ld_preload pure memory api ok"), std::string::npos);
+
+  std::filesystem::remove_all(temp_dir);
+}
+
 TEST(HipRuntimeAbiTest, LaunchesHipSharedReverseExecutableThroughRegisteredHostFunction) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
