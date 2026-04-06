@@ -167,7 +167,12 @@ TEST(ParallelExecutionModeTest, MultiThreadedModeProducesSameFunctionalResults) 
 
   auto run_mode = [&](FunctionalExecutionMode mode) {
     ExecEngine runtime;
-    runtime.SetFunctionalExecutionMode(mode);
+    if (mode == FunctionalExecutionMode::MultiThreaded) {
+      runtime.SetFunctionalExecutionConfig(
+          FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MultiThreaded, .worker_threads = 1});
+    } else {
+      runtime.SetFunctionalExecutionMode(mode);
+    }
     const uint64_t out_addr = runtime.memory().AllocateGlobal(n * sizeof(int32_t));
     for (uint32_t i = 0; i < n; ++i) {
       runtime.memory().StoreGlobalValue<int32_t>(out_addr + i * sizeof(int32_t), -1);
