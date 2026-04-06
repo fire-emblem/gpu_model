@@ -67,6 +67,14 @@
   - 当前仍有直接参考价值的主要是 `2026-04-03-*` 和 `2026-04-04-*` 这批 trace / Perfetto 文档
   - 更早的 `2026-03-30` 到 `2026-04-02` 文档多数应按历史实施记录理解
   - 风险最大的不是单篇内容，而是目录 README 把整批文档说得过于“现行”；已收口入口说明
+  - Phase 1 compatibility-wrapper 过渡方案文档已开始清理：
+    - `docs/superpowers/plans/2026-03-30-my-design-mainline-restructure.md`
+    - `docs/superpowers/specs/2026-03-30-my-design-mainline-restructure-design.md`
+  - `phase2 legacy-cleanup` 这类强绑定旧公开名的过渡文档也已开始清理：
+    - `docs/superpowers/plans/2026-03-30-runtime-program-phase2-cleanup.md`
+    - `docs/superpowers/specs/2026-03-30-runtime-program-phase2-cleanup-design.md`
+    - `docs/superpowers/plans/2026-03-30-instruction-execution-phase2-cleanup.md`
+    - `docs/superpowers/specs/2026-03-30-instruction-execution-phase2-cleanup-design.md`
 - example runner 默认写 `.cache/example-results` 会让用户很容易误读旧 `results/` 快照
 - 当前已改回：
   - example 结果直接写回各自目录下的 `results/`

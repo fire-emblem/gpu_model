@@ -17,6 +17,7 @@
   - `2026-04-04-*`
   这些 trace / Perfetto / canonical event model 相关文档
 - 更早的 `2026-03-30` 到 `2026-04-02` 文档，默认优先按“历史实施记录 / archive”理解
+- Phase 1 compatibility-wrapper 与 phase2 legacy-cleanup 阶段的高误导文档已开始直接清理；与当前主线明显脱节、只保留过渡包装层、旧公开名或已完成 cleanup 语义的文件不再继续保留
 
 阅读规则：
 

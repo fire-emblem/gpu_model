@@ -133,6 +133,9 @@
   - 在 `README.md` 中补充文档导航，明确现行规范 / 历史计划 / 外部参考三类资产
   - 继续 docs 资产整理，删除 `docs/plans/2026-03-29-exec-shared-epic-kickoff.md`
   - 并行审查 `docs/plans/`、`docs/superpowers/`、`docs/*.md`，形成主文档 / archive / reference 分类结论
+  - 删除 `docs/superpowers` 中两份最明显的 Phase 1 compatibility-wrapper 过渡方案文件
+  - 删除 `docs/superpowers` 中两份强绑定旧公开名的 `phase2 legacy-cleanup` 过渡方案文件
+  - 删除 `docs/superpowers` 中两份已完成的 instruction/execution phase2 cleanup 文档
 - 创建/修改的文件：
   - `task_plan.md`
   - `findings.md`
