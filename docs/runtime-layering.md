@@ -103,4 +103,17 @@ runtime 侧主线按两层来理解：
 - 更完整的 property / attribute 覆盖
 - 更明确的 `ProgramObject / EncodedProgramObject` API 分层
 - 历史遗留文件名与构建目标的进一步收口
-- 文档和测试中的主线名称已统一采用 `ModelRuntime`
+- 与正式设计文档持续同步的 runtime 边界维护
+
+## 正式解释规则
+
+1. runtime 设计与职责边界，以本文件和 [my_design.md](/data/gpu_model/docs/my_design.md) 为准。
+2. 历史计划中若出现旧名、旧层级或中间过渡包装，不应据此反向解释当前代码。
+3. 真实 HIP `.out` 的主路径固定理解为：
+   - host program
+   - HIP runtime symbol
+   - `HipRuntime` C ABI entry
+   - `ModelRuntime`
+   - `ExecEngine`
+   - loader / program / execution / memory / trace
+4. `ExecEngine` 是 `ModelRuntime` 内部执行主链，不是与 `HipRuntime` / `ModelRuntime` 并列的第三层对外 runtime。

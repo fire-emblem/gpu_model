@@ -43,6 +43,23 @@
 - 内存 / 寄存器 / 同步 / trace 层
 - cycle / issue / waitcnt / timeline 观察层
 
+## 当前正式任务主线
+
+当前正式 task tracks 只保留以下七项：
+
+1. `trace canonical event model`
+2. `trace unified entry`
+3. `functional mt scheduler semantics`
+4. `cycle observability / stall taxonomy`
+5. `ProgramCycleStats calibration`
+6. `examples` 全量分批检查
+7. docs 资产整理与 archive 收口
+
+说明：
+
+- 历史计划中的已完成事项不再单独作为当前待办保留。
+- 若某模块状态已完成，但仍有“解释边界”“测试门禁”“观察语义”未闭环，可并入上述 track，而不是再新建历史式临时任务。
+
 ## 当前重构结论
 
 截至 `2026-04-01`：
@@ -148,108 +165,117 @@
 - 如果以“公开主路径命名、顶层目录层级、主测试路径、当前全量验证结果是否收口”为标准，本轮重构已经完成
 - 如果以“彻底减少底层 GCN-specific 术语、整理全部历史文档”为标准，仍有收尾项
 
-当前最关键的缺口不是单点 bug，而是五个大面：
+当前最关键的缺口不是单点 bug，而是当前正式任务主线对应的几个大面：
 
-1. `M2 + M3`
-   - 完整 `ProgramObject` / ELF / code object / metadata / encoded binary decode 覆盖
-2. `M4`
-   - 全 GCN ISA decode / disasm / exec 覆盖，特别是非 compute families
-3. `M1 + M11`
-   - `HipRuntime / ModelRuntime / ExecEngine` 第一阶段闭环补全
-4. `M5 + M6 + M7 + M8`
-   - ABI、memory、sync、wave 启动状态收敛成稳定 `FunctionalExecEngine` 主干
-5. `M13`
-   - cycle model 从“可用的 naive 分析工具”继续走向“更稳定的优化评估平台”
+1. `Trace`
+   - canonical event model 与 unified entry 还未完全收口
+2. `Functional`
+   - `mt` scheduler 的公平性、竞争行为和解释边界还需继续锁定
+3. `Cycle`
+   - stall taxonomy、`ready/selected/issue` 可观测性、timeline 解释面还需继续完善
+4. `Program statistics`
+   - `ProgramCycleStats` 仍需继续与当前模型时间语义对齐
+5. `Verification + Docs`
+   - examples 全量检查与历史文档资产整理仍需继续推进
 
-## 严格推进顺序
+补充说明：
 
-后续开发按下面顺序推进，不要跳跃：
+- `WaveStats`、wait/resume 状态机、waitcnt wait reason、resident-block bring-up、conditional multibarrier example bring-up、executed-flow stats bring-up 这些主题已视为“基础主干已落地”，后续只作为正式主线的背景，不再单独维持计划文件。
+
+## 从历史计划提炼出的稳定 backlog 主题
+
+下列主题虽然不再单独保留为“当前活跃计划文件”，但仍然是需要持续观察的稳定 backlog：
+
+1. `M2`
+   - LLVM / AMDGPU artifact ingestion
+   - segment-oriented load plan
+   - module 生命周期与段装载语义
+2. `M3`
+   - encoded decode / project disasm 完整化
+   - bitfield / encoding definition 体系继续完善
+3. `M4 + M12`
+   - shared-heavy 真实 HIP 路径继续作为 coverage / regression 锚点维持
+   - 但不再单独保留 bring-up 计划文件
+4. `M5`
+   - ABI 闭环、wave launch 语义摘要、hidden/system args 继续作为稳定 backlog 维持
+   - 但不再单独保留早期 closure 设计文档
+5. `M6`
+   - `functional mt` 的 wave 级调度、公平性、显式 wait/resume 原语
+6. `M13`
+   - PEU / wave issue model
+   - cycle 顶层 timing / issue / stall 分类
+   - `ready / selected / issue` 观测语义
+7. `M10 + M12`
+   - canonical trace construction
+   - typed event interpretation
+   - slot-centric timeline / Perfetto 观察面
+8. `M12 + M13`
+   - `128 x 128 conditional multibarrier` 作为 program stats 与 barrier-heavy 稳定性基线
+
+这些主题已经提炼进正式设计文档；后续优先直接修改正式文档，不再依赖历史计划充当规范。
+
+## 当前推进顺序
+
+后续开发优先按下面顺序推进：
 
 ### Step 1
 
-先补 `M1` 的第一阶段 runtime 边界：
+先补 trace 主线：
 
-- 单卡/单 context/单 stream 约束固化
-- property 查询
-- module load 基础 API
-- 必需的同步 runtime API 子集
+- canonical typed event model
+- unified trace entry
+- trace consumer 与 producer 的统一语义入口
 
 理由：
 
-- 没有稳定 runtime 边界，后面“任意 HIP 可执行程序”这个目标无法验收
+- 没有统一 trace 语义，后续 functional/cycle 的观察面与验证都会继续漂移
 
 ### Step 2
 
-补 `M2`：
+补 `functional mt` scheduler 语义：
 
-- module 生命周期
-- ELF / fatbin / code object / metadata 二进制解析
-- const/data/raw-data/kernarg 段装载
+- wave 级调度公平性
+- runnable/waiting 恢复后的竞争行为
+- 与 `st` 的参考语义边界
 
 理由：
 
-- runtime 进来了以后，必须先保证模块和镜像装载可靠
+- 正确性主干已有，但调度解释还未完全收口
 
 ### Step 3
 
-补 `M3`：
+补 `cycle` 观察语义：
 
-- 基于连续二进制的完整 GCN decode
-- bitfield/union 定义完善
-- project-side disassembler 完整化
+- stall taxonomy
+- `ready / selected / issue`
+- slot/timeline 可观测性
 
 理由：
 
-- 没有全量 decode，就不可能有“任意 HIP 程序”
+- 当前 cycle 结果型测试已有，但观察层语义仍是下一缺口
 
 ### Step 4
 
-补 `M4`：
+补 `ProgramCycleStats`：
 
-- 按 GCN ISA 大类把 encoded exec 全部补齐
-- 不允许 case-by-case 继续散长
-- parse / disasm / exec 用统一可扩展表驱动
+- 继续校准程序级统计口径
+- 明确与 trace cycle、execution stats 的边界
 
 理由：
 
-- 这是第一阶段的真正主路径核心
+- 需要把统计语义和模型时间定义真正锁在一起
 
 ### Step 5
 
-补 `M5 + M6`：
+补 examples 与 docs 资产：
 
-- LLVM AMDGPU ABI 特殊寄存器初始化
-- wave launch trace
-- `1D/2D/3D` launch
-- `st/mt` functional 稳定性
-
-理由：
-
-- 真程序能不能正确跑，取决于 ABI 和 launch 初态是否对
-
-### Step 6
-
-补 `M7 + M8 + M9`：
-
-- memory 空间和 map/memcpy 语义补齐
-- barrier/atomic/wait 同步补齐
-- tensor/mfma 补齐
+- examples 分批全量验证
+- 清理误导性的历史计划文件
+- 把仍有价值的内容继续提炼回正式文档
 
 理由：
 
-- 这是大多数复杂 kernel 的执行基础
-
-### Step 7
-
-补 `M10 + M12`：
-
-- 统一 trace/log 格式
-- 增加 launch 初始寄存器 trace
-- 增加 decode/disasm/ABI/runtime/module-load/real-hip-program 测试门禁
-
-理由：
-
-- 没有统一可观察性和门禁，后续功能会持续回归
+- 否则当前主线仍会被 archive 文档稀释
 
 ## 当前必须补充但用户需求里没有明确写出的点
 

@@ -183,3 +183,139 @@
 | 目标是什么？ | 修复 `08` / `11` 并锁定 4-cycle 指令展示约束 |
 | 我学到了什么？ | 当前 cycle 增强已阶段性可用，但当前优先级应回到 examples 正确性 |
 | 我做了什么？ | 见上方阶段记录 |
+
+## 会话：2026-04-06
+
+### 阶段 10：历史任务并入当前 task list
+- **状态：** in_progress
+- 执行的操作：
+  - 审核 `task_plan.md`，确认其仍停留在 `examples/08` / `examples/11` 的临时修复语境，已不适合作为当前主线计划
+  - 快速审阅 `docs/plans/`、`docs/superpowers/plans/`、`docs/superpowers/specs/` 的剩余历史计划文件
+  - 抽取仍需持续推进的活跃主题：
+    - `trace canonical event model / unified entry`
+    - `functional mt` scheduler 语义
+    - `cycle stall taxonomy` 与 `ready / selected / issue` 观测语义
+    - `ProgramCycleStats` 校准
+    - `examples` 剩余分批检查
+  - 重写 `task_plan.md`，删除已经关闭的 `08/11` 临时问题追踪
+  - 删除 4 份已经完成且继续保留会误导当前主线的历史计划文档：
+    - `docs/superpowers/plans/2026-04-01-example-env-driven-trace.md`
+    - `docs/superpowers/specs/2026-04-01-example-env-driven-trace-design.md`
+  - `docs/superpowers/plans/2026-04-02-perfetto-dump-rationality.md`
+  - `docs/superpowers/specs/2026-04-02-perfetto-dump-rationality-design.md`
+  - 同步更新 `findings.md`，记录当前活跃任务提取结论
+- 创建/修改的文件：
+  - `task_plan.md`
+  - `findings.md`
+  - `progress.md`
+  - `docs/superpowers/plans/2026-04-01-example-env-driven-trace.md`
+  - `docs/superpowers/specs/2026-04-01-example-env-driven-trace-design.md`
+  - `docs/superpowers/plans/2026-04-02-perfetto-dump-rationality.md`
+  - `docs/superpowers/specs/2026-04-02-perfetto-dump-rationality-design.md`
+
+### 阶段 11：正式任务与正式设计收口
+- **状态：** in_progress
+- 执行的操作：
+  - 将历史任务主题提炼为当前正式 task tracks，并重写 `task_plan.md`
+  - 将历史设计中稳定成立的约束回写到 `docs/my_design.md`
+  - 将 runtime 正式分层解释收口到 `docs/runtime-layering.md`
+  - 将模块状态文档的“缺口与推进顺序”改写为面向当前正式 task tracks 的表达
+  - 同步更新 `findings.md` 与 `progress.md`
+- 创建/修改的文件：
+  - `task_plan.md`
+  - `docs/my_design.md`
+  - `docs/runtime-layering.md`
+  - `docs/module-development-status.md`
+  - `findings.md`
+  - `progress.md`
+
+### 阶段 12：历史计划资产继续收紧
+- **状态：** in_progress
+- 执行的操作：
+  - 结合 `docs/plans` 审计结论，删除一批已被正式设计文档吸收、继续保留只会误导当前主线的 bootstrap / 过渡计划文件
+  - 保留仍能提供剩余事务线索的 archive 文档，尤其是 ISA 覆盖、LLVM artifact integration、cycle 顶层建模、functional mt scheduler、memory segment loading、PEU/wave issue model
+  - 同步更新 `findings.md`
+- 创建/修改的文件：
+  - `docs/plans/2026-03-27-c500-gpu-function-model.md`
+  - `docs/plans/2026-03-27-gcn-aligned-code-architecture.md`
+  - `docs/plans/2026-03-27-multi-target-isa-exec-layering.md`
+  - `docs/plans/2026-03-28-exec-architecture-refactor-assessment.md`
+  - `docs/plans/2026-03-28-instruction-exec-layering.md`
+  - `docs/plans/2026-03-29-encoded-vs-modeled-isa-layering.md`
+  - `docs/plans/2026-03-29-raw-first-unified-execution.md`
+  - `findings.md`
+  - `progress.md`
+
+### 阶段 13：`docs/superpowers` 活跃参考集收口
+- **状态：** in_progress
+- 执行的操作：
+  - 根据 `docs/superpowers` 审计结论，将活跃参考集收缩到 trace / cycle observability / functional mt scheduler / program cycle stats 这 8 组主题
+  - 删除 `remove-lowering-mainline` 这组过渡期主线切换文档
+  - 更新 `docs/superpowers/README.md`，明确本目录不是当前唯一规范源，当前任务列表以根目录 `task_plan.md` 为准
+  - 同步更新 `findings.md`
+- 创建/修改的文件：
+  - `docs/superpowers/plans/2026-04-01-remove-lowering-mainline.md`
+  - `docs/superpowers/specs/2026-04-01-remove-lowering-mainline-design.md`
+  - `docs/superpowers/README.md`
+  - `findings.md`
+  - `progress.md`
+
+### 阶段 14：将 archive 主题蒸馏回正式文档
+- **状态：** in_progress
+- 执行的操作：
+  - 审查 `docs/plans` 中仍保留的历史主题，只提取对当前主线仍有稳定价值的结论
+  - 将 LLVM/code object ingestion、segment loading、decode/disasm、functional mt wave 调度、PEU/wave issue model、cycle 顶层原则写回正式文档
+  - 强化 `docs/README.md` 与 `docs/plans/README.md`，明确 archive 不再承担现行规范职责
+- 创建/修改的文件：
+  - `docs/README.md`
+  - `docs/plans/README.md`
+  - `docs/my_design.md`
+  - `docs/module-development-status.md`
+  - `findings.md`
+  - `progress.md`
+
+### 阶段 15：第三批 `superpowers` archive 收紧
+- **状态：** in_progress
+- 执行的操作：
+  - 删除一批已经被正式文档和当前实现吸收的 `docs/superpowers` archive 文件
+  - 将活跃 8 组主题中的稳定结论继续压缩回 `docs/my_design.md` 和 `docs/module-development-status.md`
+  - 更新 `docs/superpowers/README.md`，进一步降低保留文件的“半规范”地位
+- 创建/修改的文件：
+  - `docs/superpowers/plans/2026-03-31-functional-exec-wait-resume.md`
+  - `docs/superpowers/specs/2026-03-31-functional-exec-wait-resume-design.md`
+  - `docs/superpowers/plans/2026-03-31-functional-exec-waitcnt-wait-reasons.md`
+  - `docs/superpowers/specs/2026-03-31-functional-exec-waitcnt-wait-reasons-design.md`
+  - `docs/superpowers/plans/2026-03-31-wave-stats-trace.md`
+  - `docs/superpowers/specs/2026-03-31-wave-stats-trace-design.md`
+  - `docs/superpowers/plans/2026-03-31-wave-stats-state-split.md`
+  - `docs/superpowers/specs/2026-03-31-wave-stats-state-split-design.md`
+  - `docs/superpowers/plans/2026-04-01-wave-wait-state-machine-closure.md`
+  - `docs/superpowers/specs/2026-04-01-wave-wait-state-machine-closure-design.md`
+  - `docs/superpowers/plans/2026-04-02-conditional-multibarrier-example.md`
+  - `docs/superpowers/specs/2026-04-02-conditional-multibarrier-example-design.md`
+  - `docs/superpowers/plans/2026-04-01-executed-flow-program-cycle-stats.md`
+  - `docs/superpowers/specs/2026-04-01-executed-flow-program-cycle-stats-design.md`
+  - `docs/superpowers/plans/2026-04-01-cycle-ap-resident-blocks.md`
+  - `docs/superpowers/specs/2026-04-01-cycle-ap-resident-blocks-design.md`
+  - `docs/my_design.md`
+  - `docs/module-development-status.md`
+  - `docs/superpowers/README.md`
+  - `findings.md`
+  - `progress.md`
+
+### 阶段 16：清理最后一批 `superpowers` 遗留包
+- **状态：** in_progress
+- 执行的操作：
+  - 删除 `abi-minimal-closure`、`wave-launch-abi-summary`、`shared-heavy-hip-kernel-closure` 这批已被正式状态文档吸收的历史文件
+  - 将 ABI closure、wave-launch 语义摘要、shared-heavy regression anchor 作为稳定 backlog 写回 `docs/module-development-status.md`
+  - 更新 `docs/superpowers/README.md`、`findings.md`
+- 创建/修改的文件：
+  - `docs/superpowers/plans/2026-03-31-abi-minimal-closure.md`
+  - `docs/superpowers/specs/2026-03-31-abi-minimal-closure-design.md`
+  - `docs/superpowers/specs/2026-03-31-wave-launch-abi-summary-design.md`
+  - `docs/superpowers/plans/2026-04-03-shared-heavy-hip-kernel-closure.md`
+  - `docs/superpowers/specs/2026-04-03-shared-heavy-hip-kernel-closure-design.md`
+  - `docs/module-development-status.md`
+  - `docs/superpowers/README.md`
+  - `findings.md`
+  - `progress.md`

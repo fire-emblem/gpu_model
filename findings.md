@@ -93,6 +93,69 @@
   - resident/standby/promote/backfill 行为通过
   - dense global load overlap 与 `endk` 隐式 drain 通过
   - `ready != selected != issue` 已由结果型测试证明
+- 历史任务二次审计后，当前仍值得保留到主 task list 的主题只剩：
+  - `trace canonical event model / unified entry` 收口
+  - `functional mt` 调度公平性与可解释性
+  - `cycle stall taxonomy` 与 `ready / selected / issue` 观测语义
+  - `ProgramCycleStats` 按当前模型时间语义继续校准
+  - `examples` 剩余分批全量检查
+- 以下历史任务文件已确认完成且对当前主线有误导性，直接删除更合适：
+  - `docs/superpowers/plans/2026-04-01-example-env-driven-trace.md`
+  - `docs/superpowers/specs/2026-04-01-example-env-driven-trace-design.md`
+  - `docs/superpowers/plans/2026-04-02-perfetto-dump-rationality.md`
+  - `docs/superpowers/specs/2026-04-02-perfetto-dump-rationality-design.md`
+- 当前正式文档收口策略已明确：
+  - `task_plan.md` 只保留活跃正式任务
+  - `docs/my_design.md` 保留正式设计约束
+  - `docs/runtime-layering.md` 保留 runtime 正式分层解释
+  - `docs/module-development-status.md` 保留模块状态、缺口和推进顺序
+  - 历史 plans/specs 只作为 archive，不再承担现行规范职责
+- `docs/plans` 二次审计后，以下文件已确认主要是 bootstrap / 重构过渡讨论，现已被正式设计文档吸收，继续保留只会提高误导风险：
+  - `2026-03-27-c500-gpu-function-model.md`
+  - `2026-03-27-gcn-aligned-code-architecture.md`
+  - `2026-03-27-multi-target-isa-exec-layering.md`
+  - `2026-03-28-exec-architecture-refactor-assessment.md`
+  - `2026-03-28-instruction-exec-layering.md`
+  - `2026-03-29-encoded-vs-modeled-isa-layering.md`
+  - `2026-03-29-raw-first-unified-execution.md`
+- `docs/plans` 中仍建议保留的几类文档，是那些还能为当前正式任务提供剩余事务线索的主题：
+  - ISA coverage / decode-disasm
+  - LLVM AMDGPU artifact integration
+  - naive cycle principles / cycle top-level architecture
+  - marl parallel wave execution
+  - memory pool / segment loading
+  - PEU / wave issue model
+- `docs/superpowers` 二次审计后，当前最小活跃参考集可收缩为 8 组：
+  - `trace-canonical-event-model`
+  - `trace-unified-entry`
+  - `perfetto-causal-cycle-stall-taxonomy`
+  - `perfetto-slot-centric-timeline`
+  - `functional-mt-wave-scheduler`
+  - `multi-wave-dispatch-front-end-alignment`
+  - `program-cycle-stats-calibration`
+  - `hip-128-block-conditional-multibarrier-validation`
+- `remove-lowering-mainline` 已确认属于过渡期主线切换文档，当前 encoded mainline 已是既定事实，继续保留的误导风险高于参考价值，因此直接删除。
+- 剩余 archive 中真正有价值的主题，已继续蒸馏回正式文档：
+  - LLVM / AMDGPU artifact ingestion
+  - segment-oriented loading / memory pool taxonomy
+  - decode / disasm append-only framework
+  - functional `mt` wave-level scheduling
+  - PEU / wave issue model
+  - naive cycle 的 issue/latency 分离与少量稳定 timing knobs
+- 第三批 `docs/superpowers` archive 已继续收紧：
+  - wait/resume
+  - waitcnt wait reasons
+  - wave-stats trace / state-split
+  - wave-wait-state-machine-closure
+  - conditional-multibarrier example bring-up
+  - executed-flow stats bring-up
+  - cycle AP resident blocks bring-up
+  这些主题的主干语义已被当前正式设计、状态文档和测试现状吸收，不再需要单独保留计划文件。
+- 第四批 `docs/superpowers` 遗留文件已继续删除：
+  - `abi-minimal-closure`
+  - `wave-launch-abi-summary`
+  - `shared-heavy-hip-kernel-closure`
+  这些主题现在只保留为模块状态中的稳定 backlog，不再维持独立设计/计划文档。
 
 ## 技术决策
 | 决策 | 理由 |
@@ -111,6 +174,7 @@
 | cycle 业务逻辑只放在 engine / state machine，trace 只做消费序列化 | 保证行为事实和展示分层清晰 |
 | 当前对外架构文档不再把 `hip_interposer` 当模块名 | 文件名可以保留历史字样，但架构语义必须归到 `HipRuntime` |
 | 暂不系统清理 docs 存档中的历史旧名 | 历史计划/spec 属于存档信息，优先保证主代码和关键文档收口 |
+| 当前主 task list 不再继续跟踪 `08/11` 单点问题 | 它们已经修复完成，继续保留只会污染活跃任务列表 |
 
 ## 遇到的问题
 | 问题 | 解决方案 |

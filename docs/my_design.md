@@ -126,6 +126,25 @@
 - 完成 const/data/kernarg 等段的静态装载准备
 - 提供 module 生命周期管理
 
+当前进一步约束：
+
+- 项目应继续把真实 LLVM / AMDGPU / HIP artifact 当作外部生产物，把本项目定位为 artifact consumer，而不是内嵌完整编译器。
+- 第一优先级是稳定消费 `.out` / ELF / code object / metadata / section bytes，而不是回退到手写 asm 或临时 lowering 作为主线。
+- 所有 loader 应逐步收口到统一的 segment-oriented `DeviceLoadPlan` 语义，包括：
+  - `Code`
+  - `ConstantData`
+  - `RawData`
+  - `KernargTemplate`
+- memory pool 至少应有明确的逻辑种类：
+  - `Global`
+  - `Constant`
+  - `Shared`
+  - `Private`
+  - `Managed`
+  - `Kernarg`
+  - `Code`
+  - `RawData`
+
 ## 4. 指令层
 
 指令层的职责是把程序对象中的代码段转换为可执行、可建模、可追踪的指令表示。
@@ -150,6 +169,8 @@
 - 指令序列必须支持按 `pc` 跳转和访问
 - 指令实例是不可变对象
 - encoding descriptor、decoded instruction、executable binding 应分层
+- decode / disasm 主线应继续朝“append-only 的 encoding definition + decoder + formatter”收口，而不是散落的 opcode 分支
+- 项目内 disasm 应来自项目自身对 encoded bytes 的解释，而不是长期依赖外部 `objdump` 文本作为主语义来源
 
 ### 4.2 建模指令层
 
@@ -258,7 +279,103 @@ operand 只描述静态信息，不直接持有执行态寄存器值。
 - functional 和 cycle 可以共享状态构造与 effect apply
 - 但不应强行并成一个大基类 executor
 
-## 7. Wave 执行上下文
+### 6.1 Functional MT 约束
+
+- `functional mt` 的并行单位应是 wave，而不是更粗粒度的 block。
+- `MarlParallel` 的目标不是复刻硬件拍级并发，而是提供 wave 级并发、等待恢复和调度竞争的可解释模型。
+- block-local shared state、barrier release、memory wait / resume 都必须通过显式状态机或同步原语表达，而不是隐式依赖宿主线程调度偶然正确。
+
+### 6.2 PEU / Wave Issue 约束
+
+- `AP` 是 block 级共享资源域，不是统一 issue 池。
+- `PEU` 才是真正的局部调度和发射域。
+- `wave` 是调度单位，`lane` 不是调度器的选择对象。
+- 必须明确区分：
+  - `ready`
+  - `selected`
+  - `issue`
+- 一个 wave 可恢复，不代表同 cycle 必然被选中发射；这一点在 cycle model 中必须成立，在 functional model 中应尽量使用简化但不冲突的语义近似。
+
+### 6.3 Cycle 顶层原则
+
+- cycle model 的目标不是硬件精准复刻，而是稳定、可解释地反映相对 cycle 差异。
+- 应保持少量、稳定、可说明的 timing knobs，而不是堆积过多微架构细节。
+- 至少应持续区分：
+  - issue cycle
+  - latency cycle
+- stall 原因必须可归类，timeline 必须能解释 bubble 来源。
+- 默认应保持 `default_issue_cycles = 4`，仅对少量真正影响分析结论的类别或指令做 override。
+
+## 7. 当前正式设计约束
+
+本节是从历史 plans/specs 中提炼出的当前稳定设计结论。后续实现与测试若和本节冲突，应优先修改实现或更新本节，而不是回退到历史文档解释当前行为。
+
+### 7.1 Runtime 正式分层
+
+- 最外层对外接口是 `HipRuntime`，语义上与 AMD HIP runtime 对齐。
+- `HipRuntime` 只负责 C ABI 兼容、参数适配、符号映射、fake pointer 映射和入口转发。
+- `ModelRuntime` 是项目内部统一 runtime 主入口。
+- `ExecEngine` 是 `ModelRuntime` 内部执行主链，不单独作为对外 runtime 层。
+- `src/runtime/hip_interposer.cpp` 只是 `HipRuntime` 的 C ABI 实现载体，不代表独立模块。
+
+### 7.2 Trace 正式约束
+
+- `trace` 的职责只是消费模型事件并序列化为 text/json/timeline/Perfetto。
+- 任何执行语义、时序推进、等待恢复、统计记账都必须发生在 runtime/execution/state machine 中，不能放到 trace 层推断。
+- 当前正式对外 timeline 产物是 `timeline.perfetto.json`。
+- `timeline.perfetto.pb` 不再作为正式用户产物。
+- producer 与 test 侧的 trace 构造应继续统一到单一 semantic factory / builder 入口。
+- consumer 侧应继续统一到 canonical typed event interpretation，而不是各自从 `message` 二次猜语义。
+- `TraceEvent.message` 只能作为兼容/展示字段继续存在，不应再充当主语义契约。
+
+### 7.3 模型时间语义
+
+- `st`、`mt`、`cycle` 三条路径上的 trace `cycle` 都是模型计数时间。
+- 这些 `cycle` 用于表达模型内部顺序、等待、发射与完成关系，不表示真实物理执行时间戳。
+- `ProgramCycleStats` 也必须遵守同一时间语义边界。
+
+### 7.4 Functional 与 Cycle 的语义边界
+
+- `functional model` 的目标是功能正确和可解释的模型时间推进。
+- `cycle model` 的目标是 tick-driven 的资源/调度/等待建模与结果趋势分析。
+- `cycle model` 只有一个模式，不再拆成 cycle `st/mt`。
+- `functional st` 是最确定的参考语义：
+  - 满足恢复条件后，在下一 issue quantum 起点消费下一条可执行指令。
+- `functional mt` 共享相同的模型时间规则，但保留 runnable wave 竞争与 CPU 并行调度差异。
+- `cycle` 中必须允许 `ready != selected != issue`。
+
+### 7.5 Wave / 调度 / 时间线约束
+
+- wave 是执行态核心单元。
+- 每个 wave 需要持有自己的推进状态；全局执行再基于统一模型时间、资源状态和调度器推进。
+- `resume` 的语义不是“事件刚发生”，而是“该 wave 重新满足继续执行条件”；真正执行下一条指令仍受对应模型的调度规则约束。
+- 相邻指令的 issue 间隔、wait/arrive/commit、barrier release、front-end latency 等都属于执行模型事实，再由 trace 消费。
+- timeline 的最细观察面应优先围绕 slot / lane-of-execution，而不是只围绕 wave 名称。
+- 对 `cycle`，最细轨道需要保留 resident slot 语义；对 `st/mt`，最细轨道允许使用逻辑 lane，但仍需共享统一 hierarchy 和字段命名。
+- bubble 应保持为空白区间，而不是伪造“空指令”填充。
+- stall 原因必须是稳定 taxonomy，而不是临时自然语言文本。
+
+### 7.6 当前正式主线
+
+当前仍需持续推进的正式主线只有：
+
+- trace canonical typed event model
+- trace unified entry
+- functional `mt` scheduler semantics
+- cycle observability / stall taxonomy
+- `ProgramCycleStats` calibration
+- examples full-batch verification
+
+其中还应默认遵守以下更细约束：
+
+- `functional mt`：执行单位是 wave，不是 block；默认 worker budget 是全局共享资源，不应按 AP 复制一套 OS 线程池。
+- `dispatch`：需继续统一 `ready -> selected -> issue` 语义边界，blocked sibling 不应拖死 ready sibling。
+- `ProgramCycleStats`：与 `ExecutionStats` 保持语义分离，前者面向 active-lane / program-work 解释，后者保留粗粒度事件统计。
+- `128 x 128 conditional multibarrier` 真实 HIP case 继续作为 program stats 与多 barrier 稳定性的主 baseline 之一。
+
+历史 plans/specs 中若包含更细的步骤、旧命名或过渡方案，应视为 archive，而不是当前规范。
+
+## 8. Wave 执行上下文
 
 wave 是执行时的核心单位。
 
@@ -267,7 +384,7 @@ wave 是执行时的核心单位。
 执行语义统一使用 `WaveContext`。
 不再保留单独的 `WaveState` 对外层名称。
 
-### 7.1 WaveContext 应包含的内容
+### 8.1 WaveContext 应包含的内容
 
 - 指令流引用
 - `dpcId`
@@ -294,7 +411,7 @@ wave 状态至少应区分：
 - 同步阻塞
 - 已退出
 
-### 7.2 Launch 初始化
+### 8.2 Launch 初始化
 
 kernel launch 时应完成：
 
@@ -305,9 +422,9 @@ kernel launch 时应完成：
 - `exec mask` 和 builtin id 初始化
 - LLVM AMDGPU ABI 约定下的特殊寄存器装载
 
-## 8. 功能模型与周期模型
+## 9. 功能模型与周期模型
 
-### 8.1 Functional Model
+### 9.1 Functional Model
 
 functional model 的目标是结果正确。
 
@@ -317,7 +434,7 @@ functional model 的目标是结果正确。
 - 两者共用同一套执行核心
 - 共用 wave state、memory、sync、effect apply 逻辑
 
-### 8.2 Cycle Model
+### 9.2 Cycle Model
 
 cycle model 的目标不是 RTL 级精确，而是：
 
@@ -344,11 +461,11 @@ cycle model 的目标不是 RTL 级精确，而是：
 
 - [memory-hierarchy-interface-reservation.md](/data/gpu_model/docs/memory-hierarchy-interface-reservation.md)
 
-## 9. 调试、Trace 与性能观测
+## 10. 调试、Trace 与性能观测
 
 项目必须内建统一的调试和观测能力，而不是事后附加。
 
-### 9.1 日志
+### 10.1 日志
 
 应有统一日志系统，支持：
 
@@ -356,7 +473,7 @@ cycle model 的目标不是 RTL 级精确，而是：
 - 等级控制
 - 面向 runtime / program / instruction / execution 的分层输出
 
-### 9.2 指令与 Wave Trace
+### 10.2 指令与 Wave Trace
 
 应支持：
 
@@ -366,7 +483,7 @@ cycle model 的目标不是 RTL 级精确，而是：
 - `pc / wave id / block id / dpc / ap / peu` 输出
 - wave 切换原因说明
 
-### 9.3 性能观测
+### 10.3 性能观测
 
 应支持：
 
@@ -376,7 +493,7 @@ cycle model 的目标不是 RTL 级精确，而是：
 - instruction cycle 统计
 - AP / PEU 利用率统计
 
-### 9.4 Timeline
+### 10.4 Timeline
 
 应支持导出可被 Perfetto 或同类工具导入的 timeline。
 
@@ -387,7 +504,7 @@ timeline 至少应能展示：
 - barrier / wait / stall
 - wave 内指令是连续发射还是出现空泡
 
-## 10. 长期目录与模块收口目标
+## 11. 长期目录与模块收口目标
 
 当前项目长期应收敛到以下主模块：
 
@@ -418,7 +535,7 @@ timeline 至少应能展示：
 - `CycleExecutor` -> `CycleExecEngine`
 - `RawGcnExecutor` -> `EncodedExecEngine`
 
-## 11. 第一阶段收口原则
+## 12. 第一阶段收口原则
 
 第一阶段不是简单重命名，而是把主路径压直。
 

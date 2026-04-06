@@ -1,68 +1,88 @@
-# 任务计划：Examples 分批检查与 Perfetto 正确性修复
+# 任务计划：当前正式任务主线
 
 ## 目标
-完成 examples 全量分批检查，优先修复 `08` 的 `mt` Perfetto 显示问题、`11` 编译问题，并锁定“Perfetto 必须显示每条指令 4 cycle 区间”的约束。
+将历史任务与设计主题提炼为当前正式 task list，只保留仍需持续推进的主线事务；历史计划文件仅作为 archive 参考，不再承担现行待办职责。
 
 ## 当前阶段
-阶段 1
+阶段 4
 
 ## 各阶段
 
-### 阶段 1：需求与发现
-- [x] 记录当前 cycle 增强已到的阶段性结果
-- [x] 切换到 examples/Perfetto 新主题
-- [x] 记录用户明确问题：`08` mt Perfetto 不正确，`11` 编译不过
+### 阶段 1：正式任务收口
+- [x] 审核历史 plans/specs，识别仍然有效的未完成主题
+- [x] 将已完成的临时问题和过渡方案从当前 task list 中移除
+- [x] 将剩余事项归并为正式长期 track
 - **状态：** complete
 
-### 阶段 2：规划与分批检查
-- [ ] 枚举 examples 全量检查批次
-- [x] 先定位 `08` mt Perfetto 现状与预期偏差
-- [x] 先定位 `11` 编译失败根因
-- [x] 明确 “每条指令显示 4 cycle 区间” 的实现边界与回归方式
+### 阶段 2：正式设计收口
+- [x] 将 runtime 分层收口为 `HipRuntime -> ModelRuntime -> ExecEngine`
+- [x] 将 trace、functional、cycle、stats 的稳定设计约束写入主设计文档
+- [x] 将模块状态文档与正式 task list 完全对齐
+- **状态：** complete
+
+### 阶段 3：主线实现推进
+- [ ] 完成 `trace canonical event model` 收口
+- [ ] 完成 `trace unified entry` 收口
+- [ ] 完成 `functional mt` scheduler 公平性、竞争行为与可解释性收口
+- [ ] 完成 `cycle` 路径 stall taxonomy 与 `ready -> selected -> issue` 观测语义收口
+- [ ] 完成 `ProgramCycleStats` 与当前模型时间语义的一致性校准
+- **状态：** pending
+
+### 阶段 4：验证与资产整理
+- [ ] 完成 `examples` 剩余分批全量检查
+- [ ] 继续清理明显过时、已完成且误导当前主线的历史计划文件
+- [ ] 将 archive / active / reference 的文档边界继续收紧
 - **状态：** in_progress
 
-### 阶段 3：实现修复
-- [x] 修复 `08` mt Perfetto 显示
-- [x] 修复 `11` 编译问题
-- [x] 收口指令 4-cycle Perfetto 表现
-- **状态：** complete
-
-### 阶段 4：分批验证
-- [ ] 对 examples 全量分批检查
-- [ ] 更新对应 results / 结论
-- [ ] 记录仍存在的问题与例外
+### 阶段 5：交付与维护
+- [ ] 保持 `task_plan.md`、`docs/my_design.md`、`docs/runtime-layering.md`、`docs/module-development-status.md` 同步
+- [ ] 将新增实现结果及时回写到正式设计和状态文档
 - **状态：** pending
 
-### 阶段 5：交付
-- [ ] 汇总本轮 examples 检查结论
-- [ ] 给出后续是否继续扩大 cycle 前端增强的建议
-- **状态：** pending
+## 当前正式任务清单
+1. `Trace canonicalization`
+   - 目标：让 text trace、JSON trace、timeline、Perfetto 全部建立在同一 typed event 解释之上。
+   - 当前缺口：producer、test、sink 仍有部分入口未统一到 canonical 语义工厂。
 
-## 关键问题
-1. `08` 的 `mt` Perfetto 不正确，根因是在事件生产、timeline 序列化，还是 example 构造本身。
-2. `11` 编译失败是否来自 example 代码、build target、还是环境假设。
-3. `08` 即使修好指令 slice，也仍不适合作为“单 PEU 多 slot 并发”展示样例，因为其工作分布天然分散到多个 AP/PEU 且都落在 `slot=0`。
+2. `Trace unified entry`
+   - 目标：消除 producer/test 侧散落的原始 trace message 拼装，统一为 builder/factory 入口。
+   - 当前缺口：仍有历史路径直接依赖 message 文本语义。
 
-## 已做决策
-| 决策 | 理由 |
-|------|------|
-| 保留 `HipRuntime` 作为 AMD HIP runtime 兼容层 | 与用户的最终目标架构一致 |
-| 保留 `ModelRuntime` 作为项目核心实现 | 维持核心实现与兼容层分离 |
-| 将 `RuntimeEngine` 目标名收口为 `ExecEngine` | 更贴近执行核心语义，减少与 runtime 语义重叠 |
-| `hip_interposer.cpp` 视为 `HipRuntime` 的 C ABI 入口实现载体 | 不再把 interposer 当独立模块 |
-| pre-push 改为轻量门禁 | 缩短 push 阻塞时间，同时保留基本保护 |
-| 对历史存档文档采用机械术语替换 | 当前主线已稳定，继续保留旧名只会增加理解成本 |
-| cycle model 保持唯一模式，不再引入 cycle st/mt | `st/mt` 属于 functional 执行策略，不属于硬件时序模型 |
-| trace 只消费 typed event，不做业务推断 | 避免展示层反向定义业务语义 |
-| 本轮优先切回 examples/Perfetto 正确性 | 这是用户当前最高优先级问题 |
+3. `Functional MT scheduler semantics`
+   - 目标：让 `functional mt` 的 wave 级调度、公平性、等待恢复与竞争行为可解释、可验证。
+   - 当前缺口：正确性主干已具备，但公平性与调度解释仍未完全收口。
 
-## 遇到的错误
-| 错误 | 尝试次数 | 解决方案 |
-|------|---------|---------|
-| `ASan runtime does not come first` 导致 preload 测试失败 | 1 | 在测试运行命令里将 `libasan` 放到 `LD_PRELOAD` 前面 |
-| `GPU_MODEL_GATE_DEBUG_ASAN_GTEST_FILTER` 默认值写法触发 shell unbound variable | 1 | 改为安全的 `:-` 默认展开 |
-| `exec_engine.h` 被误改成自包含 include | 1 | 恢复为包含 `runtime_engine.h`，随后再做物理文件收口 |
-| 提交时残留 `.git/index.lock` | 1 | 确认无活跃 git 进程后清理 stale lock |
+4. `Cycle observability`
+   - 目标：让 `cycle` 路径上的 stall taxonomy、`ready / selected / issue` 关系、slot/timeline 观察面稳定可解释。
+   - 当前缺口：结果型正确性已有，但可观测语义与稳定分类还需继续收口。
+
+5. `ProgramCycleStats calibration`
+   - 目标：基于“模型 cycle，而非真实物理时间戳”的统一定义，继续校准程序级 cycle 统计。
+   - 当前缺口：需要继续统一 functional/cycle 的统计口径与解释边界。
+
+6. `Examples verification`
+   - 目标：完成 examples 全量分批检查，并把剩余问题归档为正式缺口，而不是临时口头结论。
+   - 当前缺口：`08/11` 已关闭，但 examples 全量批次仍未彻底收口。
+
+7. `Docs asset cleanup`
+   - 目标：继续删除明显误导主线的历史任务文件，并把仍有价值的内容提炼进正式设计文档。
+   - 当前缺口：archive 仍偏多，部分旧计划虽然已完成但尚未清理。
+
+## 已明确关闭的历史事务
+1. `examples/08 mt Perfetto` 指令切片缺失问题已修复。
+2. `examples/11` 编译问题已修复。
+3. `timeline.perfetto.pb` 已移出正式用户产物路径。
+4. `.cache/example-results` 默认结果路径已移除。
+5. `HipInterposerState` 已删除，其职责已并入 `HipRuntime`。
+
+## 正式设计约束摘要
+1. `HipRuntime` 是 AMD HIP runtime 兼容层；`ModelRuntime` 是项目核心 runtime；`ExecEngine` 是 `ModelRuntime` 内部执行主链。
+2. `trace` 只消费和序列化模型事件，不驱动业务逻辑。
+3. `st`、`mt`、`cycle` 的 trace `cycle` 都是模型时间，不是物理真实执行时间戳。
+4. `functional st` 采用确定性的 issue quantum 语义；`functional mt` 保留 runnable wave 竞争；`cycle` 明确区分 `ready`、`selected`、`issue`。
+5. `cycle model` 是唯一的 cycle 模式，不再拆分 cycle `st/mt`。
+6. 历史 plans/specs 只能作为背景材料，当前规范以正式设计文档为准。
 
 ## 备注
-- 当前 cycle 前端阶段性增强已落地但本轮不继续扩张，先回头处理 examples/Perfetto 问题。
+- `docs/other_model_design/` 保持不动，继续作为外部参考。
+- 以后若有新主线任务，先写进本文件，再扩展实现与测试。
