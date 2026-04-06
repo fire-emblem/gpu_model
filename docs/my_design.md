@@ -660,6 +660,14 @@ timeline 至少应能展示：
 - barrier / wait / stall
 - wave 内指令是连续发射还是出现空泡
 
+当前 cycle timeline / Perfetto 的正式消费层约束：
+
+- timeline 只消费执行模型已经产生的事件，不补造业务事件
+- trace/timeline 上的 `cycle` 一律表示 modeled cycle，不是宿主 wall-clock
+- 只有真实的 `InstructionIssue -> Commit` 配对才能生成 instruction slice
+- `Arrive`、`Stall`、`Barrier`、`WaveLaunch/WaveExit`、`IssueSelect`、`WaveGenerate/WaveDispatch/SlotBind` 都只允许作为 marker 或 runtime event 暴露
+- `ready / selected / issue` 必须保持可观察边界，不能在 timeline 中互相冒充
+
 ## 11. 长期目录与模块收口目标
 
 当前项目长期应收敛到以下主模块：
