@@ -2445,9 +2445,7 @@ TEST(TraceTest, NativePerfettoProtoShowsMultiThreadedLogicalUnboundedSlotsOnPeu0
 
   TraceArtifactRecorder trace(out_dir);
   ExecEngine runtime(&trace);
-  runtime.SetFunctionalExecutionConfig(
-      FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MultiThreaded,
-                                .worker_threads = 1});
+  runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::MultiThreaded);
   runtime.SetFixedGlobalMemoryLatency(20);
 
   constexpr uint32_t kBlockDim = 64 * 33;

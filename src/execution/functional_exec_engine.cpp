@@ -646,8 +646,10 @@ class FunctionalExecutionCoreImpl {
     EmitWaveLaunchEvents();
     EmitWaveStatsSnapshot();
     BuildParallelWaveSchedulerState();
-    const uint32_t actual_workers =
+    const uint32_t requested_workers =
         worker_threads == 0 ? DefaultFunctionalParallelWorkerCount() : worker_threads;
+    const uint32_t runnable_worker_cap = std::max<uint32_t>(1u, static_cast<uint32_t>(total_waves_));
+    const uint32_t actual_workers = std::min(requested_workers, runnable_worker_cap);
     auto& pool = GlobalFunctionalWorkerPool::Instance();
     pool.EnsureWorkerCount(actual_workers);
     std::exception_ptr failure;
@@ -1040,10 +1042,19 @@ class FunctionalExecutionCoreImpl {
             ++active_wave_tasks_;
             break;
           }
-          if (AdvanceWaitingWavesLocked()) {
+          if (active_wave_tasks_ == 0 && AdvanceWaitingWavesLocked()) {
             continue;
           }
-          scheduler_cv_.wait_for(lock, std::chrono::milliseconds(1));
+          scheduler_cv_.wait(lock, [&] {
+            {
+              std::lock_guard<std::mutex> failure_lock(failure_mutex);
+              if (failure != nullptr) {
+                return true;
+              }
+            }
+            return AllParallelWavesCompletedLocked() || HasRunnableWaveLocked() ||
+                   active_wave_tasks_ == 0;
+          });
         }
       }
 
