@@ -200,7 +200,15 @@ void ResumeWaveToRunnable(const ExecutableKernel& kernel,
   if (advance_pc) {
     const auto next_pc = kernel.NextPc(wave.pc);
     if (!next_pc.has_value()) {
-      throw std::out_of_range("next instruction pc not found");
+      std::ostringstream oss;
+      oss << "next instruction pc not found"
+          << " block=" << wave.block_id
+          << " wave=" << wave.wave_id
+          << " pc=" << wave.pc;
+      if (kernel.ContainsPc(wave.pc)) {
+        oss << " opcode=" << static_cast<int>(kernel.InstructionAtPc(wave.pc).opcode);
+      }
+      throw std::out_of_range(oss.str());
     }
     wave.pc = *next_pc;
   }
@@ -228,7 +236,11 @@ bool ResumeWaveIfWaitSatisfied(const ExecutableKernel& kernel,
     return false;
   }
   state.waiting_waitcnt_thresholds.reset();
-  ResumeWaveToRunnable(kernel, wave, /*advance_pc=*/true);
+  bool advance_pc = false;
+  if (kernel.ContainsPc(wave.pc)) {
+    advance_pc = kernel.InstructionAtPc(wave.pc).opcode == Opcode::SWaitCnt;
+  }
+  ResumeWaveToRunnable(kernel, wave, advance_pc);
   return true;
 }
 
@@ -476,6 +488,8 @@ struct ExecutableBlock {
   std::vector<std::vector<size_t>> wave_indices_per_peu;
   std::vector<size_t> next_wave_rr_per_peu;
   std::vector<bool> wave_busy;
+  std::vector<bool> wave_enqueued;
+  std::vector<std::unique_ptr<std::mutex>> wave_exec_mutexes;
   std::unique_ptr<std::mutex> control_mutex;
   std::unique_ptr<std::mutex> wave_state_mutex;
   std::unique_ptr<std::mutex> shared_mutex;
@@ -542,6 +556,8 @@ std::vector<ExecutableBlock> MaterializeBlocks(const PlacementMap& placement,
         .wave_indices_per_peu = {},
         .next_wave_rr_per_peu = {},
         .wave_busy = {},
+        .wave_enqueued = {},
+        .wave_exec_mutexes = {},
         .control_mutex = std::make_unique<std::mutex>(),
         .wave_state_mutex = std::make_unique<std::mutex>(),
         .shared_mutex = std::make_unique<std::mutex>(),
@@ -556,6 +572,8 @@ std::vector<ExecutableBlock> MaterializeBlocks(const PlacementMap& placement,
       }
       block.wave_indices_per_peu[peu_id].push_back(wave_index);
       block.wave_busy.push_back(false);
+      block.wave_enqueued.push_back(false);
+      block.wave_exec_mutexes.push_back(std::make_unique<std::mutex>());
     }
     blocks.push_back(std::move(block));
   }
@@ -871,6 +889,7 @@ class FunctionalExecutionCoreImpl {
           ++completed_waves_;
         }
         block.wave_busy[wave_index] = false;
+        block.wave_enqueued[wave_index] = false;
       }
     }
     for (size_t block_index = 0; block_index < blocks_.size(); ++block_index) {
@@ -888,6 +907,7 @@ class FunctionalExecutionCoreImpl {
       if (!ap.resumed.empty()) {
         task = ap.resumed.front();
         ap.resumed.pop_front();
+        blocks_[task.block_index].wave_enqueued[task.wave_index] = false;
         next_ap_rr_ = (ap_index + 1) % ap_schedulers_.size();
         return true;
       }
@@ -896,6 +916,7 @@ class FunctionalExecutionCoreImpl {
       }
       task = ap.runnable.front();
       ap.runnable.pop_front();
+      blocks_[task.block_index].wave_enqueued[task.wave_index] = false;
       next_ap_rr_ = (ap_index + 1) % ap_schedulers_.size();
       return true;
     }
@@ -931,12 +952,16 @@ class FunctionalExecutionCoreImpl {
       if (block.wave_busy[wave_index]) {
         continue;
       }
+      if (block.wave_enqueued[wave_index]) {
+        continue;
+      }
       if (wave.status != WaveStatus::Active ||
           wave.run_state != WaveRunState::Runnable ||
           wave.waiting_at_barrier) {
         continue;
       }
       block.wave_busy[wave_index] = true;
+      block.wave_enqueued[wave_index] = true;
       EnqueueWaveLocked(WaveTaskRef{
           .block_index = block_index,
           .wave_index = wave_index,
@@ -1238,6 +1263,7 @@ class FunctionalExecutionCoreImpl {
           continue;
         }
         block.wave_busy[i] = true;
+        block.wave_enqueued[i] = true;
         const size_t block_index = static_cast<size_t>(&block - blocks_.data());
         EnqueueResumedWaveLocked(WaveTaskRef{
             .block_index = block_index,
@@ -1294,6 +1320,7 @@ class FunctionalExecutionCoreImpl {
   }
 
   void ExecuteWave(ExecutableBlock& block, size_t wave_index, ExecutionStats& stats) {
+    std::lock_guard<std::mutex> exec_lock(*block.wave_exec_mutexes[wave_index]);
     WaveContext& wave = block.waves[wave_index];
     FunctionalWaveState& wave_state = block.wave_states[wave_index];
     if (!context_.kernel.ContainsPc(wave.pc)) {

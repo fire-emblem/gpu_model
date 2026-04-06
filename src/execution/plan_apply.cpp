@@ -51,7 +51,15 @@ void ApplyExecutionPlanControlFlow(const ExecutableKernel& kernel,
   } else if (plan.advance_pc) {
     const auto next_pc = kernel.NextPc(wave.pc);
     if (!next_pc.has_value()) {
-      throw std::out_of_range("next instruction pc not found");
+      std::ostringstream oss;
+      oss << "next instruction pc not found"
+          << " block=" << wave.block_id
+          << " wave=" << wave.wave_id
+          << " pc=" << wave.pc;
+      if (kernel.ContainsPc(wave.pc)) {
+        oss << " opcode=" << static_cast<int>(kernel.InstructionAtPc(wave.pc).opcode);
+      }
+      throw std::out_of_range(oss.str());
     }
     wave.pc = *next_pc;
   }
