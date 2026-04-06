@@ -160,6 +160,74 @@
   - 支持 map/copy/zero-fill 语义
   - 让 runtime memory tests 不依赖 kernel launch
 
+### 3.3 统一设备内存管理
+
+所有内存空间后续应由统一的设备内存管理器管理，而不是各层分散直接持有。
+
+推荐两层结构：
+
+1. `DeviceMemoryManager`
+   - 统一管理：
+     - compatibility virtual address windows
+     - allocation table
+     - 各 memory pool
+     - pointer classify / pointer lookup / address translate
+
+2. `MemoryPool`
+   - 管理具体 pool 的容量、分配、释放、读写、range 检查
+
+推荐 pool 至少包括：
+
+- `GlobalPool`
+- `ManagedPool`
+- `KernargPool`
+- `CodePool`
+- `RawDataPool`
+- 后续扩展：
+  - `ConstantPool`
+  - `SharedPool`
+  - `PrivatePool`
+
+### 3.4 Compatibility 虚拟地址窗口
+
+对 HIP C API / `LD_PRELOAD` 兼容路径，项目应自行规定 compatibility 虚拟地址窗口，而不是依赖宿主 `mmap` 返回的随机高位地址。
+
+建议：
+
+- `GlobalCompatWindow`
+- `ManagedCompatWindow`
+- 后续按需扩展其他 pool
+
+判断规则：
+
+1. 先按虚拟地址区间判断 pool kind
+2. 再查 allocation table 判断该地址是否真是合法分配
+3. 最后映射到 `model_addr`
+
+因此：
+
+- `window classify` 负责“它属于哪个 pool”
+- `allocation lookup` 负责“它是否合法、大小是多少、映射到哪里”
+
+### 3.5 大范围预留 + 按需提交
+
+对 `Global` / `Managed` 兼容路径，推荐使用：
+
+- 先预留大片虚拟地址空间
+- 后续按需提交物理页或映射实际存储
+
+也就是：
+
+- `reserve big virtual range`
+- `commit on demand`
+
+这样可以同时满足：
+
+- fake device pointer 语义稳定
+- compatibility 指针属性可快速判断
+- `malloc/free` 不依赖随机离散 `mmap`
+- 后续 pool 统一管理更容易扩展
+
 推荐第一阶段落地顺序：
 
 1. `Global` pool

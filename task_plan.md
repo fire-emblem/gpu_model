@@ -48,7 +48,7 @@
 
 2. `Memory pool and mmap-backed residency`
    - 目标：建立统一 memory pool 语义，并把关键 pool 的底层存储逐步收口到 `mmap` 主线。
-   - 当前缺口：pool 分类已存在，但 `mmap` backed framework、pool 接口和分阶段落地顺序还未正式写清。
+   - 当前缺口：pool 分类已存在，但 compatibility virtual window、统一设备内存管理器、`reserve large range + commit on demand` 策略和分阶段落地顺序还未正式写清。
 
 3. `ISA validation expansion`
    - 目标：基于 text asm 生成 kernel 程序，对更多 ISA 指令做“不 crash + 结果正确”的自动验证。
@@ -174,6 +174,9 @@ Design and status tracking
 
 - `hipMalloc / hipFree / hipMemcpy* / hipMemset*` 的同步主路径完整化
 - fake device pointer -> model address -> pool storage 的统一映射
+- compatibility virtual address windows
+- 统一设备内存管理器
+- `reserve big virtual range + commit on demand`
 - `mmap` backed `Global` pool 参考实现
 - `Kernarg / Code / RawData / Constant` pool 的统一接口
 - segment-oriented `DeviceLoadPlan`
@@ -220,6 +223,7 @@ Design and status tracking
   - `MemcpyHtoD / DtoH / DtoD`
   - `Memset`
   - pool address mapping
+  - compatibility window range classify
   - `mmap` residency 基本读写
 
 ### 2. ISA asm-kernel tests

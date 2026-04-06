@@ -421,3 +421,39 @@
   - `docs/module-development-status.md`
   - `findings.md`
   - `progress.md`
+
+### 阶段 23：补充统一内存管理设计
+- **状态：** in_progress
+- 执行的操作：
+  - 将 `DeviceMemoryManager + MemoryPool` 两层结构写入正式设计
+  - 将 compatibility virtual address windows 写入 runtime 分层文档
+  - 将 `reserve big range + commit on demand` 策略写入计划和状态文档
+  - 同步更新 `findings.md` 与 `progress.md`
+- 创建/修改的文件：
+  - `task_plan.md`
+  - `docs/runtime-layering.md`
+  - `docs/my_design.md`
+  - `docs/module-development-status.md`
+  - `findings.md`
+  - `progress.md`
+
+### 阶段 24：raw HIP runtime ABI memory 主线第一批落地
+- **状态：** in_progress
+- 执行的操作：
+  - 为 raw HIP runtime ABI host-side `.out` 主线新增 4 条不依赖 kernel launch 的测试：
+    - pure memory apis
+    - managed memory sync
+    - memcpyAsync compatibility
+    - last-error apis
+  - 修正 `HipRuntime::DeviceSynchronize/StreamSynchronize`，使其走 `RuntimeSession` 同步边界
+  - 抽出 `DeviceMemoryManager` 骨架，先承接 compatibility allocation / managed sync 逻辑
+  - 验证上述 4 条 raw HIP runtime ABI 测试全部通过
+- 创建/修改的文件：
+  - `src/gpu_model/runtime/device_memory_manager.h`
+  - `src/runtime/core/device_memory_manager.cpp`
+  - `src/gpu_model/runtime/runtime_session.h`
+  - `src/runtime/core/runtime_session.cpp`
+  - `src/runtime/hip_runtime.cpp`
+  - `tests/runtime/hip_runtime_abi_test.cpp`
+  - `CMakeLists.txt`
+  - `progress.md`

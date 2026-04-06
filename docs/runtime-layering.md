@@ -94,10 +94,26 @@ runtime 侧主线按两层来理解：
   - 统一 runtime 语义与对外 facade
 - `ExecEngine`
   - memory op 分发与 pointer mapping
+- `DeviceMemoryManager`
+  - 统一管理 compatibility 虚拟地址窗口、allocation table 和各 memory pool
 - `MemoryPoolManager`
   - pool 注册、分配、释放、地址解析
 - `MappedStorage`
   - `mmap` backed 底层存储抽象
+
+补充约束：
+
+- compatibility pointer 的属性判断，不应依赖宿主随机虚拟地址高位。
+- 项目应自行规定若干 compatibility virtual address windows。
+- 判断顺序应为：
+  1. 指针是否落在某个已知 window
+  2. 若是，则得到 pool kind
+  3. 再查 allocation table 判断是否合法分配及其边界
+
+- 对 `Global` / `Managed`，推荐先做：
+  - 大片虚拟地址空间预留
+  - 按需物理页提交
+  - 后续 `malloc/free` 只做窗口内虚拟分配与回收
 
 ### 2. kernel launch 主线
 

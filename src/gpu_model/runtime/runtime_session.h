@@ -15,6 +15,7 @@
 #include "gpu_model/program/encoded_program_object.h"
 #include "gpu_model/memory/memory_system.h"
 #include "gpu_model/memory/memory_pool.h"
+#include "gpu_model/runtime/device_memory_manager.h"
 #include "gpu_model/runtime/kernel_arg_pack.h"
 #include "gpu_model/runtime/launch_config.h"
 #include "gpu_model/runtime/model_runtime.h"
@@ -39,14 +40,6 @@ class RuntimeSession {
   struct CompatibilityEvent {
     bool recorded = false;
     std::optional<uintptr_t> stream_id;
-  };
-
-  struct CompatibilityAllocation {
-    uint64_t model_addr = 0;
-    size_t bytes = 0;
-    MemoryPoolKind pool = MemoryPoolKind::Global;
-    std::byte* mapped_addr = nullptr;
-    size_t mapped_bytes = 0;
   };
 
   RuntimeSession();
@@ -78,18 +71,10 @@ class RuntimeSession {
   bool HasEvent(uintptr_t event_id) const;
   bool DestroyEvent(uintptr_t event_id);
   bool RecordEvent(uintptr_t event_id, std::optional<uintptr_t> stream_id);
-  CompatibilityAllocation& PutCompatibilityAllocation(uintptr_t key, CompatibilityAllocation allocation);
   bool HasCompatibilityAllocation(const void* ptr) const;
   bool IsDevicePointer(const void* ptr) const;
-  CompatibilityAllocation* FindCompatibilityAllocation(const void* ptr);
-  const CompatibilityAllocation* FindCompatibilityAllocation(const void* ptr) const;
-  void EraseCompatibilityAllocation(const void* ptr);
-  template <typename Fn>
-  void ForEachCompatibilityAllocation(Fn&& fn) {
-    for (auto& [key, allocation] : compatibility_allocations_) {
-      fn(key, allocation);
-    }
-  }
+  DeviceMemoryManager::CompatibilityAllocation* FindCompatibilityAllocation(const void* ptr);
+  const DeviceMemoryManager::CompatibilityAllocation* FindCompatibilityAllocation(const void* ptr) const;
   void PushLaunchConfig(LaunchConfig config);
   std::optional<LaunchConfig> PopLaunchConfig();
   void* AllocateDevice(size_t bytes);
@@ -126,9 +111,9 @@ class RuntimeSession {
   thread_local static int last_error_;
   thread_local static std::optional<uintptr_t> active_stream_id_;
   ModelRuntime model_runtime_;
+  DeviceMemoryManager device_memory_manager_;
   std::unordered_map<const void*, std::string> kernel_symbols_;
   std::unordered_map<uintptr_t, CompatibilityEvent> compatibility_events_;
-  std::unordered_map<uintptr_t, CompatibilityAllocation> compatibility_allocations_;
   std::unique_ptr<TraceArtifactRecorder> trace_artifact_recorder_;
   std::string trace_artifacts_dir_;
   uintptr_t next_event_id_ = 1;

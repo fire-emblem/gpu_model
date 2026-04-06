@@ -1162,6 +1162,206 @@ int main() {
   std::filesystem::remove_all(temp_dir);
 }
 
+TEST(HipRuntimeAbiTest, RunsHipHostExecutableWithManagedMemorySyncThroughLdPreloadHipRuntimeAbi) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto build_dir = BuildDirPath();
+  const auto abi_library_path = build_dir / "libgpu_model_hip_runtime_abi.so";
+  if (!std::filesystem::exists(abi_library_path)) {
+    GTEST_SKIP() << "missing hip runtime abi library: " << abi_library_path;
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_ld_preload_managed_memory_only");
+  const auto src_path = temp_dir / "hip_ld_preload_managed_memory_only.cpp";
+  const auto exe_path = temp_dir / "hip_ld_preload_managed_memory_only.out";
+  const auto stdout_path = temp_dir / "stdout.txt";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << R"(
+#include <hip/hip_runtime.h>
+#include <cstdio>
+
+int main() {
+  constexpr int count = 8;
+  int* ptr = nullptr;
+  if (hipMallocManaged(&ptr, count * sizeof(int)) != hipSuccess) return 10;
+
+  for (int i = 0; i < count; ++i) {
+    ptr[i] = 10 + i;
+  }
+  if (hipDeviceSynchronize() != hipSuccess) return 11;
+
+  for (int i = 0; i < count; ++i) {
+    if (ptr[i] != 10 + i) return 20;
+  }
+
+  if (hipMemset(ptr, 0, count * sizeof(int)) != hipSuccess) return 21;
+  if (hipDeviceSynchronize() != hipSuccess) return 22;
+  for (int i = 0; i < count; ++i) {
+    if (ptr[i] != 0) return 23;
+  }
+
+  if (hipFree(ptr) != hipSuccess) return 24;
+  std::puts("ld_preload managed memory sync ok");
+  return 0;
+}
+)";
+  }
+
+  const std::string compile_command =
+      "env -u LD_PRELOAD " + test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " +
+      exe_path.string();
+  ASSERT_EQ(std::system(compile_command.c_str()), 0);
+
+  const std::string run_command =
+      "env LD_PRELOAD=" + MakeLdPreloadValue(abi_library_path) +
+      " GPU_MODEL_HIP_RUNTIME_ABI_DEBUG=1 " + exe_path.string() + " > " + stdout_path.string() +
+      " 2>&1";
+  ASSERT_EQ(std::system(run_command.c_str()), 0);
+
+  std::ifstream in(stdout_path);
+  ASSERT_TRUE(static_cast<bool>(in));
+  const std::string output((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+  EXPECT_NE(output.find("ld_preload managed memory sync ok"), std::string::npos);
+
+  std::filesystem::remove_all(temp_dir);
+}
+
+TEST(HipRuntimeAbiTest, RunsHipHostExecutableWithMemcpyAsyncCompatibilityThroughLdPreloadHipRuntimeAbi) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto build_dir = BuildDirPath();
+  const auto abi_library_path = build_dir / "libgpu_model_hip_runtime_abi.so";
+  if (!std::filesystem::exists(abi_library_path)) {
+    GTEST_SKIP() << "missing hip runtime abi library: " << abi_library_path;
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_ld_preload_memcpy_async_only");
+  const auto src_path = temp_dir / "hip_ld_preload_memcpy_async_only.cpp";
+  const auto exe_path = temp_dir / "hip_ld_preload_memcpy_async_only.out";
+  const auto stdout_path = temp_dir / "stdout.txt";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << R"(
+#include <hip/hip_runtime.h>
+#include <cstdio>
+#include <vector>
+
+int main() {
+  constexpr int count = 16;
+  std::vector<int> input(count);
+  std::vector<int> output(count, -1);
+  for (int i = 0; i < count; ++i) {
+    input[i] = 3 * i + 1;
+  }
+
+  hipStream_t stream = nullptr;
+  if (hipStreamCreate(&stream) != hipSuccess) return 10;
+
+  int* ptr = nullptr;
+  if (hipMalloc(reinterpret_cast<void**>(&ptr), count * sizeof(int)) != hipSuccess) return 11;
+  if (hipMemcpyAsync(ptr, input.data(), count * sizeof(int), hipMemcpyHostToDevice, stream) != hipSuccess) return 12;
+  if (hipMemcpyAsync(output.data(), ptr, count * sizeof(int), hipMemcpyDeviceToHost, stream) != hipSuccess) return 13;
+  if (hipStreamSynchronize(stream) != hipSuccess) return 14;
+
+  for (int i = 0; i < count; ++i) {
+    if (output[i] != input[i]) return 20;
+  }
+
+  if (hipFree(ptr) != hipSuccess) return 21;
+  if (hipStreamDestroy(stream) != hipSuccess) return 22;
+  std::puts("ld_preload memcpy async compatibility ok");
+  return 0;
+}
+)";
+  }
+
+  const std::string compile_command =
+      "env -u LD_PRELOAD " + test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " +
+      exe_path.string();
+  ASSERT_EQ(std::system(compile_command.c_str()), 0);
+
+  const std::string run_command =
+      "env LD_PRELOAD=" + MakeLdPreloadValue(abi_library_path) +
+      " GPU_MODEL_HIP_RUNTIME_ABI_DEBUG=1 " + exe_path.string() + " > " + stdout_path.string() +
+      " 2>&1";
+  ASSERT_EQ(std::system(run_command.c_str()), 0);
+
+  std::ifstream in(stdout_path);
+  ASSERT_TRUE(static_cast<bool>(in));
+  const std::string output((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+  EXPECT_NE(output.find("ld_preload memcpy async compatibility ok"), std::string::npos);
+
+  std::filesystem::remove_all(temp_dir);
+}
+
+TEST(HipRuntimeAbiTest, RunsHipHostExecutableCheckingLastErrorApisThroughLdPreloadHipRuntimeAbi) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto build_dir = BuildDirPath();
+  const auto abi_library_path = build_dir / "libgpu_model_hip_runtime_abi.so";
+  if (!std::filesystem::exists(abi_library_path)) {
+    GTEST_SKIP() << "missing hip runtime abi library: " << abi_library_path;
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_ld_preload_last_error_only");
+  const auto src_path = temp_dir / "hip_ld_preload_last_error_only.cpp";
+  const auto exe_path = temp_dir / "hip_ld_preload_last_error_only.out";
+  const auto stdout_path = temp_dir / "stdout.txt";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << R"(
+#include <hip/hip_runtime.h>
+#include <cstdio>
+
+int main() {
+  if (hipGetLastError() != hipSuccess) return 10;
+  if (hipPeekAtLastError() != hipSuccess) return 11;
+
+  int* ptr = nullptr;
+  if (hipMalloc(reinterpret_cast<void**>(&ptr), sizeof(int)) != hipSuccess) return 12;
+  if (hipPeekAtLastError() != hipSuccess) return 13;
+  if (hipGetLastError() != hipSuccess) return 14;
+  if (hipGetLastError() != hipSuccess) return 15;
+  if (hipFree(ptr) != hipSuccess) return 16;
+
+  std::puts("ld_preload last error api ok");
+  return 0;
+}
+)";
+  }
+
+  const std::string compile_command =
+      "env -u LD_PRELOAD " + test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " +
+      exe_path.string();
+  ASSERT_EQ(std::system(compile_command.c_str()), 0);
+
+  const std::string run_command =
+      "env LD_PRELOAD=" + MakeLdPreloadValue(abi_library_path) +
+      " GPU_MODEL_HIP_RUNTIME_ABI_DEBUG=1 " + exe_path.string() + " > " + stdout_path.string() +
+      " 2>&1";
+  ASSERT_EQ(std::system(run_command.c_str()), 0);
+
+  std::ifstream in(stdout_path);
+  ASSERT_TRUE(static_cast<bool>(in));
+  const std::string output((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+  EXPECT_NE(output.find("ld_preload last error api ok"), std::string::npos);
+
+  std::filesystem::remove_all(temp_dir);
+}
+
 TEST(HipRuntimeAbiTest, LaunchesHipSharedReverseExecutableThroughRegisteredHostFunction) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";

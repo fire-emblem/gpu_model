@@ -21,13 +21,13 @@ void HipRuntime::Free(uint64_t addr) {
 }
 
 void HipRuntime::DeviceSynchronize() const {
-  model_runtime_.DeviceSynchronize();
+  GetRuntimeSession().DeviceSynchronize();
 }
 
 void HipRuntime::ContextSynchronize(uint64_t) const {}
 
 void HipRuntime::StreamSynchronize(RuntimeSubmissionContext submission_context) const {
-  model_runtime_.StreamSynchronize(submission_context);
+  GetRuntimeSession().StreamSynchronize(submission_context);
 }
 
 void HipRuntime::MemcpyDeviceToDevice(uint64_t dst_addr, uint64_t src_addr, size_t bytes) {

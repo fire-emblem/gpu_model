@@ -1,13 +1,10 @@
 #include "gpu_model/runtime/runtime_session.h"
 
-#include <algorithm>
 #include <cstring>
 #include <stdexcept>
 #include <array>
 #include <cstdlib>
 #include <limits>
-#include <sys/mman.h>
-#include <unistd.h>
 
 #include "gpu_model/debug/trace/artifact_recorder.h"
 #include "gpu_model/isa/kernel_metadata.h"
@@ -19,33 +16,7 @@ namespace gpu_model {
 thread_local int RuntimeSession::last_error_ = 0;
 thread_local std::optional<uintptr_t> RuntimeSession::active_stream_id_;
 
-RuntimeSession::RuntimeSession() = default;
-
-namespace {
-
-size_t PageAlignedBytes(size_t bytes) {
-  const long page_size = ::sysconf(_SC_PAGESIZE);
-  const size_t alignment = page_size > 0 ? static_cast<size_t>(page_size) : 4096u;
-  return ((bytes + alignment - 1) / alignment) * alignment;
-}
-
-std::byte* MapCompatibilitySpan(size_t bytes, int protection) {
-  const size_t mapped_bytes = PageAlignedBytes(std::max<size_t>(bytes, 1u));
-  void* addr = ::mmap(nullptr, mapped_bytes, protection, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-  if (addr == MAP_FAILED) {
-    throw std::runtime_error("mmap failed for compatibility allocation");
-  }
-  return reinterpret_cast<std::byte*>(addr);
-}
-
-void UnmapCompatibilitySpan(std::byte* addr, size_t mapped_bytes) {
-  if (addr == nullptr || mapped_bytes == 0) {
-    return;
-  }
-  ::munmap(addr, mapped_bytes);
-}
-
-}  // namespace
+RuntimeSession::RuntimeSession() : device_memory_manager_(&model_runtime_.memory()) {}
 
 MemorySystem& RuntimeSession::memory() {
   return model_runtime_.memory();
@@ -66,11 +37,7 @@ const ModelRuntime& RuntimeSession::model_runtime() const {
 void RuntimeSession::ResetCompatibilityState() {
   kernel_symbols_.clear();
   compatibility_events_.clear();
-  for (auto& [key, allocation] : compatibility_allocations_) {
-    (void)key;
-    UnmapCompatibilitySpan(allocation.mapped_addr, allocation.mapped_bytes);
-  }
-  compatibility_allocations_.clear();
+  device_memory_manager_.Reset();
   trace_artifact_recorder_.reset();
   trace_artifacts_dir_.clear();
   next_event_id_ = 1;
@@ -153,11 +120,15 @@ bool RuntimeSession::DestroyStream(uintptr_t stream_id) {
 }
 
 void RuntimeSession::DeviceSynchronize() {
+  SyncManagedHostToDevice();
   model_runtime_.DeviceSynchronize();
+  SyncManagedDeviceToHost();
 }
 
 void RuntimeSession::StreamSynchronize(RuntimeSubmissionContext submission_context) {
+  SyncManagedHostToDevice();
   model_runtime_.StreamSynchronize(submission_context);
+  SyncManagedDeviceToHost();
 }
 
 uintptr_t RuntimeSession::CreateEvent() {
@@ -184,40 +155,22 @@ bool RuntimeSession::RecordEvent(uintptr_t event_id, std::optional<uintptr_t> st
   return true;
 }
 
-RuntimeSession::CompatibilityAllocation& RuntimeSession::PutCompatibilityAllocation(
-    uintptr_t key,
-    CompatibilityAllocation allocation) {
-  compatibility_allocations_[key] = std::move(allocation);
-  return compatibility_allocations_.at(key);
-}
-
 bool RuntimeSession::HasCompatibilityAllocation(const void* ptr) const {
-  return compatibility_allocations_.find(reinterpret_cast<uintptr_t>(ptr)) != compatibility_allocations_.end();
+  return device_memory_manager_.HasAllocation(ptr);
 }
 
 bool RuntimeSession::IsDevicePointer(const void* ptr) const {
   return HasCompatibilityAllocation(ptr);
 }
 
-RuntimeSession::CompatibilityAllocation* RuntimeSession::FindCompatibilityAllocation(const void* ptr) {
-  const auto it = compatibility_allocations_.find(reinterpret_cast<uintptr_t>(ptr));
-  if (it == compatibility_allocations_.end()) {
-    return nullptr;
-  }
-  return &it->second;
+DeviceMemoryManager::CompatibilityAllocation* RuntimeSession::FindCompatibilityAllocation(
+    const void* ptr) {
+  return device_memory_manager_.FindAllocation(ptr);
 }
 
-const RuntimeSession::CompatibilityAllocation* RuntimeSession::FindCompatibilityAllocation(
+const DeviceMemoryManager::CompatibilityAllocation* RuntimeSession::FindCompatibilityAllocation(
     const void* ptr) const {
-  const auto it = compatibility_allocations_.find(reinterpret_cast<uintptr_t>(ptr));
-  if (it == compatibility_allocations_.end()) {
-    return nullptr;
-  }
-  return &it->second;
-}
-
-void RuntimeSession::EraseCompatibilityAllocation(const void* ptr) {
-  compatibility_allocations_.erase(reinterpret_cast<uintptr_t>(ptr));
+  return device_memory_manager_.FindAllocation(ptr);
 }
 
 void RuntimeSession::PushLaunchConfig(LaunchConfig config) {
@@ -232,29 +185,12 @@ std::optional<LaunchConfig> RuntimeSession::PopLaunchConfig() {
 
 void* RuntimeSession::AllocateDevice(size_t bytes) {
   const uint64_t model_addr = model_runtime_.Malloc(bytes);
-  auto* mapped_addr = MapCompatibilitySpan(bytes, PROT_NONE);
-  CompatibilityAllocation allocation;
-  allocation.model_addr = model_addr;
-  allocation.bytes = bytes;
-  allocation.pool = MemoryPoolKind::Global;
-  allocation.mapped_addr = mapped_addr;
-  allocation.mapped_bytes = PageAlignedBytes(std::max<size_t>(bytes, 1u));
-  PutCompatibilityAllocation(reinterpret_cast<uintptr_t>(mapped_addr), std::move(allocation));
-  return reinterpret_cast<void*>(mapped_addr);
+  return device_memory_manager_.AllocateGlobal(bytes, model_addr);
 }
 
 void* RuntimeSession::AllocateManaged(size_t bytes) {
   const uint64_t model_addr = model_runtime_.MallocManaged(bytes);
-  auto* mapped_addr = MapCompatibilitySpan(bytes, PROT_READ | PROT_WRITE);
-  std::memset(mapped_addr, 0, bytes);
-  CompatibilityAllocation allocation{
-      .model_addr = model_addr,
-      .bytes = bytes,
-      .pool = MemoryPoolKind::Managed,
-      .mapped_addr = mapped_addr,
-      .mapped_bytes = PageAlignedBytes(std::max<size_t>(bytes, 1u))};
-  PutCompatibilityAllocation(reinterpret_cast<uintptr_t>(mapped_addr), std::move(allocation));
-  return reinterpret_cast<void*>(mapped_addr);
+  return device_memory_manager_.AllocateManaged(bytes, model_addr);
 }
 
 bool RuntimeSession::FreeDevice(void* device_ptr) {
@@ -263,17 +199,11 @@ bool RuntimeSession::FreeDevice(void* device_ptr) {
     return false;
   }
   model_runtime_.Free(allocation->model_addr);
-  UnmapCompatibilitySpan(allocation->mapped_addr, allocation->mapped_bytes);
-  EraseCompatibilityAllocation(device_ptr);
-  return true;
+  return device_memory_manager_.Free(device_ptr);
 }
 
 uint64_t RuntimeSession::ResolveDeviceAddress(const void* ptr) const {
-  const auto* allocation = FindCompatibilityAllocation(ptr);
-  if (allocation == nullptr) {
-    throw std::invalid_argument("unknown interposed device pointer");
-  }
-  return allocation->model_addr;
+  return device_memory_manager_.ResolveDeviceAddress(ptr);
 }
 
 void RuntimeSession::MemcpyHostToDevice(void* dst_device_ptr,
@@ -344,24 +274,11 @@ void RuntimeSession::MemsetDeviceD32(void* device_ptr, uint32_t value, size_t co
 }
 
 void RuntimeSession::SyncManagedHostToDevice() {
-  ForEachCompatibilityAllocation([&](uintptr_t, CompatibilityAllocation& allocation) {
-    if (allocation.pool != MemoryPoolKind::Managed || allocation.mapped_addr == nullptr) {
-      return;
-    }
-    model_runtime_.memory().WriteGlobal(
-        allocation.model_addr,
-        std::span<const std::byte>(allocation.mapped_addr, allocation.bytes));
-  });
+  device_memory_manager_.SyncManagedHostToDevice();
 }
 
 void RuntimeSession::SyncManagedDeviceToHost() {
-  ForEachCompatibilityAllocation([&](uintptr_t, CompatibilityAllocation& allocation) {
-    if (allocation.pool != MemoryPoolKind::Managed || allocation.mapped_addr == nullptr) {
-      return;
-    }
-    model_runtime_.memory().ReadGlobal(
-        allocation.model_addr, std::span<std::byte>(allocation.mapped_addr, allocation.bytes));
-  });
+  device_memory_manager_.SyncManagedDeviceToHost();
 }
 
 std::vector<HipRuntimeAbiArgDesc> RuntimeSession::ParseCompatibilityArgLayout(

@@ -190,6 +190,11 @@
   - 仍需补齐的测试项
   - Gate A/B/C/D 分阶段门槛
   - T1/T2/T3/T4/T5 五层测试体系
+- 用户进一步确认了 memory 设计方向：
+  - `model_addr` 继续用高位 tag 判断 pool 属性
+  - host compatibility pointer 不依赖宿主随机高位地址，而应基于项目规定的 `mmap` 虚拟地址窗口判断属性
+  - 应优先采用“大范围虚拟地址预留 + 按需物理页提交”的策略
+  - 所有 pool 最终都应由统一的 `DeviceMemoryManager` 管理
 
 ## 技术决策
 | 决策 | 理由 |
