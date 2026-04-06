@@ -145,6 +145,16 @@ std::optional<MemoryPoolKind> DeviceMemoryManager::ClassifyCompatibilityPointer(
   return window->pool;
 }
 
+const DeviceMemoryManager::CompatibilityWindow* DeviceMemoryManager::GetCompatibilityWindow(
+    MemoryPoolKind pool) const {
+  for (const auto& window : windows_) {
+    if (window.pool == pool) {
+      return &window;
+    }
+  }
+  return nullptr;
+}
+
 DeviceMemoryManager::CompatibilityAllocation* DeviceMemoryManager::FindAllocation(const void* ptr) {
   const auto it = allocations_.find(reinterpret_cast<uintptr_t>(ptr));
   if (it == allocations_.end()) {

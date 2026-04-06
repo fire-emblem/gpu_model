@@ -52,6 +52,7 @@ class DeviceMemoryManager {
   bool IsDevicePointer(const void* ptr) const;
   bool IsPointerInCompatibilityWindow(const void* ptr) const;
   std::optional<MemoryPoolKind> ClassifyCompatibilityPointer(const void* ptr) const;
+  const CompatibilityWindow* GetCompatibilityWindow(MemoryPoolKind pool) const;
   CompatibilityAllocation* FindAllocation(const void* ptr);
   const CompatibilityAllocation* FindAllocation(const void* ptr) const;
   uint64_t ResolveDeviceAddress(const void* ptr) const;
