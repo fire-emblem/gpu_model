@@ -449,6 +449,42 @@ TEST(CycleTimelineTest, GoogleTraceDoesNotRenderArriveBarrierOrStallAsInstructio
   EXPECT_NE(trace.find("\"name\":\"barrier_arrive\""), std::string::npos);
 }
 
+TEST(CycleTimelineTest, GoogleTraceRendersWaveFrontEndMarkersWithStableTypedNames) {
+  const TraceWaveView wave = MakeWaveView(/*slot_id=*/2);
+  std::vector<TraceEvent> events{
+      MakeTraceWaveEvent(
+          wave, TraceEventKind::WaveGenerate, /*cycle=*/3, TraceSlotModelKind::ResidentFixed, "generate"),
+      MakeTraceWaveEvent(
+          wave, TraceEventKind::WaveDispatch, /*cycle=*/4, TraceSlotModelKind::ResidentFixed, "dispatch"),
+      MakeTraceWaveEvent(
+          wave, TraceEventKind::SlotBind, /*cycle=*/5, TraceSlotModelKind::ResidentFixed, "bound"),
+  };
+
+  const std::string trace = CycleTimelineRenderer::RenderGoogleTrace(MakeRecorder(events));
+  EXPECT_EQ(CountOccurrences(trace, "\"ph\":\"X\""), 0u);
+  EXPECT_NE(trace.find("\"name\":\"wave_generate\""), std::string::npos);
+  EXPECT_NE(trace.find("\"name\":\"wave_dispatch\""), std::string::npos);
+  EXPECT_NE(trace.find("\"name\":\"slot_bind\""), std::string::npos);
+}
+
+TEST(CycleTimelineTest, GoogleTraceKeepsRuntimeBlockEventsOffSlotTracks) {
+  std::vector<TraceEvent> events{
+      MakeTraceBlockAdmitEvent(/*dpc_id=*/0, /*ap_id=*/0, /*block_id=*/7, /*cycle=*/9, "admit"),
+      MakeTraceBlockEvent(/*dpc_id=*/0,
+                          /*ap_id=*/0,
+                          /*block_id=*/7,
+                          TraceEventKind::BlockLaunch,
+                          /*cycle=*/10,
+                          "launch"),
+  };
+
+  const std::string trace = CycleTimelineRenderer::RenderGoogleTrace(MakeRecorder(events));
+  EXPECT_NE(trace.find("\"pid\":0,\"tid\":0"), std::string::npos);
+  EXPECT_NE(trace.find("\"name\":\"block_admit\""), std::string::npos);
+  EXPECT_NE(trace.find("\"name\":\"block_launch\""), std::string::npos);
+  EXPECT_EQ(trace.find("\"args\":{\"name\":\"WAVE_SLOT_"), std::string::npos);
+}
+
 TEST(CycleTimelineTest, GoogleTracePrefersTypedSchemaFieldsWhenLegacyStringsAreEmpty) {
   const TraceWaveView wave = MakeWaveView(/*slot_id=*/2, /*pc=*/0x80, /*wave_id=*/3);
   std::vector<TraceEvent> events{

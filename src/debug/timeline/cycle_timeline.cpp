@@ -138,7 +138,6 @@ TimelineData BuildTimelineData(const Recorder& recorder) {
   TimelineData data;
 
   for (const auto& program_event : recorder.program_events()) {
-    const TraceEvent& event = program_event.event;
     const TimelineSemanticEvent semantic = MakeTimelineSemanticEvent(program_event);
     const auto& view = semantic.view;
     const auto& fields = semantic.fields;
@@ -150,6 +149,7 @@ TimelineData BuildTimelineData(const Recorder& recorder) {
     if (program_event.kind == RecorderProgramEventKind::Launch ||
         program_event.kind == RecorderProgramEventKind::BlockPlaced ||
         program_event.kind == RecorderProgramEventKind::BlockAdmit ||
+        program_event.kind == RecorderProgramEventKind::BlockLaunch ||
         program_event.kind == RecorderProgramEventKind::BlockActivate ||
         program_event.kind == RecorderProgramEventKind::BlockRetire) {
       data.runtime_events.push_back(TimelineSemanticEvent{
@@ -159,20 +159,7 @@ TimelineData BuildTimelineData(const Recorder& recorder) {
       continue;
     }
 
-    if (program_event.kind != RecorderProgramEventKind::BlockLaunch) {
-      continue;
-    }
-
-    const SlotKey slot_key{
-        .dpc_id = event.dpc_id,
-        .ap_id = event.ap_id,
-        .peu_id = event.peu_id,
-        .slot_id = event.slot_id,
-    };
-    data.markers[slot_key].push_back(Marker{
-        .symbol = '#',
-        .semantic = semantic,
-    });
+    continue;
   }
 
   for (const auto& wave : recorder.waves()) {

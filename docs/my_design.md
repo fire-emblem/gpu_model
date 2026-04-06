@@ -469,6 +469,12 @@ operand 只描述静态信息，不直接持有执行态寄存器值。
 - 每个 wave 需要持有自己的推进状态；全局执行再基于统一模型时间、资源状态和调度器推进。
 - `resume` 的语义不是“事件刚发生”，而是“该 wave 重新满足继续执行条件”；真正执行下一条指令仍受对应模型的调度规则约束。
 - 相邻指令的 issue 间隔、wait/arrive/commit、barrier release、front-end latency 等都属于执行模型事实，再由 trace 消费。
+- `cycle timeline` 必须遵守：
+  - 只有真实 `InstructionIssue -> Commit` 配对的指令才允许生成 instruction slice
+  - `Arrive / Stall / Barrier / WaveLifecycle / IssueSelect / SlotBind / WaveGenerate / WaveDispatch` 都是 marker，不得伪造成 instruction duration slice
+  - `IssueSelect` 只表示 selected，不表示 real issue
+  - `Arrive` 记录异步完成时点，不得偷换成 resume issue 时点
+  - runtime/block 事件只留在 runtime 轨道，不挂到 wave slot 轨道
 - timeline 的最细观察面应优先围绕 slot / lane-of-execution，而不是只围绕 wave 名称。
 - 对 `cycle`，最细轨道需要保留 resident slot 语义；对 `st/mt`，最细轨道允许使用逻辑 lane，但仍需共享统一 hierarchy 和字段命名。
 - bubble 应保持为空白区间，而不是伪造“空指令”填充。
