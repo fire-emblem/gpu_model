@@ -103,7 +103,7 @@ add_executable(gpu_model_tests
   runtime/cycle_timeline_test.cpp
   runtime/parallel_execution_mode_test.cpp
   runtime/executed_flow_program_cycle_stats_test.cpp
-  runtime/hip_interposer_state_test.cpp
+  runtime/hip_runtime_abi_test.cpp
   runtime/hip_cts_test.cpp
   runtime/hip_feature_cts_test.cpp
   runtime/trace_test.cpp
@@ -125,6 +125,7 @@ get_filename_component(GPU_MODEL_TEST_REPO_ROOT_REAL
 
 target_include_directories(gpu_model_tests
   PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src
     ${CMAKE_CURRENT_SOURCE_DIR}/..
 )
 target_compile_definitions(gpu_model_tests

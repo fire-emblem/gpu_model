@@ -117,7 +117,6 @@ add_library(gpu_model STATIC
   src/runtime/core/model_runtime.cpp
   src/runtime/core/runtime_session.cpp
   src/runtime/config/runtime_env_config.cpp
-  src/runtime/interposer/hip_api_interposer.cpp
   src/runtime/logging/runtime_log_service.cpp
   src/debug/trace/instruction_trace.cpp
   src/debug/recorder/recorder.cpp
@@ -141,7 +140,7 @@ set_target_properties(gpu_model PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 target_include_directories(gpu_model
   PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
 target_link_libraries(gpu_model
@@ -156,23 +155,23 @@ add_executable(gpu_model_perfetto_waitcnt_slots_demo
 )
 target_link_libraries(gpu_model_perfetto_waitcnt_slots_demo PRIVATE gpu_model)
 target_include_directories(gpu_model_perfetto_waitcnt_slots_demo PRIVATE
-  ${CMAKE_CURRENT_SOURCE_DIR}/include
+  ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 gpu_model_enable_warnings(gpu_model_perfetto_waitcnt_slots_demo)
 
 add_subdirectory(tests)
 
 if(EXISTS "/opt/rocm/include/hip/hip_runtime_api.h")
-  add_library(gpu_model_hip_interposer SHARED
-    src/runtime/hip_interposer.cpp
+  add_library(gpu_model_hip_runtime_abi SHARED
+    src/runtime/hip_runtime_abi.cpp
   )
-  target_include_directories(gpu_model_hip_interposer PRIVATE /opt/rocm/include)
-  target_link_libraries(gpu_model_hip_interposer PRIVATE gpu_model)
-  target_compile_definitions(gpu_model_hip_interposer PRIVATE _GNU_SOURCE __HIP_PLATFORM_AMD__)
-  target_link_options(gpu_model_hip_interposer PRIVATE
-    "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/cmake/hip_interposer.version")
-  gpu_model_enable_warnings(gpu_model_hip_interposer)
+  target_include_directories(gpu_model_hip_runtime_abi PRIVATE /opt/rocm/include)
+  target_link_libraries(gpu_model_hip_runtime_abi PRIVATE gpu_model)
+  target_compile_definitions(gpu_model_hip_runtime_abi PRIVATE _GNU_SOURCE __HIP_PLATFORM_AMD__)
+  target_link_options(gpu_model_hip_runtime_abi PRIVATE
+    "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/cmake/hip_runtime_abi.version")
+  gpu_model_enable_warnings(gpu_model_hip_runtime_abi)
   if(TARGET gpu_model_tests)
-    add_dependencies(gpu_model_tests gpu_model_hip_interposer)
+    add_dependencies(gpu_model_tests gpu_model_hip_runtime_abi)
   endif()
 endif()

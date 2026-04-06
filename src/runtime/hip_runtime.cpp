@@ -65,7 +65,7 @@ std::optional<int> HipRuntime::GetDeviceAttribute(RuntimeDeviceAttribute attribu
 
 void HipRuntime::ResetCompatibilityState() {
   GetRuntimeSession().model_runtime().Reset();
-  GetRuntimeSession().ResetInterposerState();
+  GetRuntimeSession().ResetCompatibilityState();
 }
 
 void HipRuntime::RegisterFunction(const void* host_function, std::string kernel_name) {
@@ -89,7 +89,7 @@ bool HipRuntime::FreeDevice(void* device_ptr) {
 }
 
 bool HipRuntime::IsDevicePointer(const void* ptr) const {
-  return GetRuntimeSession().HasInterposerAllocation(ptr);
+  return GetRuntimeSession().HasCompatibilityAllocation(ptr);
 }
 
 uint64_t HipRuntime::ResolveDeviceAddress(const void* ptr) const {

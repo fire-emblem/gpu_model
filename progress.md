@@ -375,3 +375,49 @@
   - `docs/my_design.md`
   - `findings.md`
   - `progress.md`
+
+### 阶段 21：先收口 `interposer` 历史语义
+- **状态：** in_progress
+- 执行的操作：
+  - 用户明确要求先移除 `interposer` 作为独立模块的历史含义
+  - 撤回一组走偏的 `HipRuntime` 直调测试增量，避免污染当前测试方向
+  - 在 `task_plan.md`、`docs/runtime-layering.md`、`docs/module-development-status.md` 中补充 `HipRuntime compatibility naming cleanup`
+  - 记录当前 `include -> src` 合并尚未完成，`include/` 目录仍存在
+- 创建/修改的文件：
+  - `tests/runtime/hip_runtime_test.cpp`
+  - `task_plan.md`
+  - `docs/runtime-layering.md`
+  - `docs/module-development-status.md`
+  - `findings.md`
+  - `progress.md`
+
+### 阶段 22：完成 `include -> src` 与 runtime ABI 命名收口
+- **状态：** in_progress
+- 执行的操作：
+  - 完成 `include/gpu_model/* -> src/gpu_model/*` 物理合并
+  - 将 `src/runtime/hip_interposer.cpp` 重命名为 `src/runtime/hip_runtime_abi.cpp`
+  - 删除未使用的 `hip_api_interposer` 空壳文件
+  - 将 CMake target / 共享库名 / 测试文件名 / 测试 suite 名 / 日志模块名收口为 `hip_runtime_abi`
+  - 跑通 `gpu_model_tests` 与 `gpu_model_hip_runtime_abi` 最小编译
+  - 跑通命名与 `LD_PRELOAD` 入口相关 focused tests
+- 创建/修改的文件：
+  - `CMakeLists.txt`
+  - `tests/CMakeLists.txt`
+  - `scripts/run_push_gate_light.sh`
+  - `scripts/run_push_gate.sh`
+  - `scripts/run_abi_regression.sh`
+  - `scripts/run_real_hip_kernel_regression.sh`
+  - `scripts/run_shared_heavy_regression.sh`
+  - `scripts/run_exec_checks.sh`
+  - `src/runtime/hip_runtime_abi.cpp`
+  - `src/runtime/core/runtime_session.cpp`
+  - `src/runtime/hip_runtime.cpp`
+  - `src/runtime/logging/runtime_log_service.cpp`
+  - `tests/runtime/hip_runtime_abi_test.cpp`
+  - `tests/runtime/hip_cts_test.cpp`
+  - `tests/runtime/hip_feature_cts_test.cpp`
+  - `tests/runtime/logging_runtime_test.cpp`
+  - `docs/runtime-layering.md`
+  - `docs/module-development-status.md`
+  - `findings.md`
+  - `progress.md`

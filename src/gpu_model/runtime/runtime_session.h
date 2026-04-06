@@ -24,24 +24,24 @@ namespace gpu_model {
 
 class TraceArtifactRecorder;
 
-enum class HipInterposerArgKind {
+enum class HipRuntimeAbiArgKind {
   GlobalBuffer,
   ByValue,
 };
 
-struct HipInterposerArgDesc {
-  HipInterposerArgKind kind = HipInterposerArgKind::ByValue;
+struct HipRuntimeAbiArgDesc {
+  HipRuntimeAbiArgKind kind = HipRuntimeAbiArgKind::ByValue;
   uint32_t size = 0;
 };
 
 class RuntimeSession {
  public:
-  struct InterposerEvent {
+  struct CompatibilityEvent {
     bool recorded = false;
     std::optional<uintptr_t> stream_id;
   };
 
-  struct InterposerAllocation {
+  struct CompatibilityAllocation {
     uint64_t model_addr = 0;
     size_t bytes = 0;
     MemoryPoolKind pool = MemoryPoolKind::Global;
@@ -57,7 +57,7 @@ class RuntimeSession {
   ModelRuntime& model_runtime();
   const ModelRuntime& model_runtime() const;
 
-  void ResetInterposerState();
+  void ResetCompatibilityState();
   void RegisterKernelSymbol(const void* host_function, std::string kernel_name);
   std::optional<std::string> ResolveKernelSymbol(const void* host_function) const;
   int GetDeviceCount() const;
@@ -78,15 +78,15 @@ class RuntimeSession {
   bool HasEvent(uintptr_t event_id) const;
   bool DestroyEvent(uintptr_t event_id);
   bool RecordEvent(uintptr_t event_id, std::optional<uintptr_t> stream_id);
-  InterposerAllocation& PutInterposerAllocation(uintptr_t key, InterposerAllocation allocation);
-  bool HasInterposerAllocation(const void* ptr) const;
+  CompatibilityAllocation& PutCompatibilityAllocation(uintptr_t key, CompatibilityAllocation allocation);
+  bool HasCompatibilityAllocation(const void* ptr) const;
   bool IsDevicePointer(const void* ptr) const;
-  InterposerAllocation* FindInterposerAllocation(const void* ptr);
-  const InterposerAllocation* FindInterposerAllocation(const void* ptr) const;
-  void EraseInterposerAllocation(const void* ptr);
+  CompatibilityAllocation* FindCompatibilityAllocation(const void* ptr);
+  const CompatibilityAllocation* FindCompatibilityAllocation(const void* ptr) const;
+  void EraseCompatibilityAllocation(const void* ptr);
   template <typename Fn>
-  void ForEachInterposerAllocation(Fn&& fn) {
-    for (auto& [key, allocation] : interposer_allocations_) {
+  void ForEachCompatibilityAllocation(Fn&& fn) {
+    for (auto& [key, allocation] : compatibility_allocations_) {
       fn(key, allocation);
     }
   }
@@ -103,8 +103,8 @@ class RuntimeSession {
   void MemsetDeviceD32(void* device_ptr, uint32_t value, size_t count);
   void SyncManagedHostToDevice();
   void SyncManagedDeviceToHost();
-  std::vector<HipInterposerArgDesc> ParseInterposerArgLayout(const MetadataBlob& metadata) const;
-  KernelArgPack PackInterposerArgs(const MetadataBlob& metadata, void** args) const;
+  std::vector<HipRuntimeAbiArgDesc> ParseCompatibilityArgLayout(const MetadataBlob& metadata) const;
+  KernelArgPack PackCompatibilityArgs(const MetadataBlob& metadata, void** args) const;
   EncodedProgramObject LoadExecutableImage(const std::filesystem::path& executable_path,
                                            const void* host_function) const;
   LaunchResult LaunchExecutableKernel(const std::filesystem::path& executable_path,
@@ -127,8 +127,8 @@ class RuntimeSession {
   thread_local static std::optional<uintptr_t> active_stream_id_;
   ModelRuntime model_runtime_;
   std::unordered_map<const void*, std::string> kernel_symbols_;
-  std::unordered_map<uintptr_t, InterposerEvent> interposer_events_;
-  std::unordered_map<uintptr_t, InterposerAllocation> interposer_allocations_;
+  std::unordered_map<uintptr_t, CompatibilityEvent> compatibility_events_;
+  std::unordered_map<uintptr_t, CompatibilityAllocation> compatibility_allocations_;
   std::unique_ptr<TraceArtifactRecorder> trace_artifact_recorder_;
   std::string trace_artifacts_dir_;
   uintptr_t next_event_id_ = 1;

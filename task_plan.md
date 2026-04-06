@@ -70,6 +70,10 @@
    - 目标：持续把模块交互关系、开发计划、已实现/待补强状态写入正式文档，用文档跟踪模块开发状态。
    - 当前缺口：主文档已收口，但这批新需求尚未完全映射到模块状态和优先级。
 
+8. `HipRuntime compatibility naming cleanup`
+   - 目标：从语义上移除“interposer 是独立模块”的历史遗留，把它严格收口为 `HipRuntime` 的 LD_PRELOAD C ABI 入口载体。
+   - 当前缺口：仍残留在文件名、测试名、CMake target、日志模块名和部分运行时内部命名中。
+
 ## 串行 / 并行划分
 
 ### 必须串行的关键路径
@@ -137,6 +141,9 @@ Design and status tracking
 
 - `Examples verification` 不是最前置
   - examples 是综合验证层，不是底层能力的替代。
+
+- `HipRuntime compatibility naming cleanup` 可并行于主线推进
+  - 但应先做语义和文档收口，再做文件名/target/test 名称清理，避免和正在进行的 `include -> src` 合并冲突。
 
 ## 终极目标达成条件
 

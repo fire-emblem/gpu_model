@@ -511,7 +511,7 @@ std::vector<HipCtsCase> MakeModelRuntimeCases() {
   return test::FullTestMatrixEnabled() ? MakeModelRuntimeCasesFull() : MakeModelRuntimeCasesQuick();
 }
 
-std::vector<HipCtsCase> MakeInterposerCasesFull() {
+std::vector<HipCtsCase> MakeHipRuntimeAbiCasesFull() {
   std::vector<HipCtsCase> cases;
   uint32_t id = 0;
   const auto add = [&](HipCtsCase c) {
@@ -642,22 +642,22 @@ std::vector<HipCtsCase> MakeInterposerCasesFull() {
   return cases;
 }
 
-std::vector<HipCtsCase> MakeInterposerCasesQuick() {
-  return test::SelectIndexedCases(MakeInterposerCasesFull(), {0, 3, 6, 9, 11, 12, 16, 18, 20, 22, 25});
+std::vector<HipCtsCase> MakeHipRuntimeAbiCasesQuick() {
+  return test::SelectIndexedCases(MakeHipRuntimeAbiCasesFull(), {0, 3, 6, 9, 11, 12, 16, 18, 20, 22, 25});
 }
 
-std::vector<HipCtsCase> MakeInterposerCases() {
+std::vector<HipCtsCase> MakeHipRuntimeAbiCases() {
   if (test::Phase1CompatibilityAliasGateEnabled()) {
     return {};
   }
-  return test::FullTestMatrixEnabled() ? MakeInterposerCasesFull() : MakeInterposerCasesQuick();
+  return test::FullTestMatrixEnabled() ? MakeHipRuntimeAbiCasesFull() : MakeHipRuntimeAbiCasesQuick();
 }
 
 class HipCtsModelRuntimeTest : public ::testing::TestWithParam<HipCtsCase> {};
-class HipCtsInterposerStateTest : public ::testing::TestWithParam<HipCtsCase> {};
+class HipCtsRuntimeAbiTest : public ::testing::TestWithParam<HipCtsCase> {};
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(HipCtsModelRuntimeTest);
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(HipCtsInterposerStateTest);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(HipCtsRuntimeAbiTest);
 
 std::string CaseName(const ::testing::TestParamInfo<HipCtsCase>& info) { return info.param.name; }
 
@@ -939,10 +939,10 @@ TEST_P(HipCtsModelRuntimeTest, ExecutesHipOutAndValidatesResults) {
 }
 
 TEST(ModelRuntimeCtsTest, FullCaseCountMatchesExpectation) {
-  EXPECT_EQ(MakeModelRuntimeCasesFull().size() + MakeInterposerCasesFull().size(), 121u);
+  EXPECT_EQ(MakeModelRuntimeCasesFull().size() + MakeHipRuntimeAbiCasesFull().size(), 121u);
 }
 
-TEST_P(HipCtsInterposerStateTest, ExecutesHipOutThroughRegisteredHostFunctionAndValidatesResults) {
+TEST_P(HipCtsRuntimeAbiTest, ExecutesHipOutThroughRegisteredHostFunctionAndValidatesResults) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
@@ -1196,11 +1196,11 @@ TEST_P(HipCtsInterposerStateTest, ExecutesHipOutThroughRegisteredHostFunctionAnd
 
 INSTANTIATE_TEST_SUITE_P(ModelRuntimeCTS, HipCtsModelRuntimeTest,
                          ::testing::ValuesIn(MakeModelRuntimeCases()), CaseName);
-INSTANTIATE_TEST_SUITE_P(InterposerCTS, HipCtsInterposerStateTest,
-                         ::testing::ValuesIn(MakeInterposerCases()), CaseName);
+INSTANTIATE_TEST_SUITE_P(HipRuntimeAbiCTS, HipCtsRuntimeAbiTest,
+                         ::testing::ValuesIn(MakeHipRuntimeAbiCases()), CaseName);
 
 TEST(ModelRuntimeCtsTest, CtsCaseCountMatchesExpectation) {
-  EXPECT_EQ(MakeModelRuntimeCasesFull().size() + MakeInterposerCasesFull().size(), 121u);
+  EXPECT_EQ(MakeModelRuntimeCasesFull().size() + MakeHipRuntimeAbiCasesFull().size(), 121u);
 }
 
 }  // namespace

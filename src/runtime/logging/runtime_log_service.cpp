@@ -136,10 +136,10 @@ void LoadModulesFromEnv() {
     start = comma + 1;
   }
 
-  if (std::getenv("GPU_MODEL_HIP_INTERPOSER_DEBUG") != nullptr) {
-    if (std::find(enabled_modules.begin(), enabled_modules.end(), "hip_interposer") ==
+  if (std::getenv("GPU_MODEL_HIP_RUNTIME_ABI_DEBUG") != nullptr) {
+    if (std::find(enabled_modules.begin(), enabled_modules.end(), "hip_runtime_abi") ==
         enabled_modules.end()) {
-      enabled_modules.push_back("hip_interposer");
+      enabled_modules.push_back("hip_runtime_abi");
     }
   }
 }

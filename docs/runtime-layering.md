@@ -15,7 +15,7 @@ runtime 侧主线按两层来理解：
 
 当前包括：
 
-- `src/runtime/hip_interposer.cpp`
+- `src/runtime/hip_runtime_abi.cpp`
 - `src/runtime/hip_runtime.cpp`
 
 职责：
@@ -30,8 +30,8 @@ runtime 侧主线按两层来理解：
 
 - 这层不应该拥有独立的 kernel 执行逻辑
 - 这层不应该重复实现 program load / launch / memory 语义
-- `src/runtime/hip_interposer.cpp` 只是 `HipRuntime` 的 C ABI 入口实现载体
-- 当前仓库中文件名仍保留历史 `hip_interposer.cpp`，但它不代表一个独立模块名
+- `src/runtime/hip_runtime_abi.cpp` 只是 `HipRuntime` 的 C ABI / LD_PRELOAD 入口实现载体
+- `gpu_model_hip_runtime_abi` target / `libgpu_model_hip_runtime_abi.so` 是兼容入口动态库，不代表独立模块层
 
 ## Layer 2: ModelRuntime
 
@@ -39,8 +39,8 @@ runtime 侧主线按两层来理解：
 
 当前包括：
 
-- `include/gpu_model/runtime/model_runtime.h`
-- `include/gpu_model/runtime/module_load.h`
+- `src/gpu_model/runtime/model_runtime.h`
+- `src/gpu_model/runtime/module_load.h`
 - `src/runtime/exec_engine.cpp`
 - `src/runtime/core/*`
 
@@ -174,3 +174,19 @@ runtime 侧主线按两层来理解：
    - `ExecEngine`
    - loader / program / execution / memory / trace
 4. `ExecEngine` 是 `ModelRuntime` 内部执行主链，不是与 `HipRuntime` / `ModelRuntime` 并列的第三层对外 runtime。
+
+## 当前仍残留的历史命名
+
+当前已完成的语义清理：
+
+- `src/runtime/hip_runtime_abi.cpp` 取代了历史 `hip_interposer.cpp` 主入口文件名
+- `gpu_model_hip_runtime_abi` / `libgpu_model_hip_runtime_abi.so` 取代了历史 target / 库名
+- `tests/runtime/hip_runtime_abi_test.cpp` 取代了历史 `hip_interposer_state_test.cpp`
+- `RuntimeSession` 内部的 `interposer_*` 分配/事件/参数布局命名已改为 compatibility / runtime-abi 语义
+- `src/gpu_model/*` 已取代历史 `include/gpu_model/*` 头文件根
+
+后续清理顺序：
+
+1. 先收口语义和文档
+2. 再清理测试名、日志名、target 名
+3. 最后再看是否需要物理文件名重命名

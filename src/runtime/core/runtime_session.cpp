@@ -29,16 +29,16 @@ size_t PageAlignedBytes(size_t bytes) {
   return ((bytes + alignment - 1) / alignment) * alignment;
 }
 
-std::byte* MapInterposerSpan(size_t bytes, int protection) {
+std::byte* MapCompatibilitySpan(size_t bytes, int protection) {
   const size_t mapped_bytes = PageAlignedBytes(std::max<size_t>(bytes, 1u));
   void* addr = ::mmap(nullptr, mapped_bytes, protection, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
   if (addr == MAP_FAILED) {
-    throw std::runtime_error("mmap failed for interposer allocation");
+    throw std::runtime_error("mmap failed for compatibility allocation");
   }
   return reinterpret_cast<std::byte*>(addr);
 }
 
-void UnmapInterposerSpan(std::byte* addr, size_t mapped_bytes) {
+void UnmapCompatibilitySpan(std::byte* addr, size_t mapped_bytes) {
   if (addr == nullptr || mapped_bytes == 0) {
     return;
   }
@@ -63,14 +63,14 @@ const ModelRuntime& RuntimeSession::model_runtime() const {
   return model_runtime_;
 }
 
-void RuntimeSession::ResetInterposerState() {
+void RuntimeSession::ResetCompatibilityState() {
   kernel_symbols_.clear();
-  interposer_events_.clear();
-  for (auto& [key, allocation] : interposer_allocations_) {
+  compatibility_events_.clear();
+  for (auto& [key, allocation] : compatibility_allocations_) {
     (void)key;
-    UnmapInterposerSpan(allocation.mapped_addr, allocation.mapped_bytes);
+    UnmapCompatibilitySpan(allocation.mapped_addr, allocation.mapped_bytes);
   }
-  interposer_allocations_.clear();
+  compatibility_allocations_.clear();
   trace_artifact_recorder_.reset();
   trace_artifacts_dir_.clear();
   next_event_id_ = 1;
@@ -162,21 +162,21 @@ void RuntimeSession::StreamSynchronize(RuntimeSubmissionContext submission_conte
 
 uintptr_t RuntimeSession::CreateEvent() {
   const uintptr_t event_id = next_event_id_++;
-  interposer_events_.emplace(event_id, InterposerEvent{});
+  compatibility_events_.emplace(event_id, CompatibilityEvent{});
   return event_id;
 }
 
 bool RuntimeSession::HasEvent(uintptr_t event_id) const {
-  return interposer_events_.find(event_id) != interposer_events_.end();
+  return compatibility_events_.find(event_id) != compatibility_events_.end();
 }
 
 bool RuntimeSession::DestroyEvent(uintptr_t event_id) {
-  return interposer_events_.erase(event_id) != 0;
+  return compatibility_events_.erase(event_id) != 0;
 }
 
 bool RuntimeSession::RecordEvent(uintptr_t event_id, std::optional<uintptr_t> stream_id) {
-  const auto it = interposer_events_.find(event_id);
-  if (it == interposer_events_.end()) {
+  const auto it = compatibility_events_.find(event_id);
+  if (it == compatibility_events_.end()) {
     return false;
   }
   it->second.recorded = true;
@@ -184,40 +184,40 @@ bool RuntimeSession::RecordEvent(uintptr_t event_id, std::optional<uintptr_t> st
   return true;
 }
 
-RuntimeSession::InterposerAllocation& RuntimeSession::PutInterposerAllocation(
+RuntimeSession::CompatibilityAllocation& RuntimeSession::PutCompatibilityAllocation(
     uintptr_t key,
-    InterposerAllocation allocation) {
-  interposer_allocations_[key] = std::move(allocation);
-  return interposer_allocations_.at(key);
+    CompatibilityAllocation allocation) {
+  compatibility_allocations_[key] = std::move(allocation);
+  return compatibility_allocations_.at(key);
 }
 
-bool RuntimeSession::HasInterposerAllocation(const void* ptr) const {
-  return interposer_allocations_.find(reinterpret_cast<uintptr_t>(ptr)) != interposer_allocations_.end();
+bool RuntimeSession::HasCompatibilityAllocation(const void* ptr) const {
+  return compatibility_allocations_.find(reinterpret_cast<uintptr_t>(ptr)) != compatibility_allocations_.end();
 }
 
 bool RuntimeSession::IsDevicePointer(const void* ptr) const {
-  return HasInterposerAllocation(ptr);
+  return HasCompatibilityAllocation(ptr);
 }
 
-RuntimeSession::InterposerAllocation* RuntimeSession::FindInterposerAllocation(const void* ptr) {
-  const auto it = interposer_allocations_.find(reinterpret_cast<uintptr_t>(ptr));
-  if (it == interposer_allocations_.end()) {
+RuntimeSession::CompatibilityAllocation* RuntimeSession::FindCompatibilityAllocation(const void* ptr) {
+  const auto it = compatibility_allocations_.find(reinterpret_cast<uintptr_t>(ptr));
+  if (it == compatibility_allocations_.end()) {
     return nullptr;
   }
   return &it->second;
 }
 
-const RuntimeSession::InterposerAllocation* RuntimeSession::FindInterposerAllocation(
+const RuntimeSession::CompatibilityAllocation* RuntimeSession::FindCompatibilityAllocation(
     const void* ptr) const {
-  const auto it = interposer_allocations_.find(reinterpret_cast<uintptr_t>(ptr));
-  if (it == interposer_allocations_.end()) {
+  const auto it = compatibility_allocations_.find(reinterpret_cast<uintptr_t>(ptr));
+  if (it == compatibility_allocations_.end()) {
     return nullptr;
   }
   return &it->second;
 }
 
-void RuntimeSession::EraseInterposerAllocation(const void* ptr) {
-  interposer_allocations_.erase(reinterpret_cast<uintptr_t>(ptr));
+void RuntimeSession::EraseCompatibilityAllocation(const void* ptr) {
+  compatibility_allocations_.erase(reinterpret_cast<uintptr_t>(ptr));
 }
 
 void RuntimeSession::PushLaunchConfig(LaunchConfig config) {
@@ -232,44 +232,44 @@ std::optional<LaunchConfig> RuntimeSession::PopLaunchConfig() {
 
 void* RuntimeSession::AllocateDevice(size_t bytes) {
   const uint64_t model_addr = model_runtime_.Malloc(bytes);
-  auto* mapped_addr = MapInterposerSpan(bytes, PROT_NONE);
-  InterposerAllocation allocation;
+  auto* mapped_addr = MapCompatibilitySpan(bytes, PROT_NONE);
+  CompatibilityAllocation allocation;
   allocation.model_addr = model_addr;
   allocation.bytes = bytes;
   allocation.pool = MemoryPoolKind::Global;
   allocation.mapped_addr = mapped_addr;
   allocation.mapped_bytes = PageAlignedBytes(std::max<size_t>(bytes, 1u));
-  PutInterposerAllocation(reinterpret_cast<uintptr_t>(mapped_addr), std::move(allocation));
+  PutCompatibilityAllocation(reinterpret_cast<uintptr_t>(mapped_addr), std::move(allocation));
   return reinterpret_cast<void*>(mapped_addr);
 }
 
 void* RuntimeSession::AllocateManaged(size_t bytes) {
   const uint64_t model_addr = model_runtime_.MallocManaged(bytes);
-  auto* mapped_addr = MapInterposerSpan(bytes, PROT_READ | PROT_WRITE);
+  auto* mapped_addr = MapCompatibilitySpan(bytes, PROT_READ | PROT_WRITE);
   std::memset(mapped_addr, 0, bytes);
-  InterposerAllocation allocation{
+  CompatibilityAllocation allocation{
       .model_addr = model_addr,
       .bytes = bytes,
       .pool = MemoryPoolKind::Managed,
       .mapped_addr = mapped_addr,
       .mapped_bytes = PageAlignedBytes(std::max<size_t>(bytes, 1u))};
-  PutInterposerAllocation(reinterpret_cast<uintptr_t>(mapped_addr), std::move(allocation));
+  PutCompatibilityAllocation(reinterpret_cast<uintptr_t>(mapped_addr), std::move(allocation));
   return reinterpret_cast<void*>(mapped_addr);
 }
 
 bool RuntimeSession::FreeDevice(void* device_ptr) {
-  const auto* allocation = FindInterposerAllocation(device_ptr);
+  const auto* allocation = FindCompatibilityAllocation(device_ptr);
   if (allocation == nullptr) {
     return false;
   }
   model_runtime_.Free(allocation->model_addr);
-  UnmapInterposerSpan(allocation->mapped_addr, allocation->mapped_bytes);
-  EraseInterposerAllocation(device_ptr);
+  UnmapCompatibilitySpan(allocation->mapped_addr, allocation->mapped_bytes);
+  EraseCompatibilityAllocation(device_ptr);
   return true;
 }
 
 uint64_t RuntimeSession::ResolveDeviceAddress(const void* ptr) const {
-  const auto* allocation = FindInterposerAllocation(ptr);
+  const auto* allocation = FindCompatibilityAllocation(ptr);
   if (allocation == nullptr) {
     throw std::invalid_argument("unknown interposed device pointer");
   }
@@ -279,7 +279,7 @@ uint64_t RuntimeSession::ResolveDeviceAddress(const void* ptr) const {
 void RuntimeSession::MemcpyHostToDevice(void* dst_device_ptr,
                                         const void* src_host_ptr,
                                         size_t bytes) {
-  auto* allocation = FindInterposerAllocation(dst_device_ptr);
+  auto* allocation = FindCompatibilityAllocation(dst_device_ptr);
   if (allocation == nullptr) {
     throw std::invalid_argument("unknown interposed device pointer");
   }
@@ -302,7 +302,7 @@ void RuntimeSession::MemcpyDeviceToHost(void* dst_host_ptr,
 void RuntimeSession::MemcpyDeviceToDevice(void* dst_device_ptr,
                                           const void* src_device_ptr,
                                           size_t bytes) {
-  if (const auto* src_allocation = FindInterposerAllocation(src_device_ptr);
+  if (const auto* src_allocation = FindCompatibilityAllocation(src_device_ptr);
       src_allocation != nullptr && src_allocation->pool == MemoryPoolKind::Managed &&
       src_allocation->mapped_addr != nullptr) {
     model_runtime_.memory().WriteGlobal(
@@ -311,7 +311,7 @@ void RuntimeSession::MemcpyDeviceToDevice(void* dst_device_ptr,
   }
   model_runtime_.MemcpyDeviceToDevice(ResolveDeviceAddress(dst_device_ptr),
                                       ResolveDeviceAddress(src_device_ptr), bytes);
-  if (auto* dst_allocation = FindInterposerAllocation(dst_device_ptr);
+  if (auto* dst_allocation = FindCompatibilityAllocation(dst_device_ptr);
       dst_allocation != nullptr && dst_allocation->pool == MemoryPoolKind::Managed &&
       dst_allocation->mapped_addr != nullptr) {
     model_runtime_.memory().ReadGlobal(
@@ -320,7 +320,7 @@ void RuntimeSession::MemcpyDeviceToDevice(void* dst_device_ptr,
 }
 
 void RuntimeSession::MemsetDevice(void* device_ptr, uint8_t value, size_t bytes) {
-  auto* allocation = FindInterposerAllocation(device_ptr);
+  auto* allocation = FindCompatibilityAllocation(device_ptr);
   if (allocation == nullptr) {
     throw std::invalid_argument("unknown interposed device pointer");
   }
@@ -331,7 +331,7 @@ void RuntimeSession::MemsetDevice(void* device_ptr, uint8_t value, size_t bytes)
 }
 
 void RuntimeSession::MemsetDeviceD32(void* device_ptr, uint32_t value, size_t count) {
-  auto* allocation = FindInterposerAllocation(device_ptr);
+  auto* allocation = FindCompatibilityAllocation(device_ptr);
   if (allocation == nullptr) {
     throw std::invalid_argument("unknown interposed device pointer");
   }
@@ -344,7 +344,7 @@ void RuntimeSession::MemsetDeviceD32(void* device_ptr, uint32_t value, size_t co
 }
 
 void RuntimeSession::SyncManagedHostToDevice() {
-  ForEachInterposerAllocation([&](uintptr_t, InterposerAllocation& allocation) {
+  ForEachCompatibilityAllocation([&](uintptr_t, CompatibilityAllocation& allocation) {
     if (allocation.pool != MemoryPoolKind::Managed || allocation.mapped_addr == nullptr) {
       return;
     }
@@ -355,7 +355,7 @@ void RuntimeSession::SyncManagedHostToDevice() {
 }
 
 void RuntimeSession::SyncManagedDeviceToHost() {
-  ForEachInterposerAllocation([&](uintptr_t, InterposerAllocation& allocation) {
+  ForEachCompatibilityAllocation([&](uintptr_t, CompatibilityAllocation& allocation) {
     if (allocation.pool != MemoryPoolKind::Managed || allocation.mapped_addr == nullptr) {
       return;
     }
@@ -364,23 +364,23 @@ void RuntimeSession::SyncManagedDeviceToHost() {
   });
 }
 
-std::vector<HipInterposerArgDesc> RuntimeSession::ParseInterposerArgLayout(
+std::vector<HipRuntimeAbiArgDesc> RuntimeSession::ParseCompatibilityArgLayout(
     const MetadataBlob& metadata) const {
-  std::vector<HipInterposerArgDesc> args;
+  std::vector<HipRuntimeAbiArgDesc> args;
   const auto parsed = ParseKernelLaunchMetadata(metadata);
   for (const auto& item : parsed.arg_layout) {
-    args.push_back(HipInterposerArgDesc{
-        .kind = item.kind == KernelArgValueKind::GlobalBuffer ? HipInterposerArgKind::GlobalBuffer
-                                                              : HipInterposerArgKind::ByValue,
+    args.push_back(HipRuntimeAbiArgDesc{
+        .kind = item.kind == KernelArgValueKind::GlobalBuffer ? HipRuntimeAbiArgKind::GlobalBuffer
+                                                              : HipRuntimeAbiArgKind::ByValue,
         .size = item.size,
     });
   }
   return args;
 }
 
-KernelArgPack RuntimeSession::PackInterposerArgs(const MetadataBlob& metadata, void** args) const {
+KernelArgPack RuntimeSession::PackCompatibilityArgs(const MetadataBlob& metadata, void** args) const {
   KernelArgPack packed;
-  auto layout = ParseInterposerArgLayout(metadata);
+  auto layout = ParseCompatibilityArgLayout(metadata);
   if (layout.empty()) {
     throw std::invalid_argument("missing kernel argument layout metadata");
   }
@@ -389,7 +389,7 @@ KernelArgPack RuntimeSession::PackInterposerArgs(const MetadataBlob& metadata, v
       throw std::invalid_argument("missing kernel argument pointer");
     }
     const auto& desc = layout[i];
-    if (desc.kind == HipInterposerArgKind::GlobalBuffer) {
+    if (desc.kind == HipRuntimeAbiArgKind::GlobalBuffer) {
       void* device_ptr = *reinterpret_cast<void**>(args[i]);
       packed.PushU64(ResolveDeviceAddress(device_ptr));
       continue;
@@ -443,7 +443,7 @@ LaunchResult RuntimeSession::LaunchExecutableKernel(const std::filesystem::path&
   request.device_load = &device_load;
   request.submission_context = submission_context;
   request.config = std::move(config);
-  request.args = PackInterposerArgs(image.metadata, args);
+  request.args = PackCompatibilityArgs(image.metadata, args);
   request.mode = mode;
   request.trace = trace;
   auto result = model_runtime_.Launch(request);

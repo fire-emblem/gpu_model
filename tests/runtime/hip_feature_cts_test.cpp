@@ -365,7 +365,7 @@ std::vector<HipFeatureCase> MakeModelRuntimeFeatureCases() {
                                        : MakeModelRuntimeFeatureCasesQuick();
 }
 
-std::vector<HipFeatureCase> MakeInterposerFeatureCasesFull() {
+std::vector<HipFeatureCase> MakeHipRuntimeAbiFeatureCasesFull() {
   std::vector<HipFeatureCase> cases;
   uint32_t id = 0;
   const auto add = [&](HipFeatureCase c) {
@@ -533,17 +533,17 @@ std::vector<HipFeatureCase> MakeInterposerFeatureCasesFull() {
   return cases;
 }
 
-std::vector<HipFeatureCase> MakeInterposerFeatureCasesQuick() {
-  return test::SelectIndexedCases(MakeInterposerFeatureCasesFull(),
+std::vector<HipFeatureCase> MakeHipRuntimeAbiFeatureCasesQuick() {
+  return test::SelectIndexedCases(MakeHipRuntimeAbiFeatureCasesFull(),
                                   {0, 1, 4, 7, 8, 11, 12, 15, 16, 19, 21});
 }
 
-std::vector<HipFeatureCase> MakeInterposerFeatureCases() {
+std::vector<HipFeatureCase> MakeHipRuntimeAbiFeatureCases() {
   if (test::Phase1CompatibilityAliasGateEnabled()) {
     return {};
   }
-  return test::FullTestMatrixEnabled() ? MakeInterposerFeatureCasesFull()
-                                       : MakeInterposerFeatureCasesQuick();
+  return test::FullTestMatrixEnabled() ? MakeHipRuntimeAbiFeatureCasesFull()
+                                       : MakeHipRuntimeAbiFeatureCasesQuick();
 }
 
 void ExpectNearVector(const std::vector<float>& actual,
@@ -563,17 +563,17 @@ void ExpectNearVector(const std::vector<float>& actual,
 }
 
 class HipFeatureModelRuntimeTest : public ::testing::TestWithParam<HipFeatureCase> {};
-class HipFeatureInterposerStateTest : public ::testing::TestWithParam<HipFeatureCase> {};
+class HipFeatureRuntimeAbiTest : public ::testing::TestWithParam<HipFeatureCase> {};
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(HipFeatureModelRuntimeTest);
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(HipFeatureInterposerStateTest);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(HipFeatureRuntimeAbiTest);
 
 std::string FeatureCaseName(const ::testing::TestParamInfo<HipFeatureCase>& info) {
   return info.param.name;
 }
 
 TEST(ModelRuntimeFeatureCtsTest, FeatureCaseCountMatchesExpectation) {
-  EXPECT_EQ(MakeModelRuntimeFeatureCasesFull().size() + MakeInterposerFeatureCasesFull().size(),
+  EXPECT_EQ(MakeModelRuntimeFeatureCasesFull().size() + MakeHipRuntimeAbiFeatureCasesFull().size(),
             106u);
 }
 
@@ -686,7 +686,7 @@ TEST_P(HipFeatureModelRuntimeTest, ExecutesFeatureKernelAndValidatesResults) {
   }
 }
 
-TEST_P(HipFeatureInterposerStateTest, ExecutesFeatureKernelThroughRegisteredHostFunction) {
+TEST_P(HipFeatureRuntimeAbiTest, ExecutesFeatureKernelThroughRegisteredHostFunction) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
@@ -825,9 +825,9 @@ INSTANTIATE_TEST_SUITE_P(ModelRuntimeFeatureCTS,
                          ::testing::ValuesIn(MakeModelRuntimeFeatureCases()),
                          FeatureCaseName);
 
-INSTANTIATE_TEST_SUITE_P(InterposerFeatureCTS,
-                         HipFeatureInterposerStateTest,
-                         ::testing::ValuesIn(MakeInterposerFeatureCases()),
+INSTANTIATE_TEST_SUITE_P(HipRuntimeAbiFeatureCTS,
+                         HipFeatureRuntimeAbiTest,
+                         ::testing::ValuesIn(MakeHipRuntimeAbiFeatureCases()),
                          FeatureCaseName);
 
 }  // namespace

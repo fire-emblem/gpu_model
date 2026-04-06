@@ -9,12 +9,12 @@ OUT_DIR="$BUILD_DIR/real-hip-kernel-regression"
 mkdir -p "$OUT_DIR"
 
 gpu_model_require_cmd hipcc
-gpu_model_ensure_targets "$BUILD_DIR" gpu_model_tests gpu_model_hip_interposer
+gpu_model_ensure_targets "$BUILD_DIR" gpu_model_tests gpu_model_hip_runtime_abi
 
 TEST_BIN="$BUILD_DIR/tests/gpu_model_tests"
 
 ATOMIC_FILTER='AmdgpuCodeObjectDecoderTest.DecodesRawInstructionsFromHipAtomicCountExecutable:'
-ATOMIC_FILTER+='HipInterposerStateTest.LaunchesHipAtomicCountExecutableThroughRegisteredHostFunction:'
+ATOMIC_FILTER+='HipRuntimeAbiTest.LaunchesHipAtomicCountExecutableThroughRegisteredHostFunction:'
 ATOMIC_FILTER+='HipRuntimeTest.LaunchesHipAtomicCountExecutableInRawGcnPath:'
 ATOMIC_FILTER+='HipccParallelExecutionTest.EncodedAtomicReductionMatchesBetweenStMtAndCycleAndReportsClosedStats'
 

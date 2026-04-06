@@ -175,6 +175,15 @@
   - 哪些任务可以并行 branch 推进
   - runtime -> memory -> ISA -> semantic calibration 的关键依赖链
   - trace/log 和 test-matrix 作为并行分支，不反向阻塞 correctness 主线
+- 用户进一步明确：
+  - 需要先从语义上移除 `interposer` 的独立模块含义和历史遗留
+  - 这一步应先于继续扩 raw HIP runtime C API 测试
+  - `include -> src` 合并目前并未完成，仓库里 `include/` 目录仍然存在
+- 当前代码基线更新后：
+  - `include/gpu_model/* -> src/gpu_model/*` 物理合并已完成
+  - `gpu_model_hip_runtime_abi` / `libgpu_model_hip_runtime_abi.so` 已取代历史 `gpu_model_hip_interposer`
+  - `HipRuntimeAbiTest.*` 已取代历史 `HipInterposerStateTest.*`
+  - 相关目标最小编译已通过，且命名相关 focused tests 已通过
 - 当前又进一步补充了：
   - 面向终极目标的四层达成条件
   - 仍需补齐的开发项

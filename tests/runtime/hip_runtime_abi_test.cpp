@@ -66,9 +66,9 @@ std::string ShellQuote(const std::string& text) {
 }
 
 std::filesystem::path ResolveAsanRuntimePath(
-    const std::filesystem::path& interposer_path) {
+    const std::filesystem::path& abi_library_path) {
   const std::string command =
-      "ldd " + ShellQuote(interposer_path.string()) + " 2>/dev/null";
+      "ldd " + ShellQuote(abi_library_path.string()) + " 2>/dev/null";
   std::array<char, 4096> buffer{};
   std::string output;
   FILE* pipe = popen(command.c_str(), "r");
@@ -106,20 +106,20 @@ std::filesystem::path ResolveAsanRuntimePath(
   return {};
 }
 
-std::string MakeLdPreloadValue(const std::filesystem::path& interposer_path) {
-  const auto asan_runtime = ResolveAsanRuntimePath(interposer_path);
+std::string MakeLdPreloadValue(const std::filesystem::path& abi_library_path) {
+  const auto asan_runtime = ResolveAsanRuntimePath(abi_library_path);
   if (asan_runtime.empty()) {
-    return interposer_path.string();
+    return abi_library_path.string();
   }
-  return asan_runtime.string() + ":" + interposer_path.string();
+  return asan_runtime.string() + ":" + abi_library_path.string();
 }
 
-TEST(HipInterposerStateTest, LaunchesHipVecAddExecutableThroughRegisteredHostFunction) {
+TEST(HipRuntimeAbiTest, LaunchesHipVecAddExecutableThroughRegisteredHostFunction) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
 
-  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_interposer_vecadd");
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_runtime_abi_vecadd");
   const auto src_path = temp_dir / "hip_vecadd.cpp";
   const auto exe_path = temp_dir / "hip_vecadd.out";
 
@@ -169,12 +169,12 @@ TEST(HipInterposerStateTest, LaunchesHipVecAddExecutableThroughRegisteredHostFun
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipInterposerStateTest, LaunchesHipVecAddExecutableInCycleModeThroughRegisteredHostFunction) {
+TEST(HipRuntimeAbiTest, LaunchesHipVecAddExecutableInCycleModeThroughRegisteredHostFunction) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
 
-  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_interposer_vecadd_cycle");
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_runtime_abi_vecadd_cycle");
   const auto src_path = temp_dir / "hip_vecadd_cycle.cpp";
   const auto exe_path = temp_dir / "hip_vecadd_cycle.out";
 
@@ -232,12 +232,12 @@ TEST(HipInterposerStateTest, LaunchesHipVecAddExecutableInCycleModeThroughRegist
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipInterposerStateTest, BuildsExecutableLoadPlanThroughRegisteredHostFunction) {
+TEST(HipRuntimeAbiTest, BuildsExecutableLoadPlanThroughRegisteredHostFunction) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
 
-  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_interposer_load_plan");
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_runtime_abi_load_plan");
   const auto src_path = temp_dir / "hip_shared_reverse.cpp";
   const auto exe_path = temp_dir / "hip_shared_reverse.out";
 
@@ -275,12 +275,12 @@ TEST(HipInterposerStateTest, BuildsExecutableLoadPlanThroughRegisteredHostFuncti
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipInterposerStateTest, LaunchesHipFmaLoopExecutableThroughRegisteredHostFunction) {
+TEST(HipRuntimeAbiTest, LaunchesHipFmaLoopExecutableThroughRegisteredHostFunction) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
 
-  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_interposer_fma_loop");
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_runtime_abi_fma_loop");
   const auto src_path = temp_dir / "hip_fma_loop.cpp";
   const auto exe_path = temp_dir / "hip_fma_loop.out";
 
@@ -345,12 +345,12 @@ TEST(HipInterposerStateTest, LaunchesHipFmaLoopExecutableThroughRegisteredHostFu
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipInterposerStateTest, LaunchesHipBiasChainExecutableThroughRegisteredHostFunction) {
+TEST(HipRuntimeAbiTest, LaunchesHipBiasChainExecutableThroughRegisteredHostFunction) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
 
-  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_interposer_bias_chain");
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_runtime_abi_bias_chain");
   const auto src_path = temp_dir / "hip_bias_chain.cpp";
   const auto exe_path = temp_dir / "hip_bias_chain.out";
 
@@ -410,12 +410,12 @@ TEST(HipInterposerStateTest, LaunchesHipBiasChainExecutableThroughRegisteredHost
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipInterposerStateTest, LaunchesHipByValueAggregateExecutableThroughRegisteredHostFunction) {
+TEST(HipRuntimeAbiTest, LaunchesHipByValueAggregateExecutableThroughRegisteredHostFunction) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
 
-  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_interposer_by_value_aggregate");
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_runtime_abi_by_value_aggregate");
   const auto src_path = temp_dir / "hip_by_value_aggregate.cpp";
   const auto exe_path = temp_dir / "hip_by_value_aggregate.out";
 
@@ -470,12 +470,12 @@ TEST(HipInterposerStateTest, LaunchesHipByValueAggregateExecutableThroughRegiste
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipInterposerStateTest, LaunchesHipThreeDimensionalHiddenArgsExecutableThroughRegisteredHostFunction) {
+TEST(HipRuntimeAbiTest, LaunchesHipThreeDimensionalHiddenArgsExecutableThroughRegisteredHostFunction) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
 
-  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_interposer_hidden_args_3d");
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_runtime_abi_hidden_args_3d");
   const auto src_path = temp_dir / "hip_three_dimensional_hidden_args.cpp";
   const auto exe_path = temp_dir / "hip_three_dimensional_hidden_args.out";
 
@@ -523,12 +523,12 @@ TEST(HipInterposerStateTest, LaunchesHipThreeDimensionalHiddenArgsExecutableThro
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipInterposerStateTest, LaunchesHipThreeDimensionalBuiltinIdsExecutableThroughRegisteredHostFunction) {
+TEST(HipRuntimeAbiTest, LaunchesHipThreeDimensionalBuiltinIdsExecutableThroughRegisteredHostFunction) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
 
-  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_interposer_builtin_ids_3d");
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_runtime_abi_builtin_ids_3d");
   const auto src_path = temp_dir / "hip_three_dimensional_builtin_ids.cpp";
   const auto exe_path = temp_dir / "hip_three_dimensional_builtin_ids.out";
 
@@ -579,12 +579,12 @@ TEST(HipInterposerStateTest, LaunchesHipThreeDimensionalBuiltinIdsExecutableThro
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipInterposerStateTest, LaunchesHipVecAddExecutableThroughRegisteredHostFunctionAtLargeScale) {
+TEST(HipRuntimeAbiTest, LaunchesHipVecAddExecutableThroughRegisteredHostFunctionAtLargeScale) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
 
-  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_interposer_vecadd_large");
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_runtime_abi_vecadd_large");
   const auto src_path = temp_dir / "hip_vecadd_large.cpp";
   const auto exe_path = temp_dir / "hip_vecadd_large.out";
 
@@ -635,12 +635,12 @@ TEST(HipInterposerStateTest, LaunchesHipVecAddExecutableThroughRegisteredHostFun
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipInterposerStateTest, LaunchesHipVecAddExecutableThroughManagedAllocations) {
+TEST(HipRuntimeAbiTest, LaunchesHipVecAddExecutableThroughManagedAllocations) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
 
-  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_interposer_managed_vecadd");
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_runtime_abi_managed_vecadd");
   const auto src_path = temp_dir / "hip_managed_vecadd.cpp";
   const auto exe_path = temp_dir / "hip_managed_vecadd.out";
 
@@ -693,15 +693,15 @@ TEST(HipInterposerStateTest, LaunchesHipVecAddExecutableThroughManagedAllocation
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipInterposerStateTest, RunsHipHostExecutableThroughLdPreloadInterposer) {
+TEST(HipRuntimeAbiTest, RunsHipHostExecutableThroughLdPreloadHipRuntimeAbi) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
 
   const auto build_dir = BuildDirPath();
-  const auto interposer_path = build_dir / "libgpu_model_hip_interposer.so";
-  if (!std::filesystem::exists(interposer_path)) {
-    GTEST_SKIP() << "missing interposer library: " << interposer_path;
+  const auto abi_library_path = build_dir / "libgpu_model_hip_runtime_abi.so";
+  if (!std::filesystem::exists(abi_library_path)) {
+    GTEST_SKIP() << "missing hip runtime abi library: " << abi_library_path;
   }
 
   const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_ld_preload_host");
@@ -775,8 +775,8 @@ int main() {
   ASSERT_EQ(std::system(compile_command.c_str()), 0);
 
   const std::string run_command =
-      "env LD_PRELOAD=" + MakeLdPreloadValue(interposer_path) +
-      " GPU_MODEL_HIP_INTERPOSER_DEBUG=1 " + exe_path.string() + " > " + stdout_path.string() + " 2>&1";
+      "env LD_PRELOAD=" + MakeLdPreloadValue(abi_library_path) +
+      " GPU_MODEL_HIP_RUNTIME_ABI_DEBUG=1 " + exe_path.string() + " > " + stdout_path.string() + " 2>&1";
   ASSERT_EQ(std::system(run_command.c_str()), 0);
 
   std::ifstream in(stdout_path);
@@ -787,15 +787,15 @@ int main() {
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipInterposerStateTest, RunsHipHostExecutableWithEventsThroughLdPreloadInterposer) {
+TEST(HipRuntimeAbiTest, RunsHipHostExecutableWithEventsThroughLdPreloadHipRuntimeAbi) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
 
   const auto build_dir = BuildDirPath();
-  const auto interposer_path = build_dir / "libgpu_model_hip_interposer.so";
-  if (!std::filesystem::exists(interposer_path)) {
-    GTEST_SKIP() << "missing interposer library: " << interposer_path;
+  const auto abi_library_path = build_dir / "libgpu_model_hip_runtime_abi.so";
+  if (!std::filesystem::exists(abi_library_path)) {
+    GTEST_SKIP() << "missing hip runtime abi library: " << abi_library_path;
   }
 
   const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_ld_preload_events");
@@ -873,8 +873,8 @@ int main() {
   ASSERT_EQ(std::system(compile_command.c_str()), 0);
 
   const std::string run_command =
-      "env LD_PRELOAD=" + MakeLdPreloadValue(interposer_path) +
-      " GPU_MODEL_HIP_INTERPOSER_DEBUG=1 " + exe_path.string() + " > " + stdout_path.string() +
+      "env LD_PRELOAD=" + MakeLdPreloadValue(abi_library_path) +
+      " GPU_MODEL_HIP_RUNTIME_ABI_DEBUG=1 " + exe_path.string() + " > " + stdout_path.string() +
       " 2>&1";
   ASSERT_EQ(std::system(run_command.c_str()), 0);
 
@@ -886,15 +886,15 @@ int main() {
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipInterposerStateTest, RunsHipHostExecutableQueryingDevicePropertiesThroughLdPreloadInterposer) {
+TEST(HipRuntimeAbiTest, RunsHipHostExecutableQueryingDevicePropertiesThroughLdPreloadHipRuntimeAbi) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
 
   const auto build_dir = BuildDirPath();
-  const auto interposer_path = build_dir / "libgpu_model_hip_interposer.so";
-  if (!std::filesystem::exists(interposer_path)) {
-    GTEST_SKIP() << "missing interposer library: " << interposer_path;
+  const auto abi_library_path = build_dir / "libgpu_model_hip_runtime_abi.so";
+  if (!std::filesystem::exists(abi_library_path)) {
+    GTEST_SKIP() << "missing hip runtime abi library: " << abi_library_path;
   }
 
   const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_ld_preload_props");
@@ -939,8 +939,8 @@ int main() {
   ASSERT_EQ(std::system(compile_command.c_str()), 0);
 
   const std::string run_command =
-      "env LD_PRELOAD=" + MakeLdPreloadValue(interposer_path) +
-      " GPU_MODEL_HIP_INTERPOSER_DEBUG=1 " + exe_path.string() + " > " + stdout_path.string() +
+      "env LD_PRELOAD=" + MakeLdPreloadValue(abi_library_path) +
+      " GPU_MODEL_HIP_RUNTIME_ABI_DEBUG=1 " + exe_path.string() + " > " + stdout_path.string() +
       " 2>&1";
   ASSERT_EQ(std::system(run_command.c_str()), 0);
 
@@ -952,15 +952,15 @@ int main() {
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipInterposerStateTest, EnforcesSingleStreamBoundaryThroughLdPreloadInterposer) {
+TEST(HipRuntimeAbiTest, EnforcesSingleStreamBoundaryThroughLdPreloadHipRuntimeAbi) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
 
   const auto build_dir = BuildDirPath();
-  const auto interposer_path = build_dir / "libgpu_model_hip_interposer.so";
-  if (!std::filesystem::exists(interposer_path)) {
-    GTEST_SKIP() << "missing interposer library: " << interposer_path;
+  const auto abi_library_path = build_dir / "libgpu_model_hip_runtime_abi.so";
+  if (!std::filesystem::exists(abi_library_path)) {
+    GTEST_SKIP() << "missing hip runtime abi library: " << abi_library_path;
   }
 
   const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_ld_preload_stream_boundary");
@@ -997,8 +997,8 @@ int main() {
   ASSERT_EQ(std::system(compile_command.c_str()), 0);
 
   const std::string run_command =
-      "env LD_PRELOAD=" + MakeLdPreloadValue(interposer_path) +
-      " GPU_MODEL_HIP_INTERPOSER_DEBUG=1 " + exe_path.string() + " > " + stdout_path.string() +
+      "env LD_PRELOAD=" + MakeLdPreloadValue(abi_library_path) +
+      " GPU_MODEL_HIP_RUNTIME_ABI_DEBUG=1 " + exe_path.string() + " > " + stdout_path.string() +
       " 2>&1";
   ASSERT_EQ(std::system(run_command.c_str()), 0);
 
@@ -1010,15 +1010,15 @@ int main() {
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipInterposerStateTest, RunsHipHostExecutableWithMemsetAsyncThroughLdPreloadInterposer) {
+TEST(HipRuntimeAbiTest, RunsHipHostExecutableWithMemsetAsyncThroughLdPreloadHipRuntimeAbi) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
 
   const auto build_dir = BuildDirPath();
-  const auto interposer_path = build_dir / "libgpu_model_hip_interposer.so";
-  if (!std::filesystem::exists(interposer_path)) {
-    GTEST_SKIP() << "missing interposer library: " << interposer_path;
+  const auto abi_library_path = build_dir / "libgpu_model_hip_runtime_abi.so";
+  if (!std::filesystem::exists(abi_library_path)) {
+    GTEST_SKIP() << "missing hip runtime abi library: " << abi_library_path;
   }
 
   const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_ld_preload_memset_async");
@@ -1061,8 +1061,8 @@ int main() {
   ASSERT_EQ(std::system(compile_command.c_str()), 0);
 
   const std::string run_command =
-      "env LD_PRELOAD=" + MakeLdPreloadValue(interposer_path) +
-      " GPU_MODEL_HIP_INTERPOSER_DEBUG=1 " + exe_path.string() + " > " + stdout_path.string() +
+      "env LD_PRELOAD=" + MakeLdPreloadValue(abi_library_path) +
+      " GPU_MODEL_HIP_RUNTIME_ABI_DEBUG=1 " + exe_path.string() + " > " + stdout_path.string() +
       " 2>&1";
   ASSERT_EQ(std::system(run_command.c_str()), 0);
 
@@ -1074,12 +1074,12 @@ int main() {
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipInterposerStateTest, LaunchesHipSharedReverseExecutableThroughRegisteredHostFunction) {
+TEST(HipRuntimeAbiTest, LaunchesHipSharedReverseExecutableThroughRegisteredHostFunction) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
 
-  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_interposer_shared_reverse");
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_runtime_abi_shared_reverse");
   const auto src_path = temp_dir / "hip_shared_reverse.cpp";
   const auto exe_path = temp_dir / "hip_shared_reverse.out";
 
@@ -1137,12 +1137,12 @@ TEST(HipInterposerStateTest, LaunchesHipSharedReverseExecutableThroughRegistered
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipInterposerStateTest, LaunchesHipDynamicSharedExecutableThroughRegisteredHostFunction) {
+TEST(HipRuntimeAbiTest, LaunchesHipDynamicSharedExecutableThroughRegisteredHostFunction) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
 
-  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_interposer_dynamic_shared");
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_runtime_abi_dynamic_shared");
   const auto src_path = temp_dir / "hip_dynamic_shared.cpp";
   const auto exe_path = temp_dir / "hip_dynamic_shared.out";
 
@@ -1195,12 +1195,12 @@ TEST(HipInterposerStateTest, LaunchesHipDynamicSharedExecutableThroughRegistered
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipInterposerStateTest, LaunchesHipAtomicCountExecutableThroughRegisteredHostFunction) {
+TEST(HipRuntimeAbiTest, LaunchesHipAtomicCountExecutableThroughRegisteredHostFunction) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
 
-  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_interposer_atomic_count");
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_runtime_abi_atomic_count");
   const auto src_path = temp_dir / "hip_atomic_count.cpp";
   const auto exe_path = temp_dir / "hip_atomic_count.out";
 
@@ -1256,12 +1256,12 @@ TEST(HipInterposerStateTest, LaunchesHipAtomicCountExecutableThroughRegisteredHo
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipInterposerStateTest, LaunchesHipSoftmaxExecutableThroughRegisteredHostFunction) {
+TEST(HipRuntimeAbiTest, LaunchesHipSoftmaxExecutableThroughRegisteredHostFunction) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
 
-  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_interposer_softmax");
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_runtime_abi_softmax");
   const auto src_path = temp_dir / "hip_softmax.cpp";
   const auto exe_path = temp_dir / "hip_softmax.out";
 
@@ -1324,12 +1324,12 @@ TEST(HipInterposerStateTest, LaunchesHipSoftmaxExecutableThroughRegisteredHostFu
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipInterposerStateTest, LaunchesHipBlockReduceExecutableThroughRegisteredHostFunction) {
+TEST(HipRuntimeAbiTest, LaunchesHipBlockReduceExecutableThroughRegisteredHostFunction) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
 
-  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_interposer_block_reduce");
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_runtime_abi_block_reduce");
   const auto src_path = temp_dir / "hip_block_reduce.cpp";
   const auto exe_path = temp_dir / "hip_block_reduce.out";
 
@@ -1390,12 +1390,12 @@ TEST(HipInterposerStateTest, LaunchesHipBlockReduceExecutableThroughRegisteredHo
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipInterposerStateTest, LaunchesHipMfmaExecutableThroughRegisteredHostFunction) {
+TEST(HipRuntimeAbiTest, LaunchesHipMfmaExecutableThroughRegisteredHostFunction) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
 
-  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_interposer_mfma");
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_runtime_abi_mfma");
   const auto src_path = temp_dir / "hip_mfma.cpp";
   const auto exe_path = temp_dir / "hip_mfma.out";
 
@@ -1442,12 +1442,12 @@ TEST(HipInterposerStateTest, LaunchesHipMfmaExecutableThroughRegisteredHostFunct
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipInterposerStateTest, BuildsExecutableLoadPlanForHipMfmaWithTypedTensorAbi) {
+TEST(HipRuntimeAbiTest, BuildsExecutableLoadPlanForHipMfmaWithTypedTensorAbi) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
 
-  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_interposer_mfma_plan");
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_runtime_abi_mfma_plan");
   const auto src_path = temp_dir / "hip_mfma_plan.cpp";
   const auto exe_path = temp_dir / "hip_mfma_plan.out";
 

@@ -10,15 +10,15 @@ BUILD_DIR="$(gpu_model_detect_build_dir "$ROOT")"
 JOBS="${JOBS:-8}"
 
 echo "[exec-check] build targets"
-cmake --build "$BUILD_DIR" --target gpu_model_tests gpu_model_hip_interposer -j "$JOBS"
+cmake --build "$BUILD_DIR" --target gpu_model_tests gpu_model_hip_runtime_abi -j "$JOBS"
 
-echo "[exec-check] hip command line interposer usage"
-"$ROOT/examples/01-vecadd-basic/run.sh" 2>&1 | tee "$OUT_DIR/hip_command_line_interposer.log"
+echo "[exec-check] hip command line hip runtime abi usage"
+"$ROOT/examples/01-vecadd-basic/run.sh" 2>&1 | tee "$OUT_DIR/hip_command_line_hip_runtime_abi.log"
 
 echo "[exec-check] validate combined outputs"
-grep -q "vecadd validation ok" "$OUT_DIR/hip_command_line_interposer.log"
+grep -q "vecadd validation ok" "$OUT_DIR/hip_command_line_hip_runtime_abi.log"
 
 cat <<'EOF' | tee "$OUT_DIR/summary.txt"
 [exec-check] ok
-- hip executable interposer usage passed
+- hip executable hip runtime abi usage passed
 EOF

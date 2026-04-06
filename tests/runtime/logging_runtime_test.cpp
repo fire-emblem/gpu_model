@@ -85,7 +85,7 @@ TEST(RuntimeLoggingTest, DefaultLogFileUsesProgramStemAndPid) {
   EXPECT_NE(it->find(".log"), std::string::npos);
 }
 
-TEST(RuntimeLoggingTest, HipInterposerDebugStillInitializesLoguru) {
+TEST(RuntimeLoggingTest, HipRuntimeAbiDebugStillInitializesLoguru) {
   const auto exe_path = SelfExecutablePath();
   const auto log_dir = std::filesystem::current_path() / "logs";
   const auto before = LogFileSet(log_dir);
@@ -93,7 +93,7 @@ TEST(RuntimeLoggingTest, HipInterposerDebugStillInitializesLoguru) {
   const std::string command =
       "cd /data/gpu_model && "
       "env -u GPU_MODEL_DISABLE_LOGURU "
-      "GPU_MODEL_HIP_INTERPOSER_DEBUG=1 " + exe_path.string() +
+      "GPU_MODEL_HIP_RUNTIME_ABI_DEBUG=1 " + exe_path.string() +
       " --gtest_filter=RuntimeNamingTest.NewRuntimeTypesAreConcreteAndUsable >/dev/null 2>&1";
   ASSERT_EQ(std::system(command.c_str()), 0);
 
