@@ -27,6 +27,27 @@
 - 历史旧名 `ModelRuntimeApi / RuntimeHooks / HostRuntime` 已从主线术语移除
 - 阅读旧记录时请按 `ModelRuntime / HipRuntime / ExecEngine` 对照理解
 
+## 文档导航
+
+当前建议按下面顺序阅读：
+
+- 现行规范
+  - [README.md](/data/gpu_model/README.md)
+  - [docs/my_design.md](/data/gpu_model/docs/my_design.md)
+  - [docs/runtime-layering.md](/data/gpu_model/docs/runtime-layering.md)
+  - [docs/module-development-status.md](/data/gpu_model/docs/module-development-status.md)
+  - [docs/memory-hierarchy-interface-reservation.md](/data/gpu_model/docs/memory-hierarchy-interface-reservation.md)
+- 历史计划/实施存档
+  - [docs/plans/README.md](/data/gpu_model/docs/plans/README.md)
+  - [docs/superpowers/README.md](/data/gpu_model/docs/superpowers/README.md)
+- 外部参考材料
+  - [docs/other_model_design/README.md](/data/gpu_model/docs/other_model_design/README.md)
+
+约束：
+
+- `docs/plans/` 与 `docs/superpowers/` 下的文档默认视为历史实施/规划材料，不是当前代码事实
+- `docs/other_model_design/` 下的文档默认视为外部参考，不直接定义本仓实现
+
 ## 当前能力
 
 当前主线已经具备：

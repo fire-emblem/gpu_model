@@ -48,6 +48,25 @@
 - 当前 docs 命中分析显示：
   - 对外文档基本已收口
   - 剩余旧名主要集中在 `docs/superpowers/plans`、`docs/superpowers/specs`、`docs/plans`
+- `docs/plan.md` 属于高误导性泛名历史计划文件：
+  - 内容已被 `docs/superpowers/specs/*` 与当前主状态文档覆盖
+  - 已删除，避免被误认为“当前主计划”
+- `docs/plans/2026-03-29-exec-shared-epic-kickoff.md` 属于高误导性历史计划文件：
+  - 强依赖临时 branch/worktree 与失效路径
+  - 误导性高于历史价值
+  - 已删除
+- 当前 docs 资产可按三层理解：
+  - 现行规范：`README.md`、`docs/my_design.md`、`docs/runtime-layering.md`、`docs/module-development-status.md`、`docs/memory-hierarchy-interface-reservation.md`
+  - 历史计划/实施存档：`docs/plans/`、`docs/superpowers/`
+  - 外部参考：`docs/other_model_design/`
+- `docs/plans/` 审计结论：
+  - `README.md` 是唯一需要持续维护的入口页
+  - 其余文件默认按 archive 理解
+  - `2026-03-29-exec-shared-epic-kickoff.md` 误导性高于历史价值，已删除
+- `docs/superpowers/` 审计结论：
+  - 当前仍有直接参考价值的主要是 `2026-04-03-*` 和 `2026-04-04-*` 这批 trace / Perfetto 文档
+  - 更早的 `2026-03-30` 到 `2026-04-02` 文档多数应按历史实施记录理解
+  - 风险最大的不是单篇内容，而是目录 README 把整批文档说得过于“现行”；已收口入口说明
 - example runner 默认写 `.cache/example-results` 会让用户很容易误读旧 `results/` 快照
 - 当前已改回：
   - example 结果直接写回各自目录下的 `results/`

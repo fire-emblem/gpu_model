@@ -129,11 +129,19 @@
   - 明确 `Functional` 的恢复语义改为“下一 issue quantum 起点消费”，`Cycle` 只表达 ready 不承诺 issue 时刻
   - 将 `Functional` 纯 scalar `100` 指令、dense global load overlap、implicit drain、wait/resume quantum 语义全部用 focused UT 锁定
   - 将 `Cycle` 的 front-end latency、resident/backfill/promote、dense global load overlap、implicit drain、ready!=selected!=issue 用结果型测试锁定
+  - 审核 `docs/plan.md`，确认其为高误导性泛名历史计划文件并删除
+  - 在 `README.md` 中补充文档导航，明确现行规范 / 历史计划 / 外部参考三类资产
+  - 继续 docs 资产整理，删除 `docs/plans/2026-03-29-exec-shared-epic-kickoff.md`
+  - 并行审查 `docs/plans/`、`docs/superpowers/`、`docs/*.md`，形成主文档 / archive / reference 分类结论
 - 创建/修改的文件：
   - `task_plan.md`
   - `findings.md`
   - `progress.md`
   - `AGENTS.md`
+  - `docs/plans/README.md`
+  - `docs/superpowers/README.md`
+  - `README.md`
+  - `docs/README.md`
   - `src/runtime/config/runtime_env_config.cpp`
   - `src/runtime/exec_engine.cpp`
   - `src/runtime/core/runtime_session.cpp`
