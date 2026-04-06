@@ -38,5 +38,18 @@ TEST(DeviceMemoryManagerTest, ReusesFreedAddressWithinSamePool) {
   EXPECT_EQ(second, first);
 }
 
+TEST(DeviceMemoryManagerTest, DoesNotMisclassifyNonWindowPointer) {
+  MemorySystem memory;
+  DeviceMemoryManager manager(&memory);
+
+  int host_value = 7;
+  void* host_ptr = &host_value;
+
+  EXPECT_FALSE(manager.IsPointerInCompatibilityWindow(host_ptr));
+  EXPECT_FALSE(manager.IsDevicePointer(host_ptr));
+  EXPECT_FALSE(manager.ClassifyCompatibilityPointer(host_ptr).has_value());
+  EXPECT_EQ(manager.FindAllocation(host_ptr), nullptr);
+}
+
 }  // namespace
 }  // namespace gpu_model
