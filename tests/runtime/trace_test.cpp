@@ -2702,10 +2702,7 @@ TEST(TraceTest, NativePerfettoProtoShowsFunctionalSamePeuSwitchAwayInMultiThread
 
   TraceArtifactRecorder trace(out_dir);
   ExecEngine runtime(&trace);
-  runtime.SetFunctionalExecutionConfig(FunctionalExecutionConfig{
-      .mode = FunctionalExecutionMode::MultiThreaded,
-      .worker_threads = 1,
-  });
+  runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::MultiThreaded);
   constexpr uint32_t kBlockDim = 64 * 33;
   const auto kernel = BuildSamePeuWaitcntSiblingKernel();
   const uint64_t in_addr = runtime.memory().AllocateGlobal(kBlockDim * sizeof(int32_t));
@@ -2753,10 +2750,7 @@ TEST(TraceTest, NativePerfettoProtoShowsFunctionalTimelineGapWaitArriveInMultiTh
 
   TraceArtifactRecorder trace(out_dir);
   ExecEngine runtime(&trace);
-  runtime.SetFunctionalExecutionConfig(FunctionalExecutionConfig{
-      .mode = FunctionalExecutionMode::MultiThreaded,
-      .worker_threads = 1,
-  });
+  runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::MultiThreaded);
 
   const auto kernel = BuildWaitcntTraceKernel();
   const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
@@ -2864,10 +2858,7 @@ amdhsa.kernels:
 
   TraceArtifactRecorder trace(out_dir);
   ExecEngine runtime(&trace);
-  runtime.SetFunctionalExecutionConfig(FunctionalExecutionConfig{
-      .mode = FunctionalExecutionMode::MultiThreaded,
-      .worker_threads = 1,
-  });
+  runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::MultiThreaded);
   runtime.SetGlobalMemoryLatencyProfile(/*dram_latency=*/40, /*l2_hit_latency=*/20, /*l1_hit_latency=*/8);
 
   const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
@@ -3061,10 +3052,7 @@ amdhsa.kernels:
 
   TraceArtifactRecorder trace(out_dir);
   ExecEngine runtime(&trace);
-  runtime.SetFunctionalExecutionConfig(FunctionalExecutionConfig{
-      .mode = FunctionalExecutionMode::MultiThreaded,
-      .worker_threads = 1,
-  });
+  runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::MultiThreaded);
 
   LaunchRequest request;
   request.arch_name = "c500";
@@ -3117,7 +3105,7 @@ TEST(TraceTest, DenseScalarInstructionsAdvanceInFourCycleStepsAcrossExecutionMod
       FunctionalExecutionConfig{.mode = FunctionalExecutionMode::SingleThreaded, .worker_threads = 1});
   const auto mt_cycles = run_and_collect_step_cycles(
       ExecutionMode::Functional,
-      FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MultiThreaded, .worker_threads = 1});
+      FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MultiThreaded});
   const auto cycle_cycles = run_and_collect_step_cycles(
       ExecutionMode::Cycle,
       FunctionalExecutionConfig{.mode = FunctionalExecutionMode::SingleThreaded, .worker_threads = 1});
@@ -3136,10 +3124,7 @@ TEST(TraceTest, DenseScalarInstructionsAdvanceInFourCycleStepsAcrossExecutionMod
 TEST(TraceTest, MultiThreadedDenseScalarExecutionStillInterleavesBlocksBeforeFirstBlockCompletes) {
   CollectingTraceSink trace;
   ExecEngine runtime(&trace);
-  runtime.SetFunctionalExecutionConfig(FunctionalExecutionConfig{
-      .mode = FunctionalExecutionMode::MultiThreaded,
-      .worker_threads = 1,
-  });
+  runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::MultiThreaded);
 
   const auto kernel = BuildDenseScalarIssueKernel();
 
@@ -3240,10 +3225,7 @@ amdhsa.kernels:
 
   TraceArtifactRecorder trace(out_dir);
   ExecEngine runtime(&trace);
-  runtime.SetFunctionalExecutionConfig(FunctionalExecutionConfig{
-      .mode = FunctionalExecutionMode::MultiThreaded,
-      .worker_threads = 1,
-  });
+  runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::MultiThreaded);
   runtime.SetGlobalMemoryLatencyProfile(/*dram_latency=*/40, /*l2_hit_latency=*/20, /*l1_hit_latency=*/8);
 
   const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));

@@ -168,8 +168,7 @@ TEST(ParallelExecutionModeTest, MultiThreadedModeProducesSameFunctionalResults) 
   auto run_mode = [&](FunctionalExecutionMode mode) {
     ExecEngine runtime;
     if (mode == FunctionalExecutionMode::MultiThreaded) {
-      runtime.SetFunctionalExecutionConfig(
-          FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MultiThreaded, .worker_threads = 1});
+      runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::MultiThreaded);
     } else {
       runtime.SetFunctionalExecutionMode(mode);
     }
@@ -233,8 +232,7 @@ TEST(ParallelExecutionModeTest, MultiThreadedModeMatchesSingleThreadForSharedAto
   auto run_mode = [&](FunctionalExecutionMode mode) {
     ExecEngine runtime;
     if (mode == FunctionalExecutionMode::MultiThreaded) {
-      runtime.SetFunctionalExecutionConfig(
-          FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MultiThreaded, .worker_threads = 1});
+      runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::MultiThreaded);
     } else {
       runtime.SetFunctionalExecutionMode(mode);
     }

@@ -254,8 +254,7 @@ TEST(SharedSyncFunctionalTest,
     CollectingTraceSink trace;
     ExecEngine runtime(&trace);
     if (mode == FunctionalExecutionMode::MultiThreaded) {
-      runtime.SetFunctionalExecutionConfig(
-          FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MultiThreaded, .worker_threads = 1});
+      runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::MultiThreaded);
     } else {
       runtime.SetFunctionalExecutionMode(mode);
     }
@@ -302,11 +301,7 @@ TEST(SharedSyncFunctionalTest,
 TEST(SharedSyncFunctionalTest, BarrierReleaseReturnsEarlyWaveToDispatch) {
   CollectingTraceSink trace;
   ExecEngine runtime(&trace);
-  runtime.SetFunctionalExecutionConfig(
-      FunctionalExecutionConfig{
-          .mode = FunctionalExecutionMode::MultiThreaded,
-          .worker_threads = 1,
-      });
+  runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::MultiThreaded);
 
   constexpr uint32_t kBlockDim = 320;
   constexpr uint32_t kElementCount = kBlockDim;

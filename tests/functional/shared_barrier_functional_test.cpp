@@ -118,8 +118,7 @@ std::vector<ParsedWaveStatsSnapshot> RunBarrierKernelAndCollectWaveStats(
   CollectingTraceSink trace;
   ExecEngine runtime(&trace);
   if (mode == FunctionalExecutionMode::MultiThreaded) {
-    runtime.SetFunctionalExecutionConfig(
-        FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MultiThreaded, .worker_threads = 1});
+    runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::MultiThreaded);
   } else {
     runtime.SetFunctionalExecutionMode(mode);
   }
@@ -334,8 +333,7 @@ TEST(SharedBarrierFunctionalTest, MatchesResultsAcrossSingleThreadedAndMultiThre
                      : "mode=MultiThreaded");
     ExecEngine runtime;
     if (mode == FunctionalExecutionMode::MultiThreaded) {
-      runtime.SetFunctionalExecutionConfig(
-          FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MultiThreaded, .worker_threads = 1});
+      runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::MultiThreaded);
     } else {
       runtime.SetFunctionalExecutionMode(mode);
     }
@@ -432,8 +430,7 @@ TEST(SharedBarrierFunctionalTest, MultiThreadedReleaseResumesAllBarrierBlockedWa
   constexpr uint32_t block_dim = 128;
   CollectingTraceSink trace;
   ExecEngine runtime(&trace);
-  runtime.SetFunctionalExecutionConfig(
-      FunctionalExecutionConfig{.mode = FunctionalExecutionMode::MultiThreaded, .worker_threads = 1});
+  runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::MultiThreaded);
 
   const uint64_t in_addr = runtime.memory().AllocateGlobal(block_dim * sizeof(int32_t));
   const uint64_t out_addr = runtime.memory().AllocateGlobal(block_dim * sizeof(int32_t));
