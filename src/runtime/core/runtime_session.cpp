@@ -160,7 +160,7 @@ bool RuntimeSession::HasCompatibilityAllocation(const void* ptr) const {
 }
 
 bool RuntimeSession::IsDevicePointer(const void* ptr) const {
-  return HasCompatibilityAllocation(ptr);
+  return device_memory_manager_.IsDevicePointer(ptr);
 }
 
 DeviceMemoryManager::CompatibilityAllocation* RuntimeSession::FindCompatibilityAllocation(

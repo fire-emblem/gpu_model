@@ -93,7 +93,7 @@ bool HipRuntime::FreeDevice(void* device_ptr) {
 }
 
 bool HipRuntime::IsDevicePointer(const void* ptr) const {
-  return GetRuntimeSession().HasCompatibilityAllocation(ptr);
+  return GetRuntimeSession().IsDevicePointer(ptr);
 }
 
 uint64_t HipRuntime::ResolveDeviceAddress(const void* ptr) const {

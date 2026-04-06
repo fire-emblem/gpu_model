@@ -112,7 +112,11 @@ void* DeviceMemoryManager::AllocateManaged(size_t bytes, uint64_t model_addr) {
 }
 
 bool DeviceMemoryManager::Free(void* device_ptr) {
-  const auto* allocation = FindAllocation(device_ptr);
+  const auto it = allocations_.find(reinterpret_cast<uintptr_t>(device_ptr));
+  if (it == allocations_.end()) {
+    return false;
+  }
+  const auto* allocation = &it->second;
   if (allocation == nullptr) {
     return false;
   }
@@ -137,7 +141,7 @@ bool DeviceMemoryManager::HasAllocation(const void* ptr) const {
 }
 
 bool DeviceMemoryManager::IsDevicePointer(const void* ptr) const {
-  return HasAllocation(ptr);
+  return FindAllocation(ptr) != nullptr;
 }
 
 bool DeviceMemoryManager::IsPointerInCompatibilityWindow(const void* ptr) const {
@@ -164,20 +168,34 @@ const DeviceMemoryManager::CompatibilityWindow* DeviceMemoryManager::GetCompatib
 }
 
 DeviceMemoryManager::CompatibilityAllocation* DeviceMemoryManager::FindAllocation(const void* ptr) {
-  const auto it = allocations_.find(reinterpret_cast<uintptr_t>(ptr));
-  if (it == allocations_.end()) {
-    return nullptr;
+  const uintptr_t key = reinterpret_cast<uintptr_t>(ptr);
+  if (const auto it = allocations_.find(key); it != allocations_.end()) {
+    return &it->second;
   }
-  return &it->second;
+  for (auto& [base, allocation] : allocations_) {
+    const uintptr_t begin = base;
+    const uintptr_t end = begin + allocation.bytes;
+    if (key >= begin && key < end) {
+      return &allocation;
+    }
+  }
+  return nullptr;
 }
 
 const DeviceMemoryManager::CompatibilityAllocation* DeviceMemoryManager::FindAllocation(
     const void* ptr) const {
-  const auto it = allocations_.find(reinterpret_cast<uintptr_t>(ptr));
-  if (it == allocations_.end()) {
-    return nullptr;
+  const uintptr_t key = reinterpret_cast<uintptr_t>(ptr);
+  if (const auto it = allocations_.find(key); it != allocations_.end()) {
+    return &it->second;
   }
-  return &it->second;
+  for (const auto& [base, allocation] : allocations_) {
+    const uintptr_t begin = base;
+    const uintptr_t end = begin + allocation.bytes;
+    if (key >= begin && key < end) {
+      return &allocation;
+    }
+  }
+  return nullptr;
 }
 
 uint64_t DeviceMemoryManager::ResolveDeviceAddress(const void* ptr) const {
@@ -185,7 +203,9 @@ uint64_t DeviceMemoryManager::ResolveDeviceAddress(const void* ptr) const {
   if (allocation == nullptr) {
     throw std::invalid_argument("unknown compatibility device pointer");
   }
-  return allocation->model_addr;
+  const uintptr_t offset =
+      reinterpret_cast<uintptr_t>(ptr) - reinterpret_cast<uintptr_t>(allocation->mapped_addr);
+  return allocation->model_addr + offset;
 }
 
 void DeviceMemoryManager::SyncManagedHostToDevice() {

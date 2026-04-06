@@ -223,18 +223,22 @@ hipError_t hipFree(void* ptr) {
 
 hipError_t hipMemcpy(void* dst, const void* src, size_t sizeBytes, hipMemcpyKind kind) {
   DebugLog("hipMemcpy kind=%d bytes=%zu dst=%p src=%p", static_cast<int>(kind), sizeBytes, dst, src);
-  switch (kind) {
-    case hipMemcpyHostToDevice:
-      HipApi().MemcpyHostToDevice(dst, src, sizeBytes);
-      return Remember(hipSuccess);
-    case hipMemcpyDeviceToHost:
-      HipApi().MemcpyDeviceToHost(dst, src, sizeBytes);
-      return Remember(hipSuccess);
-    case hipMemcpyDeviceToDevice:
-      HipApi().MemcpyDeviceToDevice(dst, src, sizeBytes);
-      return Remember(hipSuccess);
-    default:
-      return Remember(hipErrorInvalidValue);
+  try {
+    switch (kind) {
+      case hipMemcpyHostToDevice:
+        HipApi().MemcpyHostToDevice(dst, src, sizeBytes);
+        return Remember(hipSuccess);
+      case hipMemcpyDeviceToHost:
+        HipApi().MemcpyDeviceToHost(dst, src, sizeBytes);
+        return Remember(hipSuccess);
+      case hipMemcpyDeviceToDevice:
+        HipApi().MemcpyDeviceToDevice(dst, src, sizeBytes);
+        return Remember(hipSuccess);
+      default:
+        return Remember(hipErrorInvalidValue);
+    }
+  } catch (const std::invalid_argument&) {
+    return Remember(hipErrorInvalidValue);
   }
 }
 

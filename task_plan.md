@@ -44,7 +44,7 @@
 ## 当前正式任务清单
 1. `Runtime API closure`
    - 目标：先落定 `HipRuntime / ModelRuntime` 的重要 API 框架，尤其是不同 `memcpy` / `memset` 变体与无需 kernel launch 的行为矩阵。
-   - 当前缺口：runtime API 覆盖仍偏窄，不同拷贝方向、同步语义与测试清单还未系统化。
+   - 当前缺口：同步 `malloc/free/memcpy/memset` 主路径现已补齐一轮 focused matrix，覆盖 `RuntimeSession`、`DeviceMemoryManager`、LD_PRELOAD ABI 纯 memory 路径、非法 `hipMemcpyKind` 和非法 compatibility pointer 返回值；后续仍需继续补 async 边界、null host pointer / byte-count 边界，以及更完整的 runtime property/error matrix。
 
 2. `Memory pool and mmap-backed residency`
    - 目标：建立统一 memory pool 语义，并把关键 pool 的底层存储逐步收口到 `mmap` 主线。

@@ -138,5 +138,51 @@ TEST(DeviceMemoryManagerTest, ResetPreservesReservedWindowButClearsCommittedByte
   EXPECT_EQ(global_window_after_reset->committed_bytes, 0u);
 }
 
+TEST(DeviceMemoryManagerTest, ResolvesInteriorPointersWithinLiveAllocation) {
+  MemorySystem memory;
+  DeviceMemoryManager manager(&memory);
+
+  constexpr uint64_t model_addr = 0x45678000ull;
+  void* ptr = manager.AllocateGlobal(64, model_addr);
+  auto* interior = reinterpret_cast<std::byte*>(ptr) + 12;
+
+  ASSERT_TRUE(manager.HasAllocation(ptr));
+  EXPECT_FALSE(manager.HasAllocation(interior));
+  EXPECT_TRUE(manager.IsDevicePointer(interior));
+  ASSERT_NE(manager.FindAllocation(interior), nullptr);
+  EXPECT_EQ(manager.ResolveDeviceAddress(interior), model_addr + 12);
+  EXPECT_EQ(manager.ClassifyCompatibilityPointer(interior), MemoryPoolKind::Global);
+}
+
+TEST(DeviceMemoryManagerTest, TracksCommittedBytesAcrossMultipleLiveAllocationsAndReuse) {
+  MemorySystem memory;
+  DeviceMemoryManager manager(&memory);
+
+  void* first = manager.AllocateGlobal(64, memory.AllocateGlobal(64));
+  void* second = manager.AllocateGlobal(128, memory.AllocateGlobal(128));
+  const auto* window_after_alloc = manager.GetCompatibilityWindow(MemoryPoolKind::Global);
+  ASSERT_NE(window_after_alloc, nullptr);
+  const size_t committed_after_alloc = window_after_alloc->committed_bytes;
+  ASSERT_GT(committed_after_alloc, 0u);
+
+  const auto* first_allocation = manager.FindAllocation(first);
+  const auto* second_allocation = manager.FindAllocation(second);
+  ASSERT_NE(first_allocation, nullptr);
+  ASSERT_NE(second_allocation, nullptr);
+  EXPECT_EQ(committed_after_alloc,
+            first_allocation->mapped_bytes + second_allocation->mapped_bytes);
+
+  ASSERT_TRUE(manager.Free(first));
+  const auto* window_after_first_free = manager.GetCompatibilityWindow(MemoryPoolKind::Global);
+  ASSERT_NE(window_after_first_free, nullptr);
+  EXPECT_EQ(window_after_first_free->committed_bytes, second_allocation->mapped_bytes);
+
+  void* reused = manager.AllocateGlobal(64, memory.AllocateGlobal(64));
+  EXPECT_EQ(reused, first);
+  const auto* window_after_reuse = manager.GetCompatibilityWindow(MemoryPoolKind::Global);
+  ASSERT_NE(window_after_reuse, nullptr);
+  EXPECT_EQ(window_after_reuse->committed_bytes, committed_after_alloc);
+}
+
 }  // namespace
 }  // namespace gpu_model

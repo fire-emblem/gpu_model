@@ -1105,6 +1105,7 @@ int main() {
   std::vector<unsigned int> copied(count, 0);
   std::vector<unsigned int> filled(count, 0);
   std::vector<unsigned short> half_filled(count, 0);
+  std::vector<unsigned char> byte_filled(count, 0);
   for (int i = 0; i < count; ++i) {
     input[i] = 100u + static_cast<unsigned int>(i) * 9u;
   }
@@ -1113,40 +1114,49 @@ int main() {
   void* dst = nullptr;
   void* fill = nullptr;
   void* fill16 = nullptr;
+  void* fill8 = nullptr;
   if (hipMalloc(&src, count * sizeof(unsigned int)) != hipSuccess) return 10;
   if (hipMalloc(&dst, count * sizeof(unsigned int)) != hipSuccess) return 11;
   if (hipMalloc(&fill, count * sizeof(unsigned int)) != hipSuccess) return 12;
   if (hipMalloc(&fill16, count * sizeof(unsigned short)) != hipSuccess) return 13;
+  if (hipMalloc(&fill8, count * sizeof(unsigned char)) != hipSuccess) return 14;
 
-  if (hipMemcpy(src, input.data(), count * sizeof(unsigned int), hipMemcpyHostToDevice) != hipSuccess) return 13;
-  if (hipMemset(dst, 0, count * sizeof(unsigned int)) != hipSuccess) return 14;
-  if (hipMemcpy(dst, src, count * sizeof(unsigned int), hipMemcpyDeviceToDevice) != hipSuccess) return 15;
-  if (hipMemcpy(output.data(), dst, count * sizeof(unsigned int), hipMemcpyDeviceToHost) != hipSuccess) return 16;
+  if (hipMemcpy(src, input.data(), count * sizeof(unsigned int), hipMemcpyHostToDevice) != hipSuccess) return 15;
+  if (hipMemset(dst, 0, count * sizeof(unsigned int)) != hipSuccess) return 16;
+  if (hipMemcpy(dst, src, count * sizeof(unsigned int), hipMemcpyDeviceToDevice) != hipSuccess) return 17;
+  if (hipMemcpy(output.data(), dst, count * sizeof(unsigned int), hipMemcpyDeviceToHost) != hipSuccess) return 18;
   for (int i = 0; i < count; ++i) {
     if (output[i] != input[i]) return 20;
   }
 
-  if (hipMemsetD32(reinterpret_cast<hipDeviceptr_t>(fill), 0xdeadbeef, count) != hipSuccess) return 21;
-  if (hipMemcpy(filled.data(), fill, count * sizeof(unsigned int), hipMemcpyDeviceToHost) != hipSuccess) return 22;
+  if (hipMemsetD8(reinterpret_cast<hipDeviceptr_t>(fill8), 0x5a, count) != hipSuccess) return 21;
+  if (hipMemcpy(byte_filled.data(), fill8, count * sizeof(unsigned char), hipMemcpyDeviceToHost) != hipSuccess) return 22;
   for (int i = 0; i < count; ++i) {
-    if (filled[i] != 0xdeadbeefu) return 23;
+    if (byte_filled[i] != 0x5au) return 23;
   }
 
-  if (hipMemsetD16(reinterpret_cast<hipDeviceptr_t>(fill16), 0xbeef, count) != hipSuccess) return 24;
-  if (hipMemcpy(half_filled.data(), fill16, count * sizeof(unsigned short), hipMemcpyDeviceToHost) != hipSuccess) return 25;
+  if (hipMemsetD32(reinterpret_cast<hipDeviceptr_t>(fill), 0xdeadbeef, count) != hipSuccess) return 24;
+  if (hipMemcpy(filled.data(), fill, count * sizeof(unsigned int), hipMemcpyDeviceToHost) != hipSuccess) return 25;
   for (int i = 0; i < count; ++i) {
-    if (half_filled[i] != 0xbeefu) return 26;
+    if (filled[i] != 0xdeadbeefu) return 26;
   }
 
-  if (hipMemcpy(copied.data(), src, count * sizeof(unsigned int), hipMemcpyDeviceToHost) != hipSuccess) return 27;
+  if (hipMemsetD16(reinterpret_cast<hipDeviceptr_t>(fill16), 0xbeef, count) != hipSuccess) return 27;
+  if (hipMemcpy(half_filled.data(), fill16, count * sizeof(unsigned short), hipMemcpyDeviceToHost) != hipSuccess) return 28;
   for (int i = 0; i < count; ++i) {
-    if (copied[i] != input[i]) return 28;
+    if (half_filled[i] != 0xbeefu) return 29;
   }
 
-  if (hipFree(src) != hipSuccess) return 30;
-  if (hipFree(dst) != hipSuccess) return 31;
-  if (hipFree(fill) != hipSuccess) return 32;
-  if (hipFree(fill16) != hipSuccess) return 33;
+  if (hipMemcpy(copied.data(), src, count * sizeof(unsigned int), hipMemcpyDeviceToHost) != hipSuccess) return 30;
+  for (int i = 0; i < count; ++i) {
+    if (copied[i] != input[i]) return 31;
+  }
+
+  if (hipFree(src) != hipSuccess) return 32;
+  if (hipFree(dst) != hipSuccess) return 33;
+  if (hipFree(fill) != hipSuccess) return 34;
+  if (hipFree(fill16) != hipSuccess) return 35;
+  if (hipFree(fill8) != hipSuccess) return 36;
   std::puts("ld_preload pure memory api ok");
   return 0;
 }
@@ -1168,6 +1178,69 @@ int main() {
   ASSERT_TRUE(static_cast<bool>(in));
   const std::string output((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
   EXPECT_NE(output.find("ld_preload pure memory api ok"), std::string::npos);
+
+  std::filesystem::remove_all(temp_dir);
+}
+
+TEST(HipRuntimeAbiTest, ReturnsInvalidValueForInvalidMemcpyKindsAndPointersThroughLdPreloadHipRuntimeAbi) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto build_dir = BuildDirPath();
+  const auto abi_library_path = build_dir / "libgpu_model_hip_runtime_abi.so";
+  if (!std::filesystem::exists(abi_library_path)) {
+    GTEST_SKIP() << "missing hip runtime abi library: " << abi_library_path;
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_ld_preload_invalid_memcpy");
+  const auto src_path = temp_dir / "hip_ld_preload_invalid_memcpy.cpp";
+  const auto exe_path = temp_dir / "hip_ld_preload_invalid_memcpy.out";
+  const auto stdout_path = temp_dir / "stdout.txt";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << R"(
+#include <hip/hip_runtime.h>
+#include <cstdio>
+
+int main() {
+  int input = 7;
+  int output = 0;
+  void* dev = nullptr;
+  if (hipMalloc(&dev, sizeof(int)) != hipSuccess) return 10;
+
+  if (hipMemcpy(&output, &input, sizeof(int), static_cast<hipMemcpyKind>(999)) != hipErrorInvalidValue) return 11;
+  if (hipMemcpy(&output, &input, sizeof(int), hipMemcpyHostToDevice) != hipErrorInvalidValue) return 12;
+  if (hipMemcpy(&output, &input, sizeof(int), hipMemcpyDeviceToHost) != hipErrorInvalidValue) return 13;
+  if (hipMemcpy(&output, &input, sizeof(int), hipMemcpyDeviceToDevice) != hipErrorInvalidValue) return 14;
+
+  if (hipMemcpy(dev, &input, sizeof(int), hipMemcpyHostToDevice) != hipSuccess) return 15;
+  if (hipMemcpy(&output, dev, sizeof(int), hipMemcpyDeviceToHost) != hipSuccess) return 16;
+  if (output != input) return 17;
+  if (hipFree(dev) != hipSuccess) return 18;
+  std::puts("ld_preload invalid memcpy api ok");
+  return 0;
+}
+)";
+  }
+
+  const std::string compile_command =
+      "env -u LD_PRELOAD " + test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " +
+      exe_path.string();
+  ASSERT_EQ(std::system(compile_command.c_str()), 0);
+
+  const std::string run_command =
+      "env LD_PRELOAD=" + MakeLdPreloadValue(abi_library_path) +
+      " GPU_MODEL_HIP_RUNTIME_ABI_DEBUG=1 " + exe_path.string() + " > " + stdout_path.string() +
+      " 2>&1";
+  ASSERT_EQ(std::system(run_command.c_str()), 0);
+
+  std::ifstream in(stdout_path);
+  ASSERT_TRUE(static_cast<bool>(in));
+  const std::string output((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+  EXPECT_NE(output.find("ld_preload invalid memcpy api ok"), std::string::npos);
 
   std::filesystem::remove_all(temp_dir);
 }
