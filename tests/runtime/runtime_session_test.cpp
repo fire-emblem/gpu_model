@@ -76,6 +76,25 @@ TEST(RuntimeSessionTest, SupportsSynchronousMemoryApiMatrixWithoutKernelLaunch) 
   uint32_t patched_word = 0;
   session.MemcpyDeviceToHost(&patched_word, managed_dst_offset, sizeof(patched_word));
   EXPECT_EQ(patched_word, patch_value);
+  managed_allocation = session.FindCompatibilityAllocation(managed_dst);
+  ASSERT_NE(managed_allocation, nullptr);
+  managed_words = reinterpret_cast<const uint32_t*>(managed_allocation->mapped_addr);
+  EXPECT_EQ(managed_words[0], input[0]);
+  EXPECT_EQ(managed_words[1], input[1]);
+  EXPECT_EQ(managed_words[2], patch_value);
+  EXPECT_EQ(managed_words[3], input[3]);
+
+  auto* managed_fill_offset =
+      reinterpret_cast<std::byte*>(managed_dst) + 3 * sizeof(uint32_t);
+  session.MemsetDeviceD32(managed_fill_offset, 0xa5a5a5a5u, 2);
+  std::array<uint32_t, count> managed_after_fill{};
+  session.MemcpyDeviceToHost(managed_after_fill.data(), managed_dst,
+                             managed_after_fill.size() * sizeof(uint32_t));
+  EXPECT_EQ(managed_after_fill[0], input[0]);
+  EXPECT_EQ(managed_after_fill[1], input[1]);
+  EXPECT_EQ(managed_after_fill[2], patch_value);
+  EXPECT_EQ(managed_after_fill[3], 0xa5a5a5a5u);
+  EXPECT_EQ(managed_after_fill[4], 0xa5a5a5a5u);
 }
 
 TEST(RuntimeSessionTest, RejectsUnknownPointersAcrossMemcpyAndMemsetApis) {
@@ -119,6 +138,22 @@ TEST(RuntimeSessionTest, ReleasedPointersLoseCompatibilityMapping) {
   EXPECT_EQ(session.FindCompatibilityAllocation(ptr), nullptr);
   EXPECT_FALSE(session.FreeDevice(ptr));
   EXPECT_THROW(session.ResolveDeviceAddress(ptr), std::invalid_argument);
+}
+
+TEST(RuntimeSessionTest, RejectsInteriorFreeWithoutInvalidatingBaseAllocation) {
+  RuntimeSession session;
+
+  void* ptr = session.AllocateDevice(64);
+  auto* interior = reinterpret_cast<std::byte*>(ptr) + 4;
+  ASSERT_TRUE(session.IsDevicePointer(ptr));
+  ASSERT_TRUE(session.IsDevicePointer(interior));
+
+  EXPECT_FALSE(session.FreeDevice(interior));
+  EXPECT_TRUE(session.IsDevicePointer(ptr));
+  EXPECT_EQ(session.FindCompatibilityAllocation(ptr), session.FindCompatibilityAllocation(interior));
+  EXPECT_NO_THROW(static_cast<void>(session.ResolveDeviceAddress(ptr)));
+  EXPECT_TRUE(session.FreeDevice(ptr));
+  EXPECT_FALSE(session.IsDevicePointer(ptr));
 }
 
 TEST(DeviceMemoryManagerTest, ReleasedPointersLoseAllocationAndResolvedAddress) {

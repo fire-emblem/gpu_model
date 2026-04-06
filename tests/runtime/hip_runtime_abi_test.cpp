@@ -1245,6 +1245,65 @@ int main() {
   std::filesystem::remove_all(temp_dir);
 }
 
+TEST(HipRuntimeAbiTest, RejectsInteriorPointerFreeWithoutInvalidatingBaseThroughLdPreloadHipRuntimeAbi) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto build_dir = BuildDirPath();
+  const auto abi_library_path = build_dir / "libgpu_model_hip_runtime_abi.so";
+  if (!std::filesystem::exists(abi_library_path)) {
+    GTEST_SKIP() << "missing hip runtime abi library: " << abi_library_path;
+  }
+
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_hip_ld_preload_interior_free");
+  const auto src_path = temp_dir / "hip_ld_preload_interior_free.cpp";
+  const auto exe_path = temp_dir / "hip_ld_preload_interior_free.out";
+  const auto stdout_path = temp_dir / "stdout.txt";
+
+  {
+    std::ofstream out(src_path);
+    ASSERT_TRUE(static_cast<bool>(out));
+    out << R"(
+#include <hip/hip_runtime.h>
+#include <cstdio>
+#include <cstdint>
+
+int main() {
+  std::uint32_t input = 1234;
+  std::uint32_t output = 0;
+  unsigned char* dev = nullptr;
+  if (hipMalloc(reinterpret_cast<void**>(&dev), sizeof(std::uint32_t) * 2) != hipSuccess) return 10;
+  if (hipMemcpy(dev, &input, sizeof(input), hipMemcpyHostToDevice) != hipSuccess) return 11;
+  if (hipFree(dev + 1) != hipErrorInvalidValue) return 12;
+  if (hipMemcpy(&output, dev, sizeof(output), hipMemcpyDeviceToHost) != hipSuccess) return 13;
+  if (output != input) return 14;
+  if (hipFree(dev) != hipSuccess) return 15;
+  std::puts("ld_preload interior free ok");
+  return 0;
+}
+)";
+  }
+
+  const std::string compile_command =
+      "env -u LD_PRELOAD " + test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " +
+      exe_path.string();
+  ASSERT_EQ(std::system(compile_command.c_str()), 0);
+
+  const std::string run_command =
+      "env LD_PRELOAD=" + MakeLdPreloadValue(abi_library_path) +
+      " GPU_MODEL_HIP_RUNTIME_ABI_DEBUG=1 " + exe_path.string() + " > " + stdout_path.string() +
+      " 2>&1";
+  ASSERT_EQ(std::system(run_command.c_str()), 0);
+
+  std::ifstream in(stdout_path);
+  ASSERT_TRUE(static_cast<bool>(in));
+  const std::string output((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+  EXPECT_NE(output.find("ld_preload interior free ok"), std::string::npos);
+
+  std::filesystem::remove_all(temp_dir);
+}
+
 TEST(HipRuntimeAbiTest, RunsHipHostExecutableWithManagedMemorySyncThroughLdPreloadHipRuntimeAbi) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
