@@ -25,5 +25,18 @@ TEST(DeviceMemoryManagerTest, ClassifiesPointersByCompatibilityWindow) {
   EXPECT_EQ(*managed_kind, MemoryPoolKind::Managed);
 }
 
+TEST(DeviceMemoryManagerTest, ReusesFreedAddressWithinSamePool) {
+  MemorySystem memory;
+  DeviceMemoryManager manager(&memory);
+
+  void* first = manager.AllocateGlobal(64, memory.AllocateGlobal(64));
+  ASSERT_NE(first, nullptr);
+  ASSERT_TRUE(manager.Free(first));
+
+  void* second = manager.AllocateGlobal(64, memory.AllocateGlobal(64));
+  ASSERT_NE(second, nullptr);
+  EXPECT_EQ(second, first);
+}
+
 }  // namespace
 }  // namespace gpu_model

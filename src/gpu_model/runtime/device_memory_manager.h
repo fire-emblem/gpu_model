@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <array>
 #include <optional>
+#include <vector>
 #include <unordered_map>
 
 #include "gpu_model/memory/memory_pool.h"
@@ -14,10 +15,16 @@ namespace gpu_model {
 class DeviceMemoryManager {
  public:
   struct CompatibilityWindow {
+    struct FreeRange {
+      size_t offset = 0;
+      size_t size = 0;
+    };
+
     MemoryPoolKind pool = MemoryPoolKind::Global;
     uintptr_t base = 0;
     size_t size = 0;
     size_t next_offset = 0;
+    std::vector<FreeRange> free_ranges;
   };
 
   struct CompatibilityAllocation {
@@ -58,11 +65,14 @@ class DeviceMemoryManager {
   static std::array<CompatibilityWindow, kCompatibilityWindowCount> BuildDefaultWindows();
   static size_t PageAlignedBytes(size_t bytes);
   static std::byte* ReserveCompatibilityWindow(uintptr_t base, size_t bytes);
+  static void ReleaseCompatibilityWindow(uintptr_t base, size_t bytes);
   static std::byte* CommitCompatibilitySpan(uintptr_t base, size_t bytes, int protection);
   static void UnmapCompatibilitySpan(std::byte* addr, size_t mapped_bytes);
 
   CompatibilityWindow* MutableWindow(MemoryPoolKind pool);
   const CompatibilityWindow* FindWindowForPointer(const void* ptr) const;
+  static std::optional<size_t> TryReuseFreeRange(CompatibilityWindow& window, size_t bytes);
+  static void ReleaseRange(CompatibilityWindow& window, size_t offset, size_t size);
   CompatibilityAllocation& PutAllocation(uintptr_t key, CompatibilityAllocation allocation);
   void EraseAllocation(const void* ptr);
 

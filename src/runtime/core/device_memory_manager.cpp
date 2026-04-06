@@ -26,6 +26,9 @@ DeviceMemoryManager::DeviceMemoryManager(MemorySystem* memory)
 
 DeviceMemoryManager::~DeviceMemoryManager() {
   Reset();
+  for (const auto& window : windows_) {
+    ReleaseCompatibilityWindow(window.base, window.size);
+  }
 }
 
 void DeviceMemoryManager::BindMemory(MemorySystem* memory) {
@@ -42,6 +45,7 @@ void DeviceMemoryManager::Reset() {
   allocations_.clear();
   for (auto& window : windows_) {
     window.next_offset = 0;
+    window.free_ranges.clear();
   }
 }
 
@@ -51,12 +55,19 @@ void* DeviceMemoryManager::AllocateGlobal(size_t bytes, uint64_t model_addr) {
     throw std::runtime_error("missing global compatibility window");
   }
   const size_t mapped_bytes = PageAlignedBytes(std::max<size_t>(bytes, 1u));
-  if (window->next_offset + mapped_bytes > window->size) {
-    throw std::runtime_error("global compatibility window exhausted");
+  const auto reused_offset = TryReuseFreeRange(*window, mapped_bytes);
+  size_t offset = 0;
+  if (reused_offset.has_value()) {
+    offset = *reused_offset;
+  } else {
+    if (window->next_offset + mapped_bytes > window->size) {
+      throw std::runtime_error("global compatibility window exhausted");
+    }
+    offset = window->next_offset;
+    window->next_offset += mapped_bytes;
   }
-  const uintptr_t addr = window->base + window->next_offset;
+  const uintptr_t addr = window->base + offset;
   auto* mapped_addr = CommitCompatibilitySpan(addr, mapped_bytes, PROT_NONE);
-  window->next_offset += mapped_bytes;
   CompatibilityAllocation allocation;
   allocation.model_addr = model_addr;
   allocation.bytes = bytes;
@@ -73,12 +84,19 @@ void* DeviceMemoryManager::AllocateManaged(size_t bytes, uint64_t model_addr) {
     throw std::runtime_error("missing managed compatibility window");
   }
   const size_t mapped_bytes = PageAlignedBytes(std::max<size_t>(bytes, 1u));
-  if (window->next_offset + mapped_bytes > window->size) {
-    throw std::runtime_error("managed compatibility window exhausted");
+  const auto reused_offset = TryReuseFreeRange(*window, mapped_bytes);
+  size_t offset = 0;
+  if (reused_offset.has_value()) {
+    offset = *reused_offset;
+  } else {
+    if (window->next_offset + mapped_bytes > window->size) {
+      throw std::runtime_error("managed compatibility window exhausted");
+    }
+    offset = window->next_offset;
+    window->next_offset += mapped_bytes;
   }
-  const uintptr_t addr = window->base + window->next_offset;
+  const uintptr_t addr = window->base + offset;
   auto* mapped_addr = CommitCompatibilitySpan(addr, mapped_bytes, PROT_READ | PROT_WRITE);
-  window->next_offset += mapped_bytes;
   std::memset(mapped_addr, 0, bytes);
   CompatibilityAllocation allocation{
       .model_addr = model_addr,
@@ -95,7 +113,13 @@ bool DeviceMemoryManager::Free(void* device_ptr) {
   if (allocation == nullptr) {
     return false;
   }
+  auto* window = MutableWindow(allocation->pool);
+  if (window == nullptr) {
+    throw std::runtime_error("missing compatibility window for allocation");
+  }
+  const size_t offset = reinterpret_cast<uintptr_t>(allocation->mapped_addr) - window->base;
   UnmapCompatibilitySpan(allocation->mapped_addr, allocation->mapped_bytes);
+  ReleaseRange(*window, offset, allocation->mapped_bytes);
   EraseAllocation(device_ptr);
   return true;
 }
@@ -186,11 +210,13 @@ DeviceMemoryManager::BuildDefaultWindows() {
   return {{{.pool = MemoryPoolKind::Global,
             .base = kGlobalCompatWindowBase,
             .size = kCompatibilityWindowSize,
-            .next_offset = 0},
+            .next_offset = 0,
+            .free_ranges = {}},
            {.pool = MemoryPoolKind::Managed,
             .base = kManagedCompatWindowBase,
             .size = kCompatibilityWindowSize,
-            .next_offset = 0}}};
+            .next_offset = 0,
+            .free_ranges = {}}}};
 }
 
 std::byte* DeviceMemoryManager::ReserveCompatibilityWindow(uintptr_t base, size_t bytes) {
@@ -204,6 +230,10 @@ std::byte* DeviceMemoryManager::ReserveCompatibilityWindow(uintptr_t base, size_
     throw std::runtime_error("failed to reserve compatibility window");
   }
   return reinterpret_cast<std::byte*>(addr);
+}
+
+void DeviceMemoryManager::ReleaseCompatibilityWindow(uintptr_t base, size_t bytes) {
+  ::munmap(reinterpret_cast<void*>(base), bytes);
 }
 
 std::byte* DeviceMemoryManager::CommitCompatibilitySpan(uintptr_t base,
@@ -257,6 +287,43 @@ const DeviceMemoryManager::CompatibilityWindow* DeviceMemoryManager::FindWindowF
     }
   }
   return nullptr;
+}
+
+std::optional<size_t> DeviceMemoryManager::TryReuseFreeRange(CompatibilityWindow& window,
+                                                             size_t bytes) {
+  for (size_t i = 0; i < window.free_ranges.size(); ++i) {
+    auto& range = window.free_ranges[i];
+    if (range.size < bytes) {
+      continue;
+    }
+    const size_t offset = range.offset;
+    if (range.size == bytes) {
+      window.free_ranges.erase(window.free_ranges.begin() + static_cast<std::ptrdiff_t>(i));
+    } else {
+      range.offset += bytes;
+      range.size -= bytes;
+    }
+    return offset;
+  }
+  return std::nullopt;
+}
+
+void DeviceMemoryManager::ReleaseRange(CompatibilityWindow& window, size_t offset, size_t size) {
+  window.free_ranges.push_back({.offset = offset, .size = size});
+  std::sort(window.free_ranges.begin(), window.free_ranges.end(), [](const auto& lhs, const auto& rhs) {
+    return lhs.offset < rhs.offset;
+  });
+
+  std::vector<CompatibilityWindow::FreeRange> merged;
+  merged.reserve(window.free_ranges.size());
+  for (const auto& range : window.free_ranges) {
+    if (!merged.empty() && merged.back().offset + merged.back().size == range.offset) {
+      merged.back().size += range.size;
+    } else {
+      merged.push_back(range);
+    }
+  }
+  window.free_ranges = std::move(merged);
 }
 
 }  // namespace gpu_model
