@@ -1,6 +1,7 @@
 #include "gpu_model/runtime/device_memory_manager.h"
 
 #include <algorithm>
+#include <array>
 #include <cstring>
 #include <stdexcept>
 
@@ -9,7 +10,19 @@
 
 namespace gpu_model {
 
-DeviceMemoryManager::DeviceMemoryManager(MemorySystem* memory) : memory_(memory) {}
+namespace {
+
+constexpr uintptr_t kGlobalCompatWindowBase = 0x0000600000000000ull;
+constexpr uintptr_t kManagedCompatWindowBase = 0x0000610000000000ull;
+
+}  // namespace
+
+DeviceMemoryManager::DeviceMemoryManager(MemorySystem* memory)
+    : memory_(memory), windows_(BuildDefaultWindows()) {
+  for (const auto& window : windows_) {
+    ReserveCompatibilityWindow(window.base, window.size);
+  }
+}
 
 DeviceMemoryManager::~DeviceMemoryManager() {
   Reset();
@@ -22,32 +35,57 @@ void DeviceMemoryManager::BindMemory(MemorySystem* memory) {
 void DeviceMemoryManager::Reset() {
   for (auto& [key, allocation] : allocations_) {
     (void)key;
-    UnmapCompatibilitySpan(allocation.mapped_addr, allocation.mapped_bytes);
+    CommitCompatibilitySpan(reinterpret_cast<uintptr_t>(allocation.mapped_addr),
+                            allocation.mapped_bytes,
+                            PROT_NONE);
   }
   allocations_.clear();
+  for (auto& window : windows_) {
+    window.next_offset = 0;
+  }
 }
 
 void* DeviceMemoryManager::AllocateGlobal(size_t bytes, uint64_t model_addr) {
-  auto* mapped_addr = MapCompatibilitySpan(bytes, PROT_NONE);
+  auto* window = MutableWindow(MemoryPoolKind::Global);
+  if (window == nullptr) {
+    throw std::runtime_error("missing global compatibility window");
+  }
+  const size_t mapped_bytes = PageAlignedBytes(std::max<size_t>(bytes, 1u));
+  if (window->next_offset + mapped_bytes > window->size) {
+    throw std::runtime_error("global compatibility window exhausted");
+  }
+  const uintptr_t addr = window->base + window->next_offset;
+  auto* mapped_addr = CommitCompatibilitySpan(addr, mapped_bytes, PROT_NONE);
+  window->next_offset += mapped_bytes;
   CompatibilityAllocation allocation;
   allocation.model_addr = model_addr;
   allocation.bytes = bytes;
   allocation.pool = MemoryPoolKind::Global;
   allocation.mapped_addr = mapped_addr;
-  allocation.mapped_bytes = PageAlignedBytes(std::max<size_t>(bytes, 1u));
+  allocation.mapped_bytes = mapped_bytes;
   PutAllocation(reinterpret_cast<uintptr_t>(mapped_addr), std::move(allocation));
   return reinterpret_cast<void*>(mapped_addr);
 }
 
 void* DeviceMemoryManager::AllocateManaged(size_t bytes, uint64_t model_addr) {
-  auto* mapped_addr = MapCompatibilitySpan(bytes, PROT_READ | PROT_WRITE);
+  auto* window = MutableWindow(MemoryPoolKind::Managed);
+  if (window == nullptr) {
+    throw std::runtime_error("missing managed compatibility window");
+  }
+  const size_t mapped_bytes = PageAlignedBytes(std::max<size_t>(bytes, 1u));
+  if (window->next_offset + mapped_bytes > window->size) {
+    throw std::runtime_error("managed compatibility window exhausted");
+  }
+  const uintptr_t addr = window->base + window->next_offset;
+  auto* mapped_addr = CommitCompatibilitySpan(addr, mapped_bytes, PROT_READ | PROT_WRITE);
+  window->next_offset += mapped_bytes;
   std::memset(mapped_addr, 0, bytes);
   CompatibilityAllocation allocation{
       .model_addr = model_addr,
       .bytes = bytes,
       .pool = MemoryPoolKind::Managed,
       .mapped_addr = mapped_addr,
-      .mapped_bytes = PageAlignedBytes(std::max<size_t>(bytes, 1u))};
+      .mapped_bytes = mapped_bytes};
   PutAllocation(reinterpret_cast<uintptr_t>(mapped_addr), std::move(allocation));
   return reinterpret_cast<void*>(mapped_addr);
 }
@@ -68,6 +106,19 @@ bool DeviceMemoryManager::HasAllocation(const void* ptr) const {
 
 bool DeviceMemoryManager::IsDevicePointer(const void* ptr) const {
   return HasAllocation(ptr);
+}
+
+bool DeviceMemoryManager::IsPointerInCompatibilityWindow(const void* ptr) const {
+  return FindWindowForPointer(ptr) != nullptr;
+}
+
+std::optional<MemoryPoolKind> DeviceMemoryManager::ClassifyCompatibilityPointer(
+    const void* ptr) const {
+  const auto* window = FindWindowForPointer(ptr);
+  if (window == nullptr) {
+    return std::nullopt;
+  }
+  return window->pool;
 }
 
 DeviceMemoryManager::CompatibilityAllocation* DeviceMemoryManager::FindAllocation(const void* ptr) {
@@ -129,9 +180,41 @@ size_t DeviceMemoryManager::PageAlignedBytes(size_t bytes) {
   return ((bytes + alignment - 1) / alignment) * alignment;
 }
 
-std::byte* DeviceMemoryManager::MapCompatibilitySpan(size_t bytes, int protection) {
-  const size_t mapped_bytes = PageAlignedBytes(std::max<size_t>(bytes, 1u));
-  void* addr = ::mmap(nullptr, mapped_bytes, protection, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+std::array<DeviceMemoryManager::CompatibilityWindow,
+           DeviceMemoryManager::kCompatibilityWindowCount>
+DeviceMemoryManager::BuildDefaultWindows() {
+  return {{{.pool = MemoryPoolKind::Global,
+            .base = kGlobalCompatWindowBase,
+            .size = kCompatibilityWindowSize,
+            .next_offset = 0},
+           {.pool = MemoryPoolKind::Managed,
+            .base = kManagedCompatWindowBase,
+            .size = kCompatibilityWindowSize,
+            .next_offset = 0}}};
+}
+
+std::byte* DeviceMemoryManager::ReserveCompatibilityWindow(uintptr_t base, size_t bytes) {
+  void* addr = ::mmap(reinterpret_cast<void*>(base),
+                      bytes,
+                      PROT_NONE,
+                      MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE | MAP_FIXED_NOREPLACE,
+                      -1,
+                      0);
+  if (addr == MAP_FAILED) {
+    throw std::runtime_error("failed to reserve compatibility window");
+  }
+  return reinterpret_cast<std::byte*>(addr);
+}
+
+std::byte* DeviceMemoryManager::CommitCompatibilitySpan(uintptr_t base,
+                                                        size_t bytes,
+                                                        int protection) {
+  void* addr = ::mmap(reinterpret_cast<void*>(base),
+                      bytes,
+                      protection,
+                      MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
+                      -1,
+                      0);
   if (addr == MAP_FAILED) {
     throw std::runtime_error("mmap failed for compatibility allocation");
   }
@@ -154,6 +237,26 @@ DeviceMemoryManager::CompatibilityAllocation& DeviceMemoryManager::PutAllocation
 
 void DeviceMemoryManager::EraseAllocation(const void* ptr) {
   allocations_.erase(reinterpret_cast<uintptr_t>(ptr));
+}
+
+DeviceMemoryManager::CompatibilityWindow* DeviceMemoryManager::MutableWindow(MemoryPoolKind pool) {
+  for (auto& window : windows_) {
+    if (window.pool == pool) {
+      return &window;
+    }
+  }
+  return nullptr;
+}
+
+const DeviceMemoryManager::CompatibilityWindow* DeviceMemoryManager::FindWindowForPointer(
+    const void* ptr) const {
+  const auto addr = reinterpret_cast<uintptr_t>(ptr);
+  for (const auto& window : windows_) {
+    if (addr >= window.base && addr < window.base + window.size) {
+      return &window;
+    }
+  }
+  return nullptr;
 }
 
 }  // namespace gpu_model

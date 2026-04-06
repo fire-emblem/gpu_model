@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 #include <optional>
 #include <unordered_map>
 
@@ -12,6 +13,13 @@ namespace gpu_model {
 
 class DeviceMemoryManager {
  public:
+  struct CompatibilityWindow {
+    MemoryPoolKind pool = MemoryPoolKind::Global;
+    uintptr_t base = 0;
+    size_t size = 0;
+    size_t next_offset = 0;
+  };
+
   struct CompatibilityAllocation {
     uint64_t model_addr = 0;
     size_t bytes = 0;
@@ -35,6 +43,8 @@ class DeviceMemoryManager {
 
   bool HasAllocation(const void* ptr) const;
   bool IsDevicePointer(const void* ptr) const;
+  bool IsPointerInCompatibilityWindow(const void* ptr) const;
+  std::optional<MemoryPoolKind> ClassifyCompatibilityPointer(const void* ptr) const;
   CompatibilityAllocation* FindAllocation(const void* ptr);
   const CompatibilityAllocation* FindAllocation(const void* ptr) const;
   uint64_t ResolveDeviceAddress(const void* ptr) const;
@@ -43,14 +53,21 @@ class DeviceMemoryManager {
   void SyncManagedDeviceToHost();
 
  private:
+  static constexpr size_t kCompatibilityWindowCount = 2;
+  static constexpr size_t kCompatibilityWindowSize = 1ull << 30;
+  static std::array<CompatibilityWindow, kCompatibilityWindowCount> BuildDefaultWindows();
   static size_t PageAlignedBytes(size_t bytes);
-  static std::byte* MapCompatibilitySpan(size_t bytes, int protection);
+  static std::byte* ReserveCompatibilityWindow(uintptr_t base, size_t bytes);
+  static std::byte* CommitCompatibilitySpan(uintptr_t base, size_t bytes, int protection);
   static void UnmapCompatibilitySpan(std::byte* addr, size_t mapped_bytes);
 
+  CompatibilityWindow* MutableWindow(MemoryPoolKind pool);
+  const CompatibilityWindow* FindWindowForPointer(const void* ptr) const;
   CompatibilityAllocation& PutAllocation(uintptr_t key, CompatibilityAllocation allocation);
   void EraseAllocation(const void* ptr);
 
   MemorySystem* memory_ = nullptr;
+  std::array<CompatibilityWindow, kCompatibilityWindowCount> windows_{};
   std::unordered_map<uintptr_t, CompatibilityAllocation> allocations_;
 };
 
