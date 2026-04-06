@@ -59,6 +59,17 @@
 - 对测试、工具和非 HIP 入口暴露模型能力
 - 转发 load、launch、memory、trace 请求到内部执行引擎
 
+补强重点：
+
+- runtime 重要 API 的完备性
+- 不同 `memcpy` / `memset` 语义与错误路径
+- 可脱离 kernel launch 的 lightweight runtime tests
+
+当前阶段边界：
+
+- 先不把异常路径测试作为第一批主线
+- 先把同步语义下的 `malloc/free/memcpy/memset` 主路径框架和测试矩阵写清
+
 长期命名建议：
 
 - `ModelRuntime`
@@ -144,6 +155,19 @@
   - `Kernarg`
   - `Code`
   - `RawData`
+- 后续关键 pool 的底层实现应逐步收口到统一的 `mmap` backed residency，以便：
+  - 清晰表达 segment 映射
+  - 支持 map/copy/zero-fill 语义
+  - 让 runtime memory tests 不依赖 kernel launch
+
+推荐第一阶段落地顺序：
+
+1. `Global` pool
+2. `Kernarg` pool
+3. `Code` / `RawData` pool
+4. `Constant` pool
+
+第一阶段先不追求所有 pool 都完整 `mmap` 化，而是先建立统一接口和 `Global` 的参考实现。
 
 ## 4. 指令层
 
@@ -171,6 +195,10 @@
 - encoding descriptor、decoded instruction、executable binding 应分层
 - decode / disasm 主线应继续朝“append-only 的 encoding definition + decoder + formatter”收口，而不是散落的 opcode 分支
 - 项目内 disasm 应来自项目自身对 encoded bytes 的解释，而不是长期依赖外部 `objdump` 文本作为主语义来源
+- 对指令实现层，后续应建立 text asm -> binary -> kernel program 的统一验证主线：
+  - 先验证 decode / execute 不 crash
+  - 再验证结果寄存器 / 内存副作用正确
+  - 并对 `st / mt / cycle` 做一致性和语义校准
 
 ### 4.2 建模指令层
 
@@ -284,6 +312,7 @@ operand 只描述静态信息，不直接持有执行态寄存器值。
 - `functional mt` 的并行单位应是 wave，而不是更粗粒度的 block。
 - `MarlParallel` 的目标不是复刻硬件拍级并发，而是提供 wave 级并发、等待恢复和调度竞争的可解释模型。
 - block-local shared state、barrier release、memory wait / resume 都必须通过显式状态机或同步原语表达，而不是隐式依赖宿主线程调度偶然正确。
+- `st / mt / cycle` 的执行结果必须以正式设计语义为准，而不是以 trace 或宿主线程调度偶然形态为准。
 
 ### 6.2 PEU / Wave Issue 约束
 
@@ -327,6 +356,20 @@ operand 只描述静态信息，不直接持有执行态寄存器值。
 - producer 与 test 侧的 trace 构造应继续统一到单一 semantic factory / builder 入口。
 - consumer 侧应继续统一到 canonical typed event interpretation，而不是各自从 `message` 二次猜语义。
 - `TraceEvent.message` 只能作为兼容/展示字段继续存在，不应再充当主语义契约。
+- text/json trace 必须可关闭，且关闭时不能依赖业务逻辑降级或改变执行结果。
+
+### 7.2.1 日志正式约束
+
+- 项目日志应统一到 `loguru`。
+- runtime / program / instruction / execution / trace 各模块都应使用统一日志入口，而不是各自分散输出。
+- 关键调试信息应围绕：
+  - runtime API 入参与错误路径
+  - memory pool / address mapping
+  - program load / segment materialize
+  - wave launch / wait / resume / issue
+  - cycle stall / selection / commit
+  进行结构化输出。
+- 但第一批实现优先级仍低于 runtime/memory 主框架；先保证关键交互关系和接口边界稳定，再统一日志实现。
 
 ### 7.3 模型时间语义
 
@@ -365,6 +408,10 @@ operand 只描述静态信息，不直接持有执行态寄存器值。
 - cycle observability / stall taxonomy
 - `ProgramCycleStats` calibration
 - examples full-batch verification
+- runtime API closure
+- memory pool / `mmap` mapping
+- ISA asm-kernel validation
+- unified logging
 
 其中还应默认遵守以下更细约束：
 
@@ -374,6 +421,33 @@ operand 只描述静态信息，不直接持有执行态寄存器值。
 - `128 x 128 conditional multibarrier` 真实 HIP case 继续作为 program stats 与多 barrier 稳定性的主 baseline 之一。
 
 历史 plans/specs 中若包含更细的步骤、旧命名或过渡方案，应视为 archive，而不是当前规范。
+
+### 7.7 面向终极目标的设计分层
+
+终极目标应明确分成三层，而不是混成一个“大而全”的目标：
+
+1. `Result-correct functional layer`
+   - 以 `st/mt` 为主
+   - 目标是得到与真实 GPU 一致的最终执行结果
+   - host 测试可直接验证通过
+
+2. `Reference-cycle functional layer`
+   - 仍以 `st/mt` 为基础
+   - 目标是输出稳定、可比较、对优化有指导意义的参考 cycle
+   - 算法或 schedule 变化时，cycle 趋势应有解释力
+
+3. `Refined cycle-simulation layer`
+   - 即 `cycle mode`
+   - 目标是在 reference-cycle 之上继续细化资源、dispatch、stall、latency 建模
+   - 不是 correctness 的来源，而是更细粒度的 timing 模型
+
+因此优先级必须遵守：
+
+- 先 correctness
+- 再 reference cycle
+- 最后 refined cycle simulation
+
+而不是反过来用 cycle mode 去定义 correctness 主线。
 
 ## 8. Wave 执行上下文
 

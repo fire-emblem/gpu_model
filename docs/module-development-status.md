@@ -45,15 +45,16 @@
 
 ## 当前正式任务主线
 
-当前正式 task tracks 只保留以下七项：
+当前正式 task tracks 只保留以下八项：
 
-1. `trace canonical event model`
-2. `trace unified entry`
-3. `functional mt scheduler semantics`
-4. `cycle observability / stall taxonomy`
-5. `ProgramCycleStats calibration`
-6. `examples` 全量分批检查
-7. docs 资产整理与 archive 收口
+1. `runtime API closure`
+2. `memory pool / mmap residency`
+3. `ISA validation expansion`
+4. `semantic calibration`
+5. `trace canonical event model`
+6. `trace unified entry + disable-trace boundary`
+7. `unified logging`
+8. docs / status tracking
 
 说明：
 
@@ -149,12 +150,12 @@
 | `M4` | GCN ISA 语义执行 | 支持全部 GCN ISA 的 functional 执行，包括标量、向量、访存、控制流、同步、LDS、MFMA | `Partial` | instruction ISA functional/cycle 已覆盖较多基础指令；encoded instruction 路径已支持真实 `.out` compute kernel 主线；已支持 `vecadd/fma_loop/bias_chain/shared_reverse/softmax_row/mfma`；decode 阶段已完成 `op_type -> opcode -> concrete instruction object` 工厂实例化；`instruction/*` 与 `execution/*` 主命名已成为公开主路径；`exec/*` 旧目录主干已迁入 `instruction/*` 与 `execution/*`；此前 6 个 instruction/execution/MFMA 相关失败测试已清零；shared-heavy 真实 HIP 执行主线已收口到 `shared_reverse + dynamic_shared_sum + block_reduce_sum + softmax_row` 四锚点，不再只依赖单一 case | 距离“全部 GCN ISA 执行”仍有差距；graphics family/descriptor family 仍主要占位；仍需继续做系统化 opcode 覆盖与归类 |
 | `M5` | LLVM AMDGPU ABI / wave 启动 | 正确读取 kernarg、hidden args、special SGPR/VGPR、block/thread/grid 维度、wave 启动初值 | `Partial` | 已有 descriptor + metadata 驱动的 wave 初始 SGPR/VGPR preload；已支持 kernarg segment ptr、workgroup id、workitem id、hidden block/group args、`x/y/z` grid-block launch 维度、encoded `.out` launch ABI 主线；kernarg 打包已抽成公共模块；visible arg offset/aggregate、`3D hidden args`、fallback encoded ABI kernarg 约定已有回归覆盖；真实 `hipcc` 生成的 `3D hidden-arg` 与 `3D builtin-id` encoded 路径现已在 decode / interposer / runtime 三层 focused regression 下可执行验证；`WaveLaunch` trace 已能对已知 ABI 字段输出 `kernarg_ptr/wg_id_x/y/z/workitem_id_x/y/z` 语义摘要，并对未知字段保留原始寄存器回退 | 还缺更完整的 system SGPR/VGPR 集合；还缺更多 target-specific ABI 差异；还缺 wave 启动寄存器 trace dump 进一步细化 |
 | `M6` | Functional 执行核心 | 单线程和多线程共用一套 functional core；支持 wave/block/device 层级执行；支持 `st/mt` 切换 | `Partial` | 已有共享 `FunctionalExecEngine` 核心；`st/mt` 已共核；已有 PEU-local wave pool、round-robin、block 内 shared/barrier kernel 的 `mt` 路径；marl 已接入；`1D/2D/3D` launch 配置、placement 和 `xyz` builtin 主线已打通；真实 `hipcc` 生成的 `3D vecadd + 条件边界 + 小计算量` 程序已能经 `.out -> lowered modeled program object` 路径在 `st/mt` 下对比执行；内部执行支撑件已稳定收敛到 `execution/internal/*`；已新增显式 wave run state，`FunctionalExecEngine` 的 `waitcnt` 进入等待、memory wait 恢复、barrier release 恢复现已收敛到共享状态契约，waiting-wave 扫描入口也已在 `st/mt` 下统一复用，相关 focused regression 已锁定；同 `PEU` 上显式进入 `Waiting` 的 wave 现在也已有 focused regression 证明不会阻塞 ready sibling，barrier release 后的早到 wave 会重新进入 dispatch；functional `st/mt` 现已从 trace 计数时间收口到 modeled time：纯 scalar `100` 指令、dense global load overlap、implicit drain、wait/resume quantum 语义都已有 focused regression；`Functional st` 作为确定性的参考模型，`arrive_resume` 后在下一 issue quantum 起点消费，`Functional mt` 则保留 runnable wave 竞争；`ProgramCycleStats` 实际运行统计与大 block / 多 wave / 多 block / 非对称 wave work 的默认成本口径回归已锁定；`MarlParallel` 在大 block 且 worker_threads 偏小时已收口到稳定的 block-level 并行执行，避免多 block 大规模回归死锁 | 还缺更多 wait reason 扩展；还缺对任意 HIP 程序的大规模稳定性验证 |
-| `M7` | 内存系统与地址空间 | global/shared/private/constant/kernarg/data/managed 独立地址空间，host/device 拷贝与 map 映射 | `Partial` | 已有多 memory pool、managed、kernarg、constant、device load materialize、host/device 基本 memcpy、fake device ptr 到 model addr 映射 | 还缺 data/const/bss/relocation 更完整装载；还缺 host/device 独立地址空间模型文档化；还缺 map/unmap 语义完善；还缺 `3D` launch 对应地址与 builtins 闭环 |
+| `M7` | 内存系统与地址空间 | global/shared/private/constant/kernarg/data/managed 独立地址空间，host/device 拷贝与 map 映射 | `Partial` | 已有多 memory pool、managed、kernarg、constant、device load materialize、host/device 基本 memcpy、fake device ptr 到 model addr 映射 | 还缺统一的 `mmap` backed pool 主线；还缺不同 memcpy 方向与同步语义的轻量测试矩阵；还缺 data/const/bss/relocation 更完整装载；还缺 map/unmap 语义完善 |
 | `M8` | 同步、barrier、atomic | block barrier、wave barrier、global/shared/private 基本同步与常用 atomic | `Partial` | 已有 `s_barrier`、wave barrier、shared/global atomic add、shared memory barrier kernel 测试、functional `mt` 条件变量等待；barrier wait/release 现已统一落到显式 `run_state/wait_reason` 状态机，functional、cycle、raw-GCN 主线的 shared/barrier 回归已重新收口；`waitcnt` 的 `global/shared/private/scalar-buffer` memory-domain 与 barrier 现已共享同一 waiting/runnable 状态契约 | 还缺更多 atomic 指令覆盖；还缺更完整 waitcnt 领域与同步语义；还缺 encoded GCN 路径的系统同步覆盖（legacy raw GCN 路径仍需兼容）；还缺更完整同步 CTS |
 | `M9` | Tensor / MFMA | 支持 tensor core / MFMA 指令解析、反汇编、执行与结果验证 | `Partial` | 已有 `v_mfma_f32_16x16x4f32` 最小路径和 probe/test；encoded semantic 已覆盖 `f32/f16/bf16/i8` 多个 MFMA 变体与 shape；kernel descriptor / metadata 已能暴露 typed tensor ABI（如 `agpr_count/accum_offset`）；真实 `hipcc` 生成的 MFMA executable 已在 runtime / interposer / CTS 主线上验证 | 还缺 MFMA 指令族更系统覆盖；还缺寄存器布局、累加器语义与更多 datatype/shape 支持；还缺从“代表性真实 kernel”走向更广覆盖的 tensor 回归矩阵 |
-| `M10` | Trace / Log / Debug | 支持详细 log、instruction trace、wave launch trace、寄存器值打印、层级信息打印 | `Partial` | 已有 trace sink、file/json trace、ASCII timeline、Google trace、instruction trace、cycle timeline；`FunctionalExecEngine / EncodedExecEngine / CycleExecEngine` 三条当前执行 backend 已统一发出 `WaveLaunch` 事件并带初始 `WaveContext` 状态摘要；`WaveLaunch` 单行摘要已提升为“ABI 语义优先、原始寄存器回退”，raw-GCN/encoded 路径可直接观察 `kernarg_ptr`、`wg_id_*`、`workitem_id_*` 等字段；usage 脚本已能稳定导出 encoded decode 与 HIP interposer 主线结果；functional trace 已新增 `WaveStats` 快照，可观察 wave launch/init/active/end 生命周期进度，且已进一步拆分 `runnable/waiting` 并由 barrier / waitcnt regression 锁定；统一 wait-state machine 的 `Stall + WaveStats` 语义现已被 focused trace 回归直接覆盖；cycle 路径 `Stall` 事件现已统一使用稳定的 `reason=` schema，Perfetto/timeline focused 回归已锁定 `waitcnt_global` 与 barrier-heavy path 上的 stall 可观测性；runtime `LaunchResult` 现已统一暴露 `ProgramCycleStats`，便于直接查看 functional `st/mt` 的实际程序 cycle 统计；`timeline.perfetto.json` 现已新增结构正确性、`function mt` waiting/resume 语义，以及真实 `128 x 128 conditional multibarrier` HIP case 的 sanity 回归 | 还缺更完整的 wave 启动初始寄存器 dump；还缺标准化 debug 日志等级；还缺 encoded / functional / runtime 三条路径的统一 trace 格式进一步收敛 |
+| `M10` | Trace / Log / Debug | 支持详细 log、instruction trace、wave launch trace、寄存器值打印、层级信息打印 | `Partial` | 已有 trace sink、file/json trace、ASCII timeline、Google trace、instruction trace、cycle timeline；`FunctionalExecEngine / EncodedExecEngine / CycleExecEngine` 三条当前执行 backend 已统一发出 `WaveLaunch` 事件并带初始 `WaveContext` 状态摘要；`WaveLaunch` 单行摘要已提升为“ABI 语义优先、原始寄存器回退”，raw-GCN/encoded 路径可直接观察 `kernarg_ptr`、`wg_id_*`、`workitem_id_*` 等字段；usage 脚本已能稳定导出 encoded decode 与 HIP interposer 主线结果；functional trace 已新增 `WaveStats` 快照，可观察 wave launch/init/active/end 生命周期进度，且已进一步拆分 `runnable/waiting` 并由 barrier / waitcnt regression 锁定；统一 wait-state machine 的 `Stall + WaveStats` 语义现已被 focused trace 回归直接覆盖；cycle 路径 `Stall` 事件现已统一使用稳定的 `reason=` schema，Perfetto/timeline focused 回归已锁定 `waitcnt_global` 与 barrier-heavy path 上的 stall 可观测性；runtime `LaunchResult` 现已统一暴露 `ProgramCycleStats`，便于直接查看 functional `st/mt` 的实际程序 cycle 统计；`timeline.perfetto.json` 现已新增结构正确性、`function mt` waiting/resume 语义，以及真实 `128 x 128 conditional multibarrier` HIP case 的 sanity 回归 | 还缺 `loguru` 统一日志主线；还缺更完整的 wave 启动初始寄存器 dump；还缺 text/json trace 完全与业务逻辑解耦的收口；还缺 encoded / functional / runtime 三条路径的统一 trace 格式进一步收敛 |
 | `M11` | 命令行 `.out` 执行闭环 | `LD_PRELOAD` 后，任意第一阶段边界内 HIP 可执行程序可直接命令行执行 | `Partial` | 已有 host `main()` 原生执行 + `HipRuntime` C ABI 入口 + kernel 进入 model 的闭环；真实 `.out` 已验证 `vecadd/fma_loop/bias_chain/by_value_aggregate/atomic_count/shared_reverse/dynamic_shared_sum/block_reduce_sum/softmax_row/mfma`；兼容路径与 `LD_PRELOAD` 路径均有 CTS 覆盖；基础 property 查询与 model-native module API 已打通 | 还缺更完整 runtime API；还缺“任意 HIP 程序”所需的完整 decode/exec/runtime 覆盖 |
-| `M12` | 测试与状态门禁 | 用例矩阵、真实 HIP 程序、encoded decode、runtime、CTS、回归门禁 | `Partial` | 已有 gtest 统一测试；`HipRuntimeTest.*`、真实 HIP `.out` 兼容路径测试、encoded decode usage、主 CTS 和 feature CTS 均已打通；当前 fresh 全量 gate 已通过；`LD_PRELOAD` 路径现为通过态；shared-heavy `shared_reverse + dynamic_shared_sum + block_reduce_sum + softmax_row` 现已形成四锚点门禁，其中 `shared_reverse` 与 `dynamic_shared_sum` 已在 decode / hip runtime / model runtime 三层收口，并进入 HIP CTS 与 feature CTS 快速矩阵，`block_reduce_sum` 已补齐 decode / hip runtime / model runtime focused regression，并进入主 HIP CTS 快速矩阵，`softmax_row` 已具备 decode / hip runtime / model runtime focused regression、主 HIP CTS、parallel execution regression 和 example 闭环；atomic-heavy `atomic_count` 现也已进入主 HIP CTS 快速矩阵；ABI-heavy `by_value_aggregate` 现已补齐真实 HIP decoder regression，并进入主 HIP CTS 快速矩阵；`3D hidden args / builtin ids` 现也已补齐 decode / hip runtime / model runtime focused regression；executed-flow `ProgramCycleStats` 现已有 tracker-focused synthetic tests、runtime-focused 成本口径 tests，以及 `128 x 128 conditional multibarrier` HIP baseline 校准回归 | 还缺以“任意 HIP 可执行程序”为目标的分层门禁矩阵文档；还缺 decode/disasm/ABI/property/module-load 专项测试归档；还缺状态与模块看板绑定的验收标准 |
+| `M12` | 测试与状态门禁 | 用例矩阵、真实 HIP 程序、encoded decode、runtime、CTS、回归门禁 | `Partial` | 已有 gtest 统一测试；`HipRuntimeTest.*`、真实 HIP `.out` 兼容路径测试、encoded decode usage、主 CTS 和 feature CTS 均已打通；当前 fresh 全量 gate 已通过；`LD_PRELOAD` 路径现为通过态；shared-heavy `shared_reverse + dynamic_shared_sum + block_reduce_sum + softmax_row` 现已形成四锚点门禁，其中 `shared_reverse` 与 `dynamic_shared_sum` 已在 decode / hip runtime / model runtime 三层收口，并进入 HIP CTS 与 feature CTS 快速矩阵，`block_reduce_sum` 已补齐 decode / hip runtime / model runtime focused regression，并进入主 HIP CTS 快速矩阵，`softmax_row` 已具备 decode / hip runtime / model runtime focused regression、主 HIP CTS、parallel execution regression 和 example 闭环；atomic-heavy `atomic_count` 现也已进入主 HIP CTS 快速矩阵；ABI-heavy `by_value_aggregate` 现已补齐真实 HIP decoder regression，并进入主 HIP CTS 快速矩阵；`3D hidden args / builtin ids` 现也已补齐 decode / hip runtime / model runtime focused regression；executed-flow `ProgramCycleStats` 现已有 tracker-focused synthetic tests、runtime-focused 成本口径 tests，以及 `128 x 128 conditional multibarrier` HIP baseline 校准回归 | 还缺轻量级 runtime/memory/ISA/semantic 分层测试矩阵；还缺 text-asm kernel 指令验证框架；还缺 decode/disasm/ABI/property/module-load 专项测试归档；还缺状态与模块看板绑定的验收标准 |
 | `M13` | Cycle model | 完整 cycle 建模、issue/latency/waitcnt/event/timeline | `Partial` | 已有 naive cycle 主干、issue model、waitcnt 领域阻塞、event queue、timeline、Google trace、cache/bank conflict/waitcnt cycle 测试；cycle front-end 现已具备每个 `AP` 最多 `2` 个 resident blocks`、每个 `PEU` `active_window = 4`，以及显式 `resident_wave_slots_per_peu = 8` 的参考模型，并已有 focused regression 锁定 standby promotion 与 resident backfill 语义，因此 cycle mode 已可达到单 `PEU` `>4` resident waves；modeled 与 encoded 两条 cycle 主循环现已开始用 `IssueScheduler` 对同一 `PEU` 的多 wave candidate 做 bundle selection，并保持 shared-reverse / softmax / atomic 等 encoded cycle regression 结果稳定；`CycleTimingConfig` / `ExecEngine` / arch spec 现已纵向打通 `ArchitecturalIssuePolicy`，使默认 policy、runtime `SetCycleIssuePolicy(...)`、`SetCycleIssueLimits(...)` 与 modeled/encoded 两条 cycle front-end 的 bundle 选择保持一致，并已有 focused regression 锁定“policy-only 放宽 vector bundle”“limits override 优先于 policy type_limits”，以及“仅覆盖 issue limits 时仍保留 spec-level issue grouping”的行为；`c500` 默认 policy 现已把 `branch` 与 `special` 合并到同一 issue group，并由 spec-level 与 scheduler-level focused regression 锁定默认共享组语义；`waitcnt/dependency/front_end_wait` 阻塞 wave 现保持 resident 且留在 in-window，不再错误让出 front-end 窗口；barrier waiting resident waves 会让出 active slots，并在 barrier release 后重新进入 active window；barrier wait/release 状态机已与 shared/barrier cycle kernel、block reduction、softmax reduction、transpose 等回归重新对齐；`barrier_slots_per_ap = 16` 现已通过 barrier-generation/context 资源 helper 接入 modeled/encoded cycle barrier arrival/release 路径，并有 helper-focused regression 锁定 acquire/release 语义；当前 cycle 结果型证明也已形成闭环：front-end latency 推进不依赖 trace、resident/backfill/promote 正确、dense global load overlap 正确、`endk` 隐式 drain 正确、`ready != selected != issue` 也已有 focused regression 锁定；functional `st/mt` 现已新增与 cycle mode 结果形状兼容的 executed-flow program cycle 统计，可用于整程序运行统计对照与后续校准，且已覆盖大 block / 多 wave / 多 block 的 mixed-cost 与非对称 workload 回归；`global/shared/scalar-buffer` 不同 memory-arrive + waitcnt，以及 single/double barrier 的程序统计增长也已由 focused regression 锁定；代表性 case 的排序、分类统计求和、自 `st/mt` 模式一致性已由 focused regression 锁定，可用于查看 program-level cycle 统计趋势；当前还新增了 `128 x 128 conditional multibarrier` HIP baseline，用于在真实 `hipcc` 程序上对照 `st/mt/cycle` 的 program cycle 统计形状与多 barrier 条件路径稳定性；cycle timeline / Perfetto dump 现已新增 issue/arrive/commit/stall 顺序合理性的 focused 回归；cycle 路径 `Stall` 事件现已统一使用稳定的 `reason=` schema，Perfetto/timeline focused 回归已锁定 `waitcnt_global` 与 barrier-heavy path 上的 stall 可观测性 | 仍缺更完整的架构资源冲突、更多 memory domain/pipe 细节、更完整的 cycle-path reason taxonomy 规范化与 focused coverage、与真实硬件差异说明和参数化建模文档 |
 
 ## 当前阶段总评
@@ -165,18 +166,29 @@
 - 如果以“公开主路径命名、顶层目录层级、主测试路径、当前全量验证结果是否收口”为标准，本轮重构已经完成
 - 如果以“彻底减少底层 GCN-specific 术语、整理全部历史文档”为标准，仍有收尾项
 
-当前最关键的缺口不是单点 bug，而是当前正式任务主线对应的几个大面：
+当前最关键的缺口不是单点 bug，而是下面八个面：
 
-1. `Trace`
-   - canonical event model 与 unified entry 还未完全收口
-2. `Functional`
-   - `mt` scheduler 的公平性、竞争行为和解释边界还需继续锁定
-3. `Cycle`
-   - stall taxonomy、`ready/selected/issue` 可观测性、timeline 解释面还需继续完善
-4. `Program statistics`
-   - `ProgramCycleStats` 仍需继续与当前模型时间语义对齐
-5. `Verification + Docs`
-   - examples 全量检查与历史文档资产整理仍需继续推进
+1. `Runtime APIs`
+   - 重要 API 覆盖、不同 memcpy/memset 语义、同步主路径框架
+2. `Memory`
+   - memory pool / `mmap` backed residency / map-unmap 语义
+3. `Instruction validation`
+   - text-asm kernel 指令验证框架
+4. `Functional`
+   - `mt` scheduler 的公平性、竞争行为和解释边界
+5. `Cycle`
+   - stall taxonomy、`ready/selected/issue` 可观测性、timeline 解释面
+6. `Program statistics`
+   - `ProgramCycleStats` 与当前模型时间语义对齐
+7. `Trace + Log`
+   - canonical/unified/disable-trace/loguru 收口
+8. `Verification + Docs`
+   - 轻量测试矩阵、examples、文档状态跟踪
+
+当前阶段额外约束：
+
+- 异常路径测试暂不作为第一批主线
+- 先落接口框架、模块边界和主测试 list，再逐步推进实现
 
 补充说明：
 
@@ -220,62 +232,106 @@
 
 ### Step 1
 
-先补 trace 主线：
+先补 runtime + memory 基础：
 
-- canonical typed event model
-- unified trace entry
-- trace consumer 与 producer 的统一语义入口
+- runtime 重要 API
+- 不同 memcpy / memset 变体
+- memory pool / `mmap` 主线
+- 无 kernel launch 的主测试 list 与框架
 
 理由：
 
-- 没有统一 trace 语义，后续 functional/cycle 的观察面与验证都会继续漂移
+- 这是后续 kernel、program load、ISA 测试和日志/trace 收口的公共底座
 
 ### Step 2
 
-补 `functional mt` scheduler 语义：
+补 instruction validation：
 
-- wave 级调度公平性
-- runnable/waiting 恢复后的竞争行为
-- 与 `st` 的参考语义边界
+- text-asm kernel 程序生成
+- 不 crash 验证
+- 结果正确性验证
 
 理由：
 
-- 正确性主干已有，但调度解释还未完全收口
+- 需要把 ISA 实现从“代表性 case”推进到“系统化指令验证”
 
 ### Step 3
 
-补 `cycle` 观察语义：
+补 `functional mt` + `cycle` 语义校准：
 
-- stall taxonomy
+- `functional mt` scheduler 公平性与等待恢复
+- `cycle` 的 stall taxonomy
 - `ready / selected / issue`
-- slot/timeline 可观测性
+- `st / mt / cycle` 结果语义对齐
 
 理由：
 
-- 当前 cycle 结果型测试已有，但观察层语义仍是下一缺口
+- 指令与 runtime 基础稳定后，才能做真正可信的跨模型校准
 
 ### Step 4
 
-补 `ProgramCycleStats`：
+补 trace / log 主线：
 
-- 继续校准程序级统计口径
-- 明确与 trace cycle、execution stats 的边界
+- canonical typed event model
+- unified trace entry
+- disable-trace 边界
+- `loguru` 统一日志
 
 理由：
 
-- 需要把统计语义和模型时间定义真正锁在一起
+- 需要统一观察面，但不能让观察层反向污染业务逻辑
 
 ### Step 5
 
-补 examples 与 docs 资产：
+补测试矩阵、examples 与文档状态跟踪：
 
+- 轻量测试矩阵
 - examples 分批全量验证
-- 清理误导性的历史计划文件
-- 把仍有价值的内容继续提炼回正式文档
+- 模块开发状态持续写回文档
 
 理由：
 
-- 否则当前主线仍会被 archive 文档稀释
+- 否则实现会继续分散在 case-by-case 修补里
+
+## 串行与并行开发关系
+
+### 串行关键路径
+
+1. `M1 -> M7`
+   - runtime API 与 memory pool / `mmap` 必须先收口
+2. `M1/M7 -> M3/M4`
+   - memory/runtime 主线稳定后，才能建立可靠的 ISA asm-kernel 验证
+3. `M3/M4 -> M6/M13`
+   - 指令验证形成系统基线后，才能做 `st/mt/cycle` 语义校准
+
+### 可并行分支
+
+1. `M10`
+   - trace canonical / unified / disable-trace / `loguru`
+   - 可在 `M1` 稳定后并行推进，但不能反向定义执行语义
+2. `M12`
+   - 轻量测试矩阵框架、门禁组织、目录收口
+   - 可与 `M1`、`M3` 并行推进
+3. docs 跟踪
+   - 全程并行
+
+### 依赖图
+
+```text
+M1(runtime) ---> M7(memory) ---> M3/M4(ISA decode/exec validation) ---> M6/M13(semantic calibration)
+      |               |                     |                                   |
+      |               +------> M12(test matrix) <-------------------------------+
+      |
+      +------> M10(trace/log)   [parallel branch, non-blocking for correctness]
+      |
+      +------------------------------------------------------------> examples/docs integration
+```
+
+### 原则
+
+- correctness 主线优先，observation 主线并行但不阻塞
+- unit / lightweight tests 前置，examples 后置
+- 模块交互边界先稳定，再扩张综合验证
 
 ## 当前必须补充但用户需求里没有明确写出的点
 
@@ -292,6 +348,98 @@
 - kernel / module / device 属性查询接口
 - encoded decode / disasm / exec 的一致性测试（legacy raw GCN 路径需保持兼容）
 - wave launch 时的系统寄存器初始化 trace
+
+## 面向终极目标的阶段门槛
+
+### Gate A：结果正确闭环
+
+通过条件：
+
+- `st` 在支持边界内对真实 HIP `.out` 给出正确结果
+- `mt` 在同一边界内给出与 `st` 一致的结果
+- host 侧验证不依赖 trace / log
+
+阻塞项：
+
+- runtime/memory 主路径不稳
+- ABI/hidden args 不完整
+- 指令执行覆盖不足
+
+### Gate B：参考 cycle 可用
+
+通过条件：
+
+- `st/mt` 能给出稳定的 `ProgramCycleStats`
+- 更换算法、访存组织、schedule 后，参考 cycle 有方向正确的变化
+- 关键差异能被 waitcnt / memory / issue / barrier 语义解释
+
+阻塞项：
+
+- ISA asm-kernel 验证不足
+- `functional mt` scheduler 语义未锁定
+- `ProgramCycleStats` 口径漂移
+
+### Gate C：cycle 模式增强
+
+通过条件：
+
+- `cycle` 不改变 correctness
+- `cycle` 比 `st/mt` 提供更细的 slot / stall / dispatch / latency 解释
+- `cycle` 与 `st/mt` 保持趋势一致，但允许更细粒度估算
+
+阻塞项：
+
+- `ready/selected/issue` 语义未稳定
+- stall taxonomy 不稳定
+- slot timeline 不稳定
+
+### Gate D：优化参考可信
+
+通过条件：
+
+- baseline kernels 与真实 GPU 的结果一致
+- 参考 cycle 能区分算法与 schedule 的优劣
+- trace/log/timeline 可以解释结论，而不是制造结论
+
+阻塞项：
+
+- 真实 HIP baseline 不足
+- 测试矩阵不成体系
+- 文档状态与代码现状脱节
+
+## 仍需补齐的测试体系
+
+### T1. 轻量 runtime / memory matrix
+
+- 无 kernel launch
+- `malloc/free/memcpy/memset`
+- pool mapping
+- `mmap` residency
+
+### T2. asm-kernel ISA matrix
+
+- text asm -> binary -> kernel
+- 指令族逐类覆盖
+- 不 crash + 结果正确
+
+### T3. semantic calibration matrix
+
+- `st/mt/cycle` 结果一致性
+- reference cycle 趋势
+- scheduler / stall / wait 语义
+
+### T4. real HIP executable matrix
+
+- 真实 `.out`
+- baseline kernels
+- host 侧精确验证
+
+### T5. gate hierarchy
+
+- docs-only skip
+- light smoke
+- focused module matrix
+- periodic full gate
 
 ## 下一次状态更新规则
 

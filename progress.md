@@ -319,3 +319,59 @@
   - `docs/superpowers/README.md`
   - `findings.md`
   - `progress.md`
+
+### 阶段 17：并入新一轮 runtime / memory / ISA / log 规划
+- **状态：** in_progress
+- 执行的操作：
+  - 将 runtime 重要 API、memory pool / `mmap`、ISA asm-kernel 验证、`st/mt/cycle` 语义校准、`loguru` 收口、轻量测试矩阵并入当前正式任务计划
+  - 更新 `docs/my_design.md`，补充模块交互关系、memory pool / `mmap`、ISA 验证、trace/log 正式约束
+  - 更新 `docs/runtime-layering.md`，明确 runtime / memory / trace 的交互主线
+  - 更新 `docs/module-development-status.md`，把模块状态与新的优先级、缺口和推进顺序对齐
+  - 同步更新 `task_plan.md`、`findings.md`、`progress.md`
+- 创建/修改的文件：
+  - `task_plan.md`
+  - `docs/my_design.md`
+  - `docs/runtime-layering.md`
+  - `docs/module-development-status.md`
+  - `findings.md`
+  - `progress.md`
+
+### 阶段 18：收口第一批 runtime/memory 框架边界
+- **状态：** in_progress
+- 执行的操作：
+  - 用户明确当前阶段只做单卡/单 context/单 stream/同步语义主线
+  - 用户明确异常路径测试不进入第一批主线
+  - 将“先落框架、设计和主测试 list，再逐步推进实现”的约束写回 `task_plan.md`、`docs/runtime-layering.md`、`docs/my_design.md`、`docs/module-development-status.md`
+- 创建/修改的文件：
+  - `task_plan.md`
+  - `docs/runtime-layering.md`
+  - `docs/my_design.md`
+  - `docs/module-development-status.md`
+  - `findings.md`
+  - `progress.md`
+
+### 阶段 19：补充串行/并行与依赖图
+- **状态：** in_progress
+- 执行的操作：
+  - 在 `task_plan.md` 中补充串行关键路径、可并行 branch 和执行依赖图
+  - 在 `docs/module-development-status.md` 中补充模块级串行/并行关系与依赖图
+  - 同步更新 `findings.md` 与 `progress.md`
+- 创建/修改的文件：
+  - `task_plan.md`
+  - `docs/module-development-status.md`
+  - `findings.md`
+  - `progress.md`
+
+### 阶段 20：展开终极目标所需开发项与测试项
+- **状态：** in_progress
+- 执行的操作：
+  - 在 `task_plan.md` 中补充终极目标达成条件、开发 backlog、测试 backlog
+  - 在 `docs/module-development-status.md` 中补充 Gate A/B/C/D 和 T1/T2/T3/T4/T5 测试体系
+  - 在 `docs/my_design.md` 中补充 correctness / reference-cycle / refined-cycle 三层设计分层
+  - 同步更新 `findings.md` 与 `progress.md`
+- 创建/修改的文件：
+  - `task_plan.md`
+  - `docs/module-development-status.md`
+  - `docs/my_design.md`
+  - `findings.md`
+  - `progress.md`

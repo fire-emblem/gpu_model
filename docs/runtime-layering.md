@@ -62,6 +62,61 @@ runtime 侧主线按两层来理解：
 - 驱动 `FunctionalExecEngine / CycleExecEngine / EncodedExecEngine`
 - 组织 `WaveContext` 生命周期与运行时状态输出
 
+## 关键交互关系
+
+### 1. 无 kernel launch 的 runtime / memory 主线
+
+- `HipRuntime`
+  - 接收 `hipMalloc / hipFree / hipMemcpy* / hipMemset*` 等 API
+- `ModelRuntime`
+  - 统一参数校验、错误码、设备/上下文边界
+- `ExecEngine`
+  - 统一进入 memory system / memory pool / pointer mapping 主链
+- `Memory pools`
+  - 承担 `Global / Constant / Shared / Private / Kernarg / Code / RawData` 等存储语义
+
+这条路径必须可独立于 kernel launch 被测试覆盖。
+
+第一阶段实现边界：
+
+- 只关注：
+  - `hipMalloc / hipFree`
+  - `hipMemcpyHtoD / DtoH / DtoD`
+  - `hipMemset`
+- 以单卡、单 context、单 stream、同步语义为准
+- `async memcpy / stream / event` 只保留最小兼容，不进入第一优先级主线
+
+推荐分层：
+
+- `HipRuntime`
+  - HIP API 入口与参数适配
+- `ModelRuntime`
+  - 统一 runtime 语义与对外 facade
+- `ExecEngine`
+  - memory op 分发与 pointer mapping
+- `MemoryPoolManager`
+  - pool 注册、分配、释放、地址解析
+- `MappedStorage`
+  - `mmap` backed 底层存储抽象
+
+### 2. kernel launch 主线
+
+- `HipRuntime`
+  - 负责 HIP C ABI 与 launch 参数适配
+- `ModelRuntime`
+  - 形成统一 launch request
+- `ExecEngine`
+  - 选择 `ProgramObject / EncodedProgramObject`
+  - 完成 materialize 与 executable launch
+- `FunctionalExecEngine / CycleExecEngine / EncodedExecEngine`
+  - 执行 wave/block/device 级语义
+
+### 3. trace / log 主线
+
+- 日志主线应统一收口到 `loguru`
+- trace 主线应只消费执行结果，不反向参与业务决策
+- text/json trace 必须可全局关闭，并且关闭后不影响执行事实
+
 ## 历史已删除名（仅用于阅读旧记录）
 
 - `ModelRuntimeApi` -> `ModelRuntime`
@@ -101,6 +156,8 @@ runtime 侧主线按两层来理解：
 当前还缺：
 
 - 更完整的 property / attribute 覆盖
+- 更完整的 runtime memory API 子集与不同 memcpy 行为矩阵
+- memory pool 与 `mmap` backed residency 的第一阶段框架落地
 - 更明确的 `ProgramObject / EncodedProgramObject` API 分层
 - 历史遗留文件名与构建目标的进一步收口
 - 与正式设计文档持续同步的 runtime 边界维护

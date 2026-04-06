@@ -1,12 +1,15 @@
 # 发现与决策
 
 ## 需求
-- 先暂停继续扩张 cycle 前端建模，切回 examples 主题。
-- 需要对 `examples` 下的任务做全量、分批检查。
-- 当前用户明确指出：
-  - `08` 的 `mt` Perfetto 显示不正确
-  - `11` 编译不过
-  - Perfetto 必须显示每条指令的 `4 cycle` 区间
+- 当前新增正式需求主题：
+  - 补齐 runtime 重要 API 实现
+  - 为不同 `memcpy` / `memset` 变体建立轻量级测试
+  - 建立 memory pool 与 `mmap` 映射主线
+  - 基于 text asm kernel 做更多 ISA 验证
+  - 校准 `st / mt / cycle` 执行结果与设计语义
+  - 统一日志到 `loguru`
+  - 让 text/json trace 可关闭且不依赖业务逻辑
+  - 以当前代码模块设计为基础，更新模块交互关系、开发计划和模块状态文档
 
 ## 研究发现
 - `examples/08-conditional-multibarrier` 的 `mt` Perfetto 异常不是单一问题：
@@ -156,6 +159,28 @@
   - `wave-launch-abi-summary`
   - `shared-heavy-hip-kernel-closure`
   这些主题现在只保留为模块状态中的稳定 backlog，不再维持独立设计/计划文档。
+- 新一轮规划的最高优先级已改为：
+  - runtime API closure
+  - memory pool / `mmap`
+  - ISA asm-kernel validation
+  - `st/mt/cycle` semantic calibration
+  - `loguru` + trace 边界收口
+  - 轻量测试矩阵
+- 用户已明确：
+  - 当前阶段只考虑单卡 / 单 context / 单 stream / 同步语义主线
+  - 异常路径测试暂不进入第一批主线
+  - 先落框架、设计和主测试 list，后续再按 list 逐步推进实现
+- 当前正式计划已经补充：
+  - 哪些任务必须串行
+  - 哪些任务可以并行 branch 推进
+  - runtime -> memory -> ISA -> semantic calibration 的关键依赖链
+  - trace/log 和 test-matrix 作为并行分支，不反向阻塞 correctness 主线
+- 当前又进一步补充了：
+  - 面向终极目标的四层达成条件
+  - 仍需补齐的开发项
+  - 仍需补齐的测试项
+  - Gate A/B/C/D 分阶段门槛
+  - T1/T2/T3/T4/T5 五层测试体系
 
 ## 技术决策
 | 决策 | 理由 |
