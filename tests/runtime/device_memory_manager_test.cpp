@@ -79,5 +79,64 @@ TEST(DeviceMemoryManagerTest, ExposesStableSeparatedWindowsForGlobalAndManagedPo
   EXPECT_LT(managed_addr, managed_window->base + managed_window->size);
 }
 
+TEST(DeviceMemoryManagerTest, TracksCommittedBytesPerCompatibilityWindowOnDemand) {
+  MemorySystem memory;
+  DeviceMemoryManager manager(&memory);
+
+  const auto* global_window_before = manager.GetCompatibilityWindow(MemoryPoolKind::Global);
+  const auto* managed_window_before = manager.GetCompatibilityWindow(MemoryPoolKind::Managed);
+  ASSERT_NE(global_window_before, nullptr);
+  ASSERT_NE(managed_window_before, nullptr);
+  EXPECT_GT(global_window_before->size, 0u);
+  EXPECT_GT(managed_window_before->size, 0u);
+  EXPECT_EQ(global_window_before->committed_bytes, 0u);
+  EXPECT_EQ(managed_window_before->committed_bytes, 0u);
+
+  void* global_ptr = manager.AllocateGlobal(64, memory.AllocateGlobal(64));
+  const auto* global_window_after_alloc = manager.GetCompatibilityWindow(MemoryPoolKind::Global);
+  ASSERT_NE(global_window_after_alloc, nullptr);
+  EXPECT_GE(global_window_after_alloc->committed_bytes, 64u);
+
+  void* managed_ptr = manager.AllocateManaged(128, memory.Allocate(MemoryPoolKind::Managed, 128));
+  const auto* managed_window_after_alloc = manager.GetCompatibilityWindow(MemoryPoolKind::Managed);
+  ASSERT_NE(managed_window_after_alloc, nullptr);
+  EXPECT_GE(managed_window_after_alloc->committed_bytes, 128u);
+
+  ASSERT_TRUE(manager.Free(global_ptr));
+  const auto* global_window_after_free = manager.GetCompatibilityWindow(MemoryPoolKind::Global);
+  ASSERT_NE(global_window_after_free, nullptr);
+  EXPECT_EQ(global_window_after_free->committed_bytes, 0u);
+
+  manager.Reset();
+  const auto* managed_window_after_reset = manager.GetCompatibilityWindow(MemoryPoolKind::Managed);
+  ASSERT_NE(managed_window_after_reset, nullptr);
+  EXPECT_EQ(managed_window_after_reset->committed_bytes, 0u);
+  (void)managed_ptr;
+}
+
+TEST(DeviceMemoryManagerTest, ResetPreservesReservedWindowButClearsCommittedBytes) {
+  MemorySystem memory;
+  DeviceMemoryManager manager(&memory);
+
+  const auto* global_window_before = manager.GetCompatibilityWindow(MemoryPoolKind::Global);
+  ASSERT_NE(global_window_before, nullptr);
+  const uintptr_t base_before = global_window_before->base;
+  const size_t size_before = global_window_before->size;
+
+  void* global_ptr = manager.AllocateGlobal(64, memory.AllocateGlobal(64));
+  ASSERT_NE(global_ptr, nullptr);
+  const auto* global_window_after_alloc = manager.GetCompatibilityWindow(MemoryPoolKind::Global);
+  ASSERT_NE(global_window_after_alloc, nullptr);
+  EXPECT_GT(global_window_after_alloc->committed_bytes, 0u);
+
+  manager.Reset();
+
+  const auto* global_window_after_reset = manager.GetCompatibilityWindow(MemoryPoolKind::Global);
+  ASSERT_NE(global_window_after_reset, nullptr);
+  EXPECT_EQ(global_window_after_reset->base, base_before);
+  EXPECT_EQ(global_window_after_reset->size, size_before);
+  EXPECT_EQ(global_window_after_reset->committed_bytes, 0u);
+}
+
 }  // namespace
 }  // namespace gpu_model

@@ -24,6 +24,7 @@ class DeviceMemoryManager {
     uintptr_t base = 0;
     size_t size = 0;
     size_t next_offset = 0;
+    size_t committed_bytes = 0;
     std::vector<FreeRange> free_ranges;
   };
 

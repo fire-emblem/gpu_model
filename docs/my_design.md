@@ -237,6 +237,14 @@
 
 第一阶段先不追求所有 pool 都完整 `mmap` 化，而是先建立统一接口和 `Global` 的参考实现。
 
+当前阶段已落地的最小骨架：
+
+- `GlobalCompatWindow` / `ManagedCompatWindow` 固定虚拟地址窗口
+- 进程启动时先 `reserve` 整个 window
+- `Allocate*` 时按页 `commit`
+- `Free/Reset` 时回收 `commit`
+- window 当前 `committed_bytes` 可被查询和测试验证
+
 ## 4. 指令层
 
 指令层的职责是把程序对象中的代码段转换为可执行、可建模、可追踪的指令表示。

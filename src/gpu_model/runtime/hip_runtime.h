@@ -24,6 +24,7 @@ class HipRuntime {
   void StreamSynchronize(RuntimeSubmissionContext submission_context = {}) const;
   void MemcpyDeviceToDevice(uint64_t dst_addr, uint64_t src_addr, size_t bytes);
   void MemsetD8(uint64_t addr, uint8_t value, size_t bytes);
+  void MemsetD16(uint64_t addr, uint16_t value, size_t count);
   void MemsetD32(uint64_t addr, uint32_t value, size_t count);
   int GetDeviceCount() const;
   int GetDevice() const;
@@ -43,6 +44,7 @@ class HipRuntime {
   void MemcpyDeviceToHost(void* dst_host_ptr, const void* src_device_ptr, size_t bytes) const;
   void MemcpyDeviceToDevice(void* dst_device_ptr, const void* src_device_ptr, size_t bytes);
   void MemsetDevice(void* device_ptr, uint8_t value, size_t bytes);
+  void MemsetDeviceD16(void* device_ptr, uint16_t value, size_t count);
   void MemsetDeviceD32(void* device_ptr, uint32_t value, size_t count);
   void SyncManagedHostToDevice();
   void SyncManagedDeviceToHost();

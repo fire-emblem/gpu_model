@@ -38,6 +38,10 @@ void HipRuntime::MemsetD8(uint64_t addr, uint8_t value, size_t bytes) {
   model_runtime_.MemsetD8(addr, value, bytes);
 }
 
+void HipRuntime::MemsetD16(uint64_t addr, uint16_t value, size_t count) {
+  model_runtime_.MemsetD16(addr, value, count);
+}
+
 void HipRuntime::MemsetD32(uint64_t addr, uint32_t value, size_t count) {
   model_runtime_.MemsetD32(addr, value, count);
 }
@@ -114,6 +118,10 @@ void HipRuntime::MemcpyDeviceToDevice(void* dst_device_ptr,
 
 void HipRuntime::MemsetDevice(void* device_ptr, uint8_t value, size_t bytes) {
   GetRuntimeSession().MemsetDevice(device_ptr, value, bytes);
+}
+
+void HipRuntime::MemsetDeviceD16(void* device_ptr, uint16_t value, size_t count) {
+  GetRuntimeSession().MemsetDeviceD16(device_ptr, value, count);
 }
 
 void HipRuntime::MemsetDeviceD32(void* device_ptr, uint32_t value, size_t count) {

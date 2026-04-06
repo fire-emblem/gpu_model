@@ -754,10 +754,12 @@ TEST(ModelRuntimeCoreTest, SupportsDeviceToDeviceCopyAndMemsetOperations) {
   }
   std::vector<uint32_t> dst(count, 0);
   std::vector<uint32_t> fill(count, 0);
+  std::vector<uint16_t> half_fill(count, 0);
 
   const uint64_t src_addr = runtime_api.Malloc(count * sizeof(uint32_t));
   const uint64_t dst_addr = runtime_api.Malloc(count * sizeof(uint32_t));
   const uint64_t fill_addr = runtime_api.Malloc(count * sizeof(uint32_t));
+  const uint64_t half_fill_addr = runtime_api.Malloc(count * sizeof(uint16_t));
 
   runtime_api.MemcpyHtoD<uint32_t>(src_addr, std::span<const uint32_t>(src));
   runtime_api.MemsetD8(dst_addr, 0, count * sizeof(uint32_t));
@@ -769,6 +771,12 @@ TEST(ModelRuntimeCoreTest, SupportsDeviceToDeviceCopyAndMemsetOperations) {
   runtime_api.MemcpyDtoH<uint32_t>(fill_addr, std::span<uint32_t>(fill));
   for (uint32_t value : fill) {
     EXPECT_EQ(value, 0xdeadbeefu);
+  }
+
+  runtime_api.MemsetD16(half_fill_addr, 0xbeefu, count);
+  runtime_api.MemcpyDtoH<uint16_t>(half_fill_addr, std::span<uint16_t>(half_fill));
+  for (uint16_t value : half_fill) {
+    EXPECT_EQ(value, 0xbeefu);
   }
 }
 

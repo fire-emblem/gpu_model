@@ -85,6 +85,7 @@ class RuntimeSession {
   void MemcpyDeviceToHost(void* dst_host_ptr, const void* src_device_ptr, size_t bytes) const;
   void MemcpyDeviceToDevice(void* dst_device_ptr, const void* src_device_ptr, size_t bytes);
   void MemsetDevice(void* device_ptr, uint8_t value, size_t bytes);
+  void MemsetDeviceD16(void* device_ptr, uint16_t value, size_t count);
   void MemsetDeviceD32(void* device_ptr, uint32_t value, size_t count);
   void SyncManagedHostToDevice();
   void SyncManagedDeviceToHost();

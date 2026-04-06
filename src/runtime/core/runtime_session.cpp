@@ -260,6 +260,19 @@ void RuntimeSession::MemsetDevice(void* device_ptr, uint8_t value, size_t bytes)
   }
 }
 
+void RuntimeSession::MemsetDeviceD16(void* device_ptr, uint16_t value, size_t count) {
+  auto* allocation = FindCompatibilityAllocation(device_ptr);
+  if (allocation == nullptr) {
+    throw std::invalid_argument("unknown interposed device pointer");
+  }
+  model_runtime_.MemsetD16(allocation->model_addr, value, count);
+  if (allocation->pool == MemoryPoolKind::Managed && allocation->mapped_addr != nullptr) {
+    for (size_t i = 0; i < count; ++i) {
+      std::memcpy(allocation->mapped_addr + i * sizeof(uint16_t), &value, sizeof(uint16_t));
+    }
+  }
+}
+
 void RuntimeSession::MemsetDeviceD32(void* device_ptr, uint32_t value, size_t count) {
   auto* allocation = FindCompatibilityAllocation(device_ptr);
   if (allocation == nullptr) {

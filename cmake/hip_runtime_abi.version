@@ -30,6 +30,7 @@ hip_4.2 {
     hipMemset;
     hipMemsetAsync;
     hipMemsetD8;
+    hipMemsetD16;
     hipMemsetD32;
     hipDeviceSynchronize;
     hipLaunchKernel;

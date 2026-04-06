@@ -28,6 +28,7 @@ class ModelRuntime {
   void StreamSynchronize(RuntimeSubmissionContext submission_context = {}) const;
   void MemcpyDeviceToDevice(uint64_t dst_addr, uint64_t src_addr, size_t bytes);
   void MemsetD8(uint64_t addr, uint8_t value, size_t bytes);
+  void MemsetD16(uint64_t addr, uint16_t value, size_t count);
   void MemsetD32(uint64_t addr, uint32_t value, size_t count);
   int GetDeviceCount() const;
   int GetDevice() const;

@@ -1104,6 +1104,7 @@ int main() {
   std::vector<unsigned int> output(count, 0);
   std::vector<unsigned int> copied(count, 0);
   std::vector<unsigned int> filled(count, 0);
+  std::vector<unsigned short> half_filled(count, 0);
   for (int i = 0; i < count; ++i) {
     input[i] = 100u + static_cast<unsigned int>(i) * 9u;
   }
@@ -1111,9 +1112,11 @@ int main() {
   void* src = nullptr;
   void* dst = nullptr;
   void* fill = nullptr;
+  void* fill16 = nullptr;
   if (hipMalloc(&src, count * sizeof(unsigned int)) != hipSuccess) return 10;
   if (hipMalloc(&dst, count * sizeof(unsigned int)) != hipSuccess) return 11;
   if (hipMalloc(&fill, count * sizeof(unsigned int)) != hipSuccess) return 12;
+  if (hipMalloc(&fill16, count * sizeof(unsigned short)) != hipSuccess) return 13;
 
   if (hipMemcpy(src, input.data(), count * sizeof(unsigned int), hipMemcpyHostToDevice) != hipSuccess) return 13;
   if (hipMemset(dst, 0, count * sizeof(unsigned int)) != hipSuccess) return 14;
@@ -1129,14 +1132,21 @@ int main() {
     if (filled[i] != 0xdeadbeefu) return 23;
   }
 
-  if (hipMemcpy(copied.data(), src, count * sizeof(unsigned int), hipMemcpyDeviceToHost) != hipSuccess) return 24;
+  if (hipMemsetD16(reinterpret_cast<hipDeviceptr_t>(fill16), 0xbeef, count) != hipSuccess) return 24;
+  if (hipMemcpy(half_filled.data(), fill16, count * sizeof(unsigned short), hipMemcpyDeviceToHost) != hipSuccess) return 25;
   for (int i = 0; i < count; ++i) {
-    if (copied[i] != input[i]) return 25;
+    if (half_filled[i] != 0xbeefu) return 26;
+  }
+
+  if (hipMemcpy(copied.data(), src, count * sizeof(unsigned int), hipMemcpyDeviceToHost) != hipSuccess) return 27;
+  for (int i = 0; i < count; ++i) {
+    if (copied[i] != input[i]) return 28;
   }
 
   if (hipFree(src) != hipSuccess) return 30;
   if (hipFree(dst) != hipSuccess) return 31;
   if (hipFree(fill) != hipSuccess) return 32;
+  if (hipFree(fill16) != hipSuccess) return 33;
   std::puts("ld_preload pure memory api ok");
   return 0;
 }

@@ -275,6 +275,16 @@ hipError_t hipMemsetD8(hipDeviceptr_t dest, unsigned char value, size_t count) {
   return Remember(hipSuccess);
 }
 
+hipError_t hipMemsetD16(hipDeviceptr_t dest, unsigned short value, size_t count) {
+  void* ptr = reinterpret_cast<void*>(dest);
+  if (!HipApi().IsDevicePointer(ptr)) {
+    return Remember(hipErrorInvalidValue);
+  }
+  HipApi().MemsetDeviceD16(ptr, static_cast<uint16_t>(value), count);
+  DebugLog("hipMemsetD16 dst=%p value=%u count=%zu", ptr, static_cast<unsigned>(value), count);
+  return Remember(hipSuccess);
+}
+
 hipError_t hipMemsetD32(hipDeviceptr_t dest, int value, size_t count) {
   void* ptr = reinterpret_cast<void*>(dest);
   if (!HipApi().IsDevicePointer(ptr)) {

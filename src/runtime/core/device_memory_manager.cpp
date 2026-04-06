@@ -45,6 +45,7 @@ void DeviceMemoryManager::Reset() {
   allocations_.clear();
   for (auto& window : windows_) {
     window.next_offset = 0;
+    window.committed_bytes = 0;
     window.free_ranges.clear();
   }
 }
@@ -74,6 +75,7 @@ void* DeviceMemoryManager::AllocateGlobal(size_t bytes, uint64_t model_addr) {
   allocation.pool = MemoryPoolKind::Global;
   allocation.mapped_addr = mapped_addr;
   allocation.mapped_bytes = mapped_bytes;
+  window->committed_bytes += mapped_bytes;
   PutAllocation(reinterpret_cast<uintptr_t>(mapped_addr), std::move(allocation));
   return reinterpret_cast<void*>(mapped_addr);
 }
@@ -104,6 +106,7 @@ void* DeviceMemoryManager::AllocateManaged(size_t bytes, uint64_t model_addr) {
       .pool = MemoryPoolKind::Managed,
       .mapped_addr = mapped_addr,
       .mapped_bytes = mapped_bytes};
+  window->committed_bytes += mapped_bytes;
   PutAllocation(reinterpret_cast<uintptr_t>(mapped_addr), std::move(allocation));
   return reinterpret_cast<void*>(mapped_addr);
 }
@@ -119,6 +122,11 @@ bool DeviceMemoryManager::Free(void* device_ptr) {
   }
   const size_t offset = reinterpret_cast<uintptr_t>(allocation->mapped_addr) - window->base;
   UnmapCompatibilitySpan(allocation->mapped_addr, allocation->mapped_bytes);
+  if (window->committed_bytes >= allocation->mapped_bytes) {
+    window->committed_bytes -= allocation->mapped_bytes;
+  } else {
+    window->committed_bytes = 0;
+  }
   ReleaseRange(*window, offset, allocation->mapped_bytes);
   EraseAllocation(device_ptr);
   return true;
@@ -221,11 +229,13 @@ DeviceMemoryManager::BuildDefaultWindows() {
             .base = kGlobalCompatWindowBase,
             .size = kCompatibilityWindowSize,
             .next_offset = 0,
+            .committed_bytes = 0,
             .free_ranges = {}},
            {.pool = MemoryPoolKind::Managed,
             .base = kManagedCompatWindowBase,
             .size = kCompatibilityWindowSize,
             .next_offset = 0,
+            .committed_bytes = 0,
             .free_ranges = {}}}};
 }
 

@@ -84,6 +84,14 @@ void ModelRuntime::MemsetD8(uint64_t addr, uint8_t value, size_t bytes) {
   runtime_engine_->memory().WriteGlobal(addr, std::span<const std::byte>(buffer));
 }
 
+void ModelRuntime::MemsetD16(uint64_t addr, uint16_t value, size_t count) {
+  std::vector<std::byte> buffer(count * sizeof(uint16_t));
+  for (size_t i = 0; i < count; ++i) {
+    std::memcpy(buffer.data() + i * sizeof(uint16_t), &value, sizeof(uint16_t));
+  }
+  runtime_engine_->memory().WriteGlobal(addr, std::span<const std::byte>(buffer));
+}
+
 void ModelRuntime::MemsetD32(uint64_t addr, uint32_t value, size_t count) {
   std::vector<std::byte> buffer(count * sizeof(uint32_t));
   for (size_t i = 0; i < count; ++i) {
