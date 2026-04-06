@@ -550,6 +550,53 @@ TEST(CycleTimelineTest, GoogleTraceUsesCanonicalBarrierAndArriveNamesFromTypedFi
   EXPECT_NE(trace.find("\"presentation_name\":\"load_arrive\""), std::string::npos);
 }
 
+TEST(CycleTimelineTest, GoogleTraceUsesArriveProgressTypedNamesAsMarkers) {
+  const TraceWaveView wave = MakeWaveView(/*slot_id=*/1);
+  std::vector<TraceEvent> events{
+      TraceEvent{.kind = TraceEventKind::Arrive,
+                 .cycle = 6,
+                 .dpc_id = wave.dpc_id,
+                 .ap_id = wave.ap_id,
+                 .peu_id = wave.peu_id,
+                 .slot_id = wave.slot_id,
+                 .slot_model_kind = TraceSlotModelKind::ResidentFixed,
+                 .slot_model = {},
+                 .block_id = wave.block_id,
+                 .wave_id = wave.wave_id,
+                 .pc = wave.pc,
+                 .arrive_kind = TraceArriveKind::Load,
+                 .arrive_progress = TraceArriveProgressKind::StillBlocked,
+                 .waitcnt_state = {},
+                 .display_name = "load",
+                 .message = {}},
+      TraceEvent{.kind = TraceEventKind::Arrive,
+                 .cycle = 9,
+                 .dpc_id = wave.dpc_id,
+                 .ap_id = wave.ap_id,
+                 .peu_id = wave.peu_id,
+                 .slot_id = wave.slot_id,
+                 .slot_model_kind = TraceSlotModelKind::ResidentFixed,
+                 .slot_model = {},
+                 .block_id = wave.block_id,
+                 .wave_id = wave.wave_id,
+                 .pc = wave.pc,
+                 .arrive_kind = TraceArriveKind::Load,
+                 .arrive_progress = TraceArriveProgressKind::Resume,
+                 .waitcnt_state = {},
+                 .display_name = "load",
+                 .message = {}},
+  };
+
+  const std::string trace = CycleTimelineRenderer::RenderGoogleTrace(MakeRecorder(events));
+  EXPECT_EQ(CountOccurrences(trace, "\"ph\":\"X\""), 0u);
+  EXPECT_NE(trace.find("\"name\":\"load_arrive_still_blocked\""), std::string::npos);
+  EXPECT_NE(trace.find("\"name\":\"load_arrive_resume\""), std::string::npos);
+  EXPECT_NE(trace.find("\"category\":\"memory/load_arrive/still_blocked\""), std::string::npos);
+  EXPECT_NE(trace.find("\"category\":\"memory/load_arrive/resume\""), std::string::npos);
+  EXPECT_NE(trace.find("\"arrive_progress\":\"still_blocked\""), std::string::npos);
+  EXPECT_NE(trace.find("\"arrive_progress\":\"resume\""), std::string::npos);
+}
+
 TEST(CycleTimelineTest, GoogleTraceMarkerArgsShareTypedPresentationFields) {
   const TraceWaveView wave = MakeWaveView(/*slot_id=*/2, /*pc=*/0x80, /*wave_id=*/3);
   std::vector<TraceEvent> events{
@@ -569,6 +616,12 @@ TEST(CycleTimelineTest, GoogleTraceMarkerArgsShareTypedPresentationFields) {
 TEST(CycleTimelineTest, GoogleTraceRuntimeArgsSharePresentationFields) {
   std::vector<TraceEvent> events{
       MakeTraceRuntimeLaunchEvent(/*cycle=*/5, "kernel=timeline_runtime arch=c500"),
+      MakeTraceBlockEvent(/*dpc_id=*/0,
+                          /*ap_id=*/0,
+                          /*block_id=*/3,
+                          TraceEventKind::BlockActivate,
+                          /*cycle=*/8,
+                          "activate"),
   };
 
   const std::string trace = CycleTimelineRenderer::RenderGoogleTrace(MakeRecorder(events));
@@ -578,6 +631,12 @@ TEST(CycleTimelineTest, GoogleTraceRuntimeArgsSharePresentationFields) {
   EXPECT_NE(trace.find("\"presentation_name\":\"launch\""), std::string::npos);
   EXPECT_NE(trace.find("\"category\":\"runtime\""), std::string::npos);
   EXPECT_NE(trace.find("\"message\":\"kernel=timeline_runtime arch=c500\""), std::string::npos);
+  EXPECT_NE(trace.find("\"name\":\"block_activate\""), std::string::npos);
+  EXPECT_NE(trace.find("\"cat\":\"launch/block\""), std::string::npos);
+  EXPECT_NE(trace.find("\"canonical_name\":\"block_activate\""), std::string::npos);
+  EXPECT_NE(trace.find("\"presentation_name\":\"block_activate\""), std::string::npos);
+  EXPECT_NE(trace.find("\"category\":\"launch/block\""), std::string::npos);
+  EXPECT_EQ(trace.find("\"args\":{\"name\":\"WAVE_SLOT_"), std::string::npos);
 }
 
 TEST(CycleTimelineTest, TimelineCanRenderCanonicalNamesWithoutLegacyMessages) {

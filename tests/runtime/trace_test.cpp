@@ -891,6 +891,52 @@ TEST(TraceTest, TraceEventViewProvidesStableCanonicalNamesForWaveSchedulingMarke
   EXPECT_EQ(generate_view.category, "launch/wave");
 }
 
+TEST(TraceTest, TraceEventViewProvidesStableCanonicalNamesForRuntimeProgramEvents) {
+  const TraceEvent launch = MakeTraceRuntimeLaunchEvent(
+      /*cycle=*/1, "kernel=runtime_trace_test arch=c500");
+  const TraceEvent block_placed =
+      MakeTraceBlockPlacedEvent(/*dpc_id=*/0, /*ap_id=*/1, /*block_id=*/2, /*cycle=*/2, "placed");
+  const TraceEvent block_admit =
+      MakeTraceBlockAdmitEvent(/*dpc_id=*/0, /*ap_id=*/1, /*block_id=*/2, /*cycle=*/3, "admit");
+  const TraceEvent block_launch = MakeTraceBlockEvent(
+      /*dpc_id=*/0, /*ap_id=*/1, /*block_id=*/2, TraceEventKind::BlockLaunch, /*cycle=*/4, {});
+  const TraceEvent block_activate = MakeTraceBlockEvent(
+      /*dpc_id=*/0, /*ap_id=*/1, /*block_id=*/2, TraceEventKind::BlockActivate, /*cycle=*/5, {});
+  const TraceEvent block_retire = MakeTraceBlockEvent(
+      /*dpc_id=*/0, /*ap_id=*/1, /*block_id=*/2, TraceEventKind::BlockRetire, /*cycle=*/6, {});
+
+  const TraceEventView launch_view = MakeTraceEventView(launch);
+  const TraceEventView block_placed_view = MakeTraceEventView(block_placed);
+  const TraceEventView block_admit_view = MakeTraceEventView(block_admit);
+  const TraceEventView block_launch_view = MakeTraceEventView(block_launch);
+  const TraceEventView block_activate_view = MakeTraceEventView(block_activate);
+  const TraceEventView block_retire_view = MakeTraceEventView(block_retire);
+
+  EXPECT_EQ(launch_view.canonical_name, "launch");
+  EXPECT_EQ(launch_view.presentation_name, "launch");
+  EXPECT_EQ(launch_view.category, "runtime");
+
+  EXPECT_EQ(block_placed_view.canonical_name, "block_placed");
+  EXPECT_EQ(block_placed_view.presentation_name, "block_placed");
+  EXPECT_EQ(block_placed_view.category, "runtime");
+
+  EXPECT_EQ(block_admit_view.canonical_name, "block_admit");
+  EXPECT_EQ(block_admit_view.presentation_name, "block_admit");
+  EXPECT_EQ(block_admit_view.category, "runtime");
+
+  EXPECT_EQ(block_launch_view.canonical_name, "block_launch");
+  EXPECT_EQ(block_launch_view.presentation_name, "block_launch");
+  EXPECT_EQ(block_launch_view.category, "launch/block");
+
+  EXPECT_EQ(block_activate_view.canonical_name, "block_activate");
+  EXPECT_EQ(block_activate_view.presentation_name, "block_activate");
+  EXPECT_EQ(block_activate_view.category, "launch/block");
+
+  EXPECT_EQ(block_retire_view.canonical_name, "block_retire");
+  EXPECT_EQ(block_retire_view.presentation_name, "block_retire");
+  EXPECT_EQ(block_retire_view.category, "launch/block");
+}
+
 TEST(TraceTest, TraceEventExportFieldsMirrorTypedViewFields) {
   const TraceWaveView wave{
       .dpc_id = 0,
@@ -1801,6 +1847,64 @@ TEST(TraceTest, PerfettoExportUsesCanonicalTypedNamesWithoutMessageParsing) {
 
   EXPECT_TRUE(saw_wave_launch);
   EXPECT_TRUE(saw_wave_exit);
+}
+
+TEST(TraceTest, PerfettoProtoUsesCanonicalNamesForRuntimeAndFrontEndMarkers) {
+  const TraceWaveView wave{
+      .dpc_id = 0,
+      .ap_id = 0,
+      .peu_id = 1,
+      .slot_id = 2,
+      .block_id = 3,
+      .wave_id = 4,
+      .pc = 0x40,
+  };
+
+  const std::vector<TraceEvent> events{
+      MakeTraceRuntimeLaunchEvent(/*cycle=*/1, "kernel=perfetto_runtime arch=c500"),
+      MakeTraceBlockEvent(/*dpc_id=*/0,
+                          /*ap_id=*/0,
+                          /*block_id=*/3,
+                          TraceEventKind::BlockLaunch,
+                          /*cycle=*/2,
+                          {}),
+      MakeTraceWaveEvent(
+          wave, TraceEventKind::WaveGenerate, /*cycle=*/3, TraceSlotModelKind::ResidentFixed, {}),
+      MakeTraceWaveEvent(
+          wave, TraceEventKind::WaveDispatch, /*cycle=*/4, TraceSlotModelKind::ResidentFixed, {}),
+      MakeTraceWaveEvent(
+          wave, TraceEventKind::SlotBind, /*cycle=*/5, TraceSlotModelKind::ResidentFixed, {}),
+      MakeTraceWaveEvent(
+          wave, TraceEventKind::IssueSelect, /*cycle=*/6, TraceSlotModelKind::ResidentFixed, {}),
+  };
+
+  const std::string bytes = CycleTimelineRenderer::RenderPerfettoTraceProto(MakeRecorder(events));
+  const auto parsed_events = ParseTrackEvents(bytes);
+
+  bool saw_launch = false;
+  bool saw_block_launch = false;
+  bool saw_wave_generate = false;
+  bool saw_wave_dispatch = false;
+  bool saw_slot_bind = false;
+  bool saw_issue_select = false;
+  for (const auto& event : parsed_events) {
+    if (event.type != 3u) {
+      continue;
+    }
+    saw_launch = saw_launch || event.name == "launch";
+    saw_block_launch = saw_block_launch || event.name == "block_launch";
+    saw_wave_generate = saw_wave_generate || event.name == "wave_generate";
+    saw_wave_dispatch = saw_wave_dispatch || event.name == "wave_dispatch";
+    saw_slot_bind = saw_slot_bind || event.name == "slot_bind";
+    saw_issue_select = saw_issue_select || event.name == "issue_select";
+  }
+
+  EXPECT_TRUE(saw_launch);
+  EXPECT_TRUE(saw_block_launch);
+  EXPECT_TRUE(saw_wave_generate);
+  EXPECT_TRUE(saw_wave_dispatch);
+  EXPECT_TRUE(saw_slot_bind);
+  EXPECT_TRUE(saw_issue_select);
 }
 
 TEST(TraceTest, PerfettoDumpForMultiThreadedWaitKernelShowsWaitingAndResumeOrdering) {

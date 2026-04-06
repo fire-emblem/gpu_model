@@ -56,7 +56,7 @@
 
 4. `Semantic calibration`
    - 目标：让 `st / mt / cycle` 的执行结果和时间语义与正式设计保持一致。
-   - 当前缺口：核心语义已稳定，但还需要持续校准更多指令族、memory wait、scheduler 行为与 program stats。
+   - 当前缺口：核心语义已稳定，`cycle timeline` 消费层当前已补齐 `arrive_progress(still_blocked/resume)` 透传、runtime/front-end typed marker canonical name 稳定性，以及 representative waitcnt-heavy / barrier-heavy example 校准；后续还需要持续校准更多指令族、memory wait、scheduler 行为与 program stats。
 
 5. `Trace and logging consolidation`
    - 目标：统一日志到 `loguru`，并继续收口 trace canonical / unified / disable-trace 边界。
