@@ -33,6 +33,10 @@ Design intent:
   exist when trace capture is disabled.
 - timeline cycle data must come from execution-produced modeled cycle facts recorded by the recorder.
   Serializers and renderers must not infer or repair timing gaps on their own.
+- the current minimum visible duration for an ordinary instruction slice is `4 cycle`, but that
+  value is recorder-owned modeled data, not a renderer-side display rule.
+- if the recorder does not provide a committed `cycle range` for an instruction, timeline/Perfetto
+  must leave the lane empty instead of synthesizing a fallback slice.
 - `trace/event.h` defines the semantic event schema.
 - `trace/event_factory.h` defines the public factory helpers used by runtime/execution/tests to
   construct semantic trace events.

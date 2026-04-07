@@ -16,17 +16,6 @@ namespace gpu_model {
 
 namespace {
 
-constexpr uint64_t kTimelineInstructionRenderCycles = 4;
-
-uint64_t QuantizeRenderDurationCycles(uint64_t cycles) {
-  const uint64_t clamped = std::max<uint64_t>(kTimelineInstructionRenderCycles, cycles);
-  const uint64_t remainder = clamped % kTimelineInstructionRenderCycles;
-  if (remainder == 0) {
-    return clamped;
-  }
-  return clamped + (kTimelineInstructionRenderCycles - remainder);
-}
-
 std::string ExtractOpName(const std::string& message) {
   const auto pos = message.find("op=");
   if (pos == std::string::npos) {
@@ -171,6 +160,9 @@ TimelineData BuildTimelineData(const Recorder& recorder) {
         }
         const RecorderEntry& issue = *open_issue.front();
         open_issue.pop();
+        if (!issue.has_cycle_range) {
+          continue;
+        }
         const std::string op = issue.display_name.empty()
                                    ? ExtractOpName(issue.compatibility_message)
                                    : issue.display_name;
@@ -180,9 +172,7 @@ TimelineData BuildTimelineData(const Recorder& recorder) {
         data.segments[slot_key].push_back(Segment{
             .issue_cycle = issue.begin_cycle,
             .commit_cycle = event.cycle,
-            .render_duration_cycles =
-                issue.has_cycle_range ? issue.end_cycle - issue.begin_cycle
-                                      : QuantizeRenderDurationCycles(0),
+            .render_duration_cycles = issue.end_cycle - issue.begin_cycle,
             .op = op,
             .slot_model = std::string(slot_model),
             .block_id = wave.block_id,

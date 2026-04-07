@@ -356,6 +356,18 @@ TEST(CycleTimelineTest, GoogleTraceRendersOrdinaryInstructionAsFixedFourCycleSli
   EXPECT_NE(trace.find("\"commit_cycle\":11"), std::string::npos);
 }
 
+TEST(CycleTimelineTest, GoogleTraceDoesNotRenderInstructionSliceWithoutRecordedCycleRange) {
+  const TraceWaveView wave = MakeWaveView(/*slot_id=*/0);
+  Recorder recorder;
+  recorder.Record(
+      MakeResidentWaveEvent(wave, TraceEventKind::WaveStep, 10, "pc=0x100 op=v_add_i32"));
+
+  const std::string trace = CycleTimelineRenderer::RenderGoogleTrace(recorder);
+  EXPECT_EQ(trace.find("\"name\":\"v_add_i32\""), std::string::npos);
+  EXPECT_EQ(trace.find("\"render_duration_cycles\":"), std::string::npos);
+  EXPECT_EQ(trace.find("\"ph\":\"X\""), std::string::npos);
+}
+
 TEST(CycleTimelineTest, GoogleTraceFillsFourCyclesIndependentlyAcrossPeusAndSlots) {
   const TraceWaveView wave0{
       .dpc_id = 0,

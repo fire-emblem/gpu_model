@@ -435,6 +435,8 @@ operand 只描述静态信息，不直接持有执行态寄存器值。
 - `trace` 的职责只是消费模型事件并序列化为 text/json/timeline/Perfetto。
 - 任何执行语义、时序推进、等待恢复、统计记账都必须发生在 runtime/execution/state machine 中，不能放到 trace 层推断。
 - `timeline cycle` 的生成必须依赖 execution 已产出的 modeled cycle 事实和 recorder 记录，不能依赖 Perfetto/text/json consumer 侧反推。
+- timeline 上普通指令 slice 的最小可见区间当前统一是 `4 cycle`，但这个最小单位必须由 execution/recorder 产出，不能由 timeline/render/Perfetto consumer 侧补齐或取整。
+- 如果 recorder 没有记录某条指令的 `cycle range`，timeline 必须保持该时间轴为空，不能为了可视化补造 duration slice。
 - 当前正式对外 timeline 产物是 `timeline.perfetto.json`。
 - `timeline.perfetto.pb` 不再作为正式用户产物。
 - producer 与 test 侧的 trace 构造应继续统一到单一 semantic factory / builder 入口。
@@ -678,6 +680,9 @@ timeline 至少应能展示：
 - timeline 只消费执行模型已经产生的事件，不补造业务事件
 - trace/timeline 上的 `cycle` 一律表示 modeled cycle，不是宿主 wall-clock
 - 只有真实的 `InstructionIssue -> Commit` 配对才能生成 instruction slice
+- instruction slice 的 duration 必须直接消费 recorder 记录的 `begin_cycle/end_cycle`
+- 普通指令当前最小 slice 宽度是 `4 cycle`，但该宽度只能来自 execution/recorder 侧记录，timeline/render 不允许再做 quantize/fallback
+- 如果 recorder 未提供 `cycle range`，timeline 不允许绘制该 instruction slice
 - `Arrive`、`Stall`、`Barrier`、`WaveLaunch/WaveExit`、`IssueSelect`、`WaveGenerate/WaveDispatch/SlotBind` 都只允许作为 marker 或 runtime event 暴露
 - `ready / selected / issue` 必须保持可观察边界，不能在 timeline 中互相冒充
 
