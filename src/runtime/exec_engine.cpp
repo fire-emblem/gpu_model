@@ -295,10 +295,17 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
                                     : 0;
       result.begin_cycle = result.submit_cycle + spec->launch_timing.kernel_launch_cycles;
     }
-    trace.OnEvent(MakeTraceRuntimeLaunchEvent(
-        result.submit_cycle,
-        "kernel=" + (use_program_object_payload ? program_object->kernel_name() : kernel->name()) +
-            " arch=" + spec->name));
+    std::ostringstream launch_message;
+    launch_message << "kernel="
+                   << (use_program_object_payload ? program_object->kernel_name() : kernel->name())
+                   << " arch=" << spec->name;
+    if (use_program_object_payload &&
+        (program_object->kernel_descriptor().agpr_count != 0 ||
+         program_object->kernel_descriptor().accum_offset != 0)) {
+      launch_message << " agpr_count=" << program_object->kernel_descriptor().agpr_count
+                     << " accum_offset=" << program_object->kernel_descriptor().accum_offset;
+    }
+    trace.OnEvent(MakeTraceRuntimeLaunchEvent(result.submit_cycle, launch_message.str()));
 
     result.placement = Mapper::Place(*spec, request.config);
     for (const auto& block : result.placement.blocks) {

@@ -56,12 +56,15 @@ std::string DumpActualSnapshot(const ActualTimelineSnapshot& snapshot) {
   for (const auto& marker : snapshot.markers) {
     out += "MARKER name=" + marker.key.name + " pc=0x" +
            std::to_string(marker.key.pc) + " cycle=" + std::to_string(marker.cycle) +
+           " slot=" + std::to_string(marker.key.lane.slot_id) +
            " wave=" + std::to_string(marker.key.lane.wave_id) + "\n";
   }
   for (const auto& slice : snapshot.slices) {
     out += "SLICE name=" + slice.key.name + " pc=0x" + std::to_string(slice.key.pc) +
            " begin=" + std::to_string(slice.begin_cycle) + " end=" +
-           std::to_string(slice.end_cycle) + " wave=" + std::to_string(slice.key.lane.wave_id) + "\n";
+           std::to_string(slice.end_cycle) + " slot=" +
+           std::to_string(slice.key.lane.slot_id) + " wave=" +
+           std::to_string(slice.key.lane.wave_id) + "\n";
   }
   return out;
 }
@@ -239,10 +242,10 @@ TEST(TimelineExpectationTest, WaitcntProgressMatchesExpectedTimelineSemantics) {
           {
               MakeExpectedMarker(MakeEventKey(lane, waitcnt_pc, "wave_wait"), 24),
               MakeExpectedMarker(MakeEventKey(lane, waitcnt_pc, "load_arrive_resume"),
-                                 25,
+                                 60,
                                  std::nullopt,
                                  TraceArriveProgressKind::Resume),
-              MakeExpectedMarker(MakeEventKey(lane, resume_pc, "wave_resume"), 28),
+              MakeExpectedMarker(MakeEventKey(lane, resume_pc, "wave_resume"), 60),
           },
       .forbidden_slices = {},
       .ordering =
@@ -292,7 +295,13 @@ TEST(TimelineExpectationTest, WaveSwitchMatchesExpectedTimelineSemantics) {
   const Recorder recorder = MakeRecorder(trace.events());
   const ActualTimelineSnapshot actual = BuildActualTimelineSnapshot(recorder);
 
-  const TimelineLaneKey lane = MakeLaneKey(0);
+  const TimelineLaneKey lane{
+      .dpc_id = 0,
+      .ap_id = 0,
+      .peu_id = 0,
+      .slot_id = 1,
+      .wave_id = 4,
+  };
   const uint64_t waitcnt_pc = NthInstructionPcWithOpcode(kernel, Opcode::SWaitCnt, 0);
   ASSERT_NE(waitcnt_pc, std::numeric_limits<uint64_t>::max());
   ASSERT_TRUE(kernel.NextPc(waitcnt_pc).has_value());
@@ -302,18 +311,26 @@ TEST(TimelineExpectationTest, WaveSwitchMatchesExpectedTimelineSemantics) {
       .required_slices = {},
       .required_markers =
           {
-              MakeExpectedMarker(MakeEventKey(lane, resume_pc, "wave_resume"), 436),
-              MakeExpectedMarker(MakeEventKey(lane, resume_pc, "wave_switch_away"), 436),
+              MakeExpectedMarker(MakeEventKey(lane, waitcnt_pc, "wave_switch_away"), 436),
+              MakeExpectedMarker(MakeEventKey(lane, waitcnt_pc, "load_arrive_resume"),
+                                 446,
+                                 std::nullopt,
+                                 TraceArriveProgressKind::Resume),
+              MakeExpectedMarker(MakeEventKey(lane, resume_pc, "wave_resume"), 446),
           },
       .forbidden_slices = {},
       .ordering =
           {
               OrderingConstraint{
-                  .earlier = MakeEventKey(lane, resume_pc, "wave_resume"),
-                  .later = MakeEventKey(lane, resume_pc, "wave_switch_away"),
+                  .earlier = MakeEventKey(lane, waitcnt_pc, "wave_switch_away"),
+                  .later = MakeEventKey(lane, waitcnt_pc, "load_arrive_resume"),
               },
               OrderingConstraint{
-                  .earlier = MakeEventKey(lane, resume_pc, "wave_switch_away"),
+                  .earlier = MakeEventKey(lane, waitcnt_pc, "load_arrive_resume"),
+                  .later = MakeEventKey(lane, resume_pc, "wave_resume"),
+              },
+              OrderingConstraint{
+                  .earlier = MakeEventKey(lane, resume_pc, "wave_resume"),
                   .later = MakeEventKey(lane, resume_pc, "issue_select"),
               },
           },
