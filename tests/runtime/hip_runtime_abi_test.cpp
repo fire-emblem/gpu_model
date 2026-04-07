@@ -776,7 +776,8 @@ int main() {
 
   const std::string run_command =
       "env LD_PRELOAD=" + MakeLdPreloadValue(abi_library_path) +
-      " GPU_MODEL_HIP_RUNTIME_ABI_DEBUG=1 " + exe_path.string() + " > " + stdout_path.string() + " 2>&1";
+      " GPU_MODEL_LOG_MODULES=hip_runtime_abi GPU_MODEL_LOG_LEVEL=info " + exe_path.string() + " > " +
+      stdout_path.string() + " 2>&1";
   ASSERT_EQ(std::system(run_command.c_str()), 0);
 
   std::ifstream in(stdout_path);
@@ -874,7 +875,7 @@ int main() {
 
   const std::string run_command =
       "env LD_PRELOAD=" + MakeLdPreloadValue(abi_library_path) +
-      " GPU_MODEL_HIP_RUNTIME_ABI_DEBUG=1 " + exe_path.string() + " > " + stdout_path.string() +
+      " GPU_MODEL_LOG_MODULES=hip_runtime_abi GPU_MODEL_LOG_LEVEL=info " + exe_path.string() + " > " + stdout_path.string() +
       " 2>&1";
   ASSERT_EQ(std::system(run_command.c_str()), 0);
 
@@ -940,7 +941,7 @@ int main() {
 
   const std::string run_command =
       "env LD_PRELOAD=" + MakeLdPreloadValue(abi_library_path) +
-      " GPU_MODEL_HIP_RUNTIME_ABI_DEBUG=1 " + exe_path.string() + " > " + stdout_path.string() +
+      " GPU_MODEL_LOG_MODULES=hip_runtime_abi GPU_MODEL_LOG_LEVEL=info " + exe_path.string() + " > " + stdout_path.string() +
       " 2>&1";
   ASSERT_EQ(std::system(run_command.c_str()), 0);
 
@@ -998,7 +999,7 @@ int main() {
 
   const std::string run_command =
       "env LD_PRELOAD=" + MakeLdPreloadValue(abi_library_path) +
-      " GPU_MODEL_HIP_RUNTIME_ABI_DEBUG=1 " + exe_path.string() + " > " + stdout_path.string() +
+      " GPU_MODEL_LOG_MODULES=hip_runtime_abi GPU_MODEL_LOG_LEVEL=info " + exe_path.string() + " > " + stdout_path.string() +
       " 2>&1";
   ASSERT_EQ(std::system(run_command.c_str()), 0);
 
@@ -1062,7 +1063,7 @@ int main() {
 
   const std::string run_command =
       "env LD_PRELOAD=" + MakeLdPreloadValue(abi_library_path) +
-      " GPU_MODEL_HIP_RUNTIME_ABI_DEBUG=1 " + exe_path.string() + " > " + stdout_path.string() +
+      " GPU_MODEL_LOG_MODULES=hip_runtime_abi GPU_MODEL_LOG_LEVEL=info " + exe_path.string() + " > " + stdout_path.string() +
       " 2>&1";
   ASSERT_EQ(std::system(run_command.c_str()), 0);
 
@@ -1170,7 +1171,7 @@ int main() {
 
   const std::string run_command =
       "env LD_PRELOAD=" + MakeLdPreloadValue(abi_library_path) +
-      " GPU_MODEL_HIP_RUNTIME_ABI_DEBUG=1 " + exe_path.string() + " > " + stdout_path.string() +
+      " GPU_MODEL_LOG_MODULES=hip_runtime_abi GPU_MODEL_LOG_LEVEL=info " + exe_path.string() + " > " + stdout_path.string() +
       " 2>&1";
   ASSERT_EQ(std::system(run_command.c_str()), 0);
 
@@ -1233,7 +1234,7 @@ int main() {
 
   const std::string run_command =
       "env LD_PRELOAD=" + MakeLdPreloadValue(abi_library_path) +
-      " GPU_MODEL_HIP_RUNTIME_ABI_DEBUG=1 " + exe_path.string() + " > " + stdout_path.string() +
+      " GPU_MODEL_LOG_MODULES=hip_runtime_abi GPU_MODEL_LOG_LEVEL=info " + exe_path.string() + " > " + stdout_path.string() +
       " 2>&1";
   ASSERT_EQ(std::system(run_command.c_str()), 0);
 
@@ -1292,7 +1293,7 @@ int main() {
 
   const std::string run_command =
       "env LD_PRELOAD=" + MakeLdPreloadValue(abi_library_path) +
-      " GPU_MODEL_HIP_RUNTIME_ABI_DEBUG=1 " + exe_path.string() + " > " + stdout_path.string() +
+      " GPU_MODEL_LOG_MODULES=hip_runtime_abi GPU_MODEL_LOG_LEVEL=info " + exe_path.string() + " > " + stdout_path.string() +
       " 2>&1";
   ASSERT_EQ(std::system(run_command.c_str()), 0);
 
@@ -1361,7 +1362,7 @@ int main() {
 
   const std::string run_command =
       "env LD_PRELOAD=" + MakeLdPreloadValue(abi_library_path) +
-      " GPU_MODEL_HIP_RUNTIME_ABI_DEBUG=1 " + exe_path.string() + " > " + stdout_path.string() +
+      " GPU_MODEL_LOG_MODULES=hip_runtime_abi GPU_MODEL_LOG_LEVEL=info " + exe_path.string() + " > " + stdout_path.string() +
       " 2>&1";
   ASSERT_EQ(std::system(run_command.c_str()), 0);
 
@@ -1433,7 +1434,7 @@ int main() {
 
   const std::string run_command =
       "env LD_PRELOAD=" + MakeLdPreloadValue(abi_library_path) +
-      " GPU_MODEL_HIP_RUNTIME_ABI_DEBUG=1 " + exe_path.string() + " > " + stdout_path.string() +
+      " GPU_MODEL_LOG_MODULES=hip_runtime_abi GPU_MODEL_LOG_LEVEL=info " + exe_path.string() + " > " + stdout_path.string() +
       " 2>&1";
   ASSERT_EQ(std::system(run_command.c_str()), 0);
 
@@ -1492,7 +1493,7 @@ int main() {
 
   const std::string run_command =
       "env LD_PRELOAD=" + MakeLdPreloadValue(abi_library_path) +
-      " GPU_MODEL_HIP_RUNTIME_ABI_DEBUG=1 " + exe_path.string() + " > " + stdout_path.string() +
+      " GPU_MODEL_LOG_MODULES=hip_runtime_abi GPU_MODEL_LOG_LEVEL=info " + exe_path.string() + " > " + stdout_path.string() +
       " 2>&1";
   ASSERT_EQ(std::system(run_command.c_str()), 0);
 

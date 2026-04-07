@@ -1,5 +1,6 @@
 #include <hip/hip_runtime_api.h>
 
+#include <array>
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
@@ -30,8 +31,7 @@ namespace {
 gpu_model::HipRuntime& HipApi();
 
 bool DebugEnabled() {
-  return std::getenv("GPU_MODEL_HIP_RUNTIME_ABI_DEBUG") != nullptr ||
-         gpu_model::logging::ShouldLog("hip_runtime_abi", loguru::Verbosity_INFO);
+  return gpu_model::logging::ShouldLog("hip_runtime_abi", loguru::Verbosity_INFO);
 }
 
 const char* ToFunctionalModeName(gpu_model::FunctionalExecutionMode mode) {
@@ -99,12 +99,12 @@ void DebugLog(const char* fmt, ...) {
   if (!DebugEnabled()) {
     return;
   }
+  std::array<char, 4096> buffer{};
   va_list args;
   va_start(args, fmt);
-  std::fputs("[hip_runtime_abi] ", stderr);
-  std::vfprintf(stderr, fmt, args);
-  std::fputc('\n', stderr);
+  std::vsnprintf(buffer.data(), buffer.size(), fmt, args);
   va_end(args);
+  GPU_MODEL_LOG_INFO("hip_runtime_abi", "%s", buffer.data());
 }
 
 hipError_t Remember(hipError_t error) {
