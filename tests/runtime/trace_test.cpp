@@ -2804,6 +2804,47 @@ TEST(TraceTest, NativePerfettoProtoShowsEncodedFunctionalLogicalUnboundedSlotsOn
   EXPECT_GE(p0_slot_count, 9u);
 }
 
+TEST(TraceTest, EncodedFunctionalSamePeuEmitsWaveSwitchAwayMarkers) {
+  if (!HasLlvmMcAmdgpuToolchain()) {
+    GTEST_SKIP() << "required llvm-mc/LLVM/binutils tools not available";
+  }
+
+  const auto obj_path = AssembleLlvmMcFixture(
+      "gpu_model_encoded_functional_same_peu_switch_away_obj",
+      std::filesystem::path("tests/asm_cases/loader/kernarg_aggregate_by_value.s"));
+  const auto image = ObjectReader{}.LoadProgramObject(obj_path, "asm_kernarg_aggregate_by_value");
+
+  CollectingTraceSink trace;
+  ExecEngine runtime(&trace);
+
+  struct AggregateArg {
+    int32_t x;
+    int32_t y;
+    int32_t z;
+  } aggregate{3, 5, 7};
+
+  const uint64_t out_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
+  runtime.memory().StoreGlobalValue<int32_t>(out_addr, 0);
+
+  LaunchRequest request;
+  request.arch_name = "c500";
+  request.program_object = &image;
+  request.mode = ExecutionMode::Functional;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64 * 33;
+  request.args.PushU64(out_addr);
+  request.args.PushBytes(&aggregate, sizeof(aggregate));
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  bool saw_switch_away = false;
+  for (const auto& event : trace.events()) {
+    saw_switch_away = saw_switch_away || event.kind == TraceEventKind::WaveSwitchAway;
+  }
+  EXPECT_TRUE(saw_switch_away);
+}
+
 TEST(TraceTest, NativePerfettoProtoShowsEncodedCycleResidentSlotsAcrossPeus) {
   if (!HasLlvmMcAmdgpuToolchain()) {
     GTEST_SKIP() << "required llvm-mc/LLVM/binutils tools not available";
@@ -3277,6 +3318,45 @@ TEST(TraceTest, EncodedCycleWaitcntEmitsWaveWaitArriveAndResumeMarkers) {
   EXPECT_LT(wave_wait_index, wave_arrive_index);
   EXPECT_LT(wave_arrive_index, wave_resume_index);
   EXPECT_LT(wave_resume_index, resumed_step_index);
+
+  std::filesystem::remove_all(assembled.temp_dir);
+}
+
+TEST(TraceTest, EncodedCycleSamePeuWaitcntEmitsWaveSwitchAwayMarkers) {
+  if (!test_utils::HasLlvmMcAmdgpuToolchain()) {
+    GTEST_SKIP() << "required llvm-mc/LLVM/binutils tools not available";
+  }
+
+  const auto assembled =
+      AssembleEncodedExplicitWaitcntModule("gpu_model_encoded_cycle_switch_away_markers");
+
+  CollectingTraceSink trace;
+  ExecEngine runtime(&trace);
+  runtime.SetFixedGlobalMemoryLatency(40);
+
+  constexpr uint32_t kBlockDim = 64 * 5;
+  const uint64_t base_addr = runtime.memory().AllocateGlobal(kBlockDim * sizeof(int32_t));
+  for (uint32_t i = 0; i < kBlockDim; ++i) {
+    runtime.memory().StoreGlobalValue<int32_t>(base_addr + i * sizeof(int32_t),
+                                               static_cast<int32_t>(100 + i));
+  }
+
+  LaunchRequest request;
+  request.arch_name = "c500";
+  request.program_object = &assembled.image;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = kBlockDim;
+  request.args.PushU64(base_addr);
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  bool saw_switch_away = false;
+  for (const auto& event : trace.events()) {
+    saw_switch_away = saw_switch_away || event.kind == TraceEventKind::WaveSwitchAway;
+  }
+  EXPECT_TRUE(saw_switch_away);
 
   std::filesystem::remove_all(assembled.temp_dir);
 }

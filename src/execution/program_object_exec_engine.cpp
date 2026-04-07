@@ -1086,6 +1086,7 @@ class EncodedExecutionCore {
   CacheModel l2_cache_;
   SharedBankModel shared_bank_model_;
   std::mutex trace_mutex_;
+  std::mutex peu_schedule_trace_mutex_;
   std::mutex stats_mutex_;
   std::mutex global_memory_mutex_;
   std::atomic<uint64_t> functional_trace_cycle_{0};
@@ -1097,6 +1098,7 @@ class EncodedExecutionCore {
   size_t waiting_block_rr_ = 0;
   std::vector<EncodedPeuSlot> cycle_peu_slots_;
   std::unordered_map<uint32_t, EncodedApResidentState> cycle_ap_states_;
+  std::unordered_map<uint64_t, uint64_t> last_wave_tag_per_ap_peu_;
   uint64_t cycle_total_cycles_ = 0;
   uint64_t max_trace_cycle_ = 0;
 
@@ -1134,6 +1136,31 @@ class EncodedExecutionCore {
                               TraceSlotModel(),
                               std::move(message),
                               pc);
+  }
+
+  void MaybeEmitWaveSwitchAwayEvent(const RawBlock& block,
+                                    const RawWave& raw_wave,
+                                    uint64_t pc) {
+    const uint64_t ap_peu_key = (static_cast<uint64_t>(block.global_ap_id) << 32u) |
+                                static_cast<uint64_t>(raw_wave.wave.peu_id);
+    const uint64_t wave_tag = (static_cast<uint64_t>(raw_wave.wave.block_id) << 32u) |
+                              static_cast<uint64_t>(raw_wave.wave.wave_id);
+
+    bool emit_switch_away = false;
+    {
+      std::lock_guard<std::mutex> lock(peu_schedule_trace_mutex_);
+      const auto it = last_wave_tag_per_ap_peu_.find(ap_peu_key);
+      emit_switch_away = it != last_wave_tag_per_ap_peu_.end() && it->second != wave_tag;
+      last_wave_tag_per_ap_peu_[ap_peu_key] = wave_tag;
+    }
+
+    if (!emit_switch_away) {
+      return;
+    }
+    TraceEventLocked(MakeTraceWaveSwitchAwayEvent(
+        MakeRawTraceWaveView(raw_wave), NextFunctionalTraceCycle(), TraceSlotModel(), pc));
+    TraceEventLocked(MakeTraceWaveSwitchStallEvent(
+        MakeRawTraceWaveView(raw_wave), NextFunctionalTraceCycle(), TraceSlotModel(), pc));
   }
 
   void InitializeWaveLaunchState() {
@@ -1621,6 +1648,9 @@ class EncodedExecutionCore {
                   ? timing_config_.launch_timing.warp_switch_cycles
                   : 0;
           if (switch_penalty > 0) {
+            TraceEventLocked(MakeTraceWaveSwitchAwayEvent(MakeRawTraceWaveView(*raw_wave),
+                                                          cycle,
+                                                          TraceSlotModel()));
             TraceEventLocked(MakeTraceWaveSwitchStallEvent(MakeRawTraceWaveView(*raw_wave),
                                                            cycle,
                                                            TraceSlotModel()));
@@ -2097,6 +2127,8 @@ class EncodedExecutionCore {
     auto& raw_wave = block.waves[wave_index];
     auto& wave = raw_wave.wave;
     auto& wave_state = block.wave_states[wave_index];
+
+    MaybeEmitWaveSwitchAwayEvent(block, raw_wave, wave.pc);
 
     const auto it = pc_to_index_.find(wave.pc);
     if (it == pc_to_index_.end()) {
