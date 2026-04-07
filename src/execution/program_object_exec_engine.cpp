@@ -1,4 +1,4 @@
-#include "gpu_model/execution/encoded_exec_engine.h"
+#include "gpu_model/execution/program_object_exec_engine.h"
 
 #include <algorithm>
 #include <array>
@@ -1179,7 +1179,7 @@ class EncodedExecutionCore {
           made_progress = true;
         }
         if (!made_progress) {
-          throw std::runtime_error("encoded execution stalled without progress");
+          throw std::runtime_error("program-object execution stalled without progress");
         }
       }
     }
@@ -1639,7 +1639,7 @@ class EncodedExecutionCore {
       }
 
       if (!issued && !HasFutureProgress(cycle)) {
-        throw std::runtime_error("encoded cycle execution stalled without pending progress");
+        throw std::runtime_error("program-object cycle execution stalled without pending progress");
       }
       AdmitResidentBlocks(cycle + 1);
       ++cycle;
@@ -2371,7 +2371,7 @@ class EncodedExecutionCore {
 
 }  // namespace
 
-LaunchResult EncodedExecEngine::Run(const ProgramObject& image,
+LaunchResult ProgramObjectExecEngine::Run(const ProgramObject& image,
                                     const GpuArchSpec& spec,
                                     const CycleTimingConfig& timing_config,
                                     const LaunchConfig& config,
@@ -2387,7 +2387,7 @@ LaunchResult EncodedExecEngine::Run(const ProgramObject& image,
   ProgramCycleStatsConfig cycle_stats_config;
   cycle_stats_config.default_issue_cycles = spec.default_issue_cycles;
   std::ostringstream launch_message;
-  launch_message << "raw_kernel=" << image.kernel_name() << " arch=" << spec.name;
+  launch_message << "kernel=" << image.kernel_name() << " arch=" << spec.name;
   if (image.kernel_descriptor().agpr_count != 0 || image.kernel_descriptor().accum_offset != 0) {
     launch_message << " agpr_count=" << image.kernel_descriptor().agpr_count
                    << " accum_offset=" << image.kernel_descriptor().accum_offset;

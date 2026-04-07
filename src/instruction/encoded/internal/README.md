@@ -14,7 +14,7 @@
   - raw/encoded 语义 handler
   - 负责具体指令效果
 - `executor/`
-  - encoded execution 的顶层驱动
+  - program-object execution 的顶层驱动
 
 设计原则：
 

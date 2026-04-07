@@ -12,7 +12,7 @@
 #include "gpu_model/debug/trace/event_factory.h"
 #include "gpu_model/execution/cycle_exec_engine.h"
 #include "gpu_model/execution/functional_exec_engine.h"
-#include "gpu_model/execution/encoded_exec_engine.h"
+#include "gpu_model/execution/program_object_exec_engine.h"
 #include "gpu_model/execution/internal/cycle_issue_policy.h"
 #include "gpu_model/isa/kernel_metadata.h"
 #include "gpu_model/loader/device_image_loader.h"
@@ -315,7 +315,7 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
     if (request.mode == ExecutionMode::Functional) {
         if (use_program_object_payload) {
           const auto raw_result =
-            EncodedExecEngine{}.Run(*program_object, *spec,
+            ProgramObjectExecEngine{}.Run(*program_object, *spec,
                                     ResolveCycleTimingConfig(*spec),
                                     request.config,
                                     ExecutionMode::Functional,
@@ -361,7 +361,7 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
     } else if (request.mode == ExecutionMode::Cycle) {
       if (use_program_object_payload) {
         const auto raw_result =
-            EncodedExecEngine{}.Run(*program_object, *spec,
+            ProgramObjectExecEngine{}.Run(*program_object, *spec,
                                     ResolveCycleTimingConfig(*spec),
                                     request.config,
                                     ExecutionMode::Cycle,

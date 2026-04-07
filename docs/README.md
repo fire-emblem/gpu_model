@@ -49,7 +49,7 @@
 当前仍可从 archive 中提炼、但已经回写进正式文档的主题主要包括：
 
 - LLVM / AMDGPU artifact ingestion 与 code object 主线
-- encoded decode / project disasm 的长期方向
+- program-object decode / project disasm 的长期方向
 - memory pool / segment loading 的接口边界
 - PEU / wave issue model 与 `ready / selected / issue` 语义
 - naive cycle model 的“少量稳定 knob + 可解释相对差异”原则

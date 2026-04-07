@@ -13,7 +13,7 @@
 
 namespace gpu_model {
 
-class EncodedExecEngine {
+class ProgramObjectExecEngine {
  public:
   LaunchResult Run(const ProgramObject& image,
                    const GpuArchSpec& spec,

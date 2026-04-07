@@ -48,7 +48,7 @@ runtime 侧主线按两层来理解：
 
 - device 选择和 property 查询
 - memory allocation / memcpy / memset
-- program object / encoded program load
+- program object load
 - 统一 `LoadModule` 请求分发
 - `ExecutableKernel` launch
 - trace / launch result / last load result
@@ -59,7 +59,7 @@ runtime 侧主线按两层来理解：
 `ExecEngine` 承接 `ModelRuntime` 的执行主链，负责：
 - `ProgramObject` 装载与 materialize
 - 构建 `ExecutableKernel` 与 launch plan
-- 驱动 `FunctionalExecEngine / CycleExecEngine / EncodedExecEngine`
+- 驱动 `FunctionalExecEngine / CycleExecEngine / ProgramObjectExecEngine`
 - 组织 `WaveContext` 生命周期与运行时状态输出
 
 ## 关键交互关系
@@ -124,7 +124,7 @@ runtime 侧主线按两层来理解：
 - `ExecEngine`
   - 选择 `ProgramObject`
   - 完成 materialize 与 executable launch
-- `FunctionalExecEngine / CycleExecEngine / EncodedExecEngine`
+- `FunctionalExecEngine / CycleExecEngine / ProgramObjectExecEngine`
   - 执行 wave/block/device 级语义
 
 ### 3. trace / log 主线

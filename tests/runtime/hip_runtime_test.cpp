@@ -2741,7 +2741,7 @@ TEST(ModelRuntimeCoreTest, LaunchesHipMfmaExecutable) {
   bool saw_tensor_step = false;
   for (const auto& event : trace.events()) {
     if (event.kind == TraceEventKind::Launch &&
-        event.message.find("raw_kernel=mfma_probe") != std::string::npos) {
+        event.message.find("kernel=mfma_probe") != std::string::npos) {
       saw_tensor_launch = true;
       EXPECT_NE(event.message.find("agpr_count="), std::string::npos);
       EXPECT_NE(event.message.find("accum_offset="), std::string::npos);

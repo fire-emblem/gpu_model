@@ -710,7 +710,7 @@ timeline 至少应能展示：
 - `FunctionalExecutionCore` -> `FunctionalExecEngine`
 - `FunctionalExecutor` / `ParallelWaveExecutor` -> `FunctionalExecEngine`
 - `CycleExecutor` -> `CycleExecEngine`
-- `RawGcnExecutor` -> `EncodedExecEngine`
+- `RawGcnExecutor` -> `ProgramObjectExecEngine`
 
 ## 12. 第一阶段收口原则
 

@@ -92,7 +92,7 @@ add_library(gpu_model STATIC
   src/instruction/encoded/internal/encoded_instruction_descriptor.cpp
   src/instruction/encoded/internal/encoded_instruction_binding.cpp
   src/instruction/encoded/instruction_object.cpp
-  src/execution/encoded_exec_engine.cpp
+  src/execution/program_object_exec_engine.cpp
   src/execution/encoded_semantic_handler.cpp
   src/execution/memory_ops.cpp
   src/execution/sync_ops.cpp
