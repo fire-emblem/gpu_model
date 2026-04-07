@@ -102,13 +102,6 @@ class HipRuntime {
                                    std::string arch_name = "",
                                    TraceSink* trace = nullptr,
                                    RuntimeSubmissionContext submission_context = {});
-  LaunchResult LaunchEncodedProgramObject(const EncodedProgramObject& image,
-                                          LaunchConfig config,
-                                          KernelArgPack args,
-                                          ExecutionMode mode = ExecutionMode::Functional,
-                                          std::string arch_name = "",
-                                          TraceSink* trace = nullptr,
-                                          RuntimeSubmissionContext submission_context = {});
   void LoadModule(const ModuleLoadRequest& request);
   const std::optional<DeviceLoadResult>& last_load_result(uint64_t context_id = 0) const {
     return model_runtime_.last_load_result(context_id);

@@ -46,6 +46,19 @@ RecorderWave& GetOrCreateWave(std::vector<RecorderWave>& waves, const TraceEvent
   return waves.back();
 }
 
+RecorderEntry* FindLastOpenInstructionIssue(RecorderWave& wave) {
+  for (auto it = wave.entries.rbegin(); it != wave.entries.rend(); ++it) {
+    if (it->kind != RecorderEntryKind::InstructionIssue) {
+      continue;
+    }
+    if (it->has_cycle_range) {
+      continue;
+    }
+    return &(*it);
+  }
+  return nullptr;
+}
+
 bool EventBelongsToWave(const TraceEvent& event) {
   switch (event.kind) {
     case TraceEventKind::WaveLaunch:
@@ -212,10 +225,6 @@ RecorderEntry MakeRecorderEntry(const TraceEvent& event, uint64_t sequence) {
       .end_cycle = event.cycle,
       .has_cycle_range = false,
   };
-  if (entry.kind == RecorderEntryKind::InstructionIssue) {
-    entry.end_cycle = event.cycle + NormalizeInstructionRangeCycles(0);
-    entry.has_cycle_range = true;
-  }
   return entry;
 }
 
@@ -229,6 +238,13 @@ void Recorder::Record(const TraceEvent& event) {
     return;
   }
   RecorderWave& wave = GetOrCreateWave(waves_, event);
+  if (event.kind == TraceEventKind::Commit) {
+    if (RecorderEntry* issue = FindLastOpenInstructionIssue(wave)) {
+      issue->end_cycle = issue->begin_cycle +
+                         NormalizeInstructionRangeCycles(event.cycle - issue->begin_cycle);
+      issue->has_cycle_range = true;
+    }
+  }
   wave.entries.push_back(MakeRecorderEntry(event, sequence));
 }
 

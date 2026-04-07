@@ -4,7 +4,6 @@
 #include <utility>
 
 #include "gpu_model/execution/cycle_exec_engine.h"
-#include "gpu_model/execution/encoded_exec_engine.h"
 #include "gpu_model/execution/functional_exec_engine.h"
 #include "gpu_model/execution/memory_ops.h"
 #include "gpu_model/execution/plan_apply.h"
@@ -36,18 +35,6 @@ TEST(ExecutionNamingTest, ExecutionHeadersDeclarePrimaryTypes) {
       void (ExecEngine::*)(const ArchitecturalIssuePolicy&);
   static_assert(std::is_same_v<decltype(&ExecEngine::SetCycleIssuePolicy),
                                RuntimeSetIssuePolicySignature>);
-
-  using EncodedRunSignature = LaunchResult (EncodedExecEngine::*)(const EncodedProgramObject&,
-                                                                  const GpuArchSpec&,
-                                                                  const CycleTimingConfig&,
-                                                                  const LaunchConfig&,
-                                                                  ExecutionMode,
-                                                                  FunctionalExecutionConfig,
-                                                                  const KernelArgPack&,
-                                                                  const DeviceLoadResult*,
-                                                                  MemorySystem&,
-                                                                  TraceSink&) const;
-  static_assert(std::is_same_v<decltype(&EncodedExecEngine::Run), EncodedRunSignature>);
 
   static_assert(std::is_same_v<decltype(std::declval<WaveContext>().status), WaveStatus>);
   static_assert(std::is_same_v<decltype(std::declval<WaveContext>().private_memory),

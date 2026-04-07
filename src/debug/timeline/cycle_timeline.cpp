@@ -73,66 +73,46 @@ char AssignSymbol(const std::string& op, std::unordered_map<std::string, char>& 
 }
 
 TimelineSemanticEvent MakeTimelineSemanticEvent(const RecorderProgramEvent& event) {
-  TraceEventView view{
+  return TimelineSemanticEvent{
       .kind = event.event.kind,
       .cycle = event.event.cycle,
       .dpc_id = event.event.dpc_id,
       .ap_id = event.event.ap_id,
       .peu_id = event.event.peu_id,
       .slot_id = event.event.slot_id,
-      .slot_model_kind = event.slot_model_kind,
       .block_id = event.event.block_id,
       .wave_id = event.event.wave_id,
       .pc = event.event.pc,
+      .slot_model_kind = event.slot_model_kind,
       .stall_reason = event.stall_reason,
       .barrier_kind = event.barrier_kind,
       .arrive_kind = event.arrive_kind,
       .arrive_progress = event.event.arrive_progress,
       .lifecycle_stage = event.lifecycle_stage,
       .waitcnt_state = event.waitcnt_state,
-      .canonical_name = event.canonical_name,
-      .presentation_name = event.presentation_name,
-      .display_name = event.display_name,
-      .category = event.category,
-      .compatibility_message = event.compatibility_message,
-      .used_legacy_fallback = false,
-  };
-  TraceEventExportFields fields = MakeTraceEventExportFields(view);
-  return TimelineSemanticEvent{
-      .view = std::move(view),
-      .fields = std::move(fields),
+      .fields = MakeTraceEventExportFields(event),
   };
 }
 
 TimelineSemanticEvent MakeTimelineSemanticEvent(const RecorderEntry& event) {
-  TraceEventView view{
+  return TimelineSemanticEvent{
       .kind = event.event.kind,
       .cycle = event.event.cycle,
       .dpc_id = event.event.dpc_id,
       .ap_id = event.event.ap_id,
       .peu_id = event.event.peu_id,
       .slot_id = event.event.slot_id,
-      .slot_model_kind = event.slot_model_kind,
       .block_id = event.event.block_id,
       .wave_id = event.event.wave_id,
       .pc = event.event.pc,
+      .slot_model_kind = event.slot_model_kind,
       .stall_reason = event.stall_reason,
       .barrier_kind = event.barrier_kind,
       .arrive_kind = event.arrive_kind,
       .arrive_progress = event.event.arrive_progress,
       .lifecycle_stage = event.lifecycle_stage,
       .waitcnt_state = event.waitcnt_state,
-      .canonical_name = event.canonical_name,
-      .presentation_name = event.presentation_name,
-      .display_name = event.display_name,
-      .category = event.category,
-      .compatibility_message = event.compatibility_message,
-      .used_legacy_fallback = false,
-  };
-  TraceEventExportFields fields = MakeTraceEventExportFields(view);
-  return TimelineSemanticEvent{
-      .view = std::move(view),
-      .fields = std::move(fields),
+      .fields = MakeTraceEventExportFields(event),
   };
 }
 
@@ -141,8 +121,6 @@ TimelineData BuildTimelineData(const Recorder& recorder) {
 
   for (const auto& program_event : recorder.program_events()) {
     const TimelineSemanticEvent semantic = MakeTimelineSemanticEvent(program_event);
-    const auto& view = semantic.view;
-    const auto& fields = semantic.fields;
     const std::string_view slot_model = TraceSlotModelName(program_event.slot_model_kind);
     if (!slot_model.empty()) {
       data.slot_models.insert(std::string(slot_model));
@@ -154,10 +132,7 @@ TimelineData BuildTimelineData(const Recorder& recorder) {
         program_event.kind == RecorderProgramEventKind::BlockLaunch ||
         program_event.kind == RecorderProgramEventKind::BlockActivate ||
         program_event.kind == RecorderProgramEventKind::BlockRetire) {
-      data.runtime_events.push_back(TimelineSemanticEvent{
-          .view = view,
-          .fields = fields,
-      });
+      data.runtime_events.push_back(semantic);
       continue;
     }
 
@@ -169,7 +144,6 @@ TimelineData BuildTimelineData(const Recorder& recorder) {
     for (const auto& entry : wave.entries) {
       const TraceEvent& event = entry.event;
       const TimelineSemanticEvent semantic = MakeTimelineSemanticEvent(entry);
-      const auto& view = semantic.view;
       const std::string_view slot_model = TraceSlotModelName(entry.slot_model_kind);
       if (!slot_model.empty()) {
         data.slot_models.insert(std::string(slot_model));
@@ -234,7 +208,7 @@ TimelineData BuildTimelineData(const Recorder& recorder) {
         if (entry.kind == RecorderEntryKind::Arrive) {
           symbol = 'R';
         } else if (entry.kind == RecorderEntryKind::Barrier) {
-          symbol = view.barrier_kind == TraceBarrierKind::Release ? '|' : 'B';
+          symbol = semantic.barrier_kind == TraceBarrierKind::Release ? '|' : 'B';
         } else if (entry.kind == RecorderEntryKind::WaveExit) {
           symbol = 'X';
         } else if (entry.kind == RecorderEntryKind::Stall) {

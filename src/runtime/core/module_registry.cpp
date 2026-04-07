@@ -81,8 +81,8 @@ void RuntimeModuleRegistry::LoadModule(const ModuleLoadRequest& request) {
     case ModuleLoadFormat::Auto:
       throw std::logic_error("auto format must be resolved before load");
     case ModuleLoadFormat::AmdgpuObject: {
-      auto image = ObjectReader{}.LoadEncodedObject(request.path, request.kernel_name);
-      modules_[request.module_name][image.kernel_name] = std::move(image);
+      auto image = ObjectReader{}.LoadProgramObject(request.path, request.kernel_name);
+      modules_[request.module_name][image.kernel_name()] = std::move(image);
       return;
     }
     case ModuleLoadFormat::ProgramBundle:

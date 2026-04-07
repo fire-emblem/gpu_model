@@ -7,8 +7,6 @@
 #include <string_view>
 #include <vector>
 
-#include "gpu_model/debug/trace/event_export.h"
-#include "gpu_model/debug/trace/event_view.h"
 #include "trace_perfetto_proto.h"
 
 namespace gpu_model {
@@ -116,14 +114,14 @@ std::string RenderPerfettoTraceExport(const TimelineData& data,
 
   const uint64_t runtime_track_uuid = MakeTrackUuid("track", "Runtime");
   for (const auto& runtime_event : data.runtime_events) {
-    if (runtime_event.view.cycle < begin || runtime_event.view.cycle > end) {
+    if (runtime_event.cycle < begin || runtime_event.cycle > end) {
       continue;
     }
     AppendTracePacket(
-        EncodeTrackEventPacket(runtime_event.view.cycle,
+        EncodeTrackEventPacket(runtime_event.cycle,
                                runtime_track_uuid,
                                3u,
-                               runtime_event.view.presentation_name),
+                               runtime_event.fields.presentation_name),
         trace);
   }
 
@@ -150,12 +148,12 @@ std::string RenderPerfettoTraceExport(const TimelineData& data,
   for (const auto& [key, row_markers] : data.markers) {
     const uint64_t track_uuid = SlotTrackUuid(key);
     for (const auto& marker : row_markers) {
-      if (marker.semantic.view.cycle < begin || marker.semantic.view.cycle > end) {
+      if (marker.semantic.cycle < begin || marker.semantic.cycle > end) {
         continue;
       }
       AppendTracePacket(
           EncodeTrackEventPacket(
-              marker.semantic.view.cycle, track_uuid, 3u, MarkerEventName(marker)),
+              marker.semantic.cycle, track_uuid, 3u, MarkerEventName(marker)),
           trace);
     }
   }

@@ -1374,6 +1374,8 @@ class FunctionalExecutionCoreImpl {
     wave_state.wave_cycle_total += issue_duration;
     wave_state.wave_cycle_active += issue_duration;
     const uint64_t issue_pc = wave.pc;
+    TraceEventLocked(MakeTraceIssueSelectEvent(
+        MakeTraceWaveView(wave), issue_cycle, TraceSlotModelKind::LogicalUnbounded));
     TraceEventLocked(MakeTraceWaveStepEvent(
         MakeTraceWaveView(wave),
         issue_cycle,

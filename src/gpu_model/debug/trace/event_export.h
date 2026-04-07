@@ -2,6 +2,7 @@
 
 #include <string>
 
+#include "gpu_model/debug/recorder/recorder.h"
 #include "gpu_model/debug/trace/event_view.h"
 
 namespace gpu_model {
@@ -32,6 +33,8 @@ struct CanonicalTraceEvent {
 };
 
 TraceEventExportFields MakeTraceEventExportFields(const TraceEventView& view);
+TraceEventExportFields MakeTraceEventExportFields(const RecorderProgramEvent& event);
+TraceEventExportFields MakeTraceEventExportFields(const RecorderEntry& event);
 CanonicalTraceEvent MakeCanonicalTraceEvent(const TraceEvent& event);
 
 }  // namespace gpu_model

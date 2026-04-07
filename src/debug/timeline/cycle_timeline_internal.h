@@ -8,6 +8,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "gpu_model/debug/recorder/recorder.h"
 #include "gpu_model/debug/trace/event.h"
 #include "gpu_model/debug/trace/event_export.h"
 #include "gpu_model/debug/timeline/cycle_timeline.h"
@@ -46,7 +47,22 @@ struct Segment {
 };
 
 struct TimelineSemanticEvent {
-  TraceEventView view;
+  TraceEventKind kind = TraceEventKind::Launch;
+  uint64_t cycle = 0;
+  uint32_t dpc_id = 0;
+  uint32_t ap_id = 0;
+  uint32_t peu_id = 0;
+  uint32_t slot_id = 0;
+  uint32_t block_id = 0;
+  uint32_t wave_id = 0;
+  uint64_t pc = 0;
+  TraceSlotModelKind slot_model_kind = TraceSlotModelKind::None;
+  TraceStallReason stall_reason = TraceStallReason::None;
+  TraceBarrierKind barrier_kind = TraceBarrierKind::None;
+  TraceArriveKind arrive_kind = TraceArriveKind::None;
+  TraceArriveProgressKind arrive_progress = TraceArriveProgressKind::None;
+  TraceLifecycleStage lifecycle_stage = TraceLifecycleStage::None;
+  TraceWaitcntState waitcnt_state;
   TraceEventExportFields fields;
 };
 

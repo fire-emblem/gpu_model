@@ -15,7 +15,6 @@ namespace gpu_model {
 class ExecutableKernel;
 class ProgramObject;
 class TraceSink;
-struct EncodedProgramObject;
 struct DeviceLoadResult;
 
 enum class ExecutionMode {
@@ -46,7 +45,6 @@ struct LaunchRequest {
   std::string arch_name = "c500";
   const ExecutableKernel* kernel = nullptr;
   const ProgramObject* program_object = nullptr;
-  const EncodedProgramObject* encoded_program_object = nullptr;
   const DeviceLoadResult* device_load = nullptr;
   RuntimeSubmissionContext submission_context;
   LaunchConfig config;

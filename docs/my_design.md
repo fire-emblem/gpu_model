@@ -118,9 +118,15 @@
 长期核心对象建议：
 
 - `ProgramObject`
-- `EncodedProgramObject`
 - `ExecutableKernel`
 - `ObjectReader`
+
+当前正式约束补充：
+
+- 程序主线公开对象只保留一个 `ProgramObject`。
+- 不再区分 `canonical path` / `encoded path` 两条公开程序执行路径。
+- 来自 `.out` / ELF / code object 的真实编码、descriptor、decoded instruction、instruction object 等静态结果，都统一挂在 `ProgramObject` 上。
+- builder 或测试若需要构造程序，也应最终收口为同一个 `ProgramObject` 输入，而不是再引入第二套“源码路径对象”。
 
 ### 3.2 模块装载
 
@@ -375,13 +381,14 @@ operand 只描述静态信息，不直接持有执行态寄存器值。
 
 - `FunctionalExecEngine`
 - `CycleExecEngine`
-- `EncodedExecEngine`
 
 设计原则：
 
 - 功能正确性与周期推进要分层
 - functional 和 cycle 可以共享状态构造与 effect apply
 - 但不应强行并成一个大基类 executor
+- 公开 launch 主线只保留 `LaunchProgramObject -> ExecEngine`
+- 不再暴露单独的 `LaunchEncodedProgramObject` 公开入口
 
 ### 6.1 Functional MT 约束
 
@@ -427,12 +434,18 @@ operand 只描述静态信息，不直接持有执行态寄存器值。
 
 - `trace` 的职责只是消费模型事件并序列化为 text/json/timeline/Perfetto。
 - 任何执行语义、时序推进、等待恢复、统计记账都必须发生在 runtime/execution/state machine 中，不能放到 trace 层推断。
+- `timeline cycle` 的生成必须依赖 execution 已产出的 modeled cycle 事实和 recorder 记录，不能依赖 Perfetto/text/json consumer 侧反推。
 - 当前正式对外 timeline 产物是 `timeline.perfetto.json`。
 - `timeline.perfetto.pb` 不再作为正式用户产物。
 - producer 与 test 侧的 trace 构造应继续统一到单一 semantic factory / builder 入口。
-- consumer 侧应继续统一到 canonical typed event interpretation，而不是各自从 `message` 二次猜语义。
+- consumer 侧应统一消费 typed event / recorder facts，而不是各自从 `message` 二次猜语义。
 - `TraceEvent.message` 只能作为兼容/展示字段继续存在，不应再充当主语义契约。
 - text/json trace 必须可关闭，且关闭时不能依赖业务逻辑降级或改变执行结果。
+
+统一依赖方向：
+
+- `execution producer -> recorder facts -> timeline data -> text/json/perfetto`
+- 如果 producer 语义还分裂，必须先修 producer，不能在 timeline / Perfetto 层补偿。
 
 ### 7.2.1 日志正式约束
 

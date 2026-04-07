@@ -55,10 +55,10 @@ TEST(AmdgpuObjLoaderTest, LoadsExecutableKernelFromAmdgpuObjectFile) {
       "llc -march=amdgcn -mcpu=gfx900 -filetype=obj " + ir_path.string() + " -o " + obj_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  const auto image = ObjectReader{}.LoadEncodedObject(obj_path);
-  EXPECT_EQ(image.kernel_name, "empty_kernel");
-  EXPECT_FALSE(image.instructions.empty());
-  EXPECT_EQ(image.metadata.values.at("entry"), "empty_kernel");
+  const auto image = ObjectReader{}.LoadProgramObject(obj_path);
+  EXPECT_EQ(image.kernel_name(), "empty_kernel");
+  EXPECT_FALSE(image.instructions().empty());
+  EXPECT_EQ(image.metadata().values.at("entry"), "empty_kernel");
 
   std::filesystem::remove_all(temp_dir);
 }
@@ -86,10 +86,10 @@ TEST(AmdgpuObjLoaderTest, LoadsExecutableKernelFromHipHostObjectWithFatbin) {
       test_utils::HipccCacheCommand() + " -c " + src_path.string() + " -o " + obj_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  const auto image = ObjectReader{}.LoadEncodedObject(obj_path, "empty_kernel");
-  EXPECT_EQ(image.kernel_name, "empty_kernel");
-  EXPECT_FALSE(image.instructions.empty());
-  EXPECT_EQ(image.metadata.values.at("entry"), "empty_kernel");
+  const auto image = ObjectReader{}.LoadProgramObject(obj_path, "empty_kernel");
+  EXPECT_EQ(image.kernel_name(), "empty_kernel");
+  EXPECT_FALSE(image.instructions().empty());
+  EXPECT_EQ(image.metadata().values.at("entry"), "empty_kernel");
 
   std::filesystem::remove_all(temp_dir);
 }

@@ -174,6 +174,25 @@ size_t FirstEventIndexAfter(const std::vector<TraceEvent>& events,
   return std::numeric_limits<size_t>::max();
 }
 
+void ExpectWaveStateEdgeOrdering(const std::vector<TraceEvent>& events,
+                                 TraceEventKind arrive_kind,
+                                 TraceStallReason stall_reason) {
+  const size_t wave_wait_index = FirstEventIndex(events, TraceEventKind::WaveWait);
+  const size_t arrive_index = FirstEventIndex(events, arrive_kind);
+  const size_t wave_resume_index = FirstEventIndex(events, TraceEventKind::WaveResume);
+  const size_t resumed_step_index =
+      FirstEventIndexAfter(events, wave_resume_index, TraceEventKind::WaveStep, "s_mov_b32");
+
+  ASSERT_NE(wave_wait_index, std::numeric_limits<size_t>::max());
+  ASSERT_NE(arrive_index, std::numeric_limits<size_t>::max());
+  ASSERT_NE(wave_resume_index, std::numeric_limits<size_t>::max());
+  ASSERT_NE(resumed_step_index, std::numeric_limits<size_t>::max());
+  EXPECT_TRUE(HasStallReason(events, stall_reason));
+  EXPECT_LT(wave_wait_index, arrive_index);
+  EXPECT_LT(arrive_index, wave_resume_index);
+  EXPECT_LT(wave_resume_index, resumed_step_index);
+}
+
 size_t FirstArriveIndexWithProgress(const std::vector<TraceEvent>& events,
                                     TraceArriveProgressKind progress) {
   for (size_t i = 0; i < events.size(); ++i) {
@@ -642,6 +661,105 @@ TEST(AsyncMemoryCycleTest, WaitCntCanWaitForScalarBufferScalarLoadOnly) {
   EXPECT_EQ(NthWaveStepCycle(trace.events(), "s_mov_b32", 1), 12u);
   EXPECT_EQ(result.total_cycles, 20u);
   // Scalar-buffer-only waitcnt is validated by ordering, not by an emitted stall in current cycles.
+}
+
+TEST(AsyncMemoryCycleTest, SharedWaitcntEmitsWaveWaitArriveAndResumeMarkers) {
+  CollectingTraceSink trace;
+  ExecEngine runtime(&trace);
+  ConfigureZeroFrontendTiming(runtime);
+  IssueCycleClassOverridesSpec class_overrides;
+  class_overrides.vector_memory = 12;
+  runtime.SetIssueCycleClassOverrides(class_overrides);
+
+  InstructionBuilder builder;
+  builder.VMov("v0", 0);
+  builder.VMov("v1", 11);
+  builder.MStoreShared("v0", "v1", 4);
+  builder.SWaitCnt(/*global_count=*/UINT32_MAX, /*shared_count=*/0,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
+  builder.SMov("s0", 7);
+  builder.BExit();
+  const auto kernel = builder.Build("cycle_waitcnt_shared_lifecycle");
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+  request.config.shared_memory_bytes = 4;
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  ExpectWaveStateEdgeOrdering(
+      trace.events(), TraceEventKind::WaveArrive, TraceStallReason::WaitCntShared);
+}
+
+TEST(AsyncMemoryCycleTest, PrivateWaitcntEmitsWaveWaitArriveAndResumeMarkers) {
+  CollectingTraceSink trace;
+  ExecEngine runtime(&trace);
+  ConfigureZeroFrontendTiming(runtime);
+  IssueCycleClassOverridesSpec class_overrides;
+  class_overrides.vector_memory = 12;
+  runtime.SetIssueCycleClassOverrides(class_overrides);
+
+  InstructionBuilder builder;
+  builder.VMov("v0", 0);
+  builder.VMov("v1", 11);
+  builder.MStorePrivate("v0", "v1", 4);
+  builder.SWaitCnt(/*global_count=*/UINT32_MAX, /*shared_count=*/UINT32_MAX,
+                   /*private_count=*/0, /*scalar_buffer_count=*/UINT32_MAX);
+  builder.SMov("s0", 7);
+  builder.BExit();
+  const auto kernel = builder.Build("cycle_waitcnt_private_lifecycle");
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  ExpectWaveStateEdgeOrdering(
+      trace.events(), TraceEventKind::WaveArrive, TraceStallReason::WaitCntPrivate);
+}
+
+TEST(AsyncMemoryCycleTest, ScalarBufferWaitcntEmitsWaveWaitArriveAndResumeMarkers) {
+  CollectingTraceSink trace;
+  ExecEngine runtime(&trace);
+  ConfigureZeroFrontendTiming(runtime);
+  IssueCycleClassOverridesSpec class_overrides;
+  class_overrides.scalar_memory = 12;
+  runtime.SetIssueCycleClassOverrides(class_overrides);
+
+  ConstSegment const_segment;
+  const_segment.bytes.resize(sizeof(int32_t));
+  const int32_t value = 11;
+  std::memcpy(const_segment.bytes.data(), &value, sizeof(value));
+
+  InstructionBuilder builder;
+  builder.SMov("s0", 0);
+  builder.SBufferLoadDword("s1", "s0", 4);
+  builder.SWaitCnt(/*global_count=*/UINT32_MAX, /*shared_count=*/UINT32_MAX,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/0);
+  builder.SMov("s2", 7);
+  builder.BExit();
+  const auto kernel =
+      builder.Build("cycle_waitcnt_scalar_buffer_lifecycle", {}, std::move(const_segment));
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  ExpectWaveStateEdgeOrdering(
+      trace.events(), TraceEventKind::WaveArrive, TraceStallReason::WaitCntScalarBuffer);
 }
 
 TEST(AsyncMemoryCycleTest, BufferLoadUsesImmediateOffset) {

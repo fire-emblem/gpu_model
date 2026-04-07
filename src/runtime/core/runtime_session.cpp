@@ -353,13 +353,13 @@ KernelArgPack RuntimeSession::PackCompatibilityArgs(const MetadataBlob& metadata
   return packed;
 }
 
-EncodedProgramObject RuntimeSession::LoadExecutableImage(const std::filesystem::path& executable_path,
-                                                         const void* host_function) const {
+ProgramObject RuntimeSession::LoadExecutableImage(const std::filesystem::path& executable_path,
+                                                  const void* host_function) const {
   const auto kernel_name = ResolveKernelSymbol(host_function);
   if (!kernel_name.has_value()) {
     throw std::invalid_argument("unregistered HIP host function");
   }
-  return ObjectReader{}.LoadEncodedObject(executable_path, *kernel_name);
+  return ObjectReader{}.LoadProgramObject(executable_path, *kernel_name);
 }
 
 LaunchResult RuntimeSession::LaunchExecutableKernel(const std::filesystem::path& executable_path,
@@ -370,7 +370,7 @@ LaunchResult RuntimeSession::LaunchExecutableKernel(const std::filesystem::path&
                                                     const std::string& arch_name,
                                                     TraceSink* trace,
                                                     RuntimeSubmissionContext submission_context) {
-  EncodedProgramObject image;
+  ProgramObject image;
   try {
     image = LoadExecutableImage(executable_path, host_function);
   } catch (const std::invalid_argument&) {
@@ -383,11 +383,11 @@ LaunchResult RuntimeSession::LaunchExecutableKernel(const std::filesystem::path&
   auto device_load = DeviceImageLoader{}.Materialize(BuildDeviceLoadPlan(image), model_runtime_.memory());
   LaunchRequest request;
   request.arch_name = arch_name;
-  request.encoded_program_object = &image;
+  request.program_object = &image;
   request.device_load = &device_load;
   request.submission_context = submission_context;
   request.config = std::move(config);
-  request.args = PackCompatibilityArgs(image.metadata, args);
+  request.args = PackCompatibilityArgs(image.metadata(), args);
   request.mode = mode;
   request.trace = trace;
   auto result = model_runtime_.Launch(request);

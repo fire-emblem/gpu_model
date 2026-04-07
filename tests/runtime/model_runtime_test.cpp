@@ -277,16 +277,16 @@ TEST(ModelRuntimeTest, DescribesHipMfmaExecutableWithTypedTensorAbi) {
   }
 
   ModelRuntime api;
-  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "mfma_describe_probe");
-  EXPECT_EQ(image.kernel_name, "mfma_describe_probe");
-  EXPECT_GE(image.kernel_descriptor.accum_offset, 4u);
-  EXPECT_TRUE(image.metadata.values.contains("agpr_count"));
-  EXPECT_EQ(std::to_string(image.kernel_descriptor.agpr_count), image.metadata.values.at("agpr_count"));
+  const auto image = ObjectReader{}.LoadProgramObject(exe_path, "mfma_describe_probe");
+  EXPECT_EQ(image.kernel_name(), "mfma_describe_probe");
+  EXPECT_GE(image.kernel_descriptor().accum_offset, 4u);
+  EXPECT_TRUE(image.metadata().values.contains("agpr_count"));
+  EXPECT_EQ(std::to_string(image.kernel_descriptor().agpr_count), image.metadata().values.at("agpr_count"));
 
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(ModelRuntimeTest, LaunchesEncodedProgramObjectFromAmdgpuObject) {
+TEST(ModelRuntimeTest, LaunchesProgramObjectFromAmdgpuObject) {
   const auto temp_dir = MakeUniqueTempDir("gpu_model_model_runtime_lowered_object");
   const auto src_path = temp_dir / "hip_vecadd_3d_adds.cpp";
   const auto exe_path = temp_dir / "hip_vecadd_3d_adds.out";
@@ -341,8 +341,8 @@ TEST(ModelRuntimeTest, LaunchesEncodedProgramObjectFromAmdgpuObject) {
   args.PushU32(height);
   args.PushU32(depth);
 
-  const auto result = api.LaunchEncodedProgramObject(
-      ObjectReader{}.LoadEncodedObject(exe_path, "vecadd_3d_adds"),
+  const auto result = api.LaunchProgramObject(
+      ObjectReader{}.LoadProgramObject(exe_path, "vecadd_3d_adds"),
       LaunchConfig{
           .grid_dim_x = (width + 3) / 4,
           .grid_dim_y = (height + 3) / 4,

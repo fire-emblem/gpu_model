@@ -58,13 +58,6 @@ class ModelRuntime {
                             const std::string& arch_name = "c500",
                             TraceSink* trace = nullptr,
                             RuntimeSubmissionContext submission_context = {});
-  LaunchResult LaunchEncodedProgramObject(const EncodedProgramObject& image,
-                                          LaunchConfig config,
-                                          KernelArgPack args,
-                                          ExecutionMode mode = ExecutionMode::Functional,
-                                          std::string arch_name = "",
-                                          TraceSink* trace = nullptr,
-                                          RuntimeSubmissionContext submission_context = {});
   void LoadModule(const ModuleLoadRequest& request);
   void UnloadModule(const std::string& module_name, uint64_t context_id = 0);
   bool HasModule(const std::string& module_name, uint64_t context_id = 0) const;

@@ -48,10 +48,14 @@ DeviceSegmentImage MakeDataSegment(const DataSegment& data_segment) {
 DeviceLoadPlan BuildDeviceLoadPlan(const ProgramObject& image) {
   DeviceLoadPlan plan;
   const auto metadata = ParseKernelLaunchMetadata(image.metadata());
-  const auto code_bytes = std::vector<std::byte>(
-      reinterpret_cast<const std::byte*>(image.assembly_text().data()),
-      reinterpret_cast<const std::byte*>(image.assembly_text().data()) + image.assembly_text().size());
-  plan.segments.push_back(MakeCodeSegment(image.kernel_name() + ".asm", code_bytes));
+  if (!image.code_bytes().empty()) {
+    plan.segments.push_back(MakeCodeSegment(image.kernel_name() + ".text", image.code_bytes()));
+  } else {
+    const auto code_bytes = std::vector<std::byte>(
+        reinterpret_cast<const std::byte*>(image.assembly_text().data()),
+        reinterpret_cast<const std::byte*>(image.assembly_text().data()) + image.assembly_text().size());
+    plan.segments.push_back(MakeCodeSegment(image.kernel_name() + ".asm", code_bytes));
+  }
   if (!image.const_segment().bytes.empty()) {
     plan.segments.push_back(MakeConstSegment(image.const_segment()));
   }
@@ -66,26 +70,6 @@ DeviceLoadPlan BuildDeviceLoadPlan(const ProgramObject& image) {
         .pool = MemoryPoolKind::Kernarg,
         .mapping = MemoryMappingKind::ZeroFill,
         .name = image.kernel_name() + ".kernarg",
-        .alignment = 16,
-        .bytes = {},
-        .required_bytes = plan.preferred_kernarg_bytes,
-    });
-  }
-  return plan;
-}
-
-DeviceLoadPlan BuildDeviceLoadPlan(const EncodedProgramObject& image) {
-  DeviceLoadPlan plan;
-  const auto metadata = ParseKernelLaunchMetadata(image.metadata);
-  plan.segments.push_back(MakeCodeSegment(image.kernel_name + ".text", image.code_bytes));
-  plan.required_shared_bytes = metadata.required_shared_bytes.value_or(0);
-  plan.preferred_kernarg_bytes = RequiredKernargTemplateBytes(metadata);
-  if (plan.preferred_kernarg_bytes != 0) {
-    plan.segments.push_back(DeviceSegmentImage{
-        .kind = DeviceSegmentKind::KernargTemplate,
-        .pool = MemoryPoolKind::Kernarg,
-        .mapping = MemoryMappingKind::ZeroFill,
-        .name = image.kernel_name + ".kernarg",
         .alignment = 16,
         .bytes = {},
         .required_bytes = plan.preferred_kernarg_bytes,

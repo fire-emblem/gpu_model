@@ -192,6 +192,13 @@ ArchitecturalIssuePolicy ResolveIssuePolicy(const CycleTimingConfig& timing_conf
   return ArchitecturalIssuePolicyFromLimits(timing_config.issue_limits);
 }
 
+uint64_t ModeledAsyncCompletionDelay(uint32_t issue_cycles, uint32_t default_issue_cycles) {
+  if (issue_cycles <= default_issue_cycles) {
+    return 0;
+  }
+  return static_cast<uint64_t>(issue_cycles - default_issue_cycles);
+}
+
 void StoreLaneValue(MemorySystem& memory, const LaneAccess& lane) {
   memory_ops::StoreGlobalLaneValue(memory, lane);
 }
@@ -996,18 +1003,6 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
         WaveContext& wave = candidate->wave;
         const Instruction instruction = context.kernel.InstructionAtPc(wave.pc);
         const uint32_t slot_id = TraceSlotId(*candidate);
-        context.trace.OnEvent(MakeTraceIssueSelectEvent(
-            MakeTraceWaveView(*candidate, slot_id), cycle, TraceSlotModelKind::ResidentFixed));
-        if (context.stats != nullptr) {
-          ++context.stats->wave_steps;
-          ++context.stats->instructions_issued;
-        }
-        context.trace.OnEvent(MakeTraceWaveStepEvent(MakeTraceWaveView(*candidate, slot_id),
-                                                     cycle,
-                                                     TraceSlotModelKind::ResidentFixed,
-                                                     FormatWaveStepMessage(instruction, wave)));
-
-        const OpPlan plan = semantics_.BuildPlan(instruction, wave, context);
         const uint64_t wave_tag = WaveTag(wave);
         const uint64_t switch_penalty =
             bundle_last_wave_tag != std::numeric_limits<uint64_t>::max() &&
@@ -1020,6 +1015,18 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
           context.trace.OnEvent(MakeTraceWaveSwitchStallEvent(
               MakeTraceWaveView(*candidate, slot_id), cycle, TraceSlotModelKind::ResidentFixed));
         }
+        context.trace.OnEvent(MakeTraceIssueSelectEvent(
+            MakeTraceWaveView(*candidate, slot_id), cycle, TraceSlotModelKind::ResidentFixed));
+        if (context.stats != nullptr) {
+          ++context.stats->wave_steps;
+          ++context.stats->instructions_issued;
+        }
+        context.trace.OnEvent(MakeTraceWaveStepEvent(MakeTraceWaveView(*candidate, slot_id),
+                                                     cycle,
+                                                     TraceSlotModelKind::ResidentFixed,
+                                                     FormatWaveStepMessage(instruction, wave)));
+
+        const OpPlan plan = semantics_.BuildPlan(instruction, wave, context);
         const uint64_t commit_cycle = cycle + switch_penalty + plan.issue_cycles;
         bundle_commit_cycle = std::max(bundle_commit_cycle, commit_cycle);
         bundle_last_wave_tag = wave_tag;
@@ -1185,10 +1192,12 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                     });
                   } else if (request.space == MemorySpace::Shared) {
                     const uint64_t penalty = shared_bank_model.ConflictPenalty(request);
+                    const uint64_t async_delay = ModeledAsyncCompletionDelay(
+                        plan.issue_cycles, context.spec.default_issue_cycles);
                     if (context.stats != nullptr) {
                       context.stats->shared_bank_conflict_penalty_cycles += penalty;
                     }
-                    const uint64_t ready_cycle = commit_cycle + penalty;
+                    const uint64_t ready_cycle = commit_cycle + penalty + async_delay;
                     events.Schedule(TimedEvent{
                         .cycle = ready_cycle,
                         .action =
@@ -1232,8 +1241,6 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                                   request.kind == AccessKind::Load ? TraceMemoryArriveKind::Shared
                                                                    : TraceMemoryArriveKind::Store,
                                   TraceSlotModelKind::ResidentFixed);
-                              ApplyExecutionPlanControlFlow(
-                                  context.kernel, plan, candidate->wave, true, true);
                               DecrementPendingMemoryOps(candidate->wave, MemoryWaitDomain::Shared);
                               const AsyncArriveResult arrive_result = MakeCycleArriveResult(
                                   context.kernel, candidate->wave, MemoryWaitDomain::Shared);
@@ -1258,128 +1265,155 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                               }
                             },
                     });
-                    return;
                   } else if (request.space == MemorySpace::Private) {
-                    if (request.kind == AccessKind::Load) {
-                      if (!request.dst.has_value()) {
-                        throw std::invalid_argument("load request missing destination");
-                      }
-                    for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
-                      if (request.lanes[lane].active) {
-                        const uint64_t value =
-                            LoadLaneValue(candidate->wave.private_memory, lane, request.lanes[lane]);
-                          candidate->wave.vgpr.Write(request.dst->index, lane, value);
-                        }
-                      }
-                    } else if (request.kind == AccessKind::Store) {
-                      for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
-                        if (request.lanes[lane].active) {
-                          StoreLaneValue(candidate->wave.private_memory, lane, request.lanes[lane]);
-                        }
-                      }
-                    }
-                    TraceEvent arrive_event = MakeTraceMemoryArriveEvent(
-                        MakeTraceWaveView(*candidate, slot_id),
-                        commit_cycle,
-                        request.kind == AccessKind::Load ? TraceMemoryArriveKind::Private
-                                                         : TraceMemoryArriveKind::Store,
-                        TraceSlotModelKind::ResidentFixed);
-                    DecrementPendingMemoryOps(candidate->wave, MemoryWaitDomain::Private);
-                    const AsyncArriveResult arrive_result = MakeCycleArriveResult(
-                        context.kernel, candidate->wave, MemoryWaitDomain::Private);
-                    arrive_event.waitcnt_state = arrive_result.waitcnt_state;
-                    arrive_event.arrive_progress = arrive_result.arrive_progress;
-                    context.trace.OnEvent(std::move(arrive_event));
-                    context.trace.OnEvent(MakeTraceWaveArriveEvent(
-                        MakeTraceWaveView(*candidate, slot_id),
-                        commit_cycle,
-                        TraceMemoryArriveKind::Private,
-                        TraceSlotModelKind::ResidentFixed,
-                        arrive_result.arrive_progress,
-                        std::numeric_limits<uint64_t>::max(),
-                        arrive_result.waitcnt_state));
-                    if (!ResumeWaitcntWaveIfReady(context.kernel, candidate->wave)) {
-                      candidate->wave.valid_entry = true;
-                    } else {
-                      context.trace.OnEvent(MakeTraceWaveResumeEvent(
-                          MakeTraceWaveView(*candidate, slot_id),
-                          commit_cycle,
-                          TraceSlotModelKind::ResidentFixed));
-                    }
+                    const uint64_t arrive_cycle =
+                        commit_cycle +
+                        ModeledAsyncCompletionDelay(plan.issue_cycles, context.spec.default_issue_cycles);
+                    events.Schedule(TimedEvent{
+                        .cycle = arrive_cycle,
+                        .action =
+                            [&, candidate, request, arrive_cycle, slot_id]() {
+                              context.cycle = arrive_cycle;
+                              if (request.kind == AccessKind::Load) {
+                                if (!request.dst.has_value()) {
+                                  throw std::invalid_argument("load request missing destination");
+                                }
+                                for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+                                  if (request.lanes[lane].active) {
+                                    const uint64_t value = LoadLaneValue(candidate->wave.private_memory,
+                                                                         lane,
+                                                                         request.lanes[lane]);
+                                    candidate->wave.vgpr.Write(request.dst->index, lane, value);
+                                  }
+                                }
+                              } else if (request.kind == AccessKind::Store) {
+                                for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+                                  if (request.lanes[lane].active) {
+                                    StoreLaneValue(candidate->wave.private_memory,
+                                                   lane,
+                                                   request.lanes[lane]);
+                                  }
+                                }
+                              }
+                              TraceEvent arrive_event = MakeTraceMemoryArriveEvent(
+                                  MakeTraceWaveView(*candidate, slot_id),
+                                  arrive_cycle,
+                                  request.kind == AccessKind::Load ? TraceMemoryArriveKind::Private
+                                                                   : TraceMemoryArriveKind::Store,
+                                  TraceSlotModelKind::ResidentFixed);
+                              DecrementPendingMemoryOps(candidate->wave, MemoryWaitDomain::Private);
+                              const AsyncArriveResult arrive_result = MakeCycleArriveResult(
+                                  context.kernel, candidate->wave, MemoryWaitDomain::Private);
+                              arrive_event.waitcnt_state = arrive_result.waitcnt_state;
+                              arrive_event.arrive_progress = arrive_result.arrive_progress;
+                              context.trace.OnEvent(std::move(arrive_event));
+                              context.trace.OnEvent(MakeTraceWaveArriveEvent(
+                                  MakeTraceWaveView(*candidate, slot_id),
+                                  arrive_cycle,
+                                  TraceMemoryArriveKind::Private,
+                                  TraceSlotModelKind::ResidentFixed,
+                                  arrive_result.arrive_progress,
+                                  std::numeric_limits<uint64_t>::max(),
+                                  arrive_result.waitcnt_state));
+                              if (!ResumeWaitcntWaveIfReady(context.kernel, candidate->wave)) {
+                                candidate->wave.valid_entry = true;
+                              } else {
+                                context.trace.OnEvent(MakeTraceWaveResumeEvent(
+                                    MakeTraceWaveView(*candidate, slot_id),
+                                    arrive_cycle,
+                                    TraceSlotModelKind::ResidentFixed));
+                              }
+                            },
+                    });
                   } else if (request.space == MemorySpace::Constant) {
-                    if (!request.dst.has_value()) {
-                      throw std::invalid_argument("load request missing destination");
-                    }
-                    if (request.dst->file == RegisterFile::Scalar) {
-                      uint64_t loaded_value = 0;
-                      for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
-                        if (!request.lanes[lane].active) {
-                          continue;
-                        }
-                        const LaneAccess pool_lane{
-                            .active = request.lanes[lane].active,
-                            .addr = ConstantPoolBase(context) + request.lanes[lane].addr,
-                            .bytes = request.lanes[lane].bytes,
-                            .value = request.lanes[lane].value,
-                        };
-                        if (context.memory.HasRange(MemoryPoolKind::Constant, pool_lane.addr,
-                                                    request.lanes[lane].bytes)) {
-                          loaded_value =
-                              LoadLaneValue(context.memory, MemoryPoolKind::Constant, pool_lane);
-                        } else {
-                          loaded_value =
-                              LoadLaneValue(context.kernel.const_segment().bytes, request.lanes[lane]);
-                        }
-                        break;
-                      }
-                      candidate->wave.sgpr.Write(request.dst->index, loaded_value);
-                    } else {
-                      for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
-                        if (request.lanes[lane].active) {
-                          const LaneAccess pool_lane{
-                              .active = request.lanes[lane].active,
-                              .addr = ConstantPoolBase(context) + request.lanes[lane].addr,
-                              .bytes = request.lanes[lane].bytes,
-                              .value = request.lanes[lane].value,
-                          };
-                          const uint64_t value =
-                              context.memory.HasRange(MemoryPoolKind::Constant,
-                                                      pool_lane.addr,
-                                                      request.lanes[lane].bytes)
-                                  ? LoadLaneValue(context.memory, MemoryPoolKind::Constant, pool_lane)
-                                  : LoadLaneValue(context.kernel.const_segment().bytes,
-                                                  request.lanes[lane]);
-                          candidate->wave.vgpr.Write(request.dst->index, lane, value);
-                        }
-                      }
-                    }
-                    TraceEvent arrive_event = MakeTraceMemoryArriveEvent(
-                        MakeTraceWaveView(*candidate, slot_id),
-                        commit_cycle,
-                        TraceMemoryArriveKind::ScalarBuffer,
-                        TraceSlotModelKind::ResidentFixed);
-                    DecrementPendingMemoryOps(candidate->wave, MemoryWaitDomain::ScalarBuffer);
-                    const AsyncArriveResult arrive_result = MakeCycleArriveResult(
-                        context.kernel, candidate->wave, MemoryWaitDomain::ScalarBuffer);
-                    arrive_event.waitcnt_state = arrive_result.waitcnt_state;
-                    arrive_event.arrive_progress = arrive_result.arrive_progress;
-                    context.trace.OnEvent(std::move(arrive_event));
-                    context.trace.OnEvent(MakeTraceWaveArriveEvent(
-                        MakeTraceWaveView(*candidate, slot_id),
-                        commit_cycle,
-                        TraceMemoryArriveKind::ScalarBuffer,
-                        TraceSlotModelKind::ResidentFixed,
-                        arrive_result.arrive_progress,
-                        std::numeric_limits<uint64_t>::max(),
-                        arrive_result.waitcnt_state));
-                    if (!ResumeWaitcntWaveIfReady(context.kernel, candidate->wave)) {
-                      candidate->wave.valid_entry = true;
-                    } else {
-                      context.trace.OnEvent(MakeTraceWaveResumeEvent(
-                          MakeTraceWaveView(*candidate, slot_id),
-                          commit_cycle,
-                          TraceSlotModelKind::ResidentFixed));
-                    }
+                    const uint64_t arrive_cycle =
+                        commit_cycle +
+                        ModeledAsyncCompletionDelay(plan.issue_cycles, context.spec.default_issue_cycles);
+                    events.Schedule(TimedEvent{
+                        .cycle = arrive_cycle,
+                        .action =
+                            [&, candidate, request, arrive_cycle, slot_id]() {
+                              context.cycle = arrive_cycle;
+                              if (!request.dst.has_value()) {
+                                throw std::invalid_argument("load request missing destination");
+                              }
+                              if (request.dst->file == RegisterFile::Scalar) {
+                                uint64_t loaded_value = 0;
+                                for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+                                  if (!request.lanes[lane].active) {
+                                    continue;
+                                  }
+                                  const LaneAccess pool_lane{
+                                      .active = request.lanes[lane].active,
+                                      .addr = ConstantPoolBase(context) + request.lanes[lane].addr,
+                                      .bytes = request.lanes[lane].bytes,
+                                      .value = request.lanes[lane].value,
+                                  };
+                                  if (context.memory.HasRange(MemoryPoolKind::Constant,
+                                                              pool_lane.addr,
+                                                              request.lanes[lane].bytes)) {
+                                    loaded_value =
+                                        LoadLaneValue(context.memory, MemoryPoolKind::Constant, pool_lane);
+                                  } else {
+                                    loaded_value =
+                                        LoadLaneValue(context.kernel.const_segment().bytes,
+                                                      request.lanes[lane]);
+                                  }
+                                  break;
+                                }
+                                candidate->wave.sgpr.Write(request.dst->index, loaded_value);
+                              } else {
+                                for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+                                  if (request.lanes[lane].active) {
+                                    const LaneAccess pool_lane{
+                                        .active = request.lanes[lane].active,
+                                        .addr = ConstantPoolBase(context) + request.lanes[lane].addr,
+                                        .bytes = request.lanes[lane].bytes,
+                                        .value = request.lanes[lane].value,
+                                    };
+                                    const uint64_t value =
+                                        context.memory.HasRange(MemoryPoolKind::Constant,
+                                                                pool_lane.addr,
+                                                                request.lanes[lane].bytes)
+                                            ? LoadLaneValue(context.memory,
+                                                            MemoryPoolKind::Constant,
+                                                            pool_lane)
+                                            : LoadLaneValue(context.kernel.const_segment().bytes,
+                                                            request.lanes[lane]);
+                                    candidate->wave.vgpr.Write(request.dst->index, lane, value);
+                                  }
+                                }
+                              }
+                              TraceEvent arrive_event = MakeTraceMemoryArriveEvent(
+                                  MakeTraceWaveView(*candidate, slot_id),
+                                  arrive_cycle,
+                                  TraceMemoryArriveKind::ScalarBuffer,
+                                  TraceSlotModelKind::ResidentFixed);
+                              DecrementPendingMemoryOps(candidate->wave,
+                                                        MemoryWaitDomain::ScalarBuffer);
+                              const AsyncArriveResult arrive_result = MakeCycleArriveResult(
+                                  context.kernel, candidate->wave, MemoryWaitDomain::ScalarBuffer);
+                              arrive_event.waitcnt_state = arrive_result.waitcnt_state;
+                              arrive_event.arrive_progress = arrive_result.arrive_progress;
+                              context.trace.OnEvent(std::move(arrive_event));
+                              context.trace.OnEvent(MakeTraceWaveArriveEvent(
+                                  MakeTraceWaveView(*candidate, slot_id),
+                                  arrive_cycle,
+                                  TraceMemoryArriveKind::ScalarBuffer,
+                                  TraceSlotModelKind::ResidentFixed,
+                                  arrive_result.arrive_progress,
+                                  std::numeric_limits<uint64_t>::max(),
+                                  arrive_result.waitcnt_state));
+                              if (!ResumeWaitcntWaveIfReady(context.kernel, candidate->wave)) {
+                                candidate->wave.valid_entry = true;
+                              } else {
+                                context.trace.OnEvent(MakeTraceWaveResumeEvent(
+                                    MakeTraceWaveView(*candidate, slot_id),
+                                    arrive_cycle,
+                                    TraceSlotModelKind::ResidentFixed));
+                              }
+                            },
+                    });
                   } else {
                     throw std::invalid_argument("unsupported memory space in cycle executor");
                   }

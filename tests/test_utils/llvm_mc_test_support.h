@@ -4,7 +4,7 @@
 #include <string>
 
 #include "gpu_model/instruction/encoded/instruction_object.h"
-#include "gpu_model/program/encoded_program_object.h"
+#include "gpu_model/program/program_object.h"
 
 namespace gpu_model::test_utils {
 
@@ -14,7 +14,7 @@ struct AssembledModule {
   std::filesystem::path temp_dir;
   std::filesystem::path asm_path;
   std::filesystem::path obj_path;
-  EncodedProgramObject image;
+  ProgramObject image;
 };
 
 struct AssembledInstructionStream {

@@ -191,16 +191,16 @@ size_t FindFirst(std::string_view text, std::string_view needle) {
   return text.find(needle);
 }
 
-uint64_t NthEncodedInstructionPcWithMnemonic(const EncodedProgramObject& image,
+uint64_t NthEncodedInstructionPcWithMnemonic(const ProgramObject& image,
                                              std::string_view mnemonic,
                                              size_t ordinal) {
   size_t seen = 0;
-  for (size_t i = 0; i < image.decoded_instructions.size() && i < image.instructions.size(); ++i) {
-    if (image.decoded_instructions[i].mnemonic != mnemonic) {
+  for (size_t i = 0; i < image.decoded_instructions().size() && i < image.instructions().size(); ++i) {
+    if (image.decoded_instructions()[i].mnemonic != mnemonic) {
       continue;
     }
     if (seen == ordinal) {
-      return image.instructions[i].pc;
+      return image.instructions()[i].pc;
     }
     ++seen;
   }
@@ -1142,8 +1142,9 @@ TEST(TraceTest, RecorderBuildsPerWaveEntriesAndInstructionCycleRanges) {
   ASSERT_EQ(second_wave.entries.size(), 1u);
   EXPECT_EQ(second_wave.wave_id, 6u);
   EXPECT_EQ(second_wave.entries.at(0).kind, RecorderEntryKind::InstructionIssue);
+  EXPECT_FALSE(second_wave.entries.at(0).has_cycle_range);
   EXPECT_EQ(second_wave.entries.at(0).begin_cycle, 16u);
-  EXPECT_EQ(second_wave.entries.at(0).end_cycle, 20u);
+  EXPECT_EQ(second_wave.entries.at(0).end_cycle, 16u);
 }
 
 TEST(TraceTest, RecorderCapturesTypedSemanticSnapshotForReplayFacingUses) {
@@ -1308,11 +1309,11 @@ TEST(TraceTest, EncodedTraceUsesCanonicalArriveAndBarrierReleaseMessages) {
   const auto obj_path = AssembleLlvmMcFixture(
       "gpu_model_encoded_factory_messages_obj",
       std::filesystem::path("tests/asm_cases/loader/ds_lds_variants.s"));
-  const auto image = ObjectReader{}.LoadEncodedObject(obj_path, "asm_ds_lds_variants");
+  const auto image = ObjectReader{}.LoadProgramObject(obj_path, "asm_ds_lds_variants");
 
   LaunchRequest request;
   request.arch_name = "c500";
-  request.encoded_program_object = &image;
+  request.program_object = &image;
   request.mode = ExecutionMode::Cycle;
   request.config.grid_dim_x = 1;
   request.config.block_dim_x = 64 * 2;
@@ -2695,7 +2696,7 @@ TEST(TraceTest, NativePerfettoProtoShowsEncodedFunctionalLogicalUnboundedSlotsOn
   const auto obj_path = AssembleLlvmMcFixture(
       "gpu_model_perfetto_encoded_st_same_peu_obj",
       std::filesystem::path("tests/asm_cases/loader/kernarg_aggregate_by_value.s"));
-  const auto image = ObjectReader{}.LoadEncodedObject(obj_path, "asm_kernarg_aggregate_by_value");
+  const auto image = ObjectReader{}.LoadProgramObject(obj_path, "asm_kernarg_aggregate_by_value");
 
   TraceArtifactRecorder trace(out_dir);
   ExecEngine runtime(&trace);
@@ -2711,7 +2712,7 @@ TEST(TraceTest, NativePerfettoProtoShowsEncodedFunctionalLogicalUnboundedSlotsOn
 
   LaunchRequest request;
   request.arch_name = "c500";
-  request.encoded_program_object = &image;
+  request.program_object = &image;
   request.mode = ExecutionMode::Functional;
   request.config.grid_dim_x = 1;
   request.config.block_dim_x = 64 * 33;
@@ -2759,7 +2760,7 @@ TEST(TraceTest, NativePerfettoProtoShowsEncodedCycleResidentSlotsAcrossPeus) {
   const auto obj_path = AssembleLlvmMcFixture(
       "gpu_model_perfetto_encoded_cycle_slots_obj",
       std::filesystem::path("tests/asm_cases/loader/kernarg_aggregate_by_value.s"));
-  const auto image = ObjectReader{}.LoadEncodedObject(obj_path, "asm_kernarg_aggregate_by_value");
+  const auto image = ObjectReader{}.LoadProgramObject(obj_path, "asm_kernarg_aggregate_by_value");
 
   TraceArtifactRecorder trace(out_dir);
   ExecEngine runtime(&trace);
@@ -2775,7 +2776,7 @@ TEST(TraceTest, NativePerfettoProtoShowsEncodedCycleResidentSlotsAcrossPeus) {
 
   LaunchRequest request;
   request.arch_name = "c500";
-  request.encoded_program_object = &image;
+  request.program_object = &image;
   request.mode = ExecutionMode::Cycle;
   request.config.grid_dim_x = 1;
   request.config.block_dim_x = 64 * 16;
@@ -3045,7 +3046,7 @@ amdhsa.kernels:
 
   LaunchRequest request;
   request.arch_name = "c500";
-  request.encoded_program_object = &assembled.image;
+  request.program_object = &assembled.image;
   request.mode = ExecutionMode::Functional;
   request.config.grid_dim_x = 1;
   request.config.block_dim_x = 64;
@@ -3150,7 +3151,7 @@ amdhsa.kernels:
 
   LaunchRequest request;
   request.arch_name = "c500";
-  request.encoded_program_object = &assembled.image;
+  request.program_object = &assembled.image;
   request.mode = ExecutionMode::Cycle;
   request.config.grid_dim_x = 1;
   request.config.block_dim_x = 64;
@@ -3235,7 +3236,7 @@ amdhsa.kernels:
 
   LaunchRequest request;
   request.arch_name = "c500";
-  request.encoded_program_object = &assembled.image;
+  request.program_object = &assembled.image;
   request.mode = ExecutionMode::Functional;
   request.config.grid_dim_x = 2;
   request.config.block_dim_x = 64;
@@ -3412,7 +3413,7 @@ amdhsa.kernels:
 
   LaunchRequest request;
   request.arch_name = "c500";
-  request.encoded_program_object = &assembled.image;
+  request.program_object = &assembled.image;
   request.mode = ExecutionMode::Functional;
   request.config.grid_dim_x = 1;
   request.config.block_dim_x = 64;

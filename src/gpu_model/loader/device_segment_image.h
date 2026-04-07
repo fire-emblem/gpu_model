@@ -6,7 +6,6 @@
 #include <vector>
 
 #include "gpu_model/memory/memory_pool.h"
-#include "gpu_model/program/encoded_program_object.h"
 #include "gpu_model/program/program_object.h"
 
 namespace gpu_model {
@@ -35,6 +34,5 @@ struct DeviceLoadPlan {
 };
 
 DeviceLoadPlan BuildDeviceLoadPlan(const ProgramObject& image);
-DeviceLoadPlan BuildDeviceLoadPlan(const EncodedProgramObject& image);
 
 }  // namespace gpu_model

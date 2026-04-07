@@ -6,7 +6,6 @@
 #include <type_traits>
 #include <utility>
 
-#include "gpu_model/program/encoded_program_object.h"
 #include "gpu_model/program/executable_kernel.h"
 #include "gpu_model/program/object_reader.h"
 #include "gpu_model/program/program_object.h"
@@ -20,23 +19,20 @@ TEST(ProgramNamingTest, NewProgramTypesExposeConcreteInterfaces) {
   static_assert(std::is_class_v<ObjectReader>);
   static_assert(std::is_default_constructible_v<ProgramObject>);
   static_assert(std::is_default_constructible_v<ExecutableKernel>);
-  static_assert(std::is_same_v<decltype(ProgramObject{}.kernel_name()), const std::string&>);
+  static_assert(std::is_same_v<decltype(std::declval<const ProgramObject&>().kernel_name()),
+                               const std::string&>);
   static_assert(std::is_same_v<decltype(ExecutableKernel{}.name()), const std::string&>);
   static_assert(std::is_same_v<
                 decltype(std::declval<const ObjectReader&>().LoadFromStem(
                     std::declval<const std::filesystem::path&>())),
                 ProgramObject>);
   static_assert(std::is_same_v<
-                decltype(std::declval<const ObjectReader&>().LoadEncodedObject(
+                decltype(std::declval<const ObjectReader&>().LoadProgramObject(
                     std::declval<const std::filesystem::path&>(),
                     std::declval<std::optional<std::string>>())),
-                EncodedProgramObject>);
-}
-
-TEST(ProgramNamingTest, EncodedProgramObjectHeaderProvidesDataObject) {
-  static_assert(std::is_default_constructible_v<EncodedProgramObject>);
-  static_assert(std::is_same_v<decltype(EncodedProgramObject{}.kernel_descriptor),
-                               AmdgpuKernelDescriptor>);
+                ProgramObject>);
+  static_assert(std::is_same_v<decltype(std::declval<const ProgramObject&>().kernel_name()),
+                               const std::string&>);
 }
 
 TEST(ProgramNamingTest, ExecutableKernelCanConstructAndResolveLabel) {

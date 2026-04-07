@@ -245,21 +245,9 @@ LaunchResult HipRuntime::LaunchProgramObject(const ProgramObject& image,
                                              std::string arch_name,
                                              TraceSink* trace,
                                              RuntimeSubmissionContext submission_context) {
-  return model_runtime_.LaunchProgramObject(image, std::move(config), std::move(args), mode,
-                                            std::move(arch_name), trace,
-                                            submission_context);
-}
-
-LaunchResult HipRuntime::LaunchEncodedProgramObject(const EncodedProgramObject& image,
-                                                    LaunchConfig config,
-                                                    KernelArgPack args,
-                                                    ExecutionMode mode,
-                                                    std::string arch_name,
-                                                    TraceSink* trace,
-                                                    RuntimeSubmissionContext submission_context) {
   GPU_MODEL_LOG_INFO("runtime",
-                     "launch_encoded begin kernel=%s mode=%s grid=(%u,%u,%u) block=(%u,%u,%u)",
-                     image.kernel_name.c_str(),
+                     "launch_program begin kernel=%s mode=%s grid=(%u,%u,%u) block=(%u,%u,%u)",
+                     image.kernel_name().c_str(),
                      mode == ExecutionMode::Cycle ? "cycle" : "functional",
                      config.grid_dim_x,
                      config.grid_dim_y,
@@ -267,12 +255,12 @@ LaunchResult HipRuntime::LaunchEncodedProgramObject(const EncodedProgramObject& 
                      config.block_dim_x,
                      config.block_dim_y,
                      config.block_dim_z);
-  auto result = model_runtime_.LaunchEncodedProgramObject(image, std::move(config), std::move(args),
-                                                          mode, std::move(arch_name), trace,
-                                                          submission_context);
+  auto result = model_runtime_.LaunchProgramObject(image, std::move(config), std::move(args), mode,
+                                                   std::move(arch_name), trace,
+                                                   submission_context);
   GPU_MODEL_LOG_INFO("runtime",
-                     "launch_encoded end kernel=%s ok=%d total_cycles=%llu",
-                     image.kernel_name.c_str(),
+                     "launch_program end kernel=%s ok=%d total_cycles=%llu",
+                     image.kernel_name().c_str(),
                      result.ok ? 1 : 0,
                      static_cast<unsigned long long>(result.total_cycles));
   return result;

@@ -130,15 +130,15 @@ TEST(AsmModuleIntegrationTest, DecodesModuleFromLlvmMcAssembledAmdgpuAssembly) {
       "asm_module_probe",
       std::filesystem::path("tests/asm_cases/loader/asm_module_probe.s"));
   const auto& image = assembled.image;
-  EXPECT_EQ(image.kernel_name, "asm_module_probe");
-  ASSERT_FALSE(image.instructions.empty());
-  EXPECT_EQ(image.metadata.values.at("entry"), "asm_module_probe");
-  EXPECT_EQ(image.metadata.values.at("descriptor_symbol"), "asm_module_probe.kd");
+  EXPECT_EQ(image.kernel_name(), "asm_module_probe");
+  ASSERT_FALSE(image.instructions().empty());
+  EXPECT_EQ(image.metadata().values.at("entry"), "asm_module_probe");
+  EXPECT_EQ(image.metadata().values.at("descriptor_symbol"), "asm_module_probe.kd");
 
   const auto mnemonics = [&]() {
     std::vector<std::string> values;
-    values.reserve(image.instructions.size());
-    for (const auto& inst : image.instructions) {
+    values.reserve(image.instructions().size());
+    for (const auto& inst : image.instructions()) {
       values.push_back(inst.mnemonic);
     }
     return values;
@@ -155,24 +155,24 @@ TEST(AsmModuleIntegrationTest, DecodesModuleFromLlvmMcAssembledAmdgpuAssembly) {
   EXPECT_EQ(mnemonics.back(), "s_endpgm");
 
   const auto cmp_it = std::find_if(
-      image.instructions.begin(), image.instructions.end(),
+      image.instructions().begin(), image.instructions().end(),
       [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "s_cmp_lt_i32"; });
-  ASSERT_NE(cmp_it, image.instructions.end());
+  ASSERT_NE(cmp_it, image.instructions().end());
   ASSERT_EQ(cmp_it->decoded_operands.size(), 2u);
   EXPECT_EQ(cmp_it->decoded_operands[0].text, "s4");
   EXPECT_EQ(cmp_it->decoded_operands[1].text, "16");
 
   const auto branch_it = std::find_if(
-      image.instructions.begin(), image.instructions.end(),
+      image.instructions().begin(), image.instructions().end(),
       [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "s_cbranch_scc0"; });
-  ASSERT_NE(branch_it, image.instructions.end());
+  ASSERT_NE(branch_it, image.instructions().end());
   ASSERT_EQ(branch_it->decoded_operands.size(), 1u);
   EXPECT_TRUE(branch_it->decoded_operands[0].info.has_immediate);
 
   const auto store_it = std::find_if(
-      image.instructions.begin(), image.instructions.end(),
+      image.instructions().begin(), image.instructions().end(),
       [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "global_store_dword"; });
-  ASSERT_NE(store_it, image.instructions.end());
+  ASSERT_NE(store_it, image.instructions().end());
   ASSERT_EQ(store_it->decoded_operands.size(), 4u);
   EXPECT_EQ(store_it->decoded_operands[0].text, "v1");
   EXPECT_EQ(store_it->decoded_operands[1].text, "s[0:1]");
@@ -191,15 +191,15 @@ TEST(AsmModuleIntegrationTest, DecodesVariantHeavyLlvmMcAssemblyModule) {
       std::filesystem::path("tests/asm_cases/loader/asm_variant_probe.s"));
   const auto& image = assembled.image;
 
-  EXPECT_EQ(image.kernel_name, "asm_variant_probe");
-  EXPECT_EQ(image.metadata.values.at("entry"), "asm_variant_probe");
-  EXPECT_EQ(image.metadata.values.at("descriptor_symbol"), "asm_variant_probe.kd");
-  EXPECT_FALSE(image.instructions.empty());
+  EXPECT_EQ(image.kernel_name(), "asm_variant_probe");
+  EXPECT_EQ(image.metadata().values.at("entry"), "asm_variant_probe");
+  EXPECT_EQ(image.metadata().values.at("descriptor_symbol"), "asm_variant_probe.kd");
+  EXPECT_FALSE(image.instructions().empty());
 
   const auto expect_present = [&](std::string_view mnemonic) {
-    EXPECT_NE(std::find_if(image.instructions.begin(), image.instructions.end(),
+    EXPECT_NE(std::find_if(image.instructions().begin(), image.instructions().end(),
                            [&](const EncodedGcnInstruction& inst) { return inst.mnemonic == mnemonic; }),
-              image.instructions.end());
+              image.instructions().end());
   };
 
   expect_present("s_mov_b32");
@@ -210,28 +210,28 @@ TEST(AsmModuleIntegrationTest, DecodesVariantHeavyLlvmMcAssemblyModule) {
   expect_present("v_mov_b32_e32");
   expect_present("v_add_f32_e32");
   expect_present("v_max_f32_e32");
-  EXPECT_EQ(image.instructions.back().mnemonic, "s_endpgm");
+  EXPECT_EQ(image.instructions().back().mnemonic, "s_endpgm");
 
   const auto movk_it = std::find_if(
-      image.instructions.begin(), image.instructions.end(),
+      image.instructions().begin(), image.instructions().end(),
       [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "s_movk_i32"; });
-  ASSERT_NE(movk_it, image.instructions.end());
+  ASSERT_NE(movk_it, image.instructions().end());
   ASSERT_EQ(movk_it->decoded_operands.size(), 2u);
   EXPECT_EQ(movk_it->decoded_operands[0].text, "s5");
   EXPECT_EQ(movk_it->decoded_operands[1].text, "-9");
 
   const auto cmp_it = std::find_if(
-      image.instructions.begin(), image.instructions.end(),
+      image.instructions().begin(), image.instructions().end(),
       [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "s_cmp_lt_i32"; });
-  ASSERT_NE(cmp_it, image.instructions.end());
+  ASSERT_NE(cmp_it, image.instructions().end());
   ASSERT_EQ(cmp_it->decoded_operands.size(), 2u);
   EXPECT_EQ(cmp_it->decoded_operands[0].text, "s6");
   EXPECT_EQ(cmp_it->decoded_operands[1].text, "1");
 
   const auto vmax_it = std::find_if(
-      image.instructions.begin(), image.instructions.end(),
+      image.instructions().begin(), image.instructions().end(),
       [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "v_max_f32_e32"; });
-  ASSERT_NE(vmax_it, image.instructions.end());
+  ASSERT_NE(vmax_it, image.instructions().end());
   ASSERT_EQ(vmax_it->decoded_operands.size(), 3u);
   EXPECT_EQ(vmax_it->decoded_operands[0].text, "v4");
   EXPECT_EQ(vmax_it->decoded_operands[1].text, "v1");
@@ -249,15 +249,15 @@ TEST(AsmModuleIntegrationTest, DecodesFlatAndAtomicLlvmMcAssemblyModule) {
       std::filesystem::path("tests/asm_cases/loader/asm_flat_variants.s"));
   const auto& image = assembled.image;
 
-  EXPECT_EQ(image.kernel_name, "asm_flat_variants");
-  EXPECT_EQ(image.metadata.values.at("entry"), "asm_flat_variants");
-  EXPECT_EQ(image.metadata.values.at("descriptor_symbol"), "asm_flat_variants.kd");
-  EXPECT_FALSE(image.instructions.empty());
+  EXPECT_EQ(image.kernel_name(), "asm_flat_variants");
+  EXPECT_EQ(image.metadata().values.at("entry"), "asm_flat_variants");
+  EXPECT_EQ(image.metadata().values.at("descriptor_symbol"), "asm_flat_variants.kd");
+  EXPECT_FALSE(image.instructions().empty());
 
   const auto flat_load_it = std::find_if(
-      image.instructions.begin(), image.instructions.end(),
+      image.instructions().begin(), image.instructions().end(),
       [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "global_load_dword"; });
-  ASSERT_NE(flat_load_it, image.instructions.end());
+  ASSERT_NE(flat_load_it, image.instructions().end());
   ASSERT_EQ(flat_load_it->decoded_operands.size(), 4u);
   EXPECT_EQ(flat_load_it->decoded_operands[0].text, "v4");
   EXPECT_EQ(flat_load_it->decoded_operands[1].text, "v1");
@@ -265,9 +265,9 @@ TEST(AsmModuleIntegrationTest, DecodesFlatAndAtomicLlvmMcAssemblyModule) {
   EXPECT_EQ(flat_load_it->decoded_operands[3].text, "off");
 
   const auto flat_store_it = std::find_if(
-      image.instructions.begin(), image.instructions.end(),
+      image.instructions().begin(), image.instructions().end(),
       [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "global_store_dword"; });
-  ASSERT_NE(flat_store_it, image.instructions.end());
+  ASSERT_NE(flat_store_it, image.instructions().end());
   ASSERT_EQ(flat_store_it->decoded_operands.size(), 4u);
   EXPECT_EQ(flat_store_it->decoded_operands[0].text, "v1");
   EXPECT_EQ(flat_store_it->decoded_operands[1].text, "s[0:1]");
@@ -275,9 +275,9 @@ TEST(AsmModuleIntegrationTest, DecodesFlatAndAtomicLlvmMcAssemblyModule) {
   EXPECT_EQ(flat_store_it->decoded_operands[3].text, "off");
 
   const auto atomic_it = std::find_if(
-      image.instructions.begin(), image.instructions.end(),
+      image.instructions().begin(), image.instructions().end(),
       [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "global_atomic_add"; });
-  ASSERT_NE(atomic_it, image.instructions.end());
+  ASSERT_NE(atomic_it, image.instructions().end());
   ASSERT_EQ(atomic_it->decoded_operands.size(), 3u);
   EXPECT_EQ(atomic_it->decoded_operands[0].text, "v5");
   EXPECT_EQ(atomic_it->decoded_operands[1].text, "v6");
@@ -301,16 +301,16 @@ TEST_P(LoaderAsmFixtureTest, AssemblesAndDecodesFixtureModule) {
       "gpu_model_loader_asm_fixture", kernel_name, fixture_path);
   const auto& image = assembled.image;
 
-  EXPECT_EQ(image.kernel_name, kernel_name);
-  EXPECT_FALSE(image.instructions.empty());
-  EXPECT_EQ(image.metadata.values.at("entry"), kernel_name);
-  EXPECT_EQ(image.instructions.back().mnemonic, "s_endpgm");
+  EXPECT_EQ(image.kernel_name(), kernel_name);
+  EXPECT_FALSE(image.instructions().empty());
+  EXPECT_EQ(image.metadata().values.at("entry"), kernel_name);
+  EXPECT_EQ(image.instructions().back().mnemonic, "s_endpgm");
 
   const auto expected_mnemonics = ExpectedMnemonicsForFixture(fixture_path);
   for (const auto& mnemonic : expected_mnemonics) {
-    EXPECT_NE(std::find_if(image.instructions.begin(), image.instructions.end(),
+    EXPECT_NE(std::find_if(image.instructions().begin(), image.instructions().end(),
                            [&](const EncodedGcnInstruction& inst) { return inst.mnemonic == mnemonic; }),
-              image.instructions.end())
+              image.instructions().end())
         << "missing mnemonic " << mnemonic << " in fixture " << fixture_path;
   }
 }

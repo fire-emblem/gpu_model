@@ -78,7 +78,7 @@ AssembledModule AssembleAndDecodeLlvmMcModule(const std::string& stem,
       .temp_dir = temp_dir,
       .asm_path = asm_path,
       .obj_path = obj_path,
-      .image = ObjectReader{}.LoadEncodedObject(obj_path, kernel_name),
+      .image = ObjectReader{}.LoadProgramObject(obj_path, kernel_name),
   };
 }
 

@@ -98,7 +98,6 @@ add_executable(gpu_model_tests
   runtime/model_runtime_test.cpp
   runtime/logging_runtime_test.cpp
   runtime/runtime_naming_test.cpp
-  runtime/compatibility_alias_test.cpp
   runtime/debug_info_io_test.cpp
   runtime/cycle_timeline_test.cpp
   runtime/parallel_execution_mode_test.cpp

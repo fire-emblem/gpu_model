@@ -310,11 +310,11 @@ WaveLaunchAbiSummary BuildWaveLaunchAbiSummary(const WaveContext& wave,
 }
 
 void InitializeWaveAbiState(WaveContext& wave,
-                            const EncodedProgramObject& image,
+                            const ProgramObject& image,
                             const LaunchConfig& config,
                             uint64_t kernarg_base,
                             uint32_t wave_count_in_block) {
-  const auto& descriptor = image.kernel_descriptor;
+  const auto& descriptor = image.kernel_descriptor();
   if (!HasExplicitDescriptorAbiRecipe(descriptor)) {
     wave.sgpr.Write(4, static_cast<uint32_t>(kernarg_base & 0xffffffffu));
     wave.sgpr.Write(5, static_cast<uint32_t>(kernarg_base >> 32u));
@@ -1007,7 +1007,7 @@ std::vector<RawBlock> MaterializeRawBlocks(const PlacementMap& placement,
 
 class EncodedExecutionCore {
  public:
-  EncodedExecutionCore(const EncodedProgramObject& image,
+  EncodedExecutionCore(const ProgramObject& image,
                        const GpuArchSpec& spec,
                        const CycleTimingConfig& timing_config,
                        const LaunchConfig& config,
@@ -1065,7 +1065,7 @@ class EncodedExecutionCore {
   }
 
  private:
-  const EncodedProgramObject& image_;
+  const ProgramObject& image_;
   const GpuArchSpec& spec_;
   const CycleTimingConfig& timing_config_;
   LaunchConfig config_;
@@ -1143,22 +1143,22 @@ class EncodedExecutionCore {
     }
     for (auto& raw_block : raw_blocks_) {
       for (auto& raw_wave : raw_block.waves) {
-        raw_wave.wave.pc = image_.instructions.front().pc;
-        raw_wave.wave.tensor_agpr_count = image_.kernel_descriptor.agpr_count;
-        raw_wave.wave.tensor_accum_offset = image_.kernel_descriptor.accum_offset;
+        raw_wave.wave.pc = image_.instructions().front().pc;
+        raw_wave.wave.tensor_agpr_count = image_.kernel_descriptor().agpr_count;
+        raw_wave.wave.tensor_accum_offset = image_.kernel_descriptor().accum_offset;
         InitializeWaveAbiState(raw_wave.wave, image_, config_, kernarg_base_,
                                static_cast<uint32_t>(raw_block.waves.size()));
         if (execution_mode_ == ExecutionMode::Cycle) {
           continue;
         }
-        const auto launch_summary = BuildWaveLaunchAbiSummary(raw_wave.wave, image_.kernel_descriptor);
+        const auto launch_summary = BuildWaveLaunchAbiSummary(raw_wave.wave, image_.kernel_descriptor());
         TraceEventLocked(MakeTraceWaveLaunchEvent(
             MakeRawTraceWaveView(raw_wave),
             NextFunctionalTraceCycle(),
             FormatWaveLaunchTraceMessage(raw_wave.wave,
                                          &launch_summary,
-                                         WaveLaunchTraceScalarRegs(image_.kernel_descriptor),
-                                         WaveLaunchTraceVectorRegs(image_.kernel_descriptor)),
+                                         WaveLaunchTraceScalarRegs(image_.kernel_descriptor()),
+                                         WaveLaunchTraceVectorRegs(image_.kernel_descriptor())),
             TraceSlotModel()));
       }
     }
@@ -1360,14 +1360,14 @@ class EncodedExecutionCore {
         raw_wave->dispatch_enabled = true;
         raw_wave->wave.status = WaveStatus::Active;
         raw_wave->wave.valid_entry = true;
-        const auto launch_summary = BuildWaveLaunchAbiSummary(raw_wave->wave, image_.kernel_descriptor);
+        const auto launch_summary = BuildWaveLaunchAbiSummary(raw_wave->wave, image_.kernel_descriptor());
         TraceEventLocked(MakeTraceWaveLaunchEvent(
             MakeRawTraceWaveView(*raw_wave),
             cycle,
             FormatWaveLaunchTraceMessage(raw_wave->wave,
                                          &launch_summary,
-                                         WaveLaunchTraceScalarRegs(image_.kernel_descriptor),
-                                         WaveLaunchTraceVectorRegs(image_.kernel_descriptor)),
+                                         WaveLaunchTraceScalarRegs(image_.kernel_descriptor()),
+                                         WaveLaunchTraceVectorRegs(image_.kernel_descriptor())),
             TraceSlotModel()));
       }
     }
@@ -1441,7 +1441,7 @@ class EncodedExecutionCore {
           cycle_ap_states_.find(raw_blocks_[raw_wave->block_index].global_ap_id);
       const auto pc_it = pc_to_index_.find(wave.pc);
       if (pc_it != pc_to_index_.end() &&
-          image_.decoded_instructions[pc_it->second].mnemonic == "s_barrier" &&
+          image_.decoded_instructions()[pc_it->second].mnemonic == "s_barrier" &&
           ap_state_it != cycle_ap_states_.end()) {
         uint32_t slots_in_use = ap_state_it->second.barrier_slots_in_use;
         bool acquired = raw_blocks_[raw_wave->block_index].barrier_slot_acquired;
@@ -1474,7 +1474,7 @@ class EncodedExecutionCore {
       if (pc_it == pc_to_index_.end()) {
         continue;
       }
-      const auto& decoded = image_.decoded_instructions[pc_it->second];
+      const auto& decoded = image_.decoded_instructions()[pc_it->second];
       if (const auto front_end_reason =
               FrontEndBlockReason(raw_wave->dispatch_enabled, wave);
           front_end_reason.has_value()) {
@@ -1558,7 +1558,7 @@ class EncodedExecutionCore {
           if (pc_it == pc_to_index_.end()) {
             continue;
           }
-          const auto& decoded = image_.decoded_instructions[pc_it->second];
+          const auto& decoded = image_.decoded_instructions()[pc_it->second];
           const auto descriptor = DescribeEncodedInstruction(decoded);
           const auto ap_state_it = cycle_ap_states_.find(raw_blocks_[raw_wave->block_index].global_ap_id);
           ordered_waves.push_back(raw_wave);
@@ -1589,7 +1589,7 @@ class EncodedExecutionCore {
             std::optional<WaitCntThresholds> waitcnt_thresholds;
             const auto pc_it = pc_to_index_.find(blocked->first->wave.pc);
             if (pc_it != pc_to_index_.end()) {
-              const auto& decoded = image_.decoded_instructions[pc_it->second];
+              const auto& decoded = image_.decoded_instructions()[pc_it->second];
               if (decoded.mnemonic == "s_waitcnt") {
                 waitcnt_thresholds =
                     raw_blocks_[blocked->first->block_index]
@@ -2051,10 +2051,10 @@ class EncodedExecutionCore {
     if (it == pc_to_index_.end()) {
       throw std::out_of_range("raw GCN wave pc out of range");
     }
-    const auto& decoded = image_.decoded_instructions[it->second];
+    const auto& decoded = image_.decoded_instructions()[it->second];
     const InstructionObject* object =
-        (it->second < image_.instruction_objects.size() && image_.instruction_objects[it->second] != nullptr)
-            ? image_.instruction_objects[it->second].get()
+        (it->second < image_.instruction_objects().size() && image_.instruction_objects()[it->second] != nullptr)
+            ? image_.instruction_objects()[it->second].get()
             : nullptr;
     const auto descriptor = DescribeEncodedInstruction(decoded);
     const uint64_t issue_cycles =
@@ -2191,10 +2191,10 @@ class EncodedExecutionCore {
     if (it == pc_to_index_.end()) {
       throw std::out_of_range("raw GCN wave pc out of range");
     }
-    const auto& decoded = image_.decoded_instructions[it->second];
+    const auto& decoded = image_.decoded_instructions()[it->second];
     const InstructionObject* object =
-        (it->second < image_.instruction_objects.size() && image_.instruction_objects[it->second] != nullptr)
-            ? image_.instruction_objects[it->second].get()
+        (it->second < image_.instruction_objects().size() && image_.instruction_objects()[it->second] != nullptr)
+            ? image_.instruction_objects()[it->second].get()
             : nullptr;
     const auto descriptor = DescribeEncodedInstruction(decoded);
     const uint64_t issue_cycles =
@@ -2371,7 +2371,7 @@ class EncodedExecutionCore {
 
 }  // namespace
 
-LaunchResult EncodedExecEngine::Run(const EncodedProgramObject& image,
+LaunchResult EncodedExecEngine::Run(const ProgramObject& image,
                                     const GpuArchSpec& spec,
                                     const CycleTimingConfig& timing_config,
                                     const LaunchConfig& config,
@@ -2387,18 +2387,18 @@ LaunchResult EncodedExecEngine::Run(const EncodedProgramObject& image,
   ProgramCycleStatsConfig cycle_stats_config;
   cycle_stats_config.default_issue_cycles = spec.default_issue_cycles;
   std::ostringstream launch_message;
-  launch_message << "raw_kernel=" << image.kernel_name << " arch=" << spec.name;
-  if (image.kernel_descriptor.agpr_count != 0 || image.kernel_descriptor.accum_offset != 0) {
-    launch_message << " agpr_count=" << image.kernel_descriptor.agpr_count
-                   << " accum_offset=" << image.kernel_descriptor.accum_offset;
+  launch_message << "raw_kernel=" << image.kernel_name() << " arch=" << spec.name;
+  if (image.kernel_descriptor().agpr_count != 0 || image.kernel_descriptor().accum_offset != 0) {
+    launch_message << " agpr_count=" << image.kernel_descriptor().agpr_count
+                   << " accum_offset=" << image.kernel_descriptor().accum_offset;
   }
   trace.OnEvent(MakeTraceRuntimeLaunchEvent(0, launch_message.str()));
 
   std::unordered_map<uint64_t, size_t> pc_to_index;
-  for (size_t i = 0; i < image.instructions.size(); ++i) {
-    pc_to_index[image.instructions[i].pc] = i;
+  for (size_t i = 0; i < image.instructions().size(); ++i) {
+    pc_to_index[image.instructions()[i].pc] = i;
   }
-  const auto kernarg = BuildKernargImage(ParseKernelLaunchMetadata(image.metadata), args, config);
+  const auto kernarg = BuildKernargImage(ParseKernelLaunchMetadata(image.metadata()), args, config);
   uint64_t kernarg_base = memory.Allocate(MemoryPoolKind::Kernarg, kernarg.size());
   if (device_load != nullptr) {
     for (const auto& loaded : device_load->segments) {
@@ -2414,7 +2414,7 @@ LaunchResult EncodedExecEngine::Run(const EncodedProgramObject& image,
     }
   }
   memory.Write(MemoryPoolKind::Kernarg, kernarg_base, std::span<const std::byte>(kernarg));
-  const auto launch_metadata = ParseKernelLaunchMetadata(image.metadata);
+  const auto launch_metadata = ParseKernelLaunchMetadata(image.metadata());
   const uint32_t shared_bytes =
       std::max(config.shared_memory_bytes, launch_metadata.required_shared_bytes.value_or(0u));
   auto raw_blocks = MaterializeRawBlocks(result.placement, config, shared_bytes);

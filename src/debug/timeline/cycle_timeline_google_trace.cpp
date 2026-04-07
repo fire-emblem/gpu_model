@@ -8,7 +8,6 @@
 #include <string_view>
 
 #include "gpu_model/debug/trace/event_export.h"
-#include "gpu_model/debug/trace/event_view.h"
 #include "../trace_json_fields_internal.h"
 #include "gpu_model/execution/internal/tensor_op_utils.h"
 
@@ -27,21 +26,20 @@ std::string HexU64(uint64_t value) {
 }
 
 std::string MarkerNameImpl(const Marker& marker) {
-  const auto& view = marker.semantic.view;
   const auto& fields = marker.semantic.fields;
-  if (!view.presentation_name.empty()) {
-    return view.presentation_name;
+  if (!fields.presentation_name.empty()) {
+    return fields.presentation_name;
   }
-  if (!view.canonical_name.empty()) {
-    return view.canonical_name;
+  if (!fields.canonical_name.empty()) {
+    return fields.canonical_name;
   }
-  if (!view.display_name.empty()) {
-    return view.display_name;
+  if (!fields.display_name.empty()) {
+    return fields.display_name;
   }
   if (!fields.compatibility_message.empty()) {
     return fields.compatibility_message;
   }
-  switch (view.kind) {
+  switch (marker.semantic.kind) {
     case TraceEventKind::Arrive:
       return "arrive";
     case TraceEventKind::Barrier:
@@ -59,7 +57,8 @@ std::string MarkerNameImpl(const Marker& marker) {
     case TraceEventKind::WaveSwitchAway:
       return "wave_switch_away";
     case TraceEventKind::Stall:
-      return view.stall_reason == TraceStallReason::WarpSwitch ? "wave_switch_away" : "stall";
+      return marker.semantic.stall_reason == TraceStallReason::WarpSwitch ? "wave_switch_away"
+                                                                          : "stall";
     case TraceEventKind::WaveLaunch:
       return "wave_launch";
     case TraceEventKind::BlockLaunch:
@@ -70,11 +69,11 @@ std::string MarkerNameImpl(const Marker& marker) {
 }
 
 std::string MarkerCategory(const Marker& marker) {
-  const auto& view = marker.semantic.view;
-  if (!view.category.empty()) {
-    return view.category;
+  const auto& fields = marker.semantic.fields;
+  if (!fields.category.empty()) {
+    return fields.category;
   }
-  switch (view.kind) {
+  switch (marker.semantic.kind) {
     case TraceEventKind::Arrive:
       return "memory/arrive";
     case TraceEventKind::Barrier:
@@ -92,7 +91,8 @@ std::string MarkerCategory(const Marker& marker) {
     case TraceEventKind::WaveSwitchAway:
       return "wave/switch_away";
     case TraceEventKind::Stall:
-      return view.stall_reason == TraceStallReason::WarpSwitch ? "wave/switch_away" : "stall";
+      return marker.semantic.stall_reason == TraceStallReason::WarpSwitch ? "wave/switch_away"
+                                                                          : "stall";
     case TraceEventKind::WaveLaunch:
       return "launch/wave";
     case TraceEventKind::BlockLaunch:
@@ -131,11 +131,10 @@ TraceEventExportFields MarkerFields(const Marker& marker) {
 }
 
 std::string MarkerArgs(const SlotKey& key, const Marker& marker) {
-  const auto& view = marker.semantic.view;
   std::ostringstream out;
   out << "\"dpc\":" << key.dpc_id << ",\"ap\":" << key.ap_id << ",\"peu\":" << key.peu_id
-      << ",\"slot\":" << key.slot_id << ",\"block\":" << view.block_id << ",\"wave\":"
-      << view.wave_id << ",\"cycle\":" << view.cycle;
+      << ",\"slot\":" << key.slot_id << ",\"block\":" << marker.semantic.block_id << ",\"wave\":"
+      << marker.semantic.wave_id << ",\"cycle\":" << marker.semantic.cycle;
   AppendTraceExportJsonFields(out, MarkerFields(marker));
   return out.str();
 }
@@ -174,7 +173,7 @@ std::set<RowDescriptor> CollectDeclaredRows(const TimelineData& data, CycleTimel
   }
   for (const auto& [key, row_markers] : data.markers) {
     for (const auto& marker : row_markers) {
-      declared_rows.insert(DescribeRow(key, group_by, marker.semantic.view.block_id));
+      declared_rows.insert(DescribeRow(key, group_by, marker.semantic.block_id));
     }
   }
   return declared_rows;
@@ -209,13 +208,13 @@ std::string RenderGoogleTraceExport(const TimelineData& data,
   append("{\"name\":\"process_name\",\"ph\":\"M\",\"pid\":0,\"tid\":0,\"args\":{\"name\":\"" +
          EscapeTraceJson(RuntimeLabel()) + "\"}}");
   for (const auto& runtime_event : data.runtime_events) {
-    if (runtime_event.view.cycle < begin || runtime_event.view.cycle > end) {
+    if (runtime_event.cycle < begin || runtime_event.cycle > end) {
       continue;
     }
-    append("{\"name\":\"" + EscapeTraceJson(runtime_event.view.presentation_name) +
-           "\",\"cat\":\"" + EscapeTraceJson(runtime_event.view.category) +
+    append("{\"name\":\"" + EscapeTraceJson(runtime_event.fields.presentation_name) +
+           "\",\"cat\":\"" + EscapeTraceJson(runtime_event.fields.category) +
            "\",\"ph\":\"i\",\"s\":\"g\",\"pid\":0,\"tid\":0,\"ts\":" +
-           std::to_string(runtime_event.view.cycle) + ",\"args\":{" +
+           std::to_string(runtime_event.cycle) + ",\"args\":{" +
            RuntimeArgs(runtime_event.fields) + "}}");
   }
 
@@ -258,16 +257,15 @@ std::string RenderGoogleTraceExport(const TimelineData& data,
 
   for (const auto& [key, row_markers] : data.markers) {
     for (const auto& marker : row_markers) {
-      const auto& view = marker.semantic.view;
-      const RowDescriptor row = DescribeRow(key, group_by, view.block_id);
-      if (view.cycle < begin || view.cycle > end) {
+      const RowDescriptor row = DescribeRow(key, group_by, marker.semantic.block_id);
+      if (marker.semantic.cycle < begin || marker.semantic.cycle > end) {
         continue;
       }
       append("{\"name\":\"" + EscapeTraceJson(MarkerEventName(marker)) +
            "\",\"cat\":\"" + EscapeTraceJson(MarkerCategory(marker)) +
            "\",\"ph\":\"i\",\"s\":\"t\",\"pid\":" + std::to_string(row.pid) +
            ",\"tid\":" + std::to_string(row.tid) + ",\"ts\":" +
-           std::to_string(view.cycle) + ",\"args\":{" + MarkerArgs(key, marker) + "}}");
+           std::to_string(marker.semantic.cycle) + ",\"args\":{" + MarkerArgs(key, marker) + "}}");
     }
   }
 

@@ -25,12 +25,12 @@ TEST(DeviceSegmentImageTest, BuildsPlanForProgramObjectWithConstAndSharedMetadat
   EXPECT_EQ(plan.preferred_kernarg_bytes, 128u);
 }
 
-TEST(DeviceSegmentImageTest, BuildsPlanForEncodedProgramObject) {
-  EncodedProgramObject image;
-  image.kernel_name = "kernel_b";
-  image.metadata.values["group_segment_fixed_size"] = "128";
-  image.metadata.values["arg_layout"] = "global_buffer:8,global_buffer:8,by_value:4";
-  image.code_bytes = {std::byte{0xde}, std::byte{0xad}, std::byte{0xbe}, std::byte{0xef}};
+TEST(DeviceSegmentImageTest, BuildsPlanForProgramObjectWithCodePayload) {
+  ProgramObject image;
+  image.kernel_name() = "kernel_b";
+  image.metadata().values["group_segment_fixed_size"] = "128";
+  image.metadata().values["arg_layout"] = "global_buffer:8,global_buffer:8,by_value:4";
+  image.code_bytes() = {std::byte{0xde}, std::byte{0xad}, std::byte{0xbe}, std::byte{0xef}};
 
   const auto plan = BuildDeviceLoadPlan(image);
   ASSERT_EQ(plan.segments.size(), 2u);

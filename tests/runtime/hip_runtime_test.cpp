@@ -423,7 +423,7 @@ TEST(ModelRuntimeCoreTest, MaterializesProgramObjectLoadPlanIntoDeviceMemory) {
   EXPECT_EQ(runtime_api.memory().pool_memory_size(MemoryPoolKind::Kernarg), 128u);
 }
 
-TEST(HipRuntimeTest, LaunchProgramObjectPopulatesLastLoadResult) {
+TEST(HipRuntimeTest, LaunchProgramObjectFromHipArtifactPopulatesLastLoadResult) {
   ConstSegment const_segment;
   const_segment.bytes = {std::byte{0xaa}, std::byte{0xbb}};
   ProgramObject image("plan_launch_kernel", "s_endpgm\n",
@@ -806,8 +806,8 @@ TEST(ModelRuntimeCoreTest, LaunchesAmdgpuObjectFileThroughObjectReaderPath) {
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   ModelRuntime runtime_api;
-  const auto result = runtime_api.LaunchEncodedProgramObject(
-      ObjectReader{}.LoadEncodedObject(obj_path),
+  const auto result = runtime_api.LaunchProgramObject(
+      ObjectReader{}.LoadProgramObject(obj_path),
       LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
       {});
   ASSERT_TRUE(result.ok) << result.error_message;
@@ -839,8 +839,8 @@ TEST(ModelRuntimeCoreTest, LaunchesHipExecutableWithEmbeddedFatbin) {
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   ModelRuntime runtime_api;
-  const auto result = runtime_api.LaunchEncodedProgramObject(
-      ObjectReader{}.LoadEncodedObject(exe_path, "empty_kernel"),
+  const auto result = runtime_api.LaunchProgramObject(
+      ObjectReader{}.LoadProgramObject(exe_path, "empty_kernel"),
       LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
       {},
       ExecutionMode::Functional,
@@ -879,7 +879,7 @@ TEST(ModelRuntimeCoreTest, BuildsLoadPlanFromHipSharedReverseExecutable) {
       test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "shared_reverse");
+  const auto image = ObjectReader{}.LoadProgramObject(exe_path, "shared_reverse");
   const auto plan = BuildDeviceLoadPlan(image);
   ASSERT_EQ(plan.segments.size(), 2u);
   EXPECT_EQ(plan.segments[0].pool, MemoryPoolKind::Code);
@@ -920,7 +920,7 @@ TEST(ModelRuntimeCoreTest, MaterializesHipSharedReverseCodeIntoDeviceMemory) {
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   ModelRuntime runtime_api;
-  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "shared_reverse");
+  const auto image = ObjectReader{}.LoadProgramObject(exe_path, "shared_reverse");
   const auto result = DeviceImageLoader{}.Materialize(BuildDeviceLoadPlan(image),
                                                       runtime_api.memory());
   ASSERT_EQ(result.segments.size(), 2u);
@@ -1024,7 +1024,7 @@ TEST(ModelRuntimeCoreTest, LaunchesRegisteredEncodedObjectModule) {
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipRuntimeTest, LaunchEncodedProgramObjectPopulatesLastLoadResult) {
+TEST(HipRuntimeTest, LaunchProgramObjectPopulatesLastLoadResult) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
@@ -1063,8 +1063,8 @@ TEST(HipRuntimeTest, LaunchEncodedProgramObjectPopulatesLastLoadResult) {
   args.PushU64(in_addr);
   args.PushU64(out_addr);
   args.PushU32(n);
-  const auto result = hooks.LaunchEncodedProgramObject(
-      ObjectReader{}.LoadEncodedObject(exe_path, "shared_reverse"),
+  const auto result = hooks.LaunchProgramObject(
+      ObjectReader{}.LoadProgramObject(exe_path, "shared_reverse"),
       LaunchConfig{.grid_dim_x = 2, .block_dim_x = 64},
       std::move(args),
       ExecutionMode::Functional,
@@ -1138,8 +1138,8 @@ TEST(HipRuntimeTest, EncodedCycleLaunchEmitsAdvancingTraceCycles) {
   args.PushU64(in_addr);
   args.PushU64(out_addr);
   args.PushU32(n);
-  const auto result = hooks.LaunchEncodedProgramObject(
-      ObjectReader{}.LoadEncodedObject(exe_path, "shared_reverse"),
+  const auto result = hooks.LaunchProgramObject(
+      ObjectReader{}.LoadProgramObject(exe_path, "shared_reverse"),
       LaunchConfig{.grid_dim_x = 2, .block_dim_x = 64},
       std::move(args),
       ExecutionMode::Cycle,
@@ -1207,8 +1207,8 @@ TEST(HipRuntimeTest, EncodedCycleLaunchReportsCacheAndSharedBankStats) {
   args.PushU64(in_addr);
   args.PushU64(out_addr);
   args.PushU32(n);
-  const auto result = hooks.LaunchEncodedProgramObject(
-      ObjectReader{}.LoadEncodedObject(exe_path, "shared_reverse"),
+  const auto result = hooks.LaunchProgramObject(
+      ObjectReader{}.LoadProgramObject(exe_path, "shared_reverse"),
       LaunchConfig{.grid_dim_x = 2, .block_dim_x = 64},
       std::move(args),
       ExecutionMode::Cycle,
@@ -1267,8 +1267,8 @@ TEST(HipRuntimeTest, EncodedCycleLaunchEmitsArriveTraceForMemoryOps) {
   args.PushU64(in_addr);
   args.PushU64(out_addr);
   args.PushU32(n);
-  const auto result = hooks.LaunchEncodedProgramObject(
-      ObjectReader{}.LoadEncodedObject(exe_path, "shared_reverse"),
+  const auto result = hooks.LaunchProgramObject(
+      ObjectReader{}.LoadProgramObject(exe_path, "shared_reverse"),
       LaunchConfig{.grid_dim_x = 2, .block_dim_x = 64},
       std::move(args),
       ExecutionMode::Cycle,
@@ -1319,8 +1319,8 @@ TEST(HipRuntimeTest, EncodedCycleRespectsApResidentBlockLimit) {
 
   HipRuntime hooks;
   CollectingTraceSink trace;
-  const auto result = hooks.LaunchEncodedProgramObject(
-      ObjectReader{}.LoadEncodedObject(exe_path, "resident_probe"),
+  const auto result = hooks.LaunchProgramObject(
+      ObjectReader{}.LoadProgramObject(exe_path, "resident_probe"),
       LaunchConfig{
           .grid_dim_x = 2 * spec->total_ap_count() + 1,
           .block_dim_x = 64,
@@ -1384,8 +1384,8 @@ TEST(HipRuntimeTest, EncodedCycleDelaysBackfillByBlockLaunchTiming) {
                                          /*warp_switch_cycles=*/1,
                                          /*arg_load_cycles=*/4);
   CollectingTraceSink trace;
-  const auto result = hooks.LaunchEncodedProgramObject(
-      ObjectReader{}.LoadEncodedObject(exe_path, "resident_probe"),
+  const auto result = hooks.LaunchProgramObject(
+      ObjectReader{}.LoadProgramObject(exe_path, "resident_probe"),
       LaunchConfig{
           .grid_dim_x = 2 * spec->total_ap_count() + 1,
           .block_dim_x = 64,
@@ -1442,8 +1442,8 @@ TEST(HipRuntimeTest, EncodedCycleEmitsWarpSwitchStallBetweenTwoWaves) {
   CollectingTraceSink trace;
   KernelArgPack args;
   args.PushU64(out_addr);
-  const auto result = hooks.LaunchEncodedProgramObject(
-      ObjectReader{}.LoadEncodedObject(exe_path, "warp_switch_probe"),
+  const auto result = hooks.LaunchProgramObject(
+      ObjectReader{}.LoadProgramObject(exe_path, "warp_switch_probe"),
       LaunchConfig{.grid_dim_x = 1, .block_dim_x = 320},
       std::move(args),
       ExecutionMode::Cycle,
@@ -1498,8 +1498,8 @@ TEST(HipRuntimeTest, EncodedCycleStandbyBlockDoesNotLaunchUntilActiveSlotOpens) 
   CollectingTraceSink trace;
   KernelArgPack args;
   args.PushU64(out_addr);
-  const auto result = hooks.LaunchEncodedProgramObject(
-      ObjectReader{}.LoadEncodedObject(exe_path, "standby_probe"),
+  const auto result = hooks.LaunchProgramObject(
+      ObjectReader{}.LoadProgramObject(exe_path, "standby_probe"),
       LaunchConfig{.grid_dim_x = 1 + spec->total_ap_count(), .block_dim_x = 1024},
       std::move(args),
       ExecutionMode::Cycle,
@@ -1558,8 +1558,8 @@ TEST(HipRuntimeTest, EncodedCycleStandbyWavePromotesAfterActiveWaveExits) {
   CollectingTraceSink trace;
   KernelArgPack args;
   args.PushU64(out_addr);
-  const auto result = hooks.LaunchEncodedProgramObject(
-      ObjectReader{}.LoadEncodedObject(exe_path, "standby_promote"),
+  const auto result = hooks.LaunchProgramObject(
+      ObjectReader{}.LoadProgramObject(exe_path, "standby_promote"),
       LaunchConfig{.grid_dim_x = spec->total_ap_count() + 1, .block_dim_x = 1024},
       std::move(args),
       ExecutionMode::Cycle,
@@ -1613,8 +1613,8 @@ TEST(HipRuntimeTest, EncodedCycleBarrierWaitingWaveYieldsActiveSlotUntilRelease)
   CollectingTraceSink trace;
   KernelArgPack args;
   args.PushU64(out_addr);
-  const auto result = hooks.LaunchEncodedProgramObject(
-      ObjectReader{}.LoadEncodedObject(exe_path, "barrier_yield"),
+  const auto result = hooks.LaunchProgramObject(
+      ObjectReader{}.LoadProgramObject(exe_path, "barrier_yield"),
       LaunchConfig{
           .grid_dim_x = 1,
           .block_dim_x = spec->peu_per_ap * (spec->max_issuable_waves + 1) * 64,
@@ -1689,8 +1689,8 @@ TEST(ModelRuntimeCoreTest, LaunchesHipVecAddExecutableAndValidatesOutput) {
   args.PushU64(c_addr);
   args.PushU32(n);
 
-  const auto result = runtime_api.LaunchEncodedProgramObject(
-      ObjectReader{}.LoadEncodedObject(exe_path, "vecadd"),
+  const auto result = runtime_api.LaunchProgramObject(
+      ObjectReader{}.LoadProgramObject(exe_path, "vecadd"),
       LaunchConfig{.grid_dim_x = 3, .block_dim_x = 128},
       std::move(args),
       ExecutionMode::Functional,
@@ -1767,8 +1767,8 @@ TEST(ModelRuntimeCoreTest, LaunchesHipFmaLoopExecutableAndValidatesOutput) {
   args.PushU32(n);
   args.PushU32(iters);
 
-  const auto result = runtime_api.LaunchEncodedProgramObject(
-      ObjectReader{}.LoadEncodedObject(exe_path, "fma_loop"),
+  const auto result = runtime_api.LaunchProgramObject(
+      ObjectReader{}.LoadProgramObject(exe_path, "fma_loop"),
       LaunchConfig{.grid_dim_x = 3, .block_dim_x = 128},
       std::move(args),
       ExecutionMode::Functional,
@@ -1840,8 +1840,8 @@ TEST(ModelRuntimeCoreTest, LaunchesHipBiasChainExecutableAndValidatesOutput) {
   args.PushF32(b1);
   args.PushF32(b2);
 
-  const auto result = runtime_api.LaunchEncodedProgramObject(
-      ObjectReader{}.LoadEncodedObject(exe_path, "bias_chain"),
+  const auto result = runtime_api.LaunchProgramObject(
+      ObjectReader{}.LoadProgramObject(exe_path, "bias_chain"),
       LaunchConfig{.grid_dim_x = 3, .block_dim_x = 64},
       std::move(args),
       ExecutionMode::Functional,
@@ -1904,8 +1904,8 @@ TEST(ModelRuntimeCoreTest, LaunchesHipVecAddExecutableAtLargeScaleAndValidatesOu
   args.PushU64(c_addr);
   args.PushU32(n);
 
-  const auto result = runtime_api.LaunchEncodedProgramObject(
-      ObjectReader{}.LoadEncodedObject(exe_path, "vecadd"),
+  const auto result = runtime_api.LaunchProgramObject(
+      ObjectReader{}.LoadProgramObject(exe_path, "vecadd"),
       LaunchConfig{.grid_dim_x = 30, .block_dim_x = 1024},
       std::move(args),
       ExecutionMode::Functional,
@@ -1986,8 +1986,8 @@ TEST(ModelRuntimeCoreTest, LaunchesHipVecAddExecutableAcrossLaunchShapes) {
     args.PushU64(c_addr);
     args.PushU32(test_case.n);
 
-    const auto result = runtime_api.LaunchEncodedProgramObject(
-        ObjectReader{}.LoadEncodedObject(exe_path, "vecadd"),
+    const auto result = runtime_api.LaunchProgramObject(
+        ObjectReader{}.LoadProgramObject(exe_path, "vecadd"),
         LaunchConfig{.grid_dim_x = test_case.grid_dim_x, .block_dim_x = test_case.block_dim_x},
         std::move(args),
         ExecutionMode::Functional,
@@ -2045,8 +2045,8 @@ TEST(ModelRuntimeCoreTest, LaunchesHipTwoDimensionalExecutable) {
   args.PushU32(width);
   args.PushU32(height);
 
-  const auto result = runtime_api.LaunchEncodedProgramObject(
-      ObjectReader{}.LoadEncodedObject(exe_path, "two_dimensional"),
+  const auto result = runtime_api.LaunchProgramObject(
+      ObjectReader{}.LoadProgramObject(exe_path, "two_dimensional"),
       LaunchConfig{.grid_dim_x = 2, .grid_dim_y = 2, .block_dim_x = 8, .block_dim_y = 4},
       std::move(args),
       ExecutionMode::Functional,
@@ -2088,11 +2088,11 @@ TEST(ModelRuntimeCoreTest, LaunchesHipThreeDimensionalHiddenArgsExecutable) {
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   ModelRuntime runtime_api;
-  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "three_dimensional_hidden_args");
-  ASSERT_TRUE(image.metadata.values.contains("hidden_arg_layout"));
-  EXPECT_NE(image.metadata.values.at("hidden_arg_layout").find("hidden_block_count_z"),
+  const auto image = ObjectReader{}.LoadProgramObject(exe_path, "three_dimensional_hidden_args");
+  ASSERT_TRUE(image.metadata().values.contains("hidden_arg_layout"));
+  EXPECT_NE(image.metadata().values.at("hidden_arg_layout").find("hidden_block_count_z"),
             std::string::npos);
-  EXPECT_NE(image.metadata.values.at("hidden_arg_layout").find("hidden_group_size_z"),
+  EXPECT_NE(image.metadata().values.at("hidden_arg_layout").find("hidden_group_size_z"),
             std::string::npos);
 
   const uint64_t out_addr = runtime_api.Malloc(sizeof(int32_t));
@@ -2102,7 +2102,7 @@ TEST(ModelRuntimeCoreTest, LaunchesHipThreeDimensionalHiddenArgsExecutable) {
   KernelArgPack args;
   args.PushU64(out_addr);
 
-  const auto result = runtime_api.LaunchEncodedProgramObject(
+  const auto result = runtime_api.LaunchProgramObject(
       image,
       LaunchConfig{
           .grid_dim_x = 1,
@@ -2150,9 +2150,9 @@ TEST(ModelRuntimeCoreTest, LaunchesHipThreeDimensionalBuiltinIdsExecutable) {
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   ModelRuntime runtime_api;
-  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "three_dimensional_builtin_ids");
-  EXPECT_TRUE(image.kernel_descriptor.enable_sgpr_workgroup_id_z);
-  EXPECT_GE(image.kernel_descriptor.enable_vgpr_workitem_id, 2u);
+  const auto image = ObjectReader{}.LoadProgramObject(exe_path, "three_dimensional_builtin_ids");
+  EXPECT_TRUE(image.kernel_descriptor().enable_sgpr_workgroup_id_z);
+  EXPECT_GE(image.kernel_descriptor().enable_vgpr_workitem_id, 2u);
 
   constexpr uint32_t depth = 64;
   CollectingTraceSink trace;
@@ -2163,7 +2163,7 @@ TEST(ModelRuntimeCoreTest, LaunchesHipThreeDimensionalBuiltinIdsExecutable) {
   KernelArgPack args;
   args.PushU64(out_addr);
 
-  const auto result = runtime_api.LaunchEncodedProgramObject(
+  const auto result = runtime_api.LaunchProgramObject(
       image,
       LaunchConfig{
           .grid_dim_x = 1,
@@ -2233,9 +2233,9 @@ TEST(ModelRuntimeCoreTest, LaunchesHipMixedArgsAggregateExecutable) {
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   ModelRuntime runtime_api;
-  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "mixed_args_aggregate");
-  ASSERT_TRUE(image.metadata.values.contains("arg_layout"));
-  EXPECT_NE(image.metadata.values.at("arg_layout").find("by_value"), std::string::npos);
+  const auto image = ObjectReader{}.LoadProgramObject(exe_path, "mixed_args_aggregate");
+  ASSERT_TRUE(image.metadata().values.contains("arg_layout"));
+  EXPECT_NE(image.metadata().values.at("arg_layout").find("by_value"), std::string::npos);
 
   const uint64_t in_addr = runtime_api.Malloc(sizeof(int32_t));
   const uint64_t out_addr = runtime_api.Malloc(sizeof(int32_t));
@@ -2257,7 +2257,7 @@ TEST(ModelRuntimeCoreTest, LaunchesHipMixedArgsAggregateExecutable) {
   args.PushI32(5);
   args.PushBytes(&payload, sizeof(payload));
 
-  const auto result = runtime_api.LaunchEncodedProgramObject(
+  const auto result = runtime_api.LaunchProgramObject(
       image,
       LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
       std::move(args),
@@ -2304,9 +2304,9 @@ TEST(ModelRuntimeCoreTest, LaunchesHipDynamicSharedExecutable) {
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   ModelRuntime runtime_api;
-  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "dynamic_shared_sum");
-  ASSERT_TRUE(image.metadata.values.contains("hidden_arg_layout"));
-  EXPECT_NE(image.metadata.values.at("hidden_arg_layout").find("hidden_dynamic_lds_size"),
+  const auto image = ObjectReader{}.LoadProgramObject(exe_path, "dynamic_shared_sum");
+  ASSERT_TRUE(image.metadata().values.contains("hidden_arg_layout"));
+  EXPECT_NE(image.metadata().values.at("hidden_arg_layout").find("hidden_dynamic_lds_size"),
             std::string::npos);
 
   const uint64_t out_addr = runtime_api.Malloc(sizeof(int32_t));
@@ -2317,7 +2317,7 @@ TEST(ModelRuntimeCoreTest, LaunchesHipDynamicSharedExecutable) {
   KernelArgPack args;
   args.PushU64(out_addr);
 
-  const auto result = runtime_api.LaunchEncodedProgramObject(
+  const auto result = runtime_api.LaunchProgramObject(
       image,
       LaunchConfig{
           .grid_dim_x = 1,
@@ -2385,8 +2385,8 @@ TEST(ModelRuntimeCoreTest, LaunchesHipAtomicCountExecutable) {
     args.PushU64(out_addr);
     args.PushU32(test_case.n);
 
-    const auto result = runtime_api.LaunchEncodedProgramObject(
-        ObjectReader{}.LoadEncodedObject(exe_path, "atomic_count"),
+    const auto result = runtime_api.LaunchProgramObject(
+        ObjectReader{}.LoadProgramObject(exe_path, "atomic_count"),
         LaunchConfig{.grid_dim_x = test_case.grid_dim_x, .block_dim_x = test_case.block_dim_x},
         std::move(args),
         ExecutionMode::Functional,
@@ -2412,9 +2412,9 @@ TEST(ModelRuntimeCoreTest, LaunchesLlvmMcAggregateByValueObject) {
       std::filesystem::path("tests/asm_cases/loader/kernarg_aggregate_by_value.s"));
 
   ModelRuntime runtime_api;
-  const auto image = ObjectReader{}.LoadEncodedObject(obj_path, "asm_kernarg_aggregate_by_value");
-  EXPECT_EQ(image.metadata.values.at("arg_layout"), "global_buffer:8,by_value:16:12");
-  EXPECT_EQ(image.metadata.values.at("kernarg_segment_size"), "28");
+  const auto image = ObjectReader{}.LoadProgramObject(obj_path, "asm_kernarg_aggregate_by_value");
+  EXPECT_EQ(image.metadata().values.at("arg_layout"), "global_buffer:8,by_value:16:12");
+  EXPECT_EQ(image.metadata().values.at("kernarg_segment_size"), "28");
 
   const uint64_t out_addr = runtime_api.Malloc(sizeof(int32_t));
   int32_t zero = 0;
@@ -2430,7 +2430,7 @@ TEST(ModelRuntimeCoreTest, LaunchesLlvmMcAggregateByValueObject) {
   args.PushU64(out_addr);
   args.PushBytes(&aggregate, sizeof(aggregate));
 
-  const auto result = runtime_api.LaunchEncodedProgramObject(
+  const auto result = runtime_api.LaunchProgramObject(
       image,
       LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
       std::move(args),
@@ -2456,9 +2456,9 @@ TEST(ModelRuntimeCoreTest, LaunchesLlvmMcThreeDimensionalHiddenArgsObject) {
       std::filesystem::path("tests/asm_cases/loader/hidden_args_3d.s"));
 
   ModelRuntime runtime_api;
-  const auto image = ObjectReader{}.LoadEncodedObject(obj_path, "asm_hidden_args_3d");
-  EXPECT_EQ(image.metadata.values.at("arg_layout"), "global_buffer:8");
-  EXPECT_EQ(image.metadata.values.at("hidden_arg_layout"),
+  const auto image = ObjectReader{}.LoadProgramObject(obj_path, "asm_hidden_args_3d");
+  EXPECT_EQ(image.metadata().values.at("arg_layout"), "global_buffer:8");
+  EXPECT_EQ(image.metadata().values.at("hidden_arg_layout"),
             "hidden_block_count_z:8:4,hidden_group_size_z:12:4,hidden_grid_dims:16:4");
 
   const uint64_t out_addr = runtime_api.Malloc(sizeof(int32_t));
@@ -2476,7 +2476,7 @@ TEST(ModelRuntimeCoreTest, LaunchesLlvmMcThreeDimensionalHiddenArgsObject) {
       .block_dim_y = 1,
       .block_dim_z = 32,
   };
-  const auto result = runtime_api.LaunchEncodedProgramObject(
+  const auto result = runtime_api.LaunchProgramObject(
       image,
       config,
       std::move(args),
@@ -2510,8 +2510,8 @@ TEST(ModelRuntimeCoreTest, LaunchesLlvmMcFallbackAbiObject) {
   KernelArgPack args;
   args.PushU64(out_addr);
 
-  const auto result = runtime_api.LaunchEncodedProgramObject(
-      ObjectReader{}.LoadEncodedObject(obj_path, "asm_fallback_abi_kernarg"),
+  const auto result = runtime_api.LaunchProgramObject(
+      ObjectReader{}.LoadProgramObject(obj_path, "asm_fallback_abi_kernarg"),
       LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
       std::move(args),
       ExecutionMode::Functional,
@@ -2595,8 +2595,8 @@ TEST(ModelRuntimeCoreTest, LaunchesHipSoftmaxExecutable) {
   args.PushU64(out_addr);
   args.PushU32(n);
 
-  const auto result = runtime_api.LaunchEncodedProgramObject(
-      ObjectReader{}.LoadEncodedObject(exe_path, "softmax_row"),
+  const auto result = runtime_api.LaunchProgramObject(
+      ObjectReader{}.LoadProgramObject(exe_path, "softmax_row"),
       LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
       std::move(args),
       ExecutionMode::Functional,
@@ -2666,8 +2666,8 @@ TEST(ModelRuntimeCoreTest, LaunchesHipBlockReduceExecutable) {
   args.PushU64(out_addr);
   args.PushU32(n);
 
-  const auto result = runtime_api.LaunchEncodedProgramObject(
-      ObjectReader{}.LoadEncodedObject(exe_path, "block_reduce_sum"),
+  const auto result = runtime_api.LaunchProgramObject(
+      ObjectReader{}.LoadProgramObject(exe_path, "block_reduce_sum"),
       LaunchConfig{.grid_dim_x = grid_dim, .block_dim_x = block_dim},
       std::move(args),
       ExecutionMode::Functional,
@@ -2725,8 +2725,8 @@ TEST(ModelRuntimeCoreTest, LaunchesHipMfmaExecutable) {
   KernelArgPack args;
   args.PushU64(out_addr);
 
-  const auto result = runtime_api.LaunchEncodedProgramObject(
-      ObjectReader{}.LoadEncodedObject(exe_path, "mfma_probe"),
+  const auto result = runtime_api.LaunchProgramObject(
+      ObjectReader{}.LoadProgramObject(exe_path, "mfma_probe"),
       LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
       std::move(args),
       ExecutionMode::Functional,
@@ -2799,11 +2799,11 @@ TEST(ModelRuntimeCoreTest, DescribesHipMfmaExecutableWithTypedTensorAbi) {
     GTEST_SKIP() << "gfx90a mfma compilation not available";
   }
 
-  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "mfma_describe_probe");
-  EXPECT_EQ(image.kernel_name, "mfma_describe_probe");
-  EXPECT_GE(image.kernel_descriptor.accum_offset, 4u);
-  EXPECT_TRUE(image.metadata.values.contains("agpr_count"));
-  EXPECT_EQ(std::to_string(image.kernel_descriptor.agpr_count), image.metadata.values.at("agpr_count"));
+  const auto image = ObjectReader{}.LoadProgramObject(exe_path, "mfma_describe_probe");
+  EXPECT_EQ(image.kernel_name(), "mfma_describe_probe");
+  EXPECT_GE(image.kernel_descriptor().accum_offset, 4u);
+  EXPECT_TRUE(image.metadata().values.contains("agpr_count"));
+  EXPECT_EQ(std::to_string(image.kernel_descriptor().agpr_count), image.metadata().values.at("agpr_count"));
 
   std::filesystem::remove_all(temp_dir);
 }
@@ -2859,8 +2859,8 @@ TEST(ModelRuntimeCoreTest, LaunchesHipSharedReverseExecutableAndValidatesOutput)
   args.PushU64(out_addr);
   args.PushU32(n);
 
-  const auto result = runtime_api.LaunchEncodedProgramObject(
-      ObjectReader{}.LoadEncodedObject(exe_path, "shared_reverse"),
+  const auto result = runtime_api.LaunchProgramObject(
+      ObjectReader{}.LoadProgramObject(exe_path, "shared_reverse"),
       LaunchConfig{.grid_dim_x = 2, .block_dim_x = 64},
       std::move(args),
       ExecutionMode::Functional,

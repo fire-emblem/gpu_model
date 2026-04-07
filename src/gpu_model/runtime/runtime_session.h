@@ -12,9 +12,9 @@
 #include "gpu_model/debug/trace/sink.h"
 #include "gpu_model/isa/metadata.h"
 #include "gpu_model/loader/device_segment_image.h"
-#include "gpu_model/program/encoded_program_object.h"
 #include "gpu_model/memory/memory_system.h"
 #include "gpu_model/memory/memory_pool.h"
+#include "gpu_model/program/program_object.h"
 #include "gpu_model/runtime/device_memory_manager.h"
 #include "gpu_model/runtime/kernel_arg_pack.h"
 #include "gpu_model/runtime/launch_config.h"
@@ -91,8 +91,8 @@ class RuntimeSession {
   void SyncManagedDeviceToHost();
   std::vector<HipRuntimeAbiArgDesc> ParseCompatibilityArgLayout(const MetadataBlob& metadata) const;
   KernelArgPack PackCompatibilityArgs(const MetadataBlob& metadata, void** args) const;
-  EncodedProgramObject LoadExecutableImage(const std::filesystem::path& executable_path,
-                                           const void* host_function) const;
+  ProgramObject LoadExecutableImage(const std::filesystem::path& executable_path,
+                                    const void* host_function) const;
   LaunchResult LaunchExecutableKernel(const std::filesystem::path& executable_path,
                                       const void* host_function,
                                       LaunchConfig config,

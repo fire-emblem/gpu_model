@@ -54,17 +54,17 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesRawInstructionsFromAmdgpuObject) {
       "llc -march=amdgcn -mcpu=gfx900 -filetype=obj " + ir_path.string() + " -o " + obj_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  const auto image = ObjectReader{}.LoadEncodedObject(obj_path, "empty_kernel");
-  EXPECT_EQ(image.kernel_name, "empty_kernel");
-  ASSERT_FALSE(image.instructions.empty());
-  ASSERT_EQ(image.instruction_objects.size(), image.instructions.size());
-  ASSERT_NE(image.instruction_objects.front(), nullptr);
-  EXPECT_EQ(image.instruction_objects.front()->class_name(), "s_endpgm");
-  EXPECT_EQ(image.instructions.front().mnemonic, "s_endpgm");
-  EXPECT_EQ(image.instructions.front().size_bytes, 4u);
-  EXPECT_EQ(image.instructions.front().format_class, EncodedGcnInstFormatClass::Sopp);
-  EXPECT_EQ(image.instructions.front().encoding_id, 1u);
-  EXPECT_EQ(image.code_bytes.size(), 4u);
+  const auto image = ObjectReader{}.LoadProgramObject(obj_path, "empty_kernel");
+  EXPECT_EQ(image.kernel_name(), "empty_kernel");
+  ASSERT_FALSE(image.instructions().empty());
+  ASSERT_EQ(image.instruction_objects().size(), image.instructions().size());
+  ASSERT_NE(image.instruction_objects().front(), nullptr);
+  EXPECT_EQ(image.instruction_objects().front()->class_name(), "s_endpgm");
+  EXPECT_EQ(image.instructions().front().mnemonic, "s_endpgm");
+  EXPECT_EQ(image.instructions().front().size_bytes, 4u);
+  EXPECT_EQ(image.instructions().front().format_class, EncodedGcnInstFormatClass::Sopp);
+  EXPECT_EQ(image.instructions().front().encoding_id, 1u);
+  EXPECT_EQ(image.code_bytes().size(), 4u);
 }
 
 TEST(AmdgpuCodeObjectDecoderTest, DecodesRawInstructionsFromHipExecutable) {
@@ -88,44 +88,44 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesRawInstructionsFromHipExecutable) {
   const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "vecadd");
-  EXPECT_EQ(image.kernel_name, "vecadd");
-  EXPECT_EQ(image.metadata.values.at("arg_count"), "4");
-  EXPECT_EQ(image.metadata.values.at("descriptor_symbol"), "vecadd.kd");
-  EXPECT_EQ(image.metadata.values.at("kernarg_segment_size"), "288");
-  EXPECT_FALSE(image.metadata.values.at("hidden_arg_layout").empty());
-  EXPECT_EQ(image.kernel_descriptor.kernarg_size, 288u);
-  EXPECT_EQ(image.kernel_descriptor.user_sgpr_count, 6u);
-  EXPECT_TRUE(image.kernel_descriptor.enable_sgpr_kernarg_segment_ptr);
-  EXPECT_TRUE(image.kernel_descriptor.enable_sgpr_workgroup_id_x);
-  EXPECT_EQ(image.kernel_descriptor.enable_vgpr_workitem_id, 0u);
-  ASSERT_FALSE(image.instructions.empty());
-  ASSERT_EQ(image.instruction_objects.size(), image.instructions.size());
-  ASSERT_NE(image.instruction_objects.front(), nullptr);
-  EXPECT_EQ(image.instruction_objects.front()->class_name(), "s_load_dword");
-  EXPECT_EQ(image.instructions.front().mnemonic, "s_load_dword");
-  EXPECT_EQ(image.instructions.front().format_class, EncodedGcnInstFormatClass::Smrd);
-  EXPECT_EQ(image.instructions.front().encoding_id, 2u);
-  ASSERT_EQ(image.instructions.front().decoded_operands.size(), 3u);
-  EXPECT_FALSE(image.instructions.front().decoded_operands[0].text.empty());
-  EXPECT_EQ(image.instructions.front().decoded_operands[0].kind, EncodedGcnOperandKind::ScalarReg);
-  EXPECT_EQ(image.instructions.front().decoded_operands[0].text, "s0");
-  EXPECT_EQ(image.instructions.front().decoded_operands[1].kind, EncodedGcnOperandKind::ScalarRegRange);
-  EXPECT_EQ(image.instructions.front().decoded_operands[1].text, "s[4:5]");
-  EXPECT_EQ(image.instructions.front().decoded_operands[1].info.reg_count, 2u);
-  EXPECT_EQ(image.instructions.front().decoded_operands[2].text, "0x2c");
+  const auto image = ObjectReader{}.LoadProgramObject(exe_path, "vecadd");
+  EXPECT_EQ(image.kernel_name(), "vecadd");
+  EXPECT_EQ(image.metadata().values.at("arg_count"), "4");
+  EXPECT_EQ(image.metadata().values.at("descriptor_symbol"), "vecadd.kd");
+  EXPECT_EQ(image.metadata().values.at("kernarg_segment_size"), "288");
+  EXPECT_FALSE(image.metadata().values.at("hidden_arg_layout").empty());
+  EXPECT_EQ(image.kernel_descriptor().kernarg_size, 288u);
+  EXPECT_EQ(image.kernel_descriptor().user_sgpr_count, 6u);
+  EXPECT_TRUE(image.kernel_descriptor().enable_sgpr_kernarg_segment_ptr);
+  EXPECT_TRUE(image.kernel_descriptor().enable_sgpr_workgroup_id_x);
+  EXPECT_EQ(image.kernel_descriptor().enable_vgpr_workitem_id, 0u);
+  ASSERT_FALSE(image.instructions().empty());
+  ASSERT_EQ(image.instruction_objects().size(), image.instructions().size());
+  ASSERT_NE(image.instruction_objects().front(), nullptr);
+  EXPECT_EQ(image.instruction_objects().front()->class_name(), "s_load_dword");
+  EXPECT_EQ(image.instructions().front().mnemonic, "s_load_dword");
+  EXPECT_EQ(image.instructions().front().format_class, EncodedGcnInstFormatClass::Smrd);
+  EXPECT_EQ(image.instructions().front().encoding_id, 2u);
+  ASSERT_EQ(image.instructions().front().decoded_operands.size(), 3u);
+  EXPECT_FALSE(image.instructions().front().decoded_operands[0].text.empty());
+  EXPECT_EQ(image.instructions().front().decoded_operands[0].kind, EncodedGcnOperandKind::ScalarReg);
+  EXPECT_EQ(image.instructions().front().decoded_operands[0].text, "s0");
+  EXPECT_EQ(image.instructions().front().decoded_operands[1].kind, EncodedGcnOperandKind::ScalarRegRange);
+  EXPECT_EQ(image.instructions().front().decoded_operands[1].text, "s[4:5]");
+  EXPECT_EQ(image.instructions().front().decoded_operands[1].info.reg_count, 2u);
+  EXPECT_EQ(image.instructions().front().decoded_operands[2].text, "0x2c");
   const auto v_lshl_it = std::find_if(
-      image.instructions.begin(), image.instructions.end(),
+      image.instructions().begin(), image.instructions().end(),
       [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "v_lshlrev_b64"; });
-  ASSERT_NE(v_lshl_it, image.instructions.end());
+  ASSERT_NE(v_lshl_it, image.instructions().end());
   ASSERT_EQ(v_lshl_it->decoded_operands.size(), 3u);
   EXPECT_EQ(v_lshl_it->decoded_operands[0].text, "v[0:1]");
   EXPECT_EQ(v_lshl_it->decoded_operands[0].info.reg_count, 2u);
   EXPECT_EQ(v_lshl_it->decoded_operands[2].text, "v[0:1]");
   EXPECT_EQ(v_lshl_it->decoded_operands[2].info.reg_first, 0u);
   EXPECT_EQ(v_lshl_it->decoded_operands[2].info.reg_count, 2u);
-  EXPECT_GT(image.instructions.size(), 20u);
-  EXPECT_GT(image.code_bytes.size(), 100u);
+  EXPECT_GT(image.instructions().size(), 20u);
+  EXPECT_GT(image.code_bytes().size(), 100u);
 }
 
 TEST(AmdgpuCodeObjectDecoderTest, DecodesRawInstructionsFromHipFmaLoopExecutable) {
@@ -156,24 +156,24 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesRawInstructionsFromHipFmaLoopExecutable
   const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "fma_loop");
-  EXPECT_EQ(image.kernel_name, "fma_loop");
-  EXPECT_EQ(image.metadata.values.at("arg_count"), "5");
-  EXPECT_EQ(image.metadata.values.at("arg_layout"),
+  const auto image = ObjectReader{}.LoadProgramObject(exe_path, "fma_loop");
+  EXPECT_EQ(image.kernel_name(), "fma_loop");
+  EXPECT_EQ(image.metadata().values.at("arg_count"), "5");
+  EXPECT_EQ(image.metadata().values.at("arg_layout"),
             "global_buffer:8,global_buffer:8,global_buffer:8,by_value:4,by_value:4");
 
   const auto cmp_lt_it = std::find_if(
-      image.instructions.begin(), image.instructions.end(),
+      image.instructions().begin(), image.instructions().end(),
       [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "s_cmp_lt_i32"; });
-  ASSERT_NE(cmp_lt_it, image.instructions.end());
+  ASSERT_NE(cmp_lt_it, image.instructions().end());
   ASSERT_EQ(cmp_lt_it->decoded_operands.size(), 2u);
   EXPECT_EQ(cmp_lt_it->decoded_operands[0].text, "s9");
   EXPECT_EQ(cmp_lt_it->decoded_operands[1].text, "1");
 
   const auto fma_it = std::find_if(
-      image.instructions.begin(), image.instructions.end(),
+      image.instructions().begin(), image.instructions().end(),
       [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "v_fma_f32"; });
-  ASSERT_NE(fma_it, image.instructions.end());
+  ASSERT_NE(fma_it, image.instructions().end());
   ASSERT_EQ(fma_it->decoded_operands.size(), 4u);
   EXPECT_EQ(fma_it->decoded_operands[0].text, "v2");
   EXPECT_EQ(fma_it->decoded_operands[1].text, "v3");
@@ -181,9 +181,9 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesRawInstructionsFromHipFmaLoopExecutable
   EXPECT_EQ(fma_it->decoded_operands[3].text, "v4");
 
   const auto branch_it = std::find_if(
-      image.instructions.begin(), image.instructions.end(),
+      image.instructions().begin(), image.instructions().end(),
       [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "s_cbranch_scc0"; });
-  ASSERT_NE(branch_it, image.instructions.end());
+  ASSERT_NE(branch_it, image.instructions().end());
   ASSERT_EQ(branch_it->decoded_operands.size(), 1u);
   EXPECT_EQ(branch_it->decoded_operands[0].text, "-6");
   EXPECT_TRUE(branch_it->decoded_operands[0].info.has_immediate);
@@ -213,19 +213,19 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesRawInstructionsFromHipBiasChainExecutab
   const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "bias_chain");
-  EXPECT_EQ(image.kernel_name, "bias_chain");
-  EXPECT_EQ(image.metadata.values.at("arg_count"), "7");
-  EXPECT_EQ(image.metadata.values.at("arg_layout"),
+  const auto image = ObjectReader{}.LoadProgramObject(exe_path, "bias_chain");
+  EXPECT_EQ(image.kernel_name(), "bias_chain");
+  EXPECT_EQ(image.metadata().values.at("arg_count"), "7");
+  EXPECT_EQ(image.metadata().values.at("arg_layout"),
             "global_buffer:8,global_buffer:8,global_buffer:8,by_value:4,by_value:4,by_value:4,by_value:4");
 
   const auto add_float_count = std::count_if(
-      image.instructions.begin(), image.instructions.end(),
+      image.instructions().begin(), image.instructions().end(),
       [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "v_add_f32_e32"; });
   EXPECT_GE(add_float_count, 4);
 
   const auto load_scalar_count = std::count_if(
-      image.instructions.begin(), image.instructions.end(),
+      image.instructions().begin(), image.instructions().end(),
       [](const EncodedGcnInstruction& inst) {
         return inst.mnemonic == "s_load_dword" || inst.mnemonic == "s_load_dwordx4" ||
                inst.mnemonic == "s_load_dwordx2";
@@ -260,17 +260,17 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipByValueAggregateExecutable) {
   const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "by_value_aggregate");
-  EXPECT_EQ(image.kernel_name, "by_value_aggregate");
-  ASSERT_TRUE(image.metadata.values.contains("arg_layout"));
-  EXPECT_NE(image.metadata.values.at("arg_layout").find("by_value:"), std::string::npos);
+  const auto image = ObjectReader{}.LoadProgramObject(exe_path, "by_value_aggregate");
+  EXPECT_EQ(image.kernel_name(), "by_value_aggregate");
+  ASSERT_TRUE(image.metadata().values.contains("arg_layout"));
+  EXPECT_NE(image.metadata().values.at("arg_layout").find("by_value:"), std::string::npos);
   const auto scalar_load_count = std::count_if(
-      image.instructions.begin(), image.instructions.end(),
+      image.instructions().begin(), image.instructions().end(),
       [](const EncodedGcnInstruction& inst) {
         return inst.mnemonic == "s_load_dword" || inst.mnemonic == "s_load_dwordx2";
       });
   const auto scalar_add_count = std::count_if(
-      image.instructions.begin(), image.instructions.end(),
+      image.instructions().begin(), image.instructions().end(),
       [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "s_add_i32"; });
   EXPECT_GT(scalar_load_count, 0);
   EXPECT_GT(scalar_add_count, 0);
@@ -296,12 +296,12 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipThreeDimensionalHiddenArgsExecutable
   const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "three_dimensional_hidden_args");
-  EXPECT_EQ(image.kernel_name, "three_dimensional_hidden_args");
-  ASSERT_TRUE(image.metadata.values.contains("hidden_arg_layout"));
-  EXPECT_NE(image.metadata.values.at("hidden_arg_layout").find("hidden_block_count_z"),
+  const auto image = ObjectReader{}.LoadProgramObject(exe_path, "three_dimensional_hidden_args");
+  EXPECT_EQ(image.kernel_name(), "three_dimensional_hidden_args");
+  ASSERT_TRUE(image.metadata().values.contains("hidden_arg_layout"));
+  EXPECT_NE(image.metadata().values.at("hidden_arg_layout").find("hidden_block_count_z"),
             std::string::npos);
-  EXPECT_NE(image.metadata.values.at("hidden_arg_layout").find("hidden_group_size_z"),
+  EXPECT_NE(image.metadata().values.at("hidden_arg_layout").find("hidden_group_size_z"),
             std::string::npos);
 }
 
@@ -326,10 +326,10 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipThreeDimensionalBuiltinIdsExecutable
   const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "three_dimensional_builtin_ids");
-  EXPECT_EQ(image.kernel_name, "three_dimensional_builtin_ids");
-  EXPECT_TRUE(image.kernel_descriptor.enable_sgpr_workgroup_id_z);
-  EXPECT_GE(image.kernel_descriptor.enable_vgpr_workitem_id, 2u);
+  const auto image = ObjectReader{}.LoadProgramObject(exe_path, "three_dimensional_builtin_ids");
+  EXPECT_EQ(image.kernel_name(), "three_dimensional_builtin_ids");
+  EXPECT_TRUE(image.kernel_descriptor().enable_sgpr_workgroup_id_z);
+  EXPECT_GE(image.kernel_descriptor().enable_vgpr_workitem_id, 2u);
 }
 
 TEST(AmdgpuCodeObjectDecoderTest, DecodesRawInstructionsFromHipAtomicCountExecutable) {
@@ -353,13 +353,13 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesRawInstructionsFromHipAtomicCountExecut
   const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "atomic_count");
-  EXPECT_EQ(image.kernel_name, "atomic_count");
+  const auto image = ObjectReader{}.LoadProgramObject(exe_path, "atomic_count");
+  EXPECT_EQ(image.kernel_name(), "atomic_count");
 
   const auto atomic_it = std::find_if(
-      image.instructions.begin(), image.instructions.end(),
+      image.instructions().begin(), image.instructions().end(),
       [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "global_atomic_add"; });
-  ASSERT_NE(atomic_it, image.instructions.end());
+  ASSERT_NE(atomic_it, image.instructions().end());
   ASSERT_EQ(atomic_it->decoded_operands.size(), 3u);
   EXPECT_EQ(atomic_it->decoded_operands[0].text, "v0");
   EXPECT_EQ(atomic_it->decoded_operands[1].text, "v1");
@@ -405,23 +405,23 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipSoftmaxExecutableWithoutUnknownInstr
   const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "softmax_row");
-  EXPECT_EQ(image.kernel_name, "softmax_row");
-  EXPECT_EQ(image.metadata.values.at("arg_count"), "3");
+  const auto image = ObjectReader{}.LoadProgramObject(exe_path, "softmax_row");
+  EXPECT_EQ(image.kernel_name(), "softmax_row");
+  EXPECT_EQ(image.metadata().values.at("arg_count"), "3");
   const auto barrier_count = std::count_if(
-      image.instructions.begin(), image.instructions.end(),
+      image.instructions().begin(), image.instructions().end(),
       [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "s_barrier"; });
   const auto ds_write_count = std::count_if(
-      image.instructions.begin(), image.instructions.end(),
+      image.instructions().begin(), image.instructions().end(),
       [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "ds_write_b32"; });
   const auto ds_read_count = std::count_if(
-      image.instructions.begin(), image.instructions.end(),
+      image.instructions().begin(), image.instructions().end(),
       [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "ds_read_b32"; });
   const auto vmax_count = std::count_if(
-      image.instructions.begin(), image.instructions.end(),
+      image.instructions().begin(), image.instructions().end(),
       [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "v_max_f32_e32"; });
   const auto unknown_count = std::count_if(
-      image.instructions.begin(), image.instructions.end(),
+      image.instructions().begin(), image.instructions().end(),
       [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "unknown"; });
   EXPECT_GT(barrier_count, 0);
   EXPECT_GT(ds_write_count, 0);
@@ -460,22 +460,22 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipMfmaExecutableWithoutUnknownInstruct
     GTEST_SKIP() << "gfx90a mfma compilation not available";
   }
 
-  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "mfma_probe");
-  EXPECT_EQ(image.kernel_name, "mfma_probe");
+  const auto image = ObjectReader{}.LoadProgramObject(exe_path, "mfma_probe");
+  EXPECT_EQ(image.kernel_name(), "mfma_probe");
   const auto unknown_count = std::count_if(
-      image.instructions.begin(), image.instructions.end(),
+      image.instructions().begin(), image.instructions().end(),
       [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "unknown"; });
   EXPECT_EQ(unknown_count, 0);
-  EXPECT_EQ(image.kernel_descriptor.agpr_count,
-            static_cast<uint16_t>(std::stoul(image.metadata.values.at("agpr_count"))));
-  EXPECT_EQ(image.kernel_descriptor.accum_offset % 4u, 0u);
-  EXPECT_GE(image.kernel_descriptor.accum_offset, 8u);
+  EXPECT_EQ(image.kernel_descriptor().agpr_count,
+            static_cast<uint16_t>(std::stoul(image.metadata().values.at("agpr_count"))));
+  EXPECT_EQ(image.kernel_descriptor().accum_offset % 4u, 0u);
+  EXPECT_GE(image.kernel_descriptor().accum_offset, 8u);
   const auto mfma_it = std::find_if(
-      image.instructions.begin(), image.instructions.end(),
+      image.instructions().begin(), image.instructions().end(),
       [](const EncodedGcnInstruction& inst) {
         return inst.mnemonic == "v_mfma_f32_16x16x4f32";
       });
-  ASSERT_NE(mfma_it, image.instructions.end());
+  ASSERT_NE(mfma_it, image.instructions().end());
 }
 
 TEST(AmdgpuCodeObjectDecoderTest, DecodesHipMfmaFp16ExecutableWithoutUnknownInstructions) {
@@ -512,22 +512,22 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipMfmaFp16ExecutableWithoutUnknownInst
     GTEST_SKIP() << "gfx90a mfma fp16 compilation not available";
   }
 
-  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "mfma_fp16_probe");
-  EXPECT_EQ(image.kernel_name, "mfma_fp16_probe");
+  const auto image = ObjectReader{}.LoadProgramObject(exe_path, "mfma_fp16_probe");
+  EXPECT_EQ(image.kernel_name(), "mfma_fp16_probe");
   const auto unknown_count = std::count_if(
-      image.instructions.begin(), image.instructions.end(),
+      image.instructions().begin(), image.instructions().end(),
       [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "unknown"; });
   EXPECT_EQ(unknown_count, 0);
-  EXPECT_EQ(image.kernel_descriptor.agpr_count,
-            static_cast<uint16_t>(std::stoul(image.metadata.values.at("agpr_count"))));
-  EXPECT_EQ(image.kernel_descriptor.accum_offset % 4u, 0u);
-  EXPECT_GE(image.kernel_descriptor.accum_offset, 8u);
+  EXPECT_EQ(image.kernel_descriptor().agpr_count,
+            static_cast<uint16_t>(std::stoul(image.metadata().values.at("agpr_count"))));
+  EXPECT_EQ(image.kernel_descriptor().accum_offset % 4u, 0u);
+  EXPECT_GE(image.kernel_descriptor().accum_offset, 8u);
   const auto mfma_it = std::find_if(
-      image.instructions.begin(), image.instructions.end(),
+      image.instructions().begin(), image.instructions().end(),
       [](const EncodedGcnInstruction& inst) {
         return inst.mnemonic == "v_mfma_f32_16x16x4f16";
       });
-  ASSERT_NE(mfma_it, image.instructions.end());
+  ASSERT_NE(mfma_it, image.instructions().end());
 }
 
 TEST(AmdgpuCodeObjectDecoderTest, DecodesHipMfmaI8ExecutableWithoutUnknownInstructions) {
@@ -560,22 +560,22 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipMfmaI8ExecutableWithoutUnknownInstru
     GTEST_SKIP() << "gfx90a mfma i8 compilation not available";
   }
 
-  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "mfma_i8_probe");
-  EXPECT_EQ(image.kernel_name, "mfma_i8_probe");
+  const auto image = ObjectReader{}.LoadProgramObject(exe_path, "mfma_i8_probe");
+  EXPECT_EQ(image.kernel_name(), "mfma_i8_probe");
   const auto unknown_count = std::count_if(
-      image.instructions.begin(), image.instructions.end(),
+      image.instructions().begin(), image.instructions().end(),
       [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "unknown"; });
   EXPECT_EQ(unknown_count, 0);
-  EXPECT_EQ(image.kernel_descriptor.agpr_count,
-            static_cast<uint16_t>(std::stoul(image.metadata.values.at("agpr_count"))));
-  EXPECT_EQ(image.kernel_descriptor.accum_offset % 4u, 0u);
-  EXPECT_GE(image.kernel_descriptor.accum_offset, 8u);
+  EXPECT_EQ(image.kernel_descriptor().agpr_count,
+            static_cast<uint16_t>(std::stoul(image.metadata().values.at("agpr_count"))));
+  EXPECT_EQ(image.kernel_descriptor().accum_offset % 4u, 0u);
+  EXPECT_GE(image.kernel_descriptor().accum_offset, 8u);
   const auto mfma_it = std::find_if(
-      image.instructions.begin(), image.instructions.end(),
+      image.instructions().begin(), image.instructions().end(),
       [](const EncodedGcnInstruction& inst) {
         return inst.mnemonic == "v_mfma_i32_16x16x4i8";
       });
-  ASSERT_NE(mfma_it, image.instructions.end());
+  ASSERT_NE(mfma_it, image.instructions().end());
 }
 
 TEST(AmdgpuCodeObjectDecoderTest, DecodesHipMfmaBf16ExecutableWithoutUnknownInstructions) {
@@ -611,22 +611,22 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipMfmaBf16ExecutableWithoutUnknownInst
     GTEST_SKIP() << "gfx90a mfma bf16 compilation not available";
   }
 
-  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "mfma_bf16_probe");
-  EXPECT_EQ(image.kernel_name, "mfma_bf16_probe");
+  const auto image = ObjectReader{}.LoadProgramObject(exe_path, "mfma_bf16_probe");
+  EXPECT_EQ(image.kernel_name(), "mfma_bf16_probe");
   const auto unknown_count = std::count_if(
-      image.instructions.begin(), image.instructions.end(),
+      image.instructions().begin(), image.instructions().end(),
       [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "unknown"; });
   EXPECT_EQ(unknown_count, 0);
-  EXPECT_EQ(image.kernel_descriptor.agpr_count,
-            static_cast<uint16_t>(std::stoul(image.metadata.values.at("agpr_count"))));
-  EXPECT_EQ(image.kernel_descriptor.accum_offset % 4u, 0u);
-  EXPECT_GE(image.kernel_descriptor.accum_offset, 8u);
+  EXPECT_EQ(image.kernel_descriptor().agpr_count,
+            static_cast<uint16_t>(std::stoul(image.metadata().values.at("agpr_count"))));
+  EXPECT_EQ(image.kernel_descriptor().accum_offset % 4u, 0u);
+  EXPECT_GE(image.kernel_descriptor().accum_offset, 8u);
   const auto mfma_it = std::find_if(
-      image.instructions.begin(), image.instructions.end(),
+      image.instructions().begin(), image.instructions().end(),
       [](const EncodedGcnInstruction& inst) {
         return inst.mnemonic == "v_mfma_f32_16x16x2bf16";
       });
-  ASSERT_NE(mfma_it, image.instructions.end());
+  ASSERT_NE(mfma_it, image.instructions().end());
 }
 
 TEST(AmdgpuCodeObjectDecoderTest, DecodesHipSharedReverseExecutable) {
@@ -654,22 +654,22 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipSharedReverseExecutable) {
   const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "shared_reverse");
-  EXPECT_EQ(image.kernel_name, "shared_reverse");
-  EXPECT_EQ(image.metadata.values.at("arg_count"), "3");
-  EXPECT_EQ(image.metadata.values.at("group_segment_fixed_size"), "256");
+  const auto image = ObjectReader{}.LoadProgramObject(exe_path, "shared_reverse");
+  EXPECT_EQ(image.kernel_name(), "shared_reverse");
+  EXPECT_EQ(image.metadata().values.at("arg_count"), "3");
+  EXPECT_EQ(image.metadata().values.at("group_segment_fixed_size"), "256");
   const auto ds_write_it = std::find_if(
-      image.instructions.begin(), image.instructions.end(),
+      image.instructions().begin(), image.instructions().end(),
       [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "ds_write_b32"; });
-  ASSERT_NE(ds_write_it, image.instructions.end());
+  ASSERT_NE(ds_write_it, image.instructions().end());
   const auto ds_read_it = std::find_if(
-      image.instructions.begin(), image.instructions.end(),
+      image.instructions().begin(), image.instructions().end(),
       [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "ds_read_b32"; });
-  ASSERT_NE(ds_read_it, image.instructions.end());
+  ASSERT_NE(ds_read_it, image.instructions().end());
   const auto barrier_it = std::find_if(
-      image.instructions.begin(), image.instructions.end(),
+      image.instructions().begin(), image.instructions().end(),
       [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "s_barrier"; });
-  ASSERT_NE(barrier_it, image.instructions.end());
+  ASSERT_NE(barrier_it, image.instructions().end());
 }
 
 TEST(AmdgpuCodeObjectDecoderTest, DecodesHipDynamicSharedExecutableWithoutUnknownInstructions) {
@@ -700,22 +700,22 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipDynamicSharedExecutableWithoutUnknow
   const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "dynamic_shared_sum");
-  EXPECT_EQ(image.kernel_name, "dynamic_shared_sum");
-  ASSERT_TRUE(image.metadata.values.contains("hidden_arg_layout"));
-  EXPECT_NE(image.metadata.values.at("hidden_arg_layout").find("hidden_dynamic_lds_size"),
+  const auto image = ObjectReader{}.LoadProgramObject(exe_path, "dynamic_shared_sum");
+  EXPECT_EQ(image.kernel_name(), "dynamic_shared_sum");
+  ASSERT_TRUE(image.metadata().values.contains("hidden_arg_layout"));
+  EXPECT_NE(image.metadata().values.at("hidden_arg_layout").find("hidden_dynamic_lds_size"),
             std::string::npos);
   const auto barrier_count = std::count_if(
-      image.instructions.begin(), image.instructions.end(),
+      image.instructions().begin(), image.instructions().end(),
       [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "s_barrier"; });
   const auto ds_write_count = std::count_if(
-      image.instructions.begin(), image.instructions.end(),
+      image.instructions().begin(), image.instructions().end(),
       [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "ds_write_b32"; });
   const auto ds_read2_count = std::count_if(
-      image.instructions.begin(), image.instructions.end(),
+      image.instructions().begin(), image.instructions().end(),
       [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "ds_read2_b32"; });
   const auto unknown_count = std::count_if(
-      image.instructions.begin(), image.instructions.end(),
+      image.instructions().begin(), image.instructions().end(),
       [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "unknown"; });
   EXPECT_GT(barrier_count, 0);
   EXPECT_GT(ds_write_count, 0);
@@ -757,21 +757,21 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipBlockReduceExecutableWithoutUnknownI
   const std::string command = test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "block_reduce_sum");
-  EXPECT_EQ(image.kernel_name, "block_reduce_sum");
+  const auto image = ObjectReader{}.LoadProgramObject(exe_path, "block_reduce_sum");
+  EXPECT_EQ(image.kernel_name(), "block_reduce_sum");
   const auto barrier_count = std::count_if(
-      image.instructions.begin(), image.instructions.end(),
+      image.instructions().begin(), image.instructions().end(),
       [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "s_barrier"; });
   const auto ds_write_count = std::count_if(
-      image.instructions.begin(), image.instructions.end(),
+      image.instructions().begin(), image.instructions().end(),
       [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "ds_write_b32"; });
   const auto ds_read_count = std::count_if(
-      image.instructions.begin(), image.instructions.end(),
+      image.instructions().begin(), image.instructions().end(),
       [](const EncodedGcnInstruction& inst) {
         return inst.mnemonic == "ds_read_b32" || inst.mnemonic == "ds_read2_b32";
       });
   const auto unknown_count = std::count_if(
-      image.instructions.begin(), image.instructions.end(),
+      image.instructions().begin(), image.instructions().end(),
       [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "unknown"; });
   EXPECT_GT(barrier_count, 0);
   EXPECT_GT(ds_write_count, 0);

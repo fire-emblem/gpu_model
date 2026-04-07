@@ -259,27 +259,6 @@ LaunchResult ModelRuntime::LaunchKernel(const ExecutableKernel& kernel,
   return runtime().Launch(request);
 }
 
-LaunchResult ModelRuntime::LaunchEncodedProgramObject(const EncodedProgramObject& image,
-                                                      LaunchConfig config,
-                                                      KernelArgPack args,
-                                                      ExecutionMode mode,
-                                                      std::string arch_name,
-                                                      TraceSink* trace,
-                                                      RuntimeSubmissionContext submission_context) {
-  last_load_result_ = MaterializeLoadPlan(BuildDeviceLoadPlan(image));
-
-  LaunchRequest request;
-  request.arch_name = std::move(arch_name);
-  request.encoded_program_object = &image;
-  request.device_load = last_load_result_.has_value() ? &*last_load_result_ : nullptr;
-  request.submission_context = submission_context;
-  request.config = config;
-  request.args = std::move(args);
-  request.mode = mode;
-  request.trace = trace;
-  return runtime().Launch(request);
-}
-
 void ModelRuntime::LoadModule(const ModuleLoadRequest& request) {
   module_registry_.LoadModule(request);
 }
@@ -323,17 +302,13 @@ LaunchResult ModelRuntime::LaunchRegisteredKernel(const std::string& module_name
                                                                    : "unknown module: " + module_name;
     return result;
   }
-  if (const auto* image = std::get_if<ProgramObject>(kernel_image)) {
-    return LaunchProgramObject(*image, std::move(config), std::move(args), mode,
-                               std::move(arch_name), trace, submission_context);
-  }
-  return LaunchEncodedProgramObject(std::get<EncodedProgramObject>(*kernel_image),
-                                    std::move(config),
-                                    std::move(args),
-                                    mode,
-                                    std::move(arch_name),
-                                    trace,
-                                    submission_context);
+  return LaunchProgramObject(*kernel_image,
+                             std::move(config),
+                             std::move(args),
+                             mode,
+                             std::move(arch_name),
+                             trace,
+                             submission_context);
 }
 
 DeviceLoadResult ModelRuntime::MaterializeLoadPlan(const DeviceLoadPlan& plan) {

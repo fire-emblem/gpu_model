@@ -26,13 +26,13 @@ std::string ReadTextFile(const std::filesystem::path& path) {
   return buffer.str();
 }
 
-TEST(EncodedProgramObjectLaunchTest, RuntimeEngineLaunchesExplicitEncodedProgramObjectInput) {
+TEST(ProgramObjectLaunchTest, RuntimeEngineLaunchesExplicitProgramObjectInput) {
   if (!test_utils::HasLlvmMcAmdgpuToolchain()) {
     GTEST_SKIP() << "required llvm-mc/LLVM/binutils tools not available";
   }
 
   const auto assembled = test_utils::AssembleAndDecodeLlvmMcModule(
-      "gpu_model_runtime_encoded_program_object",
+      "gpu_model_runtime_program_object",
       "asm_kernarg_aggregate_by_value",
       ReadTextFile(std::filesystem::path("tests/asm_cases/loader/kernarg_aggregate_by_value.s")));
   const auto& image = assembled.image;
@@ -49,7 +49,7 @@ TEST(EncodedProgramObjectLaunchTest, RuntimeEngineLaunchesExplicitEncodedProgram
 
   LaunchRequest request;
   request.arch_name = "c500";
-  request.encoded_program_object = &image;
+  request.program_object = &image;
   request.config = LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64};
   request.args.PushU64(out_addr);
   request.args.PushBytes(&aggregate, sizeof(aggregate));
@@ -61,7 +61,7 @@ TEST(EncodedProgramObjectLaunchTest, RuntimeEngineLaunchesExplicitEncodedProgram
   std::filesystem::remove_all(assembled.temp_dir);
 }
 
-TEST(EncodedProgramObjectLaunchTest, CycleLaunchWaitsForLoadArrivalBeforeDependentUse) {
+TEST(ProgramObjectLaunchTest, CycleLaunchWaitsForLoadArrivalBeforeDependentUse) {
   if (!test_utils::HasLlvmMcAmdgpuToolchain()) {
     GTEST_SKIP() << "required llvm-mc/LLVM/binutils tools not available";
   }
@@ -129,7 +129,7 @@ amdhsa.kernels:
 
   LaunchRequest request;
   request.arch_name = "c500";
-  request.encoded_program_object = &image;
+  request.program_object = &image;
   request.mode = ExecutionMode::Cycle;
   request.trace = &trace;
   request.config = LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64};

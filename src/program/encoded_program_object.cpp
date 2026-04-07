@@ -550,22 +550,21 @@ std::vector<std::byte> ReadBinaryFile(const std::filesystem::path& path) {
 
 }  // namespace
 
-EncodedProgramObject ObjectReader::LoadEncodedObject(
-    const std::filesystem::path& path,
-    std::optional<std::string> kernel_name) const {
+ProgramObject ObjectReader::LoadProgramObject(const std::filesystem::path& path,
+                                              std::optional<std::string> kernel_name) const {
   ScopedTempDir temp_dir;
   const auto materialized = MaterializeDeviceCodeObject(path, temp_dir);
   const auto& device_path = materialized.path;
-  EncodedProgramObject code_object;
+  ProgramObject code_object;
   const auto symbols =
       ParseSymbols(RunCommand("readelf -Ws " + ShellQuote(device_path.string())));
   const auto selected_symbol = SelectKernelSymbol(symbols, kernel_name);
-  code_object.kernel_name = selected_symbol.name;
-  code_object.metadata =
-      BuildMetadataFromNotes(device_path, code_object.kernel_name, materialized.metadata);
+  code_object.set_kernel_name(selected_symbol.name);
+  code_object.set_metadata(
+      BuildMetadataFromNotes(device_path, code_object.kernel_name(), materialized.metadata));
 
-  const auto descriptor_symbol_name_it = code_object.metadata.values.find("descriptor_symbol");
-  if (descriptor_symbol_name_it != code_object.metadata.values.end() &&
+  const auto descriptor_symbol_name_it = code_object.metadata().values.find("descriptor_symbol");
+  if (descriptor_symbol_name_it != code_object.metadata().values.end() &&
       !descriptor_symbol_name_it->second.empty()) {
     const auto descriptor_symbol = SelectDescriptorSymbol(symbols, descriptor_symbol_name_it->second);
     const auto rodata_dump_path = temp_dir.path() / "rodata.bin";
@@ -582,12 +581,12 @@ EncodedProgramObject ObjectReader::LoadEncodedObject(
         rodata_bytes.data() + static_cast<size_t>(descriptor_offset),
         static_cast<size_t>(descriptor_symbol.size),
     };
-    code_object.kernel_descriptor = ParseKernelDescriptor(descriptor_bytes);
-    const auto agpr_count_it = code_object.metadata.values.find("agpr_count");
-    if (agpr_count_it != code_object.metadata.values.end()) {
-      code_object.kernel_descriptor.agpr_count =
-          static_cast<uint16_t>(std::stoul(agpr_count_it->second));
+    auto kernel_descriptor = ParseKernelDescriptor(descriptor_bytes);
+    const auto agpr_count_it = code_object.metadata().values.find("agpr_count");
+    if (agpr_count_it != code_object.metadata().values.end()) {
+      kernel_descriptor.agpr_count = static_cast<uint16_t>(std::stoul(agpr_count_it->second));
     }
+    code_object.set_kernel_descriptor(std::move(kernel_descriptor));
   }
 
   const auto text_dump_path = temp_dir.path() / "text.bin";
@@ -607,12 +606,13 @@ EncodedProgramObject ObjectReader::LoadEncodedObject(
   const auto code_size = static_cast<size_t>(symbol_info.size);
   std::span<const std::byte> kernel_text{text_bytes.data() + code_begin, code_size};
   auto parsed = InstructionArrayParser::Parse(kernel_text, symbol_info.value);
-  code_object.instructions = std::move(parsed.raw_instructions);
-  code_object.decoded_instructions = std::move(parsed.decoded_instructions);
-  code_object.instruction_objects = std::move(parsed.instruction_objects);
-  code_object.code_bytes.assign(kernel_text.begin(), kernel_text.end());
+  code_object.set_instructions(std::move(parsed.raw_instructions));
+  code_object.set_decoded_instructions(std::move(parsed.decoded_instructions));
+  code_object.set_instruction_objects(std::move(parsed.instruction_objects));
+  code_object.set_code_bytes(std::vector<std::byte>(kernel_text.begin(), kernel_text.end()));
 
-  for (auto& instruction : code_object.instructions) {
+  auto instructions = code_object.instructions();
+  for (auto& instruction : instructions) {
     if (instruction.operands.empty() && !instruction.decoded_operands.empty()) {
       std::ostringstream operand_text;
       for (size_t i = 0; i < instruction.decoded_operands.size(); ++i) {
@@ -624,9 +624,11 @@ EncodedProgramObject ObjectReader::LoadEncodedObject(
       instruction.operands = operand_text.str();
     }
   }
+  code_object.set_instructions(std::move(instructions));
 
-  if (code_object.instructions.empty()) {
-    throw std::runtime_error("failed to decode AMDGPU kernel instructions: " + code_object.kernel_name);
+  if (code_object.instructions().empty()) {
+    throw std::runtime_error("failed to decode AMDGPU kernel instructions: " +
+                             code_object.kernel_name());
   }
   return code_object;
 }

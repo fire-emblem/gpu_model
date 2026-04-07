@@ -444,9 +444,9 @@ TEST(HipRuntimeAbiTest, LaunchesHipByValueAggregateExecutableThroughRegisteredHo
   static int host_symbol = 0;
   state.RegisterFunction(&host_symbol, "by_value_aggregate");
 
-  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "by_value_aggregate");
-  ASSERT_TRUE(image.metadata.values.contains("arg_layout"));
-  EXPECT_NE(image.metadata.values.at("arg_layout").find("by_value:"), std::string::npos);
+  const auto image = ObjectReader{}.LoadProgramObject(exe_path, "by_value_aggregate");
+  ASSERT_TRUE(image.metadata().values.contains("arg_layout"));
+  EXPECT_NE(image.metadata().values.at("arg_layout").find("by_value:"), std::string::npos);
 
   void* out_dev = state.AllocateDevice(sizeof(int32_t));
   int32_t zero = 0;
@@ -1911,10 +1911,10 @@ TEST(HipRuntimeAbiTest, BuildsExecutableLoadPlanForHipMfmaWithTypedTensorAbi) {
 
   const auto plan = state.BuildExecutableLoadPlan(exe_path, &host_symbol);
   EXPECT_FALSE(plan.segments.empty());
-  const auto image = ObjectReader{}.LoadEncodedObject(exe_path, "mfma_plan_probe");
-  EXPECT_GE(image.kernel_descriptor.accum_offset, 4u);
-  if (const auto it = image.metadata.values.find("agpr_count"); it != image.metadata.values.end()) {
-    EXPECT_EQ(std::to_string(image.kernel_descriptor.agpr_count), it->second);
+  const auto image = ObjectReader{}.LoadProgramObject(exe_path, "mfma_plan_probe");
+  EXPECT_GE(image.kernel_descriptor().accum_offset, 4u);
+  if (const auto it = image.metadata().values.find("agpr_count"); it != image.metadata().values.end()) {
+    EXPECT_EQ(std::to_string(image.kernel_descriptor().agpr_count), it->second);
   }
 
   std::filesystem::remove_all(temp_dir);

@@ -701,8 +701,8 @@ TEST_P(HipCtsModelRuntimeTest, ExecutesHipOutAndValidatesResults) {
       args.PushU64(b_addr);
       args.PushU64(out_addr);
       args.PushU32(c.n);
-      const auto result = hooks.LaunchEncodedProgramObject(
-          ObjectReader{}.LoadEncodedObject(ArtifactPath(c.artifact), KernelName(c.kernel)),
+      const auto result = hooks.LaunchProgramObject(
+          ObjectReader{}.LoadProgramObject(ArtifactPath(c.artifact), KernelName(c.kernel)),
           LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x},
           std::move(args),
           ExecutionMode::Functional,
@@ -729,8 +729,8 @@ TEST_P(HipCtsModelRuntimeTest, ExecutesHipOutAndValidatesResults) {
       args.PushU64(out_addr);
       args.PushU32(c.n);
       args.PushU32(c.iters);
-      const auto result = hooks.LaunchEncodedProgramObject(
-          ObjectReader{}.LoadEncodedObject(ArtifactPath(c.artifact), KernelName(c.kernel)),
+      const auto result = hooks.LaunchProgramObject(
+          ObjectReader{}.LoadProgramObject(ArtifactPath(c.artifact), KernelName(c.kernel)),
           LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x},
           std::move(args),
           ExecutionMode::Functional,
@@ -759,8 +759,8 @@ TEST_P(HipCtsModelRuntimeTest, ExecutesHipOutAndValidatesResults) {
       args.PushF32(c.f0);
       args.PushF32(c.f1);
       args.PushF32(c.f2);
-      const auto result = hooks.LaunchEncodedProgramObject(
-          ObjectReader{}.LoadEncodedObject(ArtifactPath(c.artifact), KernelName(c.kernel)),
+      const auto result = hooks.LaunchProgramObject(
+          ObjectReader{}.LoadProgramObject(ArtifactPath(c.artifact), KernelName(c.kernel)),
           LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x},
           std::move(args),
           ExecutionMode::Functional,
@@ -784,8 +784,8 @@ TEST_P(HipCtsModelRuntimeTest, ExecutesHipOutAndValidatesResults) {
       KernelArgPack args;
       args.PushU64(out_addr);
       args.PushBytes(&payload, sizeof(payload));
-      const auto result = hooks.LaunchEncodedProgramObject(
-          ObjectReader{}.LoadEncodedObject(ArtifactPath(c.artifact), KernelName(c.kernel)),
+      const auto result = hooks.LaunchProgramObject(
+          ObjectReader{}.LoadProgramObject(ArtifactPath(c.artifact), KernelName(c.kernel)),
           LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
           std::move(args),
           ExecutionMode::Functional,
@@ -804,8 +804,8 @@ TEST_P(HipCtsModelRuntimeTest, ExecutesHipOutAndValidatesResults) {
       KernelArgPack args;
       args.PushU64(out_addr);
       args.PushU32(c.n);
-      const auto result = hooks.LaunchEncodedProgramObject(
-          ObjectReader{}.LoadEncodedObject(ArtifactPath(c.artifact), KernelName(c.kernel)),
+      const auto result = hooks.LaunchProgramObject(
+          ObjectReader{}.LoadProgramObject(ArtifactPath(c.artifact), KernelName(c.kernel)),
           LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x},
           std::move(args),
           ExecutionMode::Functional,
@@ -834,8 +834,8 @@ TEST_P(HipCtsModelRuntimeTest, ExecutesHipOutAndValidatesResults) {
       args.PushU64(in_addr);
       args.PushU64(out_addr);
       args.PushU32(c.n);
-      const auto result = hooks.LaunchEncodedProgramObject(
-          ObjectReader{}.LoadEncodedObject(ArtifactPath(c.artifact), KernelName(c.kernel)),
+      const auto result = hooks.LaunchProgramObject(
+          ObjectReader{}.LoadProgramObject(ArtifactPath(c.artifact), KernelName(c.kernel)),
           LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x},
           std::move(args),
           ExecutionMode::Functional,
@@ -853,8 +853,8 @@ TEST_P(HipCtsModelRuntimeTest, ExecutesHipOutAndValidatesResults) {
       hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(out));
       KernelArgPack args;
       args.PushU64(out_addr);
-      const auto result = hooks.LaunchEncodedProgramObject(
-          ObjectReader{}.LoadEncodedObject(ArtifactPath(c.artifact), KernelName(c.kernel)),
+      const auto result = hooks.LaunchProgramObject(
+          ObjectReader{}.LoadProgramObject(ArtifactPath(c.artifact), KernelName(c.kernel)),
           LaunchConfig{
               .grid_dim_x = c.grid_x,
               .block_dim_x = c.block_x,
@@ -881,8 +881,8 @@ TEST_P(HipCtsModelRuntimeTest, ExecutesHipOutAndValidatesResults) {
       args.PushU64(in_addr);
       args.PushU64(out_addr);
       args.PushU32(c.n);
-      const auto result = hooks.LaunchEncodedProgramObject(
-          ObjectReader{}.LoadEncodedObject(ArtifactPath(c.artifact), KernelName(c.kernel)),
+      const auto result = hooks.LaunchProgramObject(
+          ObjectReader{}.LoadProgramObject(ArtifactPath(c.artifact), KernelName(c.kernel)),
           LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x},
           std::move(args),
           ExecutionMode::Functional,
@@ -905,8 +905,8 @@ TEST_P(HipCtsModelRuntimeTest, ExecutesHipOutAndValidatesResults) {
       args.PushU64(in_addr);
       args.PushU64(out_addr);
       args.PushU32(c.n);
-      const auto result = hooks.LaunchEncodedProgramObject(
-          ObjectReader{}.LoadEncodedObject(ArtifactPath(c.artifact), KernelName(c.kernel)),
+      const auto result = hooks.LaunchProgramObject(
+          ObjectReader{}.LoadProgramObject(ArtifactPath(c.artifact), KernelName(c.kernel)),
           LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x},
           std::move(args),
           ExecutionMode::Functional,
@@ -923,8 +923,8 @@ TEST_P(HipCtsModelRuntimeTest, ExecutesHipOutAndValidatesResults) {
       hooks.MemcpyHtoD<float>(out_addr, std::span<const float>(&out, 1));
       KernelArgPack args;
       args.PushU64(out_addr);
-      const auto result = hooks.LaunchEncodedProgramObject(
-          ObjectReader{}.LoadEncodedObject(ArtifactPath(c.artifact), KernelName(c.kernel)),
+      const auto result = hooks.LaunchProgramObject(
+          ObjectReader{}.LoadProgramObject(ArtifactPath(c.artifact), KernelName(c.kernel)),
           LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
           std::move(args),
           ExecutionMode::Functional,

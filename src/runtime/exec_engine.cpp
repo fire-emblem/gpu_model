@@ -17,7 +17,6 @@
 #include "gpu_model/isa/kernel_metadata.h"
 #include "gpu_model/loader/device_image_loader.h"
 #include "gpu_model/loader/asm_parser.h"
-#include "gpu_model/program/encoded_program_object.h"
 #include "gpu_model/runtime/runtime_env_config.h"
 #include "gpu_model/util/logging.h"
 
@@ -199,13 +198,14 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
 
   ExecutableKernel parsed_kernel;
   const ExecutableKernel* kernel = request.kernel;
-  const EncodedProgramObject* encoded_program_object = request.encoded_program_object;
-  const bool use_encoded_program_object = encoded_program_object != nullptr;
-  if (encoded_program_object == nullptr && kernel == nullptr && request.program_object != nullptr) {
+  const ProgramObject* program_object = request.program_object;
+  const bool use_program_object_payload =
+      program_object != nullptr && program_object->has_encoded_payload();
+  if (!use_program_object_payload && kernel == nullptr && program_object != nullptr) {
     parsed_kernel = AsmParser{}.Parse(*request.program_object);
     kernel = &parsed_kernel;
   }
-  if (kernel == nullptr && !use_encoded_program_object) {
+  if (kernel == nullptr && !use_program_object_payload) {
     result.error_message = "launch request missing kernel or program object";
     return result;
   }
@@ -217,9 +217,9 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
   }
 
   GPU_MODEL_LOG_INFO("runtime",
-                     "launch begin mode=%s encoded=%d arch=%s grid=(%u,%u,%u) block=(%u,%u,%u)",
+                     "launch begin mode=%s program_payload=%d arch=%s grid=(%u,%u,%u) block=(%u,%u,%u)",
                      request.mode == ExecutionMode::Cycle ? "cycle" : "functional",
-                     use_encoded_program_object ? 1 : 0,
+                     use_program_object_payload ? 1 : 0,
                      arch_name.c_str(),
                      request.config.grid_dim_x,
                      request.config.grid_dim_y,
@@ -229,7 +229,7 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
                      request.config.block_dim_z);
 
   const MetadataBlob& launch_metadata_source =
-      use_encoded_program_object ? encoded_program_object->metadata
+      use_program_object_payload ? program_object->metadata()
                                  : (request.program_object != nullptr && kernel == nullptr
                                         ? request.program_object->metadata()
                                         : kernel->metadata());
@@ -242,7 +242,7 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
       return result;
     }
     const std::string kernel_name =
-        use_encoded_program_object ? encoded_program_object->kernel_name : kernel->name();
+        use_program_object_payload ? program_object->kernel_name() : kernel->name();
     if (launch_metadata.entry.has_value() && *launch_metadata.entry != kernel_name) {
       result.error_message = "kernel metadata entry does not match kernel name";
       return result;
@@ -297,8 +297,7 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
     }
     trace.OnEvent(MakeTraceRuntimeLaunchEvent(
         result.submit_cycle,
-        "kernel=" + (use_encoded_program_object ? encoded_program_object->kernel_name
-                                                : kernel->name()) +
+        "kernel=" + (use_program_object_payload ? program_object->kernel_name() : kernel->name()) +
             " arch=" + spec->name));
 
     result.placement = Mapper::Place(*spec, request.config);
@@ -314,9 +313,9 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
                                               message.str()));
     }
     if (request.mode == ExecutionMode::Functional) {
-        if (use_encoded_program_object) {
+        if (use_program_object_payload) {
           const auto raw_result =
-            EncodedExecEngine{}.Run(*encoded_program_object, *spec,
+            EncodedExecEngine{}.Run(*program_object, *spec,
                                     ResolveCycleTimingConfig(*spec),
                                     request.config,
                                     ExecutionMode::Functional,
@@ -360,9 +359,9 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
         result.end_cycle = result.begin_cycle + result.total_cycles;
       }
     } else if (request.mode == ExecutionMode::Cycle) {
-      if (use_encoded_program_object) {
+      if (use_program_object_payload) {
         const auto raw_result =
-            EncodedExecEngine{}.Run(*encoded_program_object, *spec,
+            EncodedExecEngine{}.Run(*program_object, *spec,
                                     ResolveCycleTimingConfig(*spec),
                                     request.config,
                                     ExecutionMode::Cycle,
@@ -404,7 +403,7 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
       return result;
     }
 
-    if (!use_encoded_program_object || result.error_message.empty()) {
+    if (!use_program_object_payload || result.error_message.empty()) {
       result.ok = true;
     }
   } catch (const std::exception& ex) {

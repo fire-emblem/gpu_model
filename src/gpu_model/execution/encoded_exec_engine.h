@@ -4,7 +4,7 @@
 #include "gpu_model/execution/cycle_exec_engine.h"
 #include "gpu_model/debug/trace/sink.h"
 #include "gpu_model/memory/memory_system.h"
-#include "gpu_model/program/encoded_program_object.h"
+#include "gpu_model/program/program_object.h"
 #include "gpu_model/execution/functional_execution_mode.h"
 #include "gpu_model/runtime/kernel_arg_pack.h"
 #include "gpu_model/runtime/launch_config.h"
@@ -15,7 +15,7 @@ namespace gpu_model {
 
 class EncodedExecEngine {
  public:
-  LaunchResult Run(const EncodedProgramObject& image,
+  LaunchResult Run(const ProgramObject& image,
                    const GpuArchSpec& spec,
                    const CycleTimingConfig& timing_config,
                    const LaunchConfig& config,

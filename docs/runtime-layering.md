@@ -57,7 +57,7 @@ runtime 侧主线按两层来理解：
 ### ExecEngine
 
 `ExecEngine` 承接 `ModelRuntime` 的执行主链，负责：
-- `ProgramObject / EncodedProgramObject` 装载与 materialize
+- `ProgramObject` 装载与 materialize
 - 构建 `ExecutableKernel` 与 launch plan
 - 驱动 `FunctionalExecEngine / CycleExecEngine / EncodedExecEngine`
 - 组织 `WaveContext` 生命周期与运行时状态输出
@@ -122,7 +122,7 @@ runtime 侧主线按两层来理解：
 - `ModelRuntime`
   - 形成统一 launch request
 - `ExecEngine`
-  - 选择 `ProgramObject / EncodedProgramObject`
+  - 选择 `ProgramObject`
   - 完成 materialize 与 executable launch
 - `FunctionalExecEngine / CycleExecEngine / EncodedExecEngine`
   - 执行 wave/block/device 级语义
@@ -174,7 +174,7 @@ runtime 侧主线按两层来理解：
 - 更完整的 property / attribute 覆盖
 - 更完整的 runtime memory API 子集与不同 memcpy 行为矩阵
 - memory pool 与 `mmap` backed residency 的第一阶段框架落地
-- 更明确的 `ProgramObject / EncodedProgramObject` API 分层
+- 更明确的 `ProgramObject` API 分层
 - 历史遗留文件名与构建目标的进一步收口
 - 与正式设计文档持续同步的 runtime 边界维护
 

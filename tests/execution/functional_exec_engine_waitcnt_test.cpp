@@ -340,6 +340,23 @@ bool HasArriveBeforeResumeOrdering(const std::vector<TraceEvent>& events,
          runnable_stats_index < resume_marker_index;
 }
 
+void ExpectWaveStateEdgeOrdering(const std::vector<TraceEvent>& events,
+                                 uint64_t waitcnt_pc,
+                                 uint64_t resume_pc) {
+  const size_t wave_wait_index = FirstEventIndex(events, TraceEventKind::WaveWait, waitcnt_pc);
+  const size_t wave_arrive_index = FirstEventIndex(events, TraceEventKind::WaveArrive, waitcnt_pc);
+  const size_t wave_resume_index = FirstEventIndex(events, TraceEventKind::WaveResume, resume_pc);
+  const size_t resumed_step_index = FirstEventIndex(events, TraceEventKind::WaveStep, resume_pc);
+
+  ASSERT_NE(wave_wait_index, std::numeric_limits<size_t>::max());
+  ASSERT_NE(wave_arrive_index, std::numeric_limits<size_t>::max());
+  ASSERT_NE(wave_resume_index, std::numeric_limits<size_t>::max());
+  ASSERT_NE(resumed_step_index, std::numeric_limits<size_t>::max());
+  EXPECT_LT(wave_wait_index, wave_arrive_index);
+  EXPECT_LT(wave_arrive_index, wave_resume_index);
+  EXPECT_LT(wave_resume_index, resumed_step_index);
+}
+
 TEST(FunctionalExecEngineWaitcntTest, PendingMemoryDoesNotStallBeforeExplicitWaitcnt) {
   FunctionalExecHarness harness(
       BuildPendingMemoryBeforeExplicitWaitcntKernel(),
@@ -502,6 +519,16 @@ TEST(FunctionalExecEngineWaitcntTest, SharedWaitcntTransitionsThroughWaitingAndR
       events, waitcnt_pc, resume_marker_pc, "waitcnt_shared", TraceArriveKind::Shared));
 }
 
+TEST(FunctionalExecEngineWaitcntTest, SharedWaitcntEmitsWaveWaitArriveAndResumeMarkers) {
+  auto harness = MakeWaitcntHarness(BuildSharedWaitcntLifecycleKernel(), /*shared_memory_bytes=*/4);
+  const auto events = RunHarnessAndCollectTrace(harness);
+  const uint64_t waitcnt_pc = NthInstructionPcWithOpcode(harness.kernel, Opcode::SWaitCnt, 0);
+  ASSERT_NE(waitcnt_pc, std::numeric_limits<uint64_t>::max());
+  ASSERT_TRUE(harness.kernel.NextPc(waitcnt_pc).has_value());
+
+  ExpectWaveStateEdgeOrdering(events, waitcnt_pc, *harness.kernel.NextPc(waitcnt_pc));
+}
+
 TEST(FunctionalExecEngineWaitcntTest,
      FunctionalTraceUsesCanonicalBarrierArriveReleaseAndExitMessages) {
   FunctionalExecHarness harness(BuildBarrierLifecycleKernel(),
@@ -541,6 +568,16 @@ TEST(FunctionalExecEngineWaitcntTest, PrivateWaitcntTransitionsThroughWaitingAnd
       events, waitcnt_pc, resume_marker_pc, "waitcnt_private", TraceArriveKind::Private));
 }
 
+TEST(FunctionalExecEngineWaitcntTest, PrivateWaitcntEmitsWaveWaitArriveAndResumeMarkers) {
+  auto harness = MakeWaitcntHarness(BuildPrivateWaitcntLifecycleKernel());
+  const auto events = RunHarnessAndCollectTrace(harness);
+  const uint64_t waitcnt_pc = NthInstructionPcWithOpcode(harness.kernel, Opcode::SWaitCnt, 0);
+  ASSERT_NE(waitcnt_pc, std::numeric_limits<uint64_t>::max());
+  ASSERT_TRUE(harness.kernel.NextPc(waitcnt_pc).has_value());
+
+  ExpectWaveStateEdgeOrdering(events, waitcnt_pc, *harness.kernel.NextPc(waitcnt_pc));
+}
+
 TEST(FunctionalExecEngineWaitcntTest, ScalarBufferWaitcntTransitionsThroughWaitingAndResume) {
   auto harness = MakeWaitcntHarness(BuildScalarBufferWaitcntLifecycleKernel());
   const auto events = RunHarnessAndCollectTrace(harness);
@@ -559,6 +596,16 @@ TEST(FunctionalExecEngineWaitcntTest, ScalarBufferWaitcntTransitionsThroughWaiti
                                             resume_marker_pc,
                                             "waitcnt_scalar_buffer",
                                             TraceArriveKind::ScalarBuffer));
+}
+
+TEST(FunctionalExecEngineWaitcntTest, ScalarBufferWaitcntEmitsWaveWaitArriveAndResumeMarkers) {
+  auto harness = MakeWaitcntHarness(BuildScalarBufferWaitcntLifecycleKernel());
+  const auto events = RunHarnessAndCollectTrace(harness);
+  const uint64_t waitcnt_pc = NthInstructionPcWithOpcode(harness.kernel, Opcode::SWaitCnt, 0);
+  ASSERT_NE(waitcnt_pc, std::numeric_limits<uint64_t>::max());
+  ASSERT_TRUE(harness.kernel.NextPc(waitcnt_pc).has_value());
+
+  ExpectWaveStateEdgeOrdering(events, waitcnt_pc, *harness.kernel.NextPc(waitcnt_pc));
 }
 
 TEST(FunctionalExecEngineWaitcntTest, WaitcntResumeRequiresAllStoredThresholdDomains) {

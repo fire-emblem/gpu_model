@@ -102,6 +102,48 @@ TraceEventExportFields MakeTraceEventExportFields(const TraceEventView& view) {
   };
 }
 
+TraceEventExportFields MakeTraceEventExportFields(const RecorderProgramEvent& event) {
+  return TraceEventExportFields{
+      .slot_model = std::string(TraceSlotModelName(event.slot_model_kind)),
+      .stall_reason = std::string(TraceStallReasonName(event.stall_reason)),
+      .barrier_kind = std::string(TraceBarrierKindName(event.barrier_kind)),
+      .arrive_kind = std::string(TraceArriveKindName(event.arrive_kind)),
+      .arrive_progress = std::string(TraceArriveProgressKindName(event.event.arrive_progress)),
+      .lifecycle_stage = std::string(TraceLifecycleStageName(event.lifecycle_stage)),
+      .waitcnt_thresholds = FormatWaitcntThresholds(event.waitcnt_state),
+      .waitcnt_pending_before = FormatWaitcntPendingBefore(event.waitcnt_state),
+      .waitcnt_pending = FormatWaitcntPending(event.waitcnt_state),
+      .waitcnt_pending_transition = FormatWaitcntPendingTransition(event.waitcnt_state),
+      .waitcnt_blocked_domains = FormatWaitcntBlockedDomains(event.waitcnt_state),
+      .canonical_name = event.canonical_name,
+      .presentation_name = event.presentation_name,
+      .display_name = event.display_name,
+      .category = event.category,
+      .compatibility_message = event.compatibility_message,
+  };
+}
+
+TraceEventExportFields MakeTraceEventExportFields(const RecorderEntry& event) {
+  return TraceEventExportFields{
+      .slot_model = std::string(TraceSlotModelName(event.slot_model_kind)),
+      .stall_reason = std::string(TraceStallReasonName(event.stall_reason)),
+      .barrier_kind = std::string(TraceBarrierKindName(event.barrier_kind)),
+      .arrive_kind = std::string(TraceArriveKindName(event.arrive_kind)),
+      .arrive_progress = std::string(TraceArriveProgressKindName(event.event.arrive_progress)),
+      .lifecycle_stage = std::string(TraceLifecycleStageName(event.lifecycle_stage)),
+      .waitcnt_thresholds = FormatWaitcntThresholds(event.waitcnt_state),
+      .waitcnt_pending_before = FormatWaitcntPendingBefore(event.waitcnt_state),
+      .waitcnt_pending = FormatWaitcntPending(event.waitcnt_state),
+      .waitcnt_pending_transition = FormatWaitcntPendingTransition(event.waitcnt_state),
+      .waitcnt_blocked_domains = FormatWaitcntBlockedDomains(event.waitcnt_state),
+      .canonical_name = event.canonical_name,
+      .presentation_name = event.presentation_name,
+      .display_name = event.display_name,
+      .category = event.category,
+      .compatibility_message = event.compatibility_message,
+  };
+}
+
 CanonicalTraceEvent MakeCanonicalTraceEvent(const TraceEvent& event) {
   TraceEventView view = MakeTraceEventView(event);
   TraceEventExportFields fields = MakeTraceEventExportFields(view);

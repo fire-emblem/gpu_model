@@ -2,13 +2,11 @@
 
 #include <type_traits>
 
-#include "gpu_model/execution/encoded_exec_engine.h"
-#include "gpu_model/program/encoded_program_object.h"
 #include "gpu_model/program/executable_kernel.h"
 #include "gpu_model/program/program_object.h"
+#include "gpu_model/runtime/exec_engine.h"
 #include "gpu_model/runtime/hip_runtime.h"
 #include "gpu_model/runtime/model_runtime.h"
-#include "gpu_model/runtime/exec_engine.h"
 
 namespace gpu_model {
 namespace {
@@ -19,8 +17,7 @@ TEST(RuntimeNamingTest, NewRuntimeTypesAreConcreteAndUsable) {
   static_assert(std::is_class_v<ExecEngine>);
   static_assert(std::is_constructible_v<HipRuntime, ExecEngine*>);
   static_assert(std::is_constructible_v<ModelRuntime, ExecEngine*>);
-  static_assert(std::is_default_constructible_v<EncodedProgramObject>);
-  static_assert(std::is_default_constructible_v<EncodedExecEngine>);
+  static_assert(std::is_default_constructible_v<ProgramObject>);
 
   ExecEngine engine;
   HipRuntime hip(&engine);

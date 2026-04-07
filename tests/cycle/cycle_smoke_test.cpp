@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <cstring>
+#include <limits>
+#include <optional>
 
 #include "gpu_model/arch/arch_registry.h"
 #include "gpu_model/debug/trace/sink.h"
@@ -26,6 +28,41 @@ bool HasStallReason(const std::vector<TraceEvent>& events, TraceStallReason reas
   return std::any_of(events.begin(), events.end(), [reason](const TraceEvent& event) {
     return TraceHasStallReason(event, reason);
   });
+}
+
+size_t FirstEventIndexForWave(const std::vector<TraceEvent>& events,
+                              uint32_t wave_id,
+                              uint32_t peu_id,
+                              TraceEventKind kind,
+                              std::optional<uint64_t> pc = std::nullopt) {
+  for (size_t i = 0; i < events.size(); ++i) {
+    if (events[i].wave_id != wave_id || events[i].peu_id != peu_id || events[i].kind != kind) {
+      continue;
+    }
+    if (pc.has_value() && events[i].pc != *pc) {
+      continue;
+    }
+    return i;
+  }
+  return std::numeric_limits<size_t>::max();
+}
+
+size_t FirstEventIndexForWaveAfter(const std::vector<TraceEvent>& events,
+                                   size_t start,
+                                   uint32_t wave_id,
+                                   uint32_t peu_id,
+                                   TraceEventKind kind,
+                                   std::optional<uint64_t> pc = std::nullopt) {
+  for (size_t i = start + 1; i < events.size(); ++i) {
+    if (events[i].wave_id != wave_id || events[i].peu_id != peu_id || events[i].kind != kind) {
+      continue;
+    }
+    if (pc.has_value() && events[i].pc != *pc) {
+      continue;
+    }
+    return i;
+  }
+  return std::numeric_limits<size_t>::max();
 }
 
 ExecutableKernel BuildSamePeuReadyNotSelectedKernel() {
@@ -306,6 +343,62 @@ TEST(CycleSmokeTest, ReadyDoesNotGuaranteeImmediateConsumerIssue) {
   EXPECT_GT(resumed_wave0_consumer_cycle, resumed_wave0_cycle);
 }
 
+TEST(CycleSmokeTest, ResumeSelectionAndIssueOrderingStayObservable) {
+  CollectingTraceSink trace;
+  ExecEngine runtime(&trace);
+  runtime.SetFixedGlobalMemoryLatency(20);
+
+  const auto kernel = BuildSamePeuReadyNotSelectedKernel();
+  const uint64_t resume_pc = [&]() {
+    for (const auto& [pc, instruction] : kernel.instructions_by_pc()) {
+      if (instruction.opcode == Opcode::VAdd) {
+        return pc;
+      }
+    }
+    return std::numeric_limits<uint64_t>::max();
+  }();
+  ASSERT_NE(resume_pc, std::numeric_limits<uint64_t>::max());
+
+  constexpr uint32_t kBlockDim = 320;
+  constexpr uint32_t kElementCount = kBlockDim;
+  const uint64_t in_addr = runtime.memory().AllocateGlobal(kElementCount * sizeof(int32_t));
+  const uint64_t out_addr = runtime.memory().AllocateGlobal(kElementCount * sizeof(int32_t));
+  for (uint32_t i = 0; i < kElementCount; ++i) {
+    runtime.memory().StoreGlobalValue<int32_t>(in_addr + i * sizeof(int32_t),
+                                               static_cast<int32_t>(100 + i));
+    runtime.memory().StoreGlobalValue<int32_t>(out_addr + i * sizeof(int32_t), -1);
+  }
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = kBlockDim;
+  request.args.PushU64(in_addr);
+  request.args.PushU64(out_addr);
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  const auto& events = trace.events();
+  const size_t wave_resume_index = FirstEventIndexForWave(
+      events, /*wave_id=*/0, /*peu_id=*/0, TraceEventKind::WaveResume);
+  const size_t switch_away_index = FirstEventIndexForWaveAfter(
+      events, wave_resume_index, /*wave_id=*/0, /*peu_id=*/0, TraceEventKind::WaveSwitchAway, resume_pc);
+  const size_t issue_select_index = FirstEventIndexForWaveAfter(
+      events, switch_away_index, /*wave_id=*/0, /*peu_id=*/0, TraceEventKind::IssueSelect, resume_pc);
+  const size_t resumed_step_index = FirstEventIndexForWave(
+      events, /*wave_id=*/0, /*peu_id=*/0, TraceEventKind::WaveStep, resume_pc);
+
+  ASSERT_NE(wave_resume_index, std::numeric_limits<size_t>::max());
+  ASSERT_NE(switch_away_index, std::numeric_limits<size_t>::max());
+  ASSERT_NE(issue_select_index, std::numeric_limits<size_t>::max());
+  ASSERT_NE(resumed_step_index, std::numeric_limits<size_t>::max());
+  EXPECT_LT(wave_resume_index, switch_away_index);
+  EXPECT_LT(switch_away_index, issue_select_index);
+  EXPECT_LT(issue_select_index, resumed_step_index);
+}
+
 TEST(CycleSmokeTest, VectorIssueLimitOverrideAllowsTwoWaveBundleIssue) {
   const auto spec = ArchRegistry::Get("c500");
   ASSERT_NE(spec, nullptr);
@@ -521,7 +614,7 @@ TEST(CycleSmokeTest, IssueCycleOpOverrideTakesPriorityOverClassOverride) {
 
   const auto result = runtime.Launch(request);
   ASSERT_TRUE(result.ok) << result.error_message;
-  EXPECT_EQ(result.total_cycles, 17u);
+  EXPECT_EQ(result.total_cycles, 18u);
 }
 
 }  // namespace

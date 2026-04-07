@@ -17,11 +17,17 @@
 主线术语约定：
 
 - `runtime`: `HipRuntime / ModelRuntime / ExecEngine`
-- `program`: `ProgramObject / ExecutableKernel / EncodedProgramObject`
+- `program`: `ProgramObject / ExecutableKernel`
 - `instruction`: decode / disasm / instruction object / lowering
-- `execution`: `FunctionalExecEngine / CycleExecEngine / EncodedExecEngine / WaveContext`
+- `execution`: `FunctionalExecEngine / CycleExecEngine / WaveContext`
 - `arch`: architecture spec / topology / device properties
 - 历史已删除名：`ModelRuntimeApi / RuntimeHooks / HostRuntime`
+
+当前收口约束：
+
+- 公开程序执行主线只保留 `ProgramObject -> LaunchProgramObject -> ExecEngine`
+- 不再把 `canonical path` / `encoded path` 当成两条并列公开路径
+- trace / recorder / timeline / Perfetto 只消费 execution 已产出的 typed facts，不制造业务语义
 
 目标定义：
 

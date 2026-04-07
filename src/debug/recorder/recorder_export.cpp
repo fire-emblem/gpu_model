@@ -12,7 +12,8 @@ namespace {
 
 struct OrderedRecordedEvent {
   uint64_t sequence = 0;
-  const TraceEvent* event = nullptr;
+  const RecorderProgramEvent* program_event = nullptr;
+  const RecorderEntry* entry = nullptr;
 };
 
 std::vector<OrderedRecordedEvent> CollectOrderedRecordedEvents(const Recorder& recorder) {
@@ -22,14 +23,14 @@ std::vector<OrderedRecordedEvent> CollectOrderedRecordedEvents(const Recorder& r
   for (const auto& program_event : recorder.program_events()) {
     ordered.push_back(OrderedRecordedEvent{
         .sequence = program_event.sequence,
-        .event = &program_event.event,
+        .program_event = &program_event,
     });
   }
   for (const auto& wave : recorder.waves()) {
     for (const auto& entry : wave.entries) {
       ordered.push_back(OrderedRecordedEvent{
           .sequence = entry.sequence,
-          .event = &entry.event,
+          .entry = &entry,
       });
     }
   }
@@ -70,7 +71,11 @@ std::unique_ptr<RecorderSerializer> MakeJsonRecorderSerializer() {
 std::string RenderRecorderTextTrace(const Recorder& recorder) {
   std::string text;
   for (const auto& recorded : CollectOrderedRecordedEvents(recorder)) {
-    text += FormatTextTraceEventLine(*recorded.event);
+    if (recorded.program_event != nullptr) {
+      text += FormatTextTraceEventLine(*recorded.program_event);
+    } else if (recorded.entry != nullptr) {
+      text += FormatTextTraceEventLine(*recorded.entry);
+    }
   }
   return text;
 }
@@ -78,7 +83,11 @@ std::string RenderRecorderTextTrace(const Recorder& recorder) {
 std::string RenderRecorderJsonTrace(const Recorder& recorder) {
   std::string text;
   for (const auto& recorded : CollectOrderedRecordedEvents(recorder)) {
-    text += FormatJsonTraceEventLine(*recorded.event);
+    if (recorded.program_event != nullptr) {
+      text += FormatJsonTraceEventLine(*recorded.program_event);
+    } else if (recorded.entry != nullptr) {
+      text += FormatJsonTraceEventLine(*recorded.entry);
+    }
   }
   return text;
 }

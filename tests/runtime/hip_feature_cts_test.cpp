@@ -617,8 +617,8 @@ TEST_P(HipFeatureModelRuntimeTest, ExecutesFeatureKernelAndValidatesResults) {
       }
       args.PushU32(c.n);
 
-      const auto result = hooks.LaunchEncodedProgramObject(
-          ObjectReader{}.LoadEncodedObject(FeatureArtifact().exe_path, KernelName(c.kernel)),
+      const auto result = hooks.LaunchProgramObject(
+          ObjectReader{}.LoadProgramObject(FeatureArtifact().exe_path, KernelName(c.kernel)),
           LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x},
           std::move(args),
           ExecutionMode::Functional,
@@ -645,8 +645,8 @@ TEST_P(HipFeatureModelRuntimeTest, ExecutesFeatureKernelAndValidatesResults) {
       args.PushU64(out_addr);
       args.PushU32(c.n);
 
-      const auto result = hooks.LaunchEncodedProgramObject(
-          ObjectReader{}.LoadEncodedObject(FeatureArtifact().exe_path, KernelName(c.kernel)),
+      const auto result = hooks.LaunchProgramObject(
+          ObjectReader{}.LoadProgramObject(FeatureArtifact().exe_path, KernelName(c.kernel)),
           LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x},
           std::move(args),
           ExecutionMode::Functional,
@@ -667,8 +667,8 @@ TEST_P(HipFeatureModelRuntimeTest, ExecutesFeatureKernelAndValidatesResults) {
       KernelArgPack args;
       args.PushU64(out_addr);
 
-      const auto result = hooks.LaunchEncodedProgramObject(
-          ObjectReader{}.LoadEncodedObject(FeatureArtifact().exe_path, KernelName(c.kernel)),
+      const auto result = hooks.LaunchProgramObject(
+          ObjectReader{}.LoadProgramObject(FeatureArtifact().exe_path, KernelName(c.kernel)),
           LaunchConfig{
               .grid_dim_x = c.grid_x,
               .block_dim_x = c.block_x,

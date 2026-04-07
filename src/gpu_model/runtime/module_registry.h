@@ -4,10 +4,8 @@
 #include <filesystem>
 #include <string>
 #include <unordered_map>
-#include <variant>
 #include <vector>
 
-#include "gpu_model/program/encoded_program_object.h"
 #include "gpu_model/program/program_object.h"
 #include "gpu_model/runtime/module_load.h"
 
@@ -15,7 +13,7 @@ namespace gpu_model {
 
 class RuntimeModuleRegistry {
  public:
-  using ModuleImage = std::variant<ProgramObject, EncodedProgramObject>;
+  using ModuleImage = ProgramObject;
 
   static ModuleLoadFormat DetectModuleLoadFormat(const std::filesystem::path& path);
 

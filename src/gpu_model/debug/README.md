@@ -24,11 +24,15 @@ Rules:
 
 Design intent:
 
+- program execution producer is a single path: `ProgramObject -> LaunchProgramObject -> ExecEngine`.
+- debug/trace modules must not branch behavior based on historical `canonical` vs `encoded` source names.
 - execution semantics such as `arrive` completion, `waitcnt` threshold satisfaction,
   barrier release, and wave switch scheduling must be decided in the execution model itself.
 - trace / recorder / timeline / Perfetto are projection layers only: they consume typed execution
   outcomes and serialize them, but they must not invent execution-state transitions that would not
   exist when trace capture is disabled.
+- timeline cycle data must come from execution-produced modeled cycle facts recorded by the recorder.
+  Serializers and renderers must not infer or repair timing gaps on their own.
 - `trace/event.h` defines the semantic event schema.
 - `trace/event_factory.h` defines the public factory helpers used by runtime/execution/tests to
   construct semantic trace events.
