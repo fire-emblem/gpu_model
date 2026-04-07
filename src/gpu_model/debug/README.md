@@ -37,6 +37,8 @@ Design intent:
   value is recorder-owned modeled data, not a renderer-side display rule.
 - if the recorder does not provide a committed `cycle range` for an instruction, timeline/Perfetto
   must leave the lane empty instead of synthesizing a fallback slice.
+- timeline expectation calibration compares serializer-independent timeline facts; actual snapshots
+  must be built from recorder facts rather than from Perfetto/JSON/text serializer output.
 - `trace/event.h` defines the semantic event schema.
 - `trace/event_factory.h` defines the public factory helpers used by runtime/execution/tests to
   construct semantic trace events.

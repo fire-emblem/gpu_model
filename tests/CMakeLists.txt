@@ -100,6 +100,7 @@ add_executable(gpu_model_tests
   runtime/runtime_naming_test.cpp
   runtime/debug_info_io_test.cpp
   runtime/cycle_timeline_test.cpp
+  runtime/timeline_expectation_test.cpp
   runtime/parallel_execution_mode_test.cpp
   runtime/executed_flow_program_cycle_stats_test.cpp
   runtime/device_memory_manager_test.cpp

@@ -133,6 +133,8 @@ add_library(gpu_model STATIC
   src/debug/timeline/cycle_timeline_google_trace.cpp
   src/debug/timeline/cycle_timeline_perfetto.cpp
   src/debug/timeline/cycle_timeline.cpp
+  src/debug/timeline/actual_timeline_builder.cpp
+  src/debug/timeline/timeline_comparator.cpp
   src/debug/info/debug_info_io.cpp
   src/debug/trace/trace_sink.cpp
 )
