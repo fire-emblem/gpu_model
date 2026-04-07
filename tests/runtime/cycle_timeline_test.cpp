@@ -12,6 +12,12 @@
 namespace gpu_model {
 namespace {
 
+CycleTimelineOptions FullMarkerOptions() {
+  CycleTimelineOptions options;
+  options.marker_detail = CycleTimelineMarkerDetail::Full;
+  return options;
+}
+
 ExecutableKernel BuildTimelineKernel() {
   InstructionBuilder builder;
   builder.SysGlobalIdX("v0");
@@ -439,9 +445,27 @@ TEST(CycleTimelineTest, GoogleTraceRendersIssueSelectAsMarkerNotInstructionSlice
                          wave.pc),
   };
 
-  const std::string trace = CycleTimelineRenderer::RenderGoogleTrace(MakeRecorder(events));
+  const std::string trace =
+      CycleTimelineRenderer::RenderGoogleTrace(MakeRecorder(events), FullMarkerOptions());
   EXPECT_EQ(CountOccurrences(trace, "\"ph\":\"X\""), 0u);
   EXPECT_NE(trace.find("\"name\":\"issue_select\""), std::string::npos);
+}
+
+TEST(CycleTimelineTest, GoogleTraceDefaultHidesIssueSelectAndWaveSwitchAwayMarkers) {
+  const TraceWaveView wave = MakeWaveView(/*slot_id=*/2);
+  std::vector<TraceEvent> events{
+      MakeTraceWaveEvent(wave,
+                         TraceEventKind::IssueSelect,
+                         /*cycle=*/7,
+                         TraceSlotModelKind::ResidentFixed,
+                         "selected",
+                         wave.pc),
+      MakeTraceWaveSwitchAwayEvent(wave, /*cycle=*/8, TraceSlotModelKind::ResidentFixed),
+  };
+
+  const std::string trace = CycleTimelineRenderer::RenderGoogleTrace(MakeRecorder(events));
+  EXPECT_EQ(trace.find("\"name\":\"issue_select\""), std::string::npos);
+  EXPECT_EQ(trace.find("\"name\":\"wave_switch_away\""), std::string::npos);
 }
 
 TEST(CycleTimelineTest, GoogleTraceDoesNotRenderArriveBarrierOrStallAsInstructionSlice) {
@@ -494,7 +518,8 @@ TEST(CycleTimelineTest, GoogleTraceRendersWaveStateEdgeMarkersWithStableTypedNam
       MakeTraceWaveSwitchAwayEvent(wave, /*cycle=*/7, TraceSlotModelKind::ResidentFixed),
   };
 
-  const std::string trace = CycleTimelineRenderer::RenderGoogleTrace(MakeRecorder(events));
+  const std::string trace =
+      CycleTimelineRenderer::RenderGoogleTrace(MakeRecorder(events), FullMarkerOptions());
   EXPECT_EQ(CountOccurrences(trace, "\"ph\":\"X\""), 0u);
   EXPECT_NE(trace.find("\"name\":\"active_promote\""), std::string::npos);
   EXPECT_NE(trace.find("\"name\":\"wave_wait\""), std::string::npos);

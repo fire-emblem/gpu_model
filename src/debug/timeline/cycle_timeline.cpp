@@ -105,7 +105,26 @@ TimelineSemanticEvent MakeTimelineSemanticEvent(const RecorderEntry& event) {
   };
 }
 
-TimelineData BuildTimelineData(const Recorder& recorder) {
+bool IncludeMarkerByDetail(const TimelineSemanticEvent& semantic,
+                           CycleTimelineMarkerDetail marker_detail) {
+  if (marker_detail == CycleTimelineMarkerDetail::Full) {
+    return true;
+  }
+  if (semantic.kind == TraceEventKind::IssueSelect) {
+    return false;
+  }
+  if (semantic.kind == TraceEventKind::WaveSwitchAway) {
+    return false;
+  }
+  if (semantic.kind == TraceEventKind::Stall &&
+      semantic.stall_reason == TraceStallReason::WarpSwitch) {
+    return false;
+  }
+  return true;
+}
+
+TimelineData BuildTimelineData(const Recorder& recorder,
+                               CycleTimelineMarkerDetail marker_detail) {
   TimelineData data;
 
   for (const auto& program_event : recorder.program_events()) {
@@ -194,6 +213,9 @@ TimelineData BuildTimelineData(const Recorder& recorder) {
           entry.kind == RecorderEntryKind::WaveArrive ||
           entry.kind == RecorderEntryKind::WaveResume ||
           entry.kind == RecorderEntryKind::WaveSwitchAway) {
+        if (!IncludeMarkerByDetail(semantic, marker_detail)) {
+          continue;
+        }
         char symbol = '.';
         if (entry.kind == RecorderEntryKind::Arrive) {
           symbol = 'R';
@@ -243,7 +265,7 @@ std::string CycleTimelineRenderer::RenderGoogleTrace(const Recorder& recorder,
     return "{\"traceEvents\":[],\"metadata\":{\"time_unit\":\"cycle\",\"slot_models\":[]}}\n";
   }
 
-  const TimelineData data = BuildTimelineData(recorder);
+  const TimelineData data = BuildTimelineData(recorder, options.marker_detail);
   const uint64_t begin = options.cycle_begin.value_or(0);
   const uint64_t end = options.cycle_end.value_or(ComputeEndCycle(recorder));
   return RenderGoogleTraceExport(data, begin, end, options.group_by);
@@ -255,7 +277,7 @@ std::string CycleTimelineRenderer::RenderPerfettoTraceProto(const Recorder& reco
     return {};
   }
 
-  const TimelineData data = BuildTimelineData(recorder);
+  const TimelineData data = BuildTimelineData(recorder, options.marker_detail);
   const uint64_t begin = options.cycle_begin.value_or(0);
   const uint64_t end = options.cycle_end.value_or(ComputeEndCycle(recorder));
   return RenderPerfettoTraceExport(data, begin, end);
