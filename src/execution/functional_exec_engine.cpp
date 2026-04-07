@@ -760,6 +760,11 @@ class FunctionalExecutionCoreImpl {
     }
 
     if (emit_switch_away) {
+      TraceEventLocked(MakeTraceWaveSwitchAwayEvent(
+          MakeTraceWaveView(wave),
+          NextTraceCycle(),
+          TraceSlotModelKind::LogicalUnbounded,
+          pc));
       TraceEventLocked(MakeTraceWaveSwitchStallEvent(
           MakeTraceWaveView(wave),
           NextTraceCycle(),
@@ -831,6 +836,8 @@ class FunctionalExecutionCoreImpl {
             NextTraceCycle(),
             FormatWaveLaunchTraceMessage(wave),
             TraceSlotModelKind::LogicalUnbounded));
+        TraceEventLocked(MakeTraceActivePromoteEvent(
+            MakeTraceWaveView(wave), NextTraceCycle(), TraceSlotModelKind::LogicalUnbounded));
       }
     }
   }
@@ -1197,6 +1204,8 @@ class FunctionalExecutionCoreImpl {
       if (wave.waiting_at_barrier && wave.barrier_generation == generation) {
         ResumeWaveToRunnable(context_.kernel, wave, /*advance_pc=*/true, /*clear_barrier_wait=*/true);
         wave.status = WaveStatus::Active;
+        TraceEventLocked(MakeTraceWaveResumeEvent(
+            MakeTraceWaveView(wave), NextTraceCycle(), TraceSlotModelKind::LogicalUnbounded));
       }
     }
     block.barrier_state->arrived_wave_count.store(0);
@@ -1259,6 +1268,14 @@ class FunctionalExecutionCoreImpl {
         event.waitcnt_state = arrive_result.waitcnt_state;
         event.arrive_progress = arrive_result.arrive_progress;
         TraceEventLocked(std::move(event));
+        TraceEventLocked(MakeTraceWaveArriveEvent(
+            MakeTraceWaveView(block.waves[i]),
+            op.ready_cycle,
+            op.arrive_kind,
+            TraceSlotModelKind::LogicalUnbounded,
+            arrive_result.arrive_progress,
+            std::numeric_limits<uint64_t>::max(),
+            arrive_result.waitcnt_state));
       }
     }
     return advanced;
@@ -1281,6 +1298,10 @@ class FunctionalExecutionCoreImpl {
             .wave_index = i,
             .global_ap_id = block.global_ap_id,
         });
+        TraceEventLocked(MakeTraceWaveResumeEvent(
+            MakeTraceWaveView(wave),
+            block.wave_states[i].next_issue_cycle,
+            TraceSlotModelKind::LogicalUnbounded));
         resumed = true;
       }
     }
@@ -1531,6 +1552,12 @@ class FunctionalExecutionCoreImpl {
           commit_cycle,
           TraceSlotModelKind::LogicalUnbounded,
           issue_pc));
+      TraceEventLocked(MakeTraceWaveWaitEvent(
+          MakeTraceWaveView(wave),
+          commit_cycle,
+          TraceSlotModelKind::LogicalUnbounded,
+          TraceStallReason::None,
+          issue_pc));
       EmitWaveStatsSnapshot();
       {
         std::lock_guard<std::mutex> lock(*block.control_mutex);
@@ -1580,6 +1607,13 @@ class FunctionalExecutionCoreImpl {
               commit_cycle,
               TraceSlotModelKind::LogicalUnbounded,
               issue_pc));
+          TraceEventLocked(MakeTraceWaveWaitEvent(
+              MakeTraceWaveView(wave),
+              commit_cycle,
+              TraceSlotModelKind::LogicalUnbounded,
+              TraceStallReasonForWaitReason(wave.wait_reason),
+              issue_pc,
+              waitcnt_state));
           TraceEventLocked(MakeTraceWaitStallEvent(
               MakeTraceWaveView(wave),
               commit_cycle,

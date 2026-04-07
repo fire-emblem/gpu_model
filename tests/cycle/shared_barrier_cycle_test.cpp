@@ -121,6 +121,15 @@ bool HasStallReason(const std::vector<TraceEvent>& events, TraceStallReason reas
   return false;
 }
 
+uint64_t FirstWaveEventCycle(const std::vector<TraceEvent>& events, TraceEventKind kind) {
+  for (const auto& event : events) {
+    if (event.kind == kind) {
+      return event.cycle;
+    }
+  }
+  return std::numeric_limits<uint64_t>::max();
+}
+
 TEST(SharedBarrierCycleTest, BarrierReleaseAllowsWaitingWaveToResume) {
   CollectingTraceSink trace;
   ExecEngine runtime(&trace);
@@ -164,6 +173,37 @@ TEST(SharedBarrierCycleTest, BarrierReleaseAllowsWaitingWaveToResume) {
   for (uint32_t slot_id : exit_slot_ids) {
     EXPECT_LT(slot_id, 8u);
   }
+}
+
+TEST(SharedBarrierCycleTest, BarrierLifecycleEmitsWaveWaitAndWaveResumeMarkers) {
+  CollectingTraceSink trace;
+  ExecEngine runtime(&trace);
+  runtime.SetFixedGlobalMemoryLatency(20);
+
+  const auto kernel = BuildSharedBarrierCycleKernel();
+  const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
+  runtime.memory().StoreGlobalValue<int32_t>(base_addr, 9);
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 320;
+  request.config.shared_memory_bytes = 320 * sizeof(int32_t);
+  request.args.PushU64(base_addr);
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  const uint64_t wave_wait_cycle = FirstWaveEventCycle(trace.events(), TraceEventKind::WaveWait);
+  const uint64_t barrier_release_cycle =
+      FirstBarrierCycle(trace.events(), TraceBarrierKind::Release);
+  const uint64_t wave_resume_cycle = FirstWaveEventCycle(trace.events(), TraceEventKind::WaveResume);
+
+  ASSERT_NE(wave_wait_cycle, std::numeric_limits<uint64_t>::max());
+  ASSERT_NE(barrier_release_cycle, std::numeric_limits<uint64_t>::max());
+  ASSERT_NE(wave_resume_cycle, std::numeric_limits<uint64_t>::max());
+  EXPECT_LE(wave_wait_cycle, barrier_release_cycle);
+  EXPECT_GE(wave_resume_cycle, barrier_release_cycle);
 }
 
 }  // namespace

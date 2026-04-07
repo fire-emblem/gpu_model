@@ -191,8 +191,18 @@ std::string CanonicalNameFromRuntimeKind(TraceEventKind kind) {
       return "wave_dispatch";
     case TraceEventKind::SlotBind:
       return "slot_bind";
+    case TraceEventKind::ActivePromote:
+      return "active_promote";
     case TraceEventKind::IssueSelect:
       return "issue_select";
+    case TraceEventKind::WaveWait:
+      return "wave_wait";
+    case TraceEventKind::WaveArrive:
+      return "wave_arrive";
+    case TraceEventKind::WaveResume:
+      return "wave_resume";
+    case TraceEventKind::WaveSwitchAway:
+      return "wave_switch_away";
     default:
       break;
   }
@@ -226,6 +236,8 @@ std::string CategoryFromView(TraceEventKind kind,
     case TraceEventKind::BlockActivate:
     case TraceEventKind::BlockRetire:
       return "launch/block";
+    case TraceEventKind::ActivePromote:
+      return "launch/wave";
     case TraceEventKind::Barrier:
       return "sync/barrier";
     case TraceEventKind::Stall:
@@ -260,6 +272,20 @@ std::string CategoryFromView(TraceEventKind kind,
     case TraceEventKind::MemoryAccess:
     case TraceEventKind::ExecMaskUpdate:
       return "instruction";
+    case TraceEventKind::WaveWait:
+      if (stall_reason == TraceStallReason::None || stall_reason == TraceStallReason::Other) {
+        return "wave/wait";
+      }
+      return "wave/wait/" + std::string(TraceStallReasonName(stall_reason));
+    case TraceEventKind::WaveArrive:
+      if (canonical_name.empty()) {
+        return "wave/arrive";
+      }
+      return "wave/arrive/" + std::string(canonical_name);
+    case TraceEventKind::WaveResume:
+      return "wave/resume";
+    case TraceEventKind::WaveSwitchAway:
+      return "wave/switch_away";
     case TraceEventKind::WaveLaunch:
     case TraceEventKind::WaveGenerate:
     case TraceEventKind::WaveDispatch:
@@ -320,6 +346,8 @@ TraceEventView MakeTraceEventView(const TraceEvent& event) {
     view.canonical_name = CanonicalNameFromBarrier(view.barrier_kind);
   } else if (event.kind == TraceEventKind::Arrive && view.arrive_kind != TraceArriveKind::None) {
     view.canonical_name = CanonicalNameFromArrive(view.arrive_kind, view.arrive_progress);
+  } else if (event.kind == TraceEventKind::WaveArrive && view.arrive_kind != TraceArriveKind::None) {
+    view.canonical_name = "wave_arrive";
   } else if ((event.kind == TraceEventKind::WaveLaunch || event.kind == TraceEventKind::WaveExit) &&
              view.lifecycle_stage != TraceLifecycleStage::None) {
     view.canonical_name = CanonicalNameFromLifecycle(view.lifecycle_stage);

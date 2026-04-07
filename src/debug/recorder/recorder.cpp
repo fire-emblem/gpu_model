@@ -52,7 +52,12 @@ bool EventBelongsToWave(const TraceEvent& event) {
     case TraceEventKind::WaveGenerate:
     case TraceEventKind::WaveDispatch:
     case TraceEventKind::SlotBind:
+    case TraceEventKind::ActivePromote:
     case TraceEventKind::IssueSelect:
+    case TraceEventKind::WaveWait:
+    case TraceEventKind::WaveArrive:
+    case TraceEventKind::WaveResume:
+    case TraceEventKind::WaveSwitchAway:
     case TraceEventKind::WaveStats:
     case TraceEventKind::WaveStep:
     case TraceEventKind::Commit:
@@ -91,7 +96,12 @@ RecorderProgramEventKind ProgramEventKindFromTraceEvent(const TraceEvent& event)
     case TraceEventKind::WaveGenerate:
     case TraceEventKind::WaveDispatch:
     case TraceEventKind::SlotBind:
+    case TraceEventKind::ActivePromote:
     case TraceEventKind::IssueSelect:
+    case TraceEventKind::WaveWait:
+    case TraceEventKind::WaveArrive:
+    case TraceEventKind::WaveResume:
+    case TraceEventKind::WaveSwitchAway:
     case TraceEventKind::WaveLaunch:
     case TraceEventKind::WaveStats:
     case TraceEventKind::WaveStep:
@@ -117,8 +127,18 @@ RecorderEntryKind EntryKindFromTraceEvent(const TraceEvent& event) {
       return RecorderEntryKind::WaveDispatch;
     case TraceEventKind::SlotBind:
       return RecorderEntryKind::SlotBind;
+    case TraceEventKind::ActivePromote:
+      return RecorderEntryKind::ActivePromote;
     case TraceEventKind::IssueSelect:
       return RecorderEntryKind::IssueSelect;
+    case TraceEventKind::WaveWait:
+      return RecorderEntryKind::WaveWait;
+    case TraceEventKind::WaveArrive:
+      return RecorderEntryKind::WaveArrive;
+    case TraceEventKind::WaveResume:
+      return RecorderEntryKind::WaveResume;
+    case TraceEventKind::WaveSwitchAway:
+      return RecorderEntryKind::WaveSwitchAway;
     case TraceEventKind::BlockAdmit:
     case TraceEventKind::BlockActivate:
     case TraceEventKind::BlockRetire:

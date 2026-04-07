@@ -224,7 +224,12 @@ TimelineData BuildTimelineData(const Recorder& recorder) {
           entry.kind == RecorderEntryKind::WaveGenerate ||
           entry.kind == RecorderEntryKind::WaveDispatch ||
           entry.kind == RecorderEntryKind::SlotBind ||
-          entry.kind == RecorderEntryKind::IssueSelect) {
+          entry.kind == RecorderEntryKind::ActivePromote ||
+          entry.kind == RecorderEntryKind::IssueSelect ||
+          entry.kind == RecorderEntryKind::WaveWait ||
+          entry.kind == RecorderEntryKind::WaveArrive ||
+          entry.kind == RecorderEntryKind::WaveResume ||
+          entry.kind == RecorderEntryKind::WaveSwitchAway) {
         char symbol = '.';
         if (entry.kind == RecorderEntryKind::Arrive) {
           symbol = 'R';
@@ -242,8 +247,18 @@ TimelineData BuildTimelineData(const Recorder& recorder) {
           symbol = 'D';
         } else if (entry.kind == RecorderEntryKind::SlotBind) {
           symbol = 'P';
+        } else if (entry.kind == RecorderEntryKind::ActivePromote) {
+          symbol = 'A';
         } else if (entry.kind == RecorderEntryKind::IssueSelect) {
           symbol = 'I';
+        } else if (entry.kind == RecorderEntryKind::WaveWait) {
+          symbol = 'W';
+        } else if (entry.kind == RecorderEntryKind::WaveArrive) {
+          symbol = 'Y';
+        } else if (entry.kind == RecorderEntryKind::WaveResume) {
+          symbol = 'U';
+        } else if (entry.kind == RecorderEntryKind::WaveSwitchAway) {
+          symbol = 'Z';
         }
         data.markers[slot_key].push_back(Marker{
             .symbol = symbol,

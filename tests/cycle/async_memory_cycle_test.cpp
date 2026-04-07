@@ -141,6 +141,53 @@ bool HasStallReason(const std::vector<TraceEvent>& events, TraceStallReason reas
   return false;
 }
 
+size_t FirstEventIndex(const std::vector<TraceEvent>& events,
+                       TraceEventKind kind,
+                       std::string_view message = {}) {
+  for (size_t i = 0; i < events.size(); ++i) {
+    if (events[i].kind != kind) {
+      continue;
+    }
+    if (!message.empty() &&
+        events[i].message.find(std::string(message)) == std::string::npos) {
+      continue;
+    }
+    return i;
+  }
+  return std::numeric_limits<size_t>::max();
+}
+
+size_t FirstEventIndexAfter(const std::vector<TraceEvent>& events,
+                            size_t start,
+                            TraceEventKind kind,
+                            std::string_view message = {}) {
+  for (size_t i = start + 1; i < events.size(); ++i) {
+    if (events[i].kind != kind) {
+      continue;
+    }
+    if (!message.empty() &&
+        events[i].message.find(std::string(message)) == std::string::npos) {
+      continue;
+    }
+    return i;
+  }
+  return std::numeric_limits<size_t>::max();
+}
+
+size_t FirstArriveIndexWithProgress(const std::vector<TraceEvent>& events,
+                                    TraceArriveProgressKind progress) {
+  for (size_t i = 0; i < events.size(); ++i) {
+    if (events[i].kind != TraceEventKind::Arrive) {
+      continue;
+    }
+    if (events[i].arrive_progress != progress) {
+      continue;
+    }
+    return i;
+  }
+  return std::numeric_limits<size_t>::max();
+}
+
 TEST(AsyncMemoryCycleTest, LoadUsesIssuePlusArriveLatency) {
   CollectingTraceSink trace;
   ExecEngine runtime(&trace);
@@ -407,6 +454,58 @@ TEST(AsyncMemoryCycleTest, IndependentGlobalLoadsIssueBeforeExplicitWaitcnt) {
   EXPECT_EQ(NthWaveStepCycle(trace.events(), "s_mov_b32", 4), 40u);
   EXPECT_TRUE(HasStallReason(trace.events(), TraceStallReason::WaitCntGlobal));
   EXPECT_EQ(result.total_cycles, 48u);
+}
+
+TEST(AsyncMemoryCycleTest, WaitCntZeroKeepsWaveBlockedUntilFinalArriveThenResumesIssue) {
+  CollectingTraceSink trace;
+  ExecEngine runtime(&trace);
+  ConfigureZeroFrontendTiming(runtime);
+  runtime.SetFixedGlobalMemoryLatency(20);
+
+  const uint64_t base_addr = runtime.memory().AllocateGlobal(2 * sizeof(int32_t));
+  runtime.memory().StoreGlobalValue<int32_t>(base_addr + 0 * sizeof(int32_t), 9);
+  runtime.memory().StoreGlobalValue<int32_t>(base_addr + 1 * sizeof(int32_t), 13);
+
+  InstructionBuilder builder;
+  builder.SMov("s0", base_addr);
+  builder.SMov("s1", 0);
+  builder.MLoadGlobal("v1", "s0", "s1", 4);
+  builder.SMov("s2", 1);
+  builder.MLoadGlobal("v2", "s0", "s2", 4);
+  builder.SWaitCnt(/*global_count=*/0, /*shared_count=*/UINT32_MAX,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
+  builder.SMov("s3", 7);
+  builder.BExit();
+  const auto kernel = builder.Build("waitcnt_zero_blocked_until_final_arrive");
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  const auto& events = trace.events();
+  const size_t wave_wait_index = FirstEventIndex(events, TraceEventKind::WaveWait);
+  const size_t still_blocked_arrive_index =
+      FirstArriveIndexWithProgress(events, TraceArriveProgressKind::StillBlocked);
+  const size_t resume_arrive_index =
+      FirstArriveIndexWithProgress(events, TraceArriveProgressKind::Resume);
+  const size_t wave_resume_index = FirstEventIndex(events, TraceEventKind::WaveResume);
+  const size_t resumed_step_index =
+      FirstEventIndexAfter(events, wave_resume_index, TraceEventKind::WaveStep, "s_mov_b32");
+
+  ASSERT_NE(wave_wait_index, std::numeric_limits<size_t>::max());
+  ASSERT_NE(still_blocked_arrive_index, std::numeric_limits<size_t>::max());
+  ASSERT_NE(resume_arrive_index, std::numeric_limits<size_t>::max());
+  ASSERT_NE(wave_resume_index, std::numeric_limits<size_t>::max());
+  ASSERT_NE(resumed_step_index, std::numeric_limits<size_t>::max());
+  EXPECT_LT(wave_wait_index, still_blocked_arrive_index);
+  EXPECT_LT(still_blocked_arrive_index, resume_arrive_index);
+  EXPECT_LT(resume_arrive_index, wave_resume_index);
+  EXPECT_LT(wave_resume_index, resumed_step_index);
 }
 
 TEST(AsyncMemoryCycleTest, WaitCntCanWaitForGlobalMemoryOnly) {

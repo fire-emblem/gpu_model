@@ -467,6 +467,30 @@ TEST(CycleTimelineTest, GoogleTraceRendersWaveFrontEndMarkersWithStableTypedName
   EXPECT_NE(trace.find("\"name\":\"slot_bind\""), std::string::npos);
 }
 
+TEST(CycleTimelineTest, GoogleTraceRendersWaveStateEdgeMarkersWithStableTypedNames) {
+  const TraceWaveView wave = MakeWaveView(/*slot_id=*/2);
+  std::vector<TraceEvent> events{
+      MakeTraceActivePromoteEvent(wave, /*cycle=*/3, TraceSlotModelKind::ResidentFixed),
+      MakeTraceWaveWaitEvent(
+          wave, /*cycle=*/4, TraceSlotModelKind::ResidentFixed, TraceStallReason::WaitCntGlobal),
+      MakeTraceWaveArriveEvent(wave,
+                               /*cycle=*/5,
+                               TraceMemoryArriveKind::Load,
+                               TraceSlotModelKind::ResidentFixed,
+                               TraceArriveProgressKind::Resume),
+      MakeTraceWaveResumeEvent(wave, /*cycle=*/6, TraceSlotModelKind::ResidentFixed),
+      MakeTraceWaveSwitchAwayEvent(wave, /*cycle=*/7, TraceSlotModelKind::ResidentFixed),
+  };
+
+  const std::string trace = CycleTimelineRenderer::RenderGoogleTrace(MakeRecorder(events));
+  EXPECT_EQ(CountOccurrences(trace, "\"ph\":\"X\""), 0u);
+  EXPECT_NE(trace.find("\"name\":\"active_promote\""), std::string::npos);
+  EXPECT_NE(trace.find("\"name\":\"wave_wait\""), std::string::npos);
+  EXPECT_NE(trace.find("\"name\":\"wave_arrive\""), std::string::npos);
+  EXPECT_NE(trace.find("\"name\":\"wave_resume\""), std::string::npos);
+  EXPECT_NE(trace.find("\"name\":\"wave_switch_away\""), std::string::npos);
+}
+
 TEST(CycleTimelineTest, GoogleTraceKeepsRuntimeBlockEventsOffSlotTracks) {
   std::vector<TraceEvent> events{
       MakeTraceBlockAdmitEvent(/*dpc_id=*/0, /*ap_id=*/0, /*block_id=*/7, /*cycle=*/9, "admit"),

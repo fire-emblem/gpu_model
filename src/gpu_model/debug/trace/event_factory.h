@@ -270,6 +270,15 @@ inline TraceEvent MakeTraceSlotBindEvent(const TraceWaveView& wave,
   return event;
 }
 
+inline TraceEvent MakeTraceActivePromoteEvent(const TraceWaveView& wave,
+                                              uint64_t cycle,
+                                              TraceSlotModelKind slot_model) {
+  TraceEvent event = MakeTraceWaveEvent(
+      wave, TraceEventKind::ActivePromote, cycle, slot_model, "active_promote");
+  event.display_name = "active_promote";
+  return event;
+}
+
 inline TraceEvent MakeTraceIssueSelectEvent(const TraceWaveView& wave,
                                             uint64_t cycle,
                                             TraceSlotModelKind slot_model) {
@@ -356,6 +365,49 @@ inline TraceEvent MakeTraceMemoryArriveEvent(const TraceWaveView& wave,
   return event;
 }
 
+inline TraceEvent MakeTraceWaveWaitEvent(const TraceWaveView& wave,
+                                         uint64_t cycle,
+                                         TraceSlotModelKind slot_model,
+                                         TraceStallReason stall_reason = TraceStallReason::None,
+                                         uint64_t pc = std::numeric_limits<uint64_t>::max(),
+                                         TraceWaitcntState waitcnt_state = {}) {
+  TraceEvent event =
+      MakeTraceWaveEvent(wave, TraceEventKind::WaveWait, cycle, slot_model, "wave_wait", pc);
+  event.stall_reason = stall_reason;
+  event.display_name = "wave_wait";
+  event.waitcnt_state = waitcnt_state;
+  return event;
+}
+
+inline TraceEvent MakeTraceWaveArriveEvent(const TraceWaveView& wave,
+                                           uint64_t cycle,
+                                           TraceMemoryArriveKind kind,
+                                           TraceSlotModelKind slot_model,
+                                           TraceArriveProgressKind progress =
+                                               TraceArriveProgressKind::None,
+                                           uint64_t pc = std::numeric_limits<uint64_t>::max(),
+                                           TraceWaitcntState waitcnt_state = {}) {
+  TraceEvent event =
+      MakeTraceWaveEvent(wave, TraceEventKind::WaveArrive, cycle, slot_model, "wave_arrive", pc);
+  event.arrive_kind = TraceArriveKindForMemoryAccess(kind);
+  event.arrive_progress = progress;
+  event.display_name = "wave_arrive";
+  event.waitcnt_state = waitcnt_state;
+  return event;
+}
+
+inline TraceEvent MakeTraceWaveResumeEvent(const TraceWaveView& wave,
+                                           uint64_t cycle,
+                                           TraceSlotModelKind slot_model,
+                                           uint64_t pc = std::numeric_limits<uint64_t>::max(),
+                                           TraceWaitcntState waitcnt_state = {}) {
+  TraceEvent event =
+      MakeTraceWaveEvent(wave, TraceEventKind::WaveResume, cycle, slot_model, "wave_resume", pc);
+  event.display_name = "wave_resume";
+  event.waitcnt_state = waitcnt_state;
+  return event;
+}
+
 inline TraceEvent MakeTraceWaitStallEvent(const TraceWaveView& wave,
                                           uint64_t cycle,
                                           TraceStallReason stall_reason,
@@ -395,6 +447,17 @@ inline TraceEvent MakeTraceWaveSwitchStallEvent(const TraceWaveView& wave,
                                                 TraceSlotModelKind slot_model,
                                                 uint64_t pc = std::numeric_limits<uint64_t>::max()) {
   return MakeTraceWaitStallEvent(wave, cycle, TraceStallReason::WarpSwitch, slot_model, pc);
+}
+
+inline TraceEvent MakeTraceWaveSwitchAwayEvent(const TraceWaveView& wave,
+                                               uint64_t cycle,
+                                               TraceSlotModelKind slot_model,
+                                               uint64_t pc = std::numeric_limits<uint64_t>::max()) {
+  TraceEvent event = MakeTraceWaveEvent(
+      wave, TraceEventKind::WaveSwitchAway, cycle, slot_model, "wave_switch_away", pc);
+  event.stall_reason = TraceStallReason::WarpSwitch;
+  event.display_name = "wave_switch_away";
+  return event;
 }
 
 }  // namespace gpu_model

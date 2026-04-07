@@ -603,6 +603,10 @@ void RefillActiveWindow(PeuSlot& slot,
     }
     resident_slot.active = true;
     ScheduledWave& scheduled_wave = *resident_slot.resident_wave;
+    trace.OnEvent(MakeTraceActivePromoteEvent(
+        MakeTraceWaveView(scheduled_wave, TraceSlotId(scheduled_wave)),
+        cycle,
+        TraceSlotModelKind::ResidentFixed));
     if (scheduled_wave.launch_completed) {
       scheduled_wave.launch_scheduled = false;
       scheduled_wave.dispatch_enabled = true;
@@ -1011,6 +1015,8 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                 ? timing_config_.launch_timing.warp_switch_cycles
                 : 0;
         if (switch_penalty > 0) {
+          context.trace.OnEvent(MakeTraceWaveSwitchAwayEvent(
+              MakeTraceWaveView(*candidate, slot_id), cycle, TraceSlotModelKind::ResidentFixed));
           context.trace.OnEvent(MakeTraceWaveSwitchStallEvent(
               MakeTraceWaveView(*candidate, slot_id), cycle, TraceSlotModelKind::ResidentFixed));
         }
@@ -1154,12 +1160,26 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                               arrive_event.waitcnt_state = arrive_result.waitcnt_state;
                               arrive_event.arrive_progress = arrive_result.arrive_progress;
                               context.trace.OnEvent(std::move(arrive_event));
+                              context.trace.OnEvent(MakeTraceWaveArriveEvent(
+                                  MakeTraceWaveView(*candidate, slot_id),
+                                  arrive_cycle,
+                                  request.kind == AccessKind::Load ? TraceMemoryArriveKind::Load
+                                                                   : TraceMemoryArriveKind::Store,
+                                  TraceSlotModelKind::ResidentFixed,
+                                  arrive_result.arrive_progress,
+                                  std::numeric_limits<uint64_t>::max(),
+                                  arrive_result.waitcnt_state));
                               if (!ResumeWaitcntWaveIfReady(context.kernel, candidate->wave)) {
                                 candidate->wave.valid_entry = true;
                                 if (candidate->wave.status != WaveStatus::Exited &&
                                     !candidate->wave.waiting_at_barrier) {
                                   candidate->wave.status = WaveStatus::Active;
                                 }
+                              } else {
+                                context.trace.OnEvent(MakeTraceWaveResumeEvent(
+                                    MakeTraceWaveView(*candidate, slot_id),
+                                    arrive_cycle,
+                                    TraceSlotModelKind::ResidentFixed));
                               }
                             },
                     });
@@ -1220,8 +1240,21 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                               arrive_event.waitcnt_state = arrive_result.waitcnt_state;
                               arrive_event.arrive_progress = arrive_result.arrive_progress;
                               context.trace.OnEvent(std::move(arrive_event));
+                              context.trace.OnEvent(MakeTraceWaveArriveEvent(
+                                  MakeTraceWaveView(*candidate, slot_id),
+                                  ready_cycle,
+                                  TraceMemoryArriveKind::Shared,
+                                  TraceSlotModelKind::ResidentFixed,
+                                  arrive_result.arrive_progress,
+                                  std::numeric_limits<uint64_t>::max(),
+                                  arrive_result.waitcnt_state));
                               if (!ResumeWaitcntWaveIfReady(context.kernel, candidate->wave)) {
                                 candidate->wave.status = WaveStatus::Active;
+                              } else {
+                                context.trace.OnEvent(MakeTraceWaveResumeEvent(
+                                    MakeTraceWaveView(*candidate, slot_id),
+                                    ready_cycle,
+                                    TraceSlotModelKind::ResidentFixed));
                               }
                             },
                     });
@@ -1257,8 +1290,21 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                     arrive_event.waitcnt_state = arrive_result.waitcnt_state;
                     arrive_event.arrive_progress = arrive_result.arrive_progress;
                     context.trace.OnEvent(std::move(arrive_event));
+                    context.trace.OnEvent(MakeTraceWaveArriveEvent(
+                        MakeTraceWaveView(*candidate, slot_id),
+                        commit_cycle,
+                        TraceMemoryArriveKind::Private,
+                        TraceSlotModelKind::ResidentFixed,
+                        arrive_result.arrive_progress,
+                        std::numeric_limits<uint64_t>::max(),
+                        arrive_result.waitcnt_state));
                     if (!ResumeWaitcntWaveIfReady(context.kernel, candidate->wave)) {
                       candidate->wave.valid_entry = true;
+                    } else {
+                      context.trace.OnEvent(MakeTraceWaveResumeEvent(
+                          MakeTraceWaveView(*candidate, slot_id),
+                          commit_cycle,
+                          TraceSlotModelKind::ResidentFixed));
                     }
                   } else if (request.space == MemorySpace::Constant) {
                     if (!request.dst.has_value()) {
@@ -1318,8 +1364,21 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                     arrive_event.waitcnt_state = arrive_result.waitcnt_state;
                     arrive_event.arrive_progress = arrive_result.arrive_progress;
                     context.trace.OnEvent(std::move(arrive_event));
+                    context.trace.OnEvent(MakeTraceWaveArriveEvent(
+                        MakeTraceWaveView(*candidate, slot_id),
+                        commit_cycle,
+                        TraceMemoryArriveKind::ScalarBuffer,
+                        TraceSlotModelKind::ResidentFixed,
+                        arrive_result.arrive_progress,
+                        std::numeric_limits<uint64_t>::max(),
+                        arrive_result.waitcnt_state));
                     if (!ResumeWaitcntWaveIfReady(context.kernel, candidate->wave)) {
                       candidate->wave.valid_entry = true;
+                    } else {
+                      context.trace.OnEvent(MakeTraceWaveResumeEvent(
+                          MakeTraceWaveView(*candidate, slot_id),
+                          commit_cycle,
+                          TraceSlotModelKind::ResidentFixed));
                     }
                   } else {
                     throw std::invalid_argument("unsupported memory space in cycle executor");
@@ -1362,6 +1421,10 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                       MakeTraceWaveView(*candidate, slot_id),
                       commit_cycle,
                       TraceSlotModelKind::ResidentFixed));
+                  context.trace.OnEvent(MakeTraceWaveWaitEvent(
+                      MakeTraceWaveView(*candidate, slot_id),
+                      commit_cycle,
+                      TraceSlotModelKind::ResidentFixed));
                   RefillActiveWindow(peu_slot,
                                      commit_cycle,
                                      context.spec.max_issuable_waves,
@@ -1401,6 +1464,10 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                       if (released_wave == nullptr || released_wave->wave.waiting_at_barrier) {
                         continue;
                       }
+                      context.trace.OnEvent(MakeTraceWaveResumeEvent(
+                          MakeTraceWaveView(*released_wave, TraceSlotId(*released_wave)),
+                          commit_cycle,
+                          TraceSlotModelKind::ResidentFixed));
                       PeuSlot& released_slot = slots.at(released_wave->peu_slot_index);
                       QueueResidentWaveForRefill(released_slot, *released_wave);
                       if (std::find(refill_slots.begin(),
@@ -1494,6 +1561,13 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                   if (EnterMemoryWaitState(thresholds, candidate->wave)) {
                     candidate->wave.valid_entry = true;
                     candidate->wave.status = WaveStatus::Active;
+                    context.trace.OnEvent(MakeTraceWaveWaitEvent(
+                        MakeTraceWaveView(*candidate, slot_id),
+                        commit_cycle,
+                        TraceSlotModelKind::ResidentFixed,
+                        TraceStallReasonForWaitReason(candidate->wave.wait_reason),
+                        std::numeric_limits<uint64_t>::max(),
+                        MakeTraceWaitcntState(candidate->wave, thresholds)));
                     context.trace.OnEvent(MakeTraceWaitStallEvent(
                         MakeTraceWaveView(*candidate, slot_id),
                         commit_cycle,

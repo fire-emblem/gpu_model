@@ -460,6 +460,32 @@ TEST(FunctionalExecEngineWaitcntTest, GlobalWaitcntTransitionsThroughWaitingAndR
       events, waitcnt_pc, resume_marker_pc, "waitcnt_global", TraceArriveKind::Load));
 }
 
+TEST(FunctionalExecEngineWaitcntTest, GlobalWaitcntEmitsWaveWaitArriveAndResumeMarkers) {
+  auto harness = MakeWaitcntHarness(BuildGlobalWaitcntLifecycleKernel());
+  const uint64_t base_addr = harness.memory.AllocateGlobal(sizeof(int32_t));
+  harness.memory.StoreGlobalValue<int32_t>(base_addr, 11);
+  harness.args.PushU64(base_addr);
+
+  const auto events = RunHarnessAndCollectTrace(harness);
+  const uint64_t waitcnt_pc = NthInstructionPcWithOpcode(harness.kernel, Opcode::SWaitCnt, 0);
+  ASSERT_NE(waitcnt_pc, std::numeric_limits<uint64_t>::max());
+  ASSERT_TRUE(harness.kernel.NextPc(waitcnt_pc).has_value());
+  const uint64_t resume_pc = *harness.kernel.NextPc(waitcnt_pc);
+
+  const size_t wave_wait_index = FirstEventIndex(events, TraceEventKind::WaveWait, waitcnt_pc);
+  const size_t wave_arrive_index = FirstEventIndex(events, TraceEventKind::WaveArrive, waitcnt_pc);
+  const size_t wave_resume_index = FirstEventIndex(events, TraceEventKind::WaveResume, resume_pc);
+  const size_t resumed_step_index = FirstEventIndex(events, TraceEventKind::WaveStep, resume_pc);
+
+  ASSERT_NE(wave_wait_index, std::numeric_limits<size_t>::max());
+  ASSERT_NE(wave_arrive_index, std::numeric_limits<size_t>::max());
+  ASSERT_NE(wave_resume_index, std::numeric_limits<size_t>::max());
+  ASSERT_NE(resumed_step_index, std::numeric_limits<size_t>::max());
+  EXPECT_LT(wave_wait_index, wave_arrive_index);
+  EXPECT_LT(wave_arrive_index, wave_resume_index);
+  EXPECT_LT(wave_resume_index, resumed_step_index);
+}
+
 TEST(FunctionalExecEngineWaitcntTest, SharedWaitcntTransitionsThroughWaitingAndResume) {
   auto harness = MakeWaitcntHarness(BuildSharedWaitcntLifecycleKernel(), /*shared_memory_bytes=*/4);
   const auto events = RunHarnessAndCollectTrace(harness);

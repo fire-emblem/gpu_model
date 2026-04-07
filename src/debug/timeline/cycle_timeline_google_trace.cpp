@@ -48,6 +48,16 @@ std::string MarkerNameImpl(const Marker& marker) {
       return "barrier";
     case TraceEventKind::WaveExit:
       return "wave_exit";
+    case TraceEventKind::ActivePromote:
+      return "active_promote";
+    case TraceEventKind::WaveWait:
+      return "wave_wait";
+    case TraceEventKind::WaveArrive:
+      return "wave_arrive";
+    case TraceEventKind::WaveResume:
+      return "wave_resume";
+    case TraceEventKind::WaveSwitchAway:
+      return "wave_switch_away";
     case TraceEventKind::Stall:
       return view.stall_reason == TraceStallReason::WarpSwitch ? "wave_switch_away" : "stall";
     case TraceEventKind::WaveLaunch:
@@ -71,6 +81,16 @@ std::string MarkerCategory(const Marker& marker) {
       return "sync/barrier";
     case TraceEventKind::WaveExit:
       return "control/exit";
+    case TraceEventKind::ActivePromote:
+      return "launch/wave";
+    case TraceEventKind::WaveWait:
+      return "wave/wait";
+    case TraceEventKind::WaveArrive:
+      return "wave/arrive";
+    case TraceEventKind::WaveResume:
+      return "wave/resume";
+    case TraceEventKind::WaveSwitchAway:
+      return "wave/switch_away";
     case TraceEventKind::Stall:
       return view.stall_reason == TraceStallReason::WarpSwitch ? "wave/switch_away" : "stall";
     case TraceEventKind::WaveLaunch:

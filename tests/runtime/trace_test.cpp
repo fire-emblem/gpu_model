@@ -891,6 +891,44 @@ TEST(TraceTest, TraceEventViewProvidesStableCanonicalNamesForWaveSchedulingMarke
   EXPECT_EQ(generate_view.category, "launch/wave");
 }
 
+TEST(TraceTest, TraceEventViewProvidesStableCanonicalNamesForWaveStateEdgeMarkers) {
+  const TraceWaveView wave{
+      .dpc_id = 0,
+      .ap_id = 0,
+      .peu_id = 0,
+      .slot_id = 0,
+      .block_id = 0,
+      .wave_id = 1,
+      .pc = 0x40,
+  };
+
+  const TraceEvent active_promote =
+      MakeTraceActivePromoteEvent(wave, /*cycle=*/2, TraceSlotModelKind::ResidentFixed);
+  const TraceEvent wave_wait = MakeTraceWaveWaitEvent(
+      wave, /*cycle=*/3, TraceSlotModelKind::ResidentFixed, TraceStallReason::WaitCntGlobal);
+  const TraceEvent wave_arrive = MakeTraceWaveArriveEvent(
+      wave,
+      /*cycle=*/4,
+      TraceMemoryArriveKind::Load,
+      TraceSlotModelKind::ResidentFixed,
+      TraceArriveProgressKind::Resume);
+  const TraceEvent wave_resume =
+      MakeTraceWaveResumeEvent(wave, /*cycle=*/5, TraceSlotModelKind::ResidentFixed);
+  const TraceEvent wave_switch_away =
+      MakeTraceWaveSwitchAwayEvent(wave, /*cycle=*/6, TraceSlotModelKind::ResidentFixed);
+
+  EXPECT_EQ(MakeTraceEventView(active_promote).canonical_name, "active_promote");
+  EXPECT_EQ(MakeTraceEventView(active_promote).category, "launch/wave");
+  EXPECT_EQ(MakeTraceEventView(wave_wait).canonical_name, "wave_wait");
+  EXPECT_EQ(MakeTraceEventView(wave_wait).category, "wave/wait/waitcnt_global");
+  EXPECT_EQ(MakeTraceEventView(wave_arrive).canonical_name, "wave_arrive");
+  EXPECT_EQ(MakeTraceEventView(wave_arrive).category, "wave/arrive/wave_arrive");
+  EXPECT_EQ(MakeTraceEventView(wave_resume).canonical_name, "wave_resume");
+  EXPECT_EQ(MakeTraceEventView(wave_resume).category, "wave/resume");
+  EXPECT_EQ(MakeTraceEventView(wave_switch_away).canonical_name, "wave_switch_away");
+  EXPECT_EQ(MakeTraceEventView(wave_switch_away).category, "wave/switch_away");
+}
+
 TEST(TraceTest, TraceEventViewProvidesStableCanonicalNamesForRuntimeProgramEvents) {
   const TraceEvent launch = MakeTraceRuntimeLaunchEvent(
       /*cycle=*/1, "kernel=runtime_trace_test arch=c500");
