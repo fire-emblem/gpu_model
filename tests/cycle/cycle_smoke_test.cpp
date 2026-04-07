@@ -399,6 +399,45 @@ TEST(CycleSmokeTest, ResumeSelectionAndIssueOrderingStayObservable) {
   EXPECT_LT(issue_select_index, resumed_step_index);
 }
 
+TEST(CycleSmokeTest, SamePeuIssueCyclesStayOnFourCycleGrid) {
+  CollectingTraceSink trace;
+  ExecEngine runtime(&trace);
+  runtime.SetFixedGlobalMemoryLatency(20);
+
+  const auto kernel = BuildSamePeuReadyNotSelectedKernel();
+
+  constexpr uint32_t kBlockDim = 320;
+  constexpr uint32_t kElementCount = kBlockDim;
+  const uint64_t in_addr = runtime.memory().AllocateGlobal(kElementCount * sizeof(int32_t));
+  const uint64_t out_addr = runtime.memory().AllocateGlobal(kElementCount * sizeof(int32_t));
+  for (uint32_t i = 0; i < kElementCount; ++i) {
+    runtime.memory().StoreGlobalValue<int32_t>(in_addr + i * sizeof(int32_t),
+                                               static_cast<int32_t>(100 + i));
+    runtime.memory().StoreGlobalValue<int32_t>(out_addr + i * sizeof(int32_t), -1);
+  }
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = kBlockDim;
+  request.args.PushU64(in_addr);
+  request.args.PushU64(out_addr);
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  bool saw_wave_step = false;
+  for (const auto& event : trace.events()) {
+    if (event.kind != TraceEventKind::WaveStep || event.block_id != 0 || event.peu_id != 0) {
+      continue;
+    }
+    saw_wave_step = true;
+    EXPECT_EQ(event.cycle % 4u, 0u) << event.wave_id << " pc=0x" << std::hex << event.pc;
+  }
+  EXPECT_TRUE(saw_wave_step);
+}
+
 TEST(CycleSmokeTest, VectorIssueLimitOverrideAllowsTwoWaveBundleIssue) {
   const auto spec = ArchRegistry::Get("c500");
   ASSERT_NE(spec, nullptr);

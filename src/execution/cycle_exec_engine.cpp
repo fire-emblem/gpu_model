@@ -1025,7 +1025,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                                                      FormatWaveStepMessage(instruction, wave)));
 
         const OpPlan plan = semantics_.BuildPlan(instruction, wave, context);
-        const uint64_t commit_cycle = cycle + switch_penalty + plan.issue_cycles;
+        const uint64_t commit_cycle = cycle + plan.issue_cycles;
         bundle_commit_cycle = std::max(bundle_commit_cycle, commit_cycle);
         bundle_last_wave_tag = wave_tag;
         slot.last_wave_trace = MakeTraceWaveView(*candidate, slot_id);

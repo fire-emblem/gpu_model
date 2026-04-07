@@ -58,6 +58,12 @@ struct RawWave {
   uint32_t logical_slot_id = 0;
   uint32_t resident_slot_id = kInvalidTraceSlotId;
   bool dispatch_enabled = false;
+  bool generate_scheduled = false;
+  bool generate_completed = false;
+  uint64_t generate_cycle = 0;
+  bool dispatch_scheduled = false;
+  bool dispatch_completed = false;
+  uint64_t dispatch_cycle = 0;
   bool launch_scheduled = false;
   uint64_t launch_cycle = 0;
   size_t peu_slot_index = std::numeric_limits<size_t>::max();
@@ -1330,6 +1336,18 @@ class EncodedExecutionCore {
     raw_wave.launch_cycle = cycle;
   }
 
+  void ScheduleWaveGenerate(RawWave& raw_wave, uint64_t cycle) {
+    raw_wave.generate_scheduled = true;
+    raw_wave.generate_completed = false;
+    raw_wave.generate_cycle = cycle;
+  }
+
+  void ScheduleWaveDispatch(RawWave& raw_wave, uint64_t cycle) {
+    raw_wave.dispatch_scheduled = true;
+    raw_wave.dispatch_completed = false;
+    raw_wave.dispatch_cycle = cycle;
+  }
+
   uint32_t ResidentWaveSlotCapacityPerPeu() const {
     return spec_.cycle_resources.resident_wave_slots_per_peu > 0
                ? spec_.cycle_resources.resident_wave_slots_per_peu
@@ -1435,10 +1453,51 @@ class EncodedExecutionCore {
     }
   }
 
+  void ActivateScheduledWaveGeneration(uint64_t cycle) {
+    for (auto& block : raw_blocks_) {
+      for (auto& raw_wave : block.waves) {
+        if (!raw_wave.generate_scheduled || raw_wave.generate_completed ||
+            raw_wave.generate_cycle > cycle ||
+            raw_wave.wave.status == WaveStatus::Exited) {
+          continue;
+        }
+        raw_wave.generate_scheduled = false;
+        raw_wave.generate_completed = true;
+        ObserveExecutionCycle(raw_wave.generate_cycle);
+        TraceEventLocked(MakeTraceWaveGenerateEvent(MakeRawTraceWaveView(raw_wave),
+                                                    raw_wave.generate_cycle,
+                                                    TraceSlotModel()));
+      }
+    }
+  }
+
+  void ActivateScheduledWaveDispatch(uint64_t cycle) {
+    for (auto& block : raw_blocks_) {
+      for (auto& raw_wave : block.waves) {
+        if (!raw_wave.dispatch_scheduled || raw_wave.dispatch_completed ||
+            raw_wave.dispatch_cycle > cycle ||
+            raw_wave.wave.status == WaveStatus::Exited) {
+          continue;
+        }
+        raw_wave.dispatch_scheduled = false;
+        raw_wave.dispatch_completed = true;
+        auto& slot = cycle_peu_slots_.at(raw_wave.peu_slot_index);
+        RegisterResidentWave(slot, raw_wave);
+        ObserveExecutionCycle(raw_wave.dispatch_cycle);
+        TraceEventLocked(MakeTraceWaveDispatchEvent(MakeRawTraceWaveView(raw_wave),
+                                                    raw_wave.dispatch_cycle,
+                                                    TraceSlotModel()));
+        TraceEventLocked(
+            MakeTraceSlotBindEvent(MakeRawTraceWaveView(raw_wave), raw_wave.dispatch_cycle, TraceSlotModel()));
+      }
+    }
+  }
+
   void ActivateScheduledWaves(uint64_t cycle) {
     for (auto& slot : cycle_peu_slots_) {
       for (RawWave* raw_wave : slot.active_window) {
-        if (raw_wave == nullptr || !raw_wave->launch_scheduled || raw_wave->launch_cycle > cycle) {
+        if (raw_wave == nullptr || !raw_wave->dispatch_completed ||
+            !raw_wave->launch_scheduled || raw_wave->launch_cycle > cycle) {
           continue;
         }
         raw_wave->launch_scheduled = false;
@@ -1469,20 +1528,18 @@ class EncodedExecutionCore {
                                          TraceEventKind::BlockLaunch,
                                          cycle,
                                          "ap=" + std::to_string(block.ap_id)));
-    std::vector<size_t> touched_slots;
     for (auto& raw_wave : block.waves) {
       raw_wave.wave.status = WaveStatus::Stalled;
       raw_wave.dispatch_enabled = false;
+      raw_wave.generate_scheduled = false;
+      raw_wave.generate_completed = false;
+      raw_wave.dispatch_scheduled = false;
+      raw_wave.dispatch_completed = false;
       raw_wave.launch_scheduled = false;
-      auto& slot = cycle_peu_slots_.at(raw_wave.peu_slot_index);
-      RegisterResidentWave(slot, raw_wave);
-      if (std::find(touched_slots.begin(), touched_slots.end(), raw_wave.peu_slot_index) ==
-          touched_slots.end()) {
-        touched_slots.push_back(raw_wave.peu_slot_index);
-      }
-    }
-    for (size_t slot_index : touched_slots) {
-      RefillActiveWindow(cycle_peu_slots_.at(slot_index), cycle);
+      const uint64_t generate_cycle = cycle + timing_config_.launch_timing.wave_generation_cycles;
+      const uint64_t dispatch_cycle = generate_cycle + timing_config_.launch_timing.wave_dispatch_cycles;
+      ScheduleWaveGenerate(raw_wave, generate_cycle);
+      ScheduleWaveDispatch(raw_wave, dispatch_cycle);
     }
   }
 
@@ -1596,10 +1653,16 @@ class EncodedExecutionCore {
     for (const auto& block : raw_blocks_) {
       for (size_t i = 0; i < block.waves.size(); ++i) {
         const auto& wave = block.waves[i].wave;
+        const auto& wave_meta = block.waves[i];
         if (wave.run_state == WaveRunState::Waiting || wave.waiting_at_barrier) {
           return true;
         }
         if (!block.wave_states[i].pending_memory_ops.empty()) {
+          return true;
+        }
+        if ((wave_meta.generate_scheduled && wave_meta.generate_cycle > cycle) ||
+            (wave_meta.dispatch_scheduled && wave_meta.dispatch_cycle > cycle) ||
+            (wave_meta.launch_scheduled && wave_meta.launch_cycle > cycle)) {
           return true;
         }
       }
@@ -1612,6 +1675,8 @@ class EncodedExecutionCore {
     AdmitResidentBlocks(0);
     uint64_t cycle = 0;
     while (true) {
+      ActivateScheduledWaveGeneration(cycle);
+      ActivateScheduledWaveDispatch(cycle);
       for (auto& slot : cycle_peu_slots_) {
         RefillActiveWindow(slot, cycle);
       }
@@ -1719,7 +1784,7 @@ class EncodedExecutionCore {
                                                          raw_wave->wave_index,
                                                          cycle);
           slot_commit_cycle =
-              std::max(slot_commit_cycle, cycle + switch_penalty + std::max<uint64_t>(1u, issue_cycles));
+              std::max(slot_commit_cycle, cycle + std::max<uint64_t>(1u, issue_cycles));
           RememberScheduledWaveForPeu(raw_blocks_[raw_wave->block_index], *raw_wave);
           issued = true;
         }
@@ -2240,6 +2305,8 @@ class EncodedExecutionCore {
     wave_state.next_issue_cycle = commit_cycle;
     wave_state.wave_cycle_total += issue_duration;
     wave_state.wave_cycle_active += issue_duration;
+    TraceEventLocked(
+        MakeTraceIssueSelectEvent(MakeRawTraceWaveView(raw_wave), issue_cycle, TraceSlotModel()));
     TraceEventLocked(MakeRawWaveTraceEvent(
         raw_wave, TraceEventKind::WaveStep, issue_cycle, FormatRawWaveStepMessage(decoded, object, wave)));
     RememberScheduledWaveForPeu(block, raw_wave);
@@ -2395,6 +2462,8 @@ class EncodedExecutionCore {
                                             cycle_stats_config_));
     }
 
+    TraceEventLocked(
+        MakeTraceIssueSelectEvent(MakeRawTraceWaveView(raw_wave), cycle, TraceSlotModel()));
     TraceEventLocked(MakeRawWaveTraceEvent(
         raw_wave, TraceEventKind::WaveStep, cycle, FormatRawWaveStepMessage(decoded, object, wave)));
     TraceEventLocked(

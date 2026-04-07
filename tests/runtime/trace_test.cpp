@@ -3153,6 +3153,100 @@ TEST(TraceTest, NativePerfettoProtoShowsEncodedCycleResidentSlotsAcrossPeus) {
   EXPECT_TRUE(saw_wave_exit);
 }
 
+TEST(TraceTest, NativePerfettoProtoShowsEncodedCycleGenerateDispatchAndSlotBindOrdering) {
+  if (!HasLlvmMcAmdgpuToolchain()) {
+    GTEST_SKIP() << "required llvm-mc/LLVM/binutils tools not available";
+  }
+
+  const auto out_dir = MakeUniqueTempDir("gpu_model_perfetto_encoded_cycle_frontend_latency");
+  const struct Cleanup {
+    std::filesystem::path path;
+    ~Cleanup() { std::filesystem::remove_all(path); }
+  } cleanup{out_dir};
+
+  const auto obj_path = AssembleLlvmMcFixture(
+      "gpu_model_perfetto_encoded_cycle_frontend_latency_obj",
+      std::filesystem::path("tests/asm_cases/loader/kernarg_aggregate_by_value.s"));
+  const auto image = ObjectReader{}.LoadProgramObject(obj_path, "asm_kernarg_aggregate_by_value");
+
+  TraceArtifactRecorder trace(out_dir);
+  ExecEngine runtime(&trace);
+  runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
+                                 /*kernel_launch_cycles=*/0,
+                                 /*block_launch_cycles=*/0,
+                                 /*wave_generation_cycles=*/128,
+                                 /*wave_dispatch_cycles=*/256,
+                                 /*wave_launch_cycles=*/0,
+                                 /*warp_switch_cycles=*/1,
+                                 /*arg_load_cycles=*/4);
+
+  struct AggregateArg {
+    int32_t x;
+    int32_t y;
+    int32_t z;
+  } aggregate{3, 5, 7};
+
+  const uint64_t out_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
+  runtime.memory().StoreGlobalValue<int32_t>(out_addr, 0);
+
+  LaunchRequest request;
+  request.arch_name = "c500";
+  request.program_object = &image;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+  request.args.PushU64(out_addr);
+  request.args.PushBytes(&aggregate, sizeof(aggregate));
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+  trace.FlushTimeline();
+
+  const std::string bytes = CycleTimelineRenderer::RenderPerfettoTraceProto(trace.recorder());
+  const auto events = ParseTrackEvents(bytes);
+  ASSERT_FALSE(events.empty());
+
+  std::optional<uint64_t> block_launch_cycle;
+  std::optional<uint64_t> wave_generate_cycle;
+  std::optional<uint64_t> wave_dispatch_cycle;
+  std::optional<uint64_t> slot_bind_cycle;
+  std::optional<uint64_t> wave_launch_cycle;
+  std::optional<uint64_t> issue_select_cycle;
+
+  for (const auto& event : events) {
+    if (event.type != 3u) {
+      continue;
+    }
+    if (!block_launch_cycle.has_value() && event.name == "block_launch") {
+      block_launch_cycle = event.timestamp;
+    } else if (!wave_generate_cycle.has_value() && event.name == "wave_generate") {
+      wave_generate_cycle = event.timestamp;
+    } else if (!wave_dispatch_cycle.has_value() && event.name == "wave_dispatch") {
+      wave_dispatch_cycle = event.timestamp;
+    } else if (!slot_bind_cycle.has_value() && event.name == "slot_bind") {
+      slot_bind_cycle = event.timestamp;
+    } else if (!wave_launch_cycle.has_value() && event.name == "wave_launch") {
+      wave_launch_cycle = event.timestamp;
+    } else if (!issue_select_cycle.has_value() && event.name == "issue_select") {
+      issue_select_cycle = event.timestamp;
+    }
+  }
+
+  ASSERT_TRUE(block_launch_cycle.has_value());
+  ASSERT_TRUE(wave_generate_cycle.has_value());
+  ASSERT_TRUE(wave_dispatch_cycle.has_value());
+  ASSERT_TRUE(slot_bind_cycle.has_value());
+  ASSERT_TRUE(wave_launch_cycle.has_value());
+  ASSERT_TRUE(issue_select_cycle.has_value());
+
+  EXPECT_EQ(*block_launch_cycle, 0u);
+  EXPECT_EQ(*wave_generate_cycle, 128u);
+  EXPECT_EQ(*wave_dispatch_cycle, 384u);
+  EXPECT_EQ(*slot_bind_cycle, 384u);
+  EXPECT_EQ(*wave_launch_cycle, 384u);
+  EXPECT_GE(*issue_select_cycle, *wave_launch_cycle);
+}
+
 TEST(TraceTest, NativePerfettoProtoShowsFunctionalSamePeuSwitchAwayInSingleThreadedMode) {
   const auto out_dir = MakeUniqueTempDir("gpu_model_perfetto_st_same_peu_markers");
   const struct Cleanup {
