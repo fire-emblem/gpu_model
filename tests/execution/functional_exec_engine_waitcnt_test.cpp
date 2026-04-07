@@ -227,6 +227,7 @@ struct FunctionalExecHarness {
             .trace = trace,
             .stats = &stats,
             .cycle = 0,
+            .global_memory_latency_cycles = 20,
             .arg_load_cycles = 4,
             .issue_cycle_class_overrides = {},
             .issue_cycle_op_overrides = {},

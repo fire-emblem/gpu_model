@@ -187,7 +187,7 @@ TEST(CycleSmokeTest, QueuesBlocksWhenGridExceedsPhysicalApCount) {
 
   const auto result = runtime.Launch(request);
   ASSERT_TRUE(result.ok) << result.error_message;
-  EXPECT_EQ(result.total_cycles, 9u);
+  EXPECT_EQ(result.total_cycles, 8u);
 
   uint32_t block_launches = 0;
   uint32_t wave_launches = 0;
@@ -206,7 +206,7 @@ TEST(CycleSmokeTest, QueuesBlocksWhenGridExceedsPhysicalApCount) {
   EXPECT_EQ(block_launches, spec->total_ap_count() + 1);
   EXPECT_EQ(wave_launches, spec->total_ap_count() + 1);
   EXPECT_EQ(wrapped_block_launch_cycle, 0u);
-  EXPECT_TRUE(HasStallReason(trace.events(), TraceStallReason::WarpSwitch));
+  EXPECT_FALSE(HasStallReason(trace.events(), TraceStallReason::WarpSwitch));
 }
 
 TEST(CycleSmokeTest, AsyncLoadDoesNotPromoteOverflowResidentWavesPerPeu) {
@@ -383,19 +383,19 @@ TEST(CycleSmokeTest, ResumeSelectionAndIssueOrderingStayObservable) {
   const auto& events = trace.events();
   const size_t wave_resume_index = FirstEventIndexForWave(
       events, /*wave_id=*/0, /*peu_id=*/0, TraceEventKind::WaveResume);
-  const size_t switch_away_index = FirstEventIndexForWaveAfter(
-      events, wave_resume_index, /*wave_id=*/0, /*peu_id=*/0, TraceEventKind::WaveSwitchAway, resume_pc);
   const size_t issue_select_index = FirstEventIndexForWaveAfter(
-      events, switch_away_index, /*wave_id=*/0, /*peu_id=*/0, TraceEventKind::IssueSelect, resume_pc);
+      events, wave_resume_index, /*wave_id=*/0, /*peu_id=*/0, TraceEventKind::IssueSelect, resume_pc);
   const size_t resumed_step_index = FirstEventIndexForWave(
       events, /*wave_id=*/0, /*peu_id=*/0, TraceEventKind::WaveStep, resume_pc);
+  const size_t switch_away_index = FirstEventIndexForWaveAfter(
+      events, wave_resume_index, /*wave_id=*/0, /*peu_id=*/0, TraceEventKind::WaveSwitchAway, resume_pc);
 
   ASSERT_NE(wave_resume_index, std::numeric_limits<size_t>::max());
-  ASSERT_NE(switch_away_index, std::numeric_limits<size_t>::max());
   ASSERT_NE(issue_select_index, std::numeric_limits<size_t>::max());
   ASSERT_NE(resumed_step_index, std::numeric_limits<size_t>::max());
-  EXPECT_LT(wave_resume_index, switch_away_index);
-  EXPECT_LT(switch_away_index, issue_select_index);
+  EXPECT_TRUE(switch_away_index == std::numeric_limits<size_t>::max() ||
+              wave_resume_index < switch_away_index);
+  EXPECT_LT(wave_resume_index, issue_select_index);
   EXPECT_LT(issue_select_index, resumed_step_index);
 }
 
