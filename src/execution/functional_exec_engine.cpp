@@ -41,7 +41,6 @@ namespace gpu_model {
 
 namespace {
 
-constexpr uint8_t kFunctionalPendingMemoryCompletionTurns = 5;
 constexpr uint64_t kFunctionalIssueQuantumCycles = 4;
 
 uint64_t QuantizeToNextIssueQuantum(uint64_t cycle) {
@@ -249,13 +248,25 @@ void ClearWaitcntWaitState(FunctionalWaveState& state) {
   state.waiting_waitcnt_thresholds.reset();
 }
 
+bool AdvancePendingMemoryOpsUntil(FunctionalWaveState& state,
+                                  WaveContext& wave,
+                                  uint64_t ready_through_cycle,
+                                  std::vector<PendingMemoryOp>* completed_ops = nullptr);
+
 bool AdvancePendingMemoryOps(FunctionalWaveState& state,
                              WaveContext& wave,
                              std::vector<PendingMemoryOp>* completed_ops = nullptr) {
+  return AdvancePendingMemoryOpsUntil(state, wave, state.wave_cycle_total, completed_ops);
+}
+
+bool AdvancePendingMemoryOpsUntil(FunctionalWaveState& state,
+                                  WaveContext& wave,
+                                  uint64_t ready_through_cycle,
+                                  std::vector<PendingMemoryOp>* completed_ops) {
   bool advanced = false;
   for (auto it = state.pending_memory_ops.begin(); it != state.pending_memory_ops.end();) {
     advanced = true;
-    if (it->ready_cycle <= state.wave_cycle_total) {
+    if (it->ready_cycle <= ready_through_cycle) {
       if (completed_ops != nullptr) {
         completed_ops->push_back(*it);
       }
@@ -712,7 +723,12 @@ class FunctionalExecutionCoreImpl {
   std::optional<ProgramCycleStats> program_cycle_stats_;
   std::atomic<uint64_t> trace_cycle_{0};
   std::unordered_map<uint64_t, uint32_t> logical_slot_ids_;
-  std::unordered_map<uint64_t, uint64_t> last_wave_tag_per_ap_peu_;
+  struct LastScheduledWaveTraceState {
+    uint64_t wave_tag = 0;
+    TraceWaveView wave{};
+    uint64_t pc = 0;
+  };
+  std::unordered_map<uint64_t, LastScheduledWaveTraceState> last_wave_per_ap_peu_;
 
   uint64_t NextTraceCycle() { return trace_cycle_.fetch_add(1, std::memory_order_relaxed); }
 
@@ -743,33 +759,61 @@ class FunctionalExecutionCoreImpl {
     };
   }
 
+  uint64_t ApPeuKey(const ExecutableBlock& block, const WaveContext& wave) const {
+    return (static_cast<uint64_t>(block.global_ap_id) << 32u) | static_cast<uint64_t>(wave.peu_id);
+  }
+
+  uint64_t WaveTag(const WaveContext& wave) const {
+    return (static_cast<uint64_t>(wave.block_id) << 32u) | static_cast<uint64_t>(wave.wave_id);
+  }
+
   void MaybeEmitWaveSwitchAwayEvent(const ExecutableBlock& block,
                                     const WaveContext& wave,
-                                    uint64_t pc) {
-    const uint64_t ap_peu_key =
-        (static_cast<uint64_t>(block.global_ap_id) << 32u) | static_cast<uint64_t>(wave.peu_id);
-    const uint64_t wave_tag =
-        (static_cast<uint64_t>(wave.block_id) << 32u) | static_cast<uint64_t>(wave.wave_id);
+                                    uint64_t issue_cycle) {
+    const uint64_t ap_peu_key = ApPeuKey(block, wave);
+    const uint64_t wave_tag = WaveTag(wave);
+    std::optional<LastScheduledWaveTraceState> previous_wave;
 
-    bool emit_switch_away = false;
     {
       std::lock_guard<std::mutex> lock(peu_schedule_trace_mutex_);
-      const auto it = last_wave_tag_per_ap_peu_.find(ap_peu_key);
-      emit_switch_away = it != last_wave_tag_per_ap_peu_.end() && it->second != wave_tag;
-      last_wave_tag_per_ap_peu_[ap_peu_key] = wave_tag;
+      const auto it = last_wave_per_ap_peu_.find(ap_peu_key);
+      if (it != last_wave_per_ap_peu_.end() && it->second.wave_tag != wave_tag) {
+        previous_wave = it->second;
+      }
     }
 
-    if (emit_switch_away) {
-      TraceEventLocked(MakeTraceWaveSwitchAwayEvent(
-          MakeTraceWaveView(wave),
-          NextTraceCycle(),
-          TraceSlotModelKind::LogicalUnbounded,
-          pc));
-      TraceEventLocked(MakeTraceWaveSwitchStallEvent(
-          MakeTraceWaveView(wave),
-          NextTraceCycle(),
-          TraceSlotModelKind::LogicalUnbounded,
-          pc));
+    if (!previous_wave.has_value()) {
+      return;
+    }
+
+    TraceEventLocked(MakeTraceWaveSwitchAwayEvent(previous_wave->wave,
+                                                  issue_cycle,
+                                                  TraceSlotModelKind::LogicalUnbounded,
+                                                  previous_wave->pc));
+    TraceEventLocked(MakeTraceWaveSwitchStallEvent(previous_wave->wave,
+                                                   issue_cycle,
+                                                   TraceSlotModelKind::LogicalUnbounded,
+                                                   previous_wave->pc));
+  }
+
+  void RememberScheduledWaveForPeu(const ExecutableBlock& block, const WaveContext& wave) {
+    const uint64_t ap_peu_key = ApPeuKey(block, wave);
+    std::lock_guard<std::mutex> lock(peu_schedule_trace_mutex_);
+    last_wave_per_ap_peu_[ap_peu_key] = LastScheduledWaveTraceState{
+        .wave_tag = WaveTag(wave),
+        .wave = MakeTraceWaveView(wave),
+        .pc = wave.pc,
+    };
+  }
+
+  void ClearLastScheduledWaveIfCompleted(const ExecutableBlock& block, const WaveContext& wave) {
+    const uint64_t ap_peu_key =
+        ApPeuKey(block, wave);
+    const uint64_t wave_tag = WaveTag(wave);
+    std::lock_guard<std::mutex> lock(peu_schedule_trace_mutex_);
+    const auto it = last_wave_per_ap_peu_.find(ap_peu_key);
+    if (it != last_wave_per_ap_peu_.end() && it->second.wave_tag == wave_tag) {
+      last_wave_per_ap_peu_.erase(it);
     }
   }
 
@@ -1359,16 +1403,48 @@ class FunctionalExecutionCoreImpl {
       throw std::out_of_range("wave pc out of range");
     }
 
+    auto emit_completed_memory_ops = [&](const std::vector<PendingMemoryOp>& completed_ops) {
+      for (const auto& op : completed_ops) {
+        wave_state.next_issue_cycle =
+            std::max(wave_state.next_issue_cycle, QuantizeToNextIssueQuantum(op.ready_cycle));
+        TraceEvent event = MakeTraceMemoryArriveEvent(
+            MakeTraceWaveView(wave),
+            op.ready_cycle,
+            op.arrive_kind,
+            TraceSlotModelKind::LogicalUnbounded);
+        const AsyncArriveResult arrive_result =
+            MakeAsyncArriveResult(wave, op.domain, wave_state.waiting_waitcnt_thresholds);
+        event.waitcnt_state = arrive_result.waitcnt_state;
+        event.arrive_progress = arrive_result.arrive_progress;
+        TraceEventLocked(std::move(event));
+        TraceEventLocked(MakeTraceWaveArriveEvent(
+            MakeTraceWaveView(wave),
+            op.ready_cycle,
+            op.arrive_kind,
+            TraceSlotModelKind::LogicalUnbounded,
+            arrive_result.arrive_progress,
+            std::numeric_limits<uint64_t>::max(),
+            arrive_result.waitcnt_state));
+      }
+    };
+    {
+      std::vector<PendingMemoryOp> completed_ops;
+      std::lock_guard<std::mutex> state_lock(*block.wave_state_mutex);
+      if (AdvancePendingMemoryOpsUntil(wave_state, wave, wave_state.next_issue_cycle, &completed_ops)) {
+        emit_completed_memory_ops(completed_ops);
+      }
+    }
+
     const Instruction& instruction = context_.kernel.InstructionAtPc(wave.pc);
     ++stats.wave_steps;
     ++stats.instructions_issued;
-    MaybeEmitWaveSwitchAwayEvent(block, wave, wave.pc);
     ExecutionContext block_context = context_;
     block_context.stats = nullptr;
     const OpPlan plan = semantics_.BuildPlan(instruction, wave, block_context);
     const uint64_t issue_duration = std::max<uint64_t>(1u, plan.issue_cycles);
     const uint64_t issue_cycle = wave_state.next_issue_cycle;
     const uint64_t commit_cycle = issue_cycle + issue_duration;
+    MaybeEmitWaveSwitchAwayEvent(block, wave, issue_cycle);
     wave_state.last_issue_cycle = issue_cycle;
     wave_state.next_issue_cycle = commit_cycle;
     wave_state.wave_cycle_total += issue_duration;
@@ -1382,6 +1458,7 @@ class FunctionalExecutionCoreImpl {
         TraceSlotModelKind::LogicalUnbounded,
         FormatWaveStepMessage(instruction, wave),
         issue_pc));
+    RememberScheduledWaveForPeu(block, wave);
     if (const auto step_class = ClassifyExecutedInstruction(instruction, plan); step_class.has_value()) {
       RecordExecutedWorkEvent(wave, *step_class,
                               CostForExecutedStep(plan, *step_class, cycle_stats_config_));
@@ -1393,15 +1470,17 @@ class FunctionalExecutionCoreImpl {
           MakeWaveTraceEvent(wave, TraceEventKind::ExecMaskUpdate, NextTraceCycle(), *mask_text, issue_pc));
     }
     if (plan.memory.has_value()) {
+      const auto& request = *plan.memory;
       {
         std::lock_guard<std::mutex> state_lock(*block.wave_state_mutex);
+        const uint64_t memory_completion_turns =
+            request.space == MemorySpace::Global ? context_.global_memory_latency_cycles : 5u;
         RecordPendingMemoryOp(wave_state,
                               wave,
                               MemoryDomainForOpcode(instruction.opcode),
                               TraceMemoryArriveKindForMemoryRequest(*plan.memory),
-                              commit_cycle + kFunctionalPendingMemoryCompletionTurns);
+                              commit_cycle + memory_completion_turns);
       }
-      const auto& request = *plan.memory;
       ++stats.memory_ops;
       if (request.space == MemorySpace::Global) {
         if (request.kind == AccessKind::Load) {
@@ -1594,6 +1673,7 @@ class FunctionalExecutionCoreImpl {
           commit_cycle,
           TraceSlotModelKind::LogicalUnbounded,
           issue_pc));
+      ClearLastScheduledWaveIfCompleted(block, wave);
       if (wave_completed) {
         EmitWaveStatsSnapshot();
       }

@@ -89,6 +89,8 @@ struct PeuSlot {
   uint32_t peu_id = 0;
   uint64_t busy_until = 0;
   uint64_t last_wave_tag = std::numeric_limits<uint64_t>::max();
+  std::optional<TraceWaveView> last_wave_trace;
+  uint64_t last_wave_pc = 0;
   size_t issue_round_robin_index = 0;
   std::vector<ScheduledWave*> waves;
   std::vector<ScheduledWave*> resident_waves;
@@ -290,6 +292,8 @@ std::vector<PeuSlot> BuildPeuSlots(std::vector<ExecutableBlock>& blocks,
             .dpc_id = block.dpc_id,
             .ap_id = block.ap_id,
             .peu_id = scheduled_wave.wave.peu_id,
+            .last_wave_trace = std::nullopt,
+            .last_wave_pc = 0,
             .waves = {},
             .resident_waves = {},
             .resident_slots = std::move(resident_slots),
@@ -1009,11 +1013,11 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                     bundle_last_wave_tag != wave_tag
                 ? timing_config_.launch_timing.warp_switch_cycles
                 : 0;
-        if (switch_penalty > 0) {
+        if (switch_penalty > 0 && slot.last_wave_trace.has_value()) {
           context.trace.OnEvent(MakeTraceWaveSwitchAwayEvent(
-              MakeTraceWaveView(*candidate, slot_id), cycle, TraceSlotModelKind::ResidentFixed));
+              *slot.last_wave_trace, cycle, TraceSlotModelKind::ResidentFixed, slot.last_wave_pc));
           context.trace.OnEvent(MakeTraceWaveSwitchStallEvent(
-              MakeTraceWaveView(*candidate, slot_id), cycle, TraceSlotModelKind::ResidentFixed));
+              *slot.last_wave_trace, cycle, TraceSlotModelKind::ResidentFixed, slot.last_wave_pc));
         }
         context.trace.OnEvent(MakeTraceIssueSelectEvent(
             MakeTraceWaveView(*candidate, slot_id), cycle, TraceSlotModelKind::ResidentFixed));
@@ -1030,6 +1034,8 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
         const uint64_t commit_cycle = cycle + switch_penalty + plan.issue_cycles;
         bundle_commit_cycle = std::max(bundle_commit_cycle, commit_cycle);
         bundle_last_wave_tag = wave_tag;
+        slot.last_wave_trace = MakeTraceWaveView(*candidate, slot_id);
+        slot.last_wave_pc = wave.pc;
         wave.status = WaveStatus::Stalled;
         wave.valid_entry = false;
         if (plan.memory.has_value()) {
@@ -1529,6 +1535,11 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                   }
                   ApplyExecutionPlanControlFlow(context.kernel, plan, candidate->wave, false, false);
                   PeuSlot& peu_slot = slots.at(candidate->peu_slot_index);
+                  if (peu_slot.last_wave_tag == WaveTag(candidate->wave)) {
+                    peu_slot.last_wave_tag = std::numeric_limits<uint64_t>::max();
+                    peu_slot.last_wave_trace.reset();
+                    peu_slot.last_wave_pc = 0;
+                  }
                   RemoveResidentWave(peu_slot, *candidate);
                   context.trace.OnEvent(MakeTraceWaveExitEvent(
                       MakeTraceWaveView(*candidate, slot_id),

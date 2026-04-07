@@ -2845,6 +2845,162 @@ TEST(TraceTest, EncodedFunctionalSamePeuEmitsWaveSwitchAwayMarkers) {
   EXPECT_TRUE(saw_switch_away);
 }
 
+TEST(TraceTest, EncodedFunctionalSamePeuDoesNotEmitSwitchAwayAfterWaveExit) {
+  if (!HasLlvmMcAmdgpuToolchain()) {
+    GTEST_SKIP() << "required llvm-mc/LLVM/binutils tools not available";
+  }
+
+  const auto obj_path = AssembleLlvmMcFixture(
+      "gpu_model_encoded_functional_same_peu_switch_away_exit_order_obj",
+      std::filesystem::path("tests/asm_cases/loader/kernarg_aggregate_by_value.s"));
+  const auto image = ObjectReader{}.LoadProgramObject(obj_path, "asm_kernarg_aggregate_by_value");
+
+  CollectingTraceSink trace;
+  ExecEngine runtime(&trace);
+
+  struct AggregateArg {
+    int32_t x;
+    int32_t y;
+    int32_t z;
+  } aggregate{3, 5, 7};
+
+  const uint64_t out_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
+  runtime.memory().StoreGlobalValue<int32_t>(out_addr, 0);
+
+  LaunchRequest request;
+  request.arch_name = "c500";
+  request.program_object = &image;
+  request.mode = ExecutionMode::Functional;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64 * 33;
+  request.args.PushU64(out_addr);
+  request.args.PushBytes(&aggregate, sizeof(aggregate));
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  struct WaveKey {
+    uint32_t dpc_id;
+    uint32_t ap_id;
+    uint32_t peu_id;
+    uint32_t slot_id;
+    uint32_t block_id;
+    uint32_t wave_id;
+
+    bool operator<(const WaveKey& other) const {
+      return std::tie(dpc_id, ap_id, peu_id, slot_id, block_id, wave_id) <
+             std::tie(other.dpc_id, other.ap_id, other.peu_id, other.slot_id, other.block_id,
+                      other.wave_id);
+    }
+  };
+
+  std::map<WaveKey, uint64_t> exit_cycle_by_wave;
+  for (const auto& event : trace.events()) {
+    if (event.kind != TraceEventKind::WaveExit) {
+      continue;
+    }
+    exit_cycle_by_wave[WaveKey{event.dpc_id, event.ap_id, event.peu_id, event.slot_id, event.block_id,
+                               event.wave_id}] = event.cycle;
+  }
+
+  bool saw_switch_away = false;
+  for (const auto& event : trace.events()) {
+    if (event.kind != TraceEventKind::WaveSwitchAway) {
+      continue;
+    }
+    saw_switch_away = true;
+    const WaveKey key{event.dpc_id, event.ap_id, event.peu_id, event.slot_id, event.block_id,
+                      event.wave_id};
+    const auto exit_it = exit_cycle_by_wave.find(key);
+    if (exit_it == exit_cycle_by_wave.end()) {
+      continue;
+    }
+    EXPECT_LE(event.cycle, exit_it->second)
+        << "wave_switch_away emitted after exit for block=" << event.block_id
+        << " wave=" << event.wave_id << " slot=" << event.slot_id << " peu=" << event.peu_id;
+  }
+  EXPECT_TRUE(saw_switch_away);
+}
+
+TEST(TraceTest, EncodedFunctionalSamePeuSwitchAwayBelongsToPreviouslyIssuedWave) {
+  if (!HasLlvmMcAmdgpuToolchain()) {
+    GTEST_SKIP() << "required llvm-mc/LLVM/binutils tools not available";
+  }
+
+  const auto obj_path = AssembleLlvmMcFixture(
+      "gpu_model_encoded_functional_same_peu_switch_away_previous_wave_obj",
+      std::filesystem::path("tests/asm_cases/loader/kernarg_aggregate_by_value.s"));
+  const auto image = ObjectReader{}.LoadProgramObject(obj_path, "asm_kernarg_aggregate_by_value");
+
+  CollectingTraceSink trace;
+  ExecEngine runtime(&trace);
+
+  struct AggregateArg {
+    int32_t x;
+    int32_t y;
+    int32_t z;
+  } aggregate{3, 5, 7};
+
+  const uint64_t out_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
+  runtime.memory().StoreGlobalValue<int32_t>(out_addr, 0);
+
+  LaunchRequest request;
+  request.arch_name = "c500";
+  request.program_object = &image;
+  request.mode = ExecutionMode::Functional;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64 * 33;
+  request.args.PushU64(out_addr);
+  request.args.PushBytes(&aggregate, sizeof(aggregate));
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  struct WaveKey {
+    uint32_t dpc_id;
+    uint32_t ap_id;
+    uint32_t peu_id;
+    uint32_t slot_id;
+    uint32_t block_id;
+    uint32_t wave_id;
+
+    bool operator<(const WaveKey& other) const {
+      return std::tie(dpc_id, ap_id, peu_id, slot_id, block_id, wave_id) <
+             std::tie(other.dpc_id, other.ap_id, other.peu_id, other.slot_id, other.block_id,
+                      other.wave_id);
+    }
+  };
+
+  std::map<WaveKey, size_t> first_issue_index_by_wave;
+  for (size_t i = 0; i < trace.events().size(); ++i) {
+    const auto& event = trace.events()[i];
+    if (event.kind != TraceEventKind::WaveStep) {
+      continue;
+    }
+    const WaveKey key{event.dpc_id, event.ap_id, event.peu_id, event.slot_id, event.block_id,
+                      event.wave_id};
+    first_issue_index_by_wave.try_emplace(key, i);
+  }
+
+  bool saw_switch_away = false;
+  for (size_t i = 0; i < trace.events().size(); ++i) {
+    const auto& event = trace.events()[i];
+    if (event.kind != TraceEventKind::WaveSwitchAway) {
+      continue;
+    }
+    saw_switch_away = true;
+    const WaveKey key{event.dpc_id, event.ap_id, event.peu_id, event.slot_id, event.block_id,
+                      event.wave_id};
+    const auto issue_it = first_issue_index_by_wave.find(key);
+    ASSERT_NE(issue_it, first_issue_index_by_wave.end());
+    EXPECT_LT(issue_it->second, i)
+        << "wave_switch_away attributed to a wave before that wave ever issued: block="
+        << event.block_id << " wave=" << event.wave_id << " slot=" << event.slot_id
+        << " peu=" << event.peu_id;
+  }
+  EXPECT_TRUE(saw_switch_away);
+}
+
 TEST(TraceTest, NativePerfettoProtoShowsEncodedCycleResidentSlotsAcrossPeus) {
   if (!HasLlvmMcAmdgpuToolchain()) {
     GTEST_SKIP() << "required llvm-mc/LLVM/binutils tools not available";
@@ -3269,6 +3425,133 @@ TEST(TraceTest, EncodedFunctionalWaitcntEmitsWaveWaitArriveAndResumeMarkers) {
   EXPECT_LT(wave_wait_index, wave_arrive_index);
   EXPECT_LT(wave_arrive_index, wave_resume_index);
   EXPECT_LT(wave_resume_index, resumed_step_index);
+
+  std::filesystem::remove_all(assembled.temp_dir);
+}
+
+TEST(TraceTest, EncodedFunctionalPreWaitArriveIsNotReboundToWaitResume) {
+  if (!test_utils::HasLlvmMcAmdgpuToolchain()) {
+    GTEST_SKIP() << "required llvm-mc/LLVM/binutils tools not available";
+  }
+
+  const auto assembled = test_utils::AssembleAndDecodeLlvmMcModule(
+      "gpu_model_encoded_functional_pre_wait_arrive",
+      "encoded_functional_pre_wait_arrive_kernel",
+      R"(.amdgcn_target "amdgcn-amd-amdhsa--gfx900"
+
+.text
+.globl encoded_functional_pre_wait_arrive_kernel
+.p2align 8
+.type encoded_functional_pre_wait_arrive_kernel,@function
+encoded_functional_pre_wait_arrive_kernel:
+  s_load_dwordx2 s[2:3], s[0:1], 0x0
+  s_waitcnt lgkmcnt(0)
+  v_mov_b32_e32 v1, s2
+  v_mov_b32_e32 v2, s3
+  global_load_dword v4, v[1:2], off
+  s_mov_b32 s4, 1
+  s_mov_b32 s5, 2
+  s_mov_b32 s6, 3
+  s_mov_b32 s7, 4
+  s_mov_b32 s8, 5
+  s_mov_b32 s9, 6
+  s_mov_b32 s10, 7
+  s_mov_b32 s11, 8
+  s_mov_b32 s12, 9
+  s_mov_b32 s13, 10
+  s_mov_b32 s14, 11
+  s_mov_b32 s15, 12
+  global_load_dword v5, v[1:2], off
+  s_waitcnt vmcnt(0)
+  v_add_u32_e32 v6, v4, v5
+  s_endpgm
+.Lfunc_end0:
+  .size encoded_functional_pre_wait_arrive_kernel, .Lfunc_end0-encoded_functional_pre_wait_arrive_kernel
+
+.rodata
+.p2align 6
+  .amdhsa_kernel encoded_functional_pre_wait_arrive_kernel
+  .amdhsa_user_sgpr_kernarg_segment_ptr 1
+  .amdhsa_next_free_vgpr 7
+  .amdhsa_next_free_sgpr 16
+.end_amdhsa_kernel
+
+.amdgpu_metadata
+---
+amdhsa.version:
+  - 1
+  - 0
+amdhsa.kernels:
+  - .name: encoded_functional_pre_wait_arrive_kernel
+    .symbol: encoded_functional_pre_wait_arrive_kernel.kd
+    .kernarg_segment_size: 8
+    .group_segment_fixed_size: 0
+    .private_segment_fixed_size: 0
+    .kernarg_segment_align: 8
+    .wavefront_size: 64
+    .sgpr_count: 16
+    .vgpr_count: 7
+    .max_flat_workgroup_size: 256
+    .args:
+      - .size: 8
+        .offset: 0
+        .value_kind: global_buffer
+        .address_space: global
+        .actual_access: read_write
+...
+.end_amdgpu_metadata
+)");
+
+  CollectingTraceSink trace;
+  ExecEngine runtime(&trace);
+  runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
+  runtime.SetFixedGlobalMemoryLatency(20);
+
+  const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
+  runtime.memory().StoreGlobalValue<int32_t>(base_addr, 11);
+
+  const uint64_t waitcnt_pc = NthEncodedInstructionPcWithMnemonic(assembled.image, "s_waitcnt", 1);
+  ASSERT_NE(waitcnt_pc, std::numeric_limits<uint64_t>::max());
+
+  LaunchRequest request;
+  request.arch_name = "c500";
+  request.program_object = &assembled.image;
+  request.mode = ExecutionMode::Functional;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+  request.args.PushU64(base_addr);
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  const auto& events = trace.events();
+  size_t first_plain_arrive_index = std::numeric_limits<size_t>::max();
+  size_t wave_wait_index = std::numeric_limits<size_t>::max();
+  size_t resume_arrive_index = std::numeric_limits<size_t>::max();
+  for (size_t i = 0; i < events.size(); ++i) {
+    if (events[i].pc == waitcnt_pc && events[i].kind == TraceEventKind::WaveWait &&
+        wave_wait_index == std::numeric_limits<size_t>::max()) {
+      wave_wait_index = i;
+    }
+    if (events[i].kind == TraceEventKind::Arrive &&
+        events[i].arrive_kind == TraceArriveKind::Load &&
+        events[i].arrive_progress == TraceArriveProgressKind::None &&
+        first_plain_arrive_index == std::numeric_limits<size_t>::max()) {
+      first_plain_arrive_index = i;
+    }
+    if (events[i].pc == waitcnt_pc && events[i].kind == TraceEventKind::Arrive &&
+        events[i].arrive_kind == TraceArriveKind::Load &&
+        events[i].arrive_progress == TraceArriveProgressKind::Resume &&
+        resume_arrive_index == std::numeric_limits<size_t>::max()) {
+      resume_arrive_index = i;
+    }
+  }
+
+  ASSERT_NE(first_plain_arrive_index, std::numeric_limits<size_t>::max());
+  ASSERT_NE(wave_wait_index, std::numeric_limits<size_t>::max());
+  ASSERT_NE(resume_arrive_index, std::numeric_limits<size_t>::max());
+  EXPECT_LT(first_plain_arrive_index, wave_wait_index);
+  EXPECT_LT(wave_wait_index, resume_arrive_index);
 
   std::filesystem::remove_all(assembled.temp_dir);
 }

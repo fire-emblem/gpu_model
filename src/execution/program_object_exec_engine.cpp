@@ -76,6 +76,12 @@ struct EncodedWaveState {
   uint64_t waiting_resume_pc_increment = 0;
 };
 
+struct EncodedLastScheduledWaveTraceState {
+  uint64_t wave_tag = 0;
+  TraceWaveView wave{};
+  uint64_t pc = 0;
+};
+
 struct ParallelWaveRef {
   size_t block_index = 0;
   size_t wave_index = 0;
@@ -88,6 +94,7 @@ struct EncodedPeuSlot {
   uint64_t busy_until = 0;
   size_t next_rr = 0;
   uint64_t last_wave_tag = std::numeric_limits<uint64_t>::max();
+  std::optional<EncodedLastScheduledWaveTraceState> last_wave_trace;
 };
 
 struct EncodedApResidentState {
@@ -1098,7 +1105,7 @@ class EncodedExecutionCore {
   size_t waiting_block_rr_ = 0;
   std::vector<EncodedPeuSlot> cycle_peu_slots_;
   std::unordered_map<uint32_t, EncodedApResidentState> cycle_ap_states_;
-  std::unordered_map<uint64_t, uint64_t> last_wave_tag_per_ap_peu_;
+  std::unordered_map<uint64_t, EncodedLastScheduledWaveTraceState> last_wave_per_ap_peu_;
   uint64_t cycle_total_cycles_ = 0;
   uint64_t max_trace_cycle_ = 0;
 
@@ -1125,6 +1132,16 @@ class EncodedExecutionCore {
                          .pc = raw_wave.wave.pc};
   }
 
+  uint64_t ApPeuKey(const RawBlock& block, const RawWave& raw_wave) const {
+    return (static_cast<uint64_t>(block.global_ap_id) << 32u) |
+           static_cast<uint64_t>(raw_wave.wave.peu_id);
+  }
+
+  uint64_t WaveTag(const RawWave& raw_wave) const {
+    return (static_cast<uint64_t>(raw_wave.wave.block_id) << 32u) |
+           static_cast<uint64_t>(raw_wave.wave.wave_id);
+  }
+
   TraceEvent MakeRawWaveTraceEvent(const RawWave& raw_wave,
                                    TraceEventKind kind,
                                    uint64_t cycle,
@@ -1140,27 +1157,60 @@ class EncodedExecutionCore {
 
   void MaybeEmitWaveSwitchAwayEvent(const RawBlock& block,
                                     const RawWave& raw_wave,
-                                    uint64_t pc) {
-    const uint64_t ap_peu_key = (static_cast<uint64_t>(block.global_ap_id) << 32u) |
-                                static_cast<uint64_t>(raw_wave.wave.peu_id);
-    const uint64_t wave_tag = (static_cast<uint64_t>(raw_wave.wave.block_id) << 32u) |
-                              static_cast<uint64_t>(raw_wave.wave.wave_id);
-
-    bool emit_switch_away = false;
+                                    uint64_t issue_cycle) {
+    const uint64_t ap_peu_key = ApPeuKey(block, raw_wave);
+    const uint64_t wave_tag = WaveTag(raw_wave);
+    std::optional<EncodedLastScheduledWaveTraceState> previous_wave;
     {
       std::lock_guard<std::mutex> lock(peu_schedule_trace_mutex_);
-      const auto it = last_wave_tag_per_ap_peu_.find(ap_peu_key);
-      emit_switch_away = it != last_wave_tag_per_ap_peu_.end() && it->second != wave_tag;
-      last_wave_tag_per_ap_peu_[ap_peu_key] = wave_tag;
+      const auto it = last_wave_per_ap_peu_.find(ap_peu_key);
+      if (it != last_wave_per_ap_peu_.end() && it->second.wave_tag != wave_tag) {
+        previous_wave = it->second;
+      }
     }
 
-    if (!emit_switch_away) {
+    if (!previous_wave.has_value()) {
       return;
     }
-    TraceEventLocked(MakeTraceWaveSwitchAwayEvent(
-        MakeRawTraceWaveView(raw_wave), NextFunctionalTraceCycle(), TraceSlotModel(), pc));
-    TraceEventLocked(MakeTraceWaveSwitchStallEvent(
-        MakeRawTraceWaveView(raw_wave), NextFunctionalTraceCycle(), TraceSlotModel(), pc));
+    TraceEventLocked(MakeTraceWaveSwitchAwayEvent(previous_wave->wave,
+                                                  issue_cycle,
+                                                  TraceSlotModel(),
+                                                  previous_wave->pc));
+    TraceEventLocked(MakeTraceWaveSwitchStallEvent(previous_wave->wave,
+                                                   issue_cycle,
+                                                   TraceSlotModel(),
+                                                   previous_wave->pc));
+  }
+
+  void ClearLastScheduledWaveIfCompleted(const RawBlock& block, const RawWave& raw_wave) {
+    const uint64_t ap_peu_key = ApPeuKey(block, raw_wave);
+    const uint64_t wave_tag = WaveTag(raw_wave);
+    std::lock_guard<std::mutex> lock(peu_schedule_trace_mutex_);
+    const auto it = last_wave_per_ap_peu_.find(ap_peu_key);
+    if (it != last_wave_per_ap_peu_.end() && it->second.wave_tag == wave_tag) {
+      last_wave_per_ap_peu_.erase(it);
+    }
+  }
+
+  std::optional<EncodedLastScheduledWaveTraceState> LastScheduledWaveForPeu(const RawBlock& block,
+                                                                            const RawWave& raw_wave) {
+    const uint64_t ap_peu_key = ApPeuKey(block, raw_wave);
+    std::lock_guard<std::mutex> lock(peu_schedule_trace_mutex_);
+    const auto it = last_wave_per_ap_peu_.find(ap_peu_key);
+    if (it == last_wave_per_ap_peu_.end()) {
+      return std::nullopt;
+    }
+    return it->second;
+  }
+
+  void RememberScheduledWaveForPeu(const RawBlock& block, const RawWave& raw_wave) {
+    const uint64_t ap_peu_key = ApPeuKey(block, raw_wave);
+    std::lock_guard<std::mutex> lock(peu_schedule_trace_mutex_);
+    last_wave_per_ap_peu_[ap_peu_key] = EncodedLastScheduledWaveTraceState{
+        .wave_tag = WaveTag(raw_wave),
+        .wave = MakeRawTraceWaveView(raw_wave),
+        .pc = raw_wave.wave.pc,
+    };
   }
 
   void InitializeWaveLaunchState() {
@@ -1636,35 +1686,34 @@ class EncodedExecutionCore {
           continue;
         }
         uint64_t slot_commit_cycle = cycle;
-        uint64_t slot_last_wave_tag = slot.last_wave_tag;
         for (size_t selected_index : bundle.selected_candidate_indices) {
           RawWave* raw_wave = ordered_waves.at(selected_index);
-          const uint64_t wave_tag =
-              (static_cast<uint64_t>(raw_wave->wave.block_id) << 32u) |
-              static_cast<uint64_t>(raw_wave->wave.wave_id);
+          const uint64_t wave_tag = WaveTag(*raw_wave);
+          const std::optional<EncodedLastScheduledWaveTraceState> previous_wave =
+              LastScheduledWaveForPeu(raw_blocks_[raw_wave->block_index], *raw_wave);
           const uint64_t switch_penalty =
-              slot_last_wave_tag != std::numeric_limits<uint64_t>::max() &&
-                      slot_last_wave_tag != wave_tag
+              previous_wave.has_value() && previous_wave->wave_tag != wave_tag
                   ? timing_config_.launch_timing.warp_switch_cycles
                   : 0;
           if (switch_penalty > 0) {
-            TraceEventLocked(MakeTraceWaveSwitchAwayEvent(MakeRawTraceWaveView(*raw_wave),
+            TraceEventLocked(MakeTraceWaveSwitchAwayEvent(previous_wave->wave,
                                                           cycle,
-                                                          TraceSlotModel()));
-            TraceEventLocked(MakeTraceWaveSwitchStallEvent(MakeRawTraceWaveView(*raw_wave),
+                                                          TraceSlotModel(),
+                                                          previous_wave->pc));
+            TraceEventLocked(MakeTraceWaveSwitchStallEvent(previous_wave->wave,
                                                            cycle,
-                                                           TraceSlotModel()));
+                                                           TraceSlotModel(),
+                                                           previous_wave->pc));
           }
           const uint64_t issue_cycles = ExecuteWaveCycle(raw_blocks_[raw_wave->block_index],
                                                          raw_wave->wave_index,
                                                          cycle);
           slot_commit_cycle =
               std::max(slot_commit_cycle, cycle + switch_penalty + std::max<uint64_t>(1u, issue_cycles));
-          slot_last_wave_tag = wave_tag;
+          RememberScheduledWaveForPeu(raw_blocks_[raw_wave->block_index], *raw_wave);
           issued = true;
         }
         slot.busy_until = slot_commit_cycle;
-        slot.last_wave_tag = slot_last_wave_tag;
         slot.next_rr = bundle.next_round_robin_index;
       }
 
@@ -2128,8 +2177,6 @@ class EncodedExecutionCore {
     auto& wave = raw_wave.wave;
     auto& wave_state = block.wave_states[wave_index];
 
-    MaybeEmitWaveSwitchAwayEvent(block, raw_wave, wave.pc);
-
     const auto it = pc_to_index_.find(wave.pc);
     if (it == pc_to_index_.end()) {
       throw std::out_of_range("raw GCN wave pc out of range");
@@ -2155,9 +2202,11 @@ class EncodedExecutionCore {
     }
 
     const uint64_t trace_cycle = NextFunctionalTraceCycle();
+    MaybeEmitWaveSwitchAwayEvent(block, raw_wave, trace_cycle);
     const uint64_t commit_cycle = trace_cycle + std::max<uint64_t>(1u, issue_cycles);
     TraceEventLocked(MakeRawWaveTraceEvent(
         raw_wave, TraceEventKind::WaveStep, trace_cycle, FormatRawWaveStepMessage(decoded, object, wave)));
+    RememberScheduledWaveForPeu(block, raw_wave);
     TraceEventLocked(
         MakeTraceCommitEvent(MakeRawTraceWaveView(raw_wave), commit_cycle, TraceSlotModel()));
 
@@ -2265,6 +2314,7 @@ class EncodedExecutionCore {
         wave.wait_reason = WaveWaitReason::None;
         TraceEventLocked(
             MakeTraceWaveExitEvent(MakeRawTraceWaveView(raw_wave), trace_cycle, TraceSlotModel()));
+        ClearLastScheduledWaveIfCompleted(block, raw_wave);
       } else if (wave.run_state != WaveRunState::Waiting) {
         wave.run_state = WaveRunState::Runnable;
         wave.status = WaveStatus::Active;
@@ -2389,6 +2439,7 @@ class EncodedExecutionCore {
         wave.wait_reason = WaveWaitReason::None;
         TraceEventLocked(
             MakeTraceWaveExitEvent(MakeRawTraceWaveView(raw_wave), cycle, TraceSlotModel()));
+        ClearLastScheduledWaveIfCompleted(block, raw_wave);
         auto& slot = cycle_peu_slots_.at(raw_wave.peu_slot_index);
         RemoveResidentWave(slot, raw_wave);
         RefillActiveWindow(slot, cycle);
