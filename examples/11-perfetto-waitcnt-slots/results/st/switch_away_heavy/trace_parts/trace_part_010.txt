@@ -1,323 +1,3 @@
-    lane[0x20] = 0x0
-    lane[0x21] = 0x0
-    lane[0x22] = 0x0
-    lane[0x23] = 0x0
-    lane[0x24] = 0x0
-    lane[0x25] = 0x0
-    lane[0x26] = 0x0
-    lane[0x27] = 0x0
-    lane[0x28] = 0x0
-    lane[0x29] = 0x0
-    lane[0x2a] = 0x0
-    lane[0x2b] = 0x0
-    lane[0x2c] = 0x0
-    lane[0x2d] = 0x0
-    lane[0x2e] = 0x0
-    lane[0x2f] = 0x0
-    lane[0x30] = 0x0
-    lane[0x31] = 0x0
-    lane[0x32] = 0x0
-    lane[0x33] = 0x0
-    lane[0x34] = 0x0
-    lane[0x35] = 0x0
-    lane[0x36] = 0x0
-    lane[0x37] = 0x0
-    lane[0x38] = 0x0
-    lane[0x39] = 0x0
-    lane[0x3a] = 0x0
-    lane[0x3b] = 0x0
-    lane[0x3c] = 0x0
-    lane[0x3d] = 0x0
-    lane[0x3e] = 0x0
-    lane[0x3f] = 0x0
-
-  [0x01] v1:
-    lane[0x00] = 0x781
-    lane[0x01] = 0x782
-    lane[0x02] = 0x783
-    lane[0x03] = 0x784
-    lane[0x04] = 0x785
-    lane[0x05] = 0x786
-    lane[0x06] = 0x787
-    lane[0x07] = 0x788
-    lane[0x08] = 0x789
-    lane[0x09] = 0x78a
-    lane[0x0a] = 0x78b
-    lane[0x0b] = 0x78c
-    lane[0x0c] = 0x78d
-    lane[0x0d] = 0x78e
-    lane[0x0e] = 0x78f
-    lane[0x0f] = 0x790
-    lane[0x10] = 0x791
-    lane[0x11] = 0x792
-    lane[0x12] = 0x793
-    lane[0x13] = 0x794
-    lane[0x14] = 0x795
-    lane[0x15] = 0x796
-    lane[0x16] = 0x797
-    lane[0x17] = 0x798
-    lane[0x18] = 0x799
-    lane[0x19] = 0x79a
-    lane[0x1a] = 0x79b
-    lane[0x1b] = 0x79c
-    lane[0x1c] = 0x79d
-    lane[0x1d] = 0x79e
-    lane[0x1e] = 0x79f
-    lane[0x1f] = 0x7a0
-    lane[0x20] = 0x7a1
-    lane[0x21] = 0x7a2
-    lane[0x22] = 0x7a3
-    lane[0x23] = 0x7a4
-    lane[0x24] = 0x7a5
-    lane[0x25] = 0x7a6
-    lane[0x26] = 0x7a7
-    lane[0x27] = 0x7a8
-    lane[0x28] = 0x7a9
-    lane[0x29] = 0x7aa
-    lane[0x2a] = 0x7ab
-    lane[0x2b] = 0x7ac
-    lane[0x2c] = 0x7ad
-    lane[0x2d] = 0x7ae
-    lane[0x2e] = 0x7af
-    lane[0x2f] = 0x7b0
-    lane[0x30] = 0x7b1
-    lane[0x31] = 0x7b2
-    lane[0x32] = 0x7b3
-    lane[0x33] = 0x7b4
-    lane[0x34] = 0x7b5
-    lane[0x35] = 0x7b6
-    lane[0x36] = 0x7b7
-    lane[0x37] = 0x7b8
-    lane[0x38] = 0x7b9
-    lane[0x39] = 0x7ba
-    lane[0x3a] = 0x7bb
-    lane[0x3b] = 0x7bc
-    lane[0x3c] = 0x7bd
-    lane[0x3d] = 0x7be
-    lane[0x3e] = 0x7bf
-    lane[0x3f] = 0x7c0
-
-  [0x02] v0:
-    lane[0x00] = 0x780
-    lane[0x01] = 0x781
-    lane[0x02] = 0x782
-    lane[0x03] = 0x783
-    lane[0x04] = 0x784
-    lane[0x05] = 0x785
-    lane[0x06] = 0x786
-    lane[0x07] = 0x787
-    lane[0x08] = 0x788
-    lane[0x09] = 0x789
-    lane[0x0a] = 0x78a
-    lane[0x0b] = 0x78b
-    lane[0x0c] = 0x78c
-    lane[0x0d] = 0x78d
-    lane[0x0e] = 0x78e
-    lane[0x0f] = 0x78f
-    lane[0x10] = 0x790
-    lane[0x11] = 0x791
-    lane[0x12] = 0x792
-    lane[0x13] = 0x793
-    lane[0x14] = 0x794
-    lane[0x15] = 0x795
-    lane[0x16] = 0x796
-    lane[0x17] = 0x797
-    lane[0x18] = 0x798
-    lane[0x19] = 0x799
-    lane[0x1a] = 0x79a
-    lane[0x1b] = 0x79b
-    lane[0x1c] = 0x79c
-    lane[0x1d] = 0x79d
-    lane[0x1e] = 0x79e
-    lane[0x1f] = 0x79f
-    lane[0x20] = 0x7a0
-    lane[0x21] = 0x7a1
-    lane[0x22] = 0x7a2
-    lane[0x23] = 0x7a3
-    lane[0x24] = 0x7a4
-    lane[0x25] = 0x7a5
-    lane[0x26] = 0x7a6
-    lane[0x27] = 0x7a7
-    lane[0x28] = 0x7a8
-    lane[0x29] = 0x7a9
-    lane[0x2a] = 0x7aa
-    lane[0x2b] = 0x7ab
-    lane[0x2c] = 0x7ac
-    lane[0x2d] = 0x7ad
-    lane[0x2e] = 0x7ae
-    lane[0x2f] = 0x7af
-    lane[0x30] = 0x7b0
-    lane[0x31] = 0x7b1
-    lane[0x32] = 0x7b2
-    lane[0x33] = 0x7b3
-    lane[0x34] = 0x7b4
-    lane[0x35] = 0x7b5
-    lane[0x36] = 0x7b6
-    lane[0x37] = 0x7b7
-    lane[0x38] = 0x7b8
-    lane[0x39] = 0x7b9
-    lane[0x3a] = 0x7ba
-    lane[0x3b] = 0x7bb
-    lane[0x3c] = 0x7bc
-    lane[0x3d] = 0x7bd
-    lane[0x3e] = 0x7be
-    lane[0x3f] = 0x7bf
-
-pc=0x14 cycle=0x14 dpc=0x0 ap=0x0 peu=0x2 slot=0x7 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=Commit block=0x0 wave=0x1e canonical_name=commit presentation_name=commit display_name=commit category=instruction stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=commit
-pc=0x14 cycle=0x10 dpc=0x0 ap=0x0 peu=0x3 slot=0x6 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=WaveSwitchAway block=0x0 wave=0x1b canonical_name=wave_switch_away presentation_name=wave_switch_away display_name=wave_switch_away category=wave/switch_away stall_reason=warp_switch barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=wave_switch_away
-pc=0x14 cycle=0x10 dpc=0x0 ap=0x0 peu=0x3 slot=0x6 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=Stall block=0x0 wave=0x1b canonical_name=stall_warp_switch presentation_name=wave_switch_away display_name=warp_switch category=wave/switch_away stall_reason=warp_switch barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=reason=warp_switch
-pc=0x14 cycle=0x10 dpc=0x0 ap=0x0 peu=0x3 slot=0x7 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=IssueSelect block=0x0 wave=0x1f canonical_name=issue_select presentation_name=issue_select display_name=issue_select category=launch/wave stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=issue_select
-pc=0x14 cycle=0x10 dpc=0x0 ap=0x0 peu=0x3 slot=0x7 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=WaveStep block=0x0 wave=0x1f canonical_name=v_add_i32 presentation_name=v_add_i32 display_name=v_add_i32 category=instruction stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=pc=0x14 op=v_add_i32 exec_lanes=0x40
-  operands:
-  [0x00] v2:
-    lane[0x00] = 0x0
-    lane[0x01] = 0x0
-    lane[0x02] = 0x0
-    lane[0x03] = 0x0
-    lane[0x04] = 0x0
-    lane[0x05] = 0x0
-    lane[0x06] = 0x0
-    lane[0x07] = 0x0
-    lane[0x08] = 0x0
-    lane[0x09] = 0x0
-    lane[0x0a] = 0x0
-    lane[0x0b] = 0x0
-    lane[0x0c] = 0x0
-    lane[0x0d] = 0x0
-    lane[0x0e] = 0x0
-    lane[0x0f] = 0x0
-    lane[0x10] = 0x0
-    lane[0x11] = 0x0
-    lane[0x12] = 0x0
-    lane[0x13] = 0x0
-    lane[0x14] = 0x0
-    lane[0x15] = 0x0
-    lane[0x16] = 0x0
-    lane[0x17] = 0x0
-    lane[0x18] = 0x0
-    lane[0x19] = 0x0
-    lane[0x1a] = 0x0
-    lane[0x1b] = 0x0
-    lane[0x1c] = 0x0
-    lane[0x1d] = 0x0
-    lane[0x1e] = 0x0
-    lane[0x1f] = 0x0
-    lane[0x20] = 0x0
-    lane[0x21] = 0x0
-    lane[0x22] = 0x0
-    lane[0x23] = 0x0
-    lane[0x24] = 0x0
-    lane[0x25] = 0x0
-    lane[0x26] = 0x0
-    lane[0x27] = 0x0
-    lane[0x28] = 0x0
-    lane[0x29] = 0x0
-    lane[0x2a] = 0x0
-    lane[0x2b] = 0x0
-    lane[0x2c] = 0x0
-    lane[0x2d] = 0x0
-    lane[0x2e] = 0x0
-    lane[0x2f] = 0x0
-    lane[0x30] = 0x0
-    lane[0x31] = 0x0
-    lane[0x32] = 0x0
-    lane[0x33] = 0x0
-    lane[0x34] = 0x0
-    lane[0x35] = 0x0
-    lane[0x36] = 0x0
-    lane[0x37] = 0x0
-    lane[0x38] = 0x0
-    lane[0x39] = 0x0
-    lane[0x3a] = 0x0
-    lane[0x3b] = 0x0
-    lane[0x3c] = 0x0
-    lane[0x3d] = 0x0
-    lane[0x3e] = 0x0
-    lane[0x3f] = 0x0
-
-  [0x01] v1:
-    lane[0x00] = 0x7c1
-    lane[0x01] = 0x7c2
-    lane[0x02] = 0x7c3
-    lane[0x03] = 0x7c4
-    lane[0x04] = 0x7c5
-    lane[0x05] = 0x7c6
-    lane[0x06] = 0x7c7
-    lane[0x07] = 0x7c8
-    lane[0x08] = 0x7c9
-    lane[0x09] = 0x7ca
-    lane[0x0a] = 0x7cb
-    lane[0x0b] = 0x7cc
-    lane[0x0c] = 0x7cd
-    lane[0x0d] = 0x7ce
-    lane[0x0e] = 0x7cf
-    lane[0x0f] = 0x7d0
-    lane[0x10] = 0x7d1
-    lane[0x11] = 0x7d2
-    lane[0x12] = 0x7d3
-    lane[0x13] = 0x7d4
-    lane[0x14] = 0x7d5
-    lane[0x15] = 0x7d6
-    lane[0x16] = 0x7d7
-    lane[0x17] = 0x7d8
-    lane[0x18] = 0x7d9
-    lane[0x19] = 0x7da
-    lane[0x1a] = 0x7db
-    lane[0x1b] = 0x7dc
-    lane[0x1c] = 0x7dd
-    lane[0x1d] = 0x7de
-    lane[0x1e] = 0x7df
-    lane[0x1f] = 0x7e0
-    lane[0x20] = 0x7e1
-    lane[0x21] = 0x7e2
-    lane[0x22] = 0x7e3
-    lane[0x23] = 0x7e4
-    lane[0x24] = 0x7e5
-    lane[0x25] = 0x7e6
-    lane[0x26] = 0x7e7
-    lane[0x27] = 0x7e8
-    lane[0x28] = 0x7e9
-    lane[0x29] = 0x7ea
-    lane[0x2a] = 0x7eb
-    lane[0x2b] = 0x7ec
-    lane[0x2c] = 0x7ed
-    lane[0x2d] = 0x7ee
-    lane[0x2e] = 0x7ef
-    lane[0x2f] = 0x7f0
-    lane[0x30] = 0x7f1
-    lane[0x31] = 0x7f2
-    lane[0x32] = 0x7f3
-    lane[0x33] = 0x7f4
-    lane[0x34] = 0x7f5
-    lane[0x35] = 0x7f6
-    lane[0x36] = 0x7f7
-    lane[0x37] = 0x7f8
-    lane[0x38] = 0x7f9
-    lane[0x39] = 0x7fa
-    lane[0x3a] = 0x7fb
-    lane[0x3b] = 0x7fc
-    lane[0x3c] = 0x7fd
-    lane[0x3d] = 0x7fe
-    lane[0x3e] = 0x7ff
-    lane[0x3f] = 0x800
-
-  [0x02] v0:
-    lane[0x00] = 0x7c0
-    lane[0x01] = 0x7c1
-    lane[0x02] = 0x7c2
-    lane[0x03] = 0x7c3
-    lane[0x04] = 0x7c4
-    lane[0x05] = 0x7c5
-    lane[0x06] = 0x7c6
-    lane[0x07] = 0x7c7
-    lane[0x08] = 0x7c8
-    lane[0x09] = 0x7c9
-    lane[0x0a] = 0x7ca
-    lane[0x0b] = 0x7cb
-    lane[0x0c] = 0x7cc
-    lane[0x0d] = 0x7cd
-    lane[0x0e] = 0x7ce
-    lane[0x0f] = 0x7cf
     lane[0x10] = 0x7d0
     lane[0x11] = 0x7d1
     lane[0x12] = 0x7d2
@@ -368,8 +48,6 @@ pc=0x14 cycle=0x10 dpc=0x0 ap=0x0 peu=0x3 slot=0x7 slot_model=logical_unbounded 
     lane[0x3f] = 0x7ff
 
 pc=0x14 cycle=0x14 dpc=0x0 ap=0x0 peu=0x3 slot=0x7 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=Commit block=0x0 wave=0x1f canonical_name=commit presentation_name=commit display_name=commit category=instruction stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=commit
-pc=0x14 cycle=0x10 dpc=0x0 ap=0x0 peu=0x0 slot=0x7 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=WaveSwitchAway block=0x0 wave=0x1c canonical_name=wave_switch_away presentation_name=wave_switch_away display_name=wave_switch_away category=wave/switch_away stall_reason=warp_switch barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=wave_switch_away
-pc=0x14 cycle=0x10 dpc=0x0 ap=0x0 peu=0x0 slot=0x7 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=Stall block=0x0 wave=0x1c canonical_name=stall_warp_switch presentation_name=wave_switch_away display_name=warp_switch category=wave/switch_away stall_reason=warp_switch barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=reason=warp_switch
 pc=0x14 cycle=0x10 dpc=0x0 ap=0x0 peu=0x0 slot=0x8 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=IssueSelect block=0x0 wave=0x20 canonical_name=issue_select presentation_name=issue_select display_name=issue_select category=launch/wave stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=issue_select
 pc=0x14 cycle=0x10 dpc=0x0 ap=0x0 peu=0x0 slot=0x8 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=WaveStep block=0x0 wave=0x20 canonical_name=v_add_i32 presentation_name=v_add_i32 display_name=v_add_i32 category=instruction stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=pc=0x14 op=v_add_i32 exec_lanes=0x40
   operands:
@@ -572,8 +250,6 @@ pc=0x14 cycle=0x10 dpc=0x0 ap=0x0 peu=0x0 slot=0x8 slot_model=logical_unbounded 
     lane[0x3f] = 0x83f
 
 pc=0x14 cycle=0x14 dpc=0x0 ap=0x0 peu=0x0 slot=0x8 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=Commit block=0x0 wave=0x20 canonical_name=commit presentation_name=commit display_name=commit category=instruction stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=commit
-pc=0x14 cycle=0x14 dpc=0x0 ap=0x0 peu=0x0 slot=0x8 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=WaveSwitchAway block=0x0 wave=0x20 canonical_name=wave_switch_away presentation_name=wave_switch_away display_name=wave_switch_away category=wave/switch_away stall_reason=warp_switch barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=wave_switch_away
-pc=0x14 cycle=0x14 dpc=0x0 ap=0x0 peu=0x0 slot=0x8 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=Stall block=0x0 wave=0x20 canonical_name=stall_warp_switch presentation_name=wave_switch_away display_name=warp_switch category=wave/switch_away stall_reason=warp_switch barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=reason=warp_switch
 pc=0x18 cycle=0x14 dpc=0x0 ap=0x0 peu=0x0 slot=0x0 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=IssueSelect block=0x0 wave=0x0 canonical_name=issue_select presentation_name=issue_select display_name=issue_select category=launch/wave stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=issue_select
 pc=0x18 cycle=0x14 dpc=0x0 ap=0x0 peu=0x0 slot=0x0 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=WaveStep block=0x0 wave=0x0 canonical_name=v_add_i32 presentation_name=v_add_i32 display_name=v_add_i32 category=instruction stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=pc=0x18 op=v_add_i32 exec_lanes=0x40
   operands:
@@ -776,8 +452,6 @@ pc=0x18 cycle=0x14 dpc=0x0 ap=0x0 peu=0x0 slot=0x0 slot_model=logical_unbounded 
     lane[0x3f] = 0x40
 
 pc=0x18 cycle=0x18 dpc=0x0 ap=0x0 peu=0x0 slot=0x0 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=Commit block=0x0 wave=0x0 canonical_name=commit presentation_name=commit display_name=commit category=instruction stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=commit
-pc=0x14 cycle=0x14 dpc=0x0 ap=0x0 peu=0x1 slot=0x7 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=WaveSwitchAway block=0x0 wave=0x1d canonical_name=wave_switch_away presentation_name=wave_switch_away display_name=wave_switch_away category=wave/switch_away stall_reason=warp_switch barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=wave_switch_away
-pc=0x14 cycle=0x14 dpc=0x0 ap=0x0 peu=0x1 slot=0x7 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=Stall block=0x0 wave=0x1d canonical_name=stall_warp_switch presentation_name=wave_switch_away display_name=warp_switch category=wave/switch_away stall_reason=warp_switch barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=reason=warp_switch
 pc=0x18 cycle=0x14 dpc=0x0 ap=0x0 peu=0x1 slot=0x0 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=IssueSelect block=0x0 wave=0x1 canonical_name=issue_select presentation_name=issue_select display_name=issue_select category=launch/wave stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=issue_select
 pc=0x18 cycle=0x14 dpc=0x0 ap=0x0 peu=0x1 slot=0x0 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=WaveStep block=0x0 wave=0x1 canonical_name=v_add_i32 presentation_name=v_add_i32 display_name=v_add_i32 category=instruction stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=pc=0x18 op=v_add_i32 exec_lanes=0x40
   operands:
@@ -980,8 +654,6 @@ pc=0x18 cycle=0x14 dpc=0x0 ap=0x0 peu=0x1 slot=0x0 slot_model=logical_unbounded 
     lane[0x3f] = 0x80
 
 pc=0x18 cycle=0x18 dpc=0x0 ap=0x0 peu=0x1 slot=0x0 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=Commit block=0x0 wave=0x1 canonical_name=commit presentation_name=commit display_name=commit category=instruction stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=commit
-pc=0x14 cycle=0x14 dpc=0x0 ap=0x0 peu=0x2 slot=0x7 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=WaveSwitchAway block=0x0 wave=0x1e canonical_name=wave_switch_away presentation_name=wave_switch_away display_name=wave_switch_away category=wave/switch_away stall_reason=warp_switch barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=wave_switch_away
-pc=0x14 cycle=0x14 dpc=0x0 ap=0x0 peu=0x2 slot=0x7 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=Stall block=0x0 wave=0x1e canonical_name=stall_warp_switch presentation_name=wave_switch_away display_name=warp_switch category=wave/switch_away stall_reason=warp_switch barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=reason=warp_switch
 pc=0x18 cycle=0x14 dpc=0x0 ap=0x0 peu=0x2 slot=0x0 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=IssueSelect block=0x0 wave=0x2 canonical_name=issue_select presentation_name=issue_select display_name=issue_select category=launch/wave stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=issue_select
 pc=0x18 cycle=0x14 dpc=0x0 ap=0x0 peu=0x2 slot=0x0 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=WaveStep block=0x0 wave=0x2 canonical_name=v_add_i32 presentation_name=v_add_i32 display_name=v_add_i32 category=instruction stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=pc=0x18 op=v_add_i32 exec_lanes=0x40
   operands:
@@ -1184,8 +856,6 @@ pc=0x18 cycle=0x14 dpc=0x0 ap=0x0 peu=0x2 slot=0x0 slot_model=logical_unbounded 
     lane[0x3f] = 0xc0
 
 pc=0x18 cycle=0x18 dpc=0x0 ap=0x0 peu=0x2 slot=0x0 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=Commit block=0x0 wave=0x2 canonical_name=commit presentation_name=commit display_name=commit category=instruction stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=commit
-pc=0x14 cycle=0x14 dpc=0x0 ap=0x0 peu=0x3 slot=0x7 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=WaveSwitchAway block=0x0 wave=0x1f canonical_name=wave_switch_away presentation_name=wave_switch_away display_name=wave_switch_away category=wave/switch_away stall_reason=warp_switch barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=wave_switch_away
-pc=0x14 cycle=0x14 dpc=0x0 ap=0x0 peu=0x3 slot=0x7 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=Stall block=0x0 wave=0x1f canonical_name=stall_warp_switch presentation_name=wave_switch_away display_name=warp_switch category=wave/switch_away stall_reason=warp_switch barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=reason=warp_switch
 pc=0x18 cycle=0x14 dpc=0x0 ap=0x0 peu=0x3 slot=0x0 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=IssueSelect block=0x0 wave=0x3 canonical_name=issue_select presentation_name=issue_select display_name=issue_select category=launch/wave stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=issue_select
 pc=0x18 cycle=0x14 dpc=0x0 ap=0x0 peu=0x3 slot=0x0 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=WaveStep block=0x0 wave=0x3 canonical_name=v_add_i32 presentation_name=v_add_i32 display_name=v_add_i32 category=instruction stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=pc=0x18 op=v_add_i32 exec_lanes=0x40
   operands:
@@ -1388,8 +1058,6 @@ pc=0x18 cycle=0x14 dpc=0x0 ap=0x0 peu=0x3 slot=0x0 slot_model=logical_unbounded 
     lane[0x3f] = 0x100
 
 pc=0x18 cycle=0x18 dpc=0x0 ap=0x0 peu=0x3 slot=0x0 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=Commit block=0x0 wave=0x3 canonical_name=commit presentation_name=commit display_name=commit category=instruction stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=commit
-pc=0x18 cycle=0x14 dpc=0x0 ap=0x0 peu=0x0 slot=0x0 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=WaveSwitchAway block=0x0 wave=0x0 canonical_name=wave_switch_away presentation_name=wave_switch_away display_name=wave_switch_away category=wave/switch_away stall_reason=warp_switch barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=wave_switch_away
-pc=0x18 cycle=0x14 dpc=0x0 ap=0x0 peu=0x0 slot=0x0 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=Stall block=0x0 wave=0x0 canonical_name=stall_warp_switch presentation_name=wave_switch_away display_name=warp_switch category=wave/switch_away stall_reason=warp_switch barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=reason=warp_switch
 pc=0x18 cycle=0x14 dpc=0x0 ap=0x0 peu=0x0 slot=0x1 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=IssueSelect block=0x0 wave=0x4 canonical_name=issue_select presentation_name=issue_select display_name=issue_select category=launch/wave stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=issue_select
 pc=0x18 cycle=0x14 dpc=0x0 ap=0x0 peu=0x0 slot=0x1 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=WaveStep block=0x0 wave=0x4 canonical_name=v_add_i32 presentation_name=v_add_i32 display_name=v_add_i32 category=instruction stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=pc=0x18 op=v_add_i32 exec_lanes=0x40
   operands:
@@ -1592,8 +1260,6 @@ pc=0x18 cycle=0x14 dpc=0x0 ap=0x0 peu=0x0 slot=0x1 slot_model=logical_unbounded 
     lane[0x3f] = 0x140
 
 pc=0x18 cycle=0x18 dpc=0x0 ap=0x0 peu=0x0 slot=0x1 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=Commit block=0x0 wave=0x4 canonical_name=commit presentation_name=commit display_name=commit category=instruction stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=commit
-pc=0x18 cycle=0x14 dpc=0x0 ap=0x0 peu=0x1 slot=0x0 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=WaveSwitchAway block=0x0 wave=0x1 canonical_name=wave_switch_away presentation_name=wave_switch_away display_name=wave_switch_away category=wave/switch_away stall_reason=warp_switch barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=wave_switch_away
-pc=0x18 cycle=0x14 dpc=0x0 ap=0x0 peu=0x1 slot=0x0 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=Stall block=0x0 wave=0x1 canonical_name=stall_warp_switch presentation_name=wave_switch_away display_name=warp_switch category=wave/switch_away stall_reason=warp_switch barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=reason=warp_switch
 pc=0x18 cycle=0x14 dpc=0x0 ap=0x0 peu=0x1 slot=0x1 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=IssueSelect block=0x0 wave=0x5 canonical_name=issue_select presentation_name=issue_select display_name=issue_select category=launch/wave stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=issue_select
 pc=0x18 cycle=0x14 dpc=0x0 ap=0x0 peu=0x1 slot=0x1 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=WaveStep block=0x0 wave=0x5 canonical_name=v_add_i32 presentation_name=v_add_i32 display_name=v_add_i32 category=instruction stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=pc=0x18 op=v_add_i32 exec_lanes=0x40
   operands:
@@ -1796,5 +1462,339 @@ pc=0x18 cycle=0x14 dpc=0x0 ap=0x0 peu=0x1 slot=0x1 slot_model=logical_unbounded 
     lane[0x3f] = 0x180
 
 pc=0x18 cycle=0x18 dpc=0x0 ap=0x0 peu=0x1 slot=0x1 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=Commit block=0x0 wave=0x5 canonical_name=commit presentation_name=commit display_name=commit category=instruction stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=commit
-pc=0x18 cycle=0x14 dpc=0x0 ap=0x0 peu=0x2 slot=0x0 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=WaveSwitchAway block=0x0 wave=0x2 canonical_name=wave_switch_away presentation_name=wave_switch_away display_name=wave_switch_away category=wave/switch_away stall_reason=warp_switch barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=wave_switch_away
-pc=0x18 cycle=0x14 dpc=0x0 ap=0x0 peu=0x2 slot=0x0 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=Stall block=0x0 wave=0x2 canonical_name=stall_warp_switch presentation_name=wave_switch_away display_name=warp_switch category=wave/switch_away stall_reason=warp_switch barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=reason=warp_switch
+pc=0x18 cycle=0x14 dpc=0x0 ap=0x0 peu=0x2 slot=0x1 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=IssueSelect block=0x0 wave=0x6 canonical_name=issue_select presentation_name=issue_select display_name=issue_select category=launch/wave stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=issue_select
+pc=0x18 cycle=0x14 dpc=0x0 ap=0x0 peu=0x2 slot=0x1 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=WaveStep block=0x0 wave=0x6 canonical_name=v_add_i32 presentation_name=v_add_i32 display_name=v_add_i32 category=instruction stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=pc=0x18 op=v_add_i32 exec_lanes=0x40
+  operands:
+  [0x00] v3:
+    lane[0x00] = 0x0
+    lane[0x01] = 0x0
+    lane[0x02] = 0x0
+    lane[0x03] = 0x0
+    lane[0x04] = 0x0
+    lane[0x05] = 0x0
+    lane[0x06] = 0x0
+    lane[0x07] = 0x0
+    lane[0x08] = 0x0
+    lane[0x09] = 0x0
+    lane[0x0a] = 0x0
+    lane[0x0b] = 0x0
+    lane[0x0c] = 0x0
+    lane[0x0d] = 0x0
+    lane[0x0e] = 0x0
+    lane[0x0f] = 0x0
+    lane[0x10] = 0x0
+    lane[0x11] = 0x0
+    lane[0x12] = 0x0
+    lane[0x13] = 0x0
+    lane[0x14] = 0x0
+    lane[0x15] = 0x0
+    lane[0x16] = 0x0
+    lane[0x17] = 0x0
+    lane[0x18] = 0x0
+    lane[0x19] = 0x0
+    lane[0x1a] = 0x0
+    lane[0x1b] = 0x0
+    lane[0x1c] = 0x0
+    lane[0x1d] = 0x0
+    lane[0x1e] = 0x0
+    lane[0x1f] = 0x0
+    lane[0x20] = 0x0
+    lane[0x21] = 0x0
+    lane[0x22] = 0x0
+    lane[0x23] = 0x0
+    lane[0x24] = 0x0
+    lane[0x25] = 0x0
+    lane[0x26] = 0x0
+    lane[0x27] = 0x0
+    lane[0x28] = 0x0
+    lane[0x29] = 0x0
+    lane[0x2a] = 0x0
+    lane[0x2b] = 0x0
+    lane[0x2c] = 0x0
+    lane[0x2d] = 0x0
+    lane[0x2e] = 0x0
+    lane[0x2f] = 0x0
+    lane[0x30] = 0x0
+    lane[0x31] = 0x0
+    lane[0x32] = 0x0
+    lane[0x33] = 0x0
+    lane[0x34] = 0x0
+    lane[0x35] = 0x0
+    lane[0x36] = 0x0
+    lane[0x37] = 0x0
+    lane[0x38] = 0x0
+    lane[0x39] = 0x0
+    lane[0x3a] = 0x0
+    lane[0x3b] = 0x0
+    lane[0x3c] = 0x0
+    lane[0x3d] = 0x0
+    lane[0x3e] = 0x0
+    lane[0x3f] = 0x0
+
+  [0x01] v2:
+    lane[0x00] = 0x301
+    lane[0x01] = 0x303
+    lane[0x02] = 0x305
+    lane[0x03] = 0x307
+    lane[0x04] = 0x309
+    lane[0x05] = 0x30b
+    lane[0x06] = 0x30d
+    lane[0x07] = 0x30f
+    lane[0x08] = 0x311
+    lane[0x09] = 0x313
+    lane[0x0a] = 0x315
+    lane[0x0b] = 0x317
+    lane[0x0c] = 0x319
+    lane[0x0d] = 0x31b
+    lane[0x0e] = 0x31d
+    lane[0x0f] = 0x31f
+    lane[0x10] = 0x321
+    lane[0x11] = 0x323
+    lane[0x12] = 0x325
+    lane[0x13] = 0x327
+    lane[0x14] = 0x329
+    lane[0x15] = 0x32b
+    lane[0x16] = 0x32d
+    lane[0x17] = 0x32f
+    lane[0x18] = 0x331
+    lane[0x19] = 0x333
+    lane[0x1a] = 0x335
+    lane[0x1b] = 0x337
+    lane[0x1c] = 0x339
+    lane[0x1d] = 0x33b
+    lane[0x1e] = 0x33d
+    lane[0x1f] = 0x33f
+    lane[0x20] = 0x341
+    lane[0x21] = 0x343
+    lane[0x22] = 0x345
+    lane[0x23] = 0x347
+    lane[0x24] = 0x349
+    lane[0x25] = 0x34b
+    lane[0x26] = 0x34d
+    lane[0x27] = 0x34f
+    lane[0x28] = 0x351
+    lane[0x29] = 0x353
+    lane[0x2a] = 0x355
+    lane[0x2b] = 0x357
+    lane[0x2c] = 0x359
+    lane[0x2d] = 0x35b
+    lane[0x2e] = 0x35d
+    lane[0x2f] = 0x35f
+    lane[0x30] = 0x361
+    lane[0x31] = 0x363
+    lane[0x32] = 0x365
+    lane[0x33] = 0x367
+    lane[0x34] = 0x369
+    lane[0x35] = 0x36b
+    lane[0x36] = 0x36d
+    lane[0x37] = 0x36f
+    lane[0x38] = 0x371
+    lane[0x39] = 0x373
+    lane[0x3a] = 0x375
+    lane[0x3b] = 0x377
+    lane[0x3c] = 0x379
+    lane[0x3d] = 0x37b
+    lane[0x3e] = 0x37d
+    lane[0x3f] = 0x37f
+
+  [0x02] v1:
+    lane[0x00] = 0x181
+    lane[0x01] = 0x182
+    lane[0x02] = 0x183
+    lane[0x03] = 0x184
+    lane[0x04] = 0x185
+    lane[0x05] = 0x186
+    lane[0x06] = 0x187
+    lane[0x07] = 0x188
+    lane[0x08] = 0x189
+    lane[0x09] = 0x18a
+    lane[0x0a] = 0x18b
+    lane[0x0b] = 0x18c
+    lane[0x0c] = 0x18d
+    lane[0x0d] = 0x18e
+    lane[0x0e] = 0x18f
+    lane[0x0f] = 0x190
+    lane[0x10] = 0x191
+    lane[0x11] = 0x192
+    lane[0x12] = 0x193
+    lane[0x13] = 0x194
+    lane[0x14] = 0x195
+    lane[0x15] = 0x196
+    lane[0x16] = 0x197
+    lane[0x17] = 0x198
+    lane[0x18] = 0x199
+    lane[0x19] = 0x19a
+    lane[0x1a] = 0x19b
+    lane[0x1b] = 0x19c
+    lane[0x1c] = 0x19d
+    lane[0x1d] = 0x19e
+    lane[0x1e] = 0x19f
+    lane[0x1f] = 0x1a0
+    lane[0x20] = 0x1a1
+    lane[0x21] = 0x1a2
+    lane[0x22] = 0x1a3
+    lane[0x23] = 0x1a4
+    lane[0x24] = 0x1a5
+    lane[0x25] = 0x1a6
+    lane[0x26] = 0x1a7
+    lane[0x27] = 0x1a8
+    lane[0x28] = 0x1a9
+    lane[0x29] = 0x1aa
+    lane[0x2a] = 0x1ab
+    lane[0x2b] = 0x1ac
+    lane[0x2c] = 0x1ad
+    lane[0x2d] = 0x1ae
+    lane[0x2e] = 0x1af
+    lane[0x2f] = 0x1b0
+    lane[0x30] = 0x1b1
+    lane[0x31] = 0x1b2
+    lane[0x32] = 0x1b3
+    lane[0x33] = 0x1b4
+    lane[0x34] = 0x1b5
+    lane[0x35] = 0x1b6
+    lane[0x36] = 0x1b7
+    lane[0x37] = 0x1b8
+    lane[0x38] = 0x1b9
+    lane[0x39] = 0x1ba
+    lane[0x3a] = 0x1bb
+    lane[0x3b] = 0x1bc
+    lane[0x3c] = 0x1bd
+    lane[0x3d] = 0x1be
+    lane[0x3e] = 0x1bf
+    lane[0x3f] = 0x1c0
+
+pc=0x18 cycle=0x18 dpc=0x0 ap=0x0 peu=0x2 slot=0x1 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=Commit block=0x0 wave=0x6 canonical_name=commit presentation_name=commit display_name=commit category=instruction stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=commit
+pc=0x18 cycle=0x14 dpc=0x0 ap=0x0 peu=0x3 slot=0x1 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=IssueSelect block=0x0 wave=0x7 canonical_name=issue_select presentation_name=issue_select display_name=issue_select category=launch/wave stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=issue_select
+pc=0x18 cycle=0x14 dpc=0x0 ap=0x0 peu=0x3 slot=0x1 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=WaveStep block=0x0 wave=0x7 canonical_name=v_add_i32 presentation_name=v_add_i32 display_name=v_add_i32 category=instruction stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=pc=0x18 op=v_add_i32 exec_lanes=0x40
+  operands:
+  [0x00] v3:
+    lane[0x00] = 0x0
+    lane[0x01] = 0x0
+    lane[0x02] = 0x0
+    lane[0x03] = 0x0
+    lane[0x04] = 0x0
+    lane[0x05] = 0x0
+    lane[0x06] = 0x0
+    lane[0x07] = 0x0
+    lane[0x08] = 0x0
+    lane[0x09] = 0x0
+    lane[0x0a] = 0x0
+    lane[0x0b] = 0x0
+    lane[0x0c] = 0x0
+    lane[0x0d] = 0x0
+    lane[0x0e] = 0x0
+    lane[0x0f] = 0x0
+    lane[0x10] = 0x0
+    lane[0x11] = 0x0
+    lane[0x12] = 0x0
+    lane[0x13] = 0x0
+    lane[0x14] = 0x0
+    lane[0x15] = 0x0
+    lane[0x16] = 0x0
+    lane[0x17] = 0x0
+    lane[0x18] = 0x0
+    lane[0x19] = 0x0
+    lane[0x1a] = 0x0
+    lane[0x1b] = 0x0
+    lane[0x1c] = 0x0
+    lane[0x1d] = 0x0
+    lane[0x1e] = 0x0
+    lane[0x1f] = 0x0
+    lane[0x20] = 0x0
+    lane[0x21] = 0x0
+    lane[0x22] = 0x0
+    lane[0x23] = 0x0
+    lane[0x24] = 0x0
+    lane[0x25] = 0x0
+    lane[0x26] = 0x0
+    lane[0x27] = 0x0
+    lane[0x28] = 0x0
+    lane[0x29] = 0x0
+    lane[0x2a] = 0x0
+    lane[0x2b] = 0x0
+    lane[0x2c] = 0x0
+    lane[0x2d] = 0x0
+    lane[0x2e] = 0x0
+    lane[0x2f] = 0x0
+    lane[0x30] = 0x0
+    lane[0x31] = 0x0
+    lane[0x32] = 0x0
+    lane[0x33] = 0x0
+    lane[0x34] = 0x0
+    lane[0x35] = 0x0
+    lane[0x36] = 0x0
+    lane[0x37] = 0x0
+    lane[0x38] = 0x0
+    lane[0x39] = 0x0
+    lane[0x3a] = 0x0
+    lane[0x3b] = 0x0
+    lane[0x3c] = 0x0
+    lane[0x3d] = 0x0
+    lane[0x3e] = 0x0
+    lane[0x3f] = 0x0
+
+  [0x01] v2:
+    lane[0x00] = 0x381
+    lane[0x01] = 0x383
+    lane[0x02] = 0x385
+    lane[0x03] = 0x387
+    lane[0x04] = 0x389
+    lane[0x05] = 0x38b
+    lane[0x06] = 0x38d
+    lane[0x07] = 0x38f
+    lane[0x08] = 0x391
+    lane[0x09] = 0x393
+    lane[0x0a] = 0x395
+    lane[0x0b] = 0x397
+    lane[0x0c] = 0x399
+    lane[0x0d] = 0x39b
+    lane[0x0e] = 0x39d
+    lane[0x0f] = 0x39f
+    lane[0x10] = 0x3a1
+    lane[0x11] = 0x3a3
+    lane[0x12] = 0x3a5
+    lane[0x13] = 0x3a7
+    lane[0x14] = 0x3a9
+    lane[0x15] = 0x3ab
+    lane[0x16] = 0x3ad
+    lane[0x17] = 0x3af
+    lane[0x18] = 0x3b1
+    lane[0x19] = 0x3b3
+    lane[0x1a] = 0x3b5
+    lane[0x1b] = 0x3b7
+    lane[0x1c] = 0x3b9
+    lane[0x1d] = 0x3bb
+    lane[0x1e] = 0x3bd
+    lane[0x1f] = 0x3bf
+    lane[0x20] = 0x3c1
+    lane[0x21] = 0x3c3
+    lane[0x22] = 0x3c5
+    lane[0x23] = 0x3c7
+    lane[0x24] = 0x3c9
+    lane[0x25] = 0x3cb
+    lane[0x26] = 0x3cd
+    lane[0x27] = 0x3cf
+    lane[0x28] = 0x3d1
+    lane[0x29] = 0x3d3
+    lane[0x2a] = 0x3d5
+    lane[0x2b] = 0x3d7
+    lane[0x2c] = 0x3d9
+    lane[0x2d] = 0x3db
+    lane[0x2e] = 0x3dd
+    lane[0x2f] = 0x3df
+    lane[0x30] = 0x3e1
+    lane[0x31] = 0x3e3
+    lane[0x32] = 0x3e5
+    lane[0x33] = 0x3e7
+    lane[0x34] = 0x3e9
+    lane[0x35] = 0x3eb
+    lane[0x36] = 0x3ed
+    lane[0x37] = 0x3ef
+    lane[0x38] = 0x3f1
+    lane[0x39] = 0x3f3
+    lane[0x3a] = 0x3f5
+    lane[0x3b] = 0x3f7
+    lane[0x3c] = 0x3f9
+    lane[0x3d] = 0x3fb
+    lane[0x3e] = 0x3fd
+    lane[0x3f] = 0x3ff
