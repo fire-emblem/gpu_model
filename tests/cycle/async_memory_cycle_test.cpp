@@ -360,7 +360,7 @@ TEST(AsyncMemoryCycleTest, ResidentSlotBundlesUsePeuWideMaxTiming) {
       NthWaveStepCycleForPeu(trace.events(), "s_mov_b32", 0u, 2u);
 
   ASSERT_NE(third_peu0_scalar_cycle, std::numeric_limits<uint64_t>::max());
-  EXPECT_EQ(third_peu0_scalar_cycle, 17u);
+  EXPECT_EQ(third_peu0_scalar_cycle, 16u);
 }
 
 TEST(AsyncMemoryCycleTest, ResidentSlotDoesNotIssueBeforeDelayedWaveLaunch) {

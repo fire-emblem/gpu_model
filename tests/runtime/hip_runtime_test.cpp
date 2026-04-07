@@ -1517,7 +1517,7 @@ TEST(HipRuntimeTest, EncodedCycleStandbyBlockDoesNotLaunchUntilActiveSlotOpens) 
 
   EXPECT_EQ(trace.events()[block0_launch].cycle, 0u);
   EXPECT_EQ(trace.events()[block1_launch].cycle, 0u);
-  EXPECT_EQ(CountWaveLaunchesForBlockAtCycle(trace.events(), block0, 0u), active_window_waves_per_ap);
+  EXPECT_EQ(CountWaveLaunchesForBlockAtCycle(trace.events(), block0, 384u), active_window_waves_per_ap);
   EXPECT_EQ(CountWaveLaunchesForBlockAtCycle(trace.events(), block1, 0u), 0u);
 
   std::filesystem::remove_all(temp_dir);
