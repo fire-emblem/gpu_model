@@ -1,1 +1,1 @@
-same_peu_slots ok=1 mode=cycle total_cycles=120
+same_peu_slots ok=1 mode=cycle total_cycles=80

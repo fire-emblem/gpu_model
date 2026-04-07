@@ -1,1 +1,1 @@
-launch_index=0 kernel=conditional_multibarrier execution_mode=cycle functional_mode=st ok=1 submit_cycle=0 begin_cycle=0 end_cycle=224 total_cycles=224 program_total_cycles=224
+launch_index=0 kernel=conditional_multibarrier execution_mode=cycle functional_mode=st ok=1 submit_cycle=0 begin_cycle=0 end_cycle=608 total_cycles=608 program_total_cycles=608
