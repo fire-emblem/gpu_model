@@ -311,7 +311,7 @@ TEST(TimelineExpectationTest, WaveSwitchMatchesExpectedTimelineSemantics) {
       .required_slices = {},
       .required_markers =
           {
-              MakeExpectedMarker(MakeEventKey(lane, waitcnt_pc, "wave_switch_away"), 436),
+              MakeExpectedMarker(MakeEventKey(lane, waitcnt_pc, "wave_switch_away"), 410),
               MakeExpectedMarker(MakeEventKey(lane, waitcnt_pc, "load_arrive_resume"),
                                  446,
                                  std::nullopt,

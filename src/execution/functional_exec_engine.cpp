@@ -764,33 +764,17 @@ class FunctionalExecutionCoreImpl {
     return (static_cast<uint64_t>(wave.block_id) << 32u) | static_cast<uint64_t>(wave.wave_id);
   }
 
-  void MaybeEmitWaveSwitchAwayEvent(const ExecutableBlock& block,
-                                    const WaveContext& wave,
-                                    uint64_t issue_cycle) {
-    const uint64_t ap_peu_key = ApPeuKey(block, wave);
-    const uint64_t wave_tag = WaveTag(wave);
-    std::optional<LastScheduledWaveTraceState> previous_wave;
-
-    {
-      std::lock_guard<std::mutex> lock(peu_schedule_trace_mutex_);
-      const auto it = last_wave_per_ap_peu_.find(ap_peu_key);
-      if (it != last_wave_per_ap_peu_.end() && it->second.wave_tag != wave_tag) {
-        previous_wave = it->second;
-      }
-    }
-
-    if (!previous_wave.has_value()) {
-      return;
-    }
-
-    TraceEventLocked(MakeTraceWaveSwitchAwayEvent(previous_wave->wave,
-                                                  issue_cycle,
+  void EmitBlockingWaveSwitchAwayEvent(const WaveContext& wave,
+                                       uint64_t cycle,
+                                       uint64_t pc) {
+    TraceEventLocked(MakeTraceWaveSwitchAwayEvent(MakeTraceWaveView(wave),
+                                                  cycle,
                                                   TraceSlotModelKind::LogicalUnbounded,
-                                                  previous_wave->pc));
-    TraceEventLocked(MakeTraceWaveSwitchStallEvent(previous_wave->wave,
-                                                   issue_cycle,
+                                                  pc));
+    TraceEventLocked(MakeTraceWaveSwitchStallEvent(MakeTraceWaveView(wave),
+                                                   cycle,
                                                    TraceSlotModelKind::LogicalUnbounded,
-                                                   previous_wave->pc));
+                                                   pc));
   }
 
   void RememberScheduledWaveForPeu(const ExecutableBlock& block, const WaveContext& wave) {
@@ -1407,7 +1391,7 @@ class FunctionalExecutionCoreImpl {
       const auto& wave = block.waves[wave_index];
       if (wave.status == WaveStatus::Active && wave.run_state == WaveRunState::Runnable &&
           !wave.waiting_at_barrier && !block.wave_busy[wave_index]) {
-        block.next_wave_rr_per_peu[peu_index] = (local_index + 1) % peu_waves.size();
+        block.next_wave_rr_per_peu[peu_index] = local_index;
         return wave_index;
       }
     }
@@ -1463,7 +1447,6 @@ class FunctionalExecutionCoreImpl {
     const uint64_t issue_duration = std::max<uint64_t>(1u, plan.issue_cycles);
     const uint64_t issue_cycle = wave_state.next_issue_cycle;
     const uint64_t commit_cycle = issue_cycle + issue_duration;
-    MaybeEmitWaveSwitchAwayEvent(block, wave, issue_cycle);
     wave_state.last_issue_cycle = issue_cycle;
     wave_state.next_issue_cycle = commit_cycle;
     wave_state.wave_cycle_total += issue_duration;
@@ -1658,6 +1641,7 @@ class FunctionalExecutionCoreImpl {
           TraceSlotModelKind::LogicalUnbounded,
           TraceStallReason::None,
           issue_pc));
+      EmitBlockingWaveSwitchAwayEvent(wave, commit_cycle, issue_pc);
       EmitWaveStatsSnapshot(commit_cycle);
       {
         std::lock_guard<std::mutex> lock(*block.control_mutex);
@@ -1722,6 +1706,7 @@ class FunctionalExecutionCoreImpl {
               TraceSlotModelKind::LogicalUnbounded,
               issue_pc,
               waitcnt_state));
+          EmitBlockingWaveSwitchAwayEvent(wave, commit_cycle, issue_pc);
           emit_waitcnt_wave_stats = true;
         } else {
           ApplyExecutionPlanControlFlow(context_.kernel, plan, wave, false, false);

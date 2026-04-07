@@ -1013,12 +1013,6 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                     bundle_last_wave_tag != wave_tag
                 ? timing_config_.launch_timing.warp_switch_cycles
                 : 0;
-        if (switch_penalty > 0 && slot.last_wave_trace.has_value()) {
-          context.trace.OnEvent(MakeTraceWaveSwitchAwayEvent(
-              *slot.last_wave_trace, cycle, TraceSlotModelKind::ResidentFixed, slot.last_wave_pc));
-          context.trace.OnEvent(MakeTraceWaveSwitchStallEvent(
-              *slot.last_wave_trace, cycle, TraceSlotModelKind::ResidentFixed, slot.last_wave_pc));
-        }
         context.trace.OnEvent(MakeTraceIssueSelectEvent(
             MakeTraceWaveView(*candidate, slot_id), cycle, TraceSlotModelKind::ResidentFixed));
         if (context.stats != nullptr) {
@@ -1465,6 +1459,16 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                       MakeTraceWaveView(*candidate, slot_id),
                       commit_cycle,
                       TraceSlotModelKind::ResidentFixed));
+                  context.trace.OnEvent(MakeTraceWaveSwitchAwayEvent(
+                      MakeTraceWaveView(*candidate, slot_id),
+                      commit_cycle,
+                      TraceSlotModelKind::ResidentFixed,
+                      wave.pc));
+                  context.trace.OnEvent(MakeTraceWaveSwitchStallEvent(
+                      MakeTraceWaveView(*candidate, slot_id),
+                      commit_cycle,
+                      TraceSlotModelKind::ResidentFixed,
+                      wave.pc));
                   RefillActiveWindow(peu_slot,
                                      commit_cycle,
                                      context.spec.max_issuable_waves,
@@ -1620,6 +1624,16 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                         TraceSlotModelKind::ResidentFixed,
                         std::numeric_limits<uint64_t>::max(),
                         MakeTraceWaitcntState(candidate->wave, thresholds)));
+                    context.trace.OnEvent(MakeTraceWaveSwitchAwayEvent(
+                        MakeTraceWaveView(*candidate, slot_id),
+                        commit_cycle,
+                        TraceSlotModelKind::ResidentFixed,
+                        candidate->wave.pc));
+                    context.trace.OnEvent(MakeTraceWaveSwitchStallEvent(
+                        MakeTraceWaveView(*candidate, slot_id),
+                        commit_cycle,
+                        TraceSlotModelKind::ResidentFixed,
+                        candidate->wave.pc));
                     return;
                   }
                 }
