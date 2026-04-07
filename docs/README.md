@@ -11,6 +11,7 @@
 - [README.md](/data/gpu_model/README.md)
 - [task_plan.md](/data/gpu_model/task_plan.md)
 - [my_design.md](/data/gpu_model/docs/my_design.md)
+- [cycle-issue-eligibility-policy.md](/data/gpu_model/docs/cycle-issue-eligibility-policy.md)
 - [runtime-layering.md](/data/gpu_model/docs/runtime-layering.md)
 - [module-development-status.md](/data/gpu_model/docs/module-development-status.md)
 - [memory-hierarchy-interface-reservation.md](/data/gpu_model/docs/memory-hierarchy-interface-reservation.md)
@@ -20,6 +21,9 @@
 - [isa_coverage_report.md](/data/gpu_model/docs/isa_coverage_report.md)
   - 是生成型覆盖率快照，可作为当前覆盖状态参考
   - 但不应被误读为“完整 ISA 已全部支持”的唯一依据
+- [cycle-issue-eligibility-policy.md](/data/gpu_model/docs/cycle-issue-eligibility-policy.md)
+  - 固定 `cycle model` 中 `eligible -> selected -> issue` 的语义边界
+  - 记录参考资料中的 `round_robin / oldest_first` 与当前实现的映射关系
 
 正式阅读顺序：
 
@@ -27,9 +31,11 @@
    - 看当前还要做什么
 2. [my_design.md](/data/gpu_model/docs/my_design.md)
    - 看当前正式设计约束和模块语义
-3. [runtime-layering.md](/data/gpu_model/docs/runtime-layering.md)
+3. [cycle-issue-eligibility-policy.md](/data/gpu_model/docs/cycle-issue-eligibility-policy.md)
+   - 看 `cycle issue` 的正式语义边界与参考口径
+4. [runtime-layering.md](/data/gpu_model/docs/runtime-layering.md)
    - 看 runtime 正式分层
-4. [module-development-status.md](/data/gpu_model/docs/module-development-status.md)
+5. [module-development-status.md](/data/gpu_model/docs/module-development-status.md)
    - 看模块完成度、缺口和推进顺序
 
 ## 2. 历史计划 / 实施存档
