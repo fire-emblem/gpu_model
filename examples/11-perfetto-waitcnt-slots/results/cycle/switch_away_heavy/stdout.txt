@@ -1,1 +1,1 @@
-switch_away_heavy ok=1 mode=cycle total_cycles=524
+switch_away_heavy ok=1 mode=cycle total_cycles=516

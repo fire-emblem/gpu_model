@@ -110,7 +110,7 @@ gpu_model_run_interposed_mode() {
     "GPU_MODEL_EXECUTION_MODE=$exec_mode"
     "GPU_MODEL_FUNCTIONAL_MODE=$functional_mode"
     "GPU_MODEL_TRACE_DIR=$mode_dir"
-    "GPU_MODEL_HIP_INTERPOSER_DEBUG=1"
+    "GPU_MODEL_HIP_RUNTIME_ABI_DEBUG=1"
     "LD_PRELOAD=$preload_value"
   )
   if [[ -n "$worker_threads" ]]; then

@@ -30,6 +30,7 @@ struct ExecutionContext {
   TraceSink& trace;
   ExecutionStats* stats = nullptr;
   uint64_t cycle = 0;
+  uint64_t global_memory_latency_cycles = 0;
   uint64_t arg_load_cycles = 4;
   IssueCycleClassOverridesSpec issue_cycle_class_overrides;
   IssueCycleOpOverridesSpec issue_cycle_op_overrides;

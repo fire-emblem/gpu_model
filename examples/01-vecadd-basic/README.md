@@ -37,7 +37,7 @@ kernel 做的事情非常直接：
 脚本会做三件事：
 
 1. 用 `hipcc` 编译 [vecadd.hip](/data/gpu_model/examples/01-vecadd-basic/vecadd.hip)
-2. 通过 `gpu_model_hip_interposer` 分别运行 `st` / `mt` / `cycle`
+2. 通过 `gpu_model_hip_runtime_abi` 分别运行 `st` / `mt` / `cycle`
 3. 检查每个模式的 `stdout.txt` 中是否包含 `vecadd validation ok`
 
 ## 关键产物

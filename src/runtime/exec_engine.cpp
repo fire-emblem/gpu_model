@@ -339,6 +339,8 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
             .memory = memory_,
             .trace = trace,
             .stats = &result.stats,
+            .global_memory_latency_cycles =
+                ResolveCycleTimingConfig(*spec).cache_model.dram_latency,
             .arg_load_cycles = spec->launch_timing.arg_load_cycles,
             .issue_cycle_class_overrides = ResolveCycleTimingConfig(*spec).issue_cycle_class_overrides,
             .issue_cycle_op_overrides = ResolveCycleTimingConfig(*spec).issue_cycle_op_overrides,

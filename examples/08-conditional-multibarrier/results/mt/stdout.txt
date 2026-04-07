@@ -1,11 +1,16 @@
-[hip_interposer] __hipRegisterFatBinary
-[hip_interposer] __hipRegisterFunction host=0x200e70 device=conditional_multibarrier
-[hip_interposer] hipMalloc size=4096 -> 0x7f6144b05000
-[hip_interposer] hipMemset dst=0x7f6144b05000 value=0 bytes=4096
-[hip_interposer] __hipPushCallConfiguration grid=(8,1,1) block=(128,1,1) shared=0
-[hip_interposer] __hipPopCallConfiguration
-[hip_interposer] hipLaunchKernel host=0x200e70 grid=(8,1,1) block=(128,1,1) shared=0
-[hip_interposer] hipLaunchKernel result ok=1 err=
-[hip_interposer] hipDeviceSynchronize
-[hip_interposer] hipMemcpy kind=2 bytes=4096 dst=0x521000002900 src=0x7f6144b05000
+[hip_runtime_abi] __hipRegisterFatBinary
+[0m[2mdate       time         ( uptime  ) [ thread name/id ]                   file:line     v| 
+[0m[2m2026-04-07 18:09:57.294 (   0.000s) [main thread     ]             loguru.cpp:606   INFO| [0marguments: conditional_multibarrier.out[0m
+[0m[2m2026-04-07 18:09:57.294 (   0.000s) [main thread     ]             loguru.cpp:609   INFO| [0mCurrent dir: /data/gpu_model/examples/08-conditional-multibarrier[0m
+[0m[2m2026-04-07 18:09:57.294 (   0.000s) [main thread     ]             loguru.cpp:611   INFO| [0mstderr verbosity: 0[0m
+[0m[2m2026-04-07 18:09:57.294 (   0.000s) [main thread     ]             loguru.cpp:612   INFO| [0m-----------------------------------[0m
+[hip_runtime_abi] __hipRegisterFunction host=0x200e70 device=conditional_multibarrier
+[hip_runtime_abi] hipMalloc size=4096 -> 0x600000000000
+[hip_runtime_abi] hipMemset dst=0x600000000000 value=0 bytes=4096
+[hip_runtime_abi] __hipPushCallConfiguration grid=(8,1,1) block=(128,1,1) shared=0
+[hip_runtime_abi] __hipPopCallConfiguration
+[hip_runtime_abi] hipLaunchKernel host=0x200e70 grid=(8,1,1) block=(128,1,1) shared=0
+[hip_runtime_abi] hipLaunchKernel result ok=1 err=
+[hip_runtime_abi] hipDeviceSynchronize
+[hip_runtime_abi] hipMemcpy kind=2 bytes=4096 dst=0x521000005100 src=0x600000000000
 conditional_multibarrier mismatches=0 n=1024

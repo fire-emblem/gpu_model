@@ -10,8 +10,8 @@ OUT_DIR="$(gpu_model_detect_results_dir "$ROOT" "$CASE_DIR")"
 mkdir -p "$OUT_DIR"
 
 gpu_model_require_cmd hipcc
-gpu_model_ensure_targets "$BUILD_DIR" gpu_model_hip_interposer
-SO_PATH="$BUILD_DIR/libgpu_model_hip_interposer.so"
+gpu_model_ensure_targets "$BUILD_DIR" gpu_model_hip_runtime_abi
+SO_PATH="$BUILD_DIR/libgpu_model_hip_runtime_abi.so"
 
 declare -A cycle_totals=()
 
