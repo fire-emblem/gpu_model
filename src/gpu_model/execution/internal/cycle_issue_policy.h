@@ -12,6 +12,10 @@ inline ArchitecturalIssuePolicy CycleIssuePolicyForSpec(const GpuArchSpec& spec)
   return spec.cycle_resources.issue_policy;
 }
 
+inline EligibleWaveSelectionPolicy CycleEligibleWaveSelectionPolicyForSpec(const GpuArchSpec& spec) {
+  return spec.cycle_resources.eligible_wave_selection_policy;
+}
+
 inline ArchitecturalIssuePolicy CycleIssuePolicyWithLimits(
     const ArchitecturalIssuePolicy& base_policy,
     const ArchitecturalIssueLimits& limits) {

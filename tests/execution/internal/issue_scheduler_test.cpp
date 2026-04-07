@@ -163,5 +163,61 @@ TEST(IssueSchedulerTest, SharedIssueGroupCanMakeTwoTypesConflict) {
   EXPECT_EQ(result.selected_candidate_indices[0], 0u);
 }
 
+TEST(IssueSchedulerTest, ExplicitRoundRobinPolicyRespectsSelectionCursorOnUnrotatedCandidates) {
+  const std::vector<IssueSchedulerCandidate> candidates{
+      {.candidate_index = 0,
+       .wave_id = 0,
+       .age_order_key = 30,
+       .issue_type = ArchitecturalIssueType::ScalarAluOrMemory,
+       .ready = true},
+      {.candidate_index = 1,
+       .wave_id = 1,
+       .age_order_key = 10,
+       .issue_type = ArchitecturalIssueType::VectorAlu,
+       .ready = true},
+      {.candidate_index = 2,
+       .wave_id = 2,
+       .age_order_key = 20,
+       .issue_type = ArchitecturalIssueType::VectorMemory,
+       .ready = true},
+  };
+
+  const auto result = IssueScheduler::SelectIssueBundle(
+      candidates, 1, EligibleWaveSelectionPolicy::RoundRobin, DefaultArchitecturalIssuePolicy());
+  ASSERT_EQ(result.selected_candidate_indices.size(), 3u);
+  EXPECT_EQ(result.selected_candidate_indices[0], 1u);
+  EXPECT_EQ(result.selected_candidate_indices[1], 2u);
+  EXPECT_EQ(result.selected_candidate_indices[2], 0u);
+  EXPECT_EQ(result.next_round_robin_index, 2u);
+}
+
+TEST(IssueSchedulerTest, ExplicitOldestFirstPolicyUsesAgeOrderKeyInsteadOfSelectionCursor) {
+  const std::vector<IssueSchedulerCandidate> candidates{
+      {.candidate_index = 0,
+       .wave_id = 0,
+       .age_order_key = 30,
+       .issue_type = ArchitecturalIssueType::ScalarAluOrMemory,
+       .ready = true},
+      {.candidate_index = 1,
+       .wave_id = 1,
+       .age_order_key = 10,
+       .issue_type = ArchitecturalIssueType::VectorAlu,
+       .ready = true},
+      {.candidate_index = 2,
+       .wave_id = 2,
+       .age_order_key = 20,
+       .issue_type = ArchitecturalIssueType::VectorMemory,
+       .ready = true},
+  };
+
+  const auto result = IssueScheduler::SelectIssueBundle(
+      candidates, 2, EligibleWaveSelectionPolicy::OldestFirst, DefaultArchitecturalIssuePolicy());
+  ASSERT_EQ(result.selected_candidate_indices.size(), 3u);
+  EXPECT_EQ(result.selected_candidate_indices[0], 1u);
+  EXPECT_EQ(result.selected_candidate_indices[1], 2u);
+  EXPECT_EQ(result.selected_candidate_indices[2], 0u);
+  EXPECT_EQ(result.next_round_robin_index, 0u);
+}
+
 }  // namespace
 }  // namespace gpu_model

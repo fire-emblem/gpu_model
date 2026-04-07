@@ -341,6 +341,10 @@ uint64_t WaveTag(const WaveContext& wave) {
   return (static_cast<uint64_t>(wave.block_id) << 32) | wave.wave_id;
 }
 
+uint64_t WaveAgeOrderKey(const ScheduledWave& scheduled_wave) {
+  return WaveTag(scheduled_wave.wave);
+}
+
 constexpr std::string_view kStallReasonBarrierSlotUnavailable = "barrier_slot_unavailable";
 
 TraceWaveView MakeTraceWaveView(const ScheduledWave& wave, uint32_t slot_id) {
@@ -854,9 +858,8 @@ std::vector<IssueSchedulerCandidate> BuildResidentIssueCandidates(
   }
 
   const size_t count = slot.resident_slots.size();
-  const size_t start = slot.issue_round_robin_index % count;
-  for (size_t offset = 0; offset < count; ++offset) {
-    ResidentIssueSlot& resident_slot = slot.resident_slots[(start + offset) % count];
+  for (size_t index = 0; index < count; ++index) {
+    ResidentIssueSlot& resident_slot = slot.resident_slots[index];
     ScheduledWave* scheduled_wave = resident_slot.resident_wave;
     if (!resident_slot.active || scheduled_wave == nullptr ||
         !ResidentSlotReadyToIssue(resident_slot, cycle)) {
@@ -880,6 +883,7 @@ std::vector<IssueSchedulerCandidate> BuildResidentIssueCandidates(
             candidates.push_back(IssueSchedulerCandidate{
                 .candidate_index = ordered_resident_slots.size() - 1,
                 .wave_id = wave.wave_id,
+                .age_order_key = WaveAgeOrderKey(*scheduled_wave),
                 .issue_type = ArchitecturalIssueType::Special,
                 .ready = false,
             });
@@ -894,6 +898,7 @@ std::vector<IssueSchedulerCandidate> BuildResidentIssueCandidates(
     candidates.push_back(IssueSchedulerCandidate{
         .candidate_index = ordered_resident_slots.size() - 1,
         .wave_id = wave.wave_id,
+        .age_order_key = WaveAgeOrderKey(*scheduled_wave),
         .issue_type = issue_type,
         .ready = ready,
     });
@@ -970,6 +975,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
       const auto bundle = IssueScheduler::SelectIssueBundle(
           candidates,
           slot.issue_round_robin_index,
+          timing_config_.eligible_wave_selection_policy,
           ResolveIssuePolicy(timing_config_, context.spec));
       slot.issue_round_robin_index = bundle.next_round_robin_index;
 
@@ -1008,11 +1014,6 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
         const Instruction instruction = context.kernel.InstructionAtPc(wave.pc);
         const uint32_t slot_id = TraceSlotId(*candidate);
         const uint64_t wave_tag = WaveTag(wave);
-        const uint64_t switch_penalty =
-            bundle_last_wave_tag != std::numeric_limits<uint64_t>::max() &&
-                    bundle_last_wave_tag != wave_tag
-                ? timing_config_.launch_timing.warp_switch_cycles
-                : 0;
         context.trace.OnEvent(MakeTraceIssueSelectEvent(
             MakeTraceWaveView(*candidate, slot_id), cycle, TraceSlotModelKind::ResidentFixed));
         if (context.stats != nullptr) {

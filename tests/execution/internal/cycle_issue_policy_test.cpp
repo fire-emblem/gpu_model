@@ -33,6 +33,8 @@ TEST(CycleIssuePolicyTest, ReturnsConfiguredIssuePolicyFromSpec) {
   EXPECT_EQ(policy.group_limits[6], 1u);
   EXPECT_EQ(policy.type_to_group[0], 0u);
   EXPECT_EQ(policy.type_to_group[6], 0u);
+  EXPECT_EQ(CycleEligibleWaveSelectionPolicyForSpec(*spec),
+            EligibleWaveSelectionPolicy::RoundRobin);
 }
 
 TEST(CycleIssuePolicyTest, C500DefaultPolicyMakesBranchAndSpecialConflictInScheduler) {

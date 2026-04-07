@@ -11,6 +11,7 @@ namespace gpu_model {
 struct IssueSchedulerCandidate {
   size_t candidate_index = 0;
   uint32_t wave_id = 0;
+  uint64_t age_order_key = 0;
   ArchitecturalIssueType issue_type = ArchitecturalIssueType::ScalarAluOrMemory;
   bool ready = false;
 };
@@ -29,6 +30,16 @@ class IssueScheduler {
   static IssueSchedulerResult SelectIssueBundle(
       const std::vector<IssueSchedulerCandidate>& candidates,
       size_t round_robin_start_index,
+      const ArchitecturalIssuePolicy& policy);
+  static IssueSchedulerResult SelectIssueBundle(
+      const std::vector<IssueSchedulerCandidate>& candidates,
+      size_t selection_cursor,
+      EligibleWaveSelectionPolicy selection_policy,
+      const ArchitecturalIssueLimits& limits);
+  static IssueSchedulerResult SelectIssueBundle(
+      const std::vector<IssueSchedulerCandidate>& candidates,
+      size_t selection_cursor,
+      EligibleWaveSelectionPolicy selection_policy,
       const ArchitecturalIssuePolicy& policy);
 };
 

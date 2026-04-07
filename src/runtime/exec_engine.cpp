@@ -432,6 +432,7 @@ CycleTimingConfig ExecEngineImpl::ResolveCycleTimingConfig(const GpuArchSpec& sp
   config.issue_cycle_op_overrides = spec.issue_cycle_op_overrides;
   config.issue_limits = CycleIssueLimitsForSpec(spec);
   config.issue_policy = CycleIssuePolicyForSpec(spec);
+  config.eligible_wave_selection_policy = CycleEligibleWaveSelectionPolicyForSpec(spec);
   const bool has_issue_policy_override = issue_policy_override_.has_value();
 
   if (flat_global_latency_override_.has_value()) {

@@ -299,6 +299,49 @@ TEST(CycleSmokeTest, ReadyWavesIssueRoundRobinWithinPeu) {
   EXPECT_EQ(issued_waves[5], 1u);
 }
 
+TEST(CycleSmokeTest, SamePeuInitialIssueOrderAdvancesOneRoundRobinStepPerCycle) {
+  CollectingTraceSink trace;
+  ExecEngine runtime(&trace);
+  ConfigureZeroFrontendTiming(runtime);
+
+  InstructionBuilder builder;
+  builder.SMov("s0", 1);
+  builder.SMov("s1", 2);
+  builder.BExit();
+  const auto kernel = builder.Build("same_peu_initial_rr_order_kernel");
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64 * 16;
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  std::vector<uint32_t> first_unique_peu0_waves;
+  for (const auto& event : trace.events()) {
+    if (event.kind != TraceEventKind::WaveStep || event.block_id != 0 || event.peu_id != 0 ||
+        event.message.find("s_mov_b32") == std::string::npos) {
+      continue;
+    }
+    if (std::find(first_unique_peu0_waves.begin(), first_unique_peu0_waves.end(), event.wave_id) !=
+        first_unique_peu0_waves.end()) {
+      continue;
+    }
+    first_unique_peu0_waves.push_back(event.wave_id);
+    if (first_unique_peu0_waves.size() == 4u) {
+      break;
+    }
+  }
+
+  ASSERT_EQ(first_unique_peu0_waves.size(), 4u);
+  EXPECT_EQ(first_unique_peu0_waves[0], 0u);
+  EXPECT_EQ(first_unique_peu0_waves[1], 4u);
+  EXPECT_EQ(first_unique_peu0_waves[2], 8u);
+  EXPECT_EQ(first_unique_peu0_waves[3], 12u);
+}
+
 TEST(CycleSmokeTest, ReadyDoesNotGuaranteeImmediateConsumerIssue) {
   CollectingTraceSink trace;
   ExecEngine runtime(&trace);

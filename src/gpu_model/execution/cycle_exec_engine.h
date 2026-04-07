@@ -15,6 +15,8 @@ struct CycleTimingConfig {
   IssueCycleOpOverridesSpec issue_cycle_op_overrides;
   ArchitecturalIssueLimits issue_limits;
   std::optional<ArchitecturalIssuePolicy> issue_policy;
+  EligibleWaveSelectionPolicy eligible_wave_selection_policy =
+      EligibleWaveSelectionPolicy::RoundRobin;
 };
 
 class CycleExecEngine final : public IExecutionEngine {

@@ -28,6 +28,16 @@ std::string_view ToString(ArchitecturalIssueType type) {
   return "unknown";
 }
 
+std::string_view ToString(EligibleWaveSelectionPolicy policy) {
+  switch (policy) {
+    case EligibleWaveSelectionPolicy::RoundRobin:
+      return "round_robin";
+    case EligibleWaveSelectionPolicy::OldestFirst:
+      return "oldest_first";
+  }
+  return "unknown";
+}
+
 ArchitecturalIssueLimits DefaultArchitecturalIssueLimits() {
   return ArchitecturalIssueLimits{};
 }

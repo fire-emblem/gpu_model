@@ -165,6 +165,7 @@
 - `ArchitecturalIssueType`
 - `ArchitecturalIssueLimits`
 - `ArchitecturalIssuePolicy`
+- `EligibleWaveSelectionPolicy`
 
 其中：
 
@@ -178,7 +179,11 @@
 
 - [`src/gpu_model/execution/internal/cycle_issue_policy.h`](../src/gpu_model/execution/internal/cycle_issue_policy.h)
 
-提供 `CycleIssuePolicyForSpec(...)` 和 `CycleIssuePolicyWithLimits(...)`。
+提供：
+
+- `CycleIssuePolicyForSpec(...)`
+- `CycleEligibleWaveSelectionPolicyForSpec(...)`
+- `CycleIssuePolicyWithLimits(...)`
 
 当前 `c500` 默认值在：
 
@@ -191,6 +196,10 @@
 
 放到了同一个 issue group，这意味着它们在默认 bundle 里互相冲突。
 
+当前 `c500` 的 wave-order selection 默认值是：
+
+- `EligibleWaveSelectionPolicy::RoundRobin`
+
 ### 6.3 scheduler 选择逻辑
 
 当前选择器位于：
@@ -199,16 +208,22 @@
 
 其核心规则是：
 
-1. 从 `round_robin_start_index` 开始扫描候选集合
-2. 只考虑 `candidate.ready == true` 的候选
-3. 同一 bundle 内同一 `wave_id` 最多被选一次
-4. 满足 `type_limits` 与 `group_limits` 才能进入 bundle
-5. 若本轮至少选择了一个候选，则下一轮 `round_robin` 起点前移
+1. 先根据 `EligibleWaveSelectionPolicy` 生成候选遍历顺序
+2. `RoundRobin`
+   - 从 `selection_cursor` 开始做一次 RR 旋转
+3. `OldestFirst`
+   - 按 `age_order_key` 升序选择
+4. 只考虑 `candidate.ready == true` 的候选
+5. 同一 bundle 内同一 `wave_id` 最多被选一次
+6. 满足 `type_limits` 与 `group_limits` 才能进入 bundle
+7. 对 `RoundRobin`，若本轮至少选择了一个候选，则下一轮 cursor 前移
 
 因此当前 scheduler 的本质是：
 
-- 基于 `eligible candidates` 的 RR 扫描式 bundle 选择器
+- 基于 `eligible candidates` 的显式 wave-order policy + bundle policy 选择器
+- 默认 wave-order policy 为 `RoundRobin`
 - 不是 sticky same-wave 选择器
+- 也不是隐式、未命名的近似 RR
 
 ### 6.4 cycle / encoded-cycle 路径
 
@@ -226,7 +241,8 @@
 因此：
 
 - 当前工程在大方向上已经符合“eligible 集合 + policy 选择”的参考抽象
-- 当前仍需继续校准的是 candidate 构造和资源时序，而不是把默认规则改成“连续发射同一 wave”
+- 当前两条 cycle 路径现在都通过统一的 wave-order policy 入口驱动默认 `RoundRobin`
+- 当前仍需继续校准的是 candidate 构造、资源时序与 future `OldestFirst` age key 定义，而不是把默认规则改成“连续发射同一 wave”
 
 ## 7. 对 timeline / trace 解释的影响
 
@@ -270,8 +286,9 @@
 - 参考资料支持至少两类主流 policy：
   - `round_robin`
   - `oldest_first`
-- 当前仓库已具备表达这两类 policy 的抽象基础
-- 本次文档收口不修改默认 policy，只固定语义边界
+- 当前仓库已显式引入 `EligibleWaveSelectionPolicy` 来表达这两类 wave-order policy
+- 当前默认 wave-order policy 为 `RoundRobin`
+- 本文的重点仍是固定语义边界，而不是宣称当前默认值已完成真实硬件校准
 
 如果后续需要更换默认 policy，应视为：
 

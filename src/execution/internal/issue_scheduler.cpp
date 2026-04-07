@@ -1,7 +1,10 @@
 #include "gpu_model/execution/internal/issue_scheduler.h"
 
+#include <algorithm>
 #include <array>
+#include <numeric>
 #include <set>
+#include <tuple>
 
 namespace gpu_model {
 
@@ -37,6 +40,53 @@ std::array<uint32_t, 7> LimitsToArray(const ArchitecturalIssueLimits& limits) {
           limits.special};
 }
 
+std::vector<size_t> BuildSelectionTraversalOrder(
+    const std::vector<IssueSchedulerCandidate>& candidates,
+    size_t selection_cursor,
+    EligibleWaveSelectionPolicy selection_policy) {
+  std::vector<size_t> order(candidates.size());
+  std::iota(order.begin(), order.end(), 0);
+  if (order.empty()) {
+    return order;
+  }
+  switch (selection_policy) {
+    case EligibleWaveSelectionPolicy::RoundRobin: {
+      const size_t start = selection_cursor % order.size();
+      std::rotate(order.begin(), order.begin() + start, order.end());
+      return order;
+    }
+    case EligibleWaveSelectionPolicy::OldestFirst:
+      std::stable_sort(order.begin(),
+                       order.end(),
+                       [&candidates](size_t lhs, size_t rhs) {
+                         return std::tie(candidates[lhs].age_order_key,
+                                         candidates[lhs].candidate_index) <
+                                std::tie(candidates[rhs].age_order_key,
+                                         candidates[rhs].candidate_index);
+                       });
+      return order;
+  }
+  return order;
+}
+
+size_t AdvanceSelectionCursor(size_t selection_cursor,
+                              size_t count,
+                              EligibleWaveSelectionPolicy selection_policy,
+                              bool selected_any) {
+  if (count == 0) {
+    return 0;
+  }
+  switch (selection_policy) {
+    case EligibleWaveSelectionPolicy::RoundRobin: {
+      const size_t cursor = selection_cursor % count;
+      return selected_any ? ((cursor + 1) % count) : cursor;
+    }
+    case EligibleWaveSelectionPolicy::OldestFirst:
+      return 0;
+  }
+  return 0;
+}
+
 }  // namespace
 
 IssueSchedulerResult IssueScheduler::SelectIssueBundle(
@@ -45,12 +95,35 @@ IssueSchedulerResult IssueScheduler::SelectIssueBundle(
     const ArchitecturalIssueLimits& limits) {
   return SelectIssueBundle(candidates,
                            round_robin_start_index,
+                           EligibleWaveSelectionPolicy::RoundRobin,
                            ArchitecturalIssuePolicyFromLimits(limits));
 }
 
 IssueSchedulerResult IssueScheduler::SelectIssueBundle(
     const std::vector<IssueSchedulerCandidate>& candidates,
     size_t round_robin_start_index,
+    const ArchitecturalIssuePolicy& policy) {
+  return SelectIssueBundle(candidates,
+                           round_robin_start_index,
+                           EligibleWaveSelectionPolicy::RoundRobin,
+                           policy);
+}
+
+IssueSchedulerResult IssueScheduler::SelectIssueBundle(
+    const std::vector<IssueSchedulerCandidate>& candidates,
+    size_t selection_cursor,
+    EligibleWaveSelectionPolicy selection_policy,
+    const ArchitecturalIssueLimits& limits) {
+  return SelectIssueBundle(candidates,
+                           selection_cursor,
+                           selection_policy,
+                           ArchitecturalIssuePolicyFromLimits(limits));
+}
+
+IssueSchedulerResult IssueScheduler::SelectIssueBundle(
+    const std::vector<IssueSchedulerCandidate>& candidates,
+    size_t selection_cursor,
+    EligibleWaveSelectionPolicy selection_policy,
     const ArchitecturalIssuePolicy& policy) {
   IssueSchedulerResult result;
   if (candidates.empty()) {
@@ -62,10 +135,9 @@ IssueSchedulerResult IssueScheduler::SelectIssueBundle(
   std::array<uint32_t, 7> used_per_group{};
   std::set<uint32_t> used_waves;
 
-  const size_t count = candidates.size();
-  const size_t start = round_robin_start_index % count;
-  for (size_t offset = 0; offset < count; ++offset) {
-    const size_t index = (start + offset) % count;
+  const std::vector<size_t> traversal_order =
+      BuildSelectionTraversalOrder(candidates, selection_cursor, selection_policy);
+  for (size_t index : traversal_order) {
     const auto& candidate = candidates[index];
     if (!candidate.ready) {
       continue;
@@ -89,11 +161,10 @@ IssueSchedulerResult IssueScheduler::SelectIssueBundle(
     ++used_per_group[group_index];
   }
 
-  if (!result.selected_candidate_indices.empty()) {
-    result.next_round_robin_index = (start + 1) % count;
-  } else {
-    result.next_round_robin_index = start;
-  }
+  result.next_round_robin_index = AdvanceSelectionCursor(selection_cursor,
+                                                         candidates.size(),
+                                                         selection_policy,
+                                                         !result.selected_candidate_indices.empty());
   return result;
 }
 

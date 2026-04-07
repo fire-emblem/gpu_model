@@ -40,6 +40,8 @@ std::shared_ptr<const GpuArchSpec> MakeC500Spec() {
   spec->cycle_resources.issue_policy =
       ArchitecturalIssuePolicyFromLimits(spec->cycle_resources.issue_limits);
   spec->cycle_resources.issue_policy.type_to_group[6] = 0;
+  spec->cycle_resources.eligible_wave_selection_policy =
+      EligibleWaveSelectionPolicy::RoundRobin;
   return spec;
 }
 

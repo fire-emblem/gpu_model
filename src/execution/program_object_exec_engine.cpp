@@ -1698,9 +1698,7 @@ class EncodedExecutionCore {
         std::vector<RawWave*> ordered_waves;
         std::vector<EncodedIssueCandidateInput> issue_inputs;
         const size_t count = slot.active_window.size();
-        const size_t start = count == 0 ? 0 : (slot.next_rr % count);
-        for (size_t offset = 0; offset < count; ++offset) {
-          const size_t index = (start + offset) % count;
+        for (size_t index = 0; index < count; ++index) {
           RawWave* raw_wave = slot.active_window[index];
           if (raw_wave == nullptr) {
             continue;
@@ -1717,6 +1715,7 @@ class EncodedExecutionCore {
           issue_inputs.push_back(EncodedIssueCandidateInput{
               .candidate_index = ordered_waves.size() - 1,
               .wave_id = wave.wave_id,
+              .age_order_key = WaveTag(*raw_wave),
               .dispatch_enabled = raw_wave->dispatch_enabled,
               .wave = &wave,
               .instruction = &decoded,
@@ -1734,6 +1733,7 @@ class EncodedExecutionCore {
         const auto bundle = IssueScheduler::SelectIssueBundle(
             BuildEncodedIssueCandidates(issue_inputs),
             slot.next_rr,
+            timing_config_.eligible_wave_selection_policy,
             ResolveIssuePolicy(timing_config_, spec_));
         if (bundle.selected_candidate_indices.empty()) {
       if (const auto blocked = PickFirstBlockedWaveForCycleSlot(slot);

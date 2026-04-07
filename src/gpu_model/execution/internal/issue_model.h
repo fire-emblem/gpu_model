@@ -18,6 +18,11 @@ enum class ArchitecturalIssueType {
   Special,
 };
 
+enum class EligibleWaveSelectionPolicy {
+  RoundRobin,
+  OldestFirst,
+};
+
 struct ArchitecturalIssueLimits {
   uint32_t branch = 1;
   uint32_t scalar_alu_or_memory = 1;
@@ -36,6 +41,7 @@ struct ArchitecturalIssuePolicy {
 
 std::optional<ArchitecturalIssueType> ArchitecturalIssueTypeForOpcode(Opcode opcode);
 std::string_view ToString(ArchitecturalIssueType type);
+std::string_view ToString(EligibleWaveSelectionPolicy policy);
 ArchitecturalIssueLimits DefaultArchitecturalIssueLimits();
 ArchitecturalIssuePolicy ArchitecturalIssuePolicyFromLimits(const ArchitecturalIssueLimits& limits);
 ArchitecturalIssuePolicy DefaultArchitecturalIssuePolicy();

@@ -69,6 +69,8 @@ struct CycleResourceSpec {
   uint32_t barrier_slots_per_ap = 0;
   ArchitecturalIssueLimits issue_limits{};
   ArchitecturalIssuePolicy issue_policy = DefaultArchitecturalIssuePolicy();
+  EligibleWaveSelectionPolicy eligible_wave_selection_policy =
+      EligibleWaveSelectionPolicy::RoundRobin;
 };
 
 struct GpuArchSpec {

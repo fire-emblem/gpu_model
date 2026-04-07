@@ -12,6 +12,7 @@ namespace gpu_model {
 struct EncodedIssueCandidateInput {
   size_t candidate_index = 0;
   uint32_t wave_id = 0;
+  uint64_t age_order_key = 0;
   bool dispatch_enabled = false;
   const WaveContext* wave = nullptr;
   const DecodedInstruction* instruction = nullptr;
@@ -44,6 +45,7 @@ inline std::vector<IssueSchedulerCandidate> BuildEncodedIssueCandidates(
     candidates.push_back(IssueSchedulerCandidate{
         .candidate_index = input.candidate_index,
         .wave_id = input.wave_id,
+        .age_order_key = input.age_order_key,
         .issue_type = issue_type,
         .ready = ready,
     });
