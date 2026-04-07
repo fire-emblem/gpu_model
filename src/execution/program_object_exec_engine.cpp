@@ -48,6 +48,7 @@ namespace {
 
 constexpr uint8_t kEncodedPendingMemoryCompletionTurns = 5;
 constexpr uint32_t kInvalidTraceSlotId = std::numeric_limits<uint32_t>::max();
+constexpr uint64_t kFunctionalIssueQuantumCycles = 4;
 
 struct RawWave {
   size_t block_index = 0;
@@ -74,6 +75,10 @@ struct EncodedWaveState {
   std::deque<EncodedPendingMemoryOp> pending_memory_ops;
   std::optional<WaitCntThresholds> waiting_waitcnt_thresholds;
   uint64_t waiting_resume_pc_increment = 0;
+  uint64_t wave_cycle_total = 0;
+  uint64_t wave_cycle_active = 0;
+  uint64_t last_issue_cycle = 0;
+  uint64_t next_issue_cycle = 0;
 };
 
 struct EncodedLastScheduledWaveTraceState {
@@ -140,6 +145,18 @@ bool IssueLimitsUnset(const ArchitecturalIssueLimits& limits) {
   return limits.branch == 0 && limits.scalar_alu_or_memory == 0 && limits.vector_alu == 0 &&
          limits.vector_memory == 0 && limits.local_data_share == 0 &&
          limits.global_data_share_or_export == 0 && limits.special == 0;
+}
+
+uint64_t QuantizeToNextIssueQuantum(uint64_t cycle) {
+  const uint64_t remainder = cycle % kFunctionalIssueQuantumCycles;
+  if (remainder == 0) {
+    return cycle;
+  }
+  return cycle + (kFunctionalIssueQuantumCycles - remainder);
+}
+
+uint64_t QuantizeIssueDuration(uint64_t cycles) {
+  return std::max(kFunctionalIssueQuantumCycles, QuantizeToNextIssueQuantum(cycles));
 }
 
 ArchitecturalIssuePolicy ResolveIssuePolicy(const CycleTimingConfig& timing_config,
@@ -1061,10 +1078,10 @@ class EncodedExecutionCore {
     result_.program_cycle_stats =
         CollectProgramCycleStatsFromEncodedFlow(executed_flow_steps_, cycle_stats_config_);
     if (execution_mode_ == ExecutionMode::Cycle) {
-      result_.total_cycles = std::max(cycle_total_cycles_, max_trace_cycle_);
+      result_.total_cycles = std::max(cycle_total_cycles_, max_execution_cycle_);
       result_.program_cycle_stats->total_cycles = result_.total_cycles;
     } else {
-      result_.total_cycles = std::max(result_.program_cycle_stats->total_cycles, max_trace_cycle_);
+      result_.total_cycles = std::max(result_.program_cycle_stats->total_cycles, max_execution_cycle_);
       result_.program_cycle_stats->total_cycles = result_.total_cycles;
     }
     result_.end_cycle = result_.total_cycles;
@@ -1096,7 +1113,6 @@ class EncodedExecutionCore {
   std::mutex peu_schedule_trace_mutex_;
   std::mutex stats_mutex_;
   std::mutex global_memory_mutex_;
-  std::atomic<uint64_t> functional_trace_cycle_{0};
   std::mutex waiting_progress_mutex_;
   std::vector<ParallelWaveRef> parallel_waves_;
   std::atomic<size_t> total_waves_{0};
@@ -1107,11 +1123,15 @@ class EncodedExecutionCore {
   std::unordered_map<uint32_t, EncodedApResidentState> cycle_ap_states_;
   std::unordered_map<uint64_t, EncodedLastScheduledWaveTraceState> last_wave_per_ap_peu_;
   uint64_t cycle_total_cycles_ = 0;
-  uint64_t max_trace_cycle_ = 0;
+  uint64_t max_execution_cycle_ = 0;
 
   TraceSlotModelKind TraceSlotModel() const {
     return execution_mode_ == ExecutionMode::Cycle ? TraceSlotModelKind::ResidentFixed
                                                    : TraceSlotModelKind::LogicalUnbounded;
+  }
+
+  void ObserveExecutionCycle(uint64_t cycle) {
+    max_execution_cycle_ = std::max(max_execution_cycle_, cycle);
   }
 
   uint32_t TraceSlotId(const RawWave& raw_wave) const {
@@ -1219,7 +1239,8 @@ class EncodedExecutionCore {
                              CacheModel(timing_config_.cache_model));
     }
     for (auto& raw_block : raw_blocks_) {
-      for (auto& raw_wave : raw_block.waves) {
+      for (size_t wave_index = 0; wave_index < raw_block.waves.size(); ++wave_index) {
+        auto& raw_wave = raw_block.waves[wave_index];
         raw_wave.wave.pc = image_.instructions().front().pc;
         raw_wave.wave.tensor_agpr_count = image_.kernel_descriptor().agpr_count;
         raw_wave.wave.tensor_accum_offset = image_.kernel_descriptor().accum_offset;
@@ -1229,9 +1250,10 @@ class EncodedExecutionCore {
           continue;
         }
         const auto launch_summary = BuildWaveLaunchAbiSummary(raw_wave.wave, image_.kernel_descriptor());
+        ObserveExecutionCycle(raw_block.wave_states[wave_index].next_issue_cycle);
         TraceEventLocked(MakeTraceWaveLaunchEvent(
             MakeRawTraceWaveView(raw_wave),
-            NextFunctionalTraceCycle(),
+            raw_block.wave_states[wave_index].next_issue_cycle,
             FormatWaveLaunchTraceMessage(raw_wave.wave,
                                          &launch_summary,
                                          WaveLaunchTraceScalarRegs(image_.kernel_descriptor()),
@@ -1437,6 +1459,7 @@ class EncodedExecutionCore {
         raw_wave->dispatch_enabled = true;
         raw_wave->wave.status = WaveStatus::Active;
         raw_wave->wave.valid_entry = true;
+        ObserveExecutionCycle(cycle);
         const auto launch_summary = BuildWaveLaunchAbiSummary(raw_wave->wave, image_.kernel_descriptor());
         TraceEventLocked(MakeTraceWaveLaunchEvent(
             MakeRawTraceWaveView(*raw_wave),
@@ -1453,6 +1476,7 @@ class EncodedExecutionCore {
   void ActivateBlock(size_t block_index, uint64_t cycle) {
     auto& block = raw_blocks_[block_index];
     block.active = true;
+    ObserveExecutionCycle(cycle);
     TraceEventLocked(MakeTraceBlockEvent(block.dpc_id,
                                          block.ap_id,
                                          block.block_id,
@@ -1939,21 +1963,24 @@ class EncodedExecutionCore {
   }
 
   bool ProcessWaitingWaves(RawBlock& block) {
-    RecordWaitingWaveTicks(block);
-    bool progressed = false;
+    bool progressed = RecordWaitingWaveTicks(block);
     {
       std::lock_guard<std::mutex> lock(*block.wave_state_mutex);
       for (size_t i = 0; i < block.waves.size(); ++i) {
         std::vector<EncodedPendingMemoryOp> completed_ops;
         progressed = AdvancePendingMemoryOps(block.wave_states[i],
                                             block.waves[i].wave,
-                                            NextFunctionalTraceCycle(),
+                                            block.wave_states[i].wave_cycle_total,
                                             &completed_ops) || progressed;
         for (const auto& op : completed_ops) {
           if (!op.arrive_kind.has_value()) {
             continue;
           }
-          const uint64_t arrive_cycle = NextFunctionalTraceCycle();
+          block.wave_states[i].next_issue_cycle =
+              std::max(block.wave_states[i].next_issue_cycle,
+                       QuantizeToNextIssueQuantum(op.ready_cycle));
+          const uint64_t arrive_cycle = op.ready_cycle;
+          ObserveExecutionCycle(arrive_cycle);
           TraceEvent event = MakeTraceMemoryArriveEvent(MakeRawTraceWaveView(block.waves[i]),
                                                         arrive_cycle,
                                                         *op.arrive_kind,
@@ -1984,8 +2011,9 @@ class EncodedExecutionCore {
         if (!ResumeWaveIfWaitSatisfied(block.wave_states[i], wave)) {
           continue;
         }
+        ObserveExecutionCycle(block.wave_states[i].next_issue_cycle);
         TraceEventLocked(MakeTraceWaveResumeEvent(MakeRawTraceWaveView(block.waves[i]),
-                                                  NextFunctionalTraceCycle(),
+                                                  block.wave_states[i].next_issue_cycle,
                                                   TraceSlotModel()));
         progressed = true;
       }
@@ -2009,19 +2037,32 @@ class EncodedExecutionCore {
                                                             4,
                                                             false);
       if (released) {
+        uint64_t release_cycle = 0;
+        for (RawWave* released_wave : released_waves) {
+          if (released_wave == nullptr) {
+            continue;
+          }
+          const size_t released_wave_index =
+              static_cast<size_t>(released_wave - block.waves.data());
+          release_cycle = std::max(
+              release_cycle,
+              block.wave_states[released_wave_index].next_issue_cycle);
+        }
         for (RawWave* released_wave : released_waves) {
           if (released_wave == nullptr || released_wave->wave.waiting_at_barrier) {
             continue;
           }
+          ObserveExecutionCycle(release_cycle);
           TraceEventLocked(MakeTraceWaveResumeEvent(MakeRawTraceWaveView(*released_wave),
-                                                    NextFunctionalTraceCycle(),
+                                                    release_cycle,
                                                     TraceSlotModel()));
         }
+        ObserveExecutionCycle(release_cycle);
         TraceEventLocked(
             MakeTraceBarrierReleaseEvent(block.dpc_id,
                                          block.ap_id,
                                          block.block_id,
-                                         NextFunctionalTraceCycle()));
+                                         release_cycle));
       }
       progressed = released || progressed;
     }
@@ -2029,8 +2070,7 @@ class EncodedExecutionCore {
   }
 
   bool ProcessWaitingWavesCycle(RawBlock& block, uint64_t cycle) {
-    RecordWaitingWaveTicks(block);
-    bool progressed = false;
+    bool progressed = RecordWaitingWaveTicks(block);
     {
       std::lock_guard<std::mutex> lock(*block.wave_state_mutex);
       for (size_t i = 0; i < block.waves.size(); ++i) {
@@ -2049,6 +2089,7 @@ class EncodedExecutionCore {
                                                         TraceSlotModel());
           const AsyncArriveResult arrive_result = MakeAsyncArriveResult(
               block.waves[i].wave, op.domain, block.wave_states[i].waiting_waitcnt_thresholds);
+          ObserveExecutionCycle(cycle);
           event.waitcnt_state = arrive_result.waitcnt_state;
           event.arrive_progress = arrive_result.arrive_progress;
           TraceEventLocked(std::move(event));
@@ -2073,6 +2114,7 @@ class EncodedExecutionCore {
         if (!ResumeWaveIfWaitSatisfied(block.wave_states[i], wave)) {
           continue;
         }
+        ObserveExecutionCycle(cycle);
         TraceEventLocked(
             MakeTraceWaveResumeEvent(MakeRawTraceWaveView(block.waves[i]), cycle, TraceSlotModel()));
         progressed = true;
@@ -2104,9 +2146,11 @@ class EncodedExecutionCore {
           if (released_wave == nullptr || released_wave->wave.waiting_at_barrier) {
             continue;
           }
+          ObserveExecutionCycle(cycle);
           TraceEventLocked(
               MakeTraceWaveResumeEvent(MakeRawTraceWaveView(*released_wave), cycle, TraceSlotModel()));
         }
+        ObserveExecutionCycle(cycle);
         TraceEventLocked(
             MakeTraceBarrierReleaseEvent(block.dpc_id, block.ap_id, block.block_id, cycle));
         std::vector<size_t> refill_slots;
@@ -2130,28 +2174,28 @@ class EncodedExecutionCore {
     return progressed;
   }
 
-  void RecordWaitingWaveTicks(RawBlock& block) {
+  bool RecordWaitingWaveTicks(RawBlock& block) {
     std::lock_guard<std::mutex> lock(*block.wave_state_mutex);
-    for (const auto& raw_wave : block.waves) {
+    bool any_waiting = false;
+    for (size_t i = 0; i < block.waves.size(); ++i) {
+      const auto& raw_wave = block.waves[i];
       if (raw_wave.wave.run_state != WaveRunState::Waiting) {
         continue;
       }
+      any_waiting = true;
+      block.wave_states[i].wave_cycle_total += 1;
       if (raw_wave.wave.wait_reason == WaveWaitReason::BlockBarrier) {
         RecordExecutedStep(raw_wave.wave, ExecutedStepClass::Barrier, 1);
       } else if (IsMemoryWaitReason(raw_wave.wave.wait_reason)) {
         RecordExecutedStep(raw_wave.wave, ExecutedStepClass::Wait, 1);
       }
     }
+    return any_waiting;
   }
 
   void TraceEventLocked(TraceEvent event) {
     std::lock_guard<std::mutex> lock(trace_mutex_);
-    max_trace_cycle_ = std::max(max_trace_cycle_, event.cycle);
     trace_.OnEvent(std::move(event));
-  }
-
-  uint64_t NextFunctionalTraceCycle() {
-    return functional_trace_cycle_.fetch_add(1, std::memory_order_relaxed);
   }
 
   void CommitStats(const ExecutionStats& step_stats) {
@@ -2189,6 +2233,7 @@ class EncodedExecutionCore {
     const auto descriptor = DescribeEncodedInstruction(decoded);
     const uint64_t issue_cycles =
         ResolveEncodedIssueCycles(decoded.mnemonic, descriptor, spec_, timing_config_);
+    const uint64_t issue_duration = QuantizeIssueDuration(std::max<uint64_t>(1u, issue_cycles));
 
     ExecutionStats step_stats;
     ++step_stats.wave_steps;
@@ -2201,11 +2246,17 @@ class EncodedExecutionCore {
                                             cycle_stats_config_));
     }
 
-    const uint64_t trace_cycle = NextFunctionalTraceCycle();
-    MaybeEmitWaveSwitchAwayEvent(block, raw_wave, trace_cycle);
-    const uint64_t commit_cycle = trace_cycle + std::max<uint64_t>(1u, issue_cycles);
+    const uint64_t issue_cycle = wave_state.next_issue_cycle;
+    const uint64_t commit_cycle = issue_cycle + issue_duration;
+    ObserveExecutionCycle(issue_cycle);
+    ObserveExecutionCycle(commit_cycle);
+    MaybeEmitWaveSwitchAwayEvent(block, raw_wave, issue_cycle);
+    wave_state.last_issue_cycle = issue_cycle;
+    wave_state.next_issue_cycle = commit_cycle;
+    wave_state.wave_cycle_total += issue_duration;
+    wave_state.wave_cycle_active += issue_duration;
     TraceEventLocked(MakeRawWaveTraceEvent(
-        raw_wave, TraceEventKind::WaveStep, trace_cycle, FormatRawWaveStepMessage(decoded, object, wave)));
+        raw_wave, TraceEventKind::WaveStep, issue_cycle, FormatRawWaveStepMessage(decoded, object, wave)));
     RememberScheduledWaveForPeu(block, raw_wave);
     TraceEventLocked(
         MakeTraceCommitEvent(MakeRawTraceWaveView(raw_wave), commit_cycle, TraceSlotModel()));
@@ -2220,14 +2271,14 @@ class EncodedExecutionCore {
         const TraceWaitcntState waitcnt_state =
             MakeTraceWaitcntState(wave, *wave_state.waiting_waitcnt_thresholds);
         TraceEventLocked(MakeTraceWaveWaitEvent(MakeRawTraceWaveView(raw_wave),
-                                                trace_cycle,
+                                                issue_cycle,
                                                 TraceSlotModel(),
                                                 TraceStallReasonForWaveWaitReason(*wait_reason),
                                                 std::numeric_limits<uint64_t>::max(),
                                                 waitcnt_state));
         TraceEventLocked(MakeTraceWaitStallEvent(
             MakeRawTraceWaveView(raw_wave),
-            trace_cycle,
+            issue_cycle,
             TraceStallReasonForWaveWaitReason(*wait_reason),
             TraceSlotModel(),
             std::numeric_limits<uint64_t>::max(),
@@ -2305,15 +2356,15 @@ class EncodedExecutionCore {
       }
       if (wave.waiting_at_barrier) {
         TraceEventLocked(
-            MakeTraceBarrierArriveEvent(MakeRawTraceWaveView(raw_wave), trace_cycle, TraceSlotModel()));
+            MakeTraceBarrierArriveEvent(MakeRawTraceWaveView(raw_wave), issue_cycle, TraceSlotModel()));
         TraceEventLocked(
-            MakeTraceWaveWaitEvent(MakeRawTraceWaveView(raw_wave), trace_cycle, TraceSlotModel()));
+            MakeTraceWaveWaitEvent(MakeRawTraceWaveView(raw_wave), issue_cycle, TraceSlotModel()));
       }
       if (wave.status == WaveStatus::Exited) {
         wave.run_state = WaveRunState::Completed;
         wave.wait_reason = WaveWaitReason::None;
         TraceEventLocked(
-            MakeTraceWaveExitEvent(MakeRawTraceWaveView(raw_wave), trace_cycle, TraceSlotModel()));
+            MakeTraceWaveExitEvent(MakeRawTraceWaveView(raw_wave), issue_cycle, TraceSlotModel()));
         ClearLastScheduledWaveIfCompleted(block, raw_wave);
       } else if (wave.run_state != WaveRunState::Waiting) {
         wave.run_state = WaveRunState::Runnable;
@@ -2341,6 +2392,8 @@ class EncodedExecutionCore {
     const uint64_t issue_cycles =
         ResolveEncodedIssueCycles(decoded.mnemonic, descriptor, spec_, timing_config_);
     const uint64_t commit_cycle = cycle + std::max<uint64_t>(1u, issue_cycles);
+    ObserveExecutionCycle(cycle);
+    ObserveExecutionCycle(commit_cycle);
     const auto maybe_domain = MemoryDomainForEncodedInstruction(decoded, descriptor);
     const auto step_class = ClassifyEncodedInstructionStep(decoded, descriptor);
 

@@ -343,6 +343,69 @@ TEST(SharedSyncFunctionalTest, BarrierReleaseReturnsEarlyWaveToDispatch) {
                                         early_post_barrier_store_pc));
 }
 
+TEST(SharedSyncFunctionalTest, BarrierReleaseCycleMatchesResumeAndPrecedesPostBarrierIssue) {
+  CollectingTraceSink trace;
+  ExecEngine runtime(&trace);
+  runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
+
+  constexpr uint32_t kBlockDim = 320;
+  constexpr uint32_t kElementCount = kBlockDim;
+  const auto kernel = BuildSamePeuBarrierResumeKernel();
+  const uint64_t early_post_barrier_store_pc =
+      NthInstructionPcWithOpcode(kernel, Opcode::MStoreGlobal, 0);
+  ASSERT_NE(early_post_barrier_store_pc, std::numeric_limits<uint64_t>::max());
+
+  const uint64_t out_addr = runtime.memory().AllocateGlobal(kElementCount * sizeof(int32_t));
+  for (uint32_t i = 0; i < kElementCount; ++i) {
+    runtime.memory().StoreGlobalValue<int32_t>(out_addr + i * sizeof(int32_t), -1);
+  }
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = kBlockDim;
+  request.args.PushU64(out_addr);
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  uint64_t release_cycle = std::numeric_limits<uint64_t>::max();
+  uint64_t early_resume_cycle = std::numeric_limits<uint64_t>::max();
+  uint64_t late_resume_cycle = std::numeric_limits<uint64_t>::max();
+  uint64_t early_post_barrier_issue_cycle = std::numeric_limits<uint64_t>::max();
+  for (const auto& event : trace.events()) {
+    if (event.block_id != 0) {
+      continue;
+    }
+    if (event.kind == TraceEventKind::Barrier &&
+        event.barrier_kind == TraceBarrierKind::Release &&
+        release_cycle == std::numeric_limits<uint64_t>::max()) {
+      release_cycle = event.cycle;
+    }
+    if (event.kind == TraceEventKind::WaveResume && event.wave_id == 0 &&
+        early_resume_cycle == std::numeric_limits<uint64_t>::max()) {
+      early_resume_cycle = event.cycle;
+    }
+    if (event.kind == TraceEventKind::WaveResume && event.wave_id == 4 &&
+        late_resume_cycle == std::numeric_limits<uint64_t>::max()) {
+      late_resume_cycle = event.cycle;
+    }
+    if (event.kind == TraceEventKind::WaveStep && event.wave_id == 0 &&
+        event.pc == early_post_barrier_store_pc &&
+        early_post_barrier_issue_cycle == std::numeric_limits<uint64_t>::max()) {
+      early_post_barrier_issue_cycle = event.cycle;
+    }
+  }
+
+  ASSERT_NE(release_cycle, std::numeric_limits<uint64_t>::max());
+  ASSERT_NE(early_resume_cycle, std::numeric_limits<uint64_t>::max());
+  ASSERT_NE(late_resume_cycle, std::numeric_limits<uint64_t>::max());
+  ASSERT_NE(early_post_barrier_issue_cycle, std::numeric_limits<uint64_t>::max());
+  EXPECT_EQ(early_resume_cycle, release_cycle);
+  EXPECT_EQ(late_resume_cycle, release_cycle);
+  EXPECT_GE(early_post_barrier_issue_cycle, release_cycle);
+}
+
 TEST(SharedSyncFunctionalTest, MultiThreadedSingleWorkerCanRunOtherBlockWaveWhileBarrierBlockWaits) {
   CollectingTraceSink trace;
   ExecEngine runtime(&trace);

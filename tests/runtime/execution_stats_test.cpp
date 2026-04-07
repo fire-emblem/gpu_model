@@ -42,6 +42,7 @@ ExecutableKernel BuildStatsCycleKernel() {
   builder.MLoadGlobal("v2", "s0", "s1", 4);
   builder.VMov("v3", 0);
   builder.MLoadShared("v4", "v3", 4);
+  builder.MLoadShared("v7", "v3", 4);
   builder.SWaitCnt(/*global_count=*/0, /*shared_count=*/0,
                    /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
   builder.VMov("v6", 1);

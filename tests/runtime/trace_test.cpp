@@ -1427,16 +1427,22 @@ TEST(TraceTest, EmitsWaveLaunchEventWithInitialWaveStateSummary) {
 TEST(TraceTest, CycleExecutionEmitsCanonicalLifecycleAndStallMessagesViaFactories) {
   CollectingTraceSink trace;
   ExecEngine runtime(&trace);
+  runtime.SetFixedGlobalMemoryLatency(20);
 
-  InstructionBuilder builder;
-  builder.BExit();
-  const auto kernel = builder.Build("cycle_factory_lifecycle_kernel");
+  constexpr uint32_t kBlockDim = 64 * 16;
+  const auto kernel = BuildCycleMultiWaveWaitcntKernelForTraceTest();
+  const uint64_t in_addr = runtime.memory().AllocateGlobal(kBlockDim * sizeof(int32_t));
+  for (uint32_t i = 0; i < kBlockDim; ++i) {
+    runtime.memory().StoreGlobalValue<int32_t>(in_addr + i * sizeof(int32_t),
+                                               static_cast<int32_t>(100 + i));
+  }
 
   LaunchRequest request;
   request.kernel = &kernel;
   request.mode = ExecutionMode::Cycle;
   request.config.grid_dim_x = 1;
-  request.config.block_dim_x = 320;
+  request.config.block_dim_x = kBlockDim;
+  request.args.PushU64(in_addr);
 
   const auto result = runtime.Launch(request);
   ASSERT_TRUE(result.ok) << result.error_message;
@@ -1564,6 +1570,70 @@ TEST(TraceTest, EmitsUnifiedWaitStateMachineTraceForWaitcnt) {
 
   EXPECT_TRUE(saw_waiting_snapshot);
   EXPECT_TRUE(saw_waitcnt_stall);
+}
+
+TEST(TraceTest, WaveStatsSnapshotsForWaitcntUseExecutionCycleAnchors) {
+  CollectingTraceSink trace;
+  ExecEngine runtime(&trace);
+  runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
+
+  const auto kernel = BuildWaitcntTraceKernel();
+  uint64_t waitcnt_pc = std::numeric_limits<uint64_t>::max();
+  for (const auto& [pc, instruction] : kernel.instructions_by_pc()) {
+    if (instruction.opcode == Opcode::SWaitCnt) {
+      waitcnt_pc = pc;
+      break;
+    }
+  }
+  ASSERT_NE(waitcnt_pc, std::numeric_limits<uint64_t>::max());
+
+  const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
+  runtime.memory().StoreGlobalValue<int32_t>(base_addr, 11);
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+  request.args.PushU64(base_addr);
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok);
+
+  uint64_t wait_cycle = std::numeric_limits<uint64_t>::max();
+  uint64_t resume_cycle = std::numeric_limits<uint64_t>::max();
+  uint64_t waiting_stats_cycle = std::numeric_limits<uint64_t>::max();
+  uint64_t resumed_stats_cycle = std::numeric_limits<uint64_t>::max();
+  bool saw_waiting_stats = false;
+  for (const auto& event : trace.events()) {
+    if (event.kind == TraceEventKind::WaveWait && event.pc == waitcnt_pc &&
+        wait_cycle == std::numeric_limits<uint64_t>::max()) {
+      wait_cycle = event.cycle;
+    }
+    if (event.kind == TraceEventKind::WaveResume &&
+        resume_cycle == std::numeric_limits<uint64_t>::max()) {
+      resume_cycle = event.cycle;
+    }
+    if (event.kind != TraceEventKind::WaveStats) {
+      continue;
+    }
+    if (!saw_waiting_stats && event.message.find("waiting=1") != std::string::npos) {
+      waiting_stats_cycle = event.cycle;
+      saw_waiting_stats = true;
+      continue;
+    }
+    if (saw_waiting_stats &&
+        event.message.find("active=1 runnable=1 waiting=0 end=0") != std::string::npos &&
+        resumed_stats_cycle == std::numeric_limits<uint64_t>::max()) {
+      resumed_stats_cycle = event.cycle;
+    }
+  }
+
+  ASSERT_NE(wait_cycle, std::numeric_limits<uint64_t>::max());
+  ASSERT_NE(resume_cycle, std::numeric_limits<uint64_t>::max());
+  ASSERT_NE(waiting_stats_cycle, std::numeric_limits<uint64_t>::max());
+  ASSERT_NE(resumed_stats_cycle, std::numeric_limits<uint64_t>::max());
+  EXPECT_EQ(waiting_stats_cycle, wait_cycle);
+  EXPECT_EQ(resumed_stats_cycle, resume_cycle);
 }
 
 TEST(TraceTest, WritesHumanReadableTraceFile) {
@@ -3718,6 +3788,280 @@ amdhsa.kernels:
   EXPECT_NE(timeline.find("\"name\":\"v_mov_b32_e32\""), std::string::npos) << timeline;
   EXPECT_NE(timeline.find("\"name\":\"v_add_u32_e32\""), std::string::npos) << timeline;
   EXPECT_NE(timeline.find("\"dur\":4"), std::string::npos) << timeline;
+}
+
+TEST(TraceTest, EncodedFunctionalInstructionCyclesStartAtZeroAndAdvanceInFourCycleQuanta) {
+  if (!test_utils::HasLlvmMcAmdgpuToolchain()) {
+    GTEST_SKIP() << "required llvm-mc/LLVM/binutils tools not available";
+  }
+
+  const auto assembled = test_utils::AssembleAndDecodeLlvmMcModule(
+      "gpu_model_encoded_functional_instruction_cycle_quanta",
+      "encoded_instruction_cycle_quanta_kernel",
+      R"(.amdgcn_target "amdgcn-amd-amdhsa--gfx900"
+
+.text
+.globl encoded_instruction_cycle_quanta_kernel
+.p2align 8
+.type encoded_instruction_cycle_quanta_kernel,@function
+encoded_instruction_cycle_quanta_kernel:
+  v_mov_b32_e32 v1, 1
+  v_add_u32_e32 v2, v1, v1
+  s_endpgm
+.Lfunc_end0:
+  .size encoded_instruction_cycle_quanta_kernel, .Lfunc_end0-encoded_instruction_cycle_quanta_kernel
+
+.rodata
+.p2align 6
+.amdhsa_kernel encoded_instruction_cycle_quanta_kernel
+  .amdhsa_next_free_vgpr 3
+  .amdhsa_next_free_sgpr 0
+.end_amdhsa_kernel
+
+.amdgpu_metadata
+---
+amdhsa.version:
+  - 1
+  - 0
+amdhsa.kernels:
+  - .name: encoded_instruction_cycle_quanta_kernel
+    .symbol: encoded_instruction_cycle_quanta_kernel.kd
+    .kernarg_segment_size: 0
+    .group_segment_fixed_size: 0
+    .private_segment_fixed_size: 0
+    .kernarg_segment_align: 8
+    .wavefront_size: 64
+    .sgpr_count: 0
+    .vgpr_count: 3
+    .max_flat_workgroup_size: 256
+...
+.end_amdgpu_metadata
+)");
+
+  const auto run_and_collect_step_cycles = [&](FunctionalExecutionMode mode) {
+    CollectingTraceSink trace;
+    ExecEngine runtime(&trace);
+    runtime.SetFunctionalExecutionConfig(
+        FunctionalExecutionConfig{.mode = mode, .worker_threads = 2});
+
+    LaunchRequest request;
+    request.arch_name = "c500";
+    request.program_object = &assembled.image;
+    request.mode = ExecutionMode::Functional;
+    request.config.grid_dim_x = 1;
+    request.config.block_dim_x = 64;
+
+    const auto result = runtime.Launch(request);
+    EXPECT_TRUE(result.ok) << result.error_message;
+
+    std::vector<uint64_t> cycles;
+    for (const auto& event : trace.events()) {
+      if (event.kind != TraceEventKind::WaveStep || event.block_id != 0 || event.wave_id != 0) {
+        continue;
+      }
+      cycles.push_back(event.cycle);
+    }
+    return cycles;
+  };
+
+  const auto st_cycles = run_and_collect_step_cycles(FunctionalExecutionMode::SingleThreaded);
+  const auto mt_cycles = run_and_collect_step_cycles(FunctionalExecutionMode::MultiThreaded);
+
+  ASSERT_EQ(st_cycles.size(), 3u);
+  ASSERT_EQ(mt_cycles.size(), 3u);
+  EXPECT_EQ(st_cycles, std::vector<uint64_t>({0u, 4u, 8u}));
+  EXPECT_EQ(mt_cycles, st_cycles);
+
+  std::filesystem::remove_all(assembled.temp_dir);
+}
+
+TEST(TraceTest, EncodedFunctionalSamePeuWaitcntTimelineMatchesAcrossSingleAndMultiThreadedModes) {
+  if (!test_utils::HasLlvmMcAmdgpuToolchain()) {
+    GTEST_SKIP() << "required llvm-mc/LLVM/binutils tools not available";
+  }
+
+  const auto assembled =
+      AssembleEncodedExplicitWaitcntModule("gpu_model_encoded_functional_same_peu_waitcnt_timeline");
+
+  struct TimelineFact {
+    TraceEventKind kind = TraceEventKind::WaveStep;
+    uint64_t cycle = 0;
+    uint64_t pc = std::numeric_limits<uint64_t>::max();
+
+    bool operator==(const TimelineFact& other) const {
+      return kind == other.kind && cycle == other.cycle && pc == other.pc;
+    }
+  };
+
+  const auto collect_timeline = [&](FunctionalExecutionConfig config) {
+    CollectingTraceSink trace;
+    ExecEngine runtime(&trace);
+    runtime.SetFunctionalExecutionConfig(config);
+    runtime.SetFixedGlobalMemoryLatency(40);
+
+    constexpr uint32_t kBlockDim = 64 * 5;
+    const uint64_t base_addr = runtime.memory().AllocateGlobal(kBlockDim * sizeof(int32_t));
+    for (uint32_t i = 0; i < kBlockDim; ++i) {
+      runtime.memory().StoreGlobalValue<int32_t>(base_addr + i * sizeof(int32_t),
+                                                 static_cast<int32_t>(100 + i));
+    }
+
+    LaunchRequest request;
+    request.arch_name = "c500";
+    request.program_object = &assembled.image;
+    request.mode = ExecutionMode::Functional;
+    request.config.grid_dim_x = 1;
+    request.config.block_dim_x = kBlockDim;
+    request.args.PushU64(base_addr);
+
+    const auto result = runtime.Launch(request);
+    EXPECT_TRUE(result.ok) << result.error_message;
+
+    std::map<uint32_t, std::vector<TimelineFact>> timeline;
+    for (const auto& event : trace.events()) {
+      if (event.block_id != 0) {
+        continue;
+      }
+      switch (event.kind) {
+        case TraceEventKind::WaveStep:
+        case TraceEventKind::WaveWait:
+        case TraceEventKind::WaveArrive:
+        case TraceEventKind::WaveResume:
+        case TraceEventKind::WaveExit:
+          timeline[event.wave_id].push_back(TimelineFact{
+              .kind = event.kind,
+              .cycle = event.cycle,
+              .pc = event.pc,
+          });
+          break;
+        default:
+          break;
+      }
+    }
+    return timeline;
+  };
+
+  const auto st_timeline = collect_timeline(FunctionalExecutionConfig{
+      .mode = FunctionalExecutionMode::SingleThreaded,
+      .worker_threads = 1,
+  });
+  const auto mt_timeline = collect_timeline(FunctionalExecutionConfig{
+      .mode = FunctionalExecutionMode::MultiThreaded,
+      .worker_threads = 4,
+  });
+
+  ASSERT_EQ(st_timeline.size(), 5u);
+  ASSERT_EQ(mt_timeline.size(), st_timeline.size());
+  for (const auto& [wave_id, st_facts] : st_timeline) {
+    const auto mt_it = mt_timeline.find(wave_id);
+    ASSERT_NE(mt_it, mt_timeline.end()) << wave_id;
+    EXPECT_EQ(mt_it->second.size(), st_facts.size()) << wave_id;
+    EXPECT_EQ(mt_it->second, st_facts) << wave_id;
+  }
+
+  std::filesystem::remove_all(assembled.temp_dir);
+}
+
+TEST(TraceTest, FunctionalWaveLaunchAndPromoteStartAtCycleZeroForAllInitialWaves) {
+  CollectingTraceSink trace;
+  ExecEngine runtime(&trace);
+  runtime.SetFunctionalExecutionConfig(FunctionalExecutionConfig{
+      .mode = FunctionalExecutionMode::SingleThreaded,
+      .worker_threads = 1,
+  });
+
+  const auto kernel = BuildDenseScalarIssueKernel();
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Functional;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 128;
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  std::map<uint32_t, uint64_t> launch_cycles;
+  std::map<uint32_t, uint64_t> promote_cycles;
+  for (const auto& event : trace.events()) {
+    if (event.block_id != 0) {
+      continue;
+    }
+    if (event.kind == TraceEventKind::WaveLaunch) {
+      launch_cycles.emplace(event.wave_id, event.cycle);
+    } else if (event.kind == TraceEventKind::ActivePromote) {
+      promote_cycles.emplace(event.wave_id, event.cycle);
+    }
+  }
+
+  ASSERT_EQ(launch_cycles.size(), 2u);
+  ASSERT_EQ(promote_cycles.size(), 2u);
+  for (const auto& [wave_id, cycle] : launch_cycles) {
+    EXPECT_EQ(cycle, 0u) << wave_id;
+  }
+  for (const auto& [wave_id, cycle] : promote_cycles) {
+    EXPECT_EQ(cycle, 0u) << wave_id;
+  }
+}
+
+TEST(TraceTest, FunctionalExecMaskUpdateAndMemoryAccessShareIssueCycleWithWaveStep) {
+  CollectingTraceSink trace;
+  ExecEngine runtime(&trace);
+  runtime.SetFunctionalExecutionConfig(FunctionalExecutionConfig{
+      .mode = FunctionalExecutionMode::SingleThreaded,
+      .worker_threads = 1,
+  });
+  runtime.SetFixedGlobalMemoryLatency(20);
+
+  constexpr uint32_t kBlockDim = 128;
+  const auto kernel = BuildSamePeuWaitcntSiblingKernel();
+
+  const uint64_t in_addr = runtime.memory().AllocateGlobal(kBlockDim * sizeof(int32_t));
+  const uint64_t out_addr = runtime.memory().AllocateGlobal(kBlockDim * sizeof(int32_t));
+  for (uint32_t i = 0; i < kBlockDim; ++i) {
+    runtime.memory().StoreGlobalValue<int32_t>(in_addr + i * sizeof(int32_t),
+                                               static_cast<int32_t>(100 + i));
+    runtime.memory().StoreGlobalValue<int32_t>(out_addr + i * sizeof(int32_t), -1);
+  }
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Functional;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = kBlockDim;
+  request.args.PushU64(in_addr);
+  request.args.PushU64(out_addr);
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  auto first_cycle_for_kind = [&](TraceEventKind kind) {
+    for (const auto& event : trace.events()) {
+      if (event.kind != kind) {
+        continue;
+      }
+      for (const auto& step : trace.events()) {
+        if (step.kind == TraceEventKind::WaveStep &&
+            step.block_id == event.block_id &&
+            step.wave_id == event.wave_id &&
+            step.pc == event.pc) {
+          return std::make_pair(event.cycle, step.cycle);
+        }
+      }
+    }
+    return std::make_pair(std::numeric_limits<uint64_t>::max(),
+                          std::numeric_limits<uint64_t>::max());
+  };
+
+  const auto [mask_cycle, mask_step_cycle] = first_cycle_for_kind(TraceEventKind::ExecMaskUpdate);
+  const auto [memory_cycle, memory_step_cycle] = first_cycle_for_kind(TraceEventKind::MemoryAccess);
+
+  ASSERT_NE(mask_cycle, std::numeric_limits<uint64_t>::max());
+  ASSERT_NE(mask_step_cycle, std::numeric_limits<uint64_t>::max());
+  ASSERT_NE(memory_cycle, std::numeric_limits<uint64_t>::max());
+  ASSERT_NE(memory_step_cycle, std::numeric_limits<uint64_t>::max());
+  EXPECT_EQ(mask_cycle, mask_step_cycle);
+  EXPECT_EQ(memory_cycle, memory_step_cycle);
 }
 
 TEST(TraceTest, DenseScalarInstructionsAdvanceInFourCycleStepsAcrossExecutionModes) {

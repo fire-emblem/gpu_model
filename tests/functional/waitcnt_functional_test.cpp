@@ -557,7 +557,7 @@ TEST(WaitcntFunctionalTest, WaitingWaveDoesNotBlockReadySiblingOnSamePeu) {
   }
 }
 
-TEST(WaitcntFunctionalTest, SingleThreadedResumeSelectionOnSamePeuIsOrdered) {
+TEST(WaitcntFunctionalTest, SingleThreadedResumeSelectionOnSamePeuIssuesWithoutSwitchAway) {
   CollectingTraceSink trace;
   ExecEngine runtime(&trace);
   runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
@@ -590,19 +590,18 @@ TEST(WaitcntFunctionalTest, SingleThreadedResumeSelectionOnSamePeuIsOrdered) {
   const auto& events = trace.events();
   const size_t wave_resume_index = FirstEventIndexForBlockWaveKind(
       events, /*block_id=*/0, /*wave_id=*/0, TraceEventKind::WaveResume);
-  const size_t switch_away_index = FirstEventIndexForBlockWaveKindAfter(
-      events, wave_resume_index, /*block_id=*/0, /*wave_id=*/0, TraceEventKind::WaveSwitchAway, resume_pc);
   const size_t issue_select_index = FirstEventIndexForBlockWaveKindAfter(
-      events, switch_away_index, /*block_id=*/0, /*wave_id=*/0, TraceEventKind::IssueSelect, resume_pc);
+      events, wave_resume_index, /*block_id=*/0, /*wave_id=*/0, TraceEventKind::IssueSelect, resume_pc);
   const size_t resumed_step_index = FirstEventIndexForBlockWave(
       events, /*block_id=*/0, /*wave_id=*/0, TraceEventKind::WaveStep, resume_pc);
+  const size_t switch_away_index = FirstEventIndexForBlockWaveKindAfter(
+      events, wave_resume_index, /*block_id=*/0, /*wave_id=*/0, TraceEventKind::WaveSwitchAway, resume_pc);
 
   ASSERT_NE(wave_resume_index, std::numeric_limits<size_t>::max());
-  ASSERT_NE(switch_away_index, std::numeric_limits<size_t>::max());
   ASSERT_NE(issue_select_index, std::numeric_limits<size_t>::max());
   ASSERT_NE(resumed_step_index, std::numeric_limits<size_t>::max());
-  EXPECT_LT(wave_resume_index, switch_away_index);
-  EXPECT_LT(switch_away_index, issue_select_index);
+  EXPECT_EQ(switch_away_index, std::numeric_limits<size_t>::max());
+  EXPECT_LT(wave_resume_index, issue_select_index);
   EXPECT_LT(issue_select_index, resumed_step_index);
 }
 
