@@ -78,6 +78,64 @@ ExecutableKernel BuildCycleMultiWaveWaitcntKernelForTraceTest() {
   return builder.Build("cycle_multi_wave_waitcnt_trace_test");
 }
 
+test_utils::AssembledModule AssembleEncodedExplicitWaitcntModule(const std::string& stem) {
+  return test_utils::AssembleAndDecodeLlvmMcModule(
+      stem,
+      "encoded_cycle_explicit_waitcnt_kernel",
+      R"(.amdgcn_target "amdgcn-amd-amdhsa--gfx900"
+
+.text
+.globl encoded_cycle_explicit_waitcnt_kernel
+.p2align 8
+.type encoded_cycle_explicit_waitcnt_kernel,@function
+encoded_cycle_explicit_waitcnt_kernel:
+  s_load_dwordx2 s[2:3], s[0:1], 0x0
+  s_waitcnt lgkmcnt(0)
+  v_mov_b32_e32 v1, s2
+  v_mov_b32_e32 v2, s3
+  global_load_dword v4, v[1:2], off
+  s_mov_b32 s4, 7
+  s_waitcnt vmcnt(0)
+  v_add_u32_e32 v5, v4, v4
+  s_endpgm
+.Lfunc_end0:
+  .size encoded_cycle_explicit_waitcnt_kernel, .Lfunc_end0-encoded_cycle_explicit_waitcnt_kernel
+
+.rodata
+.p2align 6
+.amdhsa_kernel encoded_cycle_explicit_waitcnt_kernel
+  .amdhsa_user_sgpr_kernarg_segment_ptr 1
+  .amdhsa_next_free_vgpr 6
+  .amdhsa_next_free_sgpr 5
+.end_amdhsa_kernel
+
+.amdgpu_metadata
+---
+amdhsa.version:
+  - 1
+  - 0
+amdhsa.kernels:
+  - .name: encoded_cycle_explicit_waitcnt_kernel
+    .symbol: encoded_cycle_explicit_waitcnt_kernel.kd
+    .kernarg_segment_size: 8
+    .group_segment_fixed_size: 0
+    .private_segment_fixed_size: 0
+    .kernarg_segment_align: 8
+    .wavefront_size: 64
+    .sgpr_count: 5
+    .vgpr_count: 6
+    .max_flat_workgroup_size: 256
+    .args:
+      - .size: 8
+        .offset: 0
+        .value_kind: global_buffer
+        .address_space: global
+        .actual_access: read_write
+...
+.end_amdgpu_metadata
+)");
+}
+
 ExecutableKernel BuildWaitcntThresholdProgressKernel() {
   InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
@@ -3078,61 +3136,7 @@ TEST(TraceTest, EncodedCycleDoesNotStallBeforeExplicitWaitcnt) {
     GTEST_SKIP() << "required llvm-mc/LLVM/binutils tools not available";
   }
 
-  const auto assembled = test_utils::AssembleAndDecodeLlvmMcModule(
-      "gpu_model_encoded_cycle_explicit_waitcnt",
-      "encoded_cycle_explicit_waitcnt_kernel",
-      R"(.amdgcn_target "amdgcn-amd-amdhsa--gfx900"
-
-.text
-.globl encoded_cycle_explicit_waitcnt_kernel
-.p2align 8
-.type encoded_cycle_explicit_waitcnt_kernel,@function
-encoded_cycle_explicit_waitcnt_kernel:
-  s_load_dwordx2 s[2:3], s[0:1], 0x0
-  s_waitcnt lgkmcnt(0)
-  v_mov_b32_e32 v1, s2
-  v_mov_b32_e32 v2, s3
-  global_load_dword v4, v[1:2], off
-  s_mov_b32 s4, 7
-  s_waitcnt vmcnt(0)
-  v_add_u32_e32 v5, v4, v4
-  s_endpgm
-.Lfunc_end0:
-  .size encoded_cycle_explicit_waitcnt_kernel, .Lfunc_end0-encoded_cycle_explicit_waitcnt_kernel
-
-.rodata
-.p2align 6
-.amdhsa_kernel encoded_cycle_explicit_waitcnt_kernel
-  .amdhsa_user_sgpr_kernarg_segment_ptr 1
-  .amdhsa_next_free_vgpr 6
-  .amdhsa_next_free_sgpr 5
-.end_amdhsa_kernel
-
-.amdgpu_metadata
----
-amdhsa.version:
-  - 1
-  - 0
-amdhsa.kernels:
-  - .name: encoded_cycle_explicit_waitcnt_kernel
-    .symbol: encoded_cycle_explicit_waitcnt_kernel.kd
-    .kernarg_segment_size: 8
-    .group_segment_fixed_size: 0
-    .private_segment_fixed_size: 0
-    .kernarg_segment_align: 8
-    .wavefront_size: 64
-    .sgpr_count: 5
-    .vgpr_count: 6
-    .max_flat_workgroup_size: 256
-    .args:
-      - .size: 8
-        .offset: 0
-        .value_kind: global_buffer
-        .address_space: global
-        .actual_access: read_write
-...
-.end_amdgpu_metadata
-)");
+  const auto assembled = AssembleEncodedExplicitWaitcntModule("gpu_model_encoded_cycle_explicit_waitcnt");
 
   CollectingTraceSink trace;
   ExecEngine runtime(&trace);
@@ -3174,6 +3178,107 @@ amdhsa.kernels:
   EXPECT_LT(load_index, marker_index);
   EXPECT_LT(marker_index, waitcnt_index);
   EXPECT_LT(waitcnt_index, stall_index);
+
+  std::filesystem::remove_all(assembled.temp_dir);
+}
+
+TEST(TraceTest, EncodedFunctionalWaitcntEmitsWaveWaitArriveAndResumeMarkers) {
+  if (!test_utils::HasLlvmMcAmdgpuToolchain()) {
+    GTEST_SKIP() << "required llvm-mc/LLVM/binutils tools not available";
+  }
+
+  const auto assembled =
+      AssembleEncodedExplicitWaitcntModule("gpu_model_encoded_functional_waitcnt_markers");
+
+  CollectingTraceSink trace;
+  ExecEngine runtime(&trace);
+  runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
+  runtime.SetFixedGlobalMemoryLatency(40);
+
+  const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
+  runtime.memory().StoreGlobalValue<int32_t>(base_addr, 11);
+
+  const uint64_t waitcnt_pc = NthEncodedInstructionPcWithMnemonic(assembled.image, "s_waitcnt", 1);
+  const uint64_t resume_pc = NthEncodedInstructionPcWithMnemonic(assembled.image, "v_add_u32_e32", 0);
+  ASSERT_NE(waitcnt_pc, std::numeric_limits<uint64_t>::max());
+  ASSERT_NE(resume_pc, std::numeric_limits<uint64_t>::max());
+
+  LaunchRequest request;
+  request.arch_name = "c500";
+  request.program_object = &assembled.image;
+  request.mode = ExecutionMode::Functional;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+  request.args.PushU64(base_addr);
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  const auto& events = trace.events();
+  const size_t wave_wait_index = FirstTraceEventIndex(events, TraceEventKind::WaveWait, waitcnt_pc);
+  const size_t wave_arrive_index = FirstTraceEventIndex(events, TraceEventKind::WaveArrive, waitcnt_pc);
+  const size_t wave_resume_index =
+      FirstTraceEventIndex(events, TraceEventKind::WaveResume, resume_pc);
+  const size_t resumed_step_index =
+      FirstTraceEventIndex(events, TraceEventKind::WaveStep, resume_pc);
+  ASSERT_NE(wave_wait_index, std::numeric_limits<size_t>::max());
+  ASSERT_NE(wave_arrive_index, std::numeric_limits<size_t>::max());
+  ASSERT_NE(wave_resume_index, std::numeric_limits<size_t>::max());
+  ASSERT_NE(resumed_step_index, std::numeric_limits<size_t>::max());
+  EXPECT_LT(wave_wait_index, wave_arrive_index);
+  EXPECT_LT(wave_arrive_index, wave_resume_index);
+  EXPECT_LT(wave_resume_index, resumed_step_index);
+
+  std::filesystem::remove_all(assembled.temp_dir);
+}
+
+TEST(TraceTest, EncodedCycleWaitcntEmitsWaveWaitArriveAndResumeMarkers) {
+  if (!test_utils::HasLlvmMcAmdgpuToolchain()) {
+    GTEST_SKIP() << "required llvm-mc/LLVM/binutils tools not available";
+  }
+
+  const auto assembled =
+      AssembleEncodedExplicitWaitcntModule("gpu_model_encoded_cycle_waitcnt_markers");
+
+  CollectingTraceSink trace;
+  ExecEngine runtime(&trace);
+  runtime.SetFixedGlobalMemoryLatency(40);
+
+  const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
+  runtime.memory().StoreGlobalValue<int32_t>(base_addr, 11);
+
+  const uint64_t waitcnt_pc = NthEncodedInstructionPcWithMnemonic(assembled.image, "s_waitcnt", 1);
+  const uint64_t resume_pc = NthEncodedInstructionPcWithMnemonic(assembled.image, "v_add_u32_e32", 0);
+  ASSERT_NE(waitcnt_pc, std::numeric_limits<uint64_t>::max());
+  ASSERT_NE(resume_pc, std::numeric_limits<uint64_t>::max());
+
+  LaunchRequest request;
+  request.arch_name = "c500";
+  request.program_object = &assembled.image;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+  request.args.PushU64(base_addr);
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  const auto& events = trace.events();
+  const size_t wave_wait_index = FirstTraceEventIndex(events, TraceEventKind::WaveWait, waitcnt_pc);
+  const size_t wave_arrive_index = FirstTraceEventIndex(events, TraceEventKind::WaveArrive, waitcnt_pc);
+  const size_t wave_resume_index =
+      FirstTraceEventIndex(events, TraceEventKind::WaveResume, resume_pc);
+  const size_t resumed_step_index =
+      FirstTraceEventIndex(events, TraceEventKind::WaveStep, resume_pc);
+  ASSERT_NE(wave_wait_index, std::numeric_limits<size_t>::max());
+  ASSERT_NE(wave_arrive_index, std::numeric_limits<size_t>::max());
+  ASSERT_NE(wave_resume_index, std::numeric_limits<size_t>::max());
+  ASSERT_NE(resumed_step_index, std::numeric_limits<size_t>::max());
+  EXPECT_LT(wave_wait_index, wave_arrive_index);
+  EXPECT_LT(wave_arrive_index, wave_resume_index);
+  EXPECT_LT(wave_resume_index, resumed_step_index);
+
+  std::filesystem::remove_all(assembled.temp_dir);
 }
 
 TEST(TraceTest, EncodedFunctionalPerfettoJsonShowsInstructionSlicesWithFourCycleDuration) {

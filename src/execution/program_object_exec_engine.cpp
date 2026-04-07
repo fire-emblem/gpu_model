@@ -1874,8 +1874,9 @@ class EncodedExecutionCore {
           if (!op.arrive_kind.has_value()) {
             continue;
           }
+          const uint64_t arrive_cycle = NextFunctionalTraceCycle();
           TraceEvent event = MakeTraceMemoryArriveEvent(MakeRawTraceWaveView(block.waves[i]),
-                                                        NextFunctionalTraceCycle(),
+                                                        arrive_cycle,
                                                         *op.arrive_kind,
                                                         TraceSlotModel());
           const AsyncArriveResult arrive_result = MakeAsyncArriveResult(
@@ -1883,6 +1884,13 @@ class EncodedExecutionCore {
           event.waitcnt_state = arrive_result.waitcnt_state;
           event.arrive_progress = arrive_result.arrive_progress;
           TraceEventLocked(std::move(event));
+          TraceEventLocked(MakeTraceWaveArriveEvent(MakeRawTraceWaveView(block.waves[i]),
+                                                    arrive_cycle,
+                                                    *op.arrive_kind,
+                                                    TraceSlotModel(),
+                                                    arrive_result.arrive_progress,
+                                                    std::numeric_limits<uint64_t>::max(),
+                                                    arrive_result.waitcnt_state));
         }
       }
       for (size_t i = 0; i < block.waves.size(); ++i) {
@@ -1894,16 +1902,27 @@ class EncodedExecutionCore {
         if (pc_it == pc_to_index_.end()) {
           continue;
         }
-        progressed = ResumeWaveIfWaitSatisfied(block.wave_states[i], wave) ||
-                     progressed;
+        if (!ResumeWaveIfWaitSatisfied(block.wave_states[i], wave)) {
+          continue;
+        }
+        TraceEventLocked(MakeTraceWaveResumeEvent(MakeRawTraceWaveView(block.waves[i]),
+                                                  NextFunctionalTraceCycle(),
+                                                  TraceSlotModel()));
+        progressed = true;
       }
     }
     {
       std::lock_guard<std::mutex> lock(*block.control_mutex);
+      std::vector<RawWave*> released_waves;
+      released_waves.reserve(block.waves.size());
       std::vector<WaveContext*> wave_ptrs;
       wave_ptrs.reserve(block.waves.size());
-      for (auto& wave : block.waves) {
-        wave_ptrs.push_back(&wave.wave);
+      for (auto& raw_wave : block.waves) {
+        if (raw_wave.wave.waiting_at_barrier &&
+            raw_wave.wave.barrier_generation == block.barrier_generation) {
+          released_waves.push_back(&raw_wave);
+        }
+        wave_ptrs.push_back(&raw_wave.wave);
       }
       const bool released = sync_ops::ReleaseBarrierIfReady(wave_ptrs,
                                                             block.barrier_generation,
@@ -1911,6 +1930,14 @@ class EncodedExecutionCore {
                                                             4,
                                                             false);
       if (released) {
+        for (RawWave* released_wave : released_waves) {
+          if (released_wave == nullptr || released_wave->wave.waiting_at_barrier) {
+            continue;
+          }
+          TraceEventLocked(MakeTraceWaveResumeEvent(MakeRawTraceWaveView(*released_wave),
+                                                    NextFunctionalTraceCycle(),
+                                                    TraceSlotModel()));
+        }
         TraceEventLocked(
             MakeTraceBarrierReleaseEvent(block.dpc_id,
                                          block.ap_id,
@@ -1946,6 +1973,13 @@ class EncodedExecutionCore {
           event.waitcnt_state = arrive_result.waitcnt_state;
           event.arrive_progress = arrive_result.arrive_progress;
           TraceEventLocked(std::move(event));
+          TraceEventLocked(MakeTraceWaveArriveEvent(MakeRawTraceWaveView(block.waves[i]),
+                                                    cycle,
+                                                    *op.arrive_kind,
+                                                    TraceSlotModel(),
+                                                    arrive_result.arrive_progress,
+                                                    std::numeric_limits<uint64_t>::max(),
+                                                    arrive_result.waitcnt_state));
         }
       }
       for (size_t i = 0; i < block.waves.size(); ++i) {
@@ -1957,16 +1991,26 @@ class EncodedExecutionCore {
         if (pc_it == pc_to_index_.end()) {
           continue;
         }
-        progressed = ResumeWaveIfWaitSatisfied(block.wave_states[i], wave) ||
-                     progressed;
+        if (!ResumeWaveIfWaitSatisfied(block.wave_states[i], wave)) {
+          continue;
+        }
+        TraceEventLocked(
+            MakeTraceWaveResumeEvent(MakeRawTraceWaveView(block.waves[i]), cycle, TraceSlotModel()));
+        progressed = true;
       }
     }
     {
       std::lock_guard<std::mutex> lock(*block.control_mutex);
+      std::vector<RawWave*> released_waves;
+      released_waves.reserve(block.waves.size());
       std::vector<WaveContext*> wave_ptrs;
       wave_ptrs.reserve(block.waves.size());
-      for (auto& wave : block.waves) {
-        wave_ptrs.push_back(&wave.wave);
+      for (auto& raw_wave : block.waves) {
+        if (raw_wave.wave.waiting_at_barrier &&
+            raw_wave.wave.barrier_generation == block.barrier_generation) {
+          released_waves.push_back(&raw_wave);
+        }
+        wave_ptrs.push_back(&raw_wave.wave);
       }
       const bool released = sync_ops::ReleaseBarrierIfReady(
           wave_ptrs,
@@ -1977,6 +2021,13 @@ class EncodedExecutionCore {
       if (released) {
         auto& ap_state = cycle_ap_states_.at(block.global_ap_id);
         ReleaseBarrierSlot(ap_state.barrier_slots_in_use, block.barrier_slot_acquired);
+        for (RawWave* released_wave : released_waves) {
+          if (released_wave == nullptr || released_wave->wave.waiting_at_barrier) {
+            continue;
+          }
+          TraceEventLocked(
+              MakeTraceWaveResumeEvent(MakeRawTraceWaveView(*released_wave), cycle, TraceSlotModel()));
+        }
         TraceEventLocked(
             MakeTraceBarrierReleaseEvent(block.dpc_id, block.ap_id, block.block_id, cycle));
         std::vector<size_t> refill_slots;
@@ -2087,6 +2138,12 @@ class EncodedExecutionCore {
         MarkWaveWaiting(wave, *wait_reason);
         const TraceWaitcntState waitcnt_state =
             MakeTraceWaitcntState(wave, *wave_state.waiting_waitcnt_thresholds);
+        TraceEventLocked(MakeTraceWaveWaitEvent(MakeRawTraceWaveView(raw_wave),
+                                                trace_cycle,
+                                                TraceSlotModel(),
+                                                TraceStallReasonForWaveWaitReason(*wait_reason),
+                                                std::numeric_limits<uint64_t>::max(),
+                                                waitcnt_state));
         TraceEventLocked(MakeTraceWaitStallEvent(
             MakeRawTraceWaveView(raw_wave),
             trace_cycle,
@@ -2168,6 +2225,8 @@ class EncodedExecutionCore {
       if (wave.waiting_at_barrier) {
         TraceEventLocked(
             MakeTraceBarrierArriveEvent(MakeRawTraceWaveView(raw_wave), trace_cycle, TraceSlotModel()));
+        TraceEventLocked(
+            MakeTraceWaveWaitEvent(MakeRawTraceWaveView(raw_wave), trace_cycle, TraceSlotModel()));
       }
       if (wave.status == WaveStatus::Exited) {
         wave.run_state = WaveRunState::Completed;
@@ -2228,6 +2287,12 @@ class EncodedExecutionCore {
         MarkWaveWaiting(wave, *wait_reason);
         const TraceWaitcntState waitcnt_state =
             MakeTraceWaitcntState(wave, *wave_state.waiting_waitcnt_thresholds);
+        TraceEventLocked(MakeTraceWaveWaitEvent(MakeRawTraceWaveView(raw_wave),
+                                                cycle,
+                                                TraceSlotModel(),
+                                                TraceStallReasonForWaveWaitReason(*wait_reason),
+                                                std::numeric_limits<uint64_t>::max(),
+                                                waitcnt_state));
         TraceEventLocked(MakeTraceWaitStallEvent(
             MakeRawTraceWaveView(raw_wave),
             cycle,
@@ -2281,6 +2346,8 @@ class EncodedExecutionCore {
         TraceEventLocked(MakeTraceBarrierArriveEvent(MakeRawTraceWaveView(raw_wave),
                                                      cycle,
                                                      TraceSlotModel()));
+        TraceEventLocked(
+            MakeTraceWaveWaitEvent(MakeRawTraceWaveView(raw_wave), cycle, TraceSlotModel()));
         auto& slot = cycle_peu_slots_.at(raw_wave.peu_slot_index);
         RemoveWaveFromActiveWindow(slot, raw_wave);
         RefillActiveWindow(slot, cycle);
