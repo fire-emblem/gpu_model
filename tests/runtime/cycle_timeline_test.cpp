@@ -170,6 +170,24 @@ TEST(CycleTimelineTest, RendersGoogleTraceForWaveTimeline) {
   EXPECT_NE(timeline.find("\"thread_sort_index\""), std::string::npos);
 }
 
+TEST(CycleTimelineTest, GoogleTraceUsesZeroBasedSlotIdsForWaveTracks) {
+  const TraceWaveView wave0 = MakeWaveView(/*slot_id=*/0, /*pc=*/0x100, /*wave_id=*/0);
+  const TraceWaveView wave1 = MakeWaveView(/*slot_id=*/1, /*pc=*/0x104, /*wave_id=*/1);
+  const std::string timeline = CycleTimelineRenderer::RenderGoogleTrace(MakeRecorder({
+      MakeTraceWaveLaunchEvent(
+          wave0, /*cycle=*/0, {}, TraceSlotModelKind::ResidentFixed),
+      MakeTraceWaveStepEvent(wave0, /*cycle=*/0, TraceSlotModelKind::ResidentFixed, "op=s_mov_b32"),
+      MakeTraceCommitEvent(wave0, /*cycle=*/4, TraceSlotModelKind::ResidentFixed, wave0.pc),
+      MakeTraceWaveLaunchEvent(
+          wave1, /*cycle=*/0, {}, TraceSlotModelKind::ResidentFixed),
+      MakeTraceWaveStepEvent(wave1, /*cycle=*/4, TraceSlotModelKind::ResidentFixed, "op=s_mov_b32"),
+      MakeTraceCommitEvent(wave1, /*cycle=*/8, TraceSlotModelKind::ResidentFixed, wave1.pc),
+  }));
+
+  EXPECT_NE(timeline.find("\"tid\":0,\"args\":{\"name\":\"WAVE_SLOT_00\"}"), std::string::npos);
+  EXPECT_NE(timeline.find("\"tid\":1,\"args\":{\"name\":\"WAVE_SLOT_01\"}"), std::string::npos);
+}
+
 TEST(CycleTimelineTest, GoogleTraceCanGroupByBlock) {
   CollectingTraceSink trace;
   ExecEngine runtime(&trace);
