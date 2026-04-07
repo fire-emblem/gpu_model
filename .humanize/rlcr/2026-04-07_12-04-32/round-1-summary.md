@@ -17,6 +17,9 @@
 - Added the round-0 review-mandated task1 addendum here in round artifacts:
   - residual consumer-side semantic derivation still exists in [trace_event_view.cpp](/data/gpu_model/src/debug/trace/trace_event_view.cpp) and [cycle_timeline_google_trace.cpp](/data/gpu_model/src/debug/timeline/cycle_timeline_google_trace.cpp)
   - those derivations remain explicit task6 removal targets; they are not treated as execution semantics
+- Per RLCR stop-gate follow-up, trimmed oversized example text traces in [examples/11-perfetto-waitcnt-slots/run.sh](/data/gpu_model/examples/11-perfetto-waitcnt-slots/run.sh) and [README.md](/data/gpu_model/examples/11-perfetto-waitcnt-slots/README.md):
+  - `run.sh` now splits oversized local `trace.txt` outputs into `trace_parts/` and replaces the root `trace.txt` with a short preview/index
+  - committed example result previews for the heavy `st/mt` cases are now below the 2000-line gate limit while preserving Perfetto and JSONL artifacts as the primary detailed views
 
 ## Task4 Audit
 
@@ -66,6 +69,9 @@
 - [execution_stats_test.cpp](/data/gpu_model/tests/runtime/execution_stats_test.cpp)
 - [trace_test.cpp](/data/gpu_model/tests/runtime/trace_test.cpp)
 - [cycle_timeline_test.cpp](/data/gpu_model/tests/runtime/cycle_timeline_test.cpp)
+- [run.sh](/data/gpu_model/examples/11-perfetto-waitcnt-slots/run.sh)
+- [README.md](/data/gpu_model/examples/11-perfetto-waitcnt-slots/README.md)
+- selected files under [results](/data/gpu_model/examples/11-perfetto-waitcnt-slots/results)
 
 ## Validation
 - `cmake --build build-ninja --target gpu_model_tests -j8`
@@ -74,11 +80,15 @@
   - 7 tests passed
 - `./build-ninja/tests/gpu_model_tests --gtest_filter='AsyncMemoryCycleTest.WaitCntCanWaitForGlobalMemoryOnly:AsyncMemoryCycleTest.WaitCntIgnoresGlobalWhenWaitingSharedOnly:AsyncMemoryCycleTest.WaitCntCanWaitForScalarBufferScalarLoadOnly:FunctionalExecEngineWaitcntTest.ResumesWhenStoredThresholdBecomesSatisfied:FunctionalExecEngineWaitcntTest.WaitcntResumeRequiresAllStoredThresholdDomains:ExecutionStatsTest.GlobalDisableTraceEnvForcesNullTraceSinkWithoutBreakingCycles'`
   - 6 tests passed
+- `bash -n examples/11-perfetto-waitcnt-slots/run.sh`
+  - passed
+- `wc -l` on the heavy example previews under `examples/11-perfetto-waitcnt-slots/results/{st,mt}/{same_peu_slots,switch_away_heavy}/trace.txt`
+  - all four previews are now `125` lines and below the RLCR 2000-line gate limit
 
 ## Remaining Items
 - `task5` is still open: recorder does not own instruction intervals yet; [recorder.cpp](/data/gpu_model/src/debug/recorder/recorder.cpp) still normalizes from zero.
 - `task6` is still open: text/json/trace-view/google-trace still derive semantics from raw `TraceEvent` fields instead of consuming recorder-only facts.
-- `task7` and `task8` are still open: no new representative example calibration or visual note landed in this round.
+- `task7` and `task8` are still open: only gate-driven example artifact hygiene landed in this round; no new representative example calibration or visual note landed yet.
 - `task9` is still open: docs were not updated in this round.
 - Encoded execution still lacks parity with the new wave-state-edge schema and should be treated as an open producer-side skew until addressed.
 

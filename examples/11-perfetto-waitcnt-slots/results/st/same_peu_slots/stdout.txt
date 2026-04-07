@@ -1,1 +1,1 @@
-same_peu_slots ok=1 mode=st total_cycles=1032
+same_peu_slots ok=1 mode=st total_cycles=1033

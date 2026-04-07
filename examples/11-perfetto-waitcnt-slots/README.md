@@ -71,6 +71,7 @@
 
 - `stdout.txt`
 - `trace.txt`
+- `trace_parts/`（仅当原始 `trace.txt` 超过 2000 行时生成）
 - `trace.jsonl`
 - `timeline.perfetto.json`
 - `launch_summary.txt`
@@ -89,7 +90,8 @@
 2. `trace.jsonl`
    适合看逐事件字段
 3. `trace.txt`
-   适合人肉快速浏览
+   适合人肉快速浏览；如果目录里同时存在 `trace_parts/`，说明这里是预览+索引，
+   完整正文已经按 1800 行分片到 `trace_parts/trace_part_000.txt`、`trace_part_001.txt` ...
 
 ## 预期结果
 
@@ -175,6 +177,8 @@
   一起理解层级。
 - `timeline_gap` 里的“空泡”并不是完全没有 trace event，而是没有 instruction slice。
   trace.txt 中仍会看到一串 `stall_waitcnt_global` 事件，这是当前导出语义的一部分。
+- `same_peu_slots` 和 `switch_away_heavy` 的 `st/mt trace.txt` 可能非常长。
+  当前仓库把它们收口成“短预览 + trace_parts 分片正文”，避免把几十万行裸文本直接留在结果根目录。
 
 ## 结果解读
 

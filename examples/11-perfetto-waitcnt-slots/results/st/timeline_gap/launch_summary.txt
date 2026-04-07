@@ -1,1 +1,1 @@
-launch_index=0 kernel=timeline_waitcnt_bubble execution_mode=functional functional_mode=st ok=1 submit_cycle=0 begin_cycle=0 end_cycle=1040 total_cycles=1040 program_total_cycles=1040
+launch_index=0 kernel=timeline_waitcnt_bubble execution_mode=functional functional_mode=st ok=1 submit_cycle=0 begin_cycle=0 end_cycle=1037 total_cycles=1037 program_total_cycles=1037
