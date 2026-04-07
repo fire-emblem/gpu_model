@@ -120,6 +120,8 @@ RecorderEntryKind EntryKindFromTraceEvent(const TraceEvent& event) {
     case TraceEventKind::IssueSelect:
       return RecorderEntryKind::IssueSelect;
     case TraceEventKind::BlockAdmit:
+    case TraceEventKind::BlockActivate:
+    case TraceEventKind::BlockRetire:
       break;
     case TraceEventKind::WaveStats:
       return RecorderEntryKind::WaveStats;

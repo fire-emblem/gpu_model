@@ -2814,20 +2814,15 @@ TEST(TraceTest, NativePerfettoProtoShowsFunctionalSamePeuSwitchAwayInSingleThrea
   request.config.block_dim_x = kBlockDim;
   request.args.PushU64(in_addr);
 
-  std::fprintf(stderr, "TRACE_MT_SAMEPEU before launch\n");
   const auto result = runtime.Launch(request);
-  std::fprintf(stderr, "TRACE_MT_SAMEPEU after launch\n");
   ASSERT_TRUE(result.ok) << result.error_message;
   trace.FlushTimeline();
-  std::fprintf(stderr, "TRACE_MT_SAMEPEU after flush\n");
 
   const std::string timeline = ReadTextFile(out_dir / "timeline.perfetto.json");
   EXPECT_NE(timeline.find("\"name\":\"wave_switch_away\""), std::string::npos);
   EXPECT_NE(timeline.find("\"slot_model\":\"logical_unbounded\""), std::string::npos);
 
-  std::fprintf(stderr, "TRACE_MT_SAMEPEU before proto\n");
   const std::string bytes = CycleTimelineRenderer::RenderPerfettoTraceProto(trace.recorder());
-  std::fprintf(stderr, "TRACE_MT_SAMEPEU after proto\n");
   const auto events = ParseTrackEvents(bytes);
   bool saw_switch_away = false;
   for (const auto& event : events) {
