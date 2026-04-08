@@ -1296,6 +1296,63 @@ TEST(TraceTest, CycleSharedLoadIssueAndArriveShareFlowId) {
   EXPECT_EQ(*issue_flow_id, *arrive_flow_id);
 }
 
+TEST(TraceTest, EncodedCycleAsyncLoadIssueAndArriveShareFlowId) {
+  if (!test_utils::HasLlvmMcAmdgpuToolchain()) {
+    GTEST_SKIP() << "required llvm-mc/LLVM/binutils tools not available";
+  }
+
+  const auto assembled =
+      AssembleEncodedExplicitWaitcntModule("gpu_model_encoded_cycle_async_flow");
+
+  CollectingTraceSink trace;
+  ExecEngine runtime(&trace);
+  runtime.SetFixedGlobalMemoryLatency(40);
+
+  const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
+  runtime.memory().StoreGlobalValue<int32_t>(base_addr, 11);
+
+  LaunchRequest request;
+  request.arch_name = "c500";
+  request.program_object = &assembled.image;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+  request.args.PushU64(base_addr);
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  std::optional<uint64_t> issue_flow_id;
+  std::optional<uint64_t> arrive_flow_id;
+  bool wave_arrive_seen = false;
+  bool wave_arrive_clean = true;
+  for (const auto& event : trace.events()) {
+    if (event.kind == TraceEventKind::MemoryAccess && event.message == "load_issue") {
+      issue_flow_id = event.flow_id;
+      EXPECT_EQ(event.flow_phase, TraceFlowPhase::Start);
+      EXPECT_NE(event.flow_id, 0);
+    }
+    if (event.kind == TraceEventKind::Arrive && event.arrive_kind == TraceArriveKind::Load) {
+      arrive_flow_id = event.flow_id;
+      EXPECT_EQ(event.flow_phase, TraceFlowPhase::Finish);
+      EXPECT_NE(event.flow_id, 0);
+    }
+    if (event.kind == TraceEventKind::WaveArrive) {
+      wave_arrive_seen = true;
+      wave_arrive_clean &= (event.flow_id == 0 && event.flow_phase == TraceFlowPhase::None);
+    }
+  }
+
+  ASSERT_TRUE(issue_flow_id.has_value());
+  ASSERT_TRUE(arrive_flow_id.has_value());
+  EXPECT_EQ(*issue_flow_id, *arrive_flow_id);
+  EXPECT_NE(*issue_flow_id, 0);
+  EXPECT_NE(*arrive_flow_id, 0);
+  ASSERT_TRUE(wave_arrive_seen);
+  EXPECT_TRUE(wave_arrive_clean);
+  std::filesystem::remove_all(assembled.temp_dir);
+}
+
 TEST(TraceTest, RecorderEntryTraceEventExportRespectsFlowGating) {
   TraceEvent issue;
   issue.kind = TraceEventKind::Commit;

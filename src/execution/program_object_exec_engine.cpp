@@ -75,6 +75,7 @@ struct EncodedPendingMemoryOp {
   uint64_t ready_cycle = 0;
   bool uses_ready_cycle = false;
   std::optional<TraceMemoryArriveKind> arrive_kind;
+  uint64_t flow_id = 0;
 };
 
 struct EncodedWaveState {
@@ -829,7 +830,8 @@ void RecordPendingMemoryOp(EncodedWaveState& state,
                            WaveContext& wave,
                            MemoryWaitDomain domain,
                            uint64_t ready_cycle,
-                           TraceMemoryArriveKind arrive_kind) {
+                           TraceMemoryArriveKind arrive_kind,
+                           uint64_t flow_id = 0) {
   if (domain == MemoryWaitDomain::None) {
     return;
   }
@@ -840,6 +842,7 @@ void RecordPendingMemoryOp(EncodedWaveState& state,
       .ready_cycle = ready_cycle,
       .uses_ready_cycle = true,
       .arrive_kind = arrive_kind,
+      .flow_id = flow_id,
   });
 }
 
@@ -1130,6 +1133,7 @@ class EncodedExecutionCore {
   std::unordered_map<uint64_t, EncodedLastScheduledWaveTraceState> last_wave_per_ap_peu_;
   uint64_t cycle_total_cycles_ = 0;
   uint64_t max_execution_cycle_ = 0;
+  std::atomic<uint64_t> next_flow_id_{1};
 
   TraceSlotModelKind TraceSlotModel() const {
     return execution_mode_ == ExecutionMode::Cycle ? TraceSlotModelKind::ResidentFixed
@@ -1138,6 +1142,27 @@ class EncodedExecutionCore {
 
   void ObserveExecutionCycle(uint64_t cycle) {
     max_execution_cycle_ = std::max(max_execution_cycle_, cycle);
+  }
+
+  uint64_t AllocateTraceFlowId() {
+    return next_flow_id_.fetch_add(1, std::memory_order_relaxed);
+  }
+
+  void EmitEncodedMemoryAccessIssueEvent(const RawWave& raw_wave,
+                                         uint64_t cycle,
+                                         AccessKind kind,
+                                         uint64_t flow_id) {
+    if (flow_id == 0) {
+      return;
+    }
+    TraceEvent issue_event = MakeRawWaveTraceEvent(
+        raw_wave,
+        TraceEventKind::MemoryAccess,
+        cycle,
+        kind == AccessKind::Load ? "load_issue" : "store_issue");
+    issue_event.flow_id = flow_id;
+    issue_event.flow_phase = TraceFlowPhase::Start;
+    TraceEventLocked(std::move(issue_event));
   }
 
   uint32_t TraceSlotId(const RawWave& raw_wave) const {
@@ -2180,6 +2205,8 @@ class EncodedExecutionCore {
                                                         cycle,
                                                         *op.arrive_kind,
                                                         TraceSlotModel());
+          event.flow_id = op.flow_id;
+          event.flow_phase = TraceFlowPhase::Finish;
           const AsyncArriveResult arrive_result = MakeAsyncArriveResult(
               block.waves[i].wave, op.domain, block.wave_states[i].waiting_waitcnt_thresholds);
           ObserveExecutionCycle(cycle);
@@ -2569,7 +2596,32 @@ class EncodedExecutionCore {
     handler.Execute(decoded, context);
 
     uint64_t ready_cycle = commit_cycle;
-
+    if (captured_memory_request.has_value()) {
+      auto& request = *captured_memory_request;
+      if (request.space == MemorySpace::Global) {
+        const std::vector<uint64_t> addrs = ActiveAddresses(request);
+        auto& l1_cache = l1_caches_.at(std::make_pair(block.dpc_id, block.ap_id));
+        const CacheProbeResult l1_probe = l1_cache.Probe(addrs);
+        const CacheProbeResult l2_probe = l2_cache_.Probe(addrs);
+        const uint64_t arrive_latency = std::min(l1_probe.latency, l2_probe.latency);
+        if (l1_probe.l1_hits > 0) {
+          step_stats.l1_hits += l1_probe.l1_hits;
+        } else if (l2_probe.l2_hits > 0) {
+          step_stats.l2_hits += l2_probe.l2_hits;
+        } else {
+          step_stats.cache_misses += std::max<uint64_t>(1, l2_probe.misses);
+        }
+        l2_cache_.Promote(addrs);
+        l1_cache.Promote(addrs);
+        ready_cycle = commit_cycle + arrive_latency;
+      } else if (request.space == MemorySpace::Shared) {
+        const uint64_t penalty = shared_bank_model_.ConflictPenalty(request);
+        step_stats.shared_bank_conflict_penalty_cycles += penalty;
+        ready_cycle = commit_cycle + penalty;
+      }
+    }
+    const bool has_async_memory = maybe_domain.has_value() && captured_memory_request.has_value();
+    const uint64_t memory_flow_id = has_async_memory ? AllocateTraceFlowId() : 0;
     {
       std::lock_guard<std::mutex> lock(*block.wave_state_mutex);
       if (maybe_domain.has_value()) {
@@ -2578,7 +2630,8 @@ class EncodedExecutionCore {
                               *maybe_domain,
                               ready_cycle,
                               TraceMemoryArriveKindForMemoryOp(*maybe_domain,
-                                                               captured_memory_request));
+                                                               captured_memory_request),
+                              memory_flow_id);
       }
       if (wave.waiting_at_barrier) {
         auto& ap_state = cycle_ap_states_.at(block.global_ap_id);
@@ -2629,29 +2682,9 @@ class EncodedExecutionCore {
       }
     }
 
-    if (captured_memory_request.has_value()) {
-      auto& request = *captured_memory_request;
-      if (request.space == MemorySpace::Global) {
-        const std::vector<uint64_t> addrs = ActiveAddresses(request);
-        auto& l1_cache = l1_caches_.at(std::make_pair(block.dpc_id, block.ap_id));
-        const CacheProbeResult l1_probe = l1_cache.Probe(addrs);
-        const CacheProbeResult l2_probe = l2_cache_.Probe(addrs);
-        const uint64_t arrive_latency = std::min(l1_probe.latency, l2_probe.latency);
-        if (l1_probe.l1_hits > 0) {
-          step_stats.l1_hits += l1_probe.l1_hits;
-        } else if (l2_probe.l2_hits > 0) {
-          step_stats.l2_hits += l2_probe.l2_hits;
-        } else {
-          step_stats.cache_misses += std::max<uint64_t>(1, l2_probe.misses);
-        }
-        l2_cache_.Promote(addrs);
-        l1_cache.Promote(addrs);
-        ready_cycle = commit_cycle + arrive_latency;
-      } else if (request.space == MemorySpace::Shared) {
-        const uint64_t penalty = shared_bank_model_.ConflictPenalty(request);
-        step_stats.shared_bank_conflict_penalty_cycles += penalty;
-        ready_cycle = commit_cycle + penalty;
-      }
+    if (has_async_memory) {
+      EmitEncodedMemoryAccessIssueEvent(
+          raw_wave, cycle, captured_memory_request->kind, memory_flow_id);
     }
 
     if (maybe_domain.has_value()) {
