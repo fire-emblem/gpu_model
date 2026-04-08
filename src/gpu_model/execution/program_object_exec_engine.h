@@ -1,5 +1,7 @@
 #pragma once
 
+#include <atomic>
+
 #include "gpu_model/arch/gpu_arch_spec.h"
 #include "gpu_model/execution/cycle_exec_engine.h"
 #include "gpu_model/debug/trace/sink.h"
@@ -24,7 +26,8 @@ class ProgramObjectExecEngine {
                    const KernelArgPack& args,
                    const DeviceLoadResult* device_load,
                    MemorySystem& memory,
-                   TraceSink& trace) const;
+                   TraceSink& trace,
+                   std::atomic<uint64_t>* trace_flow_id_source) const;
 };
 
 }  // namespace gpu_model

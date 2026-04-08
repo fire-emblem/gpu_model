@@ -1048,6 +1048,7 @@ class EncodedExecutionCore {
                        const DeviceLoadResult* device_load,
                        MemorySystem& memory,
                        TraceSink& trace,
+                       std::atomic<uint64_t>* trace_flow_id_source,
                        LaunchResult& result,
                        FunctionalExecutionConfig functional_execution_config,
                        std::unordered_map<uint64_t, size_t> pc_to_index,
@@ -1063,6 +1064,7 @@ class EncodedExecutionCore {
         device_load_(device_load),
         memory_(memory),
         trace_(trace),
+        trace_flow_id_source_(trace_flow_id_source),
         result_(result),
         functional_execution_config_(functional_execution_config),
         pc_to_index_(std::move(pc_to_index)),
@@ -1106,6 +1108,8 @@ class EncodedExecutionCore {
   const DeviceLoadResult* device_load_ = nullptr;
   MemorySystem& memory_;
   TraceSink& trace_;
+  std::atomic<uint64_t>* trace_flow_id_source_ = nullptr;
+  std::atomic<uint64_t> fallback_flow_id_{1};
   LaunchResult& result_;
   FunctionalExecutionConfig functional_execution_config_{};
   std::unordered_map<uint64_t, size_t> pc_to_index_;
@@ -1133,7 +1137,6 @@ class EncodedExecutionCore {
   std::unordered_map<uint64_t, EncodedLastScheduledWaveTraceState> last_wave_per_ap_peu_;
   uint64_t cycle_total_cycles_ = 0;
   uint64_t max_execution_cycle_ = 0;
-  std::atomic<uint64_t> next_flow_id_{1};
 
   TraceSlotModelKind TraceSlotModel() const {
     return execution_mode_ == ExecutionMode::Cycle ? TraceSlotModelKind::ResidentFixed
@@ -1145,7 +1148,9 @@ class EncodedExecutionCore {
   }
 
   uint64_t AllocateTraceFlowId() {
-    return next_flow_id_.fetch_add(1, std::memory_order_relaxed);
+    std::atomic<uint64_t>* source =
+        trace_flow_id_source_ != nullptr ? trace_flow_id_source_ : &fallback_flow_id_;
+    return source->fetch_add(1, std::memory_order_relaxed);
   }
 
   void EmitEncodedMemoryAccessIssueEvent(const RawWave& raw_wave,
@@ -2726,7 +2731,8 @@ LaunchResult ProgramObjectExecEngine::Run(const ProgramObject& image,
                                     const KernelArgPack& args,
                                     const DeviceLoadResult* device_load,
                                     MemorySystem& memory,
-                                    TraceSink& trace) const {
+                                    TraceSink& trace,
+                                    std::atomic<uint64_t>* trace_flow_id_source) const {
   LaunchResult result;
   result.ok = false;
   result.placement = Mapper::Place(spec, config);
@@ -2772,6 +2778,7 @@ LaunchResult ProgramObjectExecEngine::Run(const ProgramObject& image,
                             device_load,
                             memory,
                             trace,
+                            trace_flow_id_source,
                             result,
                             functional_execution_config,
                             std::move(pc_to_index),

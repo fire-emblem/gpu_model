@@ -11,6 +11,7 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <unordered_set>
 #include <vector>
 
 #include "gpu_model/debug/recorder/export.h"
@@ -1255,6 +1256,49 @@ TEST(TraceTest, CycleAsyncLoadIssueAndArriveShareFlowId) {
   EXPECT_TRUE(wave_arrive_clean);
 }
 
+TEST(TraceTest, CycleAsyncLoadFlowIdsStayUniqueAcrossLaunchesOnSameEngine) {
+  CollectingTraceSink trace;
+  ExecEngine runtime(&trace);
+  runtime.SetFixedGlobalMemoryLatency(20);
+
+  const auto kernel = BuildWaitcntTraceKernel();
+  const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
+  runtime.memory().StoreGlobalValue<int32_t>(base_addr, 17);
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+  request.args.PushU64(base_addr);
+
+  const auto first_result = runtime.Launch(request);
+  ASSERT_TRUE(first_result.ok) << first_result.error_message;
+  const auto second_result = runtime.Launch(request);
+  ASSERT_TRUE(second_result.ok) << second_result.error_message;
+
+  std::vector<uint64_t> issue_flow_ids;
+  std::vector<uint64_t> arrive_flow_ids;
+  for (const auto& event : trace.events()) {
+    if (event.kind == TraceEventKind::MemoryAccess && event.message == "load_issue") {
+      issue_flow_ids.push_back(event.flow_id);
+      EXPECT_EQ(event.flow_phase, TraceFlowPhase::Start);
+    }
+    if (event.kind == TraceEventKind::Arrive && event.arrive_kind == TraceArriveKind::Load) {
+      arrive_flow_ids.push_back(event.flow_id);
+      EXPECT_EQ(event.flow_phase, TraceFlowPhase::Finish);
+    }
+  }
+
+  ASSERT_EQ(issue_flow_ids.size(), 2u);
+  ASSERT_EQ(arrive_flow_ids.size(), 2u);
+  EXPECT_NE(issue_flow_ids[0], 0);
+  EXPECT_NE(issue_flow_ids[1], 0);
+  EXPECT_EQ(issue_flow_ids[0], arrive_flow_ids[0]);
+  EXPECT_EQ(issue_flow_ids[1], arrive_flow_ids[1]);
+  EXPECT_NE(issue_flow_ids[0], issue_flow_ids[1]);
+}
+
 TEST(TraceTest, CycleSharedLoadIssueAndArriveShareFlowId) {
   CollectingTraceSink trace;
   ExecEngine runtime(&trace);
@@ -1350,6 +1394,63 @@ TEST(TraceTest, EncodedCycleAsyncLoadIssueAndArriveShareFlowId) {
   EXPECT_NE(*arrive_flow_id, 0);
   ASSERT_TRUE(wave_arrive_seen);
   EXPECT_TRUE(wave_arrive_clean);
+  std::filesystem::remove_all(assembled.temp_dir);
+}
+
+TEST(TraceTest, EncodedCycleAsyncLoadFlowIdsStayUniqueAcrossLaunchesOnSameEngine) {
+  if (!test_utils::HasLlvmMcAmdgpuToolchain()) {
+    GTEST_SKIP() << "required llvm-mc/LLVM/binutils tools not available";
+  }
+
+  const auto assembled =
+      AssembleEncodedExplicitWaitcntModule("gpu_model_encoded_cycle_async_multi_launch_flow");
+
+  CollectingTraceSink trace;
+  ExecEngine runtime(&trace);
+  runtime.SetFixedGlobalMemoryLatency(40);
+
+  const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
+  runtime.memory().StoreGlobalValue<int32_t>(base_addr, 11);
+
+  LaunchRequest request;
+  request.arch_name = "c500";
+  request.program_object = &assembled.image;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+  request.args.PushU64(base_addr);
+
+  const auto first_result = runtime.Launch(request);
+  ASSERT_TRUE(first_result.ok) << first_result.error_message;
+  const auto second_result = runtime.Launch(request);
+  ASSERT_TRUE(second_result.ok) << second_result.error_message;
+
+  std::vector<uint64_t> issue_flow_ids;
+  std::vector<uint64_t> arrive_flow_ids;
+  for (const auto& event : trace.events()) {
+    if (event.kind == TraceEventKind::MemoryAccess && event.message == "load_issue") {
+      issue_flow_ids.push_back(event.flow_id);
+      EXPECT_EQ(event.flow_phase, TraceFlowPhase::Start);
+    }
+    if (event.kind == TraceEventKind::Arrive && event.arrive_kind == TraceArriveKind::Load) {
+      arrive_flow_ids.push_back(event.flow_id);
+      EXPECT_EQ(event.flow_phase, TraceFlowPhase::Finish);
+    }
+  }
+
+  ASSERT_GE(issue_flow_ids.size(), 2u);
+  ASSERT_GE(arrive_flow_ids.size(), 2u);
+  for (const uint64_t flow_id : issue_flow_ids) {
+    EXPECT_NE(flow_id, 0);
+  }
+  for (const uint64_t flow_id : arrive_flow_ids) {
+    EXPECT_NE(flow_id, 0);
+  }
+
+  std::unordered_set<uint64_t> unique_issue_ids(issue_flow_ids.begin(), issue_flow_ids.end());
+  std::unordered_set<uint64_t> unique_arrive_ids(arrive_flow_ids.begin(), arrive_flow_ids.end());
+  EXPECT_EQ(unique_issue_ids.size(), issue_flow_ids.size());
+  EXPECT_EQ(unique_arrive_ids.size(), arrive_flow_ids.size());
   std::filesystem::remove_all(assembled.temp_dir);
 }
 
@@ -2232,6 +2333,109 @@ TEST(TraceTest, JsonTraceSinkSerializesCanonicalTypedSubkinds) {
   EXPECT_NE(text.find("\"category\":\"memory/shared_arrive\""), std::string::npos);
   EXPECT_NE(text.find("\"display_name\":\"shared\""), std::string::npos);
   std::filesystem::remove(json_path);
+}
+
+TEST(TraceTest, FileTraceSinkSerializesFlowMetadata) {
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_flow_trace_text");
+  const struct Cleanup {
+    std::filesystem::path path;
+    ~Cleanup() { std::filesystem::remove_all(path); }
+  } cleanup{temp_dir};
+  const auto text_path = temp_dir / "trace.txt";
+
+  {
+    FileTraceSink trace(text_path);
+    TraceEvent event{
+        .kind = TraceEventKind::MemoryAccess,
+        .cycle = 5,
+        .slot_model_kind = TraceSlotModelKind::ResidentFixed,
+        .slot_model = {},
+        .waitcnt_state = {},
+        .has_cycle_range = false,
+        .range_end_cycle = 0,
+        .semantic_canonical_name = {},
+        .semantic_presentation_name = {},
+        .semantic_category = {},
+        .display_name = {},
+        .message = "flow_event",
+        .flow_id = 1,
+        .flow_phase = TraceFlowPhase::Start,
+    };
+    trace.OnEvent(event);
+  }
+
+  const std::string text = ReadTextFile(text_path);
+  EXPECT_NE(text.find("has_flow=1"), std::string::npos);
+  EXPECT_NE(text.find("flow_id=0x1"), std::string::npos);
+  EXPECT_NE(text.find("flow_phase=start"), std::string::npos);
+}
+
+TEST(TraceTest, JsonTraceSinkSerializesFlowMetadata) {
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_flow_trace_json");
+  const struct Cleanup {
+    std::filesystem::path path;
+    ~Cleanup() { std::filesystem::remove_all(path); }
+  } cleanup{temp_dir};
+  const auto json_path = temp_dir / "trace.jsonl";
+
+  {
+    JsonTraceSink trace(json_path);
+    TraceEvent event{
+        .kind = TraceEventKind::MemoryAccess,
+        .cycle = 5,
+        .slot_model_kind = TraceSlotModelKind::ResidentFixed,
+        .slot_model = {},
+        .waitcnt_state = {},
+        .has_cycle_range = false,
+        .range_end_cycle = 0,
+        .semantic_canonical_name = {},
+        .semantic_presentation_name = {},
+        .semantic_category = {},
+        .display_name = {},
+        .message = "flow_event",
+        .flow_id = 1,
+        .flow_phase = TraceFlowPhase::Start,
+    };
+    trace.OnEvent(event);
+  }
+
+  const std::string line = ReadTextFile(json_path);
+  EXPECT_NE(line.find("\"has_flow\":true"), std::string::npos);
+  EXPECT_NE(line.find("\"flow_id\":\"0x1\""), std::string::npos);
+  EXPECT_NE(line.find("\"flow_phase\":\"start\""), std::string::npos);
+}
+
+TEST(TraceTest, JsonTraceSinkSkipsFlowMetadataWhenNoFlow) {
+  const auto temp_dir = MakeUniqueTempDir("gpu_model_flow_trace_json");
+  const struct Cleanup {
+    std::filesystem::path path;
+    ~Cleanup() { std::filesystem::remove_all(path); }
+  } cleanup{temp_dir};
+  const auto json_path = temp_dir / "trace.jsonl";
+
+  {
+    JsonTraceSink trace(json_path);
+    TraceEvent event{
+        .kind = TraceEventKind::MemoryAccess,
+        .cycle = 6,
+        .slot_model_kind = TraceSlotModelKind::ResidentFixed,
+        .slot_model = {},
+        .waitcnt_state = {},
+        .has_cycle_range = false,
+        .range_end_cycle = 0,
+        .semantic_canonical_name = {},
+        .semantic_presentation_name = {},
+        .semantic_category = {},
+        .display_name = {},
+        .message = "flowless_event",
+    };
+    trace.OnEvent(event);
+  }
+
+  const std::string line = ReadTextFile(json_path);
+  EXPECT_EQ(line.find("\"has_flow\""), std::string::npos);
+  EXPECT_EQ(line.find("\"flow_id\""), std::string::npos);
+  EXPECT_EQ(line.find("\"flow_phase\""), std::string::npos);
 }
 
 TEST(TraceTest, JsonTraceSinkSerializesWaitcntMetadataFields) {

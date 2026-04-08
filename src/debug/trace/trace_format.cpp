@@ -42,8 +42,13 @@ std::string FormatTextTraceLineFromFields(const TraceEvent& event,
       << " waitcnt_blocked_domains=" << fields.waitcnt_blocked_domains
       << " has_cycle_range=" << (fields.has_cycle_range ? 1 : 0)
       << " begin_cycle=" << fields.begin_cycle
-      << " end_cycle=" << fields.end_cycle
-      << " msg=" << fields.compatibility_message << '\n';
+      << " end_cycle=" << fields.end_cycle;
+  if (fields.has_flow) {
+    out << " has_flow=1"
+        << " flow_id=" << fields.flow_id
+        << " flow_phase=" << fields.flow_phase;
+  }
+  out << " msg=" << fields.compatibility_message << '\n';
   return out.str();
 }
 
@@ -64,6 +69,11 @@ std::string FormatJsonTraceLineFromFields(const TraceEvent& event,
   if (fields.has_cycle_range) {
     out << ",\"begin_cycle\":\"" << EscapeTraceJson(fields.begin_cycle) << "\""
         << ",\"end_cycle\":\"" << EscapeTraceJson(fields.end_cycle) << "\"";
+  }
+  if (fields.has_flow) {
+    out << ",\"has_flow\":true"
+        << ",\"flow_id\":\"" << EscapeTraceJson(fields.flow_id) << "\""
+        << ",\"flow_phase\":\"" << EscapeTraceJson(fields.flow_phase) << "\"";
   }
   out << args.str() << "}\n";
   return out.str();

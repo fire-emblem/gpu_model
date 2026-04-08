@@ -1104,7 +1104,6 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                         context.trace);
   }
 
-  uint64_t next_flow_id = 1;
   uint64_t cycle = context.cycle;
   while (true) {
     context.cycle = cycle;
@@ -1249,7 +1248,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
               ++context.stats->constant_loads;
             }
           }
-          flow_id = next_flow_id++;
+          flow_id = context.AllocateTraceFlowId();
           TraceEvent issue_event = MakeTraceWaveEvent(
               MakeTraceWaveView(*candidate, slot_id),
               TraceEventKind::MemoryAccess,

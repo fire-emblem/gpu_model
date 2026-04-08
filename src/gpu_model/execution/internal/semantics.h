@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <atomic>
 #include <bitset>
 #include <cstdint>
 
@@ -28,12 +29,21 @@ struct ExecutionContext {
   const DeviceLoadResult* device_load = nullptr;
   MemorySystem& memory;
   TraceSink& trace;
+  // Shared flow-id allocator; must be monotonic over the recorder/engine lifetime.
+  std::atomic<uint64_t>* trace_flow_id_source = nullptr;
   ExecutionStats* stats = nullptr;
   uint64_t cycle = 0;
   uint64_t global_memory_latency_cycles = 0;
   uint64_t arg_load_cycles = 4;
   IssueCycleClassOverridesSpec issue_cycle_class_overrides;
   IssueCycleOpOverridesSpec issue_cycle_op_overrides;
+
+  uint64_t AllocateTraceFlowId() const {
+    if (trace_flow_id_source == nullptr) {
+      return 0;
+    }
+    return trace_flow_id_source->fetch_add(1, std::memory_order_relaxed);
+  }
 };
 
 class Semantics {

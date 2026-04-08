@@ -6,17 +6,11 @@
 typedef float v4f __attribute__((ext_vector_type(4)));
 
 extern "C" __global__ void mma_gemm_probe(float* out) {
-#if defined(__AMDGCN__)
   v4f acc = {0.0f, 0.0f, 0.0f, 0.0f};
   acc = __builtin_amdgcn_mfma_f32_16x16x4f32(1.0f, 1.0f, acc, 0, 0, 0);
   if (threadIdx.x == 0) {
-    out[0] = acc[0];
+    out[0] = acc[0] ;
   }
-#else
-  if (threadIdx.x == 0) {
-    out[0] = 4.0f;
-  }
-#endif
 }
 
 int main() {

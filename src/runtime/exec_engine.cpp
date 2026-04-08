@@ -1,6 +1,7 @@
 #include "gpu_model/runtime/exec_engine.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cstdlib>
 #include <cstdio>
 #include <sstream>
@@ -92,6 +93,8 @@ class ExecEngineImpl {
   bool disable_trace_ = false;
   uint64_t device_cycle_ = 0;
   bool has_cycle_launch_history_ = false;
+  // Must remain monotonic across launches on a long-lived ExecEngine/recorder.
+  std::atomic<uint64_t> next_trace_flow_id_{1};
 };
 
 namespace {
@@ -328,7 +331,7 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
                                     ExecutionMode::Functional,
                                     functional_execution_config_,
                                     request.args,
-                                    request.device_load, memory_, trace);
+                                    request.device_load, memory_, trace, &next_trace_flow_id_);
         result.ok = raw_result.ok;
         result.error_message = raw_result.error_message;
         result.total_cycles = raw_result.total_cycles;
@@ -345,6 +348,7 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
             .device_load = request.device_load,
             .memory = memory_,
             .trace = trace,
+            .trace_flow_id_source = &next_trace_flow_id_,
             .stats = &result.stats,
             .global_memory_latency_cycles =
                 ResolveCycleTimingConfig(*spec).cache_model.dram_latency,
@@ -376,7 +380,7 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
                                     ExecutionMode::Cycle,
                                     FunctionalExecutionConfig{},
                                     request.args,
-                                    request.device_load, memory_, trace);
+                                    request.device_load, memory_, trace, &next_trace_flow_id_);
         result.ok = raw_result.ok;
         result.error_message = raw_result.error_message;
         result.stats = raw_result.stats;
@@ -395,6 +399,7 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
             .device_load = request.device_load,
             .memory = memory_,
             .trace = trace,
+            .trace_flow_id_source = &next_trace_flow_id_,
             .stats = &result.stats,
             .arg_load_cycles = spec->launch_timing.arg_load_cycles,
             .issue_cycle_class_overrides = ResolveCycleTimingConfig(*spec).issue_cycle_class_overrides,
