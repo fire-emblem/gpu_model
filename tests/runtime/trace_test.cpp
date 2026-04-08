@@ -1164,15 +1164,26 @@ TEST(TraceTest, TraceEventExportFieldsMirrorTypedViewFields) {
 }
 
 TEST(TraceTest, TraceEventExportFieldsPreserveFlowMetadata) {
-  TraceEvent event;
-  event.kind = TraceEventKind::WaveStep;
-  event.flow_id = 0x1234;
-  event.flow_phase = TraceFlowPhase::Start;
+  const TraceWaveView wave{
+      .dpc_id = 0,
+      .ap_id = 0,
+      .peu_id = 0,
+      .slot_id = 1,
+      .block_id = 2,
+      .wave_id = 3,
+      .pc = 0x40,
+  };
 
-  const CanonicalTraceEvent canonical = MakeCanonicalTraceEvent(event);
-  EXPECT_TRUE(canonical.fields.has_flow);
-  EXPECT_EQ(canonical.fields.flow_id, "4660");
-  EXPECT_EQ(canonical.fields.flow_phase, "start");
+  TraceEvent issue = MakeTraceWaveEvent(
+      wave, TraceEventKind::MemoryAccess, /*cycle=*/12, TraceSlotModelKind::ResidentFixed, "load_issue");
+  issue.flow_id = 1;
+  issue.flow_phase = TraceFlowPhase::Start;
+
+  const TraceEventExportFields fields =
+      MakeTraceEventExportFields(MakeTraceEventView(issue));
+  EXPECT_TRUE(fields.has_flow);
+  EXPECT_EQ(fields.flow_id, "0x1");
+  EXPECT_EQ(fields.flow_phase, "start");
 }
 
 TEST(TraceTest, ArriveViewCanDistinguishStillBlockedVsResumeForWaitcnt) {
