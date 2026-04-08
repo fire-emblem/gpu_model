@@ -1194,6 +1194,22 @@ TEST(TraceTest, TraceEventExportFieldsPreserveFlowMetadata) {
   EXPECT_TRUE(missing_fields.flow_phase.empty());
 }
 
+TEST(TraceTest, RecorderEntryTraceEventExportRespectsFlowGating) {
+  TraceEvent issue;
+  issue.kind = TraceEventKind::Commit;
+  issue.flow_phase = TraceFlowPhase::Start;
+  issue.flow_id = 0;
+
+  RecorderEntry entry;
+  entry.kind = RecorderEntryKind::Commit;
+  entry.event = issue;
+
+  const TraceEventExportFields fields = MakeTraceEventExportFields(entry);
+  EXPECT_FALSE(fields.has_flow);
+  EXPECT_TRUE(fields.flow_id.empty());
+  EXPECT_TRUE(fields.flow_phase.empty());
+}
+
 TEST(TraceTest, ArriveViewCanDistinguishStillBlockedVsResumeForWaitcnt) {
   TraceEvent still_blocked{
       .kind = TraceEventKind::Arrive,
