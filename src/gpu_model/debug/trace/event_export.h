@@ -24,6 +24,9 @@ struct TraceEventExportFields {
   std::string display_name;
   std::string category;
   std::string compatibility_message;
+  bool has_flow = false;
+  std::string flow_id;
+  std::string flow_phase;
   bool has_cycle_range = false;
   std::string begin_cycle;
   std::string end_cycle;

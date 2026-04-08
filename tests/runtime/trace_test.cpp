@@ -1163,6 +1163,18 @@ TEST(TraceTest, TraceEventExportFieldsMirrorTypedViewFields) {
   EXPECT_TRUE(fields.waitcnt_blocked_domains.empty());
 }
 
+TEST(TraceTest, TraceEventExportFieldsPreserveFlowMetadata) {
+  TraceEvent event;
+  event.kind = TraceEventKind::WaveStep;
+  event.flow_id = 0x1234;
+  event.flow_phase = TraceFlowPhase::Start;
+
+  const CanonicalTraceEvent canonical = MakeCanonicalTraceEvent(event);
+  EXPECT_TRUE(canonical.fields.has_flow);
+  EXPECT_EQ(canonical.fields.flow_id, "4660");
+  EXPECT_EQ(canonical.fields.flow_phase, "start");
+}
+
 TEST(TraceTest, ArriveViewCanDistinguishStillBlockedVsResumeForWaitcnt) {
   TraceEvent still_blocked{
       .kind = TraceEventKind::Arrive,

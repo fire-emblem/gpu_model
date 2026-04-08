@@ -324,6 +324,8 @@ TraceEventView MakeTraceEventView(const TraceEvent& event) {
       .arrive_kind = event.arrive_kind,
       .arrive_progress = event.arrive_progress,
       .lifecycle_stage = event.lifecycle_stage,
+      .flow_id = event.flow_id,
+      .flow_phase = event.flow_phase,
       .waitcnt_state = event.waitcnt_state,
       .canonical_name = {},
       .presentation_name = {},

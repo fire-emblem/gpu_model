@@ -23,6 +23,8 @@ struct TraceEventView {
   TraceArriveKind arrive_kind = TraceArriveKind::None;
   TraceArriveProgressKind arrive_progress = TraceArriveProgressKind::None;
   TraceLifecycleStage lifecycle_stage = TraceLifecycleStage::None;
+  uint64_t flow_id = 0;
+  TraceFlowPhase flow_phase = TraceFlowPhase::None;
   TraceWaitcntState waitcnt_state;
   std::string canonical_name;
   std::string presentation_name;

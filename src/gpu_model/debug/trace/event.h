@@ -51,6 +51,12 @@ enum class TraceLifecycleStage {
   Exit,
 };
 
+enum class TraceFlowPhase {
+  None,
+  Start,
+  Finish,
+};
+
 enum class TraceEventKind {
   Launch,
   BlockPlaced,
@@ -125,6 +131,8 @@ struct TraceEvent {
   std::string semantic_category;
   std::string display_name;
   std::string message;
+  uint64_t flow_id = 0;
+  TraceFlowPhase flow_phase = TraceFlowPhase::None;
 };
 
 inline constexpr std::string_view kTraceStallReasonPrefix = "reason=";
@@ -242,6 +250,18 @@ inline std::string_view TraceLifecycleStageName(TraceLifecycleStage stage) {
       return "launch";
     case TraceLifecycleStage::Exit:
       return "exit";
+  }
+  return "";
+}
+
+inline std::string_view TraceFlowPhaseName(TraceFlowPhase phase) {
+  switch (phase) {
+    case TraceFlowPhase::None:
+      return "";
+    case TraceFlowPhase::Start:
+      return "start";
+    case TraceFlowPhase::Finish:
+      return "finish";
   }
   return "";
 }
