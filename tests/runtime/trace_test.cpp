@@ -1283,6 +1283,10 @@ TEST(TraceTest, CycleSharedLoadIssueAndArriveShareFlowId) {
       arrive_flow_id = event.flow_id;
       EXPECT_EQ(event.flow_phase, TraceFlowPhase::Finish);
     }
+    if (event.kind == TraceEventKind::WaveArrive) {
+      EXPECT_EQ(event.flow_id, 0);
+      EXPECT_EQ(event.flow_phase, TraceFlowPhase::None);
+    }
   }
 
   ASSERT_TRUE(issue_flow_id.has_value());
