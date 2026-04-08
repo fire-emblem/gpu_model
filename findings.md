@@ -204,8 +204,10 @@
 - `ActualTimelineSnapshot` 已明确只信 recorder 上的 `cycle range`；如果测试要断言 instruction slice，就必须由 source 明确提供 range，而不能再期待 commit 推导
 - `CycleTimelineTest` / `TimelineExpectationTest` 中残留的 commit-inference 旧断言已迁移完成，当前 timeline/trace 相关 suite 为 `116 passed`
 - `TraceEvent` 新字段引入后的聚合初始化 warning 已在 event factory 和手写测试事件中清理，当前相关目标编译无新增 warning 噪音
+- 第一轮 async memory flow id 收口明确排除 `WaveArrive` / `WaveResume`，当前只覆盖 async memory issue/arrive 配对
 - 生产者自持 async memory flow id 现在同时存在于 modeled cycle 与 encoded cycle 路径，便于 downstream trace/recorder 直接消费
 - 记录器与 timeline exporter 只消费 flow metadata，并不再依赖 commit pairing 推断 source range
+- `timeline.perfetto.json` 现已导出 Chrome flow start/finish 事件，使用 `ph:"s"` / `ph:"f"` 表达 async memory issue/arrive
 - 运行 `./build-ninja/tests/gpu_model_tests --gtest_filter='TraceTest.CycleAsyncLoadIssueAndArriveShareFlowId:TraceTest.EncodedCycleAsyncLoadIssueAndArriveShareFlowId:CycleTimelineTest.GoogleTraceRendersAsyncMemoryFlowStartAndFinish:AsyncMemoryCycleTest.*'` 全部 22 个测试通过，验证 async memory 流语义
 - 用户最新明确要求：
   - runtime 与 ISA 相关计划整体降到较低优先级

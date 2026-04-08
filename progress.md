@@ -555,8 +555,10 @@
 ### 阶段 29：聚焦 Async Memory 流验证
 - **状态：** complete
 - **执行的操作：**
+  - 第一轮 async memory flow id 收口明确排除 `WaveArrive` / `WaveResume`，当前只覆盖 async memory issue/arrive 配对
   - 生产者自持 Async Memory flow id 已在 modeled cycle 与 encoded cycle 路径上落地
   - 记录器与 timeline 直接消费 flow metadata，避免靠 pairing inference 回推 source 信息
+  - `timeline.perfetto.json` 现已导出 Chrome flow start/finish 事件，使用 `ph:"s"` / `ph:"f"` 表达 async memory issue/arrive
   - 聚焦 async memory 流的验证套件全部通过，覆盖相关 Trace/Cycle/AsyncMemory tests
 - 创建/修改的文件：
   - `progress.md`
