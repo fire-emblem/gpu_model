@@ -1184,6 +1184,14 @@ TEST(TraceTest, TraceEventExportFieldsPreserveFlowMetadata) {
   EXPECT_TRUE(fields.has_flow);
   EXPECT_EQ(fields.flow_id, "0x1");
   EXPECT_EQ(fields.flow_phase, "start");
+
+  TraceEvent missing_id = issue;
+  missing_id.flow_id = 0;
+  const TraceEventExportFields missing_fields =
+      MakeTraceEventExportFields(MakeTraceEventView(missing_id));
+  EXPECT_FALSE(missing_fields.has_flow);
+  EXPECT_TRUE(missing_fields.flow_id.empty());
+  EXPECT_TRUE(missing_fields.flow_phase.empty());
 }
 
 TEST(TraceTest, ArriveViewCanDistinguishStillBlockedVsResumeForWaitcnt) {

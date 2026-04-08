@@ -110,7 +110,8 @@ TraceEventExportFields MakeTraceEventExportFields(const TraceEventView& view) {
       .compatibility_message = view.compatibility_message,
       .has_flow = has_flow,
       .flow_id = has_flow ? HexU64(view.flow_id) : std::string(),
-      .flow_phase = std::string(TraceFlowPhaseName(view.flow_phase)),
+      .flow_phase = has_flow ? std::string(TraceFlowPhaseName(view.flow_phase))
+                             : std::string(),
       .has_cycle_range = false,
       .begin_cycle = {},
       .end_cycle = {},
@@ -139,7 +140,8 @@ TraceEventExportFields MakeTraceEventExportFields(const RecorderProgramEvent& ev
       .compatibility_message = event.compatibility_message,
       .has_flow = has_flow,
       .flow_id = has_flow ? HexU64(event.event.flow_id) : std::string(),
-      .flow_phase = std::string(TraceFlowPhaseName(event.event.flow_phase)),
+      .flow_phase = has_flow ? std::string(TraceFlowPhaseName(event.event.flow_phase))
+                             : std::string(),
       .has_cycle_range = false,
       .begin_cycle = {},
       .end_cycle = {},
@@ -168,7 +170,8 @@ TraceEventExportFields MakeTraceEventExportFields(const RecorderEntry& event) {
       .compatibility_message = event.compatibility_message,
       .has_flow = has_flow,
       .flow_id = has_flow ? HexU64(event.event.flow_id) : std::string(),
-      .flow_phase = std::string(TraceFlowPhaseName(event.event.flow_phase)),
+      .flow_phase = has_flow ? std::string(TraceFlowPhaseName(event.event.flow_phase))
+                             : std::string(),
       .has_cycle_range = event.has_cycle_range,
       .begin_cycle = event.has_cycle_range ? HexU64(event.begin_cycle) : std::string(),
       .end_cycle = event.has_cycle_range ? HexU64(event.end_cycle) : std::string(),
