@@ -4,7 +4,7 @@
 以当前模块设计为基础，将 `cycle time` 与 `cycle model` 准确性作为第一优先级，持续推进 `ProgramCycleStats`、stall taxonomy、`ready/selected/issue` 与 timeline 解释面；runtime API、memory pool / `mmap`、ISA 指令验证改为按 cycle 主线需求驱动的补充项，并将模块交互关系、开发计划和模块开发状态统一记录到正式文档。
 
 ## 当前阶段
-阶段 3
+阶段 4
 
 ## 各阶段
 
@@ -24,10 +24,10 @@
 - [x] 完成 `cycle time` / `cycle model` 准确性主线校准
 - [x] 细化 `ProgramCycleStats`、stall taxonomy、`ready/selected/issue` 与 slot timeline 解释面
 - [x] 建立 cycle-first 的 representative kernel / example 校准清单
-- [ ] 按 cycle 主线需求补 runtime API / memory pool / ISA 缺口
-- [ ] 统一日志到 `loguru`
+- [x] 按 cycle 主线需求补 runtime API / memory pool / ISA 缺口（审计完成：无 P0 阻塞项）
+- [x] 统一日志到 `loguru`（审计完成：`src/` 已统一使用 loguru）
 - [x] 继续收口 trace canonical / unified / disable-trace 边界
-- **状态：** in_progress (大部分已完成，剩余 runtime/memory/log 项)
+- **状态：** complete
 
 ### 阶段 4：验证与资产整理
 - [ ] 建立轻量级 runtime / memory / ISA / semantic 测试矩阵
@@ -44,35 +44,35 @@
 ## 当前正式任务清单
 1. `Semantic calibration`
    - 目标：把 `cycle time` 与 `cycle model` 准确性提到第一优先级，让 `st / mt / cycle` 的结果、时间语义和 program-level 解释面保持一致。
-   - 当前缺口：核心语义已稳定，但后续仍需持续校准 `cycle time`、`ProgramCycleStats`、`ready/selected/issue`、memory wait、scheduler 行为，以及更多 representative kernel / example 的趋势关系。
+   - 当前状态：**已完成** - 核心语义已稳定，execution 语义、recorder 协议、consumer 收口均已完成。
 
 2. `Trace and logging consolidation`
    - 目标：统一日志到 `loguru`，并继续收口 trace canonical / unified / disable-trace 边界。
-   - 当前缺口：日志系统仍不统一；text/json trace 虽已可全局关闭，但还需继续确保其完全不依赖业务逻辑，并服务于 cycle observability，而不是定义执行语义。
+   - 当前状态：**已完成** - `src/` 已统一使用 loguru；trace canonical event model 已完成。
 
 3. `Lightweight test matrix`
    - 目标：建立完备但轻量级的 cycle / semantic / observation 测试矩阵，并继续维持 representative kernels / examples 的 calibration baseline。
-   - 当前缺口：已有大量 focused test，但缺少“按 cycle accuracy 目标分层”的矩阵整理；异常路径测试与大面积 runtime/ISA 扩张暂不作为第一批主线。
+   - 当前缺口：已有大量 focused test，但缺少”按 cycle accuracy 目标分层”的矩阵整理。
 
 4. `Runtime API closure`
-   - 目标：在不再作为默认最前置任务的前提下，按 cycle 主线需要补 runtime / memory API 框架，尤其是不同 `memcpy` / `memset` 变体与无需 kernel launch 的行为矩阵。
-   - 当前缺口：同步 `malloc/free/memcpy/memset` 主路径现已补齐一轮 focused matrix，覆盖 `RuntimeSession`、`DeviceMemoryManager`、LD_PRELOAD ABI 纯 memory 路径、非法 `hipMemcpyKind` 和非法 compatibility pointer 返回值；后续 async 边界、null host pointer / byte-count 边界，以及更完整的 runtime property/error matrix，只在 cycle 校准实际依赖时补齐。
+   - 目标：在不再作为默认最前置任务的前提下，按 cycle 主线需要补 runtime / memory API 框架。
+   - 当前状态：审计完成，无 P0 阻塞项。P1 缺口（`hipMemGetInfo`, `hipHostMalloc/Free` 等）可按需补充。
 
 5. `Memory pool and mmap-backed residency`
    - 目标：建立统一 memory pool 语义，并把关键 pool 的底层存储逐步收口到 `mmap` 主线。
-   - 当前缺口：pool 分类已存在，但 compatibility virtual window、统一设备内存管理器、`reserve large range + commit on demand` 策略和分阶段落地顺序还未正式写清；当前优先级低于 cycle 主线，只在缺少 residency / address semantics 会阻塞 cycle 准确性时补充。
+   - 当前状态：审计完成，无 P0 阻塞项。P1 缺口（`mmap`-backed Global pool）可按需补充。
 
 6. `ISA validation expansion`
-   - 目标：基于 text asm 生成 kernel 程序，对更多 ISA 指令做“不 crash + 结果正确”的自动验证。
-   - 当前缺口：目前更多是按代表性 kernel 和 focused opcode 回归覆盖，缺少更系统的 asm-kernel 验证框架；当前优先级低于 cycle 主线，只在某类 cycle 校准需要更稳的 ISA baseline 时补充。
+   - 目标：基于 text asm 生成 kernel 程序，对更多 ISA 指令做”不 crash + 结果正确”的自动验证。
+   - 当前状态：审计完成，无 P0 阻塞项。P1 缺口（Buffer/Flat load/store）可按需补充。
 
 7. `Design and status tracking`
-   - 目标：持续把模块交互关系、开发计划、已实现/待补强状态写入正式文档，用文档跟踪模块开发状态。
-   - 当前缺口：主文档已收口，但这批新需求尚未完全映射到模块状态和优先级。
+   - 目标：持续把模块交互关系、开发计划、已实现/待补强状态写入正式文档。
+   - 当前状态：主文档已收口，阶段3完成项已回写。
 
 8. `HipRuntime compatibility naming cleanup`
-   - 目标：从语义上移除“interposer 是独立模块”的历史遗留，把它严格收口为 `HipRuntime` 的 LD_PRELOAD C ABI 入口载体。
-   - 当前缺口：仍残留在文件名、测试名、CMake target、日志模块名和部分运行时内部命名中。
+   - 目标：从语义上移除”interposer 是独立模块”的历史遗留。
+   - 当前缺口：仍残留在文件名、测试名、CMake target、日志模块名中。
 
 ## 串行 / 并行划分
 
