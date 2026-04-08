@@ -199,17 +199,53 @@
 
 ## Task Breakdown
 
-| Task ID | Description | Target AC | Tag (`coding`/`analyze`) | Depends On |
-|---------|-------------|-----------|----------------------------|------------|
-| task1 | 审计 `waitcnt / arrive / barrier / switch away / resume` 的当前 execution 语义，标记仍停留在 consumer 层的残余逻辑，并区分已存在/缺失的 typed state-edge 事件 | AC-1, AC-5 | analyze | - |
-| task2 | 基于审计结果校准 functional / cycle execution 的真实状态边与 typed event 产生点，补齐 `active_promote / wave_wait / wave_arrive / wave_resume / wave_switch_away` 等缺失状态边 | AC-1, AC-5 | coding | task1 |
-| task3 | 为 waitcnt-heavy、barrier-heavy、switch/resume 相关语义补 focused regressions | AC-1, AC-3, AC-5 | coding | task2 |
-| task4 | 审计 st / mt / cycle 当前 recorder 生产路径及 debug 模块边界，列出分裂点、跨模块依赖问题，以及 logical-unbounded slot 与 modeled slot 的导出差异 | AC-2, AC-6 | analyze | task2 |
-| task5 | 统一 recorder 协议、公开头文件接口与 cycle range 源头记录规则，明确 functional logical-unbounded slot 与 cycle modeled slot 的统一层级导出 | AC-2, AC-3, AC-6 | coding | task4 |
-| task6 | 收口 text/json/perfetto 对 recorder 的消费，移除重复业务逻辑 | AC-2, AC-3, AC-4 | coding | task5 |
-| task7 | 构造并校准 waitcnt-heavy、barrier-heavy、visible-bubble、multi-wave concurrency examples | AC-4 | coding | task6 |
-| task8 | 对 representative examples 的 Perfetto 结果做肉眼校准记录，确认层级、空泡和 marker 顺序可解释 | AC-4 | analyze | task7 |
-| task9 | 回写主设计文档、模块状态文档及必要的任务计划状态 | AC-6 | coding | task8 |
+| Task ID | Description | Target AC | Tag (`coding`/`analyze`) | Depends On | Status |
+|---------|-------------|-----------|----------------------------|------------|--------|
+| task1 | 审计 `waitcnt / arrive / barrier / switch away / resume` 的当前 execution 语义，标记仍停留在 consumer 层的残余逻辑，并区分已存在/缺失的 typed state-edge 事件 | AC-1, AC-5 | analyze | - | DONE |
+| task2 | 基于审计结果校准 functional / cycle execution 的真实状态边与 typed event 产生点，补齐 `active_promote / wave_wait / wave_arrive / wave_resume / wave_switch_away` 等缺失状态边 | AC-1, AC-5 | coding | task1 | DONE |
+| task3 | 为 waitcnt-heavy、barrier-heavy、switch/resume 相关语义补 focused regressions | AC-1, AC-3, AC-5 | coding | task2 | DONE |
+| task4 | 审计 st / mt / cycle 当前 recorder 生产路径及 debug 模块边界，列出分裂点、跨模块依赖问题，以及 logical-unbounded slot 与 modeled slot 的导出差异 | AC-2, AC-6 | analyze | task2 | DONE |
+| task5 | 统一 recorder 协议、公开头文件接口与 cycle range 源头记录规则，明确 functional logical-unbounded slot 与 cycle modeled slot 的统一层级导出 | AC-2, AC-3, AC-6 | coding | task4 | DONE |
+| task6 | 收口 text/json/perfetto 对 recorder 的消费，移除重复业务逻辑 | AC-2, AC-3, AC-4 | coding | task5 | DONE |
+| task7 | 构造并校准 waitcnt-heavy、barrier-heavy、visible-bubble、multi-wave concurrency examples | AC-4 | coding | task6 | DONE |
+| task8 | 对 representative examples 的 Perfetto 结果做肉眼校准记录，确认层级、空泡和 marker 顺序可解释 | AC-4 | analyze | task7 | DONE |
+| task9 | 回写主设计文档、模块状态文档及必要的任务计划状态 | AC-6 | coding | task8 | DONE |
+
+## Completion Summary
+
+All 9 tasks completed on 2026-04-08.
+
+### AC-1: Execution semantics calibration
+- `waitcnt / arrive / barrier / switch away / resume` 全部由 execution 层 owns
+- typed state-edge events 已完整覆盖：`WaveWait`, `WaveSwitchAway`, `WaveResume`, `Barrier(TraceBarrierKind)`, `Arrive(TraceArriveProgressKind)`
+- trace/renderer 不再承担任何补偿逻辑
+
+### AC-2: Recorder protocol unification
+- functional st/mt 使用 `TraceSlotModelKind::LogicalUnbounded`
+- cycle 使用 `TraceSlotModelKind::ResidentFixed`
+- 两者共享统一 `TraceEventKind` 和 recorder 协议
+- text/json/perfetto 都只消费 recorder，不再各自维护独立业务语义
+
+### AC-3: Issue interval recording
+- instruction issue range 已前移到 producer/source
+- `WaveStep` 可直接携带 `has_cycle_range` / `range_end_cycle`
+- 等待阶段保持空泡，不伪造 duration
+
+### AC-4: Perfetto calibration
+- 层级结构稳定：Device/DPC/AP/PEU/WAVE_SLOT
+- 空泡正确显示为 slice 之间的间隙
+- 关键 marker 全部存在且顺序正确
+- async memory flow 正确导出 ph:s/f 配对
+- slot_model 正确区分：cycle 用 resident_fixed，st/mt 用 logical_unbounded
+
+### AC-5: Front-end / dispatch / slot / switch cycle events
+- `block_admit`、`wave_generate`、`wave_dispatch`、`slot_bind`、`issue_select`、`wave_exit` 等事件保持清晰来源
+- `wave_wait`、`wave_arrive`、`wave_resume`、`wave_switch_away` 已成为 typed event
+
+### AC-6: Documentation write-back
+- 主设计文档、模块状态文档、任务计划状态已同步更新
+- 文档明确说明当前 `cycle` 仍是 modeled cycle
+- 文档明确 recorder 是统一 debug 协议
 
 ## Claude-Codex Deliberation
 

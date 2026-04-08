@@ -14,6 +14,13 @@
 
 当前主目标以 **cycle time / cycle model accuracy** 为第一优先级推进，同时把 **functional model** 继续作为参考基线；runtime 与 ISA 相关补项按 cycle 主线的实际依赖按需插入，而不是默认排在最前面。
 
+**2026-04-08 里程碑**：Cycle Model Calibration Follow-up 计划已完成，所有 AC-1 至 AC-6 验收标准已满足：
+- execution 层完整承接 `waitcnt / arrive / barrier / switch away / resume` 业务语义
+- recorder 成为 st/mt/cycle 共享的统一 debug 协议
+- issue 区间在 execution/recorder 源头记录，等待阶段保持空泡
+- Perfetto 与 timeline 能稳定表现层级关系、bubble、多 wave 并发和关键 marker 顺序
+- 文档明确说明当前 `cycle` 仍是 modeled cycle，recorder 是统一 debug 协议
+
 主线术语约定：
 
 - `runtime`: `HipRuntime / ModelRuntime / ExecEngine`

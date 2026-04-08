@@ -449,6 +449,32 @@ operand 只描述静态信息，不直接持有执行态寄存器值。
 - `execution producer -> recorder facts -> timeline data -> text/json/perfetto`
 - 如果 producer 语义还分裂，必须先修 producer，不能在 timeline / Perfetto 层补偿。
 
+### 7.2.0 Recorder 作为统一 Debug 协议
+
+`Recorder` 是 functional `st/mt` 与 cycle 三种执行模型共享的统一 debug 协议。
+
+职责边界：
+
+- recorder 不生成业务语义，只记录 execution/producer 已产出的 typed facts
+- recorder 提供统一的 entry/program-event/cycle-range schema
+- text/json/perfetto 三类导出只消费 recorder，不再各自维护独立业务语义
+
+Slot model 区分：
+
+- functional `st/mt` 使用 `TraceSlotModelKind::LogicalUnbounded`：dispatch 到某个 PEU 上有多少个 wave 就展示多少个 slot
+- cycle 使用 `TraceSlotModelKind::ResidentFixed`：保留 modeled slot / resident slot 语义，反映硬件 slot 限制
+
+扩展预留：
+
+- recorder 为未来 `replayer` 预留位置，但不在当前阶段实现
+- replayer 应消费 recorder 记录，而不是重新解析原始 trace 格式
+
+关键约束：
+
+- recorder 不承担业务推断，不根据 event 配对猜测 source range
+- instruction issue range 由 producer/source 直接提供，`WaveStep` 可携带 `has_cycle_range` / `range_end_cycle`
+- async memory flow id 由 producer 分配，recorder 只透传 metadata
+
 ### 7.2.1 日志正式约束
 
 - 项目日志应统一到 `loguru`。

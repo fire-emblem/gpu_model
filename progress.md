@@ -580,3 +580,21 @@
   - `src/runtime/exec_engine.cpp`
   - `src/debug/trace/trace_format.cpp`
   - `tests/runtime/trace_test.cpp`
+
+### 阶段 31：Cycle Model Calibration Follow-up 完成
+- **状态：** complete
+- **执行的操作：**
+  - 完成 execution 语义审计（AC-1/AC-5）：确认 `waitcnt / arrive / barrier / switch away / resume` 全部由 execution 层 owns，typed state-edge events 已完整覆盖
+  - 完成 recorder 生产路径审计（AC-2）：确认 functional st/mt 使用 `LogicalUnbounded`，cycle 使用 `ResidentFixed`，两者共享统一 recorder 协议
+  - 新增 15 个 focused regressions 覆盖 waitcnt-heavy、barrier-heavy、switch/resume 语义
+  - 完成 Perfetto 肉眼校准（AC-4）：层级结构稳定、空泡正确显示、关键 marker 存在且顺序正确、async memory flow 正确导出
+  - 完成文档回写（AC-6）：主设计文档、模块状态文档、任务计划状态已同步更新
+  - 文档明确说明当前 `cycle` 仍是 modeled cycle，recorder 是统一 debug 协议
+- 创建/修改的文件：
+  - `docs/superpowers/plans/2026-04-07-cycle-model-calibration-followup.md`
+  - `docs/superpowers/specs/2026-04-08-perfetto-visual-calibration-record.md`
+  - `docs/superpowers/specs/2026-04-08-async-memory-arrive-flow-design.md`
+  - `docs/superpowers/specs/2026-04-08-trace-flow-serialization-design.md`
+  - `tests/cycle/waitcnt_barrier_switch_focused_test.cpp`
+  - `progress.md`
+  - `findings.md`

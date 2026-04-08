@@ -241,8 +241,42 @@
 - `FileTraceSink` 与 `JsonTraceSink` 的 flow 序列化行为已由 focused tests 锁定：
   - 有 flow 时正确输出三元组
   - 无 flow 时跳过字段，避免冗余
+- Execution 语义审计结果（AC-1/AC-5）：
+  - `waitcnt / arrive / barrier / switch away / resume` 全部由 execution 层 owns
+  - typed state-edge events 已完整覆盖：`WaveWait`, `WaveSwitchAway`, `WaveResume`, `Barrier(TraceBarrierKind)`, `Arrive(TraceArriveProgressKind)`
+  - `trace_event_view.cpp` 的 legacy fallback 仅用于向后兼容，不影响业务逻辑
+- Recorder 生产路径审计结果（AC-2/AC-6）：
+  - functional st/mt 使用 `TraceSlotModelKind::LogicalUnbounded`
+  - cycle 使用 `TraceSlotModelKind::ResidentFixed`
+  - 两者共享统一 `TraceEventKind` 和 recorder 协议
+  - functional 缺少 `WaveGenerate/WaveDispatch/SlotBind`（无需硬件 slot 模型）
+- Focused regressions 已添加（AC-1/AC-3/AC-5）：
+  - 新增 `tests/cycle/waitcnt_barrier_switch_focused_test.cpp` 包含 15 个 focused tests
+  - waitcnt-heavy: shared-only, private-only, global-only, scalar-buffer-only, multi-domain
+  - barrier-heavy: arrive/release lifecycle, wave state transitions
+  - switch/resume: timing correctness, lifecycle ordering
+
+- Perfetto 肉眼校准已完成（AC-4）：
+  - 所有 representative examples 的 Perfetto 输出已验证
+  - 层级结构稳定：Device/DPC/AP/PEU/WAVE_SLOT 在 st/mt/cycle 三种模式下一致
+  - 空泡正确显示为 slice 之间的间隙，而非伪造的 duration
+  - 关键 marker 全部存在：wave_launch, wave_exit, wave_arrive, wave_resume
+  - marker 顺序正确：generate -> dispatch -> bind -> launch -> (wait) -> arrive -> resume -> exit
+  - slot_model 正确区分：cycle 用 resident_fixed，st/mt 用 logical_unbounded
+  - barrier-heavy example 正确显示 barrier_arrive/release 且顺序正确
+  - async memory flow 正确导出 ph:s/f 配对
+  - 校准记录已写入 `docs/superpowers/specs/2026-04-08-perfetto-visual-calibration-record.md`
+  - 注意：`wave_switch_away` marker 当前未导出，符合设计 spec 的"第二批"范围
+  - `switch_away_heavy` 通过 `stall_issue_group_conflict` 展示竞争而非切换
 
 ## 技术决策
+| 决策 | 理由 |
+|------|------|
+| Cycle Model Calibration Followup 计划标记为完成 | 所有 AC-1 至 AC-6 验收标准已满足：execution 语义收口、recorder 协议统一、issue 区间源头记录、Perfetto 校准通过、文档回写完成 |
+| recorder 作为统一 debug 协议 | 三种执行模型（functional st/mt/cycle）共享统一 recorder 协议，text/json/perfetto 只消费 recorder facts |
+| cycle 仍是 modeled cycle | 文档明确说明 `cycle` 用于表达模型内部顺序、等待、发射与完成关系，不表示真实物理执行时间戳 |
+| slot model 区分：functional 用 logical_unbounded，cycle 用 resident_fixed | functional 无硬件 slot 限制，cycle 需要反映硬件 resident slot 语义 |
+| 删除 `HipInterposerState`
 | 决策 | 理由 |
 |------|------|
 | 删除 `HipInterposerState` | 已无主路径使用点，只会制造额外层级 |
