@@ -22,6 +22,7 @@
 #include "gpu_model/debug/trace/event_view.h"
 #include "gpu_model/debug/trace/sink.h"
 #include "gpu_model/arch/arch_registry.h"
+#include "gpu_model/isa/metadata.h"
 #include "gpu_model/isa/instruction_builder.h"
 #include "gpu_model/program/object_reader.h"
 #include "gpu_model/runtime/exec_engine.h"
@@ -83,6 +84,19 @@ ExecutableKernel BuildCycleMultiWaveWaitcntKernelForTraceTest() {
   builder.SMov("s2", 7);
   builder.BExit();
   return builder.Build("cycle_multi_wave_waitcnt_trace_test");
+}
+
+ExecutableKernel BuildSharedMemoryTraceKernel() {
+  InstructionBuilder builder;
+  builder.SMov("s0", 0);
+  builder.MLoadShared("v1", "s0", 4);
+  builder.SWaitCnt(/*global_count=*/UINT32_MAX, /*shared_count=*/0,
+                   /*private_count=*/UINT32_MAX, /*scalar_buffer_count=*/UINT32_MAX);
+  builder.SMov("s2", 7);
+  builder.BExit();
+  MetadataBlob metadata;
+  metadata.values["group_segment_fixed_size"] = "256";
+  return builder.Build("trace_shared_memory_kernel", metadata);
 }
 
 test_utils::AssembledModule AssembleEncodedExplicitWaitcntModule(const std::string& stem) {
@@ -1239,6 +1253,43 @@ TEST(TraceTest, CycleAsyncLoadIssueAndArriveShareFlowId) {
   EXPECT_NE(*arrive_flow_id, 0);
   ASSERT_TRUE(wave_arrive_seen);
   EXPECT_TRUE(wave_arrive_clean);
+}
+
+TEST(TraceTest, CycleSharedLoadIssueAndArriveShareFlowId) {
+  CollectingTraceSink trace;
+  ExecEngine runtime(&trace);
+  runtime.SetFixedGlobalMemoryLatency(20);
+
+  const auto kernel = BuildSharedMemoryTraceKernel();
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+  request.config.shared_memory_bytes = 256;
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  std::optional<uint64_t> issue_flow_id;
+  std::optional<uint64_t> arrive_flow_id;
+  for (const auto& event : trace.events()) {
+    if (event.kind == TraceEventKind::MemoryAccess && event.message == "load_issue") {
+      issue_flow_id = event.flow_id;
+      EXPECT_EQ(event.flow_phase, TraceFlowPhase::Start);
+    }
+    if (event.kind == TraceEventKind::Arrive && event.arrive_kind == TraceArriveKind::Shared) {
+      arrive_flow_id = event.flow_id;
+      EXPECT_EQ(event.flow_phase, TraceFlowPhase::Finish);
+    }
+  }
+
+  ASSERT_TRUE(issue_flow_id.has_value());
+  ASSERT_TRUE(arrive_flow_id.has_value());
+  EXPECT_NE(*issue_flow_id, 0);
+  EXPECT_NE(*arrive_flow_id, 0);
+  EXPECT_EQ(*issue_flow_id, *arrive_flow_id);
 }
 
 TEST(TraceTest, RecorderEntryTraceEventExportRespectsFlowGating) {
