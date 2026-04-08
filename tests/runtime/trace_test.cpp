@@ -1194,6 +1194,43 @@ TEST(TraceTest, TraceEventExportFieldsPreserveFlowMetadata) {
   EXPECT_TRUE(missing_fields.flow_phase.empty());
 }
 
+TEST(TraceTest, CycleAsyncLoadIssueAndArriveShareFlowId) {
+  CollectingTraceSink trace;
+  ExecEngine runtime(&trace);
+  runtime.SetFixedGlobalMemoryLatency(20);
+
+  const auto kernel = BuildWaitcntTraceKernel();
+  const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
+  runtime.memory().StoreGlobalValue<int32_t>(base_addr, 17);
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+  request.args.PushU64(base_addr);
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  std::optional<uint64_t> issue_flow_id;
+  std::optional<uint64_t> arrive_flow_id;
+  for (const auto& event : trace.events()) {
+    if (event.kind == TraceEventKind::MemoryAccess && event.message == "load_issue") {
+      issue_flow_id = event.flow_id;
+      EXPECT_EQ(event.flow_phase, TraceFlowPhase::Start);
+    }
+    if (event.kind == TraceEventKind::Arrive && event.arrive_kind == TraceArriveKind::Load) {
+      arrive_flow_id = event.flow_id;
+      EXPECT_EQ(event.flow_phase, TraceFlowPhase::Finish);
+    }
+  }
+
+  ASSERT_TRUE(issue_flow_id.has_value());
+  ASSERT_TRUE(arrive_flow_id.has_value());
+  EXPECT_EQ(*issue_flow_id, *arrive_flow_id);
+}
+
 TEST(TraceTest, RecorderEntryTraceEventExportRespectsFlowGating) {
   TraceEvent issue;
   issue.kind = TraceEventKind::Commit;

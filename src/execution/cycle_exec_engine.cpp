@@ -1104,6 +1104,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                         context.trace);
   }
 
+  uint64_t next_flow_id = 1;
   uint64_t cycle = context.cycle;
   while (true) {
     context.cycle = cycle;
@@ -1213,6 +1214,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
         slot.last_wave_pc = wave.pc;
         wave.status = WaveStatus::Stalled;
         wave.valid_entry = false;
+        uint64_t flow_id = 0;
         if (plan.memory.has_value()) {
           IncrementPendingMemoryOps(wave, MemoryDomainForOpcode(instruction.opcode));
         }
@@ -1247,18 +1249,22 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
               ++context.stats->constant_loads;
             }
           }
-          context.trace.OnEvent(MakeTraceWaveEvent(
+          flow_id = next_flow_id++;
+          TraceEvent issue_event = MakeTraceWaveEvent(
               MakeTraceWaveView(*candidate, slot_id),
               TraceEventKind::MemoryAccess,
               cycle,
               TraceSlotModelKind::ResidentFixed,
-              plan.memory->kind == AccessKind::Load ? "load_issue" : "store_issue"));
+              plan.memory->kind == AccessKind::Load ? "load_issue" : "store_issue");
+          issue_event.flow_id = flow_id;
+          issue_event.flow_phase = TraceFlowPhase::Start;
+          context.trace.OnEvent(std::move(issue_event));
         }
 
         events.Schedule(TimedEvent{
             .cycle = commit_cycle,
             .action =
-                [&, candidate, instruction, plan, commit_cycle, slot_id]() {
+                [&, candidate, instruction, plan, commit_cycle, slot_id, flow_id]() {
                 context.cycle = commit_cycle;
 
                 ApplyExecutionPlanRegisterWrites(plan, candidate->wave);
@@ -1295,10 +1301,11 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                       }
                     }
                     const uint64_t arrive_cycle = commit_cycle + arrive_latency;
+                    const uint64_t completion_flow_id = flow_id;
                     events.Schedule(TimedEvent{
                         .cycle = arrive_cycle,
                         .action =
-                            [&, candidate, request, addrs, arrive_cycle, slot_id]() {
+                            [&, candidate, request, addrs, arrive_cycle, slot_id, completion_flow_id]() {
                               context.cycle = arrive_cycle;
                               if (request.kind == AccessKind::Load) {
                                 if (!request.dst.has_value()) {
@@ -1342,6 +1349,8 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                                   request.kind == AccessKind::Load ? TraceMemoryArriveKind::Load
                                                                    : TraceMemoryArriveKind::Store,
                                   TraceSlotModelKind::ResidentFixed);
+                              arrive_event.flow_id = completion_flow_id;
+                              arrive_event.flow_phase = TraceFlowPhase::Finish;
                               DecrementPendingMemoryOps(candidate->wave, MemoryWaitDomain::Global);
                               const AsyncArriveResult arrive_result = MakeCycleArriveResult(
                                   context.kernel, candidate->wave, MemoryWaitDomain::Global);
@@ -1379,10 +1388,11 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                       context.stats->shared_bank_conflict_penalty_cycles += penalty;
                     }
                     const uint64_t ready_cycle = commit_cycle + penalty + async_delay;
+                    const uint64_t completion_flow_id = flow_id;
                     events.Schedule(TimedEvent{
                         .cycle = ready_cycle,
                         .action =
-                            [&, candidate, request, ready_cycle, plan, slot_id]() {
+                            [&, candidate, request, ready_cycle, plan, slot_id, completion_flow_id]() {
                               context.cycle = ready_cycle;
                               if (request.kind == AccessKind::Load) {
                                 if (!request.dst.has_value()) {
@@ -1422,6 +1432,8 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                                   request.kind == AccessKind::Load ? TraceMemoryArriveKind::Shared
                                                                    : TraceMemoryArriveKind::Store,
                                   TraceSlotModelKind::ResidentFixed);
+                              arrive_event.flow_id = completion_flow_id;
+                              arrive_event.flow_phase = TraceFlowPhase::Finish;
                               DecrementPendingMemoryOps(candidate->wave, MemoryWaitDomain::Shared);
                               const AsyncArriveResult arrive_result = MakeCycleArriveResult(
                                   context.kernel, candidate->wave, MemoryWaitDomain::Shared);
@@ -1450,10 +1462,11 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                     const uint64_t arrive_cycle =
                         commit_cycle +
                         ModeledAsyncCompletionDelay(plan.issue_cycles, context.spec.default_issue_cycles);
+                    const uint64_t completion_flow_id = flow_id;
                     events.Schedule(TimedEvent{
                         .cycle = arrive_cycle,
                         .action =
-                            [&, candidate, request, arrive_cycle, slot_id]() {
+                            [&, candidate, request, arrive_cycle, slot_id, completion_flow_id]() {
                               context.cycle = arrive_cycle;
                               if (request.kind == AccessKind::Load) {
                                 if (!request.dst.has_value()) {
@@ -1482,6 +1495,8 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                                   request.kind == AccessKind::Load ? TraceMemoryArriveKind::Private
                                                                    : TraceMemoryArriveKind::Store,
                                   TraceSlotModelKind::ResidentFixed);
+                              arrive_event.flow_id = completion_flow_id;
+                              arrive_event.flow_phase = TraceFlowPhase::Finish;
                               DecrementPendingMemoryOps(candidate->wave, MemoryWaitDomain::Private);
                               const AsyncArriveResult arrive_result = MakeCycleArriveResult(
                                   context.kernel, candidate->wave, MemoryWaitDomain::Private);
@@ -1510,10 +1525,11 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                     const uint64_t arrive_cycle =
                         commit_cycle +
                         ModeledAsyncCompletionDelay(plan.issue_cycles, context.spec.default_issue_cycles);
+                    const uint64_t completion_flow_id = flow_id;
                     events.Schedule(TimedEvent{
                         .cycle = arrive_cycle,
                         .action =
-                            [&, candidate, request, arrive_cycle, slot_id]() {
+                            [&, candidate, request, arrive_cycle, slot_id, completion_flow_id]() {
                               context.cycle = arrive_cycle;
                               if (!request.dst.has_value()) {
                                 throw std::invalid_argument("load request missing destination");
@@ -1570,6 +1586,8 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                                   arrive_cycle,
                                   TraceMemoryArriveKind::ScalarBuffer,
                                   TraceSlotModelKind::ResidentFixed);
+                              arrive_event.flow_id = completion_flow_id;
+                              arrive_event.flow_phase = TraceFlowPhase::Finish;
                               DecrementPendingMemoryOps(candidate->wave,
                                                         MemoryWaitDomain::ScalarBuffer);
                               const AsyncArriveResult arrive_result = MakeCycleArriveResult(
