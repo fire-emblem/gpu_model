@@ -31,10 +31,18 @@
 
 ### 阶段 4：验证与资产整理
 - [ ] 建立轻量级 runtime / memory / ISA / semantic 测试矩阵
-- [ ] 完成 `examples` 剩余分批全量检查
-- [ ] 继续清理明显过时、已完成且误导当前主线的历史计划文件
-- [ ] 将 archive / active / reference 的文档边界继续收紧
-- **状态：** pending
+- [x] 完成 `examples` 剩余分批全量检查
+  - 已验证: 01-vecadd-basic, 02-fma-loop, 03-shared-reverse, 04-atomic-reduction, 05-softmax-reduction
+  - 已验证: 06-mma-gemm, 07-vecadd-cycle-splitting, 08-conditional-multibarrier, 09-dynamic-shared-sum, 10-block-reduce-sum
+  - 已验证: 11-perfetto-waitcnt-slots
+  - 所有 11 个 examples 全部通过验证
+- [x] 继续清理明显过时、已完成且误导当前主线的历史计划文件
+  - 已归档: docs/archive/plans-2026-03/, docs/archive/superpowers-plans-completed/, docs/archive/superpowers-specs-completed/
+- [x] 将 archive / active / reference 的文档边界继续收紧
+  - 已完成: 所有历史 plans/specs 已归档到 docs/archive/
+- [x] 扩展 ProgramCycleStats 支持 gem5/Nsight Compute 风格的性能计数器
+  - 已完成: 添加指令计数、内存操作计数、wave 统计、派生指标
+- **状态：** in_progress
 
 ### 阶段 5：交付与维护
 - [ ] 保持 `task_plan.md`、`docs/my_design.md`、`docs/runtime-layering.md`、`docs/module-development-status.md` 同步
