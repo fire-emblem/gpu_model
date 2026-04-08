@@ -124,20 +124,12 @@ std::set<RowDescriptor> CollectDeclaredRows(const TimelineData& data, CycleTimel
       declared_rows.insert(DescribeRow(key, group_by, marker.semantic.block_id));
     }
   }
-  for (const auto& [key, endpoints] : data.flow_endpoints) {
+  for (const auto& [key, endpoints] : data.async_memory_flow_endpoints) {
     for (const auto& endpoint : endpoints) {
       declared_rows.insert(DescribeRow(key, group_by, endpoint.semantic.block_id));
     }
   }
   return declared_rows;
-}
-
-bool IsSupportedAsyncMemoryFlowEndpoint(const FlowEndpoint& endpoint) {
-  if (!endpoint.semantic.fields.has_flow) {
-    return false;
-  }
-  return endpoint.semantic.kind == TraceEventKind::MemoryAccess ||
-         endpoint.semantic.kind == TraceEventKind::Arrive;
 }
 
 }  // namespace
@@ -230,10 +222,10 @@ std::string RenderGoogleTraceExport(const TimelineData& data,
     }
   }
 
-  for (const auto& [key, endpoints] : data.flow_endpoints) {
+  for (const auto& [key, endpoints] : data.async_memory_flow_endpoints) {
     for (const auto& endpoint : endpoints) {
       const auto& fields = endpoint.semantic.fields;
-      if (!IsSupportedAsyncMemoryFlowEndpoint(endpoint)) {
+      if (!IsAsyncMemoryFlowSemanticEvent(endpoint.semantic)) {
         continue;
       }
       if (endpoint.semantic.cycle < begin || endpoint.semantic.cycle > end) {

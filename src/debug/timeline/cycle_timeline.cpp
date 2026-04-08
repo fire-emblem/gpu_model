@@ -123,13 +123,6 @@ bool IncludeMarkerByDetail(const TimelineSemanticEvent& semantic,
   return true;
 }
 
-bool IsSupportedAsyncMemoryFlowEndpoint(const TimelineSemanticEvent& semantic) {
-  if (!semantic.fields.has_flow) {
-    return false;
-  }
-  return semantic.kind == TraceEventKind::MemoryAccess || semantic.kind == TraceEventKind::Arrive;
-}
-
 TimelineData BuildTimelineData(const Recorder& recorder,
                                CycleTimelineMarkerDetail marker_detail) {
   TimelineData data;
@@ -171,8 +164,9 @@ TimelineData BuildTimelineData(const Recorder& recorder,
           .slot_id = wave.slot_id,
       };
 
-      if (IsSupportedAsyncMemoryFlowEndpoint(semantic)) {
-        data.flow_endpoints[slot_key].push_back(FlowEndpoint{.semantic = semantic});
+      if (IsAsyncMemoryFlowSemanticEvent(semantic)) {
+        data.async_memory_flow_endpoints[slot_key].push_back(
+            AsyncMemoryFlowEndpoint{.semantic = semantic});
       }
 
       if (entry.kind == RecorderEntryKind::InstructionIssue) {

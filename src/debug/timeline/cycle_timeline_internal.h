@@ -71,14 +71,21 @@ struct Marker {
   TimelineSemanticEvent semantic;
 };
 
-struct FlowEndpoint {
+struct AsyncMemoryFlowEndpoint {
   TimelineSemanticEvent semantic;
 };
+
+inline bool IsAsyncMemoryFlowSemanticEvent(const TimelineSemanticEvent& semantic) {
+  if (!semantic.fields.has_flow) {
+    return false;
+  }
+  return semantic.kind == TraceEventKind::MemoryAccess || semantic.kind == TraceEventKind::Arrive;
+}
 
 struct TimelineData {
   std::map<SlotKey, std::vector<Segment>> segments;
   std::map<SlotKey, std::vector<Marker>> markers;
-  std::map<SlotKey, std::vector<FlowEndpoint>> flow_endpoints;
+  std::map<SlotKey, std::vector<AsyncMemoryFlowEndpoint>> async_memory_flow_endpoints;
   std::unordered_map<std::string, char> symbols;
   std::set<std::string> slot_models;
   std::vector<TimelineSemanticEvent> runtime_events;
