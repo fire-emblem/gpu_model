@@ -159,7 +159,7 @@
   - `wave-launch-abi-summary`
   - `shared-heavy-hip-kernel-closure`
   这些主题现在只保留为模块状态中的稳定 backlog，不再维持独立设计/计划文档。
-- 新一轮规划的最高优先级已改为：
+- 当时那一轮规划的最高优先级曾调整为：
   - runtime API closure
   - memory pool / `mmap`
   - ISA asm-kernel validation
@@ -173,7 +173,7 @@
 - 当前正式计划已经补充：
   - 哪些任务必须串行
   - 哪些任务可以并行 branch 推进
-  - runtime -> memory -> ISA -> semantic calibration 的关键依赖链
+  - 当时采用的 runtime -> memory -> ISA -> semantic calibration 关键依赖链
   - trace/log 和 test-matrix 作为并行分支，不反向阻塞 correctness 主线
 - 用户进一步明确：
   - 需要先从语义上移除 `interposer` 的独立模块含义和历史遗留
@@ -204,6 +204,33 @@
   - `ActualTimelineSnapshot` 已明确只信 recorder 上的 `cycle range`；如果测试要断言 instruction slice，就必须由 source 明确提供 range，而不能再期待 commit 推导
   - `CycleTimelineTest` / `TimelineExpectationTest` 中残留的 commit-inference 旧断言已迁移完成，当前 timeline/trace 相关 suite 为 `116 passed`
   - `TraceEvent` 新字段引入后的聚合初始化 warning 已在 event factory 和手写测试事件中清理，当前相关目标编译无新增 warning 噪音
+- 用户最新明确要求：
+  - runtime 与 ISA 相关计划整体降到较低优先级
+  - `cycle time` 与 `cycle model` 准确性提升为当前第一优先级
+  - runtime / memory / ISA 只在阻塞某个 cycle 校准 case 时按需补齐
+- 因此当前正式主线已改为：
+  - 先做 `cycle time` / `cycle model` accuracy
+  - 再做 `ProgramCycleStats`、stall taxonomy、`ready / selected / issue` 与 timeline 解释面
+  - representative kernel / example 继续作为 cycle calibration baseline
+  - trace/log 服务于 cycle observability，但不反向定义业务语义
+  - runtime / memory / ISA 作为 dependency-driven supplement，而不是默认前置关键路径
+- 本轮 cycle-first 推进中又补齐了一处真实缺口：
+  - modeled-kernel 的 `ExecutionMode::Cycle` 路径此前不会回填 `result.program_cycle_stats`
+  - 现在 `CycleExecEngine` 已直接在 issue 时按 `ExecutedStepClass + cost_cycles + active lanes` 累积 `ProgramCycleStats`
+  - `ExecEngine` 的 modeled cycle 路径会显式回传这份 stats，而不是只暴露 `total_cycles`
+  - 新增 focused regression `ExecutedFlowProgramCycleStatsTest.RuntimePureVectorAluKernelInCycleModeReportsProgramCycleStats`
+  - 放大验证 `ExecutedFlowProgramCycleStatsTest.*:CycleSmokeTest.*` 当前为 `42 passed`
+- 本轮又继续补齐了一处 cycle observability 缺口：
+  - 默认 vector issue limit 下，ready 但未被 bundle 选中的 resident wave 现在会显式发出 `reason=issue_group_conflict` stall
+  - 这个 generic blocked stall 不再只剩 `message`，producer 侧会直接给出：
+    - canonical name: `stall_issue_group_conflict`
+    - category: `stall/issue_group_conflict`
+  - 因此 trace view、Google trace、timeline/export 不必再把它退化成泛化的 `stall`
+  - 对应 focused regressions 已补齐：
+    - `CycleSmokeTest.ReadyWaveLosingBundleSelectionEmitsIssueGroupConflictStall`
+    - `TraceTest.BlockedStallFactoryUsesProducerSemanticOverridesForIssueGroupConflict`
+    - `CycleTimelineTest.GoogleTraceShowsIssueGroupConflictWithTypedNameAndCategory`
+  - 放大验证 `CycleSmokeTest.*:CycleTimelineTest.*:TraceTest.*` 当前为 `128 passed`
 
 ## 技术决策
 | 决策 | 理由 |
@@ -248,4 +275,4 @@
   - 唯一 cycle 模式，不区分 `st/mt`
   - 通过资源、时序、issue policy、slot 约束来表达不同硬件行为
   - 不是通过宿主执行模式表达
-- 但本轮优先级已切到 examples/Perfetto 正确性，而不是继续扩 cycle 范围
+- 当前最新优先级已进一步切到 cycle-first 主线，而不是 runtime/ISA front-first 主线

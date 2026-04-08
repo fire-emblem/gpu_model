@@ -404,6 +404,7 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
         CycleExecEngine executor(ResolveCycleTimingConfig(*spec));
         result.end_cycle = executor.Run(context);
         result.total_cycles = result.end_cycle - result.begin_cycle;
+        result.program_cycle_stats = executor.TakeProgramCycleStats();
       }
       device_cycle_ = result.end_cycle;
       has_cycle_launch_history_ = true;

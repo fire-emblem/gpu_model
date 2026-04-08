@@ -896,6 +896,21 @@ TEST(ExecutedFlowProgramCycleStatsTest,
 }
 
 TEST(ExecutedFlowProgramCycleStatsTest,
+     RuntimePureVectorAluKernelInCycleModeReportsProgramCycleStats) {
+  const auto result = LaunchKernelInCycleMode(BuildPureVectorAluKernel(), 64);
+  const ProgramCycleStatsConfig config;
+  constexpr uint64_t active_lanes = 64;
+
+  ASSERT_TRUE(result.ok) << result.error_message;
+  ASSERT_TRUE(result.program_cycle_stats.has_value());
+  EXPECT_EQ(result.total_cycles, result.program_cycle_stats->total_cycles);
+  EXPECT_EQ(result.program_cycle_stats->vector_alu_cycles,
+            2u * active_lanes * config.default_issue_cycles);
+  EXPECT_EQ(result.program_cycle_stats->total_issued_work_cycles,
+            AccountedWorkCycles(*result.program_cycle_stats));
+}
+
+TEST(ExecutedFlowProgramCycleStatsTest,
      PureVectorAluKernelMatchesTheoryInSingleThreadedMode) {
   const ProgramCycleStatsConfig config;
   constexpr uint64_t active_lanes = 64;
@@ -1004,6 +1019,36 @@ TEST(ExecutedFlowProgramCycleStatsTest,
   EXPECT_GT(st.program_cycle_stats->total_cycles, 0u);
   EXPECT_GT(mt.program_cycle_stats->total_cycles, 0u);
   EXPECT_LE(mt.program_cycle_stats->total_cycles, st.program_cycle_stats->total_cycles);
+}
+
+TEST(ExecutedFlowProgramCycleStatsTest,
+     GlobalWaitcntKernelReportsProgramCycleStatsInCycleMode) {
+  ExecEngine runtime;
+  const ProgramCycleStatsConfig config;
+  constexpr uint64_t active_lanes = 64;
+
+  const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
+  runtime.memory().StoreGlobalValue<int32_t>(base_addr, 11);
+
+  const auto kernel = BuildGlobalWaitcntKernel();
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+  request.args.PushU64(base_addr);
+  request.args.PushU32(0);
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+  ASSERT_TRUE(result.program_cycle_stats.has_value());
+
+  EXPECT_EQ(result.total_cycles, result.program_cycle_stats->total_cycles);
+  EXPECT_EQ(result.program_cycle_stats->global_mem_cycles, active_lanes * config.global_mem_cycles);
+  EXPECT_GT(result.program_cycle_stats->wait_cycles, 0u);
+  EXPECT_EQ(result.program_cycle_stats->vector_alu_cycles, active_lanes * config.default_issue_cycles);
+  EXPECT_EQ(result.program_cycle_stats->total_issued_work_cycles,
+            AccountedWorkCycles(*result.program_cycle_stats));
 }
 
 TEST(ExecutedFlowProgramCycleStatsTest,

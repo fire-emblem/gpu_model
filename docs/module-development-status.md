@@ -12,7 +12,7 @@
 
 ## 当前主目标
 
-当前主目标以 **functional model** 为主线，同时保持 **naive cycle model** 可持续演进和可验证。
+当前主目标以 **cycle time / cycle model accuracy** 为第一优先级推进，同时把 **functional model** 继续作为参考基线；runtime 与 ISA 相关补项按 cycle 主线的实际依赖按需插入，而不是默认排在最前面。
 
 主线术语约定：
 
@@ -53,13 +53,13 @@
 
 当前正式 task tracks 只保留以下八项：
 
-1. `runtime API closure`
-2. `memory pool / mmap residency`
-3. `ISA validation expansion`
-4. `semantic calibration`
-5. `trace canonical event model`
-6. `trace unified entry + disable-trace boundary`
-7. `unified logging`
+1. `semantic calibration / cycle accuracy`
+2. `ProgramCycleStats + cycle observability`
+3. `trace canonical event model`
+4. `trace unified entry + disable-trace boundary`
+5. `unified logging`
+6. `runtime API closure`（按需）
+7. `memory pool / mmap residency + ISA validation`（按需）
 8. docs / status tracking
 
 补充说明：
@@ -183,27 +183,28 @@
 
 当前最关键的缺口不是单点 bug，而是下面八个面：
 
-1. `Runtime APIs`
-   - 重要 API 覆盖、不同 memcpy/memset 语义、同步主路径框架
-2. `Memory`
-   - memory pool / `mmap` backed residency / compatibility virtual windows / map-unmap 语义
-3. `Instruction validation`
-   - text-asm kernel 指令验证框架
-4. `Functional`
-   - `mt` scheduler 的公平性、竞争行为和解释边界
-5. `Cycle`
-   - stall taxonomy、`ready/selected/issue` 可观测性、timeline 解释面
-6. `Program statistics`
+1. `Cycle`
+   - cycle time、stall taxonomy、`ready/selected/issue` 可观测性、timeline 解释面
+2. `Program statistics`
    - `ProgramCycleStats` 与当前模型时间语义对齐
-7. `Trace + Log`
+3. `Functional`
+   - `mt` scheduler 的公平性、竞争行为和解释边界，作为 cycle 对照基线
+4. `Trace + Log`
    - canonical/unified/disable-trace/loguru 收口
-8. `Verification + Docs`
+5. `Verification + Docs`
    - 轻量测试矩阵、examples、文档状态跟踪
+6. `Runtime APIs`
+   - 重要 API 覆盖、不同 memcpy/memset 语义、同步主路径框架
+7. `Memory`
+   - memory pool / `mmap` backed residency / compatibility virtual windows / map-unmap 语义
+8. `Instruction validation`
+   - text-asm kernel 指令验证框架
 
 当前阶段额外约束：
 
 - 异常路径测试暂不作为第一批主线
-- 先落接口框架、模块边界和主测试 list，再逐步推进实现
+- 先做 cycle accuracy、program stats 和观察面校准
+- runtime / memory / ISA 只在阻塞当前 cycle case 时补齐最小缺口
 
 补充说明：
 
@@ -247,86 +248,80 @@
 
 ### Step 1
 
-先补 runtime + memory 基础：
+先补 `cycle time / cycle model` 准确性主线：
 
-- runtime 重要 API
-- 不同 memcpy / memset 变体
-- memory pool / `mmap` 主线
-- 无 kernel launch 的主测试 list 与框架
+- representative kernel / example 的 cycle 对齐
+- `ProgramCycleStats` 口径
+- `ready / selected / issue`
+- stall taxonomy
 
 理由：
 
-- 这是后续 kernel、program load、ISA 测试和日志/trace 收口的公共底座
+- 这是当前唯一的最高优先级，其他补项都必须服务于它
 
 ### Step 2
 
-补 instruction validation：
-
-- text-asm kernel 程序生成
-- 不 crash 验证
-- 结果正确性验证
-
-理由：
-
-- 需要把 ISA 实现从“代表性 case”推进到“系统化指令验证”
-
-### Step 3
-
-补 `functional mt` + `cycle` 语义校准：
-
-- `functional mt` scheduler 公平性与等待恢复
-- `cycle` 的 stall taxonomy
-- `ready / selected / issue`
-- `st / mt / cycle` 结果语义对齐
-
-理由：
-
-- 指令与 runtime 基础稳定后，才能做真正可信的跨模型校准
-
-### Step 4
-
-补 trace / log 主线：
+补 trace / timeline / stats 观察面：
 
 - canonical typed event model
 - unified trace entry
 - disable-trace 边界
 - `loguru` 统一日志
+- slot timeline / Perfetto / stats 的一致解释面
 
 理由：
 
-- 需要统一观察面，但不能让观察层反向污染业务逻辑
+- 需要稳定观察和解释 cycle 结论，但不能让观察层反向定义业务语义
 
-### Step 5
+### Step 3
 
-补测试矩阵、examples 与文档状态跟踪：
+补测试矩阵与 representative baseline：
 
-- 轻量测试矩阵
+- 轻量 cycle / semantic matrix
+- representative kernels
 - examples 分批全量验证
 - 模块开发状态持续写回文档
 
 理由：
 
-- 否则实现会继续分散在 case-by-case 修补里
+- 否则 cycle accuracy 只能停留在零散 case，无法形成持续可回归的基线
+
+### Step 4
+
+按需补 runtime / memory / ISA：
+
+- runtime API 边界
+- memory pool / `mmap`
+- text-asm / ISA validation
+- program / ABI 补缝
+
+理由：
+
+- 这些不再默认排在最前面，只在某个 cycle case 被明确卡住时做最小补项
+
+### Step 5
+
+持续 docs / status tracking
 
 ## 串行与并行开发关系
 
 ### 串行关键路径
 
-1. `M1 -> M7`
-   - runtime API 与 memory pool / `mmap` 必须先收口
-2. `M1/M7 -> M3/M4`
-   - memory/runtime 主线稳定后，才能建立可靠的 ISA asm-kernel 验证
-3. `M3/M4 -> M6/M13`
-   - 指令验证形成系统基线后，才能做 `st/mt/cycle` 语义校准
+1. `M6/M13`
+   - `functional` 基线与 `cycle` 准确性是当前主线
+2. `M10`
+   - trace / timeline / stats 观察面紧跟 cycle 主线推进
+3. `M1/M7/M3/M4`
+   - runtime / memory / ISA 只在明确阻塞当前 cycle case 时插入补项
 
 ### 可并行分支
 
-1. `M10`
-   - trace canonical / unified / disable-trace / `loguru`
-   - 可在 `M1` 稳定后并行推进，但不能反向定义执行语义
-2. `M12`
+1. `M12`
    - 轻量测试矩阵框架、门禁组织、目录收口
-   - 可与 `M1`、`M3` 并行推进
+   - 可与 `M6/M13` 并行推进
+2. `M1/M7/M3/M4`
+   - runtime / memory / ISA dependency-driven 补项
+   - 不再默认展开完整 closure
 3. docs 跟踪
    - 全程并行
 4. `HipRuntime compatibility naming cleanup`
@@ -336,20 +331,18 @@
 ### 依赖图
 
 ```text
-M1(runtime) ---> M7(memory) ---> M3/M4(ISA decode/exec validation) ---> M6/M13(semantic calibration)
-      |               |                     |                                   |
-      |               +------> M12(test matrix) <-------------------------------+
-      |
-      +------> M10(trace/log)   [parallel branch, non-blocking for correctness]
-      |
-      +------------------------------------------------------------> examples/docs integration
+M6/M13(cycle accuracy) ---> M10(trace/timeline/stats observability) ---> examples/docs integration
+        |                                 |
+        +-------------> M12(test matrix)--+
+        |
+        +-------------> M1/M7/M3/M4(runtime/memory/ISA supplements on demand)
 ```
 
 ### 原则
 
-- correctness 主线优先，observation 主线并行但不阻塞
+- cycle accuracy 主线优先，observation 主线贴身并行但不反向定义语义
 - unit / lightweight tests 前置，examples 后置
-- 模块交互边界先稳定，再扩张综合验证
+- runtime / ISA 只按阻塞点补，不再先求大而全
 
 ## 当前必须补充但用户需求里没有明确写出的点
 

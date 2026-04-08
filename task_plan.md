@@ -1,7 +1,7 @@
 # 任务计划：当前正式任务主线
 
 ## 目标
-以当前模块设计为基础，推进 runtime API、memory pool / `mmap`、ISA 指令验证、`st/mt/cycle` 语义校准、日志与 trace 收口，并将模块交互关系、开发计划和模块开发状态统一记录到正式文档。
+以当前模块设计为基础，将 `cycle time` 与 `cycle model` 准确性作为第一优先级，持续推进 `ProgramCycleStats`、stall taxonomy、`ready/selected/issue` 与 timeline 解释面；runtime API、memory pool / `mmap`、ISA 指令验证改为按 cycle 主线需求驱动的补充项，并将模块交互关系、开发计划和模块开发状态统一记录到正式文档。
 
 ## 当前阶段
 阶段 3
@@ -21,10 +21,10 @@
 - **状态：** complete
 
 ### 阶段 3：主线实现推进
-- [ ] 落定 runtime API / memory pool / `mmap` 第一阶段框架设计
-- [ ] 建立不同 `memcpy` / `memset` 行为的主测试清单
-- [ ] 建立 ISA text-asm kernel 验证体系
-- [ ] 完成 `st/mt/cycle` 结果与设计语义校准
+- [ ] 完成 `cycle time` / `cycle model` 准确性主线校准
+- [ ] 细化 `ProgramCycleStats`、stall taxonomy、`ready/selected/issue` 与 slot timeline 解释面
+- [ ] 建立 cycle-first 的 representative kernel / example 校准清单
+- [ ] 按 cycle 主线需求补 runtime API / memory pool / ISA 缺口
 - [ ] 统一日志到 `loguru`
 - [ ] 继续收口 trace canonical / unified / disable-trace 边界
 - **状态：** in_progress
@@ -42,29 +42,29 @@
 - **状态：** pending
 
 ## 当前正式任务清单
-1. `Runtime API closure`
-   - 目标：先落定 `HipRuntime / ModelRuntime` 的重要 API 框架，尤其是不同 `memcpy` / `memset` 变体与无需 kernel launch 的行为矩阵。
-   - 当前缺口：同步 `malloc/free/memcpy/memset` 主路径现已补齐一轮 focused matrix，覆盖 `RuntimeSession`、`DeviceMemoryManager`、LD_PRELOAD ABI 纯 memory 路径、非法 `hipMemcpyKind` 和非法 compatibility pointer 返回值；后续仍需继续补 async 边界、null host pointer / byte-count 边界，以及更完整的 runtime property/error matrix。
+1. `Semantic calibration`
+   - 目标：把 `cycle time` 与 `cycle model` 准确性提到第一优先级，让 `st / mt / cycle` 的结果、时间语义和 program-level 解释面保持一致。
+   - 当前缺口：核心语义已稳定，但后续仍需持续校准 `cycle time`、`ProgramCycleStats`、`ready/selected/issue`、memory wait、scheduler 行为，以及更多 representative kernel / example 的趋势关系。
 
-2. `Memory pool and mmap-backed residency`
-   - 目标：建立统一 memory pool 语义，并把关键 pool 的底层存储逐步收口到 `mmap` 主线。
-   - 当前缺口：pool 分类已存在，但 compatibility virtual window、统一设备内存管理器、`reserve large range + commit on demand` 策略和分阶段落地顺序还未正式写清。
-
-3. `ISA validation expansion`
-   - 目标：基于 text asm 生成 kernel 程序，对更多 ISA 指令做“不 crash + 结果正确”的自动验证。
-   - 当前缺口：目前更多是按代表性 kernel 和 focused opcode 回归覆盖，缺少更系统的 asm-kernel 验证框架。
-
-4. `Semantic calibration`
-   - 目标：让 `st / mt / cycle` 的执行结果和时间语义与正式设计保持一致。
-   - 当前缺口：核心语义已稳定，`cycle timeline` 消费层当前已补齐 `arrive_progress(still_blocked/resume)` 透传、runtime/front-end typed marker canonical name 稳定性，以及 representative waitcnt-heavy / barrier-heavy example 校准；后续还需要持续校准更多指令族、memory wait、scheduler 行为与 program stats。
-
-5. `Trace and logging consolidation`
+2. `Trace and logging consolidation`
    - 目标：统一日志到 `loguru`，并继续收口 trace canonical / unified / disable-trace 边界。
-   - 当前缺口：日志系统仍不统一；text/json trace 虽已可全局关闭，但还需继续确保其完全不依赖业务逻辑。
+   - 当前缺口：日志系统仍不统一；text/json trace 虽已可全局关闭，但还需继续确保其完全不依赖业务逻辑，并服务于 cycle observability，而不是定义执行语义。
 
-6. `Lightweight test matrix`
-   - 目标：建立完备但轻量级的 runtime / memory / ISA / semantic 测试矩阵，优先覆盖无需完整 HIP kernel 的路径。
-   - 当前缺口：已有大量 focused test，但缺少“按模块能力分层”的轻量矩阵整理；异常路径测试暂不作为第一批主线。
+3. `Lightweight test matrix`
+   - 目标：建立完备但轻量级的 cycle / semantic / observation 测试矩阵，并继续维持 representative kernels / examples 的 calibration baseline。
+   - 当前缺口：已有大量 focused test，但缺少“按 cycle accuracy 目标分层”的矩阵整理；异常路径测试与大面积 runtime/ISA 扩张暂不作为第一批主线。
+
+4. `Runtime API closure`
+   - 目标：在不再作为默认最前置任务的前提下，按 cycle 主线需要补 runtime / memory API 框架，尤其是不同 `memcpy` / `memset` 变体与无需 kernel launch 的行为矩阵。
+   - 当前缺口：同步 `malloc/free/memcpy/memset` 主路径现已补齐一轮 focused matrix，覆盖 `RuntimeSession`、`DeviceMemoryManager`、LD_PRELOAD ABI 纯 memory 路径、非法 `hipMemcpyKind` 和非法 compatibility pointer 返回值；后续 async 边界、null host pointer / byte-count 边界，以及更完整的 runtime property/error matrix，只在 cycle 校准实际依赖时补齐。
+
+5. `Memory pool and mmap-backed residency`
+   - 目标：建立统一 memory pool 语义，并把关键 pool 的底层存储逐步收口到 `mmap` 主线。
+   - 当前缺口：pool 分类已存在，但 compatibility virtual window、统一设备内存管理器、`reserve large range + commit on demand` 策略和分阶段落地顺序还未正式写清；当前优先级低于 cycle 主线，只在缺少 residency / address semantics 会阻塞 cycle 准确性时补充。
+
+6. `ISA validation expansion`
+   - 目标：基于 text asm 生成 kernel 程序，对更多 ISA 指令做“不 crash + 结果正确”的自动验证。
+   - 当前缺口：目前更多是按代表性 kernel 和 focused opcode 回归覆盖，缺少更系统的 asm-kernel 验证框架；当前优先级低于 cycle 主线，只在某类 cycle 校准需要更稳的 ISA baseline 时补充。
 
 7. `Design and status tracking`
    - 目标：持续把模块交互关系、开发计划、已实现/待补强状态写入正式文档，用文档跟踪模块开发状态。
@@ -78,30 +78,30 @@
 
 ### 必须串行的关键路径
 
-1. `Runtime API closure`
-   - 原因：runtime/memory 接口边界不稳定时，后续 ISA 测试、semantic calibration、trace/log 收口都会反复返工。
+1. `Semantic calibration`
+   - 原因：用户已明确 `cycle time` 与 `cycle model` 准确性是当前第一优先级，后续所有补项都应服务于它。
 
-2. `Memory pool and mmap-backed residency`
-   - 依赖：`Runtime API closure`
-   - 原因：memory pool 与地址解析是 runtime memory 行为和 kernel materialize 的共同底座。
+2. `Trace and logging consolidation`
+   - 依赖：`Semantic calibration`
+   - 原因：需要先明确 cycle 语义与统计口径，再决定观察层该如何稳定暴露这些事实。
 
-3. `ISA validation expansion`
-   - 依赖：`Runtime API closure`、`Memory pool and mmap-backed residency`
-   - 原因：text-asm kernel 验证需要稳定的 program load、寄存器/内存副作用落地和基础 memory 主线。
+3. `Examples verification`
+   - 依赖：`Semantic calibration`、`Trace and logging consolidation`
+   - 原因：examples 是 cycle accuracy 的综合验证层，应在语义与观察面基本稳定后推进。
 
-4. `Semantic calibration`
-   - 依赖：`ISA validation expansion`
-   - 原因：没有系统化指令验证，`st/mt/cycle` 的结果对齐和 cycle 参考值校准没有可靠基线。
+4. `Runtime API closure / Memory pool / ISA validation`
+   - 依赖：具体阻塞项
+   - 原因：三者不再默认构成最前置串行主链；只有当某个 cycle 校准 case 被明确阻塞时，才插入小步补项并回到 cycle 主线。
 
 ### 可并行 branch 开发
 
-1. `Trace and logging consolidation`
-   - 推荐在 `Runtime API closure` 基本稳定后并行推进
-   - 依赖较弱：不应阻塞 runtime/memory/ISA 主线，但不能早于关键接口命名与模块边界稳定。
+1. `Runtime API closure / Memory pool / ISA validation`
+   - 改为按需并行补项
+   - 依赖具体 cycle case：只补当前 cycle 校准真正依赖的那部分，不先展开完整 closure。
 
 2. `Lightweight test matrix`
-   - 可与 `Runtime API closure`、`ISA validation expansion` 并行推进
-   - 形式上依赖各模块接口，但测试框架、目录组织、门禁策略可以提前搭建。
+   - 可与 `Semantic calibration` 并行推进
+   - 形式上依赖各模块接口，但测试框架、目录组织、门禁策略可以先按 cycle-first 目标整理。
 
 3. `Design and status tracking`
    - 全程并行
@@ -109,38 +109,35 @@
 
 4. `Examples verification`
    - 可在 `Semantic calibration` 进入中后期并行推进
-   - 不应早于 runtime/memory/ISA 基础收口，否则 examples 只会放大底层噪声。
+   - 不应早于 cycle 语义与 trace/ProgramCycleStats 观察面基本稳定，否则 examples 只会放大解释噪声。
 
 ## 执行依赖图
 
 ```text
 Design and status tracking
     |
-    +--> Runtime API closure ----> Memory pool / mmap ----> ISA validation ----> Semantic calibration
-    |                                   |                        |                      |
-    |                                   +----> Lightweight test matrix <---------------+
-    |                                   |
-    |                                   +----> Trace and logging consolidation
+    +--> Semantic calibration / cycle accuracy ----> Trace+ProgramStats observability ----> Examples verification
+    |                    |                                       |
+    |                    +--------------> Lightweight test matrix+
+    |                    |
+    |                    +--------------> Runtime / Memory / ISA supplements (on demand)
     |
-    +--------------------------------------------------------------------> Examples verification
+    +--------------------------------------------------------------------> docs / status updates
 ```
 
 ## 依赖说明
 
-- `Runtime API closure -> Memory pool / mmap`
-  - runtime memory API 的行为边界必须先稳定，pool 才能有可靠的对外约束。
+- `Semantic calibration` 是当前主驱动
+  - 后续补项都必须先回答“它是否直接提升 cycle time / cycle model 准确性”，否则不应抢占主线。
 
-- `Memory pool / mmap -> ISA validation`
-  - text-asm kernel 的执行结果验证需要稳定的全局内存、kernarg、code/data residency 主线。
-
-- `ISA validation -> Semantic calibration`
-  - 先证明单条/小组合指令在 `st/mt/cycle` 下都正确，之后再讨论 scheduler、stall、program stats 的校准。
+- `Runtime / Memory / ISA` 改为依赖驱动
+  - 如果某个 cycle 校准 case 被 runtime 行为、residency 语义或 ISA baseline 卡住，再做有边界的补项，而不是先展开完整 closure。
 
 - `Trace/log` 不得反向阻塞关键路径
-  - 它可以并行推进，但不能定义执行语义，也不能成为 kernel/runtime correctness 的前置条件。
+  - 它可以并行推进，但不能定义执行语义，也不能成为 cycle correctness 的前置条件。
 
 - `Examples verification` 不是最前置
-  - examples 是综合验证层，不是底层能力的替代。
+  - examples 是 cycle accuracy 的综合验证层，不是主线语义校准的替代。
 
 - `HipRuntime compatibility naming cleanup` 可并行于主线推进
   - 但应先做语义和文档收口，再做文件名/target/test 名称清理，避免和正在进行的 `include -> src` 合并冲突。

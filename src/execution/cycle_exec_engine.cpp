@@ -24,6 +24,7 @@
 #include "gpu_model/execution/internal/event_queue.h"
 #include "gpu_model/execution/internal/issue_model.h"
 #include "gpu_model/execution/internal/issue_scheduler.h"
+#include "gpu_model/execution/internal/opcode_execution_info.h"
 #include "gpu_model/execution/internal/async_scoreboard.h"
 #include "gpu_model/execution/memory_ops.h"
 #include "gpu_model/execution/plan_apply.h"
@@ -34,6 +35,8 @@
 #include "gpu_model/loader/device_image_loader.h"
 #include "gpu_model/memory/cache_model.h"
 #include "gpu_model/memory/shared_bank_model.h"
+#include "gpu_model/runtime/program_cycle_tracker.h"
+#include "gpu_model/runtime/program_cycle_stats.h"
 
 namespace gpu_model {
 
@@ -48,6 +51,112 @@ uint64_t QuantizeIssueDuration(uint64_t cycles) {
     return clamped;
   }
   return clamped + (kIssueTimelineQuantumCycles - remainder);
+}
+
+std::optional<ExecutedStepClass> ClassifyCycleInstruction(const Instruction& instruction,
+                                                          const OpPlan& plan) {
+  if (plan.sync_barrier || plan.sync_wave_barrier) {
+    return ExecutedStepClass::Barrier;
+  }
+  if (plan.wait_cnt) {
+    return ExecutedStepClass::Wait;
+  }
+  if (plan.memory.has_value()) {
+    switch (plan.memory->space) {
+      case MemorySpace::Global:
+        return ExecutedStepClass::GlobalMem;
+      case MemorySpace::Shared:
+        return ExecutedStepClass::SharedMem;
+      case MemorySpace::Private:
+        return ExecutedStepClass::PrivateMem;
+      case MemorySpace::Constant:
+        return ExecutedStepClass::ScalarMem;
+    }
+  }
+
+  switch (GetOpcodeExecutionInfo(instruction.opcode).family) {
+    case SemanticFamily::ScalarAlu:
+    case SemanticFamily::ScalarCompare:
+      return ExecutedStepClass::ScalarAlu;
+    case SemanticFamily::VectorAluInt:
+    case SemanticFamily::VectorAluFloat:
+    case SemanticFamily::VectorCompare:
+      return ExecutedStepClass::VectorAlu;
+    case SemanticFamily::ScalarMemory:
+      return ExecutedStepClass::ScalarMem;
+    case SemanticFamily::VectorMemory:
+      return ExecutedStepClass::GlobalMem;
+    case SemanticFamily::LocalDataShare:
+      return ExecutedStepClass::SharedMem;
+    case SemanticFamily::Builtin:
+    case SemanticFamily::Mask:
+    case SemanticFamily::Branch:
+    case SemanticFamily::Sync:
+    case SemanticFamily::Special:
+      return std::nullopt;
+  }
+  return std::nullopt;
+}
+
+uint64_t CostForCycleStep(const OpPlan& plan,
+                          ExecutedStepClass step_class,
+                          const ProgramCycleStatsConfig& config) {
+  switch (step_class) {
+    case ExecutedStepClass::ScalarAlu:
+    case ExecutedStepClass::VectorAlu:
+      return plan.issue_cycles;
+    case ExecutedStepClass::Tensor:
+      return config.tensor_cycles;
+    case ExecutedStepClass::SharedMem:
+      return config.shared_mem_cycles;
+    case ExecutedStepClass::ScalarMem:
+      return config.scalar_mem_cycles;
+    case ExecutedStepClass::GlobalMem:
+      return config.global_mem_cycles;
+    case ExecutedStepClass::PrivateMem:
+      return config.private_mem_cycles;
+    case ExecutedStepClass::Barrier:
+    case ExecutedStepClass::Wait:
+      return plan.issue_cycles == 0 ? config.default_issue_cycles : plan.issue_cycles;
+  }
+  return config.default_issue_cycles;
+}
+
+void AccumulateProgramCycleStep(ProgramCycleStats& stats,
+                                ExecutedStepClass step_class,
+                                uint64_t cost_cycles,
+                                uint64_t work_weight) {
+  const uint64_t weighted_cycles = cost_cycles * work_weight;
+  stats.total_issued_work_cycles += weighted_cycles;
+  switch (step_class) {
+    case ExecutedStepClass::ScalarAlu:
+      stats.scalar_alu_cycles += weighted_cycles;
+      return;
+    case ExecutedStepClass::VectorAlu:
+      stats.vector_alu_cycles += weighted_cycles;
+      return;
+    case ExecutedStepClass::Tensor:
+      stats.tensor_cycles += weighted_cycles;
+      return;
+    case ExecutedStepClass::SharedMem:
+      stats.shared_mem_cycles += weighted_cycles;
+      return;
+    case ExecutedStepClass::ScalarMem:
+      stats.scalar_mem_cycles += weighted_cycles;
+      return;
+    case ExecutedStepClass::GlobalMem:
+      stats.global_mem_cycles += weighted_cycles;
+      return;
+    case ExecutedStepClass::PrivateMem:
+      stats.private_mem_cycles += weighted_cycles;
+      return;
+    case ExecutedStepClass::Barrier:
+      stats.barrier_cycles += weighted_cycles;
+      return;
+    case ExecutedStepClass::Wait:
+      stats.wait_cycles += weighted_cycles;
+      return;
+  }
 }
 
 struct ExecutableBlock;
@@ -357,6 +466,7 @@ uint64_t WaveAgeOrderKey(const ScheduledWave& scheduled_wave) {
 }
 
 constexpr std::string_view kStallReasonBarrierSlotUnavailable = "barrier_slot_unavailable";
+constexpr std::string_view kStallReasonIssueGroupConflict = "issue_group_conflict";
 
 TraceWaveView MakeTraceWaveView(const ScheduledWave& wave, uint32_t slot_id) {
   return TraceWaveView{
@@ -856,6 +966,39 @@ std::optional<std::pair<ScheduledWave*, std::string>> PickFirstBlockedResidentWa
   return std::nullopt;
 }
 
+std::optional<std::pair<ScheduledWave*, std::string>> PickFirstReadyUnselectedResidentWave(
+    const std::vector<IssueSchedulerCandidate>& candidates,
+    const IssueSchedulerResult& bundle,
+    const std::vector<ResidentIssueSlot*>& ordered_resident_slots) {
+  if (bundle.selected_candidate_indices.empty()) {
+    return std::nullopt;
+  }
+
+  std::vector<bool> selected(ordered_resident_slots.size(), false);
+  for (const size_t candidate_index : bundle.selected_candidate_indices) {
+    if (candidate_index < selected.size()) {
+      selected[candidate_index] = true;
+    }
+  }
+
+  for (const auto& candidate : candidates) {
+    if (!candidate.ready || candidate.candidate_index >= ordered_resident_slots.size()) {
+      continue;
+    }
+    if (selected[candidate.candidate_index]) {
+      continue;
+    }
+    ResidentIssueSlot* resident_slot = ordered_resident_slots[candidate.candidate_index];
+    if (resident_slot == nullptr || resident_slot->resident_wave == nullptr) {
+      continue;
+    }
+    return std::make_pair(resident_slot->resident_wave,
+                          std::string(kStallReasonIssueGroupConflict));
+  }
+
+  return std::nullopt;
+}
+
 std::vector<IssueSchedulerCandidate> BuildResidentIssueCandidates(
     PeuSlot& slot,
     const ExecutableKernel& kernel,
@@ -921,6 +1064,11 @@ std::vector<IssueSchedulerCandidate> BuildResidentIssueCandidates(
 }  // namespace
 
 uint64_t CycleExecEngine::Run(ExecutionContext& context) {
+  const uint64_t run_begin_cycle = context.cycle;
+  ProgramCycleStatsConfig cycle_stats_config;
+  cycle_stats_config.default_issue_cycles = context.spec.default_issue_cycles;
+  program_cycle_stats_ = ProgramCycleStats{};
+
   auto blocks = MaterializeBlocks(context.placement, context.launch_config);
   const uint32_t resident_wave_slots_per_peu = ResidentWaveSlotCapacityPerPeu(context.spec);
   auto slots = BuildPeuSlots(blocks, resident_wave_slots_per_peu);
@@ -971,6 +1119,9 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
     events.RunReady(cycle);
 
     if (AllWavesExited(blocks) && events.empty()) {
+      if (program_cycle_stats_.has_value()) {
+        program_cycle_stats_->total_cycles = cycle - run_begin_cycle;
+      }
       return cycle;
     }
 
@@ -1012,6 +1163,15 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
         continue;
       }
 
+      if (const auto ready_unselected =
+              PickFirstReadyUnselectedResidentWave(candidates, bundle, ordered_resident_slots)) {
+        context.trace.OnEvent(MakeTraceBlockedStallEvent(
+            MakeTraceWaveView(*ready_unselected->first, TraceSlotId(*ready_unselected->first)),
+            cycle,
+            ready_unselected->second,
+            TraceSlotModelKind::ResidentFixed));
+      }
+
       uint64_t bundle_commit_cycle = cycle;
       uint64_t bundle_last_wave_tag = slot.last_wave_tag;
       for (const size_t selected_candidate_index : bundle.selected_candidate_indices) {
@@ -1032,6 +1192,14 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
           ++context.stats->instructions_issued;
         }
         const OpPlan plan = semantics_.BuildPlan(instruction, wave, context);
+        if (program_cycle_stats_.has_value()) {
+          if (const auto step_class = ClassifyCycleInstruction(instruction, plan); step_class.has_value()) {
+            AccumulateProgramCycleStep(*program_cycle_stats_,
+                                       *step_class,
+                                       CostForCycleStep(plan, *step_class, cycle_stats_config),
+                                       wave.exec.count());
+          }
+        }
         context.trace.OnEvent(MakeTraceWaveStepEvent(MakeTraceWaveView(*candidate, slot_id),
                                                      cycle,
                                                      TraceSlotModelKind::ResidentFixed,

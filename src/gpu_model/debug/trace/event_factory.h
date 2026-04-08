@@ -542,6 +542,8 @@ inline TraceEvent MakeTraceBlockedStallEvent(const TraceWaveView& wave,
   event.stall_reason = TraceStallReason::Other;
   event.display_name = "stall";
   event.waitcnt_state = waitcnt_state;
+  SetProducerSemanticFields(
+      event, "stall_" + std::string(reason), "stall/" + std::string(reason));
   return event;
 }
 

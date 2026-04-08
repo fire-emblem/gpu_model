@@ -537,6 +537,45 @@ TEST(CycleSmokeTest, VectorIssueLimitOverrideAllowsTwoWaveBundleIssue) {
   EXPECT_GT(widened_wave_steps_at_0, baseline_wave_steps_at_0);
 }
 
+TEST(CycleSmokeTest, ReadyWaveLosingBundleSelectionEmitsIssueGroupConflictStall) {
+  const auto spec = ArchRegistry::Get("c500");
+  ASSERT_NE(spec, nullptr);
+
+  CollectingTraceSink trace;
+  ExecEngine runtime(&trace);
+  ConfigureZeroFrontendTiming(runtime);
+
+  InstructionBuilder builder;
+  builder.VMov("v0", 1);
+  builder.BExit();
+  const auto kernel = builder.Build("vector_issue_group_conflict_kernel");
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = spec->peu_per_ap * 64 + 64;
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  bool saw_issue_group_conflict = false;
+  for (const auto& event : trace.events()) {
+    if (event.kind != TraceEventKind::Stall) {
+      continue;
+    }
+    if (event.cycle != 0u) {
+      continue;
+    }
+    if (event.message == "reason=issue_group_conflict") {
+      saw_issue_group_conflict = true;
+      break;
+    }
+  }
+
+  EXPECT_TRUE(saw_issue_group_conflict);
+}
+
 TEST(CycleSmokeTest, IssuePolicyOverrideCanWidenVectorBundleWithoutSeparateLimitOverride) {
   const auto spec = ArchRegistry::Get("c500");
   ASSERT_NE(spec, nullptr);

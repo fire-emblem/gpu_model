@@ -751,6 +751,21 @@ TEST(CycleTimelineTest, GoogleTraceMarkerArgsShareTypedPresentationFields) {
   EXPECT_NE(trace.find("\"slot_model\":\"logical_unbounded\""), std::string::npos);
 }
 
+TEST(CycleTimelineTest, GoogleTraceShowsIssueGroupConflictWithTypedNameAndCategory) {
+  const TraceWaveView wave = MakeWaveView(/*slot_id=*/2, /*pc=*/0x80, /*wave_id=*/3);
+  std::vector<TraceEvent> events{
+      MakeTraceBlockedStallEvent(
+          wave, 7, "issue_group_conflict", TraceSlotModelKind::ResidentFixed),
+  };
+
+  const std::string trace = CycleTimelineRenderer::RenderGoogleTrace(MakeRecorder(events));
+  EXPECT_NE(trace.find("\"name\":\"stall_issue_group_conflict\""), std::string::npos);
+  EXPECT_NE(trace.find("\"category\":\"stall/issue_group_conflict\""), std::string::npos);
+  EXPECT_NE(trace.find("\"presentation_name\":\"stall_issue_group_conflict\""), std::string::npos);
+  EXPECT_NE(trace.find("\"canonical_name\":\"stall_issue_group_conflict\""), std::string::npos);
+  EXPECT_NE(trace.find("\"slot_model\":\"resident_fixed\""), std::string::npos);
+}
+
 TEST(CycleTimelineTest, GoogleTraceRuntimeArgsSharePresentationFields) {
   std::vector<TraceEvent> events{
       MakeTraceRuntimeLaunchEvent(/*cycle=*/5, "kernel=timeline_runtime arch=c500"),

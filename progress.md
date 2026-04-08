@@ -490,3 +490,64 @@
   - `tests/runtime/timeline_expectation_test.cpp`
   - `findings.md`
   - `progress.md`
+
+### 阶段 26：正式任务主线重排为 cycle-first
+- **状态：** complete
+- 执行的操作：
+  - 根据用户新要求，将 runtime / memory / ISA 相关计划整体降到较低优先级
+  - 将 `cycle time` / `cycle model` accuracy、`ProgramCycleStats`、stall taxonomy、`ready/selected/issue` 与 timeline 解释面提升为当前第一优先级
+  - 重写 `task_plan.md` 的任务顺序、关键路径、并行项与依赖图，明确 runtime / memory / ISA 只在阻塞当前 cycle case 时按需补齐
+  - 重写 `docs/module-development-status.md` 的当前主目标、正式 task tracks、最关键缺口、推进顺序与模块依赖关系，使其与 cycle-first 主线对齐
+  - 更新 `docs/my_design.md` 中关于正式主线与日志优先级的表述，明确当前阶段先保证 cycle accuracy，再补观察面，再做 dependency-driven runtime/ISA 补项
+  - 同步更新 `findings.md` 与 `progress.md`
+- 创建/修改的文件：
+  - `task_plan.md`
+  - `docs/module-development-status.md`
+  - `docs/my_design.md`
+  - `findings.md`
+  - `progress.md`
+
+### 阶段 27：补齐 modeled cycle 路径的 `ProgramCycleStats`
+- **状态：** complete
+- 执行的操作：
+  - 以 TDD 方式新增 `ExecutedFlowProgramCycleStatsTest.RuntimePureVectorAluKernelInCycleModeReportsProgramCycleStats`
+  - 先验证 RED：modeled-kernel `ExecutionMode::Cycle` 路径此前不会回填 `result.program_cycle_stats`
+  - 为 `CycleExecEngine` 补充 cycle-side `ProgramCycleStats` 累积：
+    - issue 时按 `ExecutedStepClass`、`cost_cycles`、`wave.exec.count()` 记账
+    - run 结束时回填相对本次 launch 的 `total_cycles`
+  - 为 `CycleExecEngine` 增加 `TakeProgramCycleStats()`，并在 `ExecEngine` 的 modeled cycle 路径回传 `result.program_cycle_stats`
+  - 运行放大验证：
+    - `./build-ninja/tests/gpu_model_tests --gtest_filter='ExecutedFlowProgramCycleStatsTest.RuntimePureVectorAluKernelInCycleModeReportsProgramCycleStats'`
+    - `./build-ninja/tests/gpu_model_tests --gtest_filter='ExecutedFlowProgramCycleStatsTest.*:CycleSmokeTest.*'`
+    - `42 tests passed`
+- 创建/修改的文件：
+  - `src/gpu_model/execution/cycle_exec_engine.h`
+  - `src/execution/cycle_exec_engine.cpp`
+  - `src/runtime/exec_engine.cpp`
+  - `tests/runtime/executed_flow_program_cycle_stats_test.cpp`
+  - `findings.md`
+  - `progress.md`
+
+### 阶段 28：补齐 `issue_group_conflict` 的 cycle trace 可观测性
+- **状态：** complete
+- 执行的操作：
+  - 以 TDD 方式新增 `CycleSmokeTest.ReadyWaveLosingBundleSelectionEmitsIssueGroupConflictStall`
+  - 验证 RED：默认 vector issue limit 下，ready 但未被 bundle 选中的 wave 之前不会留下 `reason=issue_group_conflict` stall
+  - 在 `CycleExecEngine` 中补充 ready-but-unselected resident wave 的 conflict stall 发射逻辑
+  - 进一步为 generic blocked stall 补 producer-side semantic override，使 `issue_group_conflict` 可稳定导出为：
+    - canonical name: `stall_issue_group_conflict`
+    - category: `stall/issue_group_conflict`
+  - 新增 `TraceTest.BlockedStallFactoryUsesProducerSemanticOverridesForIssueGroupConflict`
+  - 新增 `CycleTimelineTest.GoogleTraceShowsIssueGroupConflictWithTypedNameAndCategory`
+  - 更新 `TraceTest.CanonicalTraceEventBundlesViewAndExportFields` 以匹配 generic blocked stall 现在的 producer-owned semantic naming
+  - 运行放大验证：
+    - `./build-ninja/tests/gpu_model_tests --gtest_filter='CycleSmokeTest.*:CycleTimelineTest.*:TraceTest.*'`
+    - `128 tests passed`
+- 创建/修改的文件：
+  - `src/execution/cycle_exec_engine.cpp`
+  - `src/gpu_model/debug/trace/event_factory.h`
+  - `tests/cycle/cycle_smoke_test.cpp`
+  - `tests/runtime/trace_test.cpp`
+  - `tests/runtime/cycle_timeline_test.cpp`
+  - `findings.md`
+  - `progress.md`

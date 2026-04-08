@@ -460,7 +460,7 @@ operand 只描述静态信息，不直接持有执行态寄存器值。
   - wave launch / wait / resume / issue
   - cycle stall / selection / commit
   进行结构化输出。
-- 但第一批实现优先级仍低于 runtime/memory 主框架；先保证关键交互关系和接口边界稳定，再统一日志实现。
+- 但当前阶段实现优先级仍低于 cycle accuracy 主线；先保证 `cycle time`、`ProgramCycleStats`、stall taxonomy 与 timeline 解释面稳定，再统一日志实现。
 
 ### 7.3 模型时间语义
 
@@ -499,11 +499,12 @@ operand 只描述静态信息，不直接持有执行态寄存器值。
 
 当前仍需持续推进的正式主线只有：
 
+- cycle observability / stall taxonomy
+- `ProgramCycleStats` calibration
+- representative kernel / example calibration
 - trace canonical typed event model
 - trace unified entry
 - functional `mt` scheduler semantics
-- cycle observability / stall taxonomy
-- `ProgramCycleStats` calibration
 - examples full-batch verification
 - runtime API closure
 - memory pool / `mmap` mapping
@@ -512,6 +513,10 @@ operand 只描述静态信息，不直接持有执行态寄存器值。
 
 其中还应默认遵守以下更细约束：
 
+- 当前执行优先级应明确为：
+  - 先做 `cycle time` / `cycle model` accuracy
+  - 再补与之直接相关的 trace / stats 观察面
+  - runtime / memory / ISA 仅在阻塞当前 cycle case 时补最小缺口
 - `functional mt`：执行单位是 wave，不是 block；默认 worker budget 是全局共享资源，不应按 AP 复制一套 OS 线程池。
 - `dispatch`：需继续统一 `ready -> selected -> issue` 语义边界，blocked sibling 不应拖死 ready sibling。
 - `ProgramCycleStats`：与 `ExecutionStats` 保持语义分离，前者面向 active-lane / program-work 解释，后者保留粗粒度事件统计。
@@ -545,6 +550,11 @@ operand 只描述静态信息，不直接持有执行态寄存器值。
 - 最后 refined cycle simulation
 
 而不是反过来用 cycle mode 去定义 correctness 主线。
+
+当前工程阶段的执行优先级补充：
+
+- 既有 correctness baseline 已经形成后，新增工作应优先集中在 reference cycle 与 refined cycle simulation 的准确性。
+- runtime / program / ISA 的扩张不再默认先行；只有当 cycle 校准缺少可靠输入或 baseline 时，才按需补齐对应能力。
 
 ## 8. Wave 执行上下文
 

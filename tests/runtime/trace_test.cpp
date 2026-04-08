@@ -722,6 +722,31 @@ TEST(TraceTest, BlockedStallFactorySupportsKnownAndGenericReasons) {
   EXPECT_EQ(dependency_stall.display_name, "stall");
 }
 
+TEST(TraceTest, BlockedStallFactoryUsesProducerSemanticOverridesForIssueGroupConflict) {
+  const TraceWaveView wave{
+      .dpc_id = 0,
+      .ap_id = 0,
+      .peu_id = 0,
+      .slot_id = 1,
+      .block_id = 2,
+      .wave_id = 3,
+      .pc = 4,
+  };
+
+  const TraceEvent conflict_stall = MakeTraceBlockedStallEvent(
+      wave, /*cycle=*/26, "issue_group_conflict", TraceSlotModelKind::ResidentFixed);
+
+  EXPECT_EQ(conflict_stall.kind, TraceEventKind::Stall);
+  EXPECT_EQ(conflict_stall.stall_reason, TraceStallReason::Other);
+  EXPECT_EQ(conflict_stall.message, "reason=issue_group_conflict");
+
+  const TraceEventView view = MakeTraceEventView(conflict_stall);
+  EXPECT_EQ(view.canonical_name, "stall_issue_group_conflict");
+  EXPECT_EQ(view.presentation_name, "stall_issue_group_conflict");
+  EXPECT_EQ(view.category, "stall/issue_group_conflict");
+  EXPECT_FALSE(view.used_legacy_fallback);
+}
+
 TEST(TraceTest, WaitcntStallCarriesTypedThresholdPendingAndBlockedDomains) {
   const TraceWaveView wave{
       .dpc_id = 0,
@@ -1219,8 +1244,9 @@ TEST(TraceTest, CanonicalTraceEventBundlesViewAndExportFields) {
   const CanonicalTraceEvent canonical = MakeCanonicalTraceEvent(event);
 
   ASSERT_EQ(canonical.event, &event);
-  EXPECT_EQ(canonical.view.canonical_name, "stall");
-  EXPECT_EQ(canonical.view.presentation_name, "stall");
+  EXPECT_EQ(canonical.view.canonical_name, "stall_dependency_wait");
+  EXPECT_EQ(canonical.view.presentation_name, "stall_dependency_wait");
+  EXPECT_EQ(canonical.view.category, "stall/dependency_wait");
   EXPECT_EQ(canonical.fields.compatibility_message, "reason=dependency_wait");
   EXPECT_EQ(canonical.fields.category, canonical.view.category);
   EXPECT_EQ(canonical.fields.stall_reason,
