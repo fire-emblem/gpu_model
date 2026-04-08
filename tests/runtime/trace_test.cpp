@@ -1210,6 +1210,22 @@ TEST(TraceTest, RecorderEntryTraceEventExportRespectsFlowGating) {
   EXPECT_TRUE(fields.flow_phase.empty());
 }
 
+TEST(TraceTest, RecorderProgramEventTraceEventExportRespectsFlowGating) {
+  TraceEvent issue;
+  issue.kind = TraceEventKind::BlockLaunch;
+  issue.flow_phase = TraceFlowPhase::Finish;
+  issue.flow_id = 0;
+
+  RecorderProgramEvent program_event;
+  program_event.kind = RecorderProgramEventKind::BlockLaunch;
+  program_event.event = issue;
+
+  const TraceEventExportFields fields = MakeTraceEventExportFields(program_event);
+  EXPECT_FALSE(fields.has_flow);
+  EXPECT_TRUE(fields.flow_id.empty());
+  EXPECT_TRUE(fields.flow_phase.empty());
+}
+
 TEST(TraceTest, ArriveViewCanDistinguishStillBlockedVsResumeForWaitcnt) {
   TraceEvent still_blocked{
       .kind = TraceEventKind::Arrive,
