@@ -1138,6 +1138,25 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
       return cycle;
     }
 
+    // Track active/idle cycles
+    if (program_cycle_stats_.has_value()) {
+      bool has_active_wave = false;
+      for (const auto& block : blocks) {
+        for (const auto& scheduled_wave : block.waves) {
+          if (scheduled_wave.wave.status != WaveStatus::Exited) {
+            has_active_wave = true;
+            break;
+          }
+        }
+        if (has_active_wave) break;
+      }
+      if (has_active_wave) {
+        program_cycle_stats_->active_cycles += 1;
+      } else {
+        program_cycle_stats_->idle_cycles += 1;
+      }
+    }
+
     bool issued_any = false;
     for (auto& slot : slots) {
       if (slot.busy_until > cycle) {
