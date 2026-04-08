@@ -16,7 +16,7 @@
 - Modify: `tests/runtime/trace_test.cpp`
 - Modify: `include/gpu_model/debug/trace_event_builder.h`
 
-- [ ] **Step 1: Write the failing builder-level tests for semantic factories**
+- [x] **Step 1: Write the failing builder-level tests for semantic factories**
 
 Add these tests near the existing `SharedTraceEventBuilderNormalizesWaveScopedFields` coverage in `tests/runtime/trace_test.cpp`:
 
@@ -88,7 +88,7 @@ TEST(TraceTest, SemanticFactoriesEmitCanonicalArriveAndStallMessages) {
 }
 ```
 
-- [ ] **Step 2: Run builder-level tests to verify they fail for missing factory APIs**
+- [x] **Step 2: Run builder-level tests to verify they fail for missing factory APIs**
 
 Run:
 
@@ -98,7 +98,7 @@ Run:
 
 Expected: FAIL with unresolved factory names such as `MakeTraceWaveLaunchEvent` / `MakeTraceMemoryArriveEvent`.
 
-- [ ] **Step 3: Add minimal type declarations for the new factory surface**
+- [x] **Step 3: Add minimal type declarations for the new factory surface**
 
 Extend `include/gpu_model/debug/trace_event_builder.h` with the smallest public surface needed by the tests:
 
@@ -156,7 +156,7 @@ TraceEvent MakeTraceWaveSwitchStallEvent(const TraceWaveView& wave,
                                          uint64_t pc = std::numeric_limits<uint64_t>::max());
 ```
 
-- [ ] **Step 4: Implement the minimal semantic factories in the builder**
+- [x] **Step 4: Implement the minimal semantic factories in the builder**
 
 In `include/gpu_model/debug/trace_event_builder.h`, implement the factories by routing through the existing low-level builders:
 
@@ -219,7 +219,7 @@ inline TraceEvent MakeTraceWaveSwitchStallEvent(const TraceWaveView& wave,
 }
 ```
 
-- [ ] **Step 5: Run the builder-level tests to verify they pass**
+- [x] **Step 5: Run the builder-level tests to verify they pass**
 
 Run:
 
@@ -230,7 +230,7 @@ cmake --build build-ninja --target gpu_model_tests -j8 && \
 
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add include/gpu_model/debug/trace_event_builder.h tests/runtime/trace_test.cpp
@@ -243,7 +243,7 @@ git commit -m "refactor: add semantic trace event factories"
 - Modify: `include/gpu_model/debug/trace_event_builder.h`
 - Test: `tests/runtime/trace_test.cpp`
 
-- [ ] **Step 1: Write a failing test for generic canonical messages**
+- [x] **Step 1: Write a failing test for generic canonical messages**
 
 Add this test in `tests/runtime/trace_test.cpp`:
 
@@ -273,7 +273,7 @@ TEST(TraceTest, SemanticFactoriesUseCanonicalGenericMessages) {
 }
 ```
 
-- [ ] **Step 2: Run the test to verify the vocabulary is incomplete**
+- [x] **Step 2: Run the test to verify the vocabulary is incomplete**
 
 Run:
 
@@ -283,7 +283,7 @@ Run:
 
 Expected: FAIL because `kTraceCommitMessage`, `kTraceExitMessage`, or `MakeTraceBarrierWaveEvent` are missing.
 
-- [ ] **Step 3: Add the missing canonical generic vocabulary helpers**
+- [x] **Step 3: Add the missing canonical generic vocabulary helpers**
 
 In `include/gpu_model/debug/trace_event_builder.h`, add:
 
@@ -309,7 +309,7 @@ inline std::string_view TraceMemoryArriveMessage(TraceMemoryArriveKind kind) {
 }
 ```
 
-- [ ] **Step 4: Add the missing `MakeTraceBarrierWaveEvent(...)` and route generic labels through constants**
+- [x] **Step 4: Add the missing `MakeTraceBarrierWaveEvent(...)` and route generic labels through constants**
 
 Update factories in `include/gpu_model/debug/trace_event_builder.h`:
 
@@ -332,7 +332,7 @@ inline TraceEvent MakeTraceBarrierWaveEvent(const TraceWaveView& wave,
 }
 ```
 
-- [ ] **Step 5: Run the generic vocabulary test and existing builder tests**
+- [x] **Step 5: Run the generic vocabulary test and existing builder tests**
 
 Run:
 
@@ -342,7 +342,7 @@ Run:
 
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add include/gpu_model/debug/trace_event_builder.h tests/runtime/trace_test.cpp
@@ -356,7 +356,7 @@ git commit -m "refactor: centralize canonical trace vocabulary"
 - Test: `tests/runtime/cycle_timeline_test.cpp`
 - Test: `tests/runtime/trace_test.cpp`
 
-- [ ] **Step 1: Write a failing regression test that forbids bare lifecycle/stall construction in cycle paths**
+- [x] **Step 1: Write a failing regression test that forbids bare lifecycle/stall construction in cycle paths**
 
 Add this test in `tests/runtime/trace_test.cpp`:
 
@@ -393,7 +393,7 @@ TEST(TraceTest, CycleExecutionEmitsCanonicalLifecycleAndStallMessagesViaFactorie
 }
 ```
 
-- [ ] **Step 2: Run the cycle-focused tests to establish the current baseline**
+- [x] **Step 2: Run the cycle-focused tests to establish the current baseline**
 
 Run:
 
@@ -403,7 +403,7 @@ Run:
 
 Expected: FAIL or PASS depending on current behavior, but this run becomes the red/green checkpoint for migration.
 
-- [ ] **Step 3: Replace generic builder calls in `src/execution/cycle_exec_engine.cpp` with semantic factories**
+- [x] **Step 3: Replace generic builder calls in `src/execution/cycle_exec_engine.cpp` with semantic factories**
 
 Update the core trace sites in `src/execution/cycle_exec_engine.cpp` to use semantic factories:
 
@@ -447,7 +447,7 @@ context.trace.OnEvent(MakeTraceWaveExitEvent(MakeTraceWaveView(*candidate, slot_
                                              TraceSlotModelKind::ResidentFixed));
 ```
 
-- [ ] **Step 4: Run cycle trace/timeline tests**
+- [x] **Step 4: Run cycle trace/timeline tests**
 
 Run:
 
@@ -457,7 +457,7 @@ Run:
 
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/execution/cycle_exec_engine.cpp tests/runtime/trace_test.cpp tests/runtime/cycle_timeline_test.cpp
@@ -471,7 +471,7 @@ git commit -m "refactor: migrate cycle trace emission to semantic factories"
 - Test: `tests/execution/functional_exec_engine_waitcnt_test.cpp`
 - Test: `tests/functional/waitcnt_functional_test.cpp`
 
-- [ ] **Step 1: Write a failing functional factory regression test**
+- [x] **Step 1: Write a failing functional factory regression test**
 
 Add this test in `tests/execution/functional_exec_engine_waitcnt_test.cpp`:
 
@@ -498,7 +498,7 @@ TEST(FunctionalExecEngineWaitcntTest, FunctionalTraceUsesCanonicalBarrierArriveR
 }
 ```
 
-- [ ] **Step 2: Run the functional test to verify the migration target**
+- [x] **Step 2: Run the functional test to verify the migration target**
 
 Run:
 
@@ -508,7 +508,7 @@ Run:
 
 Expected: FAIL or PASS depending on current state, but preserve the run as the red/green gate.
 
-- [ ] **Step 3: Convert `src/execution/functional_exec_engine.cpp` to semantic factories**
+- [x] **Step 3: Convert `src/execution/functional_exec_engine.cpp` to semantic factories**
 
 Replace direct semantic string construction for:
 
@@ -552,7 +552,7 @@ TraceEventLocked(MakeTraceWaitStallEvent(MakeTraceWaveView(wave),
                                          issue_pc));
 ```
 
-- [ ] **Step 4: Run targeted functional waitcnt and barrier tests**
+- [x] **Step 4: Run targeted functional waitcnt and barrier tests**
 
 Run:
 
@@ -562,7 +562,7 @@ Run:
 
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/execution/functional_exec_engine.cpp tests/execution/functional_exec_engine_waitcnt_test.cpp tests/functional/waitcnt_functional_test.cpp
@@ -576,7 +576,7 @@ git commit -m "refactor: migrate functional trace emission to semantic factories
 - Modify: `src/runtime/exec_engine.cpp`
 - Test: `tests/runtime/trace_test.cpp`
 
-- [ ] **Step 1: Write the failing encoded/runtime regression tests**
+- [x] **Step 1: Write the failing encoded/runtime regression tests**
 
 Add these tests in `tests/runtime/trace_test.cpp`:
 
@@ -639,7 +639,7 @@ TEST(TraceTest, EncodedTraceUsesCanonicalArriveAndBarrierReleaseMessages) {
 }
 ```
 
-- [ ] **Step 2: Run the regression tests to verify the target coverage**
+- [x] **Step 2: Run the regression tests to verify the target coverage**
 
 Run:
 
@@ -649,7 +649,7 @@ Run:
 
 Expected: FAIL for missing runtime launch factory API or encoded canonical release coverage.
 
-- [ ] **Step 3: Convert runtime and encoded producers**
+- [x] **Step 3: Convert runtime and encoded producers**
 
 In `src/runtime/exec_engine.cpp`, route launch and block-placement events through semantic factories:
 
@@ -689,7 +689,7 @@ TraceEventLocked(MakeTraceWaveExitEvent(MakeRawTraceWaveView(raw_wave),
                                         TraceSlotModelKind::ResidentFixed));
 ```
 
-- [ ] **Step 4: Run encoded/runtime trace tests**
+- [x] **Step 4: Run encoded/runtime trace tests**
 
 Run:
 
@@ -699,7 +699,7 @@ Run:
 
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/execution/encoded_exec_engine.cpp src/runtime/exec_engine.cpp tests/runtime/trace_test.cpp
@@ -718,7 +718,7 @@ git commit -m "refactor: migrate encoded and runtime trace emission to semantic 
 - Modify: `tests/functional/shared_barrier_functional_test.cpp`
 - Modify: `tests/functional/shared_sync_functional_test.cpp`
 
-- [ ] **Step 1: Write a failing guardrail test that bans raw semantic event construction in representative runtime tests**
+- [x] **Step 1: Write a failing guardrail test that bans raw semantic event construction in representative runtime tests**
 
 Add this test in `tests/runtime/trace_test.cpp`:
 
@@ -755,7 +755,7 @@ TEST(TraceTest, UnifiedFactoriesSupportRepresentativeHandBuiltTraceScenarios) {
 }
 ```
 
-- [ ] **Step 2: Run the guardrail test to verify the unified entry surface is sufficient**
+- [x] **Step 2: Run the guardrail test to verify the unified entry surface is sufficient**
 
 Run:
 
@@ -765,7 +765,7 @@ Run:
 
 Expected: FAIL until all required semantic factories are in place.
 
-- [ ] **Step 3: Replace representative direct `TraceEvent{...}` construction in tests with semantic factories**
+- [x] **Step 3: Replace representative direct `TraceEvent{...}` construction in tests with semantic factories**
 
 Update runtime/cycle tests to use:
 
@@ -789,7 +789,7 @@ EXPECT_TRUE(ContainsTraceEvent(trace.events(), TraceEventKind::Arrive,
                                std::string(kTraceArriveLoadMessage)));
 ```
 
-- [ ] **Step 4: Run targeted trace-related test suites**
+- [x] **Step 4: Run targeted trace-related test suites**
 
 Run:
 
@@ -799,7 +799,7 @@ Run:
 
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tests/runtime/trace_test.cpp tests/runtime/cycle_timeline_test.cpp tests/functional/waitcnt_functional_test.cpp tests/execution/functional_exec_engine_waitcnt_test.cpp tests/cycle/cache_cycle_test.cpp tests/cycle/shared_barrier_cycle_test.cpp tests/functional/shared_barrier_functional_test.cpp tests/functional/shared_sync_functional_test.cpp
@@ -813,7 +813,7 @@ git commit -m "test: migrate trace-related tests to semantic factories"
 - Modify: `tests/runtime/cycle_timeline_test.cpp`
 - Modify: `include/gpu_model/debug/trace_event_builder.h`
 
-- [ ] **Step 1: Add a failing compatibility guardrail test**
+- [x] **Step 1: Add a failing compatibility guardrail test**
 
 Add this test in `tests/runtime/trace_test.cpp`:
 
@@ -840,7 +840,7 @@ TEST(TraceTest, SemanticFactoriesPreserveLegacyMessageCompatibility) {
 }
 ```
 
-- [ ] **Step 2: Run the guardrail test to verify red/green status**
+- [x] **Step 2: Run the guardrail test to verify red/green status**
 
 Run:
 
@@ -850,7 +850,7 @@ Run:
 
 Expected: PASS after the full factory migration is complete.
 
-- [ ] **Step 3: Add lightweight code comments documenting the unified entry rule**
+- [x] **Step 3: Add lightweight code comments documenting the unified entry rule**
 
 In `include/gpu_model/debug/trace_event_builder.h`, add a short comment above the semantic factory
 section:
@@ -860,7 +860,7 @@ section:
 // New trace construction should use these helpers instead of raw semantic strings.
 ```
 
-- [ ] **Step 4: Run the full high-signal verification set**
+- [x] **Step 4: Run the full high-signal verification set**
 
 Run:
 
@@ -871,7 +871,7 @@ cmake --build build-ninja --target gpu_model_tests -j8 && \
 
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add include/gpu_model/debug/trace_event_builder.h tests/runtime/trace_test.cpp tests/runtime/cycle_timeline_test.cpp

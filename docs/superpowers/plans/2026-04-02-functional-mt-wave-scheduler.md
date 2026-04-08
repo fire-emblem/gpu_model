@@ -19,19 +19,19 @@
 - Modify: `tests/runtime/parallel_execution_mode_test.cpp`
 - Modify: `src/runtime/exec_engine.cpp`
 
-- [ ] **Step 1: Add a failing same-AP cross-block progress regression**
+- [x] **Step 1: Add a failing same-AP cross-block progress regression**
 
 Add a focused functional regression showing that when one block has waves waiting at a block barrier, runnable waves from a different block on the same AP can still make progress in `MarlParallel`.
 
-- [ ] **Step 2: Add a failing same-block wave concurrency regression**
+- [x] **Step 2: Add a failing same-block wave concurrency regression**
 
 Add a regression showing that different waves of the same block can both execute in `MarlParallel` before barrier release, instead of the current implicit block-serial behavior.
 
-- [ ] **Step 3: Add a failing runtime default worker-count regression**
+- [x] **Step 3: Add a failing runtime default worker-count regression**
 
 Extend `tests/runtime/parallel_execution_mode_test.cpp` so the default `MarlParallel` worker budget expectation matches `floor(cpu_cores * 0.9)` with a minimum of `1`.
 
-- [ ] **Step 4: Run the focused failing ring**
+- [x] **Step 4: Run the focused failing ring**
 
 Run:
 ```bash
@@ -45,7 +45,7 @@ Expected: at least one new regression fails because `MarlParallel` is still bloc
 **Files:**
 - Modify: `src/execution/functional_exec_engine.cpp`
 
-- [ ] **Step 1: Introduce AP-local scheduler state**
+- [x] **Step 1: Introduce AP-local scheduler state**
 
 Restructure the parallel executor around AP-local ownership:
 
@@ -59,7 +59,7 @@ struct ApSchedulerState {
 
 Use `WaveTaskRef` to identify `{block_index, wave_index}` instead of scheduling whole blocks.
 
-- [ ] **Step 2: Materialize all launched waves into AP-local runnable queues**
+- [x] **Step 2: Materialize all launched waves into AP-local runnable queues**
 
 Build initial runnable state once at launch:
 
@@ -72,7 +72,7 @@ for each block:
 
 Do not add resident-capacity logic here.
 
-- [ ] **Step 3: Change the worker body from `ExecuteBlock(...)` to `ExecuteOneWaveTask(...)`**
+- [x] **Step 3: Change the worker body from `ExecuteBlock(...)` to `ExecuteOneWaveTask(...)`**
 
 Replace the current per-block scheduled lambda with a wave scheduler loop:
 
@@ -89,7 +89,7 @@ Each task execution advances one wave until it:
 - enters block barrier waiting
 - exits
 
-- [ ] **Step 4: Keep barrier state block-local and requeue on release**
+- [x] **Step 4: Keep barrier state block-local and requeue on release**
 
 When `SyncBarrier` releases:
 
@@ -101,7 +101,7 @@ for each released wave in that block:
 
 Do not release unrelated blocks’ waves.
 
-- [ ] **Step 5: Keep waitcnt/memory wait wave-local and AP-requeue on readiness**
+- [x] **Step 5: Keep waitcnt/memory wait wave-local and AP-requeue on readiness**
 
 When waiting conditions clear:
 
@@ -111,7 +111,7 @@ if (ResumeWaveIfWaitSatisfied(...)) {
 }
 ```
 
-- [ ] **Step 6: Preserve trace/stat collection under existing locks**
+- [x] **Step 6: Preserve trace/stat collection under existing locks**
 
 Do not loosen correctness around:
 - `TraceEventLocked(...)`
@@ -123,7 +123,7 @@ Do not loosen correctness around:
 **Files:**
 - Modify: `src/runtime/exec_engine.cpp`
 
-- [ ] **Step 1: Change the default worker heuristic**
+- [x] **Step 1: Change the default worker heuristic**
 
 Update:
 
@@ -134,7 +134,7 @@ uint32_t DefaultMarlWorkerThreadCount() {
 }
 ```
 
-- [ ] **Step 2: Re-run the focused runtime expectation**
+- [x] **Step 2: Re-run the focused runtime expectation**
 
 Run:
 ```bash
@@ -148,7 +148,7 @@ Expected: PASS
 **Files:**
 - Verify only
 
-- [ ] **Step 1: Run the functional/race-sensitive focused ring**
+- [x] **Step 1: Run the functional/race-sensitive focused ring**
 
 Run:
 ```bash
@@ -157,7 +157,7 @@ Run:
 
 Expected: PASS
 
-- [ ] **Step 2: Run representative example scripts**
+- [x] **Step 2: Run representative example scripts**
 
 Run:
 ```bash
@@ -168,7 +168,7 @@ examples/07-vecadd-cycle-splitting/run.sh
 
 Expected: PASS, with `results/st`, `results/mt`, and `results/cycle` populated as before.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 Run:
 ```bash

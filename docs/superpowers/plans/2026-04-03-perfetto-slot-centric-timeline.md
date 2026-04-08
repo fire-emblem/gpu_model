@@ -18,7 +18,7 @@
 - Modify: `tests/runtime/trace_test.cpp`
 - Test: `tests/runtime/trace_test.cpp`
 
-- [ ] **Step 1: Write the failing schema assertions in `tests/runtime/trace_test.cpp`**
+- [x] **Step 1: Write the failing schema assertions in `tests/runtime/trace_test.cpp`**
 
 Add two small helpers near the existing local helpers so later tests can search JSON fragments without repeating string literals:
 
@@ -61,7 +61,7 @@ Also extend `PerfettoDumpContainsTraceEventsAndRequiredFields` with one new stru
 EXPECT_NE(trace_events.find("\"args\""), std::string::npos);
 ```
 
-- [ ] **Step 2: Run the focused trace artifact tests to verify they fail before schema changes**
+- [x] **Step 2: Run the focused trace artifact tests to verify they fail before schema changes**
 
 Run:
 
@@ -75,7 +75,7 @@ Expected:
 - errors mention missing `slot=0x2` or missing `"slot_id"`
 - no compile errors outside `TraceEvent` initialization
 
-- [ ] **Step 3: Add `slot_id` to `include/gpu_model/debug/trace_event.h`**
+- [x] **Step 3: Add `slot_id` to `include/gpu_model/debug/trace_event.h`**
 
 Insert one stable field between `peu_id` and `block_id` so all dump paths can reuse it:
 
@@ -96,7 +96,7 @@ struct TraceEvent {
 
 Keep the default at `0` in this task so existing aggregate initializers continue to compile. The “is this valid?” distinction can remain message-based until the renderer starts consuming real slot emissions.
 
-- [ ] **Step 4: Teach the text and JSON sinks in `src/debug/trace_sink.cpp` to persist `slot_id`**
+- [x] **Step 4: Teach the text and JSON sinks in `src/debug/trace_sink.cpp` to persist `slot_id`**
 
 Update both sink formats so `slot_id` survives round-tripping:
 
@@ -114,7 +114,7 @@ out_ << "\",\"peu_id\":\"" << HexU64(event.peu_id)
      << "\",\"kind\":\"" << KindToString(event.kind) << "\"";
 ```
 
-- [ ] **Step 5: Run the focused trace artifact tests again to verify the schema is now visible everywhere**
+- [x] **Step 5: Run the focused trace artifact tests again to verify the schema is now visible everywhere**
 
 Run:
 
@@ -129,7 +129,7 @@ Expected:
 - json trace includes `"slot_id":"0x2"`
 - Perfetto export still loads as JSON
 
-- [ ] **Step 6: Commit the schema foundation**
+- [x] **Step 6: Commit the schema foundation**
 
 ```bash
 git add include/gpu_model/debug/trace_event.h src/debug/trace_sink.cpp tests/runtime/trace_test.cpp
@@ -146,7 +146,7 @@ git commit -m "feat: add slot id to trace events"
 - Test: `tests/runtime/cycle_timeline_test.cpp`
 - Test: `tests/runtime/trace_test.cpp`
 
-- [ ] **Step 1: Write the failing slot-centric renderer assertions in `tests/runtime/cycle_timeline_test.cpp`**
+- [x] **Step 1: Write the failing slot-centric renderer assertions in `tests/runtime/cycle_timeline_test.cpp`**
 
 Add one synthetic trace test that does not depend on the runtime:
 
@@ -203,7 +203,7 @@ EXPECT_EQ(CountOccurrences(trace, "\"ph\":\"X\""), 1u);
 EXPECT_NE(trace.find("\"name\":\"stall_waitcnt_global\""), std::string::npos);
 ```
 
-- [ ] **Step 2: Update `tests/runtime/trace_test.cpp` to fail on old wave-centric track naming**
+- [x] **Step 2: Update `tests/runtime/trace_test.cpp` to fail on old wave-centric track naming**
 
 In `PerfettoDumpForMultiThreadedWaitKernelShowsWaitingAndResumeOrdering`, replace the wave-track expectations:
 
@@ -220,7 +220,7 @@ and add cycle metadata expectations:
 EXPECT_NE(FindFirst(trace_events, "\"cycle\":"), std::string::npos) << timeline;
 ```
 
-- [ ] **Step 3: Run the renderer-focused tests to verify they fail under the current wave-centric exporter**
+- [x] **Step 3: Run the renderer-focused tests to verify they fail under the current wave-centric exporter**
 
 Run:
 
@@ -234,7 +234,7 @@ Expected:
 - failures mention missing `S3` or `S0`
 - current trace still contains `B0W0`-style thread names
 
-- [ ] **Step 4: Extend the public options and internal keys in `include/gpu_model/debug/cycle_timeline.h` and `src/debug/cycle_timeline.cpp`**
+- [x] **Step 4: Extend the public options and internal keys in `include/gpu_model/debug/cycle_timeline.h` and `src/debug/cycle_timeline.cpp`**
 
 Keep the default `group_by` API stable for now, but introduce one slot-based key and label path in the renderer implementation:
 
@@ -263,7 +263,7 @@ std::string DpcLabel(const SlotKey& key) { return "D" + std::to_string(key.dpc_i
 
 and switch declared rows from wave identity to slot identity.
 
-- [ ] **Step 5: Update the Google Trace export in `src/debug/cycle_timeline.cpp` to carry slot and cycle args**
+- [x] **Step 5: Update the Google Trace export in `src/debug/cycle_timeline.cpp` to carry slot and cycle args**
 
 When appending instruction slices, add the full slot-centric args payload:
 
@@ -294,7 +294,7 @@ Do the same for markers:
 
 Keep stall and arrive markers as instant events so bubbles remain blank.
 
-- [ ] **Step 6: Run the renderer-focused tests again to verify the slot contract now holds**
+- [x] **Step 6: Run the renderer-focused tests again to verify the slot contract now holds**
 
 Run:
 
@@ -309,7 +309,7 @@ Expected:
 - slice and marker args contain `slot`, `wave`, and cycle fields
 - no extra duration slices appear for pure stall gaps
 
-- [ ] **Step 7: Commit the renderer conversion**
+- [x] **Step 7: Commit the renderer conversion**
 
 ```bash
 git add include/gpu_model/debug/cycle_timeline.h src/debug/cycle_timeline.cpp tests/runtime/cycle_timeline_test.cpp tests/runtime/trace_test.cpp
@@ -327,7 +327,7 @@ git commit -m "feat: switch perfetto renderer to slot tracks"
 - Test: `tests/cycle/shared_barrier_cycle_test.cpp`
 - Test: `tests/runtime/cycle_timeline_test.cpp`
 
-- [ ] **Step 1: Add the failing cycle-path observability assertions**
+- [x] **Step 1: Add the failing cycle-path observability assertions**
 
 In `tests/runtime/cycle_timeline_test.cpp`, add a new runtime-driven test using the existing barrier-heavy helper kernel or a new helper if needed:
 
@@ -383,7 +383,7 @@ EXPECT_TRUE(saw_arrive);
 EXPECT_TRUE(saw_wave_exit);
 ```
 
-- [ ] **Step 2: Run the cycle-focused tests to verify slot information is not yet complete**
+- [x] **Step 2: Run the cycle-focused tests to verify slot information is not yet complete**
 
 Run:
 
@@ -396,7 +396,7 @@ Expected:
 - FAIL
 - failures mention missing nonzero `slot_id`, collapsed slot diversity, or missing slot args in exported trace
 
-- [ ] **Step 3: Replace the current PEU-level scheduler container with real resident slots in `src/execution/cycle_exec_engine.cpp`**
+- [x] **Step 3: Replace the current PEU-level scheduler container with real resident slots in `src/execution/cycle_exec_engine.cpp`**
 
 The current scheduler groups all waves for one `(dpc, ap, peu)` into a single dispatch container. Replace that with a real resident-slot model so each `PEU` owns multiple independent resident slots:
 
@@ -422,7 +422,7 @@ The rebuilt scheduler must:
 
 Do not fake this by reusing the current `peu_slot_index` as if it were already the resident slot. This task is where the true slot model gets introduced.
 
-- [ ] **Step 4: Thread true `slot_id` through cycle trace emission and normalize lifecycle marker messages**
+- [x] **Step 4: Thread true `slot_id` through cycle trace emission and normalize lifecycle marker messages**
 
 Once the resident-slot model exists, populate `.slot_id` from the true resident slot on every relevant event:
 
@@ -452,7 +452,7 @@ If switch-out / switch-in is already available from the current cycle path, emit
 
 If not, leave the code path untouched and add one plain comment near the helper stating that switch markers are intentionally deferred until the engine can distinguish them stably.
 
-- [ ] **Step 5: Run the cycle-focused tests again to verify `cycle dump` now feeds the slot-centric renderer**
+- [x] **Step 5: Run the cycle-focused tests again to verify `cycle dump` now feeds the slot-centric renderer**
 
 Run:
 
@@ -467,7 +467,7 @@ Expected:
 - traces from the same `PEU` can occupy multiple distinct slots
 - exported Perfetto contains slot args and lifecycle markers
 
-- [ ] **Step 6: Commit the cycle emitter wiring**
+- [x] **Step 6: Commit the cycle emitter wiring**
 
 ```bash
 git add src/execution/cycle_exec_engine.cpp tests/cycle/async_memory_cycle_test.cpp tests/cycle/shared_barrier_cycle_test.cpp tests/runtime/cycle_timeline_test.cpp
@@ -486,7 +486,7 @@ git commit -m "feat: model resident slots in cycle traces"
 - Test: `tests/functional/shared_sync_functional_test.cpp`
 - Test: `tests/functional/waitcnt_functional_test.cpp`
 
-- [ ] **Step 1: Add the failing `st / mt` contract tests**
+- [x] **Step 1: Add the failing `st / mt` contract tests**
 
 In `tests/runtime/trace_test.cpp`, add one new artifact test for single-threaded functional mode:
 
@@ -535,7 +535,7 @@ EXPECT_NE(timeline.find("\"name\":\"arrive\""), std::string::npos);
 EXPECT_LE(CountOccurrences(timeline, "\"ph\":\"X\""), instruction_upper_bound);
 ```
 
-- [ ] **Step 2: Run the functional/trace tests to verify the schema has not yet been aligned**
+- [x] **Step 2: Run the functional/trace tests to verify the schema has not yet been aligned**
 
 Run:
 
@@ -548,7 +548,7 @@ Expected:
 - FAIL
 - at least one failure reports missing slot args, default-only slot ids, or collapsed lane diversity in ST/MT paths
 
-- [ ] **Step 3: Update `src/debug/trace_artifact_recorder.cpp` and shared dump plumbing to keep one renderer/schema across all modes**
+- [x] **Step 3: Update `src/debug/trace_artifact_recorder.cpp` and shared dump plumbing to keep one renderer/schema across all modes**
 
 Keep `TraceArtifactRecorder` using a single renderer path, but make the contract explicit in the test-facing comments or helper names:
 
@@ -558,7 +558,7 @@ out << CycleTimelineRenderer::RenderGoogleTrace(collector_.events(), timeline_op
 
 No mode-specific branching should be introduced here. If any ST/MT code path bypasses the common trace event shape, route it back through the same `TraceEvent` fields rather than adding a second exporter.
 
-- [ ] **Step 4: Fill or derive logical lane ids for `st / mt` event emissions and add one strong bubble example**
+- [x] **Step 4: Fill or derive logical lane ids for `st / mt` event emissions and add one strong bubble example**
 
 Where functional ST/MT event emitters currently leave `slot_id` at the default, fill it from their wave placement / scheduling context using an unbounded logical-lane convention:
 
@@ -582,7 +582,7 @@ EXPECT_NE(timeline.find("\"name\":\"stall_waitcnt_global\""), std::string::npos)
 EXPECT_EQ(CountOccurrences(timeline, "\"name\":\"bubble\""), 0u);
 ```
 
-- [ ] **Step 5: Run the unified dump verification set**
+- [x] **Step 5: Run the unified dump verification set**
 
 Run:
 
@@ -599,7 +599,7 @@ Expected:
 - event args expose cycle counts everywhere they matter
 - bubble remains visible as blank time between slices rather than a fake event bar
 
-- [ ] **Step 6: Run the full test suite as the final verification**
+- [x] **Step 6: Run the full test suite as the final verification**
 
 Run:
 
@@ -612,7 +612,7 @@ Expected:
 - PASS
 - no regressions in existing trace, cycle, or functional tests
 
-- [ ] **Step 7: Commit the cross-mode alignment**
+- [x] **Step 7: Commit the cross-mode alignment**
 
 ```bash
 git add src/debug/trace_artifact_recorder.cpp tests/runtime/trace_test.cpp tests/runtime/cycle_timeline_test.cpp tests/functional/shared_sync_functional_test.cpp tests/functional/waitcnt_functional_test.cpp

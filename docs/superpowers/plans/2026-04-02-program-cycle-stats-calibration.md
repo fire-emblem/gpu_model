@@ -30,7 +30,7 @@
 **Files:**
 - Modify: `tests/runtime/hipcc_parallel_execution_test.cpp`
 
-- [ ] **Step 1: Write failing host-side approximation assertions for the existing 128-block case**
+- [x] **Step 1: Write failing host-side approximation assertions for the existing 128-block case**
 
 Inside `HipccParallelExecutionTest.EncodedConditionalMultiBarrierKernelMatchesAcrossModesAt128Blocks`, add a small host-side approximation struct and assertions:
 
@@ -73,7 +73,7 @@ EXPECT_EQ(st.launch.program_cycle_stats->vector_alu_cycles,
           active_lanes * expected_vector_ops_per_lane * config.default_issue_cycles);
 ```
 
-- [ ] **Step 2: Run the focused 128-block case and confirm the current mismatch**
+- [x] **Step 2: Run the focused 128-block case and confirm the current mismatch**
 
 Run:
 
@@ -86,7 +86,7 @@ Expected:
 - FAIL
 - The failing output should show that current `ProgramCycleStats` buckets do not follow the intended active-lane/work model
 
-- [ ] **Step 3: Tighten the test so it distinguishes `ExecutionStats` from `ProgramCycleStats`**
+- [x] **Step 3: Tighten the test so it distinguishes `ExecutionStats` from `ProgramCycleStats`**
 
 Add explicit comments/assertions making the semantic split visible:
 
@@ -101,7 +101,7 @@ EXPECT_GT(st.launch.program_cycle_stats->total_issued_work_cycles,
 
 Keep these as supporting assertions only; do not weaken the failing `ProgramCycleStats` approximation checks.
 
-- [ ] **Step 4: Re-run the focused case to confirm the gap remains cleanly exposed**
+- [x] **Step 4: Re-run the focused case to confirm the gap remains cleanly exposed**
 
 Run:
 
@@ -114,7 +114,7 @@ Expected:
 - FAIL
 - The failure should be clearly attributable to `ProgramCycleStats` bucket semantics, not output correctness
 
-- [ ] **Step 5: Commit the failing-baseline slice**
+- [x] **Step 5: Commit the failing-baseline slice**
 
 ```bash
 git add tests/runtime/hipcc_parallel_execution_test.cpp
@@ -128,7 +128,7 @@ git commit -m "test: expose program cycle stats calibration gap"
 - Modify: `src/runtime/program_cycle_tracker.cpp`
 - Modify: `tests/runtime/executed_flow_program_cycle_stats_test.cpp`
 
-- [ ] **Step 1: Add failing tracker-focused calibration tests**
+- [x] **Step 1: Add failing tracker-focused calibration tests**
 
 In `tests/runtime/executed_flow_program_cycle_stats_test.cpp`, add focused tracker/estimator tests that lock active-lane/work semantics:
 
@@ -159,7 +159,7 @@ TEST(ExecutedFlowProgramCycleStatsTest, SharedWaitcntKernelAccumulatesSharedWork
 }
 ```
 
-- [ ] **Step 2: Run the focused calibration suite and confirm failures**
+- [x] **Step 2: Run the focused calibration suite and confirm failures**
 
 Run:
 
@@ -171,7 +171,7 @@ Expected:
 
 - FAIL because the tracker still counts per-step/event rather than active-lane/work semantics
 
-- [ ] **Step 3: Adjust tracker state and accumulation semantics**
+- [x] **Step 3: Adjust tracker state and accumulation semantics**
 
 Update `ProgramCycleTracker` so it can accumulate work by active-lane semantics rather than single event increments.
 
@@ -202,7 +202,7 @@ stats.total_issued_work_cycles += wave.work_weight;
 
 and set `work_weight` from the executed-flow producer to represent active-lane-scaled cost for the current unit of work.
 
-- [ ] **Step 4: Re-run the focused calibration tests and make them pass**
+- [x] **Step 4: Re-run the focused calibration tests and make them pass**
 
 Run:
 
@@ -214,7 +214,7 @@ Expected:
 
 - PASS
 
-- [ ] **Step 5: Commit the tracker calibration slice**
+- [x] **Step 5: Commit the tracker calibration slice**
 
 ```bash
 git add include/gpu_model/runtime/program_cycle_tracker.h src/runtime/program_cycle_tracker.cpp tests/runtime/executed_flow_program_cycle_stats_test.cpp
@@ -227,7 +227,7 @@ git commit -m "refactor: calibrate program cycle tracker bucket semantics"
 - Modify: `src/execution/functional_exec_engine.cpp`
 - Modify: `tests/runtime/executed_flow_program_cycle_stats_test.cpp`
 
-- [ ] **Step 1: Add a failing runtime-driven work-weight test**
+- [x] **Step 1: Add a failing runtime-driven work-weight test**
 
 Extend `tests/runtime/executed_flow_program_cycle_stats_test.cpp`:
 
@@ -244,7 +244,7 @@ TEST(ExecutedFlowProgramCycleStatsTest, RuntimeSharedKernelScalesProgramCyclesWi
 }
 ```
 
-- [ ] **Step 2: Run the runtime-driven calibration test and confirm failure**
+- [x] **Step 2: Run the runtime-driven calibration test and confirm failure**
 
 Run:
 
@@ -256,7 +256,7 @@ Expected:
 
 - FAIL because `FunctionalExecEngine` still emits too-coarse executed-flow work units
 
-- [ ] **Step 3: Extend executed-flow events with active-lane/work weight**
+- [x] **Step 3: Extend executed-flow events with active-lane/work weight**
 
 In `src/execution/functional_exec_engine.cpp`, extend internal event payloads:
 
@@ -277,7 +277,7 @@ const uint64_t active_lanes = wave.exec.count();
 For memory and ALU work, use active-lane-scaled weight.  
 For barrier/wait, use the chosen wave/block approximation for this branch and keep it stable across `st/mt`.
 
-- [ ] **Step 4: Re-run the runtime-driven calibration tests**
+- [x] **Step 4: Re-run the runtime-driven calibration tests**
 
 Run:
 
@@ -289,7 +289,7 @@ Expected:
 
 - PASS, or a reduced and explainable mismatch that can be corrected without changing `ExecutionStats`
 
-- [ ] **Step 5: Commit the executed-flow weighting slice**
+- [x] **Step 5: Commit the executed-flow weighting slice**
 
 ```bash
 git add src/execution/functional_exec_engine.cpp tests/runtime/executed_flow_program_cycle_stats_test.cpp
@@ -301,7 +301,7 @@ git commit -m "feat: weight executed flow cycle stats by active lanes"
 **Files:**
 - Modify: `tests/runtime/hipcc_parallel_execution_test.cpp`
 
-- [ ] **Step 1: Re-run the focused 128-block baseline after tracker/engine calibration**
+- [x] **Step 1: Re-run the focused 128-block baseline after tracker/engine calibration**
 
 Run:
 
@@ -313,7 +313,7 @@ Expected:
 
 - The previously failing `ProgramCycleStats` approximation assertions should move closer to the target, and ideally pass without changing the exact output checks
 
-- [ ] **Step 2: Narrow only the assertions that are intentionally `cycle`-looser**
+- [x] **Step 2: Narrow only the assertions that are intentionally `cycle`-looser**
 
 If `cycle` mode still differs materially, keep:
 
@@ -330,7 +330,7 @@ EXPECT_LE(cycle.launch.program_cycle_stats->vector_alu_cycles,
           st.launch.program_cycle_stats->vector_alu_cycles);
 ```
 
-- [ ] **Step 3: Re-run the focused 128-block baseline**
+- [x] **Step 3: Re-run the focused 128-block baseline**
 
 Run:
 
@@ -342,14 +342,14 @@ Expected:
 
 - PASS
 
-- [ ] **Step 4: Commit the baseline calibration slice**
+- [x] **Step 4: Commit the baseline calibration slice**
 
 ```bash
 git add tests/runtime/hipcc_parallel_execution_test.cpp
 git commit -m "test: calibrate 128-block multibarrier cycle stats baseline"
 ```
 
-- [ ] **Step 5: Summarize the semantic split inline in the test**
+- [x] **Step 5: Summarize the semantic split inline in the test**
 
 Add a short code comment near the calibrated assertions:
 
@@ -363,7 +363,7 @@ Add a short code comment near the calibrated assertions:
 **Files:**
 - Modify: `docs/module-development-status.md`
 
-- [ ] **Step 1: Run the focused calibration ring**
+- [x] **Step 1: Run the focused calibration ring**
 
 Run:
 
@@ -375,7 +375,7 @@ Expected:
 
 - PASS
 
-- [ ] **Step 2: Run the next-larger runtime ring**
+- [x] **Step 2: Run the next-larger runtime ring**
 
 Run:
 
@@ -387,7 +387,7 @@ Expected:
 
 - PASS
 
-- [ ] **Step 3: Update the status board**
+- [x] **Step 3: Update the status board**
 
 In `docs/module-development-status.md`, record that:
 
@@ -397,7 +397,7 @@ In `docs/module-development-status.md`, record that:
 
 Also update any related `M10`/`M6` wording if the new tests materially change observability guarantees.
 
-- [ ] **Step 4: Run full project regression**
+- [x] **Step 4: Run full project regression**
 
 Run:
 
@@ -409,7 +409,7 @@ Expected:
 
 - PASS
 
-- [ ] **Step 5: Commit the status sync**
+- [x] **Step 5: Commit the status sync**
 
 ```bash
 git add docs/module-development-status.md

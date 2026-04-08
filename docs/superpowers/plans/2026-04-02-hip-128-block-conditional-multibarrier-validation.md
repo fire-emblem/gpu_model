@@ -20,7 +20,7 @@
 **Files:**
 - Modify: `tests/runtime/hipcc_parallel_execution_test.cpp`
 
-- [ ] **Step 1: Add a failing block-summary helper test around the existing case**
+- [x] **Step 1: Add a failing block-summary helper test around the existing case**
 
 Near the existing `EncodedConditionalMultiBarrierKernelMatchesAcrossModesAt128Blocks` test, add host-side helper code and a focused test-only assertion block:
 
@@ -62,7 +62,7 @@ for (uint32_t block = 0; block < grid_dim; ++block) {
 }
 ```
 
-- [ ] **Step 2: Run the focused existing case and confirm the stronger checks still pass or reveal a gap**
+- [x] **Step 2: Run the focused existing case and confirm the stronger checks still pass or reveal a gap**
 
 Run:
 
@@ -75,11 +75,11 @@ Expected:
 - PASS if existing output validation is already sufficient
 - Or FAIL with a concrete per-block mismatch if the stronger helper exposes a hidden error
 
-- [ ] **Step 3: Keep the helper code only if it improves diagnostics without duplicating the main assertion**
+- [x] **Step 3: Keep the helper code only if it improves diagnostics without duplicating the main assertion**
 
 If the new helper adds real debugging value, keep it. If it only restates the same signal noisily, simplify it to the smallest useful block-level summary.
 
-- [ ] **Step 4: Re-run the focused case after any helper cleanup**
+- [x] **Step 4: Re-run the focused case after any helper cleanup**
 
 Run:
 
@@ -91,7 +91,7 @@ Expected:
 
 - PASS
 
-- [ ] **Step 5: Commit the output-validation strengthening slice**
+- [x] **Step 5: Commit the output-validation strengthening slice**
 
 ```bash
 git add tests/runtime/hipcc_parallel_execution_test.cpp
@@ -103,7 +103,7 @@ git commit -m "test: strengthen 128-block multibarrier output validation"
 **Files:**
 - Modify: `tests/runtime/hipcc_parallel_execution_test.cpp`
 
-- [ ] **Step 1: Write the failing program-cycle-stats approximation assertions**
+- [x] **Step 1: Write the failing program-cycle-stats approximation assertions**
 
 Add a host-side theory helper near the existing 128-block test:
 
@@ -139,7 +139,7 @@ EXPECT_EQ(st.launch.program_cycle_stats->total_issued_work_cycles,
               st.launch.program_cycle_stats->barrier_cycles);
 ```
 
-- [ ] **Step 2: Run the focused 128-block case and confirm which theoretical assertions fail**
+- [x] **Step 2: Run the focused 128-block case and confirm which theoretical assertions fail**
 
 Run:
 
@@ -151,7 +151,7 @@ Expected:
 
 - Likely FAIL initially, showing whether the current `ProgramCycleStats` accounting or the theory helper needs calibration
 
-- [ ] **Step 3: Calibrate the host-side theory to the current kernel semantics only**
+- [x] **Step 3: Calibrate the host-side theory to the current kernel semantics only**
 
 Adjust only the test-side theoretical accounting so it matches the actual kernel semantics:
 
@@ -161,7 +161,7 @@ Adjust only the test-side theoretical accounting so it matches the actual kernel
 
 Do not change production `ProgramCycleStats` logic in this task.
 
-- [ ] **Step 4: Re-run the focused 128-block case and make the approximation assertions pass**
+- [x] **Step 4: Re-run the focused 128-block case and make the approximation assertions pass**
 
 Run:
 
@@ -173,7 +173,7 @@ Expected:
 
 - PASS
 
-- [ ] **Step 5: Commit the theoretical-approximation slice**
+- [x] **Step 5: Commit the theoretical-approximation slice**
 
 ```bash
 git add tests/runtime/hipcc_parallel_execution_test.cpp
@@ -185,7 +185,7 @@ git commit -m "test: add cycle stats approximation checks for 128-block multibar
 **Files:**
 - Modify: `tests/runtime/hipcc_parallel_execution_test.cpp`
 
-- [ ] **Step 1: Add explicit mode-stability assertions for `ProgramCycleStats`**
+- [x] **Step 1: Add explicit mode-stability assertions for `ProgramCycleStats`**
 
 Inside the existing test, add assertions that the same kernel produces stable accounting across modes:
 
@@ -206,7 +206,7 @@ EXPECT_EQ(st.launch.program_cycle_stats->barrier_cycles,
           cycle.launch.program_cycle_stats->barrier_cycles);
 ```
 
-- [ ] **Step 2: Run the focused case and confirm whether mode-to-mode stats already agree**
+- [x] **Step 2: Run the focused case and confirm whether mode-to-mode stats already agree**
 
 Run:
 
@@ -219,7 +219,7 @@ Expected:
 - PASS if current accounting is already mode-stable
 - Or FAIL with a concrete accounting mismatch that this test should now lock down
 
-- [ ] **Step 3: If needed, tighten only the assertion tolerance/shape, not the kernel**
+- [x] **Step 3: If needed, tighten only the assertion tolerance/shape, not the kernel**
 
 If one or more `ProgramCycleStats` fields differ for legitimate reasons, reduce the assertion to the true invariant:
 
@@ -228,7 +228,7 @@ If one or more `ProgramCycleStats` fields differ for legitimate reasons, reduce 
 
 Do not weaken the output-value assertions.
 
-- [ ] **Step 4: Re-run the focused case**
+- [x] **Step 4: Re-run the focused case**
 
 Run:
 
@@ -240,7 +240,7 @@ Expected:
 
 - PASS
 
-- [ ] **Step 5: Commit the mode-stability slice**
+- [x] **Step 5: Commit the mode-stability slice**
 
 ```bash
 git add tests/runtime/hipcc_parallel_execution_test.cpp
@@ -253,7 +253,7 @@ git commit -m "test: lock mode-stable cycle stats for 128-block multibarrier"
 - Modify: none
 - Test: `tests/runtime/hipcc_parallel_execution_test.cpp`
 
-- [ ] **Step 1: Run the focused hipcc parallel suite**
+- [x] **Step 1: Run the focused hipcc parallel suite**
 
 Run:
 
@@ -265,7 +265,7 @@ Expected:
 
 - PASS
 
-- [ ] **Step 2: Run the next-larger runtime/cycle ring**
+- [x] **Step 2: Run the next-larger runtime/cycle ring**
 
 Run:
 
@@ -277,7 +277,7 @@ Expected:
 
 - PASS
 
-- [ ] **Step 3: Inspect the final diff**
+- [x] **Step 3: Inspect the final diff**
 
 Run:
 
@@ -289,14 +289,14 @@ Expected:
 
 - Only the intended validation strengthening is present
 
-- [ ] **Step 4: If any verification-driven fix was needed, commit it**
+- [x] **Step 4: If any verification-driven fix was needed, commit it**
 
 ```bash
 git add tests/runtime/hipcc_parallel_execution_test.cpp
 git commit -m "test: finalize 128-block multibarrier validation"
 ```
 
-- [ ] **Step 5: Report verification summary**
+- [x] **Step 5: Report verification summary**
 
 Use this exact format in the handoff:
 

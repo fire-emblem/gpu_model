@@ -18,7 +18,7 @@
 - Modify: `src/debug/trace/trace_event_export.cpp`
 - Test: `tests/runtime/trace_test.cpp`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Add a focused test beside the existing trace export tests in `tests/runtime/trace_test.cpp`:
 
@@ -46,7 +46,7 @@ TEST(TraceTest, TraceEventExportFieldsPreserveFlowMetadata) {
 }
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run:
 
@@ -59,7 +59,7 @@ cmake --build build-ninja --target gpu_model_tests -j4 && \
 Expected:
 - FAIL because `TraceEvent` / `TraceEventExportFields` do not yet expose flow metadata.
 
-- [ ] **Step 3: Write the minimal implementation**
+- [x] **Step 3: Write the minimal implementation**
 
 Update `src/gpu_model/debug/trace/event.h`:
 
@@ -115,7 +115,7 @@ And for recorder exports:
 ```
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run:
 
@@ -127,7 +127,7 @@ cd /data/gpu_model && \
 Expected:
 - PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 cd /data/gpu_model && \
@@ -144,7 +144,7 @@ git commit -m "Add flow metadata to trace exports"
 - Modify: `src/execution/cycle_exec_engine.cpp`
 - Test: `tests/runtime/trace_test.cpp`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add a focused modeled-cycle regression in `tests/runtime/trace_test.cpp`:
 
@@ -187,7 +187,7 @@ TEST(TraceTest, CycleAsyncLoadIssueAndArriveShareFlowId) {
 }
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run:
 
@@ -200,7 +200,7 @@ cmake --build build-ninja --target gpu_model_tests -j4 && \
 Expected:
 - FAIL because cycle-mode `MemoryAccess` and `Arrive` currently have `flow_id == 0` / `flow_phase == None`.
 
-- [ ] **Step 3: Write the minimal implementation**
+- [x] **Step 3: Write the minimal implementation**
 
 In `src/execution/cycle_exec_engine.cpp`, add a run-local counter near the start of `CycleExecEngine::Run(...)`:
 
@@ -244,7 +244,7 @@ Apply the same rule for:
 
 Do not assign flow metadata to `WaveArrive`.
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run:
 
@@ -256,7 +256,7 @@ cd /data/gpu_model && \
 Expected:
 - PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 cd /data/gpu_model && \
@@ -271,7 +271,7 @@ git commit -m "Add flow ids for cycle memory arrive events"
 - Modify: `src/execution/program_object_exec_engine.cpp`
 - Test: `tests/runtime/trace_test.cpp`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add an encoded-cycle regression in `tests/runtime/trace_test.cpp` using an existing encoded waitcnt fixture:
 
@@ -321,7 +321,7 @@ TEST(TraceTest, EncodedCycleAsyncLoadIssueAndArriveShareFlowId) {
 }
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run:
 
@@ -334,7 +334,7 @@ cmake --build build-ninja --target gpu_model_tests -j4 && \
 Expected:
 - FAIL because encoded-cycle `MemoryAccess` and `Arrive` do not yet share flow metadata.
 
-- [ ] **Step 3: Write the minimal implementation**
+- [x] **Step 3: Write the minimal implementation**
 
 In `src/execution/program_object_exec_engine.cpp`, add a run-local:
 
@@ -365,7 +365,7 @@ TraceEventLocked(std::move(event));
 
 Do not set flow metadata on `WaveArrive`.
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run:
 
@@ -377,7 +377,7 @@ cd /data/gpu_model && \
 Expected:
 - PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 cd /data/gpu_model && \
@@ -394,7 +394,7 @@ git commit -m "Add flow ids for encoded cycle memory arrive events"
 - Modify: `src/debug/timeline/cycle_timeline_google_trace.cpp`
 - Test: `tests/runtime/cycle_timeline_test.cpp`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add a JSON-structure test in `tests/runtime/cycle_timeline_test.cpp`:
 
@@ -421,7 +421,7 @@ TEST(CycleTimelineTest, GoogleTraceRendersAsyncMemoryFlowStartAndFinish) {
 }
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run:
 
@@ -434,7 +434,7 @@ cmake --build build-ninja --target gpu_model_tests -j4 && \
 Expected:
 - FAIL because the exporter currently emits only `ph:"X"` and `ph:"i"` events.
 
-- [ ] **Step 3: Write the minimal implementation**
+- [x] **Step 3: Write the minimal implementation**
 
 Add flow structures to `src/debug/timeline/cycle_timeline_internal.h`:
 
@@ -482,7 +482,7 @@ for (const auto& flow : data.flows) {
 }
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run:
 
@@ -494,7 +494,7 @@ cd /data/gpu_model && \
 Expected:
 - PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 cd /data/gpu_model && \
@@ -514,7 +514,7 @@ git commit -m "Render async memory flow lines in timeline json"
 - Test: `tests/runtime/cycle_timeline_test.cpp`
 - Test: `tests/cycle/async_memory_cycle_test.cpp`
 
-- [ ] **Step 1: Run the focused verification suite**
+- [x] **Step 1: Run the focused verification suite**
 
 Run:
 
@@ -528,7 +528,7 @@ Expected:
 - async memory flow ids present in both modeled and encoded cycle paths
 - timeline JSON contains `ph:"s"` / `ph:"f"` pairs
 
-- [ ] **Step 2: Update tracking files**
+- [x] **Step 2: Update tracking files**
 
 Add a short entry to `progress.md` summarizing:
 
@@ -548,7 +548,7 @@ Add a short entry to `findings.md` summarizing:
 - timeline JSON now exports Chrome trace flow events for async memory pairs
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 cd /data/gpu_model && \

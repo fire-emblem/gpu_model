@@ -35,7 +35,7 @@
 - Modify: `src/execution/internal/issue_eligibility.cpp`
 - Test: `tests/execution/internal/issue_eligibility_test.cpp`
 
-- [ ] **Step 1: Write the failing unit tests for waiting-wave dispatch eligibility**
+- [x] **Step 1: Write the failing unit tests for waiting-wave dispatch eligibility**
 
 Add tests to `tests/execution/internal/issue_eligibility_test.cpp` that prove a wave in explicit waiting state is not dispatchable even when counters are already satisfied:
 
@@ -85,7 +85,7 @@ TEST(IssueEligibilityTest, BarrierWaitingWaveReportsBarrierWait) {
 }
 ```
 
-- [ ] **Step 2: Run the focused issue-eligibility tests and confirm they fail**
+- [x] **Step 2: Run the focused issue-eligibility tests and confirm they fail**
 
 Run:
 
@@ -98,7 +98,7 @@ Expected:
 - FAIL because `CanIssueInstruction()` still ignores `run_state`
 - FAIL because `IssueBlockReason()` does not yet map explicit waiting state back to a shared reason
 
-- [ ] **Step 3: Implement waiting-state awareness in the shared helpers**
+- [x] **Step 3: Implement waiting-state awareness in the shared helpers**
 
 Extend `src/execution/internal/issue_eligibility.cpp` so waiting state is part of the shared contract:
 
@@ -175,7 +175,7 @@ std::optional<std::string> IssueBlockReason(bool dispatch_enabled,
 }
 ```
 
-- [ ] **Step 4: Re-run the focused issue-eligibility tests and make them pass**
+- [x] **Step 4: Re-run the focused issue-eligibility tests and make them pass**
 
 Run:
 
@@ -188,7 +188,7 @@ Expected:
 - PASS for the new waiting-state tests
 - PASS for the existing waitcnt/dependency tests
 
-- [ ] **Step 5: Commit the shared eligibility slice**
+- [x] **Step 5: Commit the shared eligibility slice**
 
 ```bash
 git add src/execution/internal/issue_eligibility.cpp tests/execution/internal/issue_eligibility_test.cpp
@@ -202,7 +202,7 @@ git commit -m "feat: align dispatch eligibility with wave wait state"
 - Modify: `tests/functional/shared_sync_functional_test.cpp`
 - Modify: `tests/runtime/executed_flow_program_cycle_stats_test.cpp`
 
-- [ ] **Step 1: Write the failing same-PEU waitcnt sibling-progress test**
+- [x] **Step 1: Write the failing same-PEU waitcnt sibling-progress test**
 
 Add a kernel to `tests/functional/waitcnt_functional_test.cpp` that places `wave 0` and `wave 4` on the same `PEU` by launching one `320-thread` block:
 
@@ -297,7 +297,7 @@ TEST(WaitcntFunctionalTest, WaitingWaveDoesNotBlockReadySiblingOnSamePeu) {
 }
 ```
 
-- [ ] **Step 2: Write the failing barrier-release regression**
+- [x] **Step 2: Write the failing barrier-release regression**
 
 Add a `320-thread` one-block kernel to `tests/functional/shared_sync_functional_test.cpp` where `wave 0` reaches a block barrier early and `wave 4` does extra pre-barrier work before releasing it:
 
@@ -423,7 +423,7 @@ TEST(SharedSyncFunctionalTest, BarrierReleaseReturnsEarlyWaveToDispatch) {
 }
 ```
 
-- [ ] **Step 3: Add the representative program-cycle-stats regression**
+- [x] **Step 3: Add the representative program-cycle-stats regression**
 
 Extend `tests/runtime/executed_flow_program_cycle_stats_test.cpp` with a local representative same-`PEU` regression:
 
@@ -481,7 +481,7 @@ TEST(ExecutedFlowProgramCycleStatsTest,
 }
 ```
 
-- [ ] **Step 4: Run the focused regressions and confirm they fail**
+- [x] **Step 4: Run the focused regressions and confirm they fail**
 
 Run:
 
@@ -494,7 +494,7 @@ Expected:
 - FAIL because the current functional `PEU` selector still picks waves only by `status/run_state/busy`
 - FAIL because the current regressions do not yet prove same-`PEU` sibling progress and barrier re-entry
 
-- [ ] **Step 5: Commit the failing regression slice**
+- [x] **Step 5: Commit the failing regression slice**
 
 ```bash
 git add tests/functional/waitcnt_functional_test.cpp tests/functional/shared_sync_functional_test.cpp tests/runtime/executed_flow_program_cycle_stats_test.cpp
@@ -508,7 +508,7 @@ git commit -m "test: add multi-wave dispatch front-end regressions"
 - Modify: `tests/functional/waitcnt_functional_test.cpp`
 - Modify: `tests/functional/shared_sync_functional_test.cpp`
 
-- [ ] **Step 1: Implement instruction-aware selection inside `SelectNextWaveIndexForPeu()`**
+- [x] **Step 1: Implement instruction-aware selection inside `SelectNextWaveIndexForPeu()`**
 
 Replace the current readiness test in `src/execution/functional_exec_engine.cpp` with shared-contract selection:
 
@@ -546,7 +546,7 @@ std::optional<size_t> SelectNextWaveIndexForPeu(ExecutableBlock& block, size_t p
 }
 ```
 
-- [ ] **Step 2: Keep waiting/resume behavior on the same shared contract**
+- [x] **Step 2: Keep waiting/resume behavior on the same shared contract**
 
 While editing `src/execution/functional_exec_engine.cpp`, make sure the existing resume path remains the only way back to runnable:
 
@@ -568,7 +568,7 @@ bool ResumeMemoryWaitingWaves(ExecutableBlock& block) {
 
 The implementation check here is behavioral: do not add a second ad hoc readiness path that bypasses `run_state/wait_reason`.
 
-- [ ] **Step 3: Re-run the focused regressions and make them pass**
+- [x] **Step 3: Re-run the focused regressions and make them pass**
 
 Run:
 
@@ -582,7 +582,7 @@ Expected:
 - PASS for the new same-`PEU` waitcnt/barrier regressions
 - PASS for the representative stats regression
 
-- [ ] **Step 4: Run the broader dispatch-adjacent suites**
+- [x] **Step 4: Run the broader dispatch-adjacent suites**
 
 Run:
 
@@ -594,7 +594,7 @@ Expected:
 
 - PASS with no regressions in existing `st/mt`, waitcnt, barrier, and program-cycle-stats coverage
 
-- [ ] **Step 5: Commit the functional dispatch implementation**
+- [x] **Step 5: Commit the functional dispatch implementation**
 
 ```bash
 git add src/execution/functional_exec_engine.cpp
@@ -606,7 +606,7 @@ git commit -m "feat: make functional peu selection dispatch-aware"
 **Files:**
 - Modify: `docs/module-development-status.md`
 
-- [ ] **Step 1: Update the execution status entry**
+- [x] **Step 1: Update the execution status entry**
 
 In `docs/module-development-status.md`, update the `M6` / `M13` narrative so it explicitly says this batch closes reachable resident-pool semantics only:
 
@@ -618,7 +618,7 @@ In `docs/module-development-status.md`, update the `M6` / `M13` narrative so it 
 - `>4 resident waves / PEU` remains deferred until one `AP` can hold multiple resident blocks
 ```
 
-- [ ] **Step 2: Run the final focused verification**
+- [x] **Step 2: Run the final focused verification**
 
 Run:
 
@@ -630,14 +630,14 @@ Expected:
 
 - PASS
 
-- [ ] **Step 3: Commit the status update**
+- [x] **Step 3: Commit the status update**
 
 ```bash
 git add docs/module-development-status.md
 git commit -m "docs: update multi-wave dispatch status"
 ```
 
-- [ ] **Step 4: Sanity-check the worktree before handoff**
+- [x] **Step 4: Sanity-check the worktree before handoff**
 
 Run:
 
@@ -649,7 +649,7 @@ Expected:
 
 - Only unrelated pre-existing changes remain, or the tree is clean
 
-- [ ] **Step 5: Prepare the handoff summary**
+- [x] **Step 5: Prepare the handoff summary**
 
 Report:
 

@@ -22,7 +22,7 @@
 - Test: `tests/cycle/async_memory_cycle_test.cpp`
 - Test: `tests/cycle/cycle_smoke_test.cpp`
 
-- [ ] **Step 1: Write the failing schema assertions in `tests/runtime/trace_test.cpp`**
+- [x] **Step 1: Write the failing schema assertions in `tests/runtime/trace_test.cpp`**
 
 Replace the raw equality check for the waitcnt stall message with `reason=` assertions and add one helper local to this file for readability:
 
@@ -47,7 +47,7 @@ EXPECT_TRUE(HasStallReason(trace.events(), "waitcnt_global"));
 
 and remove the exact-string dependency on `"waitcnt_global"`.
 
-- [ ] **Step 2: Write the failing timeline assertions in `tests/runtime/cycle_timeline_test.cpp`**
+- [x] **Step 2: Write the failing timeline assertions in `tests/runtime/cycle_timeline_test.cpp`**
 
 Update `PerfettoDumpPreservesCycleIssueAndCommitOrdering` so that it searches for `reason=waitcnt_global` in the source event list and still expects the exported Perfetto name to contain the normalized stall label:
 
@@ -59,7 +59,7 @@ EXPECT_NE(timeline.find("\"name\":\"stall_waitcnt_global\""), std::string::npos)
 
 This keeps the renderer contract visible while moving the raw event schema to `reason=...`.
 
-- [ ] **Step 3: Write the failing cycle waitcnt assertions in `tests/cycle/async_memory_cycle_test.cpp`**
+- [x] **Step 3: Write the failing cycle waitcnt assertions in `tests/cycle/async_memory_cycle_test.cpp`**
 
 Update the global waitcnt stall check:
 
@@ -82,7 +82,7 @@ and assert them by scanning for:
 - `reason=waitcnt_scalar_buffer`
 - absence of `reason=waitcnt_global` in the shared-only case
 
-- [ ] **Step 4: Write the failing warp-switch compatibility assertion in `tests/cycle/cycle_smoke_test.cpp`**
+- [x] **Step 4: Write the failing warp-switch compatibility assertion in `tests/cycle/cycle_smoke_test.cpp`**
 
 Update the existing warp-switch stall check to assert the taxonomy wrapper rather than the old free-form payload:
 
@@ -95,7 +95,7 @@ Update the existing warp-switch stall check to assert the taxonomy wrapper rathe
 
 This intentionally introduces a failing expectation because `warp_switch` is not yet emitted under the new schema.
 
-- [ ] **Step 5: Run the focused tests to verify they fail for the right reason**
+- [x] **Step 5: Run the focused tests to verify they fail for the right reason**
 
 Run:
 
@@ -109,7 +109,7 @@ Expected:
 - failures mention missing `reason=waitcnt_global`, `reason=waitcnt_scalar_buffer`, or `reason=warp_switch`
 - no unrelated compile or runtime errors
 
-- [ ] **Step 6: Commit the red test-only change**
+- [x] **Step 6: Commit the red test-only change**
 
 ```bash
 git add tests/runtime/trace_test.cpp tests/runtime/cycle_timeline_test.cpp tests/cycle/async_memory_cycle_test.cpp tests/cycle/cycle_smoke_test.cpp
@@ -126,7 +126,7 @@ git commit -m "test: require cycle stall reason taxonomy"
 - Test: `tests/cycle/async_memory_cycle_test.cpp`
 - Test: `tests/cycle/cycle_smoke_test.cpp`
 
-- [ ] **Step 1: Add the failing formatter shape in `src/execution/cycle_exec_engine.cpp`**
+- [x] **Step 1: Add the failing formatter shape in `src/execution/cycle_exec_engine.cpp`**
 
 Near the existing cycle trace helpers, add a small formatter API and taxonomy constants:
 
@@ -147,7 +147,7 @@ std::string FormatCycleStallMessage(std::string_view reason) {
 
 Do not change all call sites yet in this step.
 
-- [ ] **Step 2: Run one focused test to verify the code still fails before wiring the call sites**
+- [x] **Step 2: Run one focused test to verify the code still fails before wiring the call sites**
 
 Run:
 
@@ -160,7 +160,7 @@ Expected:
 - FAIL
 - formatter exists but the trace still emits old message values because call sites have not switched
 
-- [ ] **Step 3: Replace direct stall message literals in `src/execution/cycle_exec_engine.cpp`**
+- [x] **Step 3: Replace direct stall message literals in `src/execution/cycle_exec_engine.cpp`**
 
 Update every cycle-path `TraceEventKind::Stall` emission to use `FormatCycleStallMessage(...)`.
 
@@ -184,7 +184,7 @@ and change special one-off literals such as warp switch to:
 
 If the current code uses raw helper outputs from wait/block reasons, keep the upstream reason strings unchanged and only wrap them at the final cycle `Stall` event boundary.
 
-- [ ] **Step 4: Update `src/debug/cycle_timeline.cpp` to normalize `reason=` messages into stable Perfetto labels**
+- [x] **Step 4: Update `src/debug/cycle_timeline.cpp` to normalize `reason=` messages into stable Perfetto labels**
 
 Add a small extractor helper:
 
@@ -210,7 +210,7 @@ stall_warp_switch
 
 even though the raw event message is now `reason=waitcnt_global` or `reason=warp_switch`.
 
-- [ ] **Step 5: Run the focused tests to verify they now pass**
+- [x] **Step 5: Run the focused tests to verify they now pass**
 
 Run:
 
@@ -223,7 +223,7 @@ Expected:
 - PASS
 - no new failures related to missing stall names in Perfetto export
 
-- [ ] **Step 6: Commit the minimal implementation**
+- [x] **Step 6: Commit the minimal implementation**
 
 ```bash
 git add src/execution/cycle_exec_engine.cpp src/debug/cycle_timeline.cpp
@@ -240,7 +240,7 @@ git commit -m "feat: add cycle stall reason taxonomy"
 - Test: `tests/runtime/trace_test.cpp`
 - Test: `tests/runtime/cycle_timeline_test.cpp`
 
-- [ ] **Step 1: Add a failing barrier-wait taxonomy assertion in `tests/cycle/shared_barrier_cycle_test.cpp`**
+- [x] **Step 1: Add a failing barrier-wait taxonomy assertion in `tests/cycle/shared_barrier_cycle_test.cpp`**
 
 Add a small helper identical in spirit to the async-memory scan and assert that the slower-wave barrier case emits a barrier stall:
 
@@ -255,7 +255,7 @@ for (const auto& event : trace.events()) {
 EXPECT_TRUE(saw_barrier_wait);
 ```
 
-- [ ] **Step 2: Add a focused taxonomy-presence check in `tests/runtime/trace_test.cpp`**
+- [x] **Step 2: Add a focused taxonomy-presence check in `tests/runtime/trace_test.cpp`**
 
 Extend the Perfetto artifact recorder test to ensure the exported JSON still contains the normalized stall name while the raw events contain the `reason=` form:
 
@@ -266,7 +266,7 @@ EXPECT_NE(FindFirst(trace_text, "reason=waitcnt_global"), std::string::npos);
 
 Use the existing artifact test instead of creating a new broad test.
 
-- [ ] **Step 3: Add a failing barrier taxonomy check in `tests/runtime/cycle_timeline_test.cpp`**
+- [x] **Step 3: Add a failing barrier taxonomy check in `tests/runtime/cycle_timeline_test.cpp`**
 
 Add a new test named `PerfettoDumpPreservesBarrierWaitTaxonomy` that:
 
@@ -282,7 +282,7 @@ EXPECT_NE(FirstEventCycle(events, TraceEventKind::Stall, "reason=barrier_wait"),
 EXPECT_NE(timeline.find("\"name\":\"stall_barrier_wait\""), std::string::npos);
 ```
 
-- [ ] **Step 4: Run the new focused ring to verify the new assertions fail or pass as expected**
+- [x] **Step 4: Run the new focused ring to verify the new assertions fail or pass as expected**
 
 Run:
 
@@ -295,7 +295,7 @@ Expected:
 - if barrier wait is not yet emitted under taxonomy, FAIL specifically on missing `reason=barrier_wait`
 - otherwise PASS and confirm the taxonomy is already wired correctly
 
-- [ ] **Step 5: If needed, patch the cycle barrier stall path and re-run the same ring**
+- [x] **Step 5: If needed, patch the cycle barrier stall path and re-run the same ring**
 
 If Step 4 fails, update the barrier-specific stall emission in `src/execution/cycle_exec_engine.cpp` to wrap the existing `barrier_wait` reason via `FormatCycleStallMessage(...)`, then rerun:
 
@@ -307,7 +307,7 @@ Expected:
 
 - PASS
 
-- [ ] **Step 6: Commit the focused coverage expansion**
+- [x] **Step 6: Commit the focused coverage expansion**
 
 ```bash
 git add tests/cycle/shared_barrier_cycle_test.cpp tests/runtime/trace_test.cpp tests/runtime/cycle_timeline_test.cpp src/execution/cycle_exec_engine.cpp
@@ -324,7 +324,7 @@ git commit -m "test: cover barrier stall taxonomy in cycle traces"
 - Test: `tests/cycle/shared_barrier_cycle_test.cpp`
 - Test: `tests/cycle/cycle_smoke_test.cpp`
 
-- [ ] **Step 1: Run the complete affected focused ring**
+- [x] **Step 1: Run the complete affected focused ring**
 
 Run:
 
@@ -337,7 +337,7 @@ Expected:
 - PASS
 - no failures caused by the new `reason=` schema
 
-- [ ] **Step 2: Run the full test suite**
+- [x] **Step 2: Run the full test suite**
 
 Run:
 
@@ -350,7 +350,7 @@ Expected:
 - PASS
 - no regressions in functional or runtime paths that still consume stall names
 
-- [ ] **Step 3: Update `docs/module-development-status.md` with the new cycle observability status**
+- [x] **Step 3: Update `docs/module-development-status.md` with the new cycle observability status**
 
 In the `M10` and `M13` rows, add concise wording that:
 
@@ -359,7 +359,7 @@ In the `M10` and `M13` rows, add concise wording that:
 
 Keep the wording short and status-oriented, not implementation-changelog style.
 
-- [ ] **Step 4: Re-run a tiny doc-adjacent sanity ring if the wording mentions new verification**
+- [x] **Step 4: Re-run a tiny doc-adjacent sanity ring if the wording mentions new verification**
 
 Run:
 
@@ -371,7 +371,7 @@ Expected:
 
 - PASS
 
-- [ ] **Step 5: Commit the verification and status sync**
+- [x] **Step 5: Commit the verification and status sync**
 
 ```bash
 git add docs/module-development-status.md

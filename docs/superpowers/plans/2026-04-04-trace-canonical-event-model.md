@@ -17,7 +17,7 @@
 - Modify: `include/gpu_model/debug/trace_event_builder.h`
 - Test: `tests/runtime/trace_test.cpp`
 
-- [ ] **Step 1: Write failing schema tests for typed subkind population**
+- [x] **Step 1: Write failing schema tests for typed subkind population**
 
 Add these tests near the existing semantic factory coverage in `tests/runtime/trace_test.cpp`:
 
@@ -72,7 +72,7 @@ TEST(TraceTest, SemanticFactoriesPopulateTypedArriveAndDisplayFields) {
 }
 ```
 
-- [ ] **Step 2: Run the schema-focused tests to verify they fail**
+- [x] **Step 2: Run the schema-focused tests to verify they fail**
 
 Run:
 
@@ -82,7 +82,7 @@ Run:
 
 Expected: FAIL due to missing `TraceBarrierKind`, `TraceArriveKind`, `TraceLifecycleStage`, or missing field population.
 
-- [ ] **Step 3: Extend `TraceEvent` with typed semantic subkind fields**
+- [x] **Step 3: Extend `TraceEvent` with typed semantic subkind fields**
 
 In `include/gpu_model/debug/trace_event.h`, add the canonical enums and fields:
 
@@ -138,7 +138,7 @@ inline std::string_view TraceArriveKindName(TraceArriveKind kind) { ... }
 inline std::string_view TraceLifecycleStageName(TraceLifecycleStage stage) { ... }
 ```
 
-- [ ] **Step 4: Update semantic factories to populate the new fields**
+- [x] **Step 4: Update semantic factories to populate the new fields**
 
 In `include/gpu_model/debug/trace_event_builder.h`, update the semantic factories so they fill typed subkind fields and canonical `display_name`:
 
@@ -184,7 +184,7 @@ inline TraceEvent MakeTraceCommitEvent(...) {
 
 For wave-step display names, add a tiny helper that extracts `op=...` when present and otherwise falls back to the full detail string.
 
-- [ ] **Step 5: Run the schema tests and existing builder tests**
+- [x] **Step 5: Run the schema tests and existing builder tests**
 
 Run:
 
@@ -195,7 +195,7 @@ cmake --build build-ninja --target gpu_model_tests -j8 && \
 
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add include/gpu_model/debug/trace_event.h include/gpu_model/debug/trace_event_builder.h tests/runtime/trace_test.cpp
@@ -209,7 +209,7 @@ git commit -m "refactor: add canonical trace event subkinds"
 - Create: `src/debug/trace_event_view.cpp`
 - Test: `tests/runtime/trace_test.cpp`
 
-- [ ] **Step 1: Write failing normalization tests for typed-first interpretation and legacy fallback**
+- [x] **Step 1: Write failing normalization tests for typed-first interpretation and legacy fallback**
 
 Add these tests in `tests/runtime/trace_test.cpp`:
 
@@ -242,7 +242,7 @@ TEST(TraceTest, TraceEventViewCanNormalizeLegacyMessageOnlyRecords) {
 }
 ```
 
-- [ ] **Step 2: Run the normalization tests to verify they fail**
+- [x] **Step 2: Run the normalization tests to verify they fail**
 
 Run:
 
@@ -252,7 +252,7 @@ Run:
 
 Expected: FAIL because `TraceEventView` does not exist yet.
 
-- [ ] **Step 3: Add `TraceEventView` public interface**
+- [x] **Step 3: Add `TraceEventView` public interface**
 
 Create `include/gpu_model/debug/trace_event_view.h`:
 
@@ -293,7 +293,7 @@ TraceEventView MakeTraceEventView(const TraceEvent& event);
 }  // namespace gpu_model
 ```
 
-- [ ] **Step 4: Implement typed-first normalization plus scoped fallback**
+- [x] **Step 4: Implement typed-first normalization plus scoped fallback**
 
 Create `src/debug/trace_event_view.cpp` with normalization rules from the spec.
 
@@ -329,7 +329,7 @@ TraceEventView MakeTraceEventView(const TraceEvent& event) {
 
 Keep the fallback logic narrow and centralized here. Do not repeat canonical-name inference elsewhere.
 
-- [ ] **Step 5: Run the normalization tests**
+- [x] **Step 5: Run the normalization tests**
 
 Run:
 
@@ -340,7 +340,7 @@ cmake --build build-ninja --target gpu_model_tests -j8 && \
 
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add include/gpu_model/debug/trace_event_view.h src/debug/trace_event_view.cpp tests/runtime/trace_test.cpp
@@ -354,7 +354,7 @@ git commit -m "refactor: add normalized trace event view"
 - Modify: `src/debug/trace_sink.cpp`
 - Test: `tests/runtime/trace_test.cpp`
 
-- [ ] **Step 1: Write failing sink tests for canonical typed serialization**
+- [x] **Step 1: Write failing sink tests for canonical typed serialization**
 
 Add these tests in `tests/runtime/trace_test.cpp`:
 
@@ -402,7 +402,7 @@ TEST(TraceTest, JsonTraceSinkSerializesCanonicalTypedSubkinds) {
 }
 ```
 
-- [ ] **Step 2: Run the sink tests to verify they fail**
+- [x] **Step 2: Run the sink tests to verify they fail**
 
 Run:
 
@@ -412,7 +412,7 @@ Run:
 
 Expected: FAIL because the sinks do not emit those fields yet.
 
-- [ ] **Step 3: Refactor the sinks to serialize from `TraceEventView`**
+- [x] **Step 3: Refactor the sinks to serialize from `TraceEventView`**
 
 In `src/debug/trace_sink.cpp`, include `trace_event_view.h` and normalize first:
 
@@ -437,7 +437,7 @@ Mirror the same source of truth in `JsonTraceSink::OnEvent(...)`.
 
 Do not re-derive semantics in the sinks.
 
-- [ ] **Step 4: Run sink tests plus compatibility coverage**
+- [x] **Step 4: Run sink tests plus compatibility coverage**
 
 Run:
 
@@ -448,7 +448,7 @@ cmake --build build-ninja --target gpu_model_tests -j8 && \
 
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add include/gpu_model/debug/trace_sink.h src/debug/trace_sink.cpp tests/runtime/trace_test.cpp
@@ -464,7 +464,7 @@ git commit -m "refactor: normalize text trace serialization"
 - Test: `tests/runtime/cycle_timeline_test.cpp`
 - Test: `tests/runtime/trace_test.cpp`
 
-- [ ] **Step 1: Write failing renderer tests that assert canonical names come from normalized semantics**
+- [x] **Step 1: Write failing renderer tests that assert canonical names come from normalized semantics**
 
 Add these tests:
 
@@ -504,7 +504,7 @@ TEST(TraceTest, PerfettoExportUsesCanonicalTypedNamesWithoutMessageParsing) {
 }
 ```
 
-- [ ] **Step 2: Run the renderer-focused tests to verify baseline**
+- [x] **Step 2: Run the renderer-focused tests to verify baseline**
 
 Run:
 
@@ -514,7 +514,7 @@ Run:
 
 Expected: FAIL or PASS depending on current local logic, but preserve this as the migration gate.
 
-- [ ] **Step 3: Refactor timeline/perfetto code to normalize through `TraceEventView`**
+- [x] **Step 3: Refactor timeline/perfetto code to normalize through `TraceEventView`**
 
 In `src/debug/cycle_timeline.cpp`, route all semantic naming through `MakeTraceEventView(event)`.
 
@@ -533,7 +533,7 @@ const std::string& name = view.canonical_name;
 
 Also update any typed metadata emission to prefer the normalized typed fields from `TraceEventView` rather than reading `message`.
 
-- [ ] **Step 4: Run high-signal renderer/perfetto tests**
+- [x] **Step 4: Run high-signal renderer/perfetto tests**
 
 Run:
 
@@ -544,7 +544,7 @@ cmake --build build-ninja --target gpu_model_tests -j8 && \
 
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add include/gpu_model/debug/cycle_timeline.h src/debug/cycle_timeline.cpp src/debug/trace_artifact_recorder.cpp tests/runtime/cycle_timeline_test.cpp tests/runtime/trace_test.cpp
@@ -561,7 +561,7 @@ git commit -m "refactor: normalize timeline trace interpretation"
 - Test: `tests/runtime/trace_test.cpp`
 - Test: `tests/execution/functional_exec_engine_waitcnt_test.cpp`
 
-- [ ] **Step 1: Write failing regression tests for producer-side typed field completeness**
+- [x] **Step 1: Write failing regression tests for producer-side typed field completeness**
 
 Add these tests:
 
@@ -617,7 +617,7 @@ TEST(FunctionalExecEngineWaitcntTest, FunctionalTracePopulatesTypedWaitAndArrive
 }
 ```
 
-- [ ] **Step 2: Run the producer regression tests**
+- [x] **Step 2: Run the producer regression tests**
 
 Run:
 
@@ -627,7 +627,7 @@ Run:
 
 Expected: FAIL wherever producers still omit typed semantic fields.
 
-- [ ] **Step 3: Fill remaining producer gaps**
+- [x] **Step 3: Fill remaining producer gaps**
 
 Audit and update the remaining producer sites so direct event construction or generic builder use fills the new canonical fields.
 
@@ -643,7 +643,7 @@ trace.OnEvent(MakeTraceRuntimeLaunchEvent(...));
 
 Also make sure instruction-bearing events set `display_name` consistently enough that renderers do not need to parse `message` for canonical naming.
 
-- [ ] **Step 4: Run focused producer trace tests**
+- [x] **Step 4: Run focused producer trace tests**
 
 Run:
 
@@ -654,7 +654,7 @@ cmake --build build-ninja --target gpu_model_tests -j8 && \
 
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/execution/cycle_exec_engine.cpp src/execution/functional_exec_engine.cpp src/execution/encoded_exec_engine.cpp src/runtime/exec_engine.cpp tests/runtime/trace_test.cpp tests/execution/functional_exec_engine_waitcnt_test.cpp
@@ -668,7 +668,7 @@ git commit -m "refactor: populate canonical trace semantics"
 - Modify: `tests/runtime/cycle_timeline_test.cpp`
 - Modify: representative cycle/functional/runtime tests as needed
 
-- [ ] **Step 1: Write failing tests that assert typed semantics are the main contract**
+- [x] **Step 1: Write failing tests that assert typed semantics are the main contract**
 
 Add these tests:
 
@@ -702,7 +702,7 @@ TEST(CycleTimelineTest, TimelineCanRenderCanonicalNamesWithoutLegacyMessages) {
 }
 ```
 
-- [ ] **Step 2: Run the demotion tests to verify red/green**
+- [x] **Step 2: Run the demotion tests to verify red/green**
 
 Run:
 
@@ -712,7 +712,7 @@ Run:
 
 Expected: PASS after the normalization migration is complete.
 
-- [ ] **Step 3: Convert representative tests away from `message`-primary assertions**
+- [x] **Step 3: Convert representative tests away from `message`-primary assertions**
 
 Update representative tests so they assert typed fields or canonical names from normalized serializers first, keeping only a small compatibility set that still checks legacy `message` payloads.
 
@@ -731,7 +731,7 @@ EXPECT_TRUE(std::any_of(events.begin(), events.end(), [](const TraceEvent& event
 }));
 ```
 
-- [ ] **Step 4: Run the broad trace-focused suite**
+- [x] **Step 4: Run the broad trace-focused suite**
 
 Run:
 
@@ -742,7 +742,7 @@ cmake --build build-ninja --target gpu_model_tests -j8 && \
 
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tests/runtime/trace_test.cpp tests/runtime/cycle_timeline_test.cpp tests/execution/functional_exec_engine_waitcnt_test.cpp tests/functional/waitcnt_functional_test.cpp tests/cycle/shared_barrier_cycle_test.cpp tests/functional/shared_barrier_functional_test.cpp tests/functional/shared_sync_functional_test.cpp tests/cycle/cache_cycle_test.cpp
@@ -754,7 +754,7 @@ git commit -m "test: demote trace message to compatibility"
 **Files:**
 - Modify: any touched files as needed for final cleanup
 
-- [ ] **Step 1: Run the full high-signal verification set**
+- [x] **Step 1: Run the full high-signal verification set**
 
 Run:
 
@@ -765,7 +765,7 @@ cmake --build build-ninja --target gpu_model_tests -j8 && \
 
 Expected: PASS
 
-- [ ] **Step 2: Run a targeted build to confirm no new warnings/regressions from the canonical trace work**
+- [x] **Step 2: Run a targeted build to confirm no new warnings/regressions from the canonical trace work**
 
 Run:
 
@@ -775,7 +775,7 @@ cmake --build build-ninja --target gpu_model_tests -j8
 
 Expected: PASS with no new trace-related compiler errors; if new warnings appear inside touched trace files, clean them before finishing.
 
-- [ ] **Step 3: Commit final cleanup if needed**
+- [x] **Step 3: Commit final cleanup if needed**
 
 ```bash
 git add include/gpu_model/debug/trace_event.h include/gpu_model/debug/trace_event_builder.h include/gpu_model/debug/trace_event_view.h src/debug/trace_event_view.cpp src/debug/trace_sink.cpp src/debug/cycle_timeline.cpp tests/runtime/trace_test.cpp tests/runtime/cycle_timeline_test.cpp

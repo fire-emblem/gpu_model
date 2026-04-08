@@ -21,13 +21,13 @@
 - **状态：** complete
 
 ### 阶段 3：主线实现推进
-- [ ] 完成 `cycle time` / `cycle model` 准确性主线校准
-- [ ] 细化 `ProgramCycleStats`、stall taxonomy、`ready/selected/issue` 与 slot timeline 解释面
-- [ ] 建立 cycle-first 的 representative kernel / example 校准清单
+- [x] 完成 `cycle time` / `cycle model` 准确性主线校准
+- [x] 细化 `ProgramCycleStats`、stall taxonomy、`ready/selected/issue` 与 slot timeline 解释面
+- [x] 建立 cycle-first 的 representative kernel / example 校准清单
 - [ ] 按 cycle 主线需求补 runtime API / memory pool / ISA 缺口
 - [ ] 统一日志到 `loguru`
-- [ ] 继续收口 trace canonical / unified / disable-trace 边界
-- **状态：** in_progress
+- [x] 继续收口 trace canonical / unified / disable-trace 边界
+- **状态：** in_progress (大部分已完成，剩余 runtime/memory/log 项)
 
 ### 阶段 4：验证与资产整理
 - [ ] 建立轻量级 runtime / memory / ISA / semantic 测试矩阵
@@ -268,6 +268,15 @@ Design and status tracking
 3. `timeline.perfetto.pb` 已移出正式用户产物路径。
 4. `.cache/example-results` 默认结果路径已移除。
 5. `HipInterposerState` 已删除，其职责已并入 `HipRuntime`。
+6. `trace canonical event model` 已完成：`TraceEventView` 提供统一 typed-first 解释。
+7. `trace unified entry` 已完成：语义工厂函数统一 trace 构建入口。
+8. `async memory arrive flow` 已完成：flow_id/flow_phase 支持 Perfetto flow 事件。
+9. `perfetto stall taxonomy` 已完成：`TraceStallReason` 统一 stall 分类。
+10. `perfetto slot-centric timeline` 已完成：`TraceSlotModelKind` 区分 functional/cycle slot 语义。
+11. `program cycle stats calibration` 已完成：`ProgramCycleStats` 与模型时间语义对齐。
+12. `multi-wave dispatch front-end alignment` 已完成：waiting-wave dispatch eligibility 统一。
+13. `functional mt wave scheduler` 已完成：`ApSchedulerState` 实现 wave-granularity 调度。
+14. `cycle model calibration followup` 已完成：execution 语义、recorder 协议、consumer 收口。
 
 ## 正式设计约束摘要
 1. `HipRuntime` 是 AMD HIP runtime 兼容层；`ModelRuntime` 是项目核心 runtime；`ExecEngine` 是 `ModelRuntime` 内部执行主链。

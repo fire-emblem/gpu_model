@@ -19,7 +19,7 @@
 - Modify: `src/gpu_model/debug/README.md`
 - Test: `tests/runtime/timeline_expectation_test.cpp`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```cpp
 TEST(TimelineExpectationTest, PublicTypesCanRepresentSliceMarkerAndOrderingFacts) {
@@ -52,12 +52,12 @@ TEST(TimelineExpectationTest, PublicTypesCanRepresentSliceMarkerAndOrderingFacts
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `./build-ninja/tests/gpu_model_tests --gtest_filter='TimelineExpectationTest.PublicTypesCanRepresentSliceMarkerAndOrderingFacts'`
 Expected: FAIL with missing headers/types/symbols for timeline expectation calibration.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```cpp
 struct TimelineLaneKey {
@@ -114,12 +114,12 @@ TimelineComparisonResult CompareTimeline(const ExpectedTimeline& expected,
                                          const ActualTimelineSnapshot& actual);
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cmake --build build-ninja --target gpu_model_tests -j4 && ./build-ninja/tests/gpu_model_tests --gtest_filter='TimelineExpectationTest.PublicTypesCanRepresentSliceMarkerAndOrderingFacts'`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/gpu_model/debug/timeline/expected_timeline.h \
@@ -137,7 +137,7 @@ git commit -m "Add timeline expectation model types"
 - Modify: `src/gpu_model/debug/timeline/timeline_comparator.h`
 - Test: `tests/runtime/timeline_expectation_test.cpp`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```cpp
 TEST(TimelineExpectationTest, ComparatorRejectsUnexpectedForbiddenSlice) {
@@ -184,12 +184,12 @@ TEST(TimelineExpectationTest, ComparatorRejectsOrderingViolation) {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `./build-ninja/tests/gpu_model_tests --gtest_filter='TimelineExpectationTest.ComparatorRejectsUnexpectedForbiddenSlice:TimelineExpectationTest.ComparatorRejectsOrderingViolation'`
 Expected: FAIL because comparator does not yet enforce forbidden slice or ordering rules.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```cpp
 namespace {
@@ -256,12 +256,12 @@ TimelineComparisonResult CompareTimeline(const ExpectedTimeline& expected,
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `cmake --build build-ninja --target gpu_model_tests -j4 && ./build-ninja/tests/gpu_model_tests --gtest_filter='TimelineExpectationTest.Comparator*'`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/debug/timeline/timeline_comparator.cpp \
@@ -277,7 +277,7 @@ git commit -m "Implement timeline expectation comparator"
 - Modify: `src/gpu_model/debug/timeline/actual_timeline_snapshot.h`
 - Test: `tests/runtime/timeline_expectation_test.cpp`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```cpp
 TEST(TimelineExpectationTest, ActualSnapshotUsesRecorderCycleRangesAndTypedMarkersOnly) {
@@ -307,12 +307,12 @@ TEST(TimelineExpectationTest, ActualSnapshotUsesRecorderCycleRangesAndTypedMarke
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `./build-ninja/tests/gpu_model_tests --gtest_filter='TimelineExpectationTest.ActualSnapshotUsesRecorderCycleRangesAndTypedMarkersOnly'`
 Expected: FAIL because `BuildActualTimelineSnapshot` does not exist.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```cpp
 ActualTimelineSnapshot BuildActualTimelineSnapshot(const Recorder& recorder) {
@@ -350,12 +350,12 @@ ActualTimelineSnapshot BuildActualTimelineSnapshot(const Recorder& recorder) {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cmake --build build-ninja --target gpu_model_tests -j4 && ./build-ninja/tests/gpu_model_tests --gtest_filter='TimelineExpectationTest.ActualSnapshotUsesRecorderCycleRangesAndTypedMarkersOnly'`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/debug/timeline/actual_timeline_builder.cpp \
@@ -370,7 +370,7 @@ git commit -m "Build actual timeline snapshots from recorder facts"
 - Modify: `tests/runtime/timeline_expectation_test.cpp`
 - Test: `tests/runtime/trace_test.cpp`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```cpp
 TEST(TimelineExpectationTest, WaitcntProgressMatchesExpectedTimelineSemantics) {
@@ -398,12 +398,12 @@ TEST(TimelineExpectationTest, WaitcntProgressMatchesExpectedTimelineSemantics) {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `./build-ninja/tests/gpu_model_tests --gtest_filter='TimelineExpectationTest.WaitcntProgressMatchesExpectedTimelineSemantics'`
 Expected: FAIL because expectation helper and/or actual snapshot behavior is incomplete.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```cpp
 ExpectedTimeline BuildExpectedWaitcntProgressTimeline(...) {
@@ -427,12 +427,12 @@ ExpectedTimeline BuildExpectedWaitcntProgressTimeline(...) {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cmake --build build-ninja --target gpu_model_tests -j4 && ./build-ninja/tests/gpu_model_tests --gtest_filter='TimelineExpectationTest.WaitcntProgressMatchesExpectedTimelineSemantics'`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tests/runtime/timeline_expectation_test.cpp
@@ -445,7 +445,7 @@ git commit -m "Add waitcnt timeline expectation regression"
 - Modify: `tests/runtime/timeline_expectation_test.cpp`
 - Test: `tests/runtime/trace_test.cpp`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```cpp
 TEST(TimelineExpectationTest, WaveSwitchMatchesExpectedTimelineSemantics) {
@@ -481,12 +481,12 @@ TEST(TimelineExpectationTest, WaveSwitchMatchesExpectedTimelineSemantics) {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `./build-ninja/tests/gpu_model_tests --gtest_filter='TimelineExpectationTest.WaveSwitchMatchesExpectedTimelineSemantics'`
 Expected: FAIL because wave-switch expectation helper is missing or actual matching is incomplete.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```cpp
 ExpectedTimeline BuildExpectedWaveSwitchTimeline(...) {
@@ -505,12 +505,12 @@ ExpectedTimeline BuildExpectedWaveSwitchTimeline(...) {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cmake --build build-ninja --target gpu_model_tests -j4 && ./build-ninja/tests/gpu_model_tests --gtest_filter='TimelineExpectationTest.WaveSwitchMatchesExpectedTimelineSemantics'`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tests/runtime/timeline_expectation_test.cpp
@@ -523,7 +523,7 @@ git commit -m "Add wave switch timeline expectation regression"
 - Modify: `src/gpu_model/debug/README.md`
 - Test: `tests/runtime/timeline_expectation_test.cpp`
 
-- [ ] **Step 1: Add doc note for expectation calibration boundary**
+- [x] **Step 1: Add doc note for expectation calibration boundary**
 
 ```md
 - expectation calibration compares serializer-independent timeline facts.
@@ -531,7 +531,7 @@ git commit -m "Add wave switch timeline expectation regression"
 - perfetto/json/text remain serializer outputs, not the primary semantic calibration surface.
 ```
 
-- [ ] **Step 2: Run focused verification**
+- [x] **Step 2: Run focused verification**
 
 Run:
 
@@ -542,7 +542,7 @@ cmake --build build-ninja --target gpu_model_tests -j4
 
 Expected: PASS
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/gpu_model/debug/README.md tests/runtime/timeline_expectation_test.cpp
