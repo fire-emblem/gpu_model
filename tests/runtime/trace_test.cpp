@@ -1215,6 +1215,8 @@ TEST(TraceTest, CycleAsyncLoadIssueAndArriveShareFlowId) {
 
   std::optional<uint64_t> issue_flow_id;
   std::optional<uint64_t> arrive_flow_id;
+  bool wave_arrive_seen = false;
+  bool wave_arrive_clean = true;
   for (const auto& event : trace.events()) {
     if (event.kind == TraceEventKind::MemoryAccess && event.message == "load_issue") {
       issue_flow_id = event.flow_id;
@@ -1224,11 +1226,19 @@ TEST(TraceTest, CycleAsyncLoadIssueAndArriveShareFlowId) {
       arrive_flow_id = event.flow_id;
       EXPECT_EQ(event.flow_phase, TraceFlowPhase::Finish);
     }
+    if (event.kind == TraceEventKind::WaveArrive) {
+      wave_arrive_seen = true;
+      wave_arrive_clean &= (event.flow_id == 0 && event.flow_phase == TraceFlowPhase::None);
+    }
   }
 
   ASSERT_TRUE(issue_flow_id.has_value());
   ASSERT_TRUE(arrive_flow_id.has_value());
   EXPECT_EQ(*issue_flow_id, *arrive_flow_id);
+  EXPECT_NE(*issue_flow_id, 0);
+  EXPECT_NE(*arrive_flow_id, 0);
+  ASSERT_TRUE(wave_arrive_seen);
+  EXPECT_TRUE(wave_arrive_clean);
 }
 
 TEST(TraceTest, RecorderEntryTraceEventExportRespectsFlowGating) {
