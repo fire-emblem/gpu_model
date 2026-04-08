@@ -21,6 +21,7 @@
 #include "gpu_model/debug/trace/event_factory.h"
 #include "gpu_model/debug/trace/event_view.h"
 #include "gpu_model/debug/trace/sink.h"
+#include "gpu_model/arch/arch_registry.h"
 #include "gpu_model/isa/instruction_builder.h"
 #include "gpu_model/program/object_reader.h"
 #include "gpu_model/runtime/exec_engine.h"
@@ -3410,6 +3411,57 @@ TEST(TraceTest, NativePerfettoProtoShowsEncodedCycleResidentSlotsAcrossPeus) {
   }
   EXPECT_TRUE(saw_wave_launch);
   EXPECT_TRUE(saw_wave_exit);
+}
+
+TEST(TraceTest, EncodedCycleReadyWaveLosingBundleSelectionEmitsIssueGroupConflictStall) {
+  if (!HasLlvmMcAmdgpuToolchain()) {
+    GTEST_SKIP() << "required llvm-mc/LLVM/binutils tools not available";
+  }
+
+  const auto spec = ArchRegistry::Get("c500");
+  ASSERT_NE(spec, nullptr);
+
+  const auto obj_path = AssembleLlvmMcFixture(
+      "gpu_model_encoded_cycle_issue_group_conflict_obj",
+      std::filesystem::path("tests/asm_cases/loader/kernarg_aggregate_by_value.s"));
+  const auto image = ObjectReader{}.LoadProgramObject(obj_path, "asm_kernarg_aggregate_by_value");
+
+  CollectingTraceSink trace;
+  ExecEngine runtime(&trace);
+
+  struct AggregateArg {
+    int32_t x;
+    int32_t y;
+    int32_t z;
+  } aggregate{3, 5, 7};
+
+  const uint64_t out_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
+  runtime.memory().StoreGlobalValue<int32_t>(out_addr, 0);
+
+  LaunchRequest request;
+  request.arch_name = "c500";
+  request.program_object = &image;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = spec->peu_per_ap * 64 + 64;
+  request.args.PushU64(out_addr);
+  request.args.PushBytes(&aggregate, sizeof(aggregate));
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  bool saw_issue_group_conflict = false;
+  for (const auto& event : trace.events()) {
+    if (event.kind != TraceEventKind::Stall) {
+      continue;
+    }
+    if (event.message == "reason=issue_group_conflict") {
+      saw_issue_group_conflict = true;
+      break;
+    }
+  }
+
+  EXPECT_TRUE(saw_issue_group_conflict);
 }
 
 TEST(TraceTest, NativePerfettoProtoShowsEncodedCycleGenerateDispatchAndSlotBindOrdering) {

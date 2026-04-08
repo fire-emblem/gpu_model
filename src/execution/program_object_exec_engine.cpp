@@ -1644,6 +1644,38 @@ class EncodedExecutionCore {
     return std::nullopt;
   }
 
+  std::optional<std::pair<RawWave*, std::string>> PickFirstReadyUnselectedWaveForCycleSlot(
+      const std::vector<IssueSchedulerCandidate>& candidates,
+      const IssueSchedulerResult& bundle,
+      const std::vector<RawWave*>& ordered_waves) {
+    if (bundle.selected_candidate_indices.empty()) {
+      return std::nullopt;
+    }
+
+    std::vector<bool> selected(ordered_waves.size(), false);
+    for (const size_t candidate_index : bundle.selected_candidate_indices) {
+      if (candidate_index < selected.size()) {
+        selected[candidate_index] = true;
+      }
+    }
+
+    for (const auto& candidate : candidates) {
+      if (!candidate.ready || candidate.candidate_index >= ordered_waves.size()) {
+        continue;
+      }
+      if (selected[candidate.candidate_index]) {
+        continue;
+      }
+      RawWave* raw_wave = ordered_waves[candidate.candidate_index];
+      if (raw_wave == nullptr) {
+        continue;
+      }
+      return std::make_pair(raw_wave, std::string("issue_group_conflict"));
+    }
+
+    return std::nullopt;
+  }
+
   bool HasFutureProgress(uint64_t cycle) const {
     for (const auto& slot : cycle_peu_slots_) {
       if (slot.busy_until > cycle) {
@@ -1759,6 +1791,16 @@ class EncodedExecutionCore {
                 MakeOptionalTraceWaitcntState(blocked->first->wave, waitcnt_thresholds)));
           }
           continue;
+        }
+        if (const auto ready_unselected =
+                PickFirstReadyUnselectedWaveForCycleSlot(
+                    BuildEncodedIssueCandidates(issue_inputs), bundle, ordered_waves);
+            ready_unselected.has_value()) {
+          TraceEventLocked(MakeTraceBlockedStallEvent(
+              MakeRawTraceWaveView(*ready_unselected->first),
+              cycle,
+              ready_unselected->second,
+              TraceSlotModelKind::ResidentFixed));
         }
         uint64_t slot_commit_cycle = cycle;
         for (size_t selected_index : bundle.selected_candidate_indices) {
