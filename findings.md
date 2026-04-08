@@ -236,6 +236,11 @@
     - `TraceTest.BlockedStallFactoryUsesProducerSemanticOverridesForIssueGroupConflict`
     - `CycleTimelineTest.GoogleTraceShowsIssueGroupConflictWithTypedNameAndCategory`
   - 放大验证 `CycleSmokeTest.*:CycleTimelineTest.*:TraceTest.*` 当前为 `128 passed`
+- Flow ID 现在由 `ExecEngine` 统一分配，确保同一 engine 上的多次 launch 流 ID 保持全局唯一
+- `trace.txt` 与 `trace.jsonl` 现在包含 `has_flow`、`flow_id`、`flow_phase` 字段，仅当事件携带 flow metadata 时才输出
+- `FileTraceSink` 与 `JsonTraceSink` 的 flow 序列化行为已由 focused tests 锁定：
+  - 有 flow 时正确输出三元组
+  - 无 flow 时跳过字段，避免冗余
 
 ## 技术决策
 | 决策 | 理由 |

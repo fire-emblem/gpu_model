@@ -563,3 +563,20 @@
 - 创建/修改的文件：
   - `progress.md`
   - `findings.md`
+
+### 阶段 30：跨 Launch Flow ID 唯一性与 Trace 序列化
+- **状态：** complete
+- **执行的操作：**
+  - 将 flow ID source 从 run-local 提升到 `ExecEngine` 层级，确保同一 engine 上的多次 launch 流 ID 保持全局唯一
+  - 为 `ExecutionContext` 与 `ProgramObjectExecEngine` 增加 `trace_flow_id_source` 参数
+  - 为 `trace.txt` 与 `trace.jsonl` 增加 `has_flow`、`flow_id`、`flow_phase` 字段输出
+  - 新增跨 launch flow ID 唯一性回归测试与 trace sink 序列化测试
+  - 聚焦 trace flow 序列化验证套件全部通过
+- 创建/修改的文件：
+  - `src/execution/cycle_exec_engine.cpp`
+  - `src/execution/program_object_exec_engine.cpp`
+  - `src/gpu_model/execution/internal/semantics.h`
+  - `src/gpu_model/execution/program_object_exec_engine.h`
+  - `src/runtime/exec_engine.cpp`
+  - `src/debug/trace/trace_format.cpp`
+  - `tests/runtime/trace_test.cpp`
