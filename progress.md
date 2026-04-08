@@ -457,3 +457,36 @@
   - `tests/runtime/hip_runtime_abi_test.cpp`
   - `CMakeLists.txt`
   - `progress.md`
+
+### 阶段 25：trace producer semantic override 与 source-owned issue range 收口补丁
+- **状态：** complete
+- 执行的操作：
+  - 将 `functional/cycle/encoded` 的 instruction issue slice 继续收口到 producer/source：
+    - `WaveStep` 事件直接携带 `has_cycle_range` / `range_end_cycle`
+    - recorder 不再用 `Commit` 对已有 source range 做回填覆盖
+  - 为 recorder text/json export 增加 `has_cycle_range`、`begin_cycle`、`end_cycle` 字段
+  - 将 `wait stall`、`wave_wait`、`wave_switch_away` 这批 typed marker 的 `semantic_canonical_name` / `semantic_presentation_name` / `semantic_category` 下推到 event factory
+  - 保持 `WarpSwitch` stall 的 canonical 仍是 `stall_warp_switch`，但 presentation 继续稳定展示为 `wave_switch_away`
+  - 对 google trace marker fallback 继续瘦身，优先消费 recorder/export fields，不再保留旧的一大段 kind->name/category 派生分支
+  - 将 `CycleTimelineTest`、`TimelineExpectationTest` 中仍依赖 commit 反推 slice 的旧断言迁移到 source-owned range 语义
+  - 清理 `TraceEvent` 新字段引入后的聚合初始化编译 warning，补齐 event factory 与手写测试事件的默认字段初始化
+  - 运行 timeline/trace 相关完整回归：
+    - `./build-ninja/tests/gpu_model_tests --gtest_filter='TraceTest.*:CycleTimelineTest.*:TimelineExpectationTest.*'`
+    - `116 tests passed`
+- 创建/修改的文件：
+  - `src/gpu_model/debug/trace/event.h`
+  - `src/gpu_model/debug/trace/event_export.h`
+  - `src/gpu_model/debug/trace/event_factory.h`
+  - `src/debug/trace/trace_event_export.cpp`
+  - `src/debug/trace/trace_event_view.cpp`
+  - `src/debug/trace/trace_format.cpp`
+  - `src/debug/recorder/recorder.cpp`
+  - `src/debug/timeline/cycle_timeline_google_trace.cpp`
+  - `src/execution/functional_exec_engine.cpp`
+  - `src/execution/cycle_exec_engine.cpp`
+  - `src/execution/program_object_exec_engine.cpp`
+  - `tests/runtime/trace_test.cpp`
+  - `tests/runtime/cycle_timeline_test.cpp`
+  - `tests/runtime/timeline_expectation_test.cpp`
+  - `findings.md`
+  - `progress.md`

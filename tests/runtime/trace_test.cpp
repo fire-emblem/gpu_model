@@ -861,6 +861,11 @@ TEST(TraceTest, TraceEventViewPrefersTypedSemanticFieldsOverLegacyMessage) {
       .slot_model = {},
       .barrier_kind = TraceBarrierKind::Release,
       .waitcnt_state = {},
+      .has_cycle_range = false,
+      .range_end_cycle = 0,
+      .semantic_canonical_name = {},
+      .semantic_presentation_name = {},
+      .semantic_category = {},
       .display_name = "release",
       .message = "arrive",
   };
@@ -874,12 +879,75 @@ TEST(TraceTest, TraceEventViewPrefersTypedSemanticFieldsOverLegacyMessage) {
   EXPECT_FALSE(view.used_legacy_fallback);
 }
 
+TEST(TraceTest, TraceEventViewPrefersProducerSemanticOverridesForStall) {
+  TraceEvent event{
+      .kind = TraceEventKind::Stall,
+      .cycle = 8,
+      .slot_model = {},
+      .stall_reason = TraceStallReason::WaitCntGlobal,
+      .waitcnt_state = {},
+      .has_cycle_range = false,
+      .range_end_cycle = 0,
+      .semantic_canonical_name = {},
+      .semantic_presentation_name = {},
+      .semantic_category = {},
+      .display_name = "waitcnt_global",
+      .message = "reason=waitcnt_global",
+  };
+  event.semantic_canonical_name = "stall_waitcnt_global";
+  event.semantic_presentation_name = "stall_waitcnt_global";
+  event.semantic_category = "stall/waitcnt_global";
+
+  const TraceEventView view = MakeTraceEventView(event);
+  EXPECT_EQ(view.canonical_name, "stall_waitcnt_global");
+  EXPECT_EQ(view.presentation_name, "stall_waitcnt_global");
+  EXPECT_EQ(view.category, "stall/waitcnt_global");
+  EXPECT_FALSE(view.used_legacy_fallback);
+}
+
+TEST(TraceTest, EventFactoryPopulatesProducerSemanticOverridesForWaitAndSwitchMarkers) {
+  const TraceWaveView wave{
+      .dpc_id = 0,
+      .ap_id = 0,
+      .peu_id = 0,
+      .slot_id = 0,
+      .block_id = 0,
+      .wave_id = 1,
+      .pc = 0x40,
+  };
+
+  const TraceEvent wait = MakeTraceWaveWaitEvent(wave,
+                                                 /*cycle=*/9,
+                                                 TraceSlotModelKind::ResidentFixed,
+                                                 TraceStallReason::WaitCntGlobal);
+  EXPECT_EQ(wait.semantic_canonical_name, "wave_wait");
+  EXPECT_EQ(wait.semantic_presentation_name, "wave_wait");
+  EXPECT_EQ(wait.semantic_category, "wave/wait/waitcnt_global");
+
+  const TraceEvent stall = MakeTraceWaitStallEvent(
+      wave, /*cycle=*/10, TraceStallReason::WaitCntGlobal, TraceSlotModelKind::ResidentFixed);
+  EXPECT_EQ(stall.semantic_canonical_name, "stall_waitcnt_global");
+  EXPECT_EQ(stall.semantic_presentation_name, "stall_waitcnt_global");
+  EXPECT_EQ(stall.semantic_category, "stall/waitcnt_global");
+
+  const TraceEvent switch_away =
+      MakeTraceWaveSwitchAwayEvent(wave, /*cycle=*/11, TraceSlotModelKind::ResidentFixed);
+  EXPECT_EQ(switch_away.semantic_canonical_name, "wave_switch_away");
+  EXPECT_EQ(switch_away.semantic_presentation_name, "wave_switch_away");
+  EXPECT_EQ(switch_away.semantic_category, "wave/switch_away");
+}
+
 TEST(TraceTest, TraceEventViewCanNormalizeLegacyMessageOnlyRecords) {
   TraceEvent event{
       .kind = TraceEventKind::Stall,
       .cycle = 8,
       .slot_model = {},
       .waitcnt_state = {},
+      .has_cycle_range = false,
+      .range_end_cycle = 0,
+      .semantic_canonical_name = {},
+      .semantic_presentation_name = {},
+      .semantic_category = {},
       .display_name = {},
       .message = "reason=waitcnt_global",
   };
@@ -1097,6 +1165,11 @@ TEST(TraceTest, ArriveViewCanDistinguishStillBlockedVsResumeForWaitcnt) {
               .pending_scalar_buffer = 0,
               .blocked_global = true,
           },
+      .has_cycle_range = false,
+      .range_end_cycle = 0,
+      .semantic_canonical_name = {},
+      .semantic_presentation_name = {},
+      .semantic_category = {},
       .display_name = "load",
       .message = "load_arrive",
   };
@@ -1211,6 +1284,64 @@ TEST(TraceTest, RecorderBuildsPerWaveEntriesAndInstructionCycleRanges) {
   EXPECT_EQ(second_wave.entries.at(0).end_cycle, 16u);
 }
 
+TEST(TraceTest, RecorderPreservesSourceWaveIssueRangeWithoutCommitBackfill) {
+  Recorder recorder;
+  const TraceWaveView wave{
+      .dpc_id = 0,
+      .ap_id = 1,
+      .peu_id = 2,
+      .slot_id = 3,
+      .block_id = 4,
+      .wave_id = 5,
+      .pc = 0x40,
+  };
+
+  recorder.Record(MakeTraceWaveStepEvent(wave,
+                                         8,
+                                         TraceSlotModelKind::ResidentFixed,
+                                         "pc=0x40 op=v_add_i32",
+                                         std::numeric_limits<uint64_t>::max(),
+                                         /*issue_duration_cycles=*/12));
+
+  ASSERT_EQ(recorder.waves().size(), 1u);
+  const RecorderWave& recorded_wave = recorder.waves().front();
+  ASSERT_EQ(recorded_wave.entries.size(), 1u);
+  const RecorderEntry& step = recorded_wave.entries.front();
+  EXPECT_EQ(step.kind, RecorderEntryKind::InstructionIssue);
+  EXPECT_TRUE(step.has_cycle_range);
+  EXPECT_EQ(step.begin_cycle, 8u);
+  EXPECT_EQ(step.end_cycle, 20u);
+}
+
+TEST(TraceTest, RecorderDoesNotOverwriteSourceWaveIssueRangeWhenCommitArrives) {
+  Recorder recorder;
+  const TraceWaveView wave{
+      .dpc_id = 0,
+      .ap_id = 1,
+      .peu_id = 2,
+      .slot_id = 3,
+      .block_id = 4,
+      .wave_id = 5,
+      .pc = 0x40,
+  };
+
+  recorder.Record(MakeTraceWaveStepEvent(wave,
+                                         8,
+                                         TraceSlotModelKind::ResidentFixed,
+                                         "pc=0x40 op=v_add_i32",
+                                         std::numeric_limits<uint64_t>::max(),
+                                         /*issue_duration_cycles=*/12));
+  recorder.Record(MakeTraceCommitEvent(wave, 9, TraceSlotModelKind::ResidentFixed));
+
+  ASSERT_EQ(recorder.waves().size(), 1u);
+  const RecorderWave& recorded_wave = recorder.waves().front();
+  ASSERT_EQ(recorded_wave.entries.size(), 2u);
+  const RecorderEntry& step = recorded_wave.entries.front();
+  EXPECT_TRUE(step.has_cycle_range);
+  EXPECT_EQ(step.begin_cycle, 8u);
+  EXPECT_EQ(step.end_cycle, 20u);
+}
+
 TEST(TraceTest, RecorderCapturesTypedSemanticSnapshotForReplayFacingUses) {
   Recorder recorder;
   const TraceWaveView wave{
@@ -1281,6 +1412,11 @@ TEST(TraceTest, TypedTraceSemanticsRemainValidWhenCompatibilityMessageIsEmpty) {
       .slot_model = {},
       .barrier_kind = TraceBarrierKind::Release,
       .waitcnt_state = {},
+      .has_cycle_range = false,
+      .range_end_cycle = 0,
+      .semantic_canonical_name = {},
+      .semantic_presentation_name = {},
+      .semantic_category = {},
       .display_name = "release",
       .message = {},
   };
@@ -1717,6 +1853,11 @@ TEST(TraceTest, WritesWaveStatsEventsToTraceSinks) {
         .cycle = 7,
         .slot_model = {},
         .waitcnt_state = {},
+        .has_cycle_range = false,
+        .range_end_cycle = 0,
+        .semantic_canonical_name = {},
+        .semantic_presentation_name = {},
+        .semantic_category = {},
         .display_name = {},
         .message = "launch=2 init=2 active=2 end=0",
     };
@@ -1754,6 +1895,11 @@ TEST(TraceTest, TraceSinksPreferTypedSchemaFieldsWhenLegacyStringsAreEmpty) {
         .slot_model = {},
         .stall_reason = TraceStallReason::WaitCntGlobal,
         .waitcnt_state = {},
+        .has_cycle_range = false,
+        .range_end_cycle = 0,
+        .semantic_canonical_name = {},
+        .semantic_presentation_name = {},
+        .semantic_category = {},
         .display_name = {},
         .message = {},
     };
@@ -1787,6 +1933,11 @@ TEST(TraceTest, FileTraceSinkSerializesCanonicalTypedSubkinds) {
         .slot_model = {},
         .barrier_kind = TraceBarrierKind::Release,
         .waitcnt_state = {},
+        .has_cycle_range = false,
+        .range_end_cycle = 0,
+        .semantic_canonical_name = {},
+        .semantic_presentation_name = {},
+        .semantic_category = {},
         .display_name = "release",
         .message = "release",
     };
@@ -1814,6 +1965,11 @@ TEST(TraceTest, JsonTraceSinkSerializesCanonicalTypedSubkinds) {
         .slot_model = {},
         .arrive_kind = TraceArriveKind::Shared,
         .waitcnt_state = {},
+        .has_cycle_range = false,
+        .range_end_cycle = 0,
+        .semantic_canonical_name = {},
+        .semantic_presentation_name = {},
+        .semantic_category = {},
         .display_name = "shared",
         .message = "shared_arrive",
     };
@@ -1904,6 +2060,11 @@ TEST(TraceTest, JsonTraceSinkSerializesWaitcntArrivalProgressFields) {
               .pending_scalar_buffer = 0,
               .blocked_global = true,
           },
+      .has_cycle_range = false,
+      .range_end_cycle = 0,
+      .semantic_canonical_name = {},
+      .semantic_presentation_name = {},
+      .semantic_category = {},
       .display_name = "load",
       .message = "load_arrive",
   };
@@ -1987,6 +2148,11 @@ TEST(TraceTest, PerfettoExportUsesCanonicalTypedNamesWithoutMessageParsing) {
                  .pc = wave.pc,
                  .lifecycle_stage = TraceLifecycleStage::Launch,
                  .waitcnt_state = {},
+                 .has_cycle_range = false,
+                 .range_end_cycle = 0,
+                 .semantic_canonical_name = {},
+                 .semantic_presentation_name = {},
+                 .semantic_category = {},
                  .display_name = "launch",
                  .message = {}},
       TraceEvent{.kind = TraceEventKind::WaveExit,
@@ -2002,6 +2168,11 @@ TEST(TraceTest, PerfettoExportUsesCanonicalTypedNamesWithoutMessageParsing) {
                  .pc = wave.pc,
                  .lifecycle_stage = TraceLifecycleStage::Exit,
                  .waitcnt_state = {},
+                 .has_cycle_range = false,
+                 .range_end_cycle = 0,
+                 .semantic_canonical_name = {},
+                 .semantic_presentation_name = {},
+                 .semantic_category = {},
                  .display_name = "exit",
                  .message = {}},
   };
@@ -2348,6 +2519,9 @@ TEST(TraceTest, RecorderExportsTextAndJsonInRecordedOrder) {
   EXPECT_NE(text.find("kind=WaveStep"), std::string::npos);
   EXPECT_NE(text.find("kind=Commit"), std::string::npos);
   EXPECT_NE(text.find("kind=WaveExit"), std::string::npos);
+  EXPECT_NE(text.find("has_cycle_range=1"), std::string::npos);
+  EXPECT_NE(text.find("begin_cycle=0x2"), std::string::npos);
+  EXPECT_NE(text.find("end_cycle=0x6"), std::string::npos);
   EXPECT_LT(text.find("kind=Launch"), text.find("kind=WaveLaunch"));
   EXPECT_LT(text.find("kind=WaveLaunch"), text.find("kind=WaveStep"));
   EXPECT_LT(text.find("kind=WaveStep"), text.find("kind=Commit"));
@@ -2358,6 +2532,9 @@ TEST(TraceTest, RecorderExportsTextAndJsonInRecordedOrder) {
   EXPECT_NE(json.find("\"kind\":\"WaveStep\""), std::string::npos);
   EXPECT_NE(json.find("\"kind\":\"Commit\""), std::string::npos);
   EXPECT_NE(json.find("\"kind\":\"WaveExit\""), std::string::npos);
+  EXPECT_NE(json.find("\"has_cycle_range\":true"), std::string::npos);
+  EXPECT_NE(json.find("\"begin_cycle\":\"0x2\""), std::string::npos);
+  EXPECT_NE(json.find("\"end_cycle\":\"0x6\""), std::string::npos);
   EXPECT_LT(json.find("\"kind\":\"Launch\""), json.find("\"kind\":\"WaveLaunch\""));
   EXPECT_LT(json.find("\"kind\":\"WaveLaunch\""), json.find("\"kind\":\"WaveStep\""));
   EXPECT_LT(json.find("\"kind\":\"WaveStep\""), json.find("\"kind\":\"Commit\""));

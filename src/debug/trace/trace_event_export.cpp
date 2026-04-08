@@ -1,5 +1,6 @@
 #include "gpu_model/debug/trace/event_export.h"
 
+#include <sstream>
 #include <string_view>
 
 namespace gpu_model {
@@ -79,6 +80,12 @@ std::string FormatWaitcntBlockedDomains(const TraceWaitcntState& state) {
   return blocked;
 }
 
+std::string HexU64(uint64_t value) {
+  std::ostringstream out;
+  out << "0x" << std::hex << std::nouppercase << value;
+  return out.str();
+}
+
 }  // namespace
 
 TraceEventExportFields MakeTraceEventExportFields(const TraceEventView& view) {
@@ -99,6 +106,9 @@ TraceEventExportFields MakeTraceEventExportFields(const TraceEventView& view) {
       .display_name = view.display_name,
       .category = view.category,
       .compatibility_message = view.compatibility_message,
+      .has_cycle_range = false,
+      .begin_cycle = {},
+      .end_cycle = {},
   };
 }
 
@@ -120,6 +130,9 @@ TraceEventExportFields MakeTraceEventExportFields(const RecorderProgramEvent& ev
       .display_name = event.display_name,
       .category = event.category,
       .compatibility_message = event.compatibility_message,
+      .has_cycle_range = false,
+      .begin_cycle = {},
+      .end_cycle = {},
   };
 }
 
@@ -141,6 +154,9 @@ TraceEventExportFields MakeTraceEventExportFields(const RecorderEntry& event) {
       .display_name = event.display_name,
       .category = event.category,
       .compatibility_message = event.compatibility_message,
+      .has_cycle_range = event.has_cycle_range,
+      .begin_cycle = event.has_cycle_range ? HexU64(event.begin_cycle) : std::string(),
+      .end_cycle = event.has_cycle_range ? HexU64(event.end_cycle) : std::string(),
   };
 }
 

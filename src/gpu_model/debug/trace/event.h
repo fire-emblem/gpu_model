@@ -118,6 +118,11 @@ struct TraceEvent {
   TraceArriveProgressKind arrive_progress = TraceArriveProgressKind::None;
   TraceLifecycleStage lifecycle_stage = TraceLifecycleStage::None;
   TraceWaitcntState waitcnt_state;
+  bool has_cycle_range = false;
+  uint64_t range_end_cycle = 0;
+  std::string semantic_canonical_name;
+  std::string semantic_presentation_name;
+  std::string semantic_category;
   std::string display_name;
   std::string message;
 };

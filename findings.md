@@ -195,6 +195,15 @@
   - host compatibility pointer 不依赖宿主随机高位地址，而应基于项目规定的 `mmap` 虚拟地址窗口判断属性
   - 应优先采用“大范围虚拟地址预留 + 按需物理页提交”的策略
   - 所有 pool 最终都应由统一的 `DeviceMemoryManager` 管理
+- 当前 trace/recorder 收口又前进了一步：
+  - instruction issue range 已继续前移到 producer/source，`WaveStep` 可直接携带 `has_cycle_range` / `range_end_cycle`
+  - recorder 仅在 source 未提供 range 时才允许用 `Commit` 补尾，不再覆盖已有 source-owned interval
+  - `wait stall`、`wave_wait`、`wave_switch_away` 的 semantic override 已开始在 event factory 直接填充，consumer 不再必须从 `TraceEventKind + stall_reason` 二次推导
+  - `WarpSwitch` 的对外展示语义继续保持：canonical 是 `stall_warp_switch`，presentation 是 `wave_switch_away`
+  - google trace marker fallback 已继续瘦身，优先消费 recorder/export fields 而不是内置的 kind 映射分支
+  - `ActualTimelineSnapshot` 已明确只信 recorder 上的 `cycle range`；如果测试要断言 instruction slice，就必须由 source 明确提供 range，而不能再期待 commit 推导
+  - `CycleTimelineTest` / `TimelineExpectationTest` 中残留的 commit-inference 旧断言已迁移完成，当前 timeline/trace 相关 suite 为 `116 passed`
+  - `TraceEvent` 新字段引入后的聚合初始化 warning 已在 event factory 和手写测试事件中清理，当前相关目标编译无新增 warning 噪音
 
 ## 技术决策
 | 决策 | 理由 |

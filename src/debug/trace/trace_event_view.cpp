@@ -300,6 +300,11 @@ std::string CategoryFromView(TraceEventKind kind,
   return "event";
 }
 
+bool HasSemanticOverrides(const TraceEvent& event) {
+  return !event.semantic_canonical_name.empty() || !event.semantic_presentation_name.empty() ||
+         !event.semantic_category.empty();
+}
+
 }  // namespace
 
 TraceEventView MakeTraceEventView(const TraceEvent& event) {
@@ -342,7 +347,9 @@ TraceEventView MakeTraceEventView(const TraceEvent& event) {
         view.used_legacy_fallback || view.lifecycle_stage != TraceLifecycleStage::None;
   }
 
-  if (event.kind == TraceEventKind::Barrier && view.barrier_kind != TraceBarrierKind::None) {
+  if (!event.semantic_canonical_name.empty()) {
+    view.canonical_name = event.semantic_canonical_name;
+  } else if (event.kind == TraceEventKind::Barrier && view.barrier_kind != TraceBarrierKind::None) {
     view.canonical_name = CanonicalNameFromBarrier(view.barrier_kind);
   } else if (event.kind == TraceEventKind::Arrive && view.arrive_kind != TraceArriveKind::None) {
     view.canonical_name = CanonicalNameFromArrive(view.arrive_kind, view.arrive_progress);
@@ -378,11 +385,21 @@ TraceEventView MakeTraceEventView(const TraceEvent& event) {
     view.used_legacy_fallback = view.used_legacy_fallback || !view.display_name.empty();
   }
 
-  view.presentation_name =
-      PresentationNameFromView(
-          event.kind, view.stall_reason, view.waitcnt_state, view.canonical_name, view.display_name);
-  view.category = CategoryFromView(event.kind, view.stall_reason, view.waitcnt_state,
-                                   view.canonical_name);
+  if (!event.semantic_presentation_name.empty()) {
+    view.presentation_name = event.semantic_presentation_name;
+  } else {
+    view.presentation_name = PresentationNameFromView(
+        event.kind, view.stall_reason, view.waitcnt_state, view.canonical_name, view.display_name);
+  }
+  if (!event.semantic_category.empty()) {
+    view.category = event.semantic_category;
+  } else {
+    view.category = CategoryFromView(event.kind, view.stall_reason, view.waitcnt_state,
+                                     view.canonical_name);
+  }
+  if (HasSemanticOverrides(event)) {
+    view.used_legacy_fallback = false;
+  }
 
   return view;
 }

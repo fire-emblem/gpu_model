@@ -40,6 +40,9 @@ std::string FormatTextTraceLineFromFields(const TraceEvent& event,
       << " waitcnt_pending=" << fields.waitcnt_pending
       << " waitcnt_pending_transition=" << fields.waitcnt_pending_transition
       << " waitcnt_blocked_domains=" << fields.waitcnt_blocked_domains
+      << " has_cycle_range=" << (fields.has_cycle_range ? 1 : 0)
+      << " begin_cycle=" << fields.begin_cycle
+      << " end_cycle=" << fields.end_cycle
       << " msg=" << fields.compatibility_message << '\n';
   return out.str();
 }
@@ -56,7 +59,13 @@ std::string FormatJsonTraceLineFromFields(const TraceEvent& event,
       << "\",\"slot_id\":\"" << HexU64(event.slot_id) << "\",\"slot_model_kind\":\""
       << EscapeTraceJson(fields.slot_model) << "\",\"kind\":\""
       << TraceEventKindName(event.kind) << "\",\"block_id\":\"" << HexU64(event.block_id)
-      << "\",\"wave_id\":\"" << HexU64(event.wave_id) << "\"" << args.str() << "}\n";
+      << "\",\"wave_id\":\"" << HexU64(event.wave_id) << "\""
+      << ",\"has_cycle_range\":" << (fields.has_cycle_range ? "true" : "false");
+  if (fields.has_cycle_range) {
+    out << ",\"begin_cycle\":\"" << EscapeTraceJson(fields.begin_cycle) << "\""
+        << ",\"end_cycle\":\"" << EscapeTraceJson(fields.end_cycle) << "\"";
+  }
+  out << args.str() << "}\n";
   return out.str();
 }
 

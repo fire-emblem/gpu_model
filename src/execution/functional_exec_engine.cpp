@@ -51,6 +51,10 @@ uint64_t QuantizeToNextIssueQuantum(uint64_t cycle) {
   return cycle + (kFunctionalIssueQuantumCycles - remainder);
 }
 
+uint64_t QuantizeIssueDuration(uint64_t cycles) {
+  return std::max(kFunctionalIssueQuantumCycles, QuantizeToNextIssueQuantum(cycles));
+}
+
 uint32_t DefaultFunctionalParallelWorkerCount() {
   const uint32_t cpu_count = std::max(1u, std::thread::hardware_concurrency());
   return std::max(1u, (cpu_count * 9u) / 10u);
@@ -1454,12 +1458,12 @@ class FunctionalExecutionCoreImpl {
     const uint64_t issue_pc = wave.pc;
     TraceEventLocked(MakeTraceIssueSelectEvent(
         MakeTraceWaveView(wave), issue_cycle, TraceSlotModelKind::LogicalUnbounded));
-    TraceEventLocked(MakeTraceWaveStepEvent(
-        MakeTraceWaveView(wave),
-        issue_cycle,
-        TraceSlotModelKind::LogicalUnbounded,
-        FormatWaveStepMessage(instruction, wave),
-        issue_pc));
+    TraceEventLocked(MakeTraceWaveStepEvent(MakeTraceWaveView(wave),
+                                           issue_cycle,
+                                           TraceSlotModelKind::LogicalUnbounded,
+                                           FormatWaveStepMessage(instruction, wave),
+                                           issue_pc,
+                                           QuantizeIssueDuration(issue_duration)));
     RememberScheduledWaveForPeu(block, wave);
     if (const auto step_class = ClassifyExecutedInstruction(instruction, plan); step_class.has_value()) {
       RecordExecutedWorkEvent(wave, *step_class,

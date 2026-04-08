@@ -2307,8 +2307,14 @@ class EncodedExecutionCore {
     wave_state.wave_cycle_active += issue_duration;
     TraceEventLocked(
         MakeTraceIssueSelectEvent(MakeRawTraceWaveView(raw_wave), issue_cycle, TraceSlotModel()));
-    TraceEventLocked(MakeRawWaveTraceEvent(
-        raw_wave, TraceEventKind::WaveStep, issue_cycle, FormatRawWaveStepMessage(decoded, object, wave)));
+    TraceEvent step_event =
+        MakeRawWaveTraceEvent(raw_wave,
+                              TraceEventKind::WaveStep,
+                              issue_cycle,
+                              FormatRawWaveStepMessage(decoded, object, wave));
+    step_event.has_cycle_range = true;
+    step_event.range_end_cycle = issue_cycle + issue_duration;
+    TraceEventLocked(std::move(step_event));
     RememberScheduledWaveForPeu(block, raw_wave);
     TraceEventLocked(
         MakeTraceCommitEvent(MakeRawTraceWaveView(raw_wave), commit_cycle, TraceSlotModel()));
@@ -2464,8 +2470,14 @@ class EncodedExecutionCore {
 
     TraceEventLocked(
         MakeTraceIssueSelectEvent(MakeRawTraceWaveView(raw_wave), cycle, TraceSlotModel()));
-    TraceEventLocked(MakeRawWaveTraceEvent(
-        raw_wave, TraceEventKind::WaveStep, cycle, FormatRawWaveStepMessage(decoded, object, wave)));
+    TraceEvent step_event = MakeRawWaveTraceEvent(raw_wave,
+                                                  TraceEventKind::WaveStep,
+                                                  cycle,
+                                                  FormatRawWaveStepMessage(decoded, object, wave));
+    step_event.has_cycle_range = true;
+    step_event.range_end_cycle =
+        cycle + QuantizeIssueDuration(std::max<uint64_t>(1u, issue_cycles));
+    TraceEventLocked(std::move(step_event));
     TraceEventLocked(
         MakeTraceCommitEvent(MakeRawTraceWaveView(raw_wave), commit_cycle, TraceSlotModel()));
 

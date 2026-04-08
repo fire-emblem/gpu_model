@@ -39,6 +39,17 @@ namespace gpu_model {
 
 namespace {
 
+constexpr uint64_t kIssueTimelineQuantumCycles = 4;
+
+uint64_t QuantizeIssueDuration(uint64_t cycles) {
+  const uint64_t clamped = std::max<uint64_t>(kIssueTimelineQuantumCycles, cycles);
+  const uint64_t remainder = clamped % kIssueTimelineQuantumCycles;
+  if (remainder == 0) {
+    return clamped;
+  }
+  return clamped + (kIssueTimelineQuantumCycles - remainder);
+}
+
 struct ExecutableBlock;
 
 struct ScheduledWave {
@@ -1020,12 +1031,13 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
           ++context.stats->wave_steps;
           ++context.stats->instructions_issued;
         }
+        const OpPlan plan = semantics_.BuildPlan(instruction, wave, context);
         context.trace.OnEvent(MakeTraceWaveStepEvent(MakeTraceWaveView(*candidate, slot_id),
                                                      cycle,
                                                      TraceSlotModelKind::ResidentFixed,
-                                                     FormatWaveStepMessage(instruction, wave)));
-
-        const OpPlan plan = semantics_.BuildPlan(instruction, wave, context);
+                                                     FormatWaveStepMessage(instruction, wave),
+                                                     std::numeric_limits<uint64_t>::max(),
+                                                     QuantizeIssueDuration(plan.issue_cycles)));
         const uint64_t commit_cycle = cycle + plan.issue_cycles;
         bundle_commit_cycle = std::max(bundle_commit_cycle, commit_cycle);
         bundle_last_wave_tag = wave_tag;

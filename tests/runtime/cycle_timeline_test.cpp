@@ -345,7 +345,12 @@ TEST(CycleTimelineTest, GoogleTraceUsesSlotTracksAndPreservesWaveAsArgs) {
   Recorder recorder;
   for (const TraceEvent& event : std::vector<TraceEvent>{
       MakeTraceWaveLaunchEvent(wave, 0, {}, TraceSlotModelKind::ResidentFixed),
-      MakeResidentWaveEvent(wave, TraceEventKind::WaveStep, 2, "pc=0x100 op=v_add_i32"),
+      MakeTraceWaveStepEvent(wave,
+                             2,
+                             TraceSlotModelKind::ResidentFixed,
+                             "pc=0x100 op=v_add_i32",
+                             std::numeric_limits<uint64_t>::max(),
+                             /*issue_duration_cycles=*/4),
       MakeTraceCommitEvent(wave, 5, TraceSlotModelKind::ResidentFixed),
   }) {
     recorder.Record(event);
@@ -368,7 +373,12 @@ TEST(CycleTimelineTest, GoogleTraceUsesSlotTracksAndPreservesWaveAsArgs) {
 TEST(CycleTimelineTest, GoogleTraceRendersOrdinaryInstructionAsFixedFourCycleSlice) {
   const TraceWaveView wave = MakeWaveView(/*slot_id=*/0);
   std::vector<TraceEvent> events{
-      MakeResidentWaveEvent(wave, TraceEventKind::WaveStep, 10, "pc=0x100 op=v_add_i32"),
+      MakeTraceWaveStepEvent(wave,
+                             10,
+                             TraceSlotModelKind::ResidentFixed,
+                             "pc=0x100 op=v_add_i32",
+                             std::numeric_limits<uint64_t>::max(),
+                             /*issue_duration_cycles=*/4),
       MakeTraceCommitEvent(wave, 11, TraceSlotModelKind::ResidentFixed),
   };
 
@@ -392,6 +402,25 @@ TEST(CycleTimelineTest, GoogleTraceDoesNotRenderInstructionSliceWithoutRecordedC
   EXPECT_EQ(trace.find("\"ph\":\"X\""), std::string::npos);
 }
 
+TEST(CycleTimelineTest, GoogleTraceUsesSourceRecordedInstructionRangeWithoutCommitInference) {
+  const TraceWaveView wave = MakeWaveView(/*slot_id=*/0);
+  Recorder recorder;
+  recorder.Record(MakeTraceWaveStepEvent(wave,
+                                         10,
+                                         TraceSlotModelKind::ResidentFixed,
+                                         "pc=0x100 op=v_add_i32",
+                                         std::numeric_limits<uint64_t>::max(),
+                                         /*issue_duration_cycles=*/12));
+  recorder.Record(MakeTraceCommitEvent(wave, 11, TraceSlotModelKind::ResidentFixed));
+
+  const std::string trace = CycleTimelineRenderer::RenderGoogleTrace(recorder);
+  EXPECT_NE(trace.find("\"name\":\"v_add_i32\""), std::string::npos);
+  EXPECT_NE(trace.find("\"issue_cycle\":10"), std::string::npos);
+  EXPECT_NE(trace.find("\"commit_cycle\":11"), std::string::npos);
+  EXPECT_NE(trace.find("\"render_duration_cycles\":12"), std::string::npos);
+  EXPECT_NE(trace.find("\"dur\":12"), std::string::npos);
+}
+
 TEST(CycleTimelineTest, GoogleTraceFillsFourCyclesIndependentlyAcrossPeusAndSlots) {
   const TraceWaveView wave0{
       .dpc_id = 0,
@@ -413,9 +442,19 @@ TEST(CycleTimelineTest, GoogleTraceFillsFourCyclesIndependentlyAcrossPeusAndSlot
   };
 
   std::vector<TraceEvent> events{
-      MakeResidentWaveEvent(wave0, TraceEventKind::WaveStep, 20, "pc=0x100 op=v_add_i32"),
+      MakeTraceWaveStepEvent(wave0,
+                             20,
+                             TraceSlotModelKind::ResidentFixed,
+                             "pc=0x100 op=v_add_i32",
+                             std::numeric_limits<uint64_t>::max(),
+                             /*issue_duration_cycles=*/4),
       MakeTraceCommitEvent(wave0, 21, TraceSlotModelKind::ResidentFixed),
-      MakeResidentWaveEvent(wave1, TraceEventKind::WaveStep, 20, "pc=0x200 op=s_mov_b32"),
+      MakeTraceWaveStepEvent(wave1,
+                             20,
+                             TraceSlotModelKind::ResidentFixed,
+                             "pc=0x200 op=s_mov_b32",
+                             std::numeric_limits<uint64_t>::max(),
+                             /*issue_duration_cycles=*/4),
       MakeTraceCommitEvent(wave1, 20, TraceSlotModelKind::ResidentFixed),
   };
 
@@ -599,6 +638,11 @@ TEST(CycleTimelineTest, GoogleTraceUsesCanonicalBarrierAndArriveNamesFromTypedFi
                  .pc = wave.pc,
                  .barrier_kind = TraceBarrierKind::Arrive,
                  .waitcnt_state = {},
+                 .has_cycle_range = false,
+                 .range_end_cycle = 0,
+                 .semantic_canonical_name = {},
+                 .semantic_presentation_name = {},
+                 .semantic_category = {},
                  .display_name = "arrive",
                  .message = {}},
       TraceEvent{.kind = TraceEventKind::Arrive,
@@ -614,6 +658,11 @@ TEST(CycleTimelineTest, GoogleTraceUsesCanonicalBarrierAndArriveNamesFromTypedFi
                  .pc = wave.pc,
                  .arrive_kind = TraceArriveKind::Load,
                  .waitcnt_state = {},
+                 .has_cycle_range = false,
+                 .range_end_cycle = 0,
+                 .semantic_canonical_name = {},
+                 .semantic_presentation_name = {},
+                 .semantic_category = {},
                  .display_name = "load",
                  .message = {}},
   };
@@ -646,6 +695,11 @@ TEST(CycleTimelineTest, GoogleTraceUsesArriveProgressTypedNamesAsMarkers) {
                  .arrive_kind = TraceArriveKind::Load,
                  .arrive_progress = TraceArriveProgressKind::StillBlocked,
                  .waitcnt_state = {},
+                 .has_cycle_range = false,
+                 .range_end_cycle = 0,
+                 .semantic_canonical_name = {},
+                 .semantic_presentation_name = {},
+                 .semantic_category = {},
                  .display_name = "load",
                  .message = {}},
       TraceEvent{.kind = TraceEventKind::Arrive,
@@ -662,6 +716,11 @@ TEST(CycleTimelineTest, GoogleTraceUsesArriveProgressTypedNamesAsMarkers) {
                  .arrive_kind = TraceArriveKind::Load,
                  .arrive_progress = TraceArriveProgressKind::Resume,
                  .waitcnt_state = {},
+                 .has_cycle_range = false,
+                 .range_end_cycle = 0,
+                 .semantic_canonical_name = {},
+                 .semantic_presentation_name = {},
+                 .semantic_category = {},
                  .display_name = "load",
                  .message = {}},
   };

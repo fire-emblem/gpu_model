@@ -8,17 +8,6 @@ namespace gpu_model {
 
 namespace {
 
-constexpr uint64_t kRecorderIssueQuantumCycles = 4;
-
-uint64_t NormalizeInstructionRangeCycles(uint64_t cycles) {
-  const uint64_t clamped = std::max<uint64_t>(kRecorderIssueQuantumCycles, cycles);
-  const uint64_t remainder = clamped % kRecorderIssueQuantumCycles;
-  if (remainder == 0) {
-    return clamped;
-  }
-  return clamped + (kRecorderIssueQuantumCycles - remainder);
-}
-
 RecorderWave* FindWave(std::vector<RecorderWave>& waves, const TraceEvent& event) {
   for (auto& wave : waves) {
     if (wave.dpc_id == event.dpc_id && wave.ap_id == event.ap_id && wave.peu_id == event.peu_id &&
@@ -222,8 +211,8 @@ RecorderEntry MakeRecorderEntry(const TraceEvent& event, uint64_t sequence) {
       .category = view.category,
       .compatibility_message = view.compatibility_message,
       .begin_cycle = event.cycle,
-      .end_cycle = event.cycle,
-      .has_cycle_range = false,
+      .end_cycle = event.has_cycle_range ? event.range_end_cycle : event.cycle,
+      .has_cycle_range = event.has_cycle_range,
   };
   return entry;
 }
@@ -240,9 +229,10 @@ void Recorder::Record(const TraceEvent& event) {
   RecorderWave& wave = GetOrCreateWave(waves_, event);
   if (event.kind == TraceEventKind::Commit) {
     if (RecorderEntry* issue = FindLastOpenInstructionIssue(wave)) {
-      issue->end_cycle = issue->begin_cycle +
-                         NormalizeInstructionRangeCycles(event.cycle - issue->begin_cycle);
-      issue->has_cycle_range = true;
+      if (!issue->has_cycle_range) {
+        issue->end_cycle = event.cycle;
+        issue->has_cycle_range = true;
+      }
     }
   }
   wave.entries.push_back(MakeRecorderEntry(event, sequence));

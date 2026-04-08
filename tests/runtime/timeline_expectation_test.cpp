@@ -190,8 +190,12 @@ TEST(TimelineExpectationTest, ActualSnapshotUsesRecorderCycleRangesAndTypedMarke
       .pc = 0x100,
   };
   Recorder recorder;
-  recorder.Record(MakeTraceWaveEvent(
-      wave, TraceEventKind::WaveStep, 8, TraceSlotModelKind::ResidentFixed, "pc=0x100 op=v_add_u32", 0x100));
+  recorder.Record(MakeTraceWaveStepEvent(wave,
+                                         8,
+                                         TraceSlotModelKind::ResidentFixed,
+                                         "pc=0x100 op=v_add_u32",
+                                         0x100,
+                                         /*issue_duration_cycles=*/4));
   recorder.Record(MakeTraceCommitEvent(wave, 11, TraceSlotModelKind::ResidentFixed, 0x100));
   recorder.Record(MakeTraceWaveWaitEvent(
       wave, 20, TraceSlotModelKind::ResidentFixed, TraceStallReason::WaitCntGlobal, 0x108));

@@ -39,33 +39,7 @@ std::string MarkerNameImpl(const Marker& marker) {
   if (!fields.compatibility_message.empty()) {
     return fields.compatibility_message;
   }
-  switch (marker.semantic.kind) {
-    case TraceEventKind::Arrive:
-      return "arrive";
-    case TraceEventKind::Barrier:
-      return "barrier";
-    case TraceEventKind::WaveExit:
-      return "wave_exit";
-    case TraceEventKind::ActivePromote:
-      return "active_promote";
-    case TraceEventKind::WaveWait:
-      return "wave_wait";
-    case TraceEventKind::WaveArrive:
-      return "wave_arrive";
-    case TraceEventKind::WaveResume:
-      return "wave_resume";
-    case TraceEventKind::WaveSwitchAway:
-      return "wave_switch_away";
-    case TraceEventKind::Stall:
-      return marker.semantic.stall_reason == TraceStallReason::WarpSwitch ? "wave_switch_away"
-                                                                          : "stall";
-    case TraceEventKind::WaveLaunch:
-      return "wave_launch";
-    case TraceEventKind::BlockLaunch:
-      return "block_launch";
-    default:
-      return fields.compatibility_message.empty() ? "event" : fields.compatibility_message;
-  }
+  return "event";
 }
 
 std::string MarkerCategory(const Marker& marker) {
@@ -73,33 +47,7 @@ std::string MarkerCategory(const Marker& marker) {
   if (!fields.category.empty()) {
     return fields.category;
   }
-  switch (marker.semantic.kind) {
-    case TraceEventKind::Arrive:
-      return "memory/arrive";
-    case TraceEventKind::Barrier:
-      return "sync/barrier";
-    case TraceEventKind::WaveExit:
-      return "control/exit";
-    case TraceEventKind::ActivePromote:
-      return "launch/wave";
-    case TraceEventKind::WaveWait:
-      return "wave/wait";
-    case TraceEventKind::WaveArrive:
-      return "wave/arrive";
-    case TraceEventKind::WaveResume:
-      return "wave/resume";
-    case TraceEventKind::WaveSwitchAway:
-      return "wave/switch_away";
-    case TraceEventKind::Stall:
-      return marker.semantic.stall_reason == TraceStallReason::WarpSwitch ? "wave/switch_away"
-                                                                          : "stall";
-    case TraceEventKind::WaveLaunch:
-      return "launch/wave";
-    case TraceEventKind::BlockLaunch:
-      return "launch/block";
-    default:
-      return "marker";
-  }
+  return "marker";
 }
 
 std::string SegmentArgs(const SlotKey& key, const Segment& segment) {

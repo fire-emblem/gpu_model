@@ -116,6 +116,73 @@ inline std::string MakeTraceWaveStepDisplayName(std::string_view detail) {
   return std::string(detail.substr(value_begin, value_end - value_begin));
 }
 
+inline std::string WaitcntBlockedDomainSuffix(const TraceWaitcntState& state) {
+  if (!state.valid) {
+    return {};
+  }
+  std::string suffix;
+  const auto append_domain = [&](std::string_view domain) {
+    if (!suffix.empty()) {
+      suffix += "_";
+    }
+    suffix += domain;
+  };
+  if (state.blocked_global) {
+    append_domain("global");
+  }
+  if (state.blocked_shared) {
+    append_domain("shared");
+  }
+  if (state.blocked_private) {
+    append_domain("private");
+  }
+  if (state.blocked_scalar_buffer) {
+    append_domain("scalar_buffer");
+  }
+  return suffix;
+}
+
+inline std::string CanonicalStallName(TraceStallReason stall_reason,
+                                      const TraceWaitcntState& waitcnt_state) {
+  const std::string blocked_suffix = WaitcntBlockedDomainSuffix(waitcnt_state);
+  if (!blocked_suffix.empty()) {
+    return "stall_waitcnt_" + blocked_suffix;
+  }
+  if (stall_reason == TraceStallReason::Other) {
+    return "stall";
+  }
+  const std::string_view reason_name = TraceStallReasonName(stall_reason);
+  if (reason_name.empty()) {
+    return {};
+  }
+  return "stall_" + std::string(reason_name);
+}
+
+inline std::string StallCategory(TraceStallReason stall_reason,
+                                 const TraceWaitcntState& waitcnt_state) {
+  if (stall_reason == TraceStallReason::WarpSwitch) {
+    return "wave/switch_away";
+  }
+  const std::string blocked_suffix = WaitcntBlockedDomainSuffix(waitcnt_state);
+  if (!blocked_suffix.empty()) {
+    return "stall/waitcnt_" + blocked_suffix;
+  }
+  if (stall_reason == TraceStallReason::None || stall_reason == TraceStallReason::Other) {
+    return "stall";
+  }
+  return "stall/" + std::string(TraceStallReasonName(stall_reason));
+}
+
+inline void SetProducerSemanticFields(TraceEvent& event,
+                                      std::string canonical_name,
+                                      std::string category,
+                                      std::string presentation_name = {}) {
+  event.semantic_canonical_name = std::move(canonical_name);
+  event.semantic_presentation_name =
+      presentation_name.empty() ? event.semantic_canonical_name : std::move(presentation_name);
+  event.semantic_category = std::move(category);
+}
+
 inline TraceEvent MakeTraceWaveEvent(const TraceWaveView& wave,
                                      TraceEventKind kind,
                                      uint64_t cycle,
@@ -137,6 +204,11 @@ inline TraceEvent MakeTraceWaveEvent(const TraceWaveView& wave,
       .stall_reason = kind == TraceEventKind::Stall ? TraceStallReasonFromMessage(message)
                                                     : TraceStallReason::None,
       .waitcnt_state = {},
+      .has_cycle_range = false,
+      .range_end_cycle = 0,
+      .semantic_canonical_name = {},
+      .semantic_presentation_name = {},
+      .semantic_category = {},
       .display_name = {},
       .message = std::move(message),
   };
@@ -154,6 +226,11 @@ inline TraceEvent MakeTraceEvent(TraceEventKind kind,
       .stall_reason = kind == TraceEventKind::Stall ? TraceStallReasonFromMessage(message)
                                                     : TraceStallReason::None,
       .waitcnt_state = {},
+      .has_cycle_range = false,
+      .range_end_cycle = 0,
+      .semantic_canonical_name = {},
+      .semantic_presentation_name = {},
+      .semantic_category = {},
       .display_name = {},
       .message = std::move(message),
   };
@@ -181,6 +258,11 @@ inline TraceEvent MakeTraceBlockEvent(uint32_t dpc_id,
       .stall_reason = kind == TraceEventKind::Stall ? TraceStallReasonFromMessage(message)
                                                     : TraceStallReason::None,
       .waitcnt_state = {},
+      .has_cycle_range = false,
+      .range_end_cycle = 0,
+      .semantic_canonical_name = {},
+      .semantic_presentation_name = {},
+      .semantic_category = {},
       .display_name = {},
       .message = std::move(message),
   };
@@ -292,9 +374,14 @@ inline TraceEvent MakeTraceWaveStepEvent(const TraceWaveView& wave,
                                          uint64_t cycle,
                                          TraceSlotModelKind slot_model,
                                          std::string detail,
-                                         uint64_t pc = std::numeric_limits<uint64_t>::max()) {
+                                         uint64_t pc = std::numeric_limits<uint64_t>::max(),
+                                         uint64_t issue_duration_cycles = 0) {
   TraceEvent event = MakeTraceWaveEvent(
       wave, TraceEventKind::WaveStep, cycle, slot_model, std::move(detail), pc);
+  if (issue_duration_cycles > 0) {
+    event.has_cycle_range = true;
+    event.range_end_cycle = cycle + issue_duration_cycles;
+  }
   event.display_name = MakeTraceWaveStepDisplayName(event.message);
   return event;
 }
@@ -376,6 +463,12 @@ inline TraceEvent MakeTraceWaveWaitEvent(const TraceWaveView& wave,
   event.stall_reason = stall_reason;
   event.display_name = "wave_wait";
   event.waitcnt_state = waitcnt_state;
+  if (stall_reason == TraceStallReason::None || stall_reason == TraceStallReason::Other) {
+    SetProducerSemanticFields(event, "wave_wait", "wave/wait");
+  } else {
+    SetProducerSemanticFields(
+        event, "wave_wait", "wave/wait/" + std::string(TraceStallReasonName(stall_reason)));
+  }
   return event;
 }
 
@@ -419,6 +512,16 @@ inline TraceEvent MakeTraceWaitStallEvent(const TraceWaveView& wave,
                          MakeTraceStallReasonMessage(TraceStallReasonName(stall_reason)), pc);
   event.display_name = MakeTraceStallDisplayName(stall_reason);
   event.waitcnt_state = waitcnt_state;
+  if (stall_reason == TraceStallReason::WarpSwitch) {
+    SetProducerSemanticFields(event,
+                              CanonicalStallName(stall_reason, waitcnt_state),
+                              StallCategory(stall_reason, waitcnt_state),
+                              "wave_switch_away");
+  } else {
+    SetProducerSemanticFields(event,
+                              CanonicalStallName(stall_reason, waitcnt_state),
+                              StallCategory(stall_reason, waitcnt_state));
+  }
   return event;
 }
 
@@ -457,6 +560,7 @@ inline TraceEvent MakeTraceWaveSwitchAwayEvent(const TraceWaveView& wave,
       wave, TraceEventKind::WaveSwitchAway, cycle, slot_model, "wave_switch_away", pc);
   event.stall_reason = TraceStallReason::WarpSwitch;
   event.display_name = "wave_switch_away";
+  SetProducerSemanticFields(event, "wave_switch_away", "wave/switch_away");
   return event;
 }
 
