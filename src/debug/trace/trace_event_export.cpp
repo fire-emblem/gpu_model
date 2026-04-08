@@ -90,7 +90,7 @@ std::string HexU64(uint64_t value) {
 
 TraceEventExportFields MakeTraceEventExportFields(const TraceEventView& view) {
   const bool has_flow =
-      view.flow_phase != TraceFlowPhase::None || view.flow_id != 0;
+      view.flow_phase != TraceFlowPhase::None && view.flow_id != 0;
   return TraceEventExportFields{
       .slot_model = std::string(TraceSlotModelName(view.slot_model_kind)),
       .stall_reason = std::string(TraceStallReasonName(view.stall_reason)),
@@ -119,7 +119,7 @@ TraceEventExportFields MakeTraceEventExportFields(const TraceEventView& view) {
 
 TraceEventExportFields MakeTraceEventExportFields(const RecorderProgramEvent& event) {
   const bool has_flow =
-      event.event.flow_phase != TraceFlowPhase::None || event.event.flow_id != 0;
+      event.event.flow_phase != TraceFlowPhase::None && event.event.flow_id != 0;
   return TraceEventExportFields{
       .slot_model = std::string(TraceSlotModelName(event.slot_model_kind)),
       .stall_reason = std::string(TraceStallReasonName(event.stall_reason)),
@@ -148,7 +148,7 @@ TraceEventExportFields MakeTraceEventExportFields(const RecorderProgramEvent& ev
 
 TraceEventExportFields MakeTraceEventExportFields(const RecorderEntry& event) {
   const bool has_flow =
-      event.event.flow_phase != TraceFlowPhase::None || event.event.flow_id != 0;
+      event.event.flow_phase != TraceFlowPhase::None && event.event.flow_id != 0;
   return TraceEventExportFields{
       .slot_model = std::string(TraceSlotModelName(event.slot_model_kind)),
       .stall_reason = std::string(TraceStallReasonName(event.stall_reason)),
