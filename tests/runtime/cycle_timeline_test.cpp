@@ -542,6 +542,33 @@ TEST(CycleTimelineTest, GoogleTraceDoesNotRenderArriveBarrierOrStallAsInstructio
   EXPECT_NE(trace.find("\"name\":\"barrier_arrive\""), std::string::npos);
 }
 
+TEST(CycleTimelineTest, GoogleTraceRendersAsyncMemoryFlowStartAndFinish) {
+  const TraceWaveView wave = MakeWaveView(/*slot_id=*/0);
+
+  TraceEvent issue =
+      MakeResidentWaveEvent(wave, TraceEventKind::MemoryAccess, /*cycle=*/10, "load_issue");
+  issue.flow_id = 0x12;
+  issue.flow_phase = TraceFlowPhase::Start;
+
+  TraceEvent arrive = MakeTraceMemoryArriveEvent(
+      wave, /*cycle=*/30, TraceMemoryArriveKind::Load, TraceSlotModelKind::ResidentFixed);
+  arrive.flow_id = 0x12;
+  arrive.flow_phase = TraceFlowPhase::Finish;
+
+  const std::string trace =
+      CycleTimelineRenderer::RenderGoogleTrace(MakeRecorder({issue, arrive}));
+  EXPECT_NE(
+      trace.find(
+          "{\"name\":\"async_memory\",\"cat\":\"flow/async_memory\",\"ph\":\"s\",\"pid\":1,"
+          "\"tid\":0,\"ts\":10,\"id\":\"0x12\""),
+      std::string::npos);
+  EXPECT_NE(
+      trace.find(
+          "{\"name\":\"async_memory\",\"cat\":\"flow/async_memory\",\"ph\":\"f\",\"pid\":1,"
+          "\"tid\":0,\"ts\":30,\"id\":\"0x12\""),
+      std::string::npos);
+}
+
 TEST(CycleTimelineTest, GoogleTraceRendersWaveFrontEndMarkersWithStableTypedNames) {
   const TraceWaveView wave = MakeWaveView(/*slot_id=*/2);
   std::vector<TraceEvent> events{

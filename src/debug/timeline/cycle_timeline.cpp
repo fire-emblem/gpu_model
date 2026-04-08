@@ -164,6 +164,10 @@ TimelineData BuildTimelineData(const Recorder& recorder,
           .slot_id = wave.slot_id,
       };
 
+      if (semantic.fields.has_flow) {
+        data.flow_endpoints[slot_key].push_back(FlowEndpoint{.semantic = semantic});
+      }
+
       if (entry.kind == RecorderEntryKind::InstructionIssue) {
         open_issue.push(&entry);
         const std::string op =

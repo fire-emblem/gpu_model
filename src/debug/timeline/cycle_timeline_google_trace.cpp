@@ -124,6 +124,11 @@ std::set<RowDescriptor> CollectDeclaredRows(const TimelineData& data, CycleTimel
       declared_rows.insert(DescribeRow(key, group_by, marker.semantic.block_id));
     }
   }
+  for (const auto& [key, endpoints] : data.flow_endpoints) {
+    for (const auto& endpoint : endpoints) {
+      declared_rows.insert(DescribeRow(key, group_by, endpoint.semantic.block_id));
+    }
+  }
   return declared_rows;
 }
 
@@ -214,6 +219,33 @@ std::string RenderGoogleTraceExport(const TimelineData& data,
            "\",\"ph\":\"i\",\"s\":\"t\",\"pid\":" + std::to_string(row.pid) +
            ",\"tid\":" + std::to_string(row.tid) + ",\"ts\":" +
            std::to_string(marker.semantic.cycle) + ",\"args\":{" + MarkerArgs(key, marker) + "}}");
+    }
+  }
+
+  for (const auto& [key, endpoints] : data.flow_endpoints) {
+    for (const auto& endpoint : endpoints) {
+      const auto& fields = endpoint.semantic.fields;
+      if (!fields.has_flow) {
+        continue;
+      }
+      if (endpoint.semantic.cycle < begin || endpoint.semantic.cycle > end) {
+        continue;
+      }
+
+      const char phase =
+          fields.flow_phase == "start"   ? 's'
+          : fields.flow_phase == "finish" ? 'f'
+                                         : '\0';
+      if (phase == '\0') {
+        continue;
+      }
+
+      const RowDescriptor row = DescribeRow(key, group_by, endpoint.semantic.block_id);
+      append("{\"name\":\"async_memory\",\"cat\":\"flow/async_memory\",\"ph\":\"" +
+             std::string(1, phase) + "\",\"pid\":" + std::to_string(row.pid) +
+             ",\"tid\":" + std::to_string(row.tid) + ",\"ts\":" +
+             std::to_string(endpoint.semantic.cycle) + ",\"id\":\"" +
+             EscapeTraceJson(fields.flow_id) + "\"}");
     }
   }
 
