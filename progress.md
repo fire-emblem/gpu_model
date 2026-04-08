@@ -543,11 +543,21 @@
   - 运行放大验证：
     - `./build-ninja/tests/gpu_model_tests --gtest_filter='CycleSmokeTest.*:CycleTimelineTest.*:TraceTest.*'`
     - `128 tests passed`
+  - 创建/修改的文件：
+    - `src/execution/cycle_exec_engine.cpp`
+    - `src/gpu_model/debug/trace/event_factory.h`
+    - `tests/cycle/cycle_smoke_test.cpp`
+    - `tests/runtime/trace_test.cpp`
+    - `tests/runtime/cycle_timeline_test.cpp`
+    - `findings.md`
+    - `progress.md`
+
+### 阶段 29：聚焦 Async Memory 流验证
+- **状态：** complete
+- **执行的操作：**
+  - 生产者自持 Async Memory flow id 已在 modeled cycle 与 encoded cycle 路径上落地
+  - 记录器与 timeline 直接消费 flow metadata，避免靠 pairing inference 回推 source 信息
+  - 聚焦 async memory 流的验证套件全部通过，覆盖相关 Trace/Cycle/AsyncMemory tests
 - 创建/修改的文件：
-  - `src/execution/cycle_exec_engine.cpp`
-  - `src/gpu_model/debug/trace/event_factory.h`
-  - `tests/cycle/cycle_smoke_test.cpp`
-  - `tests/runtime/trace_test.cpp`
-  - `tests/runtime/cycle_timeline_test.cpp`
-  - `findings.md`
   - `progress.md`
+  - `findings.md`
