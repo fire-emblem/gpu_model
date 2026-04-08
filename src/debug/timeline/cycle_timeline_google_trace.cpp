@@ -132,6 +132,14 @@ std::set<RowDescriptor> CollectDeclaredRows(const TimelineData& data, CycleTimel
   return declared_rows;
 }
 
+bool IsSupportedAsyncMemoryFlowEndpoint(const FlowEndpoint& endpoint) {
+  if (!endpoint.semantic.fields.has_flow) {
+    return false;
+  }
+  return endpoint.semantic.kind == TraceEventKind::MemoryAccess ||
+         endpoint.semantic.kind == TraceEventKind::Arrive;
+}
+
 }  // namespace
 
 std::string MarkerEventName(const Marker& marker) {
@@ -225,7 +233,7 @@ std::string RenderGoogleTraceExport(const TimelineData& data,
   for (const auto& [key, endpoints] : data.flow_endpoints) {
     for (const auto& endpoint : endpoints) {
       const auto& fields = endpoint.semantic.fields;
-      if (!fields.has_flow) {
+      if (!IsSupportedAsyncMemoryFlowEndpoint(endpoint)) {
         continue;
       }
       if (endpoint.semantic.cycle < begin || endpoint.semantic.cycle > end) {
@@ -245,7 +253,8 @@ std::string RenderGoogleTraceExport(const TimelineData& data,
              std::string(1, phase) + "\",\"pid\":" + std::to_string(row.pid) +
              ",\"tid\":" + std::to_string(row.tid) + ",\"ts\":" +
              std::to_string(endpoint.semantic.cycle) + ",\"id\":\"" +
-             EscapeTraceJson(fields.flow_id) + "\"}");
+             EscapeTraceJson(fields.flow_id) +
+             (phase == 'f' ? "\",\"bp\":\"e\"}" : "\"}"));
     }
   }
 
