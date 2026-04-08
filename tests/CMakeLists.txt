@@ -103,6 +103,7 @@ add_executable(gpu_model_tests
   runtime/timeline_expectation_test.cpp
   runtime/parallel_execution_mode_test.cpp
   runtime/executed_flow_program_cycle_stats_test.cpp
+  runtime/program_cycle_stats_test.cpp
   runtime/device_memory_manager_test.cpp
   runtime/runtime_session_test.cpp
   runtime/hip_runtime_abi_test.cpp

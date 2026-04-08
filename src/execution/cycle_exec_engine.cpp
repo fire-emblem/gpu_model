@@ -30,6 +30,7 @@
 #include "gpu_model/execution/plan_apply.h"
 #include "gpu_model/execution/sync_ops.h"
 #include "gpu_model/execution/wave_context_builder.h"
+#include "gpu_model/execution/wave_stats.h"
 #include "gpu_model/execution/internal/issue_eligibility.h"
 #include "gpu_model/isa/opcode.h"
 #include "gpu_model/loader/device_image_loader.h"
@@ -131,12 +132,15 @@ void AccumulateProgramCycleStep(ProgramCycleStats& stats,
   switch (step_class) {
     case ExecutedStepClass::ScalarAlu:
       stats.scalar_alu_cycles += weighted_cycles;
+      stats.scalar_alu_insts += 1;
       return;
     case ExecutedStepClass::VectorAlu:
       stats.vector_alu_cycles += weighted_cycles;
+      stats.vector_alu_insts += 1;
       return;
     case ExecutedStepClass::Tensor:
       stats.tensor_cycles += weighted_cycles;
+      stats.tensor_insts += 1;
       return;
     case ExecutedStepClass::SharedMem:
       stats.shared_mem_cycles += weighted_cycles;
@@ -152,6 +156,7 @@ void AccumulateProgramCycleStep(ProgramCycleStats& stats,
       return;
     case ExecutedStepClass::Barrier:
       stats.barrier_cycles += weighted_cycles;
+      stats.barrier_insts += 1;
       return;
     case ExecutedStepClass::Wait:
       stats.wait_cycles += weighted_cycles;
@@ -1070,6 +1075,14 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
   program_cycle_stats_ = ProgramCycleStats{};
 
   auto blocks = MaterializeBlocks(context.placement, context.launch_config);
+
+  // Count waves launched
+  if (program_cycle_stats_.has_value()) {
+    for (const auto& block : blocks) {
+      program_cycle_stats_->waves_launched += static_cast<uint32_t>(block.waves.size());
+    }
+  }
+
   const uint32_t resident_wave_slots_per_peu = ResidentWaveSlotCapacityPerPeu(context.spec);
   auto slots = BuildPeuSlots(blocks, resident_wave_slots_per_peu);
   EventQueue events;
@@ -1193,6 +1206,9 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
         }
         const OpPlan plan = semantics_.BuildPlan(instruction, wave, context);
         if (program_cycle_stats_.has_value()) {
+          // Track total instructions
+          program_cycle_stats_->instructions_executed += 1;
+
           if (const auto step_class = ClassifyCycleInstruction(instruction, plan); step_class.has_value()) {
             AccumulateProgramCycleStep(*program_cycle_stats_,
                                        *step_class,
@@ -1246,6 +1262,31 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
               }
             } else if (request.space == MemorySpace::Constant && request.kind == AccessKind::Load) {
               ++context.stats->constant_loads;
+            }
+          }
+          // Track memory ops in program_cycle_stats
+          if (program_cycle_stats_.has_value()) {
+            const auto& request = *plan.memory;
+            if (request.space == MemorySpace::Global) {
+              if (request.kind == AccessKind::Load) {
+                program_cycle_stats_->global_loads += 1;
+              } else if (request.kind == AccessKind::Store || request.kind == AccessKind::Atomic) {
+                program_cycle_stats_->global_stores += 1;
+              }
+            } else if (request.space == MemorySpace::Shared) {
+              if (request.kind == AccessKind::Load) {
+                program_cycle_stats_->shared_loads += 1;
+              } else if (request.kind == AccessKind::Store || request.kind == AccessKind::Atomic) {
+                program_cycle_stats_->shared_stores += 1;
+              }
+            } else if (request.space == MemorySpace::Private) {
+              if (request.kind == AccessKind::Load) {
+                program_cycle_stats_->private_loads += 1;
+              } else if (request.kind == AccessKind::Store) {
+                program_cycle_stats_->private_stores += 1;
+              }
+            } else if (request.space == MemorySpace::Constant && request.kind == AccessKind::Load) {
+              program_cycle_stats_->scalar_loads += 1;
             }
           }
           flow_id = context.AllocateTraceFlowId();
@@ -1734,6 +1775,10 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                 if (plan.exit_wave) {
                   if (context.stats != nullptr) {
                     ++context.stats->wave_exits;
+                  }
+                  // Track wave completion in program_cycle_stats
+                  if (program_cycle_stats_.has_value()) {
+                    program_cycle_stats_->waves_completed += 1;
                   }
                   ApplyExecutionPlanControlFlow(context.kernel, plan, candidate->wave, false, false);
                   PeuSlot& peu_slot = slots.at(candidate->peu_slot_index);
