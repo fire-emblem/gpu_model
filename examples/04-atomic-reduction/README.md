@@ -38,7 +38,7 @@ host 最终检查：
 
 脚本会：
 
-1. 编译 [atomic_reduction.hip](/data/gpu_model/examples/04-atomic-reduction/atomic_reduction.hip)
+1. 编译 [atomic_reduction.hip](atomic_reduction.hip)
 2. 以 `st` / `mt` / `cycle` 运行
 3. 检查 `stdout.txt` 中是否包含 `atomic_reduction value=257 expected=257`
 
@@ -102,6 +102,3 @@ host 最终检查：
 - 它不覆盖 shared atomic，也不覆盖更复杂的竞争模式
 - 但它是所有 atomic 相关路径的最小基线
 
-## 备注
-
-- 当前仓库中的 `results/` 主要作为快照参考

@@ -40,7 +40,7 @@ kernel 会在每个 block 内：
 
 脚本会：
 
-1. 编译 [dynamic_shared_sum.hip](/data/gpu_model/examples/09-dynamic-shared-sum/dynamic_shared_sum.hip)
+1. 编译 [dynamic_shared_sum.hip](dynamic_shared_sum.hip)
 2. 分别以 `st` / `mt` / `cycle` 运行
 3. 检查 `stdout.txt` 中是否包含 `dynamic_shared_sum mismatches=0`
 
@@ -102,6 +102,3 @@ kernel 会在每个 block 内：
 - 如果失败，优先怀疑 shared 大小传递、地址计算或 barrier 顺序
 - 它和 `03` 的区别在于：`03` 验证固定 shared，`09` 验证动态 shared
 
-## 备注
-
-- 当前仓库中的 `results/` 主要作为快照参考

@@ -41,7 +41,7 @@
 
 脚本会：
 
-1. 编译 [softmax_reduction.hip](/data/gpu_model/examples/05-softmax-reduction/softmax_reduction.hip)
+1. 编译 [softmax_reduction.hip](softmax_reduction.hip)
 2. 分别以 `st` / `mt` / `cycle` 运行
 3. 检查 `stdout.txt` 中是否包含 `softmax_reduction mismatches=0`
 
@@ -104,6 +104,3 @@
 - 如果失败，不一定是数值函数本身错误，更常见的是 barrier 或 shared 阶段切换有问题
 - 它是后面 reduction 类例子的中间基线
 
-## 备注
-
-- 仓库中的已有 `results/` 主要作为快照参考

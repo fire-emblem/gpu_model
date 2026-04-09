@@ -18,341 +18,83 @@ cmake --build --preset dev-fast
 ./examples/01-vecadd-basic/run.sh
 ```
 
+### 环境要求
+
+- CMake >= 3.22
+- C++17 编译器 (GCC / Clang)
+- Ninja (推荐) 或 Make
+- hipcc (仅用于编译 HIP 源码，模型运行不依赖 GPU)
+
 ## 项目定位
 
-当前项目重点不是硬件级精准复刻，而是给：
+当前项目重点不是硬件级精准复刻，而是给算子库优化、编译器 codegen 比较、硬件参数变更评估、HIP/AMDGPU kernel 行为验证提供一个可执行、可追踪、可扩展的分析平台。
 
-- 算子库优化
-- 编译器 codegen 比较
-- 硬件参数变更评估
-- HIP/AMDGPU kernel 行为验证
+## 核心能力
 
-提供一个可执行、可追踪、可扩展的分析平台。
+- **三种执行模式**: `st` (单线程功能执行)、`mt` (多线程功能执行)、`cycle` (naive cycle 模型)
+- **真实 HIP 程序支持**: 通过 `LD_PRELOAD` 拦截 HIP API，host 原生执行 + kernel 在模型中运行
+- **Trace 可视化**: 输出 `timeline.perfetto.json`，支持 Chrome Trace Viewer 分析
+- **GCN ISA 解码**: 支持 AMDGPU object / HIP fatbin / HIP `.out` 加载与执行
 
-## Architecture Spine
+## 架构概览
 
-当前主线术语按下面 5 层统一：
+五层架构：`runtime -> program -> instruction -> execution -> wave`
 
-- `runtime`: `HipRuntime -> ModelRuntime -> ExecEngine`
-- `program`: `ProgramObject / ExecutableKernel / EncodedProgramObject`
-- `instruction`: decode 后的 instruction object 与语义分发
-- `execution`: `FunctionalExecEngine / CycleExecEngine / EncodedExecEngine / WaveContext`
-- `arch`: 架构参数、设备拓扑与属性建模
+| 层级 | 核心组件 |
+|------|----------|
+| runtime | HipRuntime, ModelRuntime, ExecEngine |
+| program | ProgramObject, ExecutableKernel, EncodedProgramObject |
+| instruction | 指令解码与语义分发 |
+| execution | FunctionalExecEngine, CycleExecEngine, WaveContext |
+| arch | GpuArchSpec, 设备拓扑 |
 
-迁移状态（2026-03）：
+详细架构见 [CLAUDE.md](CLAUDE.md) 和 [docs/runtime-layering.md](docs/runtime-layering.md)。
 
-- 文档主线已切到上述术语
-- 历史旧名 `ModelRuntimeApi / RuntimeHooks / HostRuntime` 已从主线术语移除
-- 阅读旧记录时请按 `ModelRuntime / HipRuntime / ExecEngine` 对照理解
+## Examples
+
+详见 [examples/README.md](examples/README.md)，按难度编号 01-11：
+
+| 编号 | 例子 | 验证重点 |
+|------|------|----------|
+| 01 | vecadd-basic | 基础路径接通 |
+| 02 | fma-loop | 循环 + 浮点累积 |
+| 03 | shared-reverse | shared memory + barrier |
+| 04 | atomic-reduction | global atomic 归约 |
+| 05 | softmax-reduction | 多阶段归约 |
+| 06 | mma-gemm | MFMA 能力检测 |
+| 07 | vecadd-cycle-splitting | 写法对比分析 |
+| 08 | conditional-multibarrier | 条件分支 + 多次 barrier |
+| 09 | dynamic-shared-sum | 动态 shared memory |
+| 10 | block-reduce-sum | 多 block 归约 |
+| 11 | perfetto-waitcnt-slots | Trace 调试可视化 |
+
+## Scripts
+
+| 脚本 | 用途 |
+|------|------|
+| `./scripts/run_push_gate_light.sh` | 快速回归 (推荐日常使用) |
+| `./scripts/run_exec_checks.sh` | 执行检查 |
+| `./scripts/run_real_hip_kernel_regression.sh` | HIP kernel 回归 |
+
+详见 [scripts/README.md](scripts/README.md)。
 
 ## 文档导航
 
-当前建议按下面顺序阅读：
-
-- 现行规范
-  - [README.md](README.md)
-  - [docs/my_design.md](docs/my_design.md)
-  - [docs/runtime-layering.md](docs/runtime-layering.md)
-  - [docs/module-development-status.md](docs/module-development-status.md)
-  - [docs/memory-hierarchy-interface-reservation.md](docs/memory-hierarchy-interface-reservation.md)
-- 历史计划/实施存档
-  - [docs/plans/README.md](docs/plans/README.md)
-  - [docs/superpowers/README.md](docs/superpowers/README.md)
-- 外部参考材料
-  - [docs/other_model_design/README.md](docs/other_model_design/README.md)
-
-约束：
-
-- `docs/plans/` 与 `docs/superpowers/` 下的文档默认视为历史实施/规划材料，不是当前代码事实
-- `docs/other_model_design/` 下的文档默认视为外部参考，不直接定义本仓实现
-
-## 当前能力
-
-当前主线已经具备：
-
-- `c500` 架构参数注册与运行时选择
-  - 默认拓扑为 `8 DPC x 13 AP/DPC x 4 PEU/AP`
-- functional execution
-- naive cycle execution
-- functional execution mode switch
-  - `SingleThreaded`
-  - `MultiThreaded`
-- trace / debug / ASCII timeline / Google trace
-- AMDGPU object / HIP fatbin / HIP `.out` 的加载入口
-- HIP command-line interposer
-  - host `main()` 原生执行
-  - HIP runtime API 被 `LD_PRELOAD` 拦截
-  - kernel launch 转到 model 执行
-  - 返回 host 继续执行
-- global / constant / kernarg / raw-data / managed pool 支持
-- descriptor + metadata 驱动的 encoded program object launch
-- encoded code object decode / disassemble / execute 主路径
-  - `.text` 指令 bytes 提取
-  - `text bytes -> encoded instruction array -> decoded instruction array`
-  - decode 阶段实例化 instruction object
-  - encoded GCN 指令直接执行
-- 真实 HIP `.out` 功能主线已验证通过的代表性 kernel
-  - `vecadd`
-  - `fma_loop`
-- `bias_chain`
-  - `atomic_count`
-  - `shared_reverse`
-  - `dynamic_shared_sum`
-  - `block_reduce_sum`
-  - `softmax_row`
-  - `mfma_probe`
-- 大规模 gtest / CTS / usage regression 已打通
-
-## 当前分层
-
-代码当前大致分为：
-
-- `arch/`
-  架构规格与注册
-- `isa/`
-  instruction 定义与 decode/语义映射（legacy 名称：canonical internal ISA）
-- `state/`
-  wave / register / execution state
-- `memory/`
-  global / shared / private / constant memory
-- `loader/`
-  asm、AMDGPU object、HIP artifact、encoded code object decode（legacy 文档中常写 raw code object）
-- `decode/`
-  GCN format bitfield / encoding def / formatter
-- `exec/`
-  issue model、semantic handlers、functional/cycle executor、parallel-wave executor scaffold
-- `runtime/`
-  HipRuntime、ModelRuntime、ExecEngine
-- `debug/`
-  trace、timeline、debug info
-
-## Runtime 分层
-
-runtime 侧主线按三层理解：
-
-- HIP compatibility layer
-  - `HipRuntime`（`hip*` ABI + interposer）
-  - `LD_PRELOAD` interposer
-- model-native runtime layer
-  - `ModelRuntime`
-- runtime core layer
-  - `ExecEngine`
-
-历史已删除名（仅用于阅读旧记录）：
-
-- `ModelRuntimeApi` -> `ModelRuntime`
-- `RuntimeHooks` -> `HipRuntime`
-- `HostRuntime` -> `ExecEngine`
-
-详细说明见：
-
-- [docs/runtime-layering.md](docs/runtime-layering.md)
-
-## 当前执行形态
-
-### 1. 直接 model 运行
-
-适用于：
-
-- 手写 instruction asm（legacy: canonical asm）
-- 内部测试 kernel
-- cycle trace 研究
-
-### 2. 加载 HIP / AMDGPU artifact
-
-适用于：
-
-- `hipcc` 生成的 `.o`
-- `hipcc` 生成的 `.out`
-- fatbin 中的 device code object
-
-### 3. 命令行运行真实 HIP `.out`
-
-当前已经支持：
-
-- host CPU 原生执行 `main()`
-- `hipMalloc/hipMallocManaged/hipMemcpy/hipLaunchKernel/...` 被 interposer 拦截
-- 常见同步 runtime API 已支持基础拦截
-  - `hipMemset` / `hipMemsetD8` / `hipMemsetD32`
-  - `hipGetDeviceCount` / `hipGetDevice` / `hipSetDevice`
-  - `hipStreamCreate` / `hipStreamDestroy` / `hipStreamSynchronize`
-  - `hipGetLastError` / `hipPeekAtLastError`
-- `hipMemcpyAsync` 当前仅有 compatibility 拦截/同步退化路径，不属于第一阶段 async 能力支持
-- kernel launch 进入 model
-- host 继续执行并做结果校验
-
-## 当前重要限制
-
-当前仍然存在的主要限制：
-
-- 还没有完成“全部 GCN ISA” 的 decode / disasm / exec 覆盖
-- graphics / image / export / interp 等 family 仍主要是占位
-- 部分 loader 路径仍保留了 `llvm-objdump` / tool-assisted 提取作为兼容入口
-- runtime API 还没有补齐到“任意 HIP 程序”所需的完整子集
-- cycle model 已经可用，但仍然是用于相对比较的 naive 近似模型，不是硬件精确模型
-- 当前 `trace.txt` / `trace.jsonl` / `timeline.perfetto.json` 中的 `cycle` 统一表示模型时间，不是物理真实执行时间戳
-- `Functional st` 与 `Functional mt` 共用同一套 modeled time 规则，但 `mt` 保留 runnable wave 竞争，不能把 `mt` 的 `cycle` 直接理解成硬件真实时间
-
-所以现阶段更准确的理解是：
-
-- host-side `.out` command-line path 已稳定可用
-- descriptor + metadata 驱动的 encoded binary launch 已打通
-- compute-focused HIP kernel 覆盖已经较广
-- 剩余工作重点在完整 ISA 覆盖、graphics family、runtime completeness 和更系统的 cycle 建模
-
-## 当前时间语义
-
-- `Functional st`
-  - 作为确定性的语义参考模型，`arrive_resume` 后消费者指令在下一 issue quantum 起点发出
-- `Functional mt`
-  - 与 `st` 共用同一套 modeled time 规则，但保留异步调度与 runnable wave 竞争
-- `Cycle`
-  - `arrive_resume` 只表示 wave 达到 ready/eligible 状态，不保证同 cycle 或固定延迟后立刻 issue
-
-## 构建
-
-```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
-cmake --build build -j
-```
-
-## 测试
-
-运行全部 gtest：
-
-```bash
-./build/tests/gpu_model_tests
-```
-
-默认 `CTS/Feature CTS` 只跑 `quick` 代表性子集。
-
-运行完整矩阵：
-
-```bash
-GPU_MODEL_TEST_PROFILE=full ./build/tests/gpu_model_tests
-```
-
-运行单组测试：
-
-```bash
-# runtime/program 主线命名示例
-./build/tests/gpu_model_tests --gtest_filter=HipRuntimeTest.LaunchesHipVecAddExecutableAndValidatesOutput
-```
-
-## 常用入口
-
-### 统一 examples 入口
-
-```bash
-./examples/README.md
-```
-
-### 真实 HIP `.out` 命令行路径
-
-```bash
-./examples/01-vecadd-basic/run.sh
-./examples/02-fma-loop/run.sh
-```
-
-### 代表性 HIP 程序例子
-
-```bash
-./examples/03-shared-reverse/run.sh
-./examples/04-atomic-reduction/run.sh
-./examples/05-softmax-reduction/run.sh
-./examples/06-mma-gemm/run.sh
-./examples/09-dynamic-shared-sum/run.sh
-./examples/10-block-reduce-sum/run.sh
-./examples/11-perfetto-waitcnt-slots/run.sh
-```
-
-### cycle 相关目标例子
-
-```bash
-./examples/07-vecadd-cycle-splitting/run.sh
-```
-
-### 顶层执行检查脚本
-
-当前稳定的执行检查可直接跑：
-
-```bash
-./scripts/run_exec_checks.sh
-./scripts/run_shared_heavy_regression.sh
-./scripts/run_real_hip_kernel_regression.sh
-```
-
-它们分别覆盖：
-
-- 基础执行检查
-- shared-heavy 四锚点回归
-- 更上层的真实 HIP kernel 回归
-
-## examples
-
-可复现脚本见：
-
-- [examples/README.md](examples/README.md)
-
-当前比较关键的例子：
-
-- [examples/01-vecadd-basic/README.md](examples/01-vecadd-basic/README.md)
-- [examples/02-fma-loop/README.md](examples/02-fma-loop/README.md)
-- [examples/03-shared-reverse/README.md](examples/03-shared-reverse/README.md)
-- [examples/04-atomic-reduction/README.md](examples/04-atomic-reduction/README.md)
-- [examples/05-softmax-reduction/README.md](examples/05-softmax-reduction/README.md)
-- [examples/06-mma-gemm/README.md](examples/06-mma-gemm/README.md)
-- [examples/07-vecadd-cycle-splitting/README.md](examples/07-vecadd-cycle-splitting/README.md)
-- [examples/08-conditional-multibarrier/README.md](examples/08-conditional-multibarrier/README.md)
-- [examples/09-dynamic-shared-sum/README.md](examples/09-dynamic-shared-sum/README.md)
-- [examples/10-block-reduce-sum/README.md](examples/10-block-reduce-sum/README.md)
-- [examples/11-perfetto-waitcnt-slots/README.md](examples/11-perfetto-waitcnt-slots/README.md)
-
-## scripts
-
-脚本入口见：
-
-- [scripts/README.md](/data/gpu_model/scripts/README.md)
-
-## 顶层开发状态
-
-功能主线开发状态与推进顺序见：
-
-- [docs/module-development-status.md](/data/gpu_model/docs/module-development-status.md)
-
-## 工程参考资料
-
-面向 decode / disasm / ABI / loader 的长期工程参考资料见：
-
-- [src/spec/README.md](/data/gpu_model/src/spec/README.md)
+- **现行规范**: [README.md](README.md) → [docs/my_design.md](docs/my_design.md) → [docs/runtime-layering.md](docs/runtime-layering.md)
+- **开发状态**: [docs/module-development-status.md](docs/module-development-status.md)
+- **工程参考**: [src/spec/README.md](src/spec/README.md)
+- **历史存档**: [docs/plans/](docs/plans/), [docs/superpowers/](docs/superpowers/)
+
+## 当前限制
+
+- GCN ISA 未完全覆盖，graphics/image family 仍为占位
+- cycle 模型为 naive 近似，用于相对比较而非硬件精确仿真
+- `trace.txt` / `timeline.perfetto.json` 中的 `cycle` 为模型时间，非物理时间
 
 ## 近期路线
 
-接下来主线应继续收敛到：
-
-1. 基于 GCN ISA encoding 定义补齐剩余 decode/disasm 覆盖
-2. 继续扩展 encoded semantic handler / instruction object 执行覆盖（legacy raw 路径需保持兼容）
-3. 收敛 descriptor / metadata / module-load 的正式接口
-4. 完善 runtime property 查询与 module API
-5. 在现有 naive cycle 基础上继续增强 wait / issue / timeline 分析能力
-
-## Marl
-
-当前仓库已 vendor：
-
-- `third_party/marl`
-
-当前 `RuntimeEngine` 已支持 functional 执行模式切换：
-
-- `SingleThreaded`
-- `MultiThreaded`
-
-当前 `MultiThreaded` 已按 functional `wave` 粒度推进，并使用全局 worker pool 执行，
-保证：
-
-- 构建链闭合
-- 运行时模式可切换
-- 结果与当前 single-thread functional 路径一致
-- block barrier / wait 状态仍按 block / wave 语义同步
-
-同时不在 functional 模型中引入 resident block / dispatch capacity 这类 cycle 资源约束。
+1. 补齐 GCN ISA decode/disasm 覆盖
+2. 扩展 instruction semantic handler
+3. 收敛 descriptor/metadata/module-load 接口
+4. 完善 runtime API 覆盖
+5. 增强 cycle 建模能力

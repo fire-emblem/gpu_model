@@ -19,7 +19,7 @@
 
 ## 程序行为
 
-程序会先尝试编译 [mma_gemm.hip](/data/gpu_model/examples/06-mma-gemm/mma_gemm.hip)。
+程序会先尝试编译 [mma_gemm.hip](mma_gemm.hip)。
 
 分两种情况：
 

@@ -43,7 +43,7 @@ kernel 的逻辑是：
 
 脚本会：
 
-1. 编译 [block_reduce_sum.hip](/data/gpu_model/examples/10-block-reduce-sum/block_reduce_sum.hip)
+1. 编译 [block_reduce_sum.hip](block_reduce_sum.hip)
 2. 分别以 `st` / `mt` / `cycle` 运行
 3. 检查 `stdout.txt` 中是否包含 `block_reduce_sum mismatches=0`
 
@@ -105,6 +105,3 @@ kernel 的逻辑是：
 - 如果失败，需要先分清是 block 内 reduction 出错，还是 block 间状态串扰
 - 它适合作为 reduction 类例子的通用基线
 
-## 备注
-
-- 仓库中的旧 `results/` 主要作为快照参考

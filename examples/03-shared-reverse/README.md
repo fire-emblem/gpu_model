@@ -36,7 +36,7 @@ host 会构造每个 block 的期望逆序结果，然后逐元素比较。
 
 脚本会：
 
-1. 编译 [shared_reverse.hip](/data/gpu_model/examples/03-shared-reverse/shared_reverse.hip)
+1. 编译 [shared_reverse.hip](shared_reverse.hip)
 2. 以 `st` / `mt` / `cycle` 运行
 3. 检查 `stdout.txt` 中是否包含 `shared_reverse mismatches=0`
 
@@ -99,6 +99,3 @@ host 会构造每个 block 的期望逆序结果，然后逐元素比较。
 - 如果失败，优先怀疑同步或 shared 地址读写顺序，而不是普通 ALU 逻辑
 - 这是后面所有 shared/barrier 例子的前置基线
 
-## 备注
-
-- 仓库中的旧 `results/` 主要作为快照参考

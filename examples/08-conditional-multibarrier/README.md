@@ -41,7 +41,7 @@
 
 脚本会：
 
-1. 编译 [conditional_multibarrier.hip](/data/gpu_model/examples/08-conditional-multibarrier/conditional_multibarrier.hip)
+1. 编译 [conditional_multibarrier.hip](conditional_multibarrier.hip)
 2. 分别以 `st` / `mt` / `cycle` 运行
 3. 检查 `stdout.txt` 中是否包含 `conditional_multibarrier mismatches=0`
 
@@ -103,7 +103,3 @@
 - 如果失败，优先怀疑 barrier 顺序、shared 状态传播或 block 内阶段切换
 - 它比 `03` 和 `05` 更强调“多次 barrier + 条件分支”的组合
 
-## 备注
-
-- 如果当前 `results/` 目录不存在，说明这个例子在本地还没被重新运行过
-- README 中写的是**预期结果**，不是当前仓库快照里一定已经存在的结果文件

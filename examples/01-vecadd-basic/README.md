@@ -36,7 +36,7 @@ kernel 做的事情非常直接：
 
 脚本会做三件事：
 
-1. 用 `hipcc` 编译 [vecadd.hip](/data/gpu_model/examples/01-vecadd-basic/vecadd.hip)
+1. 用 `hipcc` 编译 [vecadd.hip](vecadd.hip)
 2. 通过 `gpu_model_hip_runtime_abi` 分别运行 `st` / `mt` / `cycle`
 3. 检查每个模式的 `stdout.txt` 中是否包含 `vecadd validation ok`
 
@@ -111,6 +111,3 @@ kernel 做的事情非常直接：
 - 它不能说明 barrier、shared memory、atomic、waitcnt 等复杂路径一定正确
 - 但它是后续所有例子的前置基线
 
-## 备注
-
-- 仓库中现有 `results/` 主要作为快照参考

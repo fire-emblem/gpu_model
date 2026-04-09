@@ -36,7 +36,7 @@ kernel 的核心逻辑是：
 
 脚本会：
 
-1. 编译 [fma_loop.hip](/data/gpu_model/examples/02-fma-loop/fma_loop.hip)
+1. 编译 [fma_loop.hip](fma_loop.hip)
 2. 分别以 `st` / `mt` / `cycle` 运行
 3. 检查每个模式的 `stdout.txt` 是否包含 `fma_loop host path ok`
 
@@ -99,6 +99,3 @@ kernel 的核心逻辑是：
 - 它仍然不覆盖 shared memory、barrier、atomic
 - 但它比 `01` 更适合看 trace 是否已经能承载稍长的指令序列
 
-## 备注
-
-- 仓库中现有 `results/` 主要作为快照参考
