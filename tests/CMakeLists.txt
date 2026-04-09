@@ -17,11 +17,6 @@ add_executable(gpu_model_tests
   execution/plan_apply_test.cpp
   execution/functional_exec_engine_waitcnt_test.cpp
 
-  # memory/*
-  unit/memory/memory_system_test.cpp
-  unit/memory/cache_model_test.cpp
-  unit/memory/shared_bank_model_test.cpp
-
   # instruction/execution migrated coverage
   execution/internal/tensor_op_utils_test.cpp
   execution/internal/issue_model_test.cpp

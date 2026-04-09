@@ -7,10 +7,11 @@ namespace gpu_model {
 struct ProgramCycleStatsConfig {
   uint32_t default_issue_cycles = 4;
   uint32_t tensor_cycles = 16;
-  uint32_t shared_mem_cycles = 32;
+  uint32_t shared_mem_cycles = 24;     // gem5 DS latency: Cycles(24)
   uint32_t scalar_mem_cycles = 128;
   uint32_t global_mem_cycles = 1024;
   uint32_t private_mem_cycles = 1024;
+  uint32_t store_latency_multiplier = 2;  // gem5: store uses 2x bus latency
 };
 
 struct ProgramCycleStats {

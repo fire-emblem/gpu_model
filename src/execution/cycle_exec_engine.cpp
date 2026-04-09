@@ -1349,7 +1349,11 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                     const std::vector<uint64_t> addrs = ActiveAddresses(request);
                     const CacheProbeResult l1_probe = l1_cache.Probe(addrs);
                     const CacheProbeResult l2_probe = l2_cache.Probe(addrs);
-                    const uint64_t arrive_latency = std::min(l1_probe.latency, l2_probe.latency);
+                    uint64_t arrive_latency = std::min(l1_probe.latency, l2_probe.latency);
+                    // gem5: store uses 2x bus latency
+                    if (request.kind == AccessKind::Store || request.kind == AccessKind::Atomic) {
+                      arrive_latency *= cycle_stats_config.store_latency_multiplier;
+                    }
                     if (context.stats != nullptr) {
                       if (l1_probe.l1_hits > 0) {
                         context.stats->l1_hits += l1_probe.l1_hits;
@@ -1441,8 +1445,12 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                     });
                   } else if (request.space == MemorySpace::Shared) {
                     const uint64_t penalty = shared_bank_model.ConflictPenalty(request);
-                    const uint64_t async_delay = ModeledAsyncCompletionDelay(
+                    uint64_t async_delay = ModeledAsyncCompletionDelay(
                         plan.issue_cycles, context.spec.default_issue_cycles);
+                    // gem5: store uses 2x bus latency
+                    if (request.kind == AccessKind::Store || request.kind == AccessKind::Atomic) {
+                      async_delay *= cycle_stats_config.store_latency_multiplier;
+                    }
                     if (context.stats != nullptr) {
                       context.stats->shared_bank_conflict_penalty_cycles += penalty;
                     }
@@ -1518,9 +1526,12 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                             },
                     });
                   } else if (request.space == MemorySpace::Private) {
-                    const uint64_t arrive_cycle =
-                        commit_cycle +
-                        ModeledAsyncCompletionDelay(plan.issue_cycles, context.spec.default_issue_cycles);
+                    uint64_t async_delay = ModeledAsyncCompletionDelay(plan.issue_cycles, context.spec.default_issue_cycles);
+                    // gem5: store uses 2x bus latency
+                    if (request.kind == AccessKind::Store) {
+                      async_delay *= cycle_stats_config.store_latency_multiplier;
+                    }
+                    const uint64_t arrive_cycle = commit_cycle + async_delay;
                     const uint64_t completion_flow_id = flow_id;
                     events.Schedule(TimedEvent{
                         .cycle = arrive_cycle,
