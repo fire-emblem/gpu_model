@@ -17,6 +17,11 @@ add_executable(gpu_model_tests
   execution/plan_apply_test.cpp
   execution/functional_exec_engine_waitcnt_test.cpp
 
+  # memory/*
+  unit/memory/memory_system_test.cpp
+  unit/memory/cache_model_test.cpp
+  unit/memory/shared_bank_model_test.cpp
+
   # instruction/execution migrated coverage
   execution/internal/tensor_op_utils_test.cpp
   execution/internal/issue_model_test.cpp
@@ -109,7 +114,14 @@ add_executable(gpu_model_tests
   runtime/hip_runtime_abi_test.cpp
   runtime/hip_cts_test.cpp
   runtime/hip_feature_cts_test.cpp
-  runtime/trace_test.cpp
+  runtime/trace_event_test.cpp
+  runtime/trace_flow_test.cpp
+  runtime/trace_recorder_test.cpp
+  runtime/trace_sink_test.cpp
+  runtime/trace_perfetto_test.cpp
+  runtime/trace_wavestats_test.cpp
+  runtime/trace_functional_test.cpp
+  runtime/trace_encoded_test.cpp
   runtime/hip_runtime_test.cpp
   runtime/execution_stats_test.cpp
   instruction/instruction_naming_test.cpp
