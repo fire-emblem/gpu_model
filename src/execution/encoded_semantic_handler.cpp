@@ -1178,21 +1178,36 @@ class VectorAluHandler final : public IEncodedSemanticHandler {
       }
     } else if (instruction.mnemonic == "v_mad_u64_u32") {
       const auto [vdst, _] = RequireVectorRange(instruction.operands.at(0));
-      const uint32_t src0 = RequireVectorIndex(instruction.operands.at(2));
-      const uint32_t src1 = RequireScalarIndex(instruction.operands.at(3));
+      // operand 1 is sdst (scalar destination pair) - currently ignored
+      const uint32_t src0 = RequireScalarIndex(instruction.operands.at(2));
+      const uint32_t src1 = RequireVectorIndex(instruction.operands.at(3));
       const uint32_t src2_pair = RequireVectorRange(instruction.operands.at(4)).first;
       for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
         if (!context.wave.exec.test(lane)) {
           continue;
         }
-        const uint64_t mul_lhs = static_cast<uint32_t>(context.wave.vgpr.Read(src0, lane));
-        const uint64_t mul_rhs = static_cast<uint32_t>(context.wave.sgpr.Read(src1));
+        const uint64_t mul_lhs = static_cast<uint32_t>(context.wave.sgpr.Read(src0));
+        const uint64_t mul_rhs = static_cast<uint32_t>(context.wave.vgpr.Read(src1, lane));
         const uint64_t acc_lo = static_cast<uint32_t>(context.wave.vgpr.Read(src2_pair, lane));
         const uint64_t acc_hi = static_cast<uint32_t>(context.wave.vgpr.Read(src2_pair + 1, lane));
         const uint64_t acc = (acc_hi << 32u) | acc_lo;
         const uint64_t value = acc + mul_lhs * mul_rhs;
         context.wave.vgpr.Write(vdst, lane, static_cast<uint32_t>(value & 0xffffffffu));
         context.wave.vgpr.Write(vdst + 1, lane, static_cast<uint32_t>(value >> 32u));
+      }
+    } else if (instruction.mnemonic == "v_mad_u32_u24") {
+      // v_mad_u32_u24 vdst, src0, src1, src2
+      // dst = (src0[23:0] * src1[23:0]) + src2
+      const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
+      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        if (!context.wave.exec.test(lane)) {
+          continue;
+        }
+        const uint32_t src0 = static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(1), context, lane)) & 0x00ffffffu;
+        const uint32_t src1 = static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(2), context, lane)) & 0x00ffffffu;
+        const uint32_t src2 = static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(3), context, lane));
+        const uint32_t result = src0 * src1 + src2;
+        context.wave.vgpr.Write(vdst, lane, result);
       }
     } else if (instruction.mnemonic == "v_mul_lo_i32") {
       const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
@@ -1863,9 +1878,12 @@ const std::vector<HandlerBinding>& HandlerBindings() {
       {.mnemonic = "s_lshl_b32", .handler = &kScalarAluHandler},
       {.mnemonic = "s_or_b32", .handler = &kScalarAluHandler},
       {.mnemonic = "s_xor_b64", .handler = &kScalarAluHandler},
+      {.mnemonic = "s_movk_i32", .handler = &kScalarAluHandler},
       {.mnemonic = "s_cmp_gt_i32", .handler = &kScalarCompareHandler},
       {.mnemonic = "s_cmp_lg_u32", .handler = &kScalarCompareHandler},
       {.mnemonic = "ds_read2_b32", .handler = &kSharedMemoryHandler},
+      {.mnemonic = "ds_read_b32", .handler = &kSharedMemoryHandler},
+      {.mnemonic = "ds_write_b32", .handler = &kSharedMemoryHandler},
       {.mnemonic = "v_and_b32_e32", .handler = &kVectorAluHandler},
       {.mnemonic = "v_xor_b32_e32", .handler = &kVectorAluHandler},
       {.mnemonic = "v_subrev_u32_e32", .handler = &kVectorAluHandler},
@@ -1879,6 +1897,7 @@ const std::vector<HandlerBinding>& HandlerBindings() {
       {.mnemonic = "v_mul_lo_i32", .handler = &kVectorAluHandler},
       {.mnemonic = "v_mul_hi_u32", .handler = &kVectorAluHandler},
       {.mnemonic = "v_or3_b32", .handler = &kVectorAluHandler},
+      {.mnemonic = "v_mad_u32_u24", .handler = &kVectorAluHandler},
       {.mnemonic = "v_cmp_lt_u32_e32", .handler = &kVectorCompareHandler},
       {.mnemonic = "v_cmp_le_u32_e32", .handler = &kVectorCompareHandler},
       {.mnemonic = "v_cmp_gt_i32_e64", .handler = &kVectorCompareHandler},
@@ -1901,6 +1920,8 @@ const IEncodedSemanticHandler& EncodedSemanticHandlerRegistry::Get(std::string_v
       return *binding.handler;
     }
   }
+  DebugLog("EncodedSemanticHandlerRegistry::Get mnemonic=%.*s not found",
+           static_cast<int>(mnemonic.size()), mnemonic.data());
   throw std::invalid_argument("unsupported raw GCN opcode: " + std::string(mnemonic));
 }
 

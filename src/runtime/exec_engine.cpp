@@ -220,6 +220,9 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
     return result;
   }
 
+  // Initialize with request config; may be adjusted for static shared memory
+  LaunchConfig adjusted_config = request.config;
+
   GPU_MODEL_LOG_INFO("runtime",
                      "launch begin mode=%s program_payload=%d arch=%s grid=(%u,%u,%u) block=(%u,%u,%u)",
                      request.mode == ExecutionMode::Cycle ? "cycle" : "functional",
@@ -276,6 +279,13 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
       result.error_message = "shared memory launch size is smaller than metadata requirement";
       return result;
     }
+    // Adjust config with proper shared memory size that includes static shared memory
+    adjusted_config.shared_memory_bytes = available_shared_bytes;
+    GPU_MODEL_LOG_INFO("runtime", "shared memory: launch=%u group_segment=%u static_load=%u available=%u",
+                       request.config.shared_memory_bytes,
+                       launch_metadata.group_segment_fixed_size.value_or(0u),
+                       statically_loaded_shared_bytes,
+                       available_shared_bytes);
     if (launch_metadata.block_dim_multiple.has_value() &&
         request.config.block_dim_x % *launch_metadata.block_dim_multiple != 0) {
       result.error_message = "block_dim_x does not satisfy metadata multiple requirement";
@@ -343,7 +353,7 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
         ExecutionContext context{
             .spec = *spec,
             .kernel = *kernel,
-            .launch_config = request.config,
+            .launch_config = adjusted_config,
             .args = request.args,
             .placement = result.placement,
             .device_load = request.device_load,
@@ -394,7 +404,7 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
         ExecutionContext context{
             .spec = *spec,
             .kernel = *kernel,
-            .launch_config = request.config,
+            .launch_config = adjusted_config,
             .args = request.args,
             .placement = result.placement,
             .device_load = request.device_load,

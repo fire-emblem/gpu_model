@@ -138,6 +138,11 @@ constexpr EncodedGcnEncodingDef kManualEncodedGcnEncodingDefs[] = {
                           .op = 0x37,
                           .size_bytes = 8,
                           .mnemonic = "ds_read2_b32"},
+    EncodedGcnEncodingDef{.id = 119,
+                          .format_class = EncodedGcnInstFormatClass::Vop3a,
+                          .op = 0x1c3,
+                          .size_bytes = 8,
+                          .mnemonic = "v_mad_u32_u24"},
 };
 
 constexpr DecoderOverrideEntry kDecoderOverrides[] = {
@@ -181,6 +186,8 @@ constexpr DecoderOverrideEntry kDecoderOverrides[] = {
     {"v_mfma_f32_16x16x2bf16", EncodedOperandDecoderKind::Vop3pMatrix},
     {"v_mfma_f32_32x32x2f32", EncodedOperandDecoderKind::Vop3pMatrix},
     {"v_mfma_i32_16x16x16i8", EncodedOperandDecoderKind::Vop3pMatrix},
+    {"v_mad_u64_u32", EncodedOperandDecoderKind::Vop3MadU64U32},
+    {"v_mad_u32_u24", EncodedOperandDecoderKind::Vop3aGeneric},
 };
 
 bool SupportsLiteral32Extension(EncodedGcnInstFormatClass format_class) {
@@ -1047,6 +1054,34 @@ bool DecodeVop3aGenericOperands(EncodedGcnInstruction& instruction) {
   return true;
 }
 
+// VOP3B format: v_mad_u64_u32 vdst_pair, sdst_pair, src0, src1, src2_pair
+// Encoding: low word bits [7:0] = vdst, [14:8] = sdst
+//           high word bits [8:0] = src0, [17:9] = src1, [26:18] = src2
+bool DecodeVop3MadU64U32Operands(EncodedGcnInstruction& instruction) {
+  if (instruction.words.size() < 2) {
+    return false;
+  }
+  const uint32_t low = instruction.words[0];
+  const uint32_t high = instruction.words[1];
+  const uint32_t vdst = low & 0xffu;
+  const uint32_t sdst = (low >> 8u) & 0x7fu;
+  const uint32_t src0 = high & 0x1ffu;
+  const uint32_t src1 = (high >> 9u) & 0x1ffu;
+  const uint32_t src2 = (high >> 18u) & 0x1ffu;
+
+  // vdst is a register pair (e.g., v[4:5])
+  instruction.decoded_operands.push_back(MakeVectorRegRangeOperand(vdst, 2));
+  // sdst is a scalar register pair (e.g., s[6:7])
+  instruction.decoded_operands.push_back(MakeScalarRegRangeOperand(sdst, 2));
+  // src0 can be scalar reg, immediate, etc.
+  instruction.decoded_operands.push_back(DecodeSrc9(src0));
+  // src1 can be scalar reg, vector reg, or immediate (Src9 encoding)
+  instruction.decoded_operands.push_back(DecodeSrc9(src1));
+  // src2 is a vector register pair using Src9 encoding (256+ maps to v[0:], etc.)
+  instruction.decoded_operands.push_back(DecodeSrc9OrVectorRegRange2(src2));
+  return true;
+}
+
 bool DecodeVop2GenericOperands(EncodedGcnInstruction& instruction) {
   if (instruction.words.empty()) {
     return false;
@@ -1238,6 +1273,9 @@ void DecodeEncodedGcnOperands(EncodedGcnInstruction& instruction) {
       return;
     case EncodedOperandDecoderKind::VopcGeneric:
       (void)DecodeVopcGenericOperands(instruction);
+      return;
+    case EncodedOperandDecoderKind::Vop3MadU64U32:
+      (void)DecodeVop3MadU64U32Operands(instruction);
       return;
     case EncodedOperandDecoderKind::Unsupported:
       return;

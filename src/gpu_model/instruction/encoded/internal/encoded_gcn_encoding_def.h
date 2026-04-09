@@ -46,6 +46,7 @@ enum class EncodedOperandDecoderKind {
   Vop3aGeneric,
   Vop3CmpE64,
   VopcGeneric,
+  Vop3MadU64U32,
 };
 
 struct EncodedGcnMatchRecord {
