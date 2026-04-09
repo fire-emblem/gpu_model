@@ -2,6 +2,24 @@
 
 `gpu_model` 是一个面向 AMD/GCN 风格 GPU kernel 的轻量级 C++ 功能模型与 naive cycle 模型。
 
+A lightweight C++ functional and naive cycle model for AMD/GCN-style GPU kernels.
+
+## Quick Start
+
+```bash
+# Build (recommended: Ninja preset)
+cmake --preset dev-fast
+cmake --build --preset dev-fast
+
+# Run tests
+./build-ninja/tests/gpu_model_tests
+
+# Run an example
+./examples/01-vecadd-basic/run.sh
+```
+
+## 项目定位
+
 当前项目重点不是硬件级精准复刻，而是给：
 
 - 算子库优化
@@ -32,16 +50,16 @@
 当前建议按下面顺序阅读：
 
 - 现行规范
-  - [README.md](/data/gpu_model/README.md)
-  - [docs/my_design.md](/data/gpu_model/docs/my_design.md)
-  - [docs/runtime-layering.md](/data/gpu_model/docs/runtime-layering.md)
-  - [docs/module-development-status.md](/data/gpu_model/docs/module-development-status.md)
-  - [docs/memory-hierarchy-interface-reservation.md](/data/gpu_model/docs/memory-hierarchy-interface-reservation.md)
+  - [README.md](README.md)
+  - [docs/my_design.md](docs/my_design.md)
+  - [docs/runtime-layering.md](docs/runtime-layering.md)
+  - [docs/module-development-status.md](docs/module-development-status.md)
+  - [docs/memory-hierarchy-interface-reservation.md](docs/memory-hierarchy-interface-reservation.md)
 - 历史计划/实施存档
-  - [docs/plans/README.md](/data/gpu_model/docs/plans/README.md)
-  - [docs/superpowers/README.md](/data/gpu_model/docs/superpowers/README.md)
+  - [docs/plans/README.md](docs/plans/README.md)
+  - [docs/superpowers/README.md](docs/superpowers/README.md)
 - 外部参考材料
-  - [docs/other_model_design/README.md](/data/gpu_model/docs/other_model_design/README.md)
+  - [docs/other_model_design/README.md](docs/other_model_design/README.md)
 
 约束：
 
@@ -128,7 +146,7 @@ runtime 侧主线按三层理解：
 
 详细说明见：
 
-- [docs/runtime-layering.md](/data/gpu_model/docs/runtime-layering.md)
+- [docs/runtime-layering.md](docs/runtime-layering.md)
 
 ## 当前执行形态
 
@@ -245,6 +263,7 @@ GPU_MODEL_TEST_PROFILE=full ./build/tests/gpu_model_tests
 ./examples/06-mma-gemm/run.sh
 ./examples/09-dynamic-shared-sum/run.sh
 ./examples/10-block-reduce-sum/run.sh
+./examples/11-perfetto-waitcnt-slots/run.sh
 ```
 
 ### cycle 相关目标例子
@@ -273,20 +292,21 @@ GPU_MODEL_TEST_PROFILE=full ./build/tests/gpu_model_tests
 
 可复现脚本见：
 
-- [examples/README.md](/data/gpu_model/examples/README.md)
+- [examples/README.md](examples/README.md)
 
 当前比较关键的例子：
 
-- [examples/01-vecadd-basic/README.md](/data/gpu_model/examples/01-vecadd-basic/README.md)
-- [examples/02-fma-loop/README.md](/data/gpu_model/examples/02-fma-loop/README.md)
-- [examples/03-shared-reverse/README.md](/data/gpu_model/examples/03-shared-reverse/README.md)
-- [examples/04-atomic-reduction/README.md](/data/gpu_model/examples/04-atomic-reduction/README.md)
-- [examples/05-softmax-reduction/README.md](/data/gpu_model/examples/05-softmax-reduction/README.md)
-- [examples/06-mma-gemm/README.md](/data/gpu_model/examples/06-mma-gemm/README.md)
-- [examples/07-vecadd-cycle-splitting/README.md](/data/gpu_model/examples/07-vecadd-cycle-splitting/README.md)
-- [examples/08-conditional-multibarrier/README.md](/data/gpu_model/examples/08-conditional-multibarrier/README.md)
-- [examples/09-dynamic-shared-sum/README.md](/data/gpu_model/examples/09-dynamic-shared-sum/README.md)
-- [examples/10-block-reduce-sum/README.md](/data/gpu_model/examples/10-block-reduce-sum/README.md)
+- [examples/01-vecadd-basic/README.md](examples/01-vecadd-basic/README.md)
+- [examples/02-fma-loop/README.md](examples/02-fma-loop/README.md)
+- [examples/03-shared-reverse/README.md](examples/03-shared-reverse/README.md)
+- [examples/04-atomic-reduction/README.md](examples/04-atomic-reduction/README.md)
+- [examples/05-softmax-reduction/README.md](examples/05-softmax-reduction/README.md)
+- [examples/06-mma-gemm/README.md](examples/06-mma-gemm/README.md)
+- [examples/07-vecadd-cycle-splitting/README.md](examples/07-vecadd-cycle-splitting/README.md)
+- [examples/08-conditional-multibarrier/README.md](examples/08-conditional-multibarrier/README.md)
+- [examples/09-dynamic-shared-sum/README.md](examples/09-dynamic-shared-sum/README.md)
+- [examples/10-block-reduce-sum/README.md](examples/10-block-reduce-sum/README.md)
+- [examples/11-perfetto-waitcnt-slots/README.md](examples/11-perfetto-waitcnt-slots/README.md)
 
 ## scripts
 

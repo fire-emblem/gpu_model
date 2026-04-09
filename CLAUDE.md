@@ -13,18 +13,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build Commands
 
 ```bash
-# Configure and build
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
-cmake --build build -j
-
-# Using presets (recommended for development)
+# Recommended: using presets (faster, Ninja backend)
 cmake --preset dev-fast
 cmake --build --preset dev-fast
+
+# Standard CMake flow
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+cmake --build build -j
 
 # Build with ASan (default for Debug builds)
 cmake -S . -B build-asan -DCMAKE_BUILD_TYPE=Debug
 cmake --build build-asan -j
 ```
+
+**Note:** The `dev-fast` preset uses Ninja and outputs to `build-ninja/`. This is the recommended workflow for development.
 
 ## Test Commands
 
@@ -57,7 +59,7 @@ Examples are numbered by complexity in `examples/01-vecadd-basic/` through `exam
 ## Key Scripts
 
 ```bash
-# Light push gate (fast smoke tests)
+# Light push gate (fast smoke tests, recommended for daily use)
 ./scripts/run_push_gate_light.sh
 
 # Full push gate
@@ -71,6 +73,15 @@ Examples are numbered by complexity in `examples/01-vecadd-basic/` through `exam
 
 # Real HIP kernel regression
 ./scripts/run_real_hip_kernel_regression.sh
+
+# ABI regression
+./scripts/run_abi_regression.sh
+
+# Verify trace isolation (GPU_MODEL_DISABLE_TRACE=1)
+./scripts/run_disable_trace_smoke.sh
+
+# Install git hooks (pre-push runs light gate)
+./scripts/install_git_hooks.sh
 ```
 
 ## Architecture
@@ -79,6 +90,23 @@ The codebase follows a five-layer architecture:
 
 ```
 runtime -> program -> instruction -> execution -> wave
+```
+
+### Source Directory Structure
+
+```
+src/
+├── arch/          # Architecture specs (GpuArchSpec, device topology)
+├── debug/         # Trace output (text, jsonl, perfetto)
+├── execution/     # Execution engines (functional/cycle/encoded)
+├── gpu_model/     # Main library entry point
+├── instruction/   # Instruction objects and semantic dispatch
+├── isa/           # GCN ISA definitions and encodings
+├── loader/        # AMDGPU object / HIP artifact loading
+├── memory/        # Memory pools (global/shared/private/constant/kernarg)
+├── program/       # ProgramObject, ExecutableKernel, EncodedProgramObject
+├── runtime/       # HipRuntime, ModelRuntime, ExecEngine
+└── spec/          # Engineering reference materials
 ```
 
 ### Runtime Layer
@@ -140,6 +168,8 @@ Key directory:
 - `src/debug/`
 
 ## Engineering Constraints (from AGENTS.md)
+
+**Important:** See `AGENTS.md` for the complete engineering constraints. Key points:
 
 ### Trace vs Business Logic
 - Trace only consumes events; it does NOT participate in business logic decisions
