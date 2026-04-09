@@ -45,6 +45,10 @@ void RuntimeSession::ResetCompatibilityState() {
   pending_launch_config_.reset();
 }
 
+void RuntimeSession::BindDeviceMemoryManager() {
+  device_memory_manager_.BindMemory(&model_runtime_.memory());
+}
+
 void RuntimeSession::RegisterKernelSymbol(const void* host_function, std::string kernel_name) {
   kernel_symbols_[host_function] = std::move(kernel_name);
 }
@@ -411,12 +415,20 @@ DeviceLoadPlan RuntimeSession::BuildExecutableLoadPlan(const std::filesystem::pa
 
 TraceArtifactRecorder* RuntimeSession::ResolveTraceArtifactRecorderFromEnv() {
   const char* disable_trace = std::getenv("GPU_MODEL_DISABLE_TRACE");
-  if (disable_trace != nullptr && disable_trace[0] != '\0' &&
-      std::string_view(disable_trace) != "0") {
+  // Default is disabled. "0" explicitly enables trace.
+  if (disable_trace == nullptr || disable_trace[0] == '\0') {
+    // Default: trace disabled
     trace_artifact_recorder_.reset();
     trace_artifacts_dir_.clear();
     return nullptr;
   }
+  if (std::string_view(disable_trace) != "0") {
+    // Explicitly disabled
+    trace_artifact_recorder_.reset();
+    trace_artifacts_dir_.clear();
+    return nullptr;
+  }
+  // Explicitly enabled (GPU_MODEL_DISABLE_TRACE=0)
   const char* env = std::getenv("GPU_MODEL_TRACE_DIR");
   if (env == nullptr || env[0] == '\0') {
     trace_artifact_recorder_.reset();

@@ -18,7 +18,7 @@
 #include "gpu_model/isa/kernel_metadata.h"
 #include "gpu_model/loader/device_image_loader.h"
 #include "gpu_model/loader/asm_parser.h"
-#include "gpu_model/runtime/runtime_env_config.h"
+#include "gpu_model/runtime/runtime_config.h"
 #include "gpu_model/util/logging.h"
 
 namespace gpu_model {
@@ -113,10 +113,11 @@ const char* ToEnvModeName(FunctionalExecutionMode mode) {
 
 ExecEngineImpl::ExecEngineImpl(TraceSink* default_trace) : default_trace_(default_trace) {
   logging::EnsureInitialized();
-  const auto env_config = LoadRuntimeEnvConfig();
-  disable_trace_ = env_config.disable_trace;
-  if (env_config.has_functional_mode) {
-    functional_execution_config_ = env_config.functional;
+  const auto& config = GetRuntimeConfig();
+  disable_trace_ = config.disable_trace;
+  if (config.functional.mode != FunctionalExecutionMode::SingleThreaded ||
+      config.functional.worker_threads > 0) {
+    functional_execution_config_ = config.functional;
     GPU_MODEL_LOG_INFO("runtime",
                        "functional_mode=%s workers=%u",
                        ToEnvModeName(functional_execution_config_.mode),
@@ -514,14 +515,17 @@ CycleTimingConfig ExecEngineImpl::ResolveCycleTimingConfig(const GpuArchSpec& sp
 }
 
 TraceSink& ExecEngineImpl::ResolveTraceSink(TraceSink* request_trace) {
-  if (disable_trace_) {
-    return null_trace_sink_;
-  }
+  // If a TraceSink is explicitly passed in request, always use it
   if (request_trace != nullptr) {
     return *request_trace;
   }
+  // If a TraceSink was passed to constructor, always use it
   if (default_trace_ != nullptr) {
     return *default_trace_;
+  }
+  // Otherwise, check if trace is disabled
+  if (disable_trace_) {
+    return null_trace_sink_;
   }
   return null_trace_sink_;
 }

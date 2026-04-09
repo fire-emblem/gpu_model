@@ -80,10 +80,12 @@ std::string ProgramName() {
 
 bool ShouldDisableLoguru() {
   const char* raw = std::getenv("GPU_MODEL_DISABLE_LOGURU");
-  if (raw != nullptr && raw[0] != '\0' && std::string_view(raw) != "0") {
+  if (raw == nullptr || raw[0] == '\0') {
+    // Default is disabled (return true to disable)
     return true;
   }
-  return false;
+  // "0" explicitly enables loguru
+  return std::string_view(raw) != "0";
 }
 
 bool IsChattyModule(std::string_view module) {

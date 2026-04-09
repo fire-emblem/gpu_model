@@ -6,6 +6,7 @@
 
 #include "gpu_model/isa/instruction_builder.h"
 #include "gpu_model/runtime/exec_engine.h"
+#include "tests/runtime/test_matrix_profile.h"
 
 namespace gpu_model {
 namespace {
@@ -17,6 +18,28 @@ struct LaunchShape {
 
 void PrintTo(const LaunchShape& shape, std::ostream* os) {
   *os << "G" << shape.grid_dim_x << "_T" << shape.block_dim_x;
+}
+
+// Returns test shapes based on profile: small set for default, full set for full profile
+std::vector<LaunchShape> GetTestShapes() {
+  if (test::FullTestMatrixEnabled()) {
+    return {
+        LaunchShape{.grid_dim_x = 1, .block_dim_x = 1},
+        LaunchShape{.grid_dim_x = 1, .block_dim_x = 60},
+        LaunchShape{.grid_dim_x = 1, .block_dim_x = 64},
+        LaunchShape{.grid_dim_x = 1, .block_dim_x = 65},
+        LaunchShape{.grid_dim_x = 64, .block_dim_x = 128},
+        LaunchShape{.grid_dim_x = 1024, .block_dim_x = 1024},
+    };
+  }
+  // Default profile: skip the 1M thread test (1024 x 1024)
+  return {
+      LaunchShape{.grid_dim_x = 1, .block_dim_x = 1},
+      LaunchShape{.grid_dim_x = 1, .block_dim_x = 60},
+      LaunchShape{.grid_dim_x = 1, .block_dim_x = 64},
+      LaunchShape{.grid_dim_x = 1, .block_dim_x = 65},
+      LaunchShape{.grid_dim_x = 64, .block_dim_x = 128},
+  };
 }
 
 ExecutableKernel BuildVecAddKernelForScaling() {
@@ -183,23 +206,11 @@ TEST_P(FmaScalingTest, CoversRequestedBlockAndThreadCounts) {
 
 INSTANTIATE_TEST_SUITE_P(
     RequestedShapes, VecAddScalingTest,
-    ::testing::Values(
-        LaunchShape{.grid_dim_x = 1, .block_dim_x = 1},
-        LaunchShape{.grid_dim_x = 1, .block_dim_x = 60},
-        LaunchShape{.grid_dim_x = 1, .block_dim_x = 64},
-        LaunchShape{.grid_dim_x = 1, .block_dim_x = 65},
-        LaunchShape{.grid_dim_x = 64, .block_dim_x = 128},
-        LaunchShape{.grid_dim_x = 1024, .block_dim_x = 1024}));
+    ::testing::ValuesIn(GetTestShapes()));
 
 INSTANTIATE_TEST_SUITE_P(
     RequestedShapes, FmaScalingTest,
-    ::testing::Values(
-        LaunchShape{.grid_dim_x = 1, .block_dim_x = 1},
-        LaunchShape{.grid_dim_x = 1, .block_dim_x = 60},
-        LaunchShape{.grid_dim_x = 1, .block_dim_x = 64},
-        LaunchShape{.grid_dim_x = 1, .block_dim_x = 65},
-        LaunchShape{.grid_dim_x = 64, .block_dim_x = 128},
-        LaunchShape{.grid_dim_x = 1024, .block_dim_x = 1024}));
+    ::testing::ValuesIn(GetTestShapes()));
 
 }  // namespace
 }  // namespace gpu_model

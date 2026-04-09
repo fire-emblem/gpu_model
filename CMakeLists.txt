@@ -117,7 +117,7 @@ add_library(gpu_model STATIC
   src/runtime/core/model_runtime.cpp
   src/runtime/core/device_memory_manager.cpp
   src/runtime/core/runtime_session.cpp
-  src/runtime/config/runtime_env_config.cpp
+  src/runtime/config/runtime_config.cpp
   src/runtime/logging/runtime_log_service.cpp
   src/debug/trace/instruction_trace.cpp
   src/debug/recorder/recorder.cpp

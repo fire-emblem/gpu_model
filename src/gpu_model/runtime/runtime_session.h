@@ -51,6 +51,7 @@ class RuntimeSession {
   const ModelRuntime& model_runtime() const;
 
   void ResetCompatibilityState();
+  void BindDeviceMemoryManager();
   void RegisterKernelSymbol(const void* host_function, std::string kernel_name);
   std::optional<std::string> ResolveKernelSymbol(const void* host_function) const;
   int GetDeviceCount() const;

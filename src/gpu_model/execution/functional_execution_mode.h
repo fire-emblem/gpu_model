@@ -10,7 +10,7 @@ enum class FunctionalExecutionMode {
 };
 
 struct FunctionalExecutionConfig {
-  FunctionalExecutionMode mode = FunctionalExecutionMode::SingleThreaded;
+  FunctionalExecutionMode mode = FunctionalExecutionMode::MultiThreaded;
   uint32_t worker_threads = 0;
 };
 

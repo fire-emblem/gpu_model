@@ -6,6 +6,7 @@
 
 #include "gpu_model/isa/instruction_builder.h"
 #include "gpu_model/runtime/exec_engine.h"
+#include "tests/runtime/test_matrix_profile.h"
 
 namespace gpu_model {
 namespace {
@@ -17,6 +18,27 @@ struct LaunchShape {
 
 void PrintTo(const LaunchShape& shape, std::ostream* os) {
   *os << "G" << shape.grid_dim_x << "_T" << shape.block_dim_x;
+}
+
+// Returns test shapes based on profile: small set for default, full set for full profile
+std::vector<LaunchShape> GetCycleTestShapes() {
+  if (test::FullTestMatrixEnabled()) {
+    return {
+        LaunchShape{.grid_dim_x = 1, .block_dim_x = 1},
+        LaunchShape{.grid_dim_x = 1, .block_dim_x = 60},
+        LaunchShape{.grid_dim_x = 1, .block_dim_x = 64},
+        LaunchShape{.grid_dim_x = 1, .block_dim_x = 65},
+        LaunchShape{.grid_dim_x = 64, .block_dim_x = 128},
+        LaunchShape{.grid_dim_x = 1024, .block_dim_x = 65},
+    };
+  }
+  // Default profile: skip the large scale tests
+  return {
+      LaunchShape{.grid_dim_x = 1, .block_dim_x = 1},
+      LaunchShape{.grid_dim_x = 1, .block_dim_x = 60},
+      LaunchShape{.grid_dim_x = 1, .block_dim_x = 64},
+      LaunchShape{.grid_dim_x = 1, .block_dim_x = 65},
+  };
 }
 
 ExecutableKernel BuildVecAddCycleScalingKernel() {
@@ -189,23 +211,11 @@ TEST_P(FmaCycleScalingTest, ProducesCorrectOutputAcrossRequestedScales) {
 
 INSTANTIATE_TEST_SUITE_P(
     RequestedThreadScales, VecAddCycleScalingTest,
-    ::testing::Values(
-        LaunchShape{.grid_dim_x = 1, .block_dim_x = 1},
-        LaunchShape{.grid_dim_x = 1, .block_dim_x = 60},
-        LaunchShape{.grid_dim_x = 1, .block_dim_x = 64},
-        LaunchShape{.grid_dim_x = 1, .block_dim_x = 65},
-        LaunchShape{.grid_dim_x = 64, .block_dim_x = 128},
-        LaunchShape{.grid_dim_x = 1024, .block_dim_x = 65}));
+    ::testing::ValuesIn(GetCycleTestShapes()));
 
 INSTANTIATE_TEST_SUITE_P(
     RequestedThreadScales, FmaCycleScalingTest,
-    ::testing::Values(
-        LaunchShape{.grid_dim_x = 1, .block_dim_x = 1},
-        LaunchShape{.grid_dim_x = 1, .block_dim_x = 60},
-        LaunchShape{.grid_dim_x = 1, .block_dim_x = 64},
-        LaunchShape{.grid_dim_x = 1, .block_dim_x = 65},
-        LaunchShape{.grid_dim_x = 64, .block_dim_x = 128},
-        LaunchShape{.grid_dim_x = 1024, .block_dim_x = 65}));
+    ::testing::ValuesIn(GetCycleTestShapes()));
 
 }  // namespace
 }  // namespace gpu_model

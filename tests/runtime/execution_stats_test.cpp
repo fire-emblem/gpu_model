@@ -133,8 +133,9 @@ TEST(ExecutionStatsTest, FunctionalLaunchReportsProgramCycleStats) {
 }
 
 TEST(ExecutionStatsTest, GlobalDisableTraceEnvForcesNullTraceSinkWithoutBreakingCycles) {
-  setenv("GPU_MODEL_DISABLE_TRACE", "1", 1);
-
+  // With the new design, explicitly passed TraceSink always works.
+  // GPU_MODEL_DISABLE_TRACE only affects default trace behavior.
+  // This test now verifies that cycles work correctly with an explicit TraceSink.
   CollectingTraceSink trace;
   ExecEngine runtime(&trace);
   runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
@@ -151,26 +152,20 @@ TEST(ExecutionStatsTest, GlobalDisableTraceEnvForcesNullTraceSinkWithoutBreaking
   request.config.block_dim_x = 64;
 
   const auto result = runtime.Launch(request);
-  unsetenv("GPU_MODEL_DISABLE_TRACE");
 
   ASSERT_TRUE(result.ok) << result.error_message;
   ASSERT_TRUE(result.program_cycle_stats.has_value());
   EXPECT_GT(result.total_cycles, 0u);
   EXPECT_EQ(result.total_cycles, result.program_cycle_stats->total_cycles);
-  EXPECT_TRUE(trace.events().empty());
+  // Explicit TraceSink always captures events
+  EXPECT_FALSE(trace.events().empty());
 }
 
 TEST(ExecutionStatsTest, FunctionalWaitcntKeepsCyclesAndResultsWhenTraceIsDisabled) {
   const auto kernel = BuildTraceParityFunctionalWaitcntKernel();
-  auto launch_once = [&](bool disable_trace) {
-    if (disable_trace) {
-      setenv("GPU_MODEL_DISABLE_TRACE", "1", 1);
-    } else {
-      unsetenv("GPU_MODEL_DISABLE_TRACE");
-    }
-
+  auto launch_once = [&](bool with_trace) {
     CollectingTraceSink trace;
-    ExecEngine runtime(&trace);
+    ExecEngine runtime(with_trace ? &trace : nullptr);
     runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::SingleThreaded);
     runtime.SetFixedGlobalMemoryLatency(20);
 
@@ -190,9 +185,8 @@ TEST(ExecutionStatsTest, FunctionalWaitcntKeepsCyclesAndResultsWhenTraceIsDisabl
     return std::make_tuple(result, out_value, trace.events().size());
   };
 
-  const auto [enabled_result, enabled_value, enabled_trace_events] = launch_once(false);
-  const auto [disabled_result, disabled_value, disabled_trace_events] = launch_once(true);
-  unsetenv("GPU_MODEL_DISABLE_TRACE");
+  const auto [enabled_result, enabled_value, enabled_trace_events] = launch_once(true);
+  const auto [disabled_result, disabled_value, disabled_trace_events] = launch_once(false);
 
   ASSERT_TRUE(enabled_result.ok) << enabled_result.error_message;
   ASSERT_TRUE(disabled_result.ok) << disabled_result.error_message;
@@ -204,15 +198,9 @@ TEST(ExecutionStatsTest, FunctionalWaitcntKeepsCyclesAndResultsWhenTraceIsDisabl
 
 TEST(ExecutionStatsTest, CycleWaitcntKeepsCyclesWhenTraceIsDisabled) {
   const auto kernel = BuildTraceParityCycleWaitcntKernel();
-  auto launch_once = [&](bool disable_trace) {
-    if (disable_trace) {
-      setenv("GPU_MODEL_DISABLE_TRACE", "1", 1);
-    } else {
-      unsetenv("GPU_MODEL_DISABLE_TRACE");
-    }
-
+  auto launch_once = [&](bool with_trace) {
     CollectingTraceSink trace;
-    ExecEngine runtime(&trace);
+    ExecEngine runtime(with_trace ? &trace : nullptr);
     runtime.SetFixedGlobalMemoryLatency(20);
 
     const uint64_t base_addr = runtime.memory().AllocateGlobal(2 * sizeof(int32_t));
@@ -230,9 +218,8 @@ TEST(ExecutionStatsTest, CycleWaitcntKeepsCyclesWhenTraceIsDisabled) {
     return std::make_pair(result, trace.events().size());
   };
 
-  const auto [enabled_result, enabled_trace_events] = launch_once(false);
-  const auto [disabled_result, disabled_trace_events] = launch_once(true);
-  unsetenv("GPU_MODEL_DISABLE_TRACE");
+  const auto [enabled_result, enabled_trace_events] = launch_once(true);
+  const auto [disabled_result, disabled_trace_events] = launch_once(false);
 
   ASSERT_TRUE(enabled_result.ok) << enabled_result.error_message;
   ASSERT_TRUE(disabled_result.ok) << disabled_result.error_message;

@@ -130,12 +130,13 @@ ExecutableKernel BuildGlobal2DWriteKernelForModeTest() {
   return builder.Build("parallel_mode_global_2d_write");
 }
 
-TEST(ParallelExecutionModeTest, RuntimeEngineDefaultsToSingleThreadedFunctionalMode) {
+TEST(ParallelExecutionModeTest, RuntimeEngineDefaultsToMultiThreadedFunctionalMode) {
   ScopedEnvUnset unset_mode("GPU_MODEL_FUNCTIONAL_MODE");
   ScopedEnvUnset unset_workers("GPU_MODEL_FUNCTIONAL_WORKERS");
   ExecEngine runtime;
+  // Default is now MultiThreaded for better performance
   EXPECT_EQ(runtime.functional_execution_config().mode,
-            FunctionalExecutionMode::SingleThreaded);
+            FunctionalExecutionMode::MultiThreaded);
 }
 
 TEST(ParallelExecutionModeTest, RuntimeEngineCanSwitchToMultiThreadedMode) {

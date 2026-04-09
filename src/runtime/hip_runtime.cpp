@@ -68,8 +68,12 @@ std::optional<int> HipRuntime::GetDeviceAttribute(RuntimeDeviceAttribute attribu
 }
 
 void HipRuntime::ResetCompatibilityState() {
-  GetRuntimeSession().model_runtime().Reset();
+  // Clear allocations first while the old MemorySystem is still valid.
   GetRuntimeSession().ResetCompatibilityState();
+  // Reset the runtime, which destroys and recreates the ExecEngine/MemorySystem.
+  GetRuntimeSession().model_runtime().Reset();
+  // Update DeviceMemoryManager's memory pointer to the new MemorySystem.
+  GetRuntimeSession().BindDeviceMemoryManager();
 }
 
 void HipRuntime::RegisterFunction(const void* host_function, std::string kernel_name) {
