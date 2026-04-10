@@ -254,9 +254,60 @@ const GcnIsaOpcodeDescriptor& RequireCanonicalOpcode(const DecodedInstruction& i
   throw std::invalid_argument("missing canonical opcode descriptor: " + instruction.mnemonic);
 }
 
-class ScalarMemoryHandler final : public IEncodedSemanticHandler {
+// Base handler class with trace support and unified PC update
+// This eliminates the repetitive "context.wave.pc += instruction.size_bytes;" pattern
+// and provides centralized trace callback invocation.
+class BaseHandler : public IEncodedSemanticHandler {
  public:
   void Execute(const DecodedInstruction& instruction, EncodedWaveContext& context) const override {
+    // Emit trace callback for instruction start
+    if (context.on_execute) {
+      context.on_execute(instruction, context, "start");
+    }
+
+    // Execute the actual instruction logic
+    ExecuteImpl(instruction, context);
+
+    // Emit trace callback for instruction end
+    if (context.on_execute) {
+      context.on_execute(instruction, context, "end");
+    }
+
+    // Unified PC advancement - all handlers need this
+    context.wave.pc += instruction.size_bytes;
+  }
+
+ protected:
+  virtual void ExecuteImpl(const DecodedInstruction& instruction,
+                           EncodedWaveContext& context) const = 0;
+};
+
+// Vector lane handler base class - provides lane iteration with exec mask check
+// Eliminates the repetitive "for (uint32_t lane = 0; lane < LaneCount(context); ++lane)"
+// and "if (!context.wave.exec.test(lane)) { continue; }" patterns.
+template <typename Impl>
+class VectorLaneHandler : public BaseHandler {
+ protected:
+  void ExecuteImpl(const DecodedInstruction& instruction,
+                   EncodedWaveContext& context) const override {
+    ForEachActiveLane(context, [&](uint32_t lane) {
+      static_cast<const Impl*>(this)->ExecuteLane(instruction, context, lane);
+    });
+  }
+
+ private:
+  void ForEachActiveLane(EncodedWaveContext& context, auto&& fn) const {
+    for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+      if (context.wave.exec.test(lane)) {
+        fn(lane);
+      }
+    }
+  }
+};
+
+class ScalarMemoryHandler final : public BaseHandler {
+ protected:
+  void ExecuteImpl(const DecodedInstruction& instruction, EncodedWaveContext& context) const override {
     MemoryRequest request;
     request.space = MemorySpace::Constant;
     request.kind = AccessKind::Load;
@@ -297,13 +348,12 @@ class ScalarMemoryHandler final : public IEncodedSemanticHandler {
     if (context.captured_memory_request != nullptr) {
       *context.captured_memory_request = request;
     }
-    context.wave.pc += instruction.size_bytes;
   }
 };
 
-class ScalarAluHandler final : public IEncodedSemanticHandler {
- public:
-  void Execute(const DecodedInstruction& instruction, EncodedWaveContext& context) const override {
+class ScalarAluHandler final : public BaseHandler {
+ protected:
+  void ExecuteImpl(const DecodedInstruction& instruction, EncodedWaveContext& context) const override {
     const auto& descriptor = RequireCanonicalOpcode(instruction);
     if (descriptor.op_type == GcnIsaOpType::Sop2 &&
         descriptor.opcode == static_cast<uint16_t>(GcnIsaSop2Opcode::S_CSELECT_B64)) {
@@ -467,13 +517,12 @@ class ScalarAluHandler final : public IEncodedSemanticHandler {
     } else {
       throw std::invalid_argument("unsupported scalar alu opcode: " + instruction.mnemonic);
     }
-    context.wave.pc += instruction.size_bytes;
   }
 };
 
-class ScalarCompareHandler final : public IEncodedSemanticHandler {
- public:
-  void Execute(const DecodedInstruction& instruction, EncodedWaveContext& context) const override {
+class ScalarCompareHandler final : public BaseHandler {
+ protected:
+  void ExecuteImpl(const DecodedInstruction& instruction, EncodedWaveContext& context) const override {
     const auto& descriptor = RequireCanonicalOpcode(instruction);
     if (descriptor.op_type == GcnIsaOpType::Sopc &&
         descriptor.opcode == static_cast<uint16_t>(GcnIsaSopcOpcode::S_CMP_LT_I32)) {
@@ -513,13 +562,12 @@ class ScalarCompareHandler final : public IEncodedSemanticHandler {
     } else {
       throw std::invalid_argument("unsupported scalar compare opcode: " + instruction.mnemonic);
     }
-    context.wave.pc += instruction.size_bytes;
   }
 };
 
-class VectorAluHandler final : public IEncodedSemanticHandler {
- public:
-  void Execute(const DecodedInstruction& instruction, EncodedWaveContext& context) const override {
+class VectorAluHandler final : public BaseHandler {
+ protected:
+  void ExecuteImpl(const DecodedInstruction& instruction, EncodedWaveContext& context) const override {
     if (instruction.mnemonic == "v_not_b32_e32") {
       const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
       for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
@@ -596,7 +644,6 @@ class VectorAluHandler final : public IEncodedSemanticHandler {
       // Until VOP3P pack-move operand decoding is modeled explicitly, treat the
       // instruction as a supported no-op for decode/binding purposes so real
       // HIP MFMA FP16 code objects can be parsed without surfacing `unknown`.
-      context.wave.pc += instruction.size_bytes;
       return;
     } else if (instruction.mnemonic == "v_cvt_f32_u32_e32") {
       const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
@@ -1266,13 +1313,12 @@ class VectorAluHandler final : public IEncodedSemanticHandler {
     } else {
       throw std::invalid_argument("unsupported vector alu opcode: " + instruction.mnemonic);
     }
-    context.wave.pc += instruction.size_bytes;
   }
 };
 
-class VectorCompareHandler final : public IEncodedSemanticHandler {
- public:
-  void Execute(const DecodedInstruction& instruction, EncodedWaveContext& context) const override {
+class VectorCompareHandler final : public BaseHandler {
+ protected:
+  void ExecuteImpl(const DecodedInstruction& instruction, EncodedWaveContext& context) const override {
     uint64_t mask = 0;
     if (instruction.mnemonic == "v_cmp_lt_u32_e32") {
       for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
@@ -1288,7 +1334,6 @@ class VectorCompareHandler final : public IEncodedSemanticHandler {
         }
       }
       context.vcc = mask;
-      context.wave.pc += instruction.size_bytes;
       return;
     }
     if (instruction.mnemonic == "v_cmp_gt_u32_e64") {
@@ -1308,7 +1353,6 @@ class VectorCompareHandler final : public IEncodedSemanticHandler {
           instruction.operands.at(0).kind == DecodedInstructionOperandKind::SpecialReg) {
         StoreScalarPair(instruction.operands.at(0), context, mask);
       }
-      context.wave.pc += instruction.size_bytes;
       return;
     }
     if (instruction.mnemonic == "v_cmp_lt_u32_e64") {
@@ -1328,7 +1372,6 @@ class VectorCompareHandler final : public IEncodedSemanticHandler {
           instruction.operands.at(0).kind == DecodedInstructionOperandKind::SpecialReg) {
         StoreScalarPair(instruction.operands.at(0), context, mask);
       }
-      context.wave.pc += instruction.size_bytes;
       return;
     }
     if (instruction.mnemonic == "v_cmp_le_u32_e32") {
@@ -1345,7 +1388,6 @@ class VectorCompareHandler final : public IEncodedSemanticHandler {
         }
       }
       context.vcc = mask;
-      context.wave.pc += instruction.size_bytes;
       return;
     }
     switch (instruction.encoding_id) {
@@ -1490,13 +1532,12 @@ class VectorCompareHandler final : public IEncodedSemanticHandler {
              static_cast<unsigned long long>(instruction.pc),
              instruction.mnemonic.c_str(),
              static_cast<unsigned long long>(mask));
-    context.wave.pc += instruction.size_bytes;
   }
 };
 
-class MaskHandler final : public IEncodedSemanticHandler {
- public:
-  void Execute(const DecodedInstruction& instruction, EncodedWaveContext& context) const override {
+class MaskHandler final : public BaseHandler {
+ protected:
+  void ExecuteImpl(const DecodedInstruction& instruction, EncodedWaveContext& context) const override {
     if (instruction.mnemonic != "s_and_saveexec_b64" &&
         instruction.mnemonic != "s_andn2_saveexec_b64") {
       throw std::invalid_argument("unsupported mask opcode: " + instruction.mnemonic);
@@ -1515,13 +1556,17 @@ class MaskHandler final : public IEncodedSemanticHandler {
              static_cast<unsigned long long>(instruction.pc),
              instruction.mnemonic.c_str(),
              static_cast<unsigned long long>(context.wave.exec.to_ullong()));
-    context.wave.pc += instruction.size_bytes;
   }
 };
 
 class BranchHandler final : public IEncodedSemanticHandler {
  public:
   void Execute(const DecodedInstruction& instruction, EncodedWaveContext& context) const override {
+    // Emit trace callback for instruction start
+    if (context.on_execute) {
+      context.on_execute(instruction, context, "start");
+    }
+
     switch (instruction.encoding_id) {
       case 10: {  // s_cbranch_execz
       if (context.wave.exec.none()) {
@@ -1530,7 +1575,7 @@ class BranchHandler final : public IEncodedSemanticHandler {
       } else {
         context.wave.pc += instruction.size_bytes;
       }
-      return;
+      break;
       }
       case 22: {  // s_cbranch_scc1
       if (context.wave.ScalarMaskBit0()) {
@@ -1539,7 +1584,7 @@ class BranchHandler final : public IEncodedSemanticHandler {
       } else {
         context.wave.pc += instruction.size_bytes;
       }
-      return;
+      break;
       }
       case 26: {  // s_cbranch_scc0
       if (!context.wave.ScalarMaskBit0()) {
@@ -1548,7 +1593,7 @@ class BranchHandler final : public IEncodedSemanticHandler {
       } else {
         context.wave.pc += instruction.size_bytes;
       }
-      return;
+      break;
       }
       case 43: {  // s_cbranch_vccz
       if (context.vcc == 0) {
@@ -1557,7 +1602,7 @@ class BranchHandler final : public IEncodedSemanticHandler {
       } else {
         context.wave.pc += instruction.size_bytes;
       }
-      return;
+      break;
       }
       case 74: {  // s_cbranch_execnz
       if (context.wave.exec.any()) {
@@ -1566,22 +1611,27 @@ class BranchHandler final : public IEncodedSemanticHandler {
       } else {
         context.wave.pc += instruction.size_bytes;
       }
-      return;
+      break;
       }
       case 27: {  // s_branch
       context.wave.pc =
           BranchTarget(context.wave.pc, static_cast<int32_t>(instruction.operands.at(0).info.immediate));
-      return;
+      break;
       }
       default:
         throw std::invalid_argument("unsupported branch opcode: " + instruction.mnemonic);
     }
+
+    // Emit trace callback for instruction end
+    if (context.on_execute) {
+      context.on_execute(instruction, context, "end");
+    }
   }
 };
 
-class FlatMemoryHandler final : public IEncodedSemanticHandler {
- public:
-  void Execute(const DecodedInstruction& instruction, EncodedWaveContext& context) const override {
+class FlatMemoryHandler final : public BaseHandler {
+ protected:
+  void ExecuteImpl(const DecodedInstruction& instruction, EncodedWaveContext& context) const override {
     MemoryRequest request;
     request.space = MemorySpace::Global;
     if (instruction.mnemonic == "global_load_dword") {
@@ -1703,13 +1753,12 @@ class FlatMemoryHandler final : public IEncodedSemanticHandler {
     if (context.captured_memory_request != nullptr) {
       *context.captured_memory_request = request;
     }
-    context.wave.pc += instruction.size_bytes;
   }
 };
 
-class SharedMemoryHandler final : public IEncodedSemanticHandler {
- public:
-  void Execute(const DecodedInstruction& instruction, EncodedWaveContext& context) const override {
+class SharedMemoryHandler final : public BaseHandler {
+ protected:
+  void ExecuteImpl(const DecodedInstruction& instruction, EncodedWaveContext& context) const override {
     MemoryRequest request;
     request.space = MemorySpace::Shared;
     if (instruction.mnemonic == "ds_write_b32") {
@@ -1748,7 +1797,6 @@ class SharedMemoryHandler final : public IEncodedSemanticHandler {
       if (context.captured_memory_request != nullptr) {
         *context.captured_memory_request = request;
       }
-      context.wave.pc += instruction.size_bytes;
       return;
     }
     if (instruction.mnemonic == "ds_read_b32") {
@@ -1782,7 +1830,6 @@ class SharedMemoryHandler final : public IEncodedSemanticHandler {
       if (context.captured_memory_request != nullptr) {
         *context.captured_memory_request = request;
       }
-      context.wave.pc += instruction.size_bytes;
       return;
     }
     if (instruction.mnemonic == "ds_read2_b32") {
@@ -1808,7 +1855,6 @@ class SharedMemoryHandler final : public IEncodedSemanticHandler {
         context.wave.vgpr.Write(vdst + 1, lane, LoadU32(context.block.shared_memory, byte_offset1));
       }
       ++context.stats.shared_loads;
-      context.wave.pc += instruction.size_bytes;
       return;
     }
     throw std::invalid_argument("unsupported shared memory opcode: " + instruction.mnemonic);
@@ -1818,27 +1864,38 @@ class SharedMemoryHandler final : public IEncodedSemanticHandler {
 class SpecialHandler final : public IEncodedSemanticHandler {
  public:
   void Execute(const DecodedInstruction& instruction, EncodedWaveContext& context) const override {
+    // Emit trace callback for instruction start
+    if (context.on_execute) {
+      context.on_execute(instruction, context, "start");
+    }
+
     switch (instruction.encoding_id) {
       case 29: {  // s_barrier
-      ++context.stats.barriers;
-      sync_ops::MarkWaveAtBarrier(context.wave,
-                                            context.block.barrier_generation,
-                                            context.block.barrier_arrivals,
-                                            false);
-      return;
+        ++context.stats.barriers;
+        sync_ops::MarkWaveAtBarrier(context.wave,
+                                    context.block.barrier_generation,
+                                    context.block.barrier_arrivals,
+                                    false);
+        // Do NOT advance PC here - ResumeBarrierReleasedWave handles it when barrier releases
+        break;
       }
       case 68:  // s_nop
-      context.wave.pc += instruction.size_bytes;
-      return;
+        context.wave.pc += instruction.size_bytes;
+        break;
       case 12:  // s_waitcnt
-      context.wave.pc += instruction.size_bytes;
-      return;
-      case 1:  // s_endpgm
-      context.wave.status = WaveStatus::Exited;
-      ++context.stats.wave_exits;
-      return;
+        context.wave.pc += instruction.size_bytes;
+        break;
+      case 1:  // s_endpgm - do NOT advance PC, execution terminates
+        context.wave.status = WaveStatus::Exited;
+        ++context.stats.wave_exits;
+        break;
       default:
         throw std::invalid_argument("unsupported special opcode: " + instruction.mnemonic);
+    }
+
+    // Emit trace callback for instruction end
+    if (context.on_execute) {
+      context.on_execute(instruction, context, "end");
     }
   }
 };
