@@ -1,8 +1,11 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
+
+#include "gpu_model/debug/trace/step_detail.h"
 
 namespace gpu_model {
 
@@ -133,6 +136,8 @@ struct TraceEvent {
   std::string message;
   uint64_t flow_id = 0;
   TraceFlowPhase flow_phase = TraceFlowPhase::None;
+  // Structured step detail (producer-owned fact)
+  std::optional<TraceWaveStepDetail> step_detail;
 };
 
 inline constexpr std::string_view kTraceStallReasonPrefix = "reason=";

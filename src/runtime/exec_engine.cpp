@@ -303,6 +303,37 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
 
   auto& trace = ResolveTraceSink(request.trace);
   try {
+    // Emit run snapshot
+    TraceRunSnapshot run_snapshot{
+        .execution_model = request.mode == ExecutionMode::Cycle ? "cycle" : "functional",
+        .trace_time_basis = "modeled_cycle",
+        .trace_cycle_is_physical_time = false,
+    };
+    trace.OnRunSnapshot(run_snapshot);
+
+    // Emit model config snapshot
+    TraceModelConfigSnapshot model_config_snapshot{
+        .num_dpcs = spec->dpc_count,
+        .num_aps_per_dpc = spec->ap_per_dpc,
+        .num_peus_per_ap = spec->peu_per_ap,
+        .num_slots_per_peu = spec->cycle_resources.resident_wave_slots_per_peu,
+        .slot_model = "resident_fixed",
+    };
+    trace.OnModelConfigSnapshot(model_config_snapshot);
+
+    // Emit kernel snapshot
+    TraceKernelSnapshot kernel_snapshot{
+        .kernel_name = use_program_object_payload ? program_object->kernel_name() : kernel->name(),
+        .kernel_launch_uid = 0,
+        .grid_dim_x = request.config.grid_dim_x,
+        .grid_dim_y = request.config.grid_dim_y,
+        .grid_dim_z = request.config.grid_dim_z,
+        .block_dim_x = request.config.block_dim_x,
+        .block_dim_y = request.config.block_dim_y,
+        .block_dim_z = request.config.block_dim_z,
+    };
+    trace.OnKernelSnapshot(kernel_snapshot);
+
     if (request.mode == ExecutionMode::Cycle) {
       result.submit_cycle =
           has_cycle_launch_history_ ? device_cycle_ + spec->launch_timing.kernel_launch_gap_cycles
@@ -432,6 +463,38 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
     if (!use_program_object_payload || result.error_message.empty()) {
       result.ok = true;
     }
+
+    // Emit summary snapshot
+    TraceSummarySnapshot summary_snapshot{
+        .kernel_status = result.ok ? "PASS" : "FAIL",
+        .gpu_tot_sim_cycle = result.total_cycles,
+        .gpu_tot_sim_insn = result.program_cycle_stats.has_value()
+                                ? result.program_cycle_stats->instructions_executed
+                                : 0,
+        .gpu_tot_ipc = result.program_cycle_stats.has_value() && result.total_cycles > 0
+                           ? static_cast<double>(result.program_cycle_stats->instructions_executed) /
+                                 static_cast<double>(result.total_cycles)
+                           : 0.0,
+        .gpu_tot_wave_exits = result.program_cycle_stats.has_value()
+                                  ? result.program_cycle_stats->waves_completed
+                                  : 0,
+        .stall_waitcnt_global = result.program_cycle_stats.has_value()
+                                    ? result.program_cycle_stats->stall_waitcnt
+                                    : 0,
+        .stall_waitcnt_shared = 0,
+        .stall_waitcnt_private = 0,
+        .stall_warp_switch = result.program_cycle_stats.has_value()
+                                 ? result.program_cycle_stats->stall_switch_away
+                                 : 0,
+        .stall_barrier_slot = result.program_cycle_stats.has_value()
+                                  ? result.program_cycle_stats->stall_barrier
+                                  : 0,
+        .stall_other = result.program_cycle_stats.has_value()
+                           ? result.program_cycle_stats->stall_resource +
+                                 result.program_cycle_stats->stall_dependency
+                           : 0,
+    };
+    trace.OnSummarySnapshot(summary_snapshot);
   } catch (const std::exception& ex) {
     result.error_message = ex.what();
     result.ok = false;

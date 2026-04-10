@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+#include "gpu_model/debug/trace/document.h"
 #include "gpu_model/debug/trace/event.h"
 
 namespace gpu_model {
@@ -13,6 +14,14 @@ class TraceSink {
  public:
   virtual ~TraceSink() = default;
   virtual void OnEvent(const TraceEvent& event) = 0;
+
+  // Snapshot methods (producer-owned facts)
+  virtual void OnRunSnapshot(const TraceRunSnapshot& snapshot) {}
+  virtual void OnModelConfigSnapshot(const TraceModelConfigSnapshot& snapshot) {}
+  virtual void OnKernelSnapshot(const TraceKernelSnapshot& snapshot) {}
+  virtual void OnWaveInitSnapshot(const TraceWaveInitSnapshot& snapshot) {}
+  virtual void OnSummarySnapshot(const TraceSummarySnapshot& snapshot) {}
+  virtual void OnWarningSnapshot(const TraceWarningSnapshot& snapshot) {}
 };
 
 class NullTraceSink final : public TraceSink {

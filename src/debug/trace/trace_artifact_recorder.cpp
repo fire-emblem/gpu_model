@@ -67,6 +67,30 @@ void TraceArtifactRecorder::OnEvent(const TraceEvent& event) {
   impl_->sink->OnEvent(event);
 }
 
+void TraceArtifactRecorder::OnRunSnapshot(const TraceRunSnapshot& snapshot) {
+  impl_->recorder.SetRunSnapshot(snapshot);
+}
+
+void TraceArtifactRecorder::OnModelConfigSnapshot(const TraceModelConfigSnapshot& snapshot) {
+  impl_->recorder.SetModelConfigSnapshot(snapshot);
+}
+
+void TraceArtifactRecorder::OnKernelSnapshot(const TraceKernelSnapshot& snapshot) {
+  impl_->recorder.SetKernelSnapshot(snapshot);
+}
+
+void TraceArtifactRecorder::OnWaveInitSnapshot(const TraceWaveInitSnapshot& snapshot) {
+  impl_->recorder.AddWaveInitSnapshot(snapshot);
+}
+
+void TraceArtifactRecorder::OnSummarySnapshot(const TraceSummarySnapshot& snapshot) {
+  impl_->recorder.SetSummarySnapshot(snapshot);
+}
+
+void TraceArtifactRecorder::OnWarningSnapshot(const TraceWarningSnapshot& snapshot) {
+  impl_->recorder.AddWarningSnapshot(snapshot);
+}
+
 void TraceArtifactRecorder::FlushTimeline() {
   for (const auto& artifact : impl_->recorder_artifacts) {
     std::ofstream out(artifact.path);
@@ -92,6 +116,10 @@ const std::vector<TraceEvent>& TraceArtifactRecorder::events() const {
 }
 
 const Recorder& TraceArtifactRecorder::recorder() const {
+  return impl_->recorder;
+}
+
+Recorder& TraceArtifactRecorder::recorder() {
   return impl_->recorder;
 }
 
