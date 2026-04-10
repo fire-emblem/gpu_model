@@ -1,0 +1,238 @@
+{
+  "id": "2026-04-10-220939",
+  "generated_at": "2026-04-10T14:09:39.14074939Z",
+  "language": "zh",
+  "pages": [
+    {
+      "slug": "1-gai-lan",
+      "title": "概览",
+      "file": "1-gai-lan.md",
+      "section": "快速上手",
+      "level": "Beginner"
+    },
+    {
+      "slug": "2-kuai-su-kai-shi",
+      "title": "快速开始",
+      "file": "2-kuai-su-kai-shi.md",
+      "section": "快速上手",
+      "level": "Beginner"
+    },
+    {
+      "slug": "3-huan-jing-yu-yi-lai",
+      "title": "环境与依赖",
+      "file": "3-huan-jing-yu-yi-lai.md",
+      "section": "快速上手",
+      "level": "Beginner"
+    },
+    {
+      "slug": "4-yun-xing-shi-li-yu-yan-zheng",
+      "title": "运行示例与验证",
+      "file": "4-yun-xing-shi-li-yu-yan-zheng.md",
+      "section": "快速上手",
+      "level": "Beginner"
+    },
+    {
+      "slug": "5-ke-shi-hua-trace-perfetto",
+      "title": "可视化 Trace（Perfetto）",
+      "file": "5-ke-shi-hua-trace-perfetto.md",
+      "section": "快速上手",
+      "level": "Beginner"
+    },
+    {
+      "slug": "6-shi-yong-zhen-shi-hip-cheng-xu-yun-xing",
+      "title": "使用真实 HIP 程序运行",
+      "file": "6-shi-yong-zhen-shi-hip-cheng-xu-yun-xing.md",
+      "section": "快速上手",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "7-chang-yong-jiao-ben-yu-hui-gui-tao-jian",
+      "title": "常用脚本与回归套件",
+      "file": "7-chang-yong-jiao-ben-yu-hui-gui-tao-jian.md",
+      "section": "快速上手",
+      "level": "Beginner"
+    },
+    {
+      "slug": "8-mu-lu-dao-lan-yu-zhu-yu",
+      "title": "目录导览与术语",
+      "file": "8-mu-lu-dao-lan-yu-zhu-yu.md",
+      "section": "快速上手",
+      "level": "Beginner"
+    },
+    {
+      "slug": "9-xian-zhi-yu-gua-yong-fan-wei",
+      "title": "限制与适用范围",
+      "file": "9-xian-zhi-yu-gua-yong-fan-wei.md",
+      "section": "快速上手",
+      "level": "Beginner"
+    },
+    {
+      "slug": "10-fen-ceng-yu-zhi-ze-bian-jie-zong-lan",
+      "title": "分层与职责边界总览",
+      "file": "10-fen-ceng-yu-zhi-ze-bian-jie-zong-lan.md",
+      "section": "技术深潜",
+      "group": "架构与执行链",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "11-zhi-xing-mo-shi-yu-execengine-gong-zuo-liu",
+      "title": "执行模式与 ExecEngine 工作流",
+      "file": "11-zhi-xing-mo-shi-yu-execengine-gong-zuo-liu.md",
+      "section": "技术深潜",
+      "group": "架构与执行链",
+      "level": "Advanced"
+    },
+    {
+      "slug": "12-wave-block-device-yu-yi-yu-zhuang-tai-guan-li",
+      "title": "Wave/Block/Device 语义与状态管理",
+      "file": "12-wave-block-device-yu-yi-yu-zhuang-tai-guan-li.md",
+      "section": "技术深潜",
+      "group": "架构与执行链",
+      "level": "Advanced"
+    },
+    {
+      "slug": "13-programobject-yu-ke-zhi-xing-nei-he-sheng-ming-zhou-qi",
+      "title": "ProgramObject 与可执行内核生命周期",
+      "file": "13-programobject-yu-ke-zhi-xing-nei-he-sheng-ming-zhou-qi.md",
+      "section": "技术深潜",
+      "group": "程序对象与指令系统",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "14-jia-zai-qi-yu-jing-xiang-ge-shi-zhi-chi-amdgpu-object-hip-fatbin",
+      "title": "加载器与镜像格式支持（AMDGPU object/HIP fatbin）",
+      "file": "14-jia-zai-qi-yu-jing-xiang-ge-shi-zhi-chi-amdgpu-object-hip-fatbin.md",
+      "section": "技术深潜",
+      "group": "程序对象与指令系统",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "15-gcn-isa-jie-ma-miao-shu-fu-yu-yu-yi-chu-li-lian",
+      "title": "GCN ISA 解码、描述符与语义处理链",
+      "file": "15-gcn-isa-jie-ma-miao-shu-fu-yu-yu-yi-chu-li-lian.md",
+      "section": "技术深潜",
+      "group": "程序对象与指令系统",
+      "level": "Advanced"
+    },
+    {
+      "slug": "16-she-bei-nei-cun-guan-li-yu-zhi-zhen-ying-she-gui-ze",
+      "title": "设备内存管理与指针映射规则",
+      "file": "16-she-bei-nei-cun-guan-li-yu-zhi-zhen-ying-she-gui-ze.md",
+      "section": "技术深潜",
+      "group": "内存模型与地址映射",
+      "level": "Advanced"
+    },
+    {
+      "slug": "17-global-shared-private-constant-cun-chu-yu-yi",
+      "title": "Global/Shared/Private/Constant 存储语义",
+      "file": "17-global-shared-private-constant-cun-chu-yu-yi.md",
+      "section": "技术深潜",
+      "group": "内存模型与地址映射",
+      "level": "Advanced"
+    },
+    {
+      "slug": "18-hipruntime-c-abi-yu-api-dui-qi",
+      "title": "HipRuntime C ABI 与 API 对齐",
+      "file": "18-hipruntime-c-abi-yu-api-dui-qi.md",
+      "section": "技术深潜",
+      "group": "运行时接口与兼容层",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "19-modelruntime-wai-guan-yu-hui-hua-sheng-ming-zhou-qi",
+      "title": "ModelRuntime 外观与会话生命周期",
+      "file": "19-modelruntime-wai-guan-yu-hui-hua-sheng-ming-zhou-qi.md",
+      "section": "技术深潜",
+      "group": "运行时接口与兼容层",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "20-she-bei-shu-xing-yu-pei-zhi-cha-xun-lu-jing",
+      "title": "设备属性与配置查询路径",
+      "file": "20-she-bei-shu-xing-yu-pei-zhi-cha-xun-lu-jing.md",
+      "section": "技术深潜",
+      "group": "运行时接口与兼容层",
+      "level": "Beginner"
+    },
+    {
+      "slug": "21-ri-zhi-zhu-xian-yu-loguru-shi-yong-yue-ding",
+      "title": "日志主线与 loguru 使用约定",
+      "file": "21-ri-zhi-zhu-xian-yu-loguru-shi-yong-yue-ding.md",
+      "section": "技术深潜",
+      "group": "调试与追踪体系",
+      "level": "Beginner"
+    },
+    {
+      "slug": "22-trace-ge-shi-zi-duan-yu-kai-guan-ce-lue",
+      "title": "Trace 格式、字段与开关策略",
+      "file": "22-trace-ge-shi-zi-duan-yu-kai-guan-ce-lue.md",
+      "section": "技术深潜",
+      "group": "调试与追踪体系",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "23-shi-jian-xian-tong-ji-yu-zhi-xing-zhi-biao-cai-ji",
+      "title": "时间线统计与执行指标采集",
+      "file": "23-shi-jian-xian-tong-ji-yu-zhi-xing-zhi-biao-cai-ji.md",
+      "section": "技术深潜",
+      "group": "调试与追踪体系",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "24-ce-shi-bu-ju-yu-lei-bie-gong-neng-zhou-qi-jia-zai-qi-deng",
+      "title": "测试布局与类别（功能/周期/加载器等）",
+      "file": "24-ce-shi-bu-ju-yu-lei-bie-gong-neng-zhou-qi-jia-zai-qi-deng.md",
+      "section": "技术深潜",
+      "group": "测试与质量保障",
+      "level": "Beginner"
+    },
+    {
+      "slug": "25-shi-li-yu-ce-shi-xie-tong-hui-gui-ce-lue",
+      "title": "示例与测试协同回归策略",
+      "file": "25-shi-li-yu-ce-shi-xie-tong-hui-gui-ce-lue.md",
+      "section": "技术深潜",
+      "group": "测试与质量保障",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "26-isa-fu-gai-lu-sheng-cheng-yu-bao-gao-jie-du",
+      "title": "ISA 覆盖率生成与报告解读",
+      "file": "26-isa-fu-gai-lu-sheng-cheng-yu-bao-gao-jie-du.md",
+      "section": "技术深潜",
+      "group": "测试与质量保障",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "27-kuo-zhan-isa-yu-jia-gou-zhi-chi-zhi-ling-yu-yi-she-bei-gui-ge",
+      "title": "扩展 ISA 与架构支持（指令语义/设备规格）",
+      "file": "27-kuo-zhan-isa-yu-jia-gou-zhi-chi-zhi-ling-yu-yi-she-bei-gui-ge.md",
+      "section": "技术深潜",
+      "group": "扩展与贡献指南",
+      "level": "Advanced"
+    },
+    {
+      "slug": "28-zhou-qi-mo-xing-biao-ding-yu-xing-neng-dui-bi-fang-fa",
+      "title": "周期模型标定与性能对比方法",
+      "file": "28-zhou-qi-mo-xing-biao-ding-yu-xing-neng-dui-bi-fang-fa.md",
+      "section": "技术深潜",
+      "group": "扩展与贡献指南",
+      "level": "Advanced"
+    },
+    {
+      "slug": "29-suan-zi-bian-yi-qi-codegen-dui-bi-gong-zuo-liu",
+      "title": "算子/编译器 codegen 对比工作流",
+      "file": "29-suan-zi-bian-yi-qi-codegen-dui-bi-gong-zuo-liu.md",
+      "section": "技术深潜",
+      "group": "扩展与贡献指南",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "30-lu-xian-tu-yu-she-ji-wen-dang-suo-yin",
+      "title": "路线图与设计文档索引",
+      "file": "30-lu-xian-tu-yu-she-ji-wen-dang-suo-yin.md",
+      "section": "技术深潜",
+      "group": "扩展与贡献指南",
+      "level": "Beginner"
+    }
+  ]
+}
