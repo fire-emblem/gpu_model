@@ -44,19 +44,53 @@ std::string HexU64(uint64_t value) {
   return out.str();
 }
 
-std::string FormatWaveStepDetailBlock(const TraceWaveStepDetail& detail) {
+// Helper to format wave prefix for detail lines (for easy grep)
+// All fields are aligned to fixed width for readability
+std::string FormatWavePrefix(const TraceEvent& event) {
   std::ostringstream out;
+  // [cycle:XXXXXX] - 6 digits zero-padded
+  out << "[cycle:" << std::setfill('0') << std::setw(6) << event.cycle << "] ";
+  // [pc:0xXXXXXXXX] - 8 hex digits
+  out << "[pc:0x" << std::hex << std::setfill('0') << std::setw(8) << event.pc << "] ";
+  if (IsWaveSpecificEvent(event.kind)) {
+    uint64_t stable_wave_id =
+        (static_cast<uint64_t>(event.block_id) << 32u) | static_cast<uint64_t>(event.wave_id);
+    // [wave:0xXXXXXXXX] - 8 hex digits
+    out << "[wave:0x" << std::hex << std::setfill('0') << std::setw(8) << stable_wave_id << "] ";
+  } else {
+    out << "[wave:global] ";
+  }
+  return out.str();
+}
+
+// Helper to add prefix to each line of a multi-line string
+std::string PrefixMultiline(const std::string& prefix, const std::string& text) {
+  std::ostringstream out;
+  std::istringstream iss(text);
+  std::string line;
+  while (std::getline(iss, line)) {
+    if (!line.empty()) {
+      out << prefix << line << "\n";
+    }
+  }
+  return out.str();
+}
+
+std::string FormatWaveStepDetailBlock(const TraceEvent& event,
+                                      const TraceWaveStepDetail& detail) {
+  std::ostringstream out;
+  const std::string prefix = FormatWavePrefix(event);
 
   // rw: block
   if (!detail.scalar_reads.empty() || !detail.vector_reads.empty() ||
       !detail.scalar_writes.empty() || !detail.vector_writes.empty()) {
-    out << "  rw:\n";
+    out << prefix << "rw:\n";
 
     // Reads
     if (!detail.scalar_reads.empty() || !detail.vector_reads.empty()) {
-      out << "    R:\n";
+      out << prefix << "  R:\n";
       if (!detail.scalar_reads.empty()) {
-        out << "      scalar: ";
+        out << prefix << "    scalar: ";
         for (size_t i = 0; i < detail.scalar_reads.size(); ++i) {
           if (i > 0) out << " ";
           out << detail.scalar_reads[i];
@@ -64,15 +98,15 @@ std::string FormatWaveStepDetailBlock(const TraceWaveStepDetail& detail) {
         out << "\n";
       }
       for (const auto& vr : detail.vector_reads) {
-        out << "      " << vr << "\n";
+        out << PrefixMultiline(prefix + "    ", vr);
       }
     }
 
     // Writes
     if (!detail.scalar_writes.empty() || !detail.vector_writes.empty()) {
-      out << "    W:\n";
+      out << prefix << "  W:\n";
       if (!detail.scalar_writes.empty()) {
-        out << "      scalar: ";
+        out << prefix << "    scalar: ";
         for (size_t i = 0; i < detail.scalar_writes.size(); ++i) {
           if (i > 0) out << " ";
           out << detail.scalar_writes[i];
@@ -80,19 +114,19 @@ std::string FormatWaveStepDetailBlock(const TraceWaveStepDetail& detail) {
         out << "\n";
       }
       for (const auto& vw : detail.vector_writes) {
-        out << "      " << vw << "\n";
+        out << PrefixMultiline(prefix + "    ", vw);
       }
     }
   }
 
   // mem: block
   if (!detail.mem_summary.empty() && detail.mem_summary != "none") {
-    out << "  mem: " << detail.mem_summary << "\n";
+    out << prefix << "mem: " << detail.mem_summary << "\n";
   }
 
   // mask: block
   if (!detail.exec_before.empty() || !detail.exec_after.empty()) {
-    out << "  mask: exec_before=" << detail.exec_before;
+    out << prefix << "mask: exec_before=" << detail.exec_before;
     if (!detail.exec_after.empty()) {
       out << " exec_after=" << detail.exec_after;
     }
@@ -101,7 +135,7 @@ std::string FormatWaveStepDetailBlock(const TraceWaveStepDetail& detail) {
 
   // timing: block
   if (detail.issue_cycle > 0 || detail.commit_cycle > 0 || detail.duration_cycles > 0) {
-    out << "  timing: issue=" << detail.issue_cycle;
+    out << prefix << "timing: issue=" << detail.issue_cycle;
     if (detail.commit_cycle > 0) {
       out << " commit=" << detail.commit_cycle;
     }
@@ -113,7 +147,7 @@ std::string FormatWaveStepDetailBlock(const TraceWaveStepDetail& detail) {
 
   // state: block
   if (!detail.state_summary.empty()) {
-    out << "  state: " << detail.state_summary << "\n";
+    out << prefix << "state: " << detail.state_summary << "\n";
   }
 
   return out.str();
@@ -123,20 +157,20 @@ std::string FormatTextTraceLineFromFields(const TraceEvent& event,
                                          const TraceEventExportFields& fields,
                                          uint64_t /*sequence*/ = 0) {
   std::ostringstream out;
-  // Format: [cycle:XXXXXX] [pc:0xXXX] [wave:0xXXX] [event:kind] details
-  // Example: [cycle:000000] [pc:0x1900] [wave:0x0] [event:wave_step] s_load_dword s0, s[4:5], 0x2c
+  // Format: [cycle:XXXXXX] [pc:0xXXXXXXXX] [wave:0xXXXXXXXX] [event:kind] details
+  // All bracketed fields are aligned to fixed width for readability
 
   // [cycle:XXXXXX] - 6 digits zero-padded
   out << "[cycle:" << std::setfill('0') << std::setw(6) << event.cycle << "] ";
 
-  // [pc:0xXXX]
-  out << "[pc:" << HexU64(event.pc) << "] ";
+  // [pc:0xXXXXXXXX] - 8 hex digits
+  out << "[pc:0x" << std::hex << std::setfill('0') << std::setw(8) << event.pc << "] ";
 
-  // [wave:0xXXX] or [wave:global]
+  // [wave:0xXXXXXXXX] or [wave:global]
   if (IsWaveSpecificEvent(event.kind)) {
     uint64_t stable_wave_id =
         (static_cast<uint64_t>(event.block_id) << 32u) | static_cast<uint64_t>(event.wave_id);
-    out << "[wave:" << HexU64(stable_wave_id) << "] ";
+    out << "[wave:0x" << std::hex << std::setfill('0') << std::setw(8) << stable_wave_id << "] ";
   } else {
     out << "[wave:global] ";
   }
@@ -151,7 +185,7 @@ std::string FormatTextTraceLineFromFields(const TraceEvent& event,
 
   // WaveStep expanded block
   if (event.kind == TraceEventKind::WaveStep && event.step_detail.has_value()) {
-    out << FormatWaveStepDetailBlock(*event.step_detail);
+    out << FormatWaveStepDetailBlock(event, *event.step_detail);
   }
 
   return out.str();

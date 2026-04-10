@@ -1,3 +1,6 @@
 [submodule "third_party/marl"]
 	path = third_party/marl
 	url = https://github.com/google/marl.git
+[submodule "third_party/gpgpu-sim_distribution"]
+	path = third_party/gpgpu-sim_distribution
+	url = https://github.com/gpgpu-sim/gpgpu-sim_distribution
