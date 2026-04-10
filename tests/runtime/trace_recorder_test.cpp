@@ -226,19 +226,14 @@ TEST(TraceRecorderTest, ExportsTextAndJsonInRecordedOrder) {
   const std::string text = RenderRecorderTextTrace(recorder);
   const std::string json = RenderRecorderJsonTrace(recorder);
 
-  // New format: [cycle]   kind   wave   pc   details
-  // Example: [000000]   launch        global  0x0   ...
-  EXPECT_NE(text.find("launch"), std::string::npos);
-  EXPECT_NE(text.find("wave_launch"), std::string::npos);
+  // Text trace now only includes wave_step and wave_exit for cleaner output.
+  // Other events are still available in JSON trace.
   EXPECT_NE(text.find("wave_step"), std::string::npos);
-  EXPECT_NE(text.find("commit"), std::string::npos);
   EXPECT_NE(text.find("wave_exit"), std::string::npos);
   // Verify ordering
-  EXPECT_LT(text.find("launch"), text.find("wave_launch"));
-  EXPECT_LT(text.find("wave_launch"), text.find("wave_step"));
-  EXPECT_LT(text.find("wave_step"), text.find("commit"));
-  EXPECT_LT(text.find("commit"), text.find("wave_exit"));
+  EXPECT_LT(text.find("wave_step"), text.find("wave_exit"));
 
+  // JSON trace still contains all events
   EXPECT_NE(json.find("\"kind\":\"Launch\""), std::string::npos);
   EXPECT_NE(json.find("\"kind\":\"WaveLaunch\""), std::string::npos);
   EXPECT_NE(json.find("\"kind\":\"WaveStep\""), std::string::npos);

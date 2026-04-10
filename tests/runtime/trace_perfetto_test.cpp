@@ -359,12 +359,9 @@ TEST(TracePerfettoTest, TraceArtifactRecorderWritesTraceAndPerfettoFiles) {
   json_buffer << json_in.rdbuf();
   timeline_buffer << timeline_in.rdbuf();
 
-  // New format: [cycle]   kind   wave   pc   details
-  EXPECT_NE(text_buffer.str().find("launch"), std::string::npos);
+  // Text trace now only includes wave_step and wave_exit for cleaner output.
+  // JSON trace still contains all events.
   EXPECT_NE(json_buffer.str().find("\"kind\":\"Launch\""), std::string::npos);
-  // Slot is now shown as w{block}.{slot} format - wave has block_id=0, slot_id=2
-  // The wave_launch event shows wave info
-  EXPECT_NE(text_buffer.str().find("wave_launch"), std::string::npos);
   // JSON has slot_id as hex string
   EXPECT_NE(json_buffer.str().find("\"slot_id\":\"0x2\""), std::string::npos);
   // These checks validate the typed schema fields that should remain the primary contract.

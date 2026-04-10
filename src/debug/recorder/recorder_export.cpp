@@ -145,12 +145,25 @@ std::string RenderRecorderTextTrace(const Recorder& recorder) {
   }
 
   // [EVENTS] section
+  // Filter to keep only wave_step and wave_exit events for cleaner trace output.
+  // Other events (issue_select, commit, wave_wait, etc.) are available in trace.jsonl.
   text += "[EVENTS]\n";
   for (const auto& recorded : CollectOrderedRecordedEvents(recorder)) {
+    const TraceEvent* event = nullptr;
     if (recorded.program_event != nullptr) {
-      text += FormatTextTraceEventLine(*recorded.program_event);
+      event = &recorded.program_event->event;
     } else if (recorded.entry != nullptr) {
-      text += FormatTextTraceEventLine(*recorded.entry);
+      event = &recorded.entry->event;
+    }
+    if (event != nullptr) {
+      // Only include wave_step (instruction execution) and wave_exit (lifecycle end)
+      if (event->kind == TraceEventKind::WaveStep || event->kind == TraceEventKind::WaveExit) {
+        if (recorded.program_event != nullptr) {
+          text += FormatTextTraceEventLine(*recorded.program_event);
+        } else if (recorded.entry != nullptr) {
+          text += FormatTextTraceEventLine(*recorded.entry);
+        }
+      }
     }
   }
   text += "\n";
