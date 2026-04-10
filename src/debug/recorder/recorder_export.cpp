@@ -70,6 +70,64 @@ std::unique_ptr<RecorderSerializer> MakeJsonRecorderSerializer() {
 
 std::string RenderRecorderTextTrace(const Recorder& recorder) {
   std::string text;
+
+  // Header
+  text += "GPU_MODEL TRACE\n";
+  text += "================\n\n";
+
+  // [RUN] section
+  if (recorder.run_snapshot().has_value()) {
+    const auto& run = *recorder.run_snapshot();
+    text += "[RUN]\n";
+    text += "execution_model=" + run.execution_model + "\n";
+    text += "trace_time_basis=" + run.trace_time_basis + "\n";
+    text += "trace_cycle_is_physical_time=" + std::string(run.trace_cycle_is_physical_time ? "true" : "false") + "\n";
+    text += "\n";
+  }
+
+  // [MODEL_CONFIG] section
+  if (recorder.model_config_snapshot().has_value()) {
+    const auto& config = *recorder.model_config_snapshot();
+    text += "[MODEL_CONFIG]\n";
+    text += "num_dpcs=" + std::to_string(config.num_dpcs) + "\n";
+    text += "num_aps_per_dpc=" + std::to_string(config.num_aps_per_dpc) + "\n";
+    text += "num_peus_per_ap=" + std::to_string(config.num_peus_per_ap) + "\n";
+    text += "num_slots_per_peu=" + std::to_string(config.num_slots_per_peu) + "\n";
+    text += "slot_model=" + config.slot_model + "\n";
+    text += "\n";
+  }
+
+  // [KERNEL] section
+  if (recorder.kernel_snapshot().has_value()) {
+    const auto& kernel = *recorder.kernel_snapshot();
+    text += "[KERNEL]\n";
+    text += "kernel_name=" + kernel.kernel_name + "\n";
+    text += "grid_dim=" + std::to_string(kernel.grid_dim_x) + "," +
+             std::to_string(kernel.grid_dim_y) + "," +
+             std::to_string(kernel.grid_dim_z) + "\n";
+    text += "block_dim=" + std::to_string(kernel.block_dim_x) + "," +
+             std::to_string(kernel.block_dim_y) + "," +
+             std::to_string(kernel.block_dim_z) + "\n";
+    text += "\n";
+  }
+
+  // [WAVE_INIT] section
+  if (!recorder.wave_init_snapshots().empty()) {
+    text += "[WAVE_INIT]\n";
+    for (const auto& wave_init : recorder.wave_init_snapshots()) {
+      text += "wave_id=" + std::to_string(wave_init.stable_wave_id) +
+              " block=" + std::to_string(wave_init.block_id) +
+              " dpc=" + std::to_string(wave_init.dpc_id) +
+              " ap=" + std::to_string(wave_init.ap_id) +
+              " peu=" + std::to_string(wave_init.peu_id) +
+              " slot=" + std::to_string(wave_init.slot_id) +
+              " start_pc=0x" + std::to_string(wave_init.start_pc) + "\n";
+    }
+    text += "\n";
+  }
+
+  // [EVENTS] section
+  text += "[EVENTS]\n";
   for (const auto& recorded : CollectOrderedRecordedEvents(recorder)) {
     if (recorded.program_event != nullptr) {
       text += FormatTextTraceEventLine(*recorded.program_event);
@@ -77,6 +135,32 @@ std::string RenderRecorderTextTrace(const Recorder& recorder) {
       text += FormatTextTraceEventLine(*recorded.entry);
     }
   }
+  text += "\n";
+
+  // [SUMMARY] section
+  if (recorder.summary_snapshot().has_value()) {
+    const auto& summary = *recorder.summary_snapshot();
+    text += "[SUMMARY]\n";
+    text += "kernel_status=" + summary.kernel_status + "\n";
+    text += "gpu_tot_sim_cycle=" + std::to_string(summary.gpu_tot_sim_cycle) + "\n";
+    text += "gpu_tot_sim_insn=" + std::to_string(summary.gpu_tot_sim_insn) + "\n";
+    text += "gpu_tot_ipc=" + std::to_string(summary.gpu_tot_ipc) + "\n";
+    text += "gpu_tot_wave_exits=" + std::to_string(summary.gpu_tot_wave_exits) + "\n";
+    text += "stall_waitcnt=" + std::to_string(summary.stall_waitcnt_global) + "\n";
+    text += "stall_warp_switch=" + std::to_string(summary.stall_warp_switch) + "\n";
+    text += "stall_barrier=" + std::to_string(summary.stall_barrier_slot) + "\n";
+    text += "\n";
+  }
+
+  // [WARNINGS] section
+  if (!recorder.warning_snapshots().empty()) {
+    text += "[WARNINGS]\n";
+    for (const auto& warning : recorder.warning_snapshots()) {
+      text += "kind=" + warning.warning_kind + " message=" + warning.message + "\n";
+    }
+    text += "\n";
+  }
+
   return text;
 }
 
