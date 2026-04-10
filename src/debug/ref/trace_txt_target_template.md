@@ -43,6 +43,13 @@ Useful aspects worth keeping:
 - instruction-level execution facts
 - final summary counters
 
+Useful summary additions worth keeping at trace tail:
+
+- instruction category distribution ratios
+- branch / control-flow counters
+- unit utilization counters
+- issue-efficiency style aggregate counters
+
 Aspects that should not be copied directly:
 
 - overly verbose prose-style scheduler logs
@@ -59,6 +66,9 @@ Aspects that should not be copied directly:
 3. Kernel run parameters
 4. Wave initialization parameters
 5. Wave execution events, especially per-instruction execution facts
+
+The trace tail should also include a performance-analysis summary section so a reader can
+quickly inspect execution mix and structural pressure without opening a separate report.
 
 For instruction execution, the trace should record:
 
@@ -259,6 +269,39 @@ simulation_rate_inst_sec: {simulation_rate_inst_sec}
 simulation_rate_cycle_sec: {simulation_rate_cycle_sec}
 silicon_slowdown: {slowdown_factor}
 
+[PERF_ANALYSIS]
+instruction_mix_total: {instruction_mix_total}
+instruction_mix_scalar_alu: {scalar_alu_count} ({scalar_alu_ratio}%)
+instruction_mix_scalar_mem: {scalar_mem_count} ({scalar_mem_ratio}%)
+instruction_mix_vector_alu: {vector_alu_count} ({vector_alu_ratio}%)
+instruction_mix_vector_mem: {vector_mem_count} ({vector_mem_ratio}%)
+instruction_mix_branch: {branch_count} ({branch_ratio}%)
+instruction_mix_sync: {sync_count} ({sync_ratio}%)
+instruction_mix_tensor: {tensor_count} ({tensor_ratio}%)
+instruction_mix_other: {other_count} ({other_ratio}%)
+
+branch_total: {branch_total}
+branch_taken: {branch_taken}
+branch_not_taken: {branch_not_taken}
+branch_divergent: {branch_divergent}
+barrier_total: {barrier_total}
+waitcnt_total: {waitcnt_total}
+
+dpc_utilization_pct: {dpc_utilization_pct}
+ap_utilization_pct: {ap_utilization_pct}
+peu_utilization_pct: {peu_utilization_pct}
+wave_slot_utilization_pct: {wave_slot_utilization_pct}
+issue_slot_utilization_pct: {issue_slot_utilization_pct}
+memory_pipeline_utilization_pct: {memory_pipeline_utilization_pct}
+shared_pipeline_utilization_pct: {shared_pipeline_utilization_pct}
+tensor_pipeline_utilization_pct: {tensor_pipeline_utilization_pct}
+
+issue_eligible_cycles: {issue_eligible_cycles}
+issue_selected_cycles: {issue_selected_cycles}
+issue_empty_cycles: {issue_empty_cycles}
+issue_conflict_cycles: {issue_conflict_cycles}
+issue_backpressure_cycles: {issue_backpressure_cycles}
+
 [END]
 exit_detected: true
 ```
@@ -433,6 +476,39 @@ simulation_elapsed_sec: 0.32
 simulation_rate_inst_sec: 128000
 simulation_rate_cycle_sec: 375
 silicon_slowdown: 1500
+
+[PERF_ANALYSIS]
+instruction_mix_total: 4096
+instruction_mix_scalar_alu: 256 (6.25%)
+instruction_mix_scalar_mem: 512 (12.50%)
+instruction_mix_vector_alu: 2048 (50.00%)
+instruction_mix_vector_mem: 896 (21.88%)
+instruction_mix_branch: 192 (4.69%)
+instruction_mix_sync: 160 (3.91%)
+instruction_mix_tensor: 0 (0.00%)
+instruction_mix_other: 32 (0.78%)
+
+branch_total: 192
+branch_taken: 144
+branch_not_taken: 48
+branch_divergent: 12
+barrier_total: 16
+waitcnt_total: 80
+
+dpc_utilization_pct: 71.2
+ap_utilization_pct: 68.4
+peu_utilization_pct: 63.7
+wave_slot_utilization_pct: 59.1
+issue_slot_utilization_pct: 52.8
+memory_pipeline_utilization_pct: 47.5
+shared_pipeline_utilization_pct: 8.0
+tensor_pipeline_utilization_pct: 0.0
+
+issue_eligible_cycles: 104
+issue_selected_cycles: 96
+issue_empty_cycles: 24
+issue_conflict_cycles: 11
+issue_backpressure_cycles: 7
 
 [END]
 exit_detected: true
