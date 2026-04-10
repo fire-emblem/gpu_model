@@ -22,6 +22,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "gpu_model/debug/trace/document.h"
 #include "gpu_model/debug/trace/event.h"
 #include "gpu_model/debug/trace/event_factory.h"
 #include "gpu_model/debug/trace/instruction_trace.h"
@@ -834,6 +835,19 @@ class FunctionalExecutionCoreImpl {
       for (size_t wave_index = 0; wave_index < block.waves.size(); ++wave_index) {
         const auto& wave = block.waves[wave_index];
         const uint64_t launch_cycle = block.wave_states[wave_index].next_issue_cycle;
+        // Record wave init snapshot for structured trace output.
+        TraceWaveInitSnapshot snapshot;
+        snapshot.stable_wave_id = StableWaveKey(wave);
+        snapshot.block_id = wave.block_id;
+        snapshot.dpc_id = wave.dpc_id;
+        snapshot.ap_id = wave.ap_id;
+        snapshot.peu_id = wave.peu_id;
+        snapshot.slot_id = wave.wave_id;  // wave_id within block serves as slot
+        snapshot.slot_model = "logical_unbounded";
+        snapshot.start_pc = wave.pc;
+        snapshot.ready_at_global_cycle = launch_cycle;
+        snapshot.next_issue_earliest_global_cycle = launch_cycle;
+        context_.trace.OnWaveInitSnapshot(snapshot);
         TraceEventLocked(MakeTraceWaveLaunchEvent(
             MakeTraceWaveView(wave),
             launch_cycle,

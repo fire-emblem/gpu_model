@@ -29,6 +29,7 @@
 #include "gpu_model/execution/internal/tensor_op_utils.h"
 #include "gpu_model/execution/internal/issue_eligibility.h"
 #include "gpu_model/execution/internal/wave_state.h"
+#include "gpu_model/debug/trace/document.h"
 #include "gpu_model/debug/trace/event_factory.h"
 #include "gpu_model/debug/trace/wave_launch_trace.h"
 #include "gpu_model/instruction/encoded/internal/encoded_instruction_descriptor.h"
@@ -1263,11 +1264,25 @@ class EncodedExecutionCore {
         if (execution_mode_ == ExecutionMode::Cycle) {
           continue;
         }
+        const uint64_t launch_cycle = raw_block.wave_states[wave_index].next_issue_cycle;
+        // Record wave init snapshot for structured trace output.
+        TraceWaveInitSnapshot snapshot;
+        snapshot.stable_wave_id = StableWaveKey(raw_wave.wave);
+        snapshot.block_id = raw_wave.wave.block_id;
+        snapshot.dpc_id = raw_wave.wave.dpc_id;
+        snapshot.ap_id = raw_wave.wave.ap_id;
+        snapshot.peu_id = raw_wave.wave.peu_id;
+        snapshot.slot_id = raw_wave.wave.wave_id;
+        snapshot.slot_model = "logical_unbounded";
+        snapshot.start_pc = raw_wave.wave.pc;
+        snapshot.ready_at_global_cycle = launch_cycle;
+        snapshot.next_issue_earliest_global_cycle = launch_cycle;
+        trace_.OnWaveInitSnapshot(snapshot);
         const auto launch_summary = BuildWaveLaunchAbiSummary(raw_wave.wave, image_.kernel_descriptor());
-        ObserveExecutionCycle(raw_block.wave_states[wave_index].next_issue_cycle);
+        ObserveExecutionCycle(launch_cycle);
         TraceEventLocked(MakeTraceWaveLaunchEvent(
             MakeRawTraceWaveView(raw_wave),
-            raw_block.wave_states[wave_index].next_issue_cycle,
+            launch_cycle,
             FormatWaveLaunchTraceMessage(raw_wave.wave,
                                          &launch_summary,
                                          WaveLaunchTraceScalarRegs(image_.kernel_descriptor()),
@@ -1527,6 +1542,19 @@ class EncodedExecutionCore {
         raw_wave->wave.status = WaveStatus::Active;
         raw_wave->wave.valid_entry = true;
         ObserveExecutionCycle(cycle);
+        // Record wave init snapshot for structured trace output.
+        TraceWaveInitSnapshot snapshot;
+        snapshot.stable_wave_id = StableWaveKey(raw_wave->wave);
+        snapshot.block_id = raw_wave->wave.block_id;
+        snapshot.dpc_id = raw_wave->wave.dpc_id;
+        snapshot.ap_id = raw_wave->wave.ap_id;
+        snapshot.peu_id = raw_wave->wave.peu_id;
+        snapshot.slot_id = raw_wave->wave.wave_id;
+        snapshot.slot_model = "resident_fixed";
+        snapshot.start_pc = raw_wave->wave.pc;
+        snapshot.ready_at_global_cycle = cycle;
+        snapshot.next_issue_earliest_global_cycle = cycle;
+        trace_.OnWaveInitSnapshot(snapshot);
         const auto launch_summary = BuildWaveLaunchAbiSummary(raw_wave->wave, image_.kernel_descriptor());
         TraceEventLocked(MakeTraceWaveLaunchEvent(
             MakeRawTraceWaveView(*raw_wave),
