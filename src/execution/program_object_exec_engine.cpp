@@ -2444,12 +2444,12 @@ class EncodedExecutionCore {
     const bool lock_block = decoded.mnemonic.starts_with("ds_") || decoded.mnemonic == "s_barrier";
     if (lock_global) {
       std::lock_guard<std::mutex> lock(global_memory_mutex_);
-      ExecuteInstruction(decoded, object, context);
+      ExecuteInstruction(decoded, context);
     } else if (lock_block) {
       std::lock_guard<std::mutex> lock(*block.control_mutex);
-      ExecuteInstruction(decoded, object, context);
+      ExecuteInstruction(decoded, context);
     } else {
-      ExecuteInstruction(decoded, object, context);
+      ExecuteInstruction(decoded, context);
     }
 
     uint64_t ready_cycle = commit_cycle + kEncodedPendingMemoryCompletionTurns;
@@ -2709,9 +2709,7 @@ class EncodedExecutionCore {
     return issue_cycles;
   }
 
-  void ExecuteInstruction(const DecodedInstruction& decoded,
-                          const InstructionObject* object,
-                          EncodedWaveContext& context) {
+  void ExecuteInstruction(const DecodedInstruction& decoded, EncodedWaveContext& context) {
     const auto& handler = EncodedSemanticHandlerRegistry::Get(decoded);
     handler.Execute(decoded, context);
   }
