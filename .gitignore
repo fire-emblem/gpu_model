@@ -3,6 +3,7 @@ build-ninja/
 build-asan/
 build-gate-release/
 build-gate-examples/
+.worktrees/
 .cache/
 logs/
 results/
