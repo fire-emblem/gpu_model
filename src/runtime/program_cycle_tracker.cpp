@@ -63,11 +63,18 @@ void ProgramCycleTracker::BeginWaveWork(uint32_t wave_id,
       ++stats_.barrier_insts;
       break;
     case ExecutedStepClass::GlobalMem:
-      // Memory instructions counted separately via loads/stores
+      // Count as both instruction and memory op (load by default)
+      ++stats_.global_loads;
       break;
     case ExecutedStepClass::SharedMem:
+      ++stats_.shared_loads;
+      break;
     case ExecutedStepClass::ScalarMem:
+      ++stats_.scalar_loads;
+      break;
     case ExecutedStepClass::PrivateMem:
+      ++stats_.private_loads;
+      break;
     case ExecutedStepClass::Wait:
       break;
   }
