@@ -394,6 +394,12 @@ LaunchResult RuntimeSession::LaunchExecutableKernel(const std::filesystem::path&
   request.args = PackCompatibilityArgs(image.metadata(), args);
   request.mode = mode;
   request.trace = trace;
+  request.launch_index = launch_index_++;
+  if (mode == ExecutionMode::Functional) {
+    request.functional_mode = functional_execution_mode() == FunctionalExecutionMode::SingleThreaded
+                                  ? "st"
+                                  : "mt";
+  }
   auto result = model_runtime_.Launch(request);
   SyncManagedDeviceToHost();
   return result;

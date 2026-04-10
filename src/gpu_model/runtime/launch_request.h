@@ -51,6 +51,9 @@ struct LaunchRequest {
   KernelArgPack args;
   ExecutionMode mode = ExecutionMode::Functional;
   TraceSink* trace = nullptr;
+  // Launch context for trace output
+  uint64_t launch_index = 0;
+  std::string functional_mode;  // "st", "mt", or empty for cycle mode
 };
 
 struct LaunchResult {

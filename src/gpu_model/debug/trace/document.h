@@ -12,6 +12,7 @@ namespace gpu_model {
 struct TraceRunSnapshot {
   std::string invocation;            // Full invocation line: env vars + command
   std::string execution_model;       // "functional" or "cycle"
+  std::string functional_mode;       // "st", "mt", or "" for cycle mode
   std::string trace_time_basis;      // "modeled_cycle"
   bool trace_cycle_is_physical_time = false;
 };
@@ -29,6 +30,7 @@ struct TraceModelConfigSnapshot {
 struct TraceKernelSnapshot {
   std::string kernel_name;
   uint64_t kernel_launch_uid = 0;
+  uint64_t launch_index = 0;         // Monotonic launch counter
   uint32_t grid_dim_x = 1;
   uint32_t grid_dim_y = 1;
   uint32_t grid_dim_z = 1;
@@ -59,6 +61,10 @@ struct TraceWaveInitSnapshot {
 // All stats are producer-owned facts from execution engine.
 struct TraceSummarySnapshot {
   std::string kernel_status;         // "PASS" or "FAIL"
+  uint64_t launch_index = 0;         // Launch counter for this summary
+  uint64_t submit_cycle = 0;         // Cycle when kernel was submitted
+  uint64_t begin_cycle = 0;          // Cycle when execution began
+  uint64_t end_cycle = 0;            // Cycle when execution ended
   uint64_t gpu_tot_sim_cycle = 0;
   uint64_t gpu_tot_sim_insn = 0;
   double gpu_tot_ipc = 0.0;

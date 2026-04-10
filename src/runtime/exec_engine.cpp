@@ -308,6 +308,7 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
     TraceRunSnapshot run_snapshot{
         .invocation = CaptureInvocationLine(),
         .execution_model = request.mode == ExecutionMode::Cycle ? "cycle" : "functional",
+        .functional_mode = request.functional_mode,
         .trace_time_basis = "modeled_cycle",
         .trace_cycle_is_physical_time = false,
     };
@@ -327,6 +328,7 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
     TraceKernelSnapshot kernel_snapshot{
         .kernel_name = use_program_object_payload ? program_object->kernel_name() : kernel->name(),
         .kernel_launch_uid = 0,
+        .launch_index = request.launch_index,
         .grid_dim_x = request.config.grid_dim_x,
         .grid_dim_y = request.config.grid_dim_y,
         .grid_dim_z = request.config.grid_dim_z,
@@ -469,6 +471,10 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
     // Emit summary snapshot
     TraceSummarySnapshot summary_snapshot{
         .kernel_status = result.ok ? "PASS" : "FAIL",
+        .launch_index = request.launch_index,
+        .submit_cycle = result.submit_cycle,
+        .begin_cycle = result.begin_cycle,
+        .end_cycle = result.end_cycle,
         .gpu_tot_sim_cycle = result.total_cycles,
         .gpu_tot_sim_insn = result.program_cycle_stats.has_value()
                                 ? result.program_cycle_stats->instructions_executed

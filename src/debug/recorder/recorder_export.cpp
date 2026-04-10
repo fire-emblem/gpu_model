@@ -83,6 +83,9 @@ std::string RenderRecorderTextTrace(const Recorder& recorder) {
       text += run.invocation + "\n";
     }
     text += "execution_model=" + run.execution_model + "\n";
+    if (!run.functional_mode.empty()) {
+      text += "functional_mode=" + run.functional_mode + "\n";
+    }
     text += "trace_time_basis=" + run.trace_time_basis + "\n";
     text += "trace_cycle_is_physical_time=" + std::string(run.trace_cycle_is_physical_time ? "true" : "false") + "\n";
     text += "\n";
@@ -105,6 +108,7 @@ std::string RenderRecorderTextTrace(const Recorder& recorder) {
     const auto& kernel = *recorder.kernel_snapshot();
     text += "[KERNEL]\n";
     text += "kernel_name=" + kernel.kernel_name + "\n";
+    text += "launch_index=" + std::to_string(kernel.launch_index) + "\n";
     text += "grid_dim=" + std::to_string(kernel.grid_dim_x) + "," +
              std::to_string(kernel.grid_dim_y) + "," +
              std::to_string(kernel.grid_dim_z) + "\n";
@@ -147,6 +151,10 @@ std::string RenderRecorderTextTrace(const Recorder& recorder) {
     const auto& summary = *recorder.summary_snapshot();
     text += "[SUMMARY]\n";
     text += "kernel_status=" + summary.kernel_status + "\n";
+    text += "launch_index=" + std::to_string(summary.launch_index) + "\n";
+    text += "submit_cycle=" + std::to_string(summary.submit_cycle) + "\n";
+    text += "begin_cycle=" + std::to_string(summary.begin_cycle) + "\n";
+    text += "end_cycle=" + std::to_string(summary.end_cycle) + "\n";
     text += "gpu_tot_sim_cycle=" + std::to_string(summary.gpu_tot_sim_cycle) + "\n";
     text += "gpu_tot_sim_insn=" + std::to_string(summary.gpu_tot_sim_insn) + "\n";
     text += "gpu_tot_ipc=" + std::to_string(summary.gpu_tot_ipc) + "\n";

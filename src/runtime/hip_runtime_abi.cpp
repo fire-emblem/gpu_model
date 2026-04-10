@@ -66,35 +66,6 @@ gpu_model::HipRuntime& HipApi() {
   return runtime;
 }
 
-void AppendLaunchSummary(const std::filesystem::path& output_dir,
-                         const std::string& kernel_name,
-                         gpu_model::ExecutionMode execution_mode,
-                         gpu_model::FunctionalExecutionMode functional_mode,
-                         const gpu_model::LaunchResult& result) {
-  std::ofstream out(output_dir / "launch_summary.txt", std::ios::app);
-  if (!out) {
-    throw std::runtime_error("failed to open launch summary file");
-  }
-
-  out << "launch_index=" << HipApi().NextLaunchIndex()
-      << " kernel=" << kernel_name
-      << " execution_mode="
-      << (execution_mode == gpu_model::ExecutionMode::Cycle ? "cycle" : "functional")
-      << " functional_mode=" << ToFunctionalModeName(functional_mode)
-      << " ok=" << (result.ok ? 1 : 0)
-      << " submit_cycle=" << result.submit_cycle
-      << " begin_cycle=" << result.begin_cycle
-      << " end_cycle=" << result.end_cycle
-      << " total_cycles=" << result.total_cycles
-      << " program_total_cycles=";
-  if (result.program_cycle_stats.has_value()) {
-    out << result.program_cycle_stats->total_cycles;
-  } else {
-    out << "na";
-  }
-  out << '\n';
-}
-
 void DebugLog(const char* fmt, ...) {
   if (!DebugEnabled()) {
     return;
@@ -613,7 +584,6 @@ hipError_t hipLaunchKernel(const void* function_address,
   };
   const auto execution_mode = ResolveExecutionModeFromEnv();
   auto* trace = ResolveTraceArtifactRecorder();
-  const auto kernel_name = HipApi().ResolveKernelName(function_address);
   const auto result = HipApi().LaunchExecutableKernel(
       gpu_model::HipRuntime::CurrentExecutablePath(),
       function_address,
@@ -625,11 +595,6 @@ hipError_t hipLaunchKernel(const void* function_address,
       CurrentSubmissionContext());
   if (trace != nullptr) {
     trace->FlushTimeline();
-    AppendLaunchSummary(trace->output_dir(),
-                        kernel_name.value_or("<unregistered>"),
-                        execution_mode,
-                        HipApi().functional_execution_mode(),
-                        result);
   }
   DebugLog("hipLaunchKernel result ok=%d err=%s", result.ok ? 1 : 0,
            result.error_message.c_str());

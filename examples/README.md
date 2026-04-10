@@ -50,7 +50,7 @@
 
 运行成功后：
 - `stdout.txt` 包含 `... validation ok` 或 `mismatches=0`
-- `launch_summary.txt` 包含 `ok=1`
+- `trace.txt` [SUMMARY] 部分包含 `kernel_status=PASS` 和 `launch_index=`
 - `trace.txt` / `trace.jsonl` / `timeline.perfetto.json` 非空
 
 对非对比型 example，上述产物默认只在 `results/mt/` 下生成。

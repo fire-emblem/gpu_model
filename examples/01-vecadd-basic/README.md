@@ -56,7 +56,6 @@ kernel 做的事情非常直接：
 - `trace.txt`
 - `trace.jsonl`
 - `timeline.perfetto.json`
-- `launch_summary.txt`
 
 如果当前运行脚本已经接入了新的 native Perfetto 导出，重新运行后还应看到：
 
@@ -68,7 +67,7 @@ kernel 做的事情非常直接：
 - `results/st/stdout.txt` 包含 `vecadd validation ok`
 - `results/mt/stdout.txt` 包含 `vecadd validation ok`
 - `results/cycle/stdout.txt` 包含 `vecadd validation ok`
-- 三个模式的 `launch_summary.txt` 中都应有 `ok=1`
+- 三个模式的 `trace.txt` [SUMMARY] 部分都应有 `kernel_status=PASS`
 - 三个模式的 `trace.txt` / `trace.jsonl` 都不应为空
 - trace 中应能看到至少这些事件：
   - `Launch`
@@ -84,8 +83,8 @@ kernel 做的事情非常直接：
 第一次看 examples 时，建议只看三样：
 
 - `results/st/stdout.txt`
-- `results/st/launch_summary.txt`
-- `results/st/trace.txt`
+- `results/st/trace.txt` [SUMMARY] 部分
+- `results/st/trace.txt` [EVENTS] 部分
 
 这个例子不适合看复杂调度现象，但很适合确认：
 
@@ -99,10 +98,10 @@ kernel 做的事情非常直接：
 
 1. 看 `results/<mode>/stdout.txt`
    先确认是编译失败、运行失败，还是结果校验失败
-2. 看 `results/<mode>/launch_summary.txt`
-   确认 `ok`、`begin_cycle`、`end_cycle`、`total_cycles`
-3. 看 `results/<mode>/trace.txt`
-   确认是否连 `Launch` / `WaveStep` 都没有产生
+2. 看 `results/<mode>/trace.txt` [SUMMARY] 部分
+   确认 `kernel_status`、`begin_cycle`、`end_cycle`、`gpu_tot_sim_cycle`
+3. 看 `results/<mode>/trace.txt` [EVENTS] 部分
+   确认是否连 `launch` / `wave_step` 都没有产生
    只在需要看时间线时使用
 
 ## 结果解读
