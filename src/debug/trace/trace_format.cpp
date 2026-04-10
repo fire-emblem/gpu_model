@@ -121,35 +121,28 @@ std::string FormatWaveStepDetailBlock(const TraceWaveStepDetail& detail) {
 
 std::string FormatTextTraceLineFromFields(const TraceEvent& event,
                                          const TraceEventExportFields& fields,
-                                         uint64_t sequence = 0) {
+                                         uint64_t /*sequence*/ = 0) {
   std::ostringstream out;
-  // Format: [cycle] #seq   kind   wave=xxx  pc=0xXXX  asm/details
-  // Example: [000000] #1   wave_generate  wave=700000  pc=0x100  block=0 slot=0
+  // Format: [cycle:XXXXXX] [pc:0xXXX] [wave:0xXXX] [event:kind] details
+  // Example: [cycle:000000] [pc:0x1900] [wave:0x0] [event:wave_step] s_load_dword s0, s[4:5], 0x2c
 
-  // Cycle in brackets, 6 digits zero-padded
-  out << "[" << std::setfill('0') << std::setw(6) << event.cycle << "] ";
+  // [cycle:XXXXXX] - 6 digits zero-padded
+  out << "[cycle:" << std::setfill('0') << std::setw(6) << event.cycle << "] ";
 
-  // Sequence number with # prefix
-  out << "#" << std::setfill(' ') << std::setw(3) << std::right << sequence << "   ";
+  // [pc:0xXXX]
+  out << "[pc:" << HexU64(event.pc) << "] ";
 
-  // Event kind (canonical name), left-aligned in 16-char field with space padding
-  out << std::setfill(' ') << std::setw(16) << std::left << fields.canonical_name << "  ";
-
-  // Wave identifier: wave=0x{stable_wave_id} where stable_wave_id = (block_id << 32) | wave_id
-  // Use stable_wave_id for unique wave identification per reference template.
-  // Show wave= for wave-specific events (even if wave_id == 0 for block 0 wave 0).
-  // Block events and program events show as global.
-  // Hex format is more readable for large values (e.g., 0x100000001 vs 4294967297).
+  // [wave:0xXXX] or [wave:global]
   if (IsWaveSpecificEvent(event.kind)) {
     uint64_t stable_wave_id =
         (static_cast<uint64_t>(event.block_id) << 32u) | static_cast<uint64_t>(event.wave_id);
-    out << "wave=" << HexU64(stable_wave_id) << "  ";
+    out << "[wave:" << HexU64(stable_wave_id) << "] ";
   } else {
-    out << "global  ";
+    out << "[wave:global] ";
   }
 
-  // PC in hex with explicit prefix
-  out << "pc=" << HexU64(event.pc) << "  ";
+  // [event:kind]
+  out << "[event:" << fields.canonical_name << "] ";
 
   // Display name / message as details
   out << fields.display_name;
