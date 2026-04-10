@@ -20,6 +20,7 @@
 #include <string_view>
 #include <thread>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "gpu_model/debug/trace/document.h"
@@ -370,6 +371,11 @@ class ExecutedFlowEventSource final : public ProgramCycleTickSource {
       if (wave.completed || wave.active) {
         continue;
       }
+      // Mark wave launched on first processing
+      if (!wave.launched) {
+        agg.MarkWaveLaunched(wave.agg_wave_id);
+        wave.launched = true;
+      }
       if (!wave.work_items.empty()) {
         const auto step = wave.work_items.front();
         wave.work_items.pop_front();
@@ -395,6 +401,7 @@ class ExecutedFlowEventSource final : public ProgramCycleTickSource {
     std::deque<ExecutedFlowWorkItem> work_items;
     bool active = false;
     bool completed = false;
+    bool launched = false;
     bool saw_completion = false;
     uint64_t current_cost_cycles = 0;
     uint64_t ticks_consumed = 0;
@@ -412,6 +419,7 @@ class ExecutedFlowEventSource final : public ProgramCycleTickSource {
         .work_items = {},
         .active = false,
         .completed = false,
+        .launched = false,
         .saw_completion = false,
         .current_cost_cycles = 0,
         .ticks_consumed = 0,

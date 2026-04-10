@@ -469,6 +469,13 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
     }
 
     // Emit summary snapshot
+    const auto& pcs = result.program_cycle_stats;
+    const uint64_t memory_insts = pcs.has_value()
+                                      ? (pcs->global_loads + pcs->global_stores +
+                                         pcs->shared_loads + pcs->shared_stores +
+                                         pcs->private_loads + pcs->private_stores +
+                                         pcs->scalar_loads + pcs->scalar_stores)
+                                      : 0;
     TraceSummarySnapshot summary_snapshot{
         .kernel_status = result.ok ? "PASS" : "FAIL",
         .launch_index = request.launch_index,
@@ -476,31 +483,40 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
         .begin_cycle = result.begin_cycle,
         .end_cycle = result.end_cycle,
         .gpu_tot_sim_cycle = result.total_cycles,
-        .gpu_tot_sim_insn = result.program_cycle_stats.has_value()
-                                ? result.program_cycle_stats->instructions_executed
-                                : 0,
-        .gpu_tot_ipc = result.program_cycle_stats.has_value() && result.total_cycles > 0
-                           ? static_cast<double>(result.program_cycle_stats->instructions_executed) /
+        .gpu_tot_sim_insn = pcs.has_value() ? pcs->instructions_executed : 0,
+        .gpu_tot_ipc = pcs.has_value() && result.total_cycles > 0
+                           ? static_cast<double>(pcs->instructions_executed) /
                                  static_cast<double>(result.total_cycles)
                            : 0.0,
-        .gpu_tot_wave_exits = result.program_cycle_stats.has_value()
-                                  ? result.program_cycle_stats->waves_completed
-                                  : 0,
-        .stall_waitcnt_global = result.program_cycle_stats.has_value()
-                                    ? result.program_cycle_stats->stall_waitcnt
-                                    : 0,
+        .gpu_tot_wave_exits = pcs.has_value() ? pcs->waves_completed : 0,
+        .stall_waitcnt_global = pcs.has_value() ? pcs->stall_waitcnt : 0,
         .stall_waitcnt_shared = 0,
         .stall_waitcnt_private = 0,
-        .stall_warp_switch = result.program_cycle_stats.has_value()
-                                 ? result.program_cycle_stats->stall_switch_away
-                                 : 0,
-        .stall_barrier_slot = result.program_cycle_stats.has_value()
-                                  ? result.program_cycle_stats->stall_barrier
-                                  : 0,
-        .stall_other = result.program_cycle_stats.has_value()
-                           ? result.program_cycle_stats->stall_resource +
-                                 result.program_cycle_stats->stall_dependency
+        .stall_warp_switch = pcs.has_value() ? pcs->stall_switch_away : 0,
+        .stall_barrier_slot = pcs.has_value() ? pcs->stall_barrier : 0,
+        .stall_other = pcs.has_value()
+                           ? pcs->stall_resource + pcs->stall_dependency
                            : 0,
+        .scalar_alu_insts = pcs.has_value() ? pcs->scalar_alu_insts : 0,
+        .vector_alu_insts = pcs.has_value() ? pcs->vector_alu_insts : 0,
+        .tensor_insts = pcs.has_value() ? pcs->tensor_insts : 0,
+        .branch_insts = pcs.has_value() ? pcs->branch_insts : 0,
+        .barrier_insts = pcs.has_value() ? pcs->barrier_insts : 0,
+        .memory_insts = memory_insts,
+        .global_loads = pcs.has_value() ? pcs->global_loads : 0,
+        .global_stores = pcs.has_value() ? pcs->global_stores : 0,
+        .shared_loads = pcs.has_value() ? pcs->shared_loads : 0,
+        .shared_stores = pcs.has_value() ? pcs->shared_stores : 0,
+        .private_loads = pcs.has_value() ? pcs->private_loads : 0,
+        .private_stores = pcs.has_value() ? pcs->private_stores : 0,
+        .scalar_loads = pcs.has_value() ? pcs->scalar_loads : 0,
+        .scalar_stores = pcs.has_value() ? pcs->scalar_stores : 0,
+        .waves_launched = pcs.has_value() ? pcs->waves_launched : 0,
+        .waves_completed = pcs.has_value() ? pcs->waves_completed : 0,
+        .max_concurrent_waves = pcs.has_value() ? pcs->max_concurrent_waves : 0,
+        .active_utilization_pct = pcs.has_value() && pcs->total_cycles > 0
+                                      ? pcs->ActiveUtilization() * 100.0
+                                      : 0.0,
     };
     trace.OnSummarySnapshot(summary_snapshot);
   } catch (const std::exception& ex) {

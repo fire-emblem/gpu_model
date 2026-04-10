@@ -1,6 +1,7 @@
 #include "gpu_model/debug/recorder/export.h"
 
 #include <algorithm>
+#include <cstdio>
 #include <iomanip>
 #include <sstream>
 #include <string>
@@ -173,17 +174,55 @@ std::string RenderRecorderTextTrace(const Recorder& recorder) {
     const auto& summary = *recorder.summary_snapshot();
     text += "[SUMMARY]\n";
     text += "kernel_status=" + summary.kernel_status + "\n";
-    text += "launch_index=" + std::to_string(summary.launch_index) + "\n";
-    text += "submit_cycle=" + std::to_string(summary.submit_cycle) + "\n";
-    text += "begin_cycle=" + std::to_string(summary.begin_cycle) + "\n";
-    text += "end_cycle=" + std::to_string(summary.end_cycle) + "\n";
     text += "gpu_tot_sim_cycle=" + std::to_string(summary.gpu_tot_sim_cycle) + "\n";
     text += "gpu_tot_sim_insn=" + std::to_string(summary.gpu_tot_sim_insn) + "\n";
     text += "gpu_tot_ipc=" + std::to_string(summary.gpu_tot_ipc) + "\n";
     text += "gpu_tot_wave_exits=" + std::to_string(summary.gpu_tot_wave_exits) + "\n";
+    text += "\n";
+
+    // [STALL_SUMMARY] section
+    text += "[STALL_SUMMARY]\n";
     text += "stall_waitcnt=" + std::to_string(summary.stall_waitcnt_global) + "\n";
     text += "stall_warp_switch=" + std::to_string(summary.stall_warp_switch) + "\n";
     text += "stall_barrier=" + std::to_string(summary.stall_barrier_slot) + "\n";
+    text += "stall_other=" + std::to_string(summary.stall_other) + "\n";
+    text += "\n";
+
+    // [MEMORY_AND_RESOURCES] section
+    text += "[MEMORY_AND_RESOURCES]\n";
+    text += "global_loads=" + std::to_string(summary.global_loads) + "\n";
+    text += "global_stores=" + std::to_string(summary.global_stores) + "\n";
+    text += "shared_loads=" + std::to_string(summary.shared_loads) + "\n";
+    text += "shared_stores=" + std::to_string(summary.shared_stores) + "\n";
+    text += "private_loads=" + std::to_string(summary.private_loads) + "\n";
+    text += "private_stores=" + std::to_string(summary.private_stores) + "\n";
+    text += "scalar_loads=" + std::to_string(summary.scalar_loads) + "\n";
+    text += "scalar_stores=" + std::to_string(summary.scalar_stores) + "\n";
+    text += "\n";
+
+    // [PERF] section - Instruction mix with percentages
+    text += "[PERF]\n";
+    const uint64_t total_insts = summary.gpu_tot_sim_insn;
+    auto pct = [total_insts](uint64_t count) -> std::string {
+      if (total_insts == 0) return "0.00";
+      char buf[32];
+      snprintf(buf, sizeof(buf), "%.2f", 100.0 * static_cast<double>(count) / static_cast<double>(total_insts));
+      return std::string(buf);
+    };
+    text += "instruction_mix_total=" + std::to_string(total_insts) + "\n";
+    text += "scalar_alu=" + std::to_string(summary.scalar_alu_insts) + " (" + pct(summary.scalar_alu_insts) + "%)\n";
+    text += "vector_alu=" + std::to_string(summary.vector_alu_insts) + " (" + pct(summary.vector_alu_insts) + "%)\n";
+    text += "tensor=" + std::to_string(summary.tensor_insts) + " (" + pct(summary.tensor_insts) + "%)\n";
+    text += "branch=" + std::to_string(summary.branch_insts) + " (" + pct(summary.branch_insts) + "%)\n";
+    text += "barrier=" + std::to_string(summary.barrier_insts) + " (" + pct(summary.barrier_insts) + "%)\n";
+    text += "memory=" + std::to_string(summary.memory_insts) + " (" + pct(summary.memory_insts) + "%)\n";
+    text += "\n";
+
+    // Wave statistics
+    text += "waves_launched=" + std::to_string(summary.waves_launched) + "\n";
+    text += "waves_completed=" + std::to_string(summary.waves_completed) + "\n";
+    text += "max_concurrent_waves=" + std::to_string(summary.max_concurrent_waves) + "\n";
+    text += "active_utilization_pct=" + std::to_string(summary.active_utilization_pct) + "\n";
     text += "\n";
   }
 

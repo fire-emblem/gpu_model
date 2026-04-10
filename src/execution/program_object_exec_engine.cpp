@@ -672,6 +672,11 @@ class EncodedExecutedFlowEventSource final : public ProgramCycleTickSource {
       if (wave.completed || wave.active) {
         continue;
       }
+      // Mark wave launched on first processing
+      if (!wave.launched) {
+        agg.MarkWaveLaunched(wave.agg_wave_id);
+        wave.launched = true;
+      }
       if (!wave.steps.empty()) {
         const auto step = wave.steps.front();
         wave.steps.pop_front();
@@ -692,6 +697,7 @@ class EncodedExecutedFlowEventSource final : public ProgramCycleTickSource {
     std::deque<EncodedExecutedWaveStep> steps;
     bool active = false;
     bool completed = false;
+    bool launched = false;
     uint64_t current_cost_cycles = 0;
     uint64_t ticks_consumed = 0;
   };

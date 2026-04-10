@@ -1,5 +1,7 @@
 #include "gpu_model/runtime/program_cycle_tracker.h"
 
+#include <cstdio>
+
 namespace gpu_model {
 namespace {
 
@@ -45,6 +47,30 @@ void ProgramCycleTracker::BeginWaveWork(uint32_t wave_id,
                                         uint64_t cost_cycles,
                                         uint64_t work_weight) {
   AssignWaveWork(wave_id, step_class, cost_cycles, work_weight);
+  // Count instructions when work begins
+  ++stats_.instructions_executed;
+  switch (step_class) {
+    case ExecutedStepClass::ScalarAlu:
+      ++stats_.scalar_alu_insts;
+      break;
+    case ExecutedStepClass::VectorAlu:
+      ++stats_.vector_alu_insts;
+      break;
+    case ExecutedStepClass::Tensor:
+      ++stats_.tensor_insts;
+      break;
+    case ExecutedStepClass::Barrier:
+      ++stats_.barrier_insts;
+      break;
+    case ExecutedStepClass::GlobalMem:
+      // Memory instructions counted separately via loads/stores
+      break;
+    case ExecutedStepClass::SharedMem:
+    case ExecutedStepClass::ScalarMem:
+    case ExecutedStepClass::PrivateMem:
+    case ExecutedStepClass::Wait:
+      break;
+  }
 }
 
 void ProgramCycleTracker::MarkWaveWaiting(uint32_t wave_id,
@@ -66,7 +92,17 @@ void ProgramCycleTracker::MarkWaveRunnable(uint32_t wave_id) {
 }
 
 void ProgramCycleTracker::MarkWaveCompleted(uint32_t wave_id) {
-  waves_.erase(wave_id);
+  const auto it = waves_.find(wave_id);
+  if (it != waves_.end()) {
+    ++stats_.waves_completed;
+    waves_.erase(it);
+  }
+}
+
+void ProgramCycleTracker::MarkWaveLaunched(uint32_t wave_id) {
+  // Ensure wave exists in tracking
+  (void)waves_[wave_id];
+  ++stats_.waves_launched;
 }
 
 void ProgramCycleTracker::AdvanceOneTick() {

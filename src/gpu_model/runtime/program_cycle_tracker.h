@@ -33,6 +33,7 @@ class ProgramCycleTracker {
                        uint64_t work_weight = 1);
   void MarkWaveRunnable(uint32_t wave_id);
   void MarkWaveCompleted(uint32_t wave_id);
+  void MarkWaveLaunched(uint32_t wave_id);
   void AdvanceOneTick();
 
   bool Done() const;

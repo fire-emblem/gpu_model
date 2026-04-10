@@ -69,13 +69,40 @@ struct TraceSummarySnapshot {
   uint64_t gpu_tot_sim_insn = 0;
   double gpu_tot_ipc = 0.0;
   uint64_t gpu_tot_wave_exits = 0;
-  // Stall breakdown
+
+  // === Stall Breakdown ===
   uint64_t stall_waitcnt_global = 0;
   uint64_t stall_waitcnt_shared = 0;
   uint64_t stall_waitcnt_private = 0;
   uint64_t stall_warp_switch = 0;
   uint64_t stall_barrier_slot = 0;
   uint64_t stall_other = 0;
+
+  // === Instruction Mix ===
+  uint64_t scalar_alu_insts = 0;
+  uint64_t vector_alu_insts = 0;
+  uint64_t tensor_insts = 0;
+  uint64_t branch_insts = 0;
+  uint64_t barrier_insts = 0;
+  uint64_t memory_insts = 0;         // global + shared + private + scalar mem ops
+
+  // === Memory Operations ===
+  uint64_t global_loads = 0;
+  uint64_t global_stores = 0;
+  uint64_t shared_loads = 0;
+  uint64_t shared_stores = 0;
+  uint64_t private_loads = 0;
+  uint64_t private_stores = 0;
+  uint64_t scalar_loads = 0;
+  uint64_t scalar_stores = 0;
+
+  // === Wave Statistics ===
+  uint32_t waves_launched = 0;
+  uint32_t waves_completed = 0;
+  uint32_t max_concurrent_waves = 0;
+
+  // === Utilization ===
+  double active_utilization_pct = 0.0;  // active_cycles / total_cycles * 100
 };
 
 // TraceWarningSnapshot captures producer-detected warnings.
