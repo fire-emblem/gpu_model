@@ -131,8 +131,12 @@ gpu_model_assert_trace_artifacts() {
   [[ -f "$mode_dir/trace.jsonl" ]]
   [[ -f "$mode_dir/timeline.perfetto.json" ]]
   [[ -f "$mode_dir/launch_summary.txt" ]]
-  grep -q "kind=Launch" "$mode_dir/trace.txt"
-  grep -q '"kind":"Launch"' "$mode_dir/trace.jsonl"
+  # Verify structured trace output
+  grep -q "GPU_MODEL TRACE" "$mode_dir/trace.txt"
+  grep -q "\[EVENTS\]" "$mode_dir/trace.txt"
+  grep -q "\[SUMMARY\]" "$mode_dir/trace.txt"
+  grep -q '"type":"run_snapshot"' "$mode_dir/trace.jsonl"
+  grep -q '"type":"summary_snapshot"' "$mode_dir/trace.jsonl"
   grep -q '"traceEvents"' "$mode_dir/timeline.perfetto.json"
   grep -q 'execution_mode=' "$mode_dir/launch_summary.txt"
 }

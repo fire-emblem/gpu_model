@@ -6,6 +6,7 @@
 #include <sstream>
 #include <string>
 
+#include "gpu_model/debug/trace/artifact_recorder.h"
 #include "gpu_model/debug/trace/event_factory.h"
 #include "gpu_model/debug/trace/sink.h"
 #include "gpu_model/isa/instruction_builder.h"
@@ -27,10 +28,10 @@ using test::ExpectContainsLegacyStallMessage;
 // =============================================================================
 
 TEST(TraceSinkTest, WritesHumanReadableTraceFile) {
-  const std::filesystem::path path =
-      std::filesystem::temp_directory_path() / "gpu_model_trace.txt";
+  const std::filesystem::path dir =
+      std::filesystem::temp_directory_path() / "gpu_model_trace_structured";
   {
-    FileTraceSink trace(path);
+    TraceArtifactRecorder trace(dir);
     ExecEngine runtime(&trace);
 
     InstructionBuilder builder;
@@ -44,17 +45,23 @@ TEST(TraceSinkTest, WritesHumanReadableTraceFile) {
 
     const auto result = runtime.Launch(request);
     ASSERT_TRUE(result.ok);
+    trace.FlushTimeline();
   }
 
-  std::ifstream input(path);
+  const std::filesystem::path text_path = dir / "trace.txt";
+  std::ifstream input(text_path);
   ASSERT_TRUE(static_cast<bool>(input));
   std::ostringstream buffer;
   buffer << input.rdbuf();
   const std::string text = buffer.str();
+  // Verify structured trace output
+  EXPECT_NE(text.find("GPU_MODEL TRACE"), std::string::npos);
+  EXPECT_NE(text.find("[RUN]"), std::string::npos);
+  EXPECT_NE(text.find("[EVENTS]"), std::string::npos);
+  EXPECT_NE(text.find("[SUMMARY]"), std::string::npos);
   EXPECT_NE(text.find("kind=Launch"), std::string::npos);
   EXPECT_NE(text.find("kind=WaveExit"), std::string::npos);
-  EXPECT_NE(text.find("pc=0x0"), std::string::npos);
-  std::filesystem::remove(path);
+  std::filesystem::remove_all(dir);
 }
 
 TEST(TraceSinkTest, WritesWaveStatsEventsToTraceSinks) {
