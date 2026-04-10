@@ -890,6 +890,313 @@ class VPkMovB32Handler final : public BaseHandler {
   }
 };
 
+// v_add_co_u32_e32: dst = src0 + src1 with carry output to VCC
+// Complex: modifies VCC
+class VAddCoU32E32Handler final : public BaseHandler {
+ protected:
+  void ExecuteImpl(const DecodedInstruction& instruction,
+                   EncodedWaveContext& context) const override {
+    const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
+    context.vcc = 0;
+    for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+      if (!context.wave.exec.test(lane)) continue;
+      const uint64_t lhs = static_cast<uint32_t>(
+          ResolveVectorLane(instruction.operands.at(2), context, lane));
+      const uint64_t rhs = static_cast<uint32_t>(
+          ResolveVectorLane(instruction.operands.at(3), context, lane));
+      const uint64_t sum = lhs + rhs;
+      context.wave.vgpr.Write(vdst, lane, static_cast<uint32_t>(sum));
+      if ((sum >> 32u) != 0) {
+        context.vcc |= (1ull << lane);
+      }
+    }
+  }
+};
+
+// v_addc_co_u32_e32: dst = src0 + src1 + carry_in with carry output to VCC
+// Complex: reads and writes VCC
+class VAddcCoU32E32Handler final : public BaseHandler {
+ protected:
+  void ExecuteImpl(const DecodedInstruction& instruction,
+                   EncodedWaveContext& context) const override {
+    const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
+    uint64_t next_vcc = 0;
+    for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+      if (!context.wave.exec.test(lane)) continue;
+      const uint64_t carry_in = (context.vcc >> lane) & 1ull;
+      const uint64_t lhs = static_cast<uint32_t>(
+          ResolveVectorLane(instruction.operands.at(2), context, lane));
+      const uint64_t rhs = static_cast<uint32_t>(
+          ResolveVectorLane(instruction.operands.at(3), context, lane));
+      const uint64_t sum = lhs + rhs + carry_in;
+      context.wave.vgpr.Write(vdst, lane, static_cast<uint32_t>(sum));
+      if ((sum >> 32u) != 0) {
+        next_vcc |= (1ull << lane);
+      }
+    }
+    context.vcc = next_vcc;
+  }
+};
+
+// v_add_co_u32_e64: dst = src0 + src1 with carry output to sdst
+// Complex: carry output to arbitrary scalar register
+class VAddCoU32E64Handler final : public BaseHandler {
+ protected:
+  void ExecuteImpl(const DecodedInstruction& instruction,
+                   EncodedWaveContext& context) const override {
+    const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
+    uint64_t carry_mask = 0;
+    for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+      if (!context.wave.exec.test(lane)) continue;
+      const uint64_t lhs = static_cast<uint32_t>(
+          ResolveVectorLane(instruction.operands.at(2), context, lane));
+      const uint64_t rhs = static_cast<uint32_t>(
+          ResolveVectorLane(instruction.operands.at(3), context, lane));
+      const uint64_t sum = lhs + rhs;
+      context.wave.vgpr.Write(vdst, lane, static_cast<uint32_t>(sum));
+      if ((sum >> 32u) != 0) {
+        carry_mask |= (1ull << lane);
+      }
+    }
+    StoreScalarPair(instruction.operands.at(1), context, carry_mask);
+  }
+};
+
+// v_addc_co_u32_e64: dst = src0 + src1 + carry_in with carry output to sdst
+// Complex: carry from arbitrary scalar register
+class VAddcCoU32E64Handler final : public BaseHandler {
+ protected:
+  void ExecuteImpl(const DecodedInstruction& instruction,
+                   EncodedWaveContext& context) const override {
+    const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
+    const uint64_t carry_in_mask = ResolveScalarPair(instruction.operands.at(4), context);
+    uint64_t carry_out_mask = 0;
+    for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+      if (!context.wave.exec.test(lane)) continue;
+      const uint64_t carry_in = (carry_in_mask >> lane) & 1ull;
+      const uint64_t lhs = static_cast<uint32_t>(
+          ResolveVectorLane(instruction.operands.at(2), context, lane));
+      const uint64_t rhs = static_cast<uint32_t>(
+          ResolveVectorLane(instruction.operands.at(3), context, lane));
+      const uint64_t sum = lhs + rhs + carry_in;
+      context.wave.vgpr.Write(vdst, lane, static_cast<uint32_t>(sum));
+      if ((sum >> 32u) != 0) {
+        carry_out_mask |= (1ull << lane);
+      }
+    }
+    StoreScalarPair(instruction.operands.at(1), context, carry_out_mask);
+  }
+};
+
+// v_lshlrev_b64: dst[63:0] = src[63:0] << (shift & 63)
+// Complex: 64-bit result writes to two VGPRs
+class VLshlrevB64Handler final : public BaseHandler {
+ protected:
+  void ExecuteImpl(const DecodedInstruction& instruction,
+                   EncodedWaveContext& context) const override {
+    const auto [vdst, _] = RequireVectorRange(instruction.operands.at(0));
+    const uint32_t shift = static_cast<uint32_t>(
+        ResolveVectorLane(instruction.operands.at(1), context, 0));
+    const uint32_t src_pair = instruction.operands.at(2).kind == DecodedInstructionOperandKind::VectorRegRange
+                                  ? RequireVectorRange(instruction.operands.at(2)).first
+                                  : RequireVectorIndex(instruction.operands.at(2));
+    for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+      if (!context.wave.exec.test(lane)) continue;
+      const uint64_t lo = static_cast<uint32_t>(context.wave.vgpr.Read(src_pair, lane));
+      const uint64_t hi = static_cast<uint32_t>(context.wave.vgpr.Read(src_pair + 1, lane));
+      const uint64_t value = ((hi << 32u) | lo) << (shift & 63u);
+      context.wave.vgpr.Write(vdst, lane, static_cast<uint32_t>(value & 0xffffffffu));
+      context.wave.vgpr.Write(vdst + 1, lane, static_cast<uint32_t>(value >> 32u));
+    }
+  }
+};
+
+// v_mad_u64_u32: dst[63:0] = acc[63:0] + (src0 * src1)
+// Complex: 64-bit multiply-add with 64-bit result
+class VMadU64U32Handler final : public BaseHandler {
+ protected:
+  void ExecuteImpl(const DecodedInstruction& instruction,
+                   EncodedWaveContext& context) const override {
+    const auto [vdst, _] = RequireVectorRange(instruction.operands.at(0));
+    for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+      if (!context.wave.exec.test(lane)) continue;
+      const uint64_t mul_lhs = ResolveVectorLane(instruction.operands.at(2), context, lane);
+      const uint64_t mul_rhs = ResolveVectorLane(instruction.operands.at(3), context, lane);
+      const auto src2_kind = instruction.operands.at(4).kind;
+      const uint32_t src2_first = src2_kind == DecodedInstructionOperandKind::VectorRegRange
+                                      ? RequireVectorRange(instruction.operands.at(4)).first
+                                      : RequireVectorIndex(instruction.operands.at(4));
+      const uint64_t acc_lo = static_cast<uint32_t>(
+          src2_kind == DecodedInstructionOperandKind::VectorRegRange
+              ? context.wave.vgpr.Read(src2_first, lane)
+              : ResolveVectorLane(instruction.operands.at(4), context, lane));
+      const uint64_t acc_hi = static_cast<uint32_t>(
+          src2_kind == DecodedInstructionOperandKind::VectorRegRange
+              ? context.wave.vgpr.Read(src2_first + 1, lane)
+              : 0u);
+      const uint64_t acc = (acc_hi << 32u) | acc_lo;
+      const uint64_t value = acc + mul_lhs * mul_rhs;
+      context.wave.vgpr.Write(vdst, lane, static_cast<uint32_t>(value & 0xffffffffu));
+      context.wave.vgpr.Write(vdst + 1, lane, static_cast<uint32_t>(value >> 32u));
+    }
+  }
+};
+
+// MFMA handlers - use WriteTensorResultRange for tensor result storage
+// v_mfma_f32_16x16x4f32: dst = acc + src0 * src1 * 4
+class VMfmaF32_16x16x4f32Handler final : public BaseHandler {
+ protected:
+  void ExecuteImpl(const DecodedInstruction& instruction,
+                   EncodedWaveContext& context) const override {
+    const uint32_t vdst = instruction.operands.at(0).kind == DecodedInstructionOperandKind::VectorRegRange
+                              ? RequireVectorRange(instruction.operands.at(0)).first
+                              : RequireVectorIndex(instruction.operands.at(0));
+    const auto storage_policy = DefaultTensorResultStoragePolicy();
+    for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+      if (!context.wave.exec.test(lane)) continue;
+      const float src0 = U32AsFloat(static_cast<uint32_t>(
+          ResolveVectorLane(instruction.operands.at(1), context, lane)));
+      const float src1 = U32AsFloat(static_cast<uint32_t>(
+          ResolveVectorLane(instruction.operands.at(2), context, lane)));
+      const float src2 = U32AsFloat(static_cast<uint32_t>(
+          ResolveVectorLane(instruction.operands.at(3), context, lane)));
+      const float value = src2 + src0 * src1 * 4.0f;
+      WriteTensorResultRange(context.wave, vdst, 4, lane, FloatAsU32(value), storage_policy);
+    }
+  }
+};
+
+// v_mfma_f32_32x32x2f32: dst = acc + src0 * src1 * 2
+class VMfmaF32_32x32x2f32Handler final : public BaseHandler {
+ protected:
+  void ExecuteImpl(const DecodedInstruction& instruction,
+                   EncodedWaveContext& context) const override {
+    const uint32_t vdst = instruction.operands.at(0).kind == DecodedInstructionOperandKind::VectorRegRange
+                              ? RequireVectorRange(instruction.operands.at(0)).first
+                              : RequireVectorIndex(instruction.operands.at(0));
+    const auto storage_policy = DefaultTensorResultStoragePolicy();
+    for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+      if (!context.wave.exec.test(lane)) continue;
+      const float src0 = U32AsFloat(static_cast<uint32_t>(
+          ResolveVectorLane(instruction.operands.at(1), context, lane)));
+      const float src1 = U32AsFloat(static_cast<uint32_t>(
+          ResolveVectorLane(instruction.operands.at(2), context, lane)));
+      const float src2 = U32AsFloat(static_cast<uint32_t>(
+          ResolveVectorLane(instruction.operands.at(3), context, lane)));
+      const float value = src2 + src0 * src1 * 2.0f;
+      WriteTensorResultRange(context.wave, vdst, 16, lane, FloatAsU32(value), storage_policy);
+    }
+  }
+};
+
+// v_mfma_f32_16x16x4f16: dst = acc + fp16_dot(src0, src1)
+class VMfmaF32_16x16x4f16Handler final : public BaseHandler {
+ protected:
+  void ExecuteImpl(const DecodedInstruction& instruction,
+                   EncodedWaveContext& context) const override {
+    const uint32_t vdst = instruction.operands.at(0).kind == DecodedInstructionOperandKind::VectorRegRange
+                              ? RequireVectorRange(instruction.operands.at(0)).first
+                              : RequireVectorIndex(instruction.operands.at(0));
+    const auto storage_policy = DefaultTensorResultStoragePolicy();
+    for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+      if (!context.wave.exec.test(lane)) continue;
+      const uint32_t src0_bits = static_cast<uint32_t>(
+          ResolveVectorLane(instruction.operands.at(1), context, lane));
+      const uint32_t src1_bits = static_cast<uint32_t>(
+          ResolveVectorLane(instruction.operands.at(2), context, lane));
+      const float acc = U32AsFloat(static_cast<uint32_t>(
+          ResolveVectorLane(instruction.operands.at(3), context, lane)));
+      const float a0 = HalfToFloat(static_cast<uint16_t>(src0_bits & 0xffffu));
+      const float a1 = HalfToFloat(static_cast<uint16_t>(src0_bits >> 16u));
+      const float b0 = HalfToFloat(static_cast<uint16_t>(src1_bits & 0xffffu));
+      const float b1 = HalfToFloat(static_cast<uint16_t>(src1_bits >> 16u));
+      const float value = acc + a0 * b0 + a1 * b1;
+      WriteTensorResultRange(context.wave, vdst, 4, lane, FloatAsU32(value), storage_policy);
+    }
+  }
+};
+
+// v_mfma_i32_16x16x4i8: dst = acc + i8_dot(src0, src1)
+class VMfmaI32_16x16x4i8Handler final : public BaseHandler {
+ protected:
+  void ExecuteImpl(const DecodedInstruction& instruction,
+                   EncodedWaveContext& context) const override {
+    const uint32_t vdst = instruction.operands.at(0).kind == DecodedInstructionOperandKind::VectorRegRange
+                              ? RequireVectorRange(instruction.operands.at(0)).first
+                              : RequireVectorIndex(instruction.operands.at(0));
+    const auto storage_policy = DefaultTensorResultStoragePolicy();
+    for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+      if (!context.wave.exec.test(lane)) continue;
+      const uint32_t src0_bits = static_cast<uint32_t>(
+          ResolveVectorLane(instruction.operands.at(1), context, lane));
+      const uint32_t src1_bits = static_cast<uint32_t>(
+          ResolveVectorLane(instruction.operands.at(2), context, lane));
+      int32_t acc = static_cast<int32_t>(
+          ResolveVectorLane(instruction.operands.at(3), context, lane));
+      for (uint32_t i = 0; i < 4; ++i) {
+        const int8_t a = static_cast<int8_t>((src0_bits >> (i * 8u)) & 0xffu);
+        const int8_t b = static_cast<int8_t>((src1_bits >> (i * 8u)) & 0xffu);
+        acc += static_cast<int32_t>(a) * static_cast<int32_t>(b);
+      }
+      WriteTensorResultRange(context.wave, vdst, 4, lane, static_cast<uint32_t>(acc), storage_policy);
+    }
+  }
+};
+
+// v_mfma_i32_16x16x16i8: dst = acc + 4 * i8_dot(src0, src1)
+class VMfmaI32_16x16x16i8Handler final : public BaseHandler {
+ protected:
+  void ExecuteImpl(const DecodedInstruction& instruction,
+                   EncodedWaveContext& context) const override {
+    const uint32_t vdst = instruction.operands.at(0).kind == DecodedInstructionOperandKind::VectorRegRange
+                              ? RequireVectorRange(instruction.operands.at(0)).first
+                              : RequireVectorIndex(instruction.operands.at(0));
+    const auto storage_policy = DefaultTensorResultStoragePolicy();
+    for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+      if (!context.wave.exec.test(lane)) continue;
+      const uint32_t src0_bits = static_cast<uint32_t>(
+          ResolveVectorLane(instruction.operands.at(1), context, lane));
+      const uint32_t src1_bits = static_cast<uint32_t>(
+          ResolveVectorLane(instruction.operands.at(2), context, lane));
+      int32_t acc = static_cast<int32_t>(
+          ResolveVectorLane(instruction.operands.at(3), context, lane));
+      for (uint32_t i = 0; i < 4; ++i) {
+        const int8_t a = static_cast<int8_t>((src0_bits >> (i * 8u)) & 0xffu);
+        const int8_t b = static_cast<int8_t>((src1_bits >> (i * 8u)) & 0xffu);
+        acc += 4 * static_cast<int32_t>(a) * static_cast<int32_t>(b);
+      }
+      WriteTensorResultRange(context.wave, vdst, 4, lane, static_cast<uint32_t>(acc), storage_policy);
+    }
+  }
+};
+
+// v_mfma_f32_16x16x2bf16: dst = acc + bf16_dot(src0, src1)
+class VMfmaF32_16x16x2bf16Handler final : public BaseHandler {
+ protected:
+  void ExecuteImpl(const DecodedInstruction& instruction,
+                   EncodedWaveContext& context) const override {
+    const uint32_t vdst = instruction.operands.at(0).kind == DecodedInstructionOperandKind::VectorRegRange
+                              ? RequireVectorRange(instruction.operands.at(0)).first
+                              : RequireVectorIndex(instruction.operands.at(0));
+    const auto storage_policy = DefaultTensorResultStoragePolicy();
+    for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+      if (!context.wave.exec.test(lane)) continue;
+      const uint32_t src0_bits = static_cast<uint32_t>(
+          ResolveVectorLane(instruction.operands.at(1), context, lane));
+      const uint32_t src1_bits = static_cast<uint32_t>(
+          ResolveVectorLane(instruction.operands.at(2), context, lane));
+      const float acc = U32AsFloat(static_cast<uint32_t>(
+          ResolveVectorLane(instruction.operands.at(3), context, lane)));
+      const float a0 = BFloat16ToFloat(static_cast<uint16_t>(src0_bits & 0xffffu));
+      const float a1 = BFloat16ToFloat(static_cast<uint16_t>(src0_bits >> 16u));
+      const float b0 = BFloat16ToFloat(static_cast<uint16_t>(src1_bits & 0xffffu));
+      const float b1 = BFloat16ToFloat(static_cast<uint16_t>(src1_bits >> 16u));
+      const float value = acc + a0 * b0 + a1 * b1;
+      WriteTensorResultRange(context.wave, vdst, 4, lane, FloatAsU32(value), storage_policy);
+    }
+  }
+};
+
 class ScalarMemoryHandler final : public BaseHandler {
  protected:
   void ExecuteImpl(const DecodedInstruction& instruction, EncodedWaveContext& context) const override {
@@ -2562,6 +2869,18 @@ static const VAccvgprWriteHandler kVAccvgprWriteHandler;
 static const VCndmaskB32E32Handler kVCndmaskB32E32Handler;
 static const VCndmaskB32E64Handler kVCndmaskB32E64Handler;
 static const VPkMovB32Handler kVPkMovB32Handler;
+static const VAddCoU32E32Handler kVAddCoU32E32Handler;
+static const VAddcCoU32E32Handler kVAddcCoU32E32Handler;
+static const VAddCoU32E64Handler kVAddCoU32E64Handler;
+static const VAddcCoU32E64Handler kVAddcCoU32E64Handler;
+static const VLshlrevB64Handler kVLshlrevB64Handler;
+static const VMadU64U32Handler kVMadU64U32Handler;
+static const VMfmaF32_16x16x4f32Handler kVMfmaF32_16x16x4f32Handler;
+static const VMfmaF32_32x32x2f32Handler kVMfmaF32_32x32x2f32Handler;
+static const VMfmaF32_16x16x4f16Handler kVMfmaF32_16x16x4f16Handler;
+static const VMfmaI32_16x16x4i8Handler kVMfmaI32_16x16x4i8Handler;
+static const VMfmaI32_16x16x16i8Handler kVMfmaI32_16x16x16i8Handler;
+static const VMfmaF32_16x16x2bf16Handler kVMfmaF32_16x16x2bf16Handler;
 
 // Register all individual handlers in the unified registry
 void RegisterVectorAluHandlers() {
@@ -2608,6 +2927,18 @@ void RegisterVectorAluHandlers() {
   registry.Register("v_cndmask_b32_e32", &kVCndmaskB32E32Handler);
   registry.Register("v_cndmask_b32_e64", &kVCndmaskB32E64Handler);
   registry.Register("v_pk_mov_b32", &kVPkMovB32Handler);
+  registry.Register("v_add_co_u32_e32", &kVAddCoU32E32Handler);
+  registry.Register("v_addc_co_u32_e32", &kVAddcCoU32E32Handler);
+  registry.Register("v_add_co_u32_e64", &kVAddCoU32E64Handler);
+  registry.Register("v_addc_co_u32_e64", &kVAddcCoU32E64Handler);
+  registry.Register("v_lshlrev_b64", &kVLshlrevB64Handler);
+  registry.Register("v_mad_u64_u32", &kVMadU64U32Handler);
+  registry.Register("v_mfma_f32_16x16x4f32", &kVMfmaF32_16x16x4f32Handler);
+  registry.Register("v_mfma_f32_32x32x2f32", &kVMfmaF32_32x32x2f32Handler);
+  registry.Register("v_mfma_f32_16x16x4f16", &kVMfmaF32_16x16x4f16Handler);
+  registry.Register("v_mfma_i32_16x16x4i8", &kVMfmaI32_16x16x4i8Handler);
+  registry.Register("v_mfma_i32_16x16x16i8", &kVMfmaI32_16x16x16i8Handler);
+  registry.Register("v_mfma_f32_16x16x2bf16", &kVMfmaF32_16x16x2bf16Handler);
 }
 
 // Auto-registration on first use
