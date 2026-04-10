@@ -189,8 +189,13 @@ class VectorLaneHandler : public BaseHandler {
 // These replace the monolithic VectorAluHandler for better SRP and OCP.
 // ============================================================================
 
-// v_add_u32_e32: dst = src0 + src1 (unsigned 32-bit)
-class VAddU32Handler final : public VectorLaneHandler<VAddU32Handler> {
+// ============================================================================
+// Generic Handler Templates - reduce code duplication for common patterns
+// ============================================================================
+
+// Binary integer operation: dst = lhs OP rhs
+template <auto Op>
+class BinaryU32Handler final : public VectorLaneHandler<BinaryU32Handler<Op>> {
  public:
   void ExecuteLane(const DecodedInstruction& instruction,
                    EncodedWaveContext& context, uint32_t lane) const {
@@ -199,131 +204,65 @@ class VAddU32Handler final : public VectorLaneHandler<VAddU32Handler> {
         ResolveVectorLane(instruction.operands.at(1), context, lane));
     const uint32_t rhs = static_cast<uint32_t>(
         ResolveVectorLane(instruction.operands.at(2), context, lane));
-    context.wave.vgpr.Write(vdst, lane, lhs + rhs);
+    context.wave.vgpr.Write(vdst, lane, Op(lhs, rhs));
   }
 };
 
-// v_sub_u32_e32: dst = src0 - src1 (unsigned 32-bit)
-class VSubU32Handler final : public VectorLaneHandler<VSubU32Handler> {
+// Binary float operation: dst = float(lhs) OP float(rhs)
+template <auto Op>
+class BinaryF32Handler final : public VectorLaneHandler<BinaryF32Handler<Op>> {
  public:
   void ExecuteLane(const DecodedInstruction& instruction,
                    EncodedWaveContext& context, uint32_t lane) const {
     const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
-    const uint32_t lhs = static_cast<uint32_t>(
-        ResolveVectorLane(instruction.operands.at(1), context, lane));
-    const uint32_t rhs = static_cast<uint32_t>(
-        ResolveVectorLane(instruction.operands.at(2), context, lane));
-    context.wave.vgpr.Write(vdst, lane, lhs - rhs);
+    const float lhs = U32AsFloat(static_cast<uint32_t>(
+        ResolveVectorLane(instruction.operands.at(1), context, lane)));
+    const float rhs = U32AsFloat(static_cast<uint32_t>(
+        ResolveVectorLane(instruction.operands.at(2), context, lane)));
+    context.wave.vgpr.Write(vdst, lane, FloatAsU32(Op(lhs, rhs)));
   }
 };
 
-// v_mov_b32_e32: dst = src (move 32-bit)
-class VMovB32Handler final : public VectorLaneHandler<VMovB32Handler> {
- public:
-  void ExecuteLane(const DecodedInstruction& instruction,
-                   EncodedWaveContext& context, uint32_t lane) const {
-    const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
-    const uint32_t value = static_cast<uint32_t>(
-        ResolveVectorLane(instruction.operands.at(1), context, lane));
-    context.wave.vgpr.Write(vdst, lane, value);
-  }
-};
-
-// v_not_b32_e32: dst = ~src (bitwise NOT)
-class VNotB32Handler final : public VectorLaneHandler<VNotB32Handler> {
+// Unary integer operation: dst = OP(src)
+template <auto Op>
+class UnaryU32Handler final : public VectorLaneHandler<UnaryU32Handler<Op>> {
  public:
   void ExecuteLane(const DecodedInstruction& instruction,
                    EncodedWaveContext& context, uint32_t lane) const {
     const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
     const uint32_t src = static_cast<uint32_t>(
         ResolveVectorLane(instruction.operands.at(1), context, lane));
-    context.wave.vgpr.Write(vdst, lane, ~src);
+    context.wave.vgpr.Write(vdst, lane, Op(src));
   }
 };
 
-// v_and_b32_e32: dst = src0 & src1 (bitwise AND)
-class VAndB32Handler final : public VectorLaneHandler<VAndB32Handler> {
- public:
-  void ExecuteLane(const DecodedInstruction& instruction,
-                   EncodedWaveContext& context, uint32_t lane) const {
-    const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
-    const uint32_t lhs = static_cast<uint32_t>(
-        ResolveVectorLane(instruction.operands.at(1), context, lane));
-    const uint32_t rhs = static_cast<uint32_t>(
-        ResolveVectorLane(instruction.operands.at(2), context, lane));
-    context.wave.vgpr.Write(vdst, lane, lhs & rhs);
-  }
-};
+// Operation functors for template instantiation
+constexpr auto OpAddU32 = [](uint32_t a, uint32_t b) { return a + b; };
+constexpr auto OpSubU32 = [](uint32_t a, uint32_t b) { return a - b; };
+constexpr auto OpAndU32 = [](uint32_t a, uint32_t b) { return a & b; };
+constexpr auto OpOrU32  = [](uint32_t a, uint32_t b) { return a | b; };
+constexpr auto OpXorU32 = [](uint32_t a, uint32_t b) { return a ^ b; };
+constexpr auto OpAddF32 = [](float a, float b) { return a + b; };
+constexpr auto OpSubF32 = [](float a, float b) { return a - b; };
+constexpr auto OpMulF32 = [](float a, float b) { return a * b; };
+constexpr auto OpNotU32 = [](uint32_t a) { return ~a; };
+constexpr auto OpIdentity = [](uint32_t a) { return a; };
 
-// v_or_b32_e32: dst = src0 | src1 (bitwise OR)
-class VOrB32Handler final : public VectorLaneHandler<VOrB32Handler> {
- public:
-  void ExecuteLane(const DecodedInstruction& instruction,
-                   EncodedWaveContext& context, uint32_t lane) const {
-    const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
-    const uint32_t lhs = static_cast<uint32_t>(
-        ResolveVectorLane(instruction.operands.at(1), context, lane));
-    const uint32_t rhs = static_cast<uint32_t>(
-        ResolveVectorLane(instruction.operands.at(2), context, lane));
-    context.wave.vgpr.Write(vdst, lane, lhs | rhs);
-  }
-};
+// Type aliases for concrete handlers
+using VAddU32Handler = BinaryU32Handler<OpAddU32>;
+using VSubU32Handler = BinaryU32Handler<OpSubU32>;
+using VAndB32Handler = BinaryU32Handler<OpAndU32>;
+using VOrB32Handler  = BinaryU32Handler<OpOrU32>;
+using VXorB32Handler = BinaryU32Handler<OpXorU32>;
+using VAddF32Handler = BinaryF32Handler<OpAddF32>;
+using VSubF32Handler = BinaryF32Handler<OpSubF32>;
+using VMulF32Handler = BinaryF32Handler<OpMulF32>;
+using VNotB32Handler = UnaryU32Handler<OpNotU32>;
+using VMovB32Handler = UnaryU32Handler<OpIdentity>;
 
-// v_xor_b32_e32: dst = src0 ^ src1 (bitwise XOR)
-class VXorB32Handler final : public VectorLaneHandler<VXorB32Handler> {
- public:
-  void ExecuteLane(const DecodedInstruction& instruction,
-                   EncodedWaveContext& context, uint32_t lane) const {
-    const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
-    const uint32_t lhs = static_cast<uint32_t>(
-        ResolveVectorLane(instruction.operands.at(1), context, lane));
-    const uint32_t rhs = static_cast<uint32_t>(
-        ResolveVectorLane(instruction.operands.at(2), context, lane));
-    context.wave.vgpr.Write(vdst, lane, lhs ^ rhs);
-  }
-};
-
-// v_add_f32_e32: dst = src0 + src1 (float)
-class VAddF32Handler final : public VectorLaneHandler<VAddF32Handler> {
- public:
-  void ExecuteLane(const DecodedInstruction& instruction,
-                   EncodedWaveContext& context, uint32_t lane) const {
-    const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
-    const float lhs = U32AsFloat(static_cast<uint32_t>(
-        ResolveVectorLane(instruction.operands.at(1), context, lane)));
-    const float rhs = U32AsFloat(static_cast<uint32_t>(
-        ResolveVectorLane(instruction.operands.at(2), context, lane)));
-    context.wave.vgpr.Write(vdst, lane, FloatAsU32(lhs + rhs));
-  }
-};
-
-// v_sub_f32_e32: dst = src0 - src1 (float)
-class VSubF32Handler final : public VectorLaneHandler<VSubF32Handler> {
- public:
-  void ExecuteLane(const DecodedInstruction& instruction,
-                   EncodedWaveContext& context, uint32_t lane) const {
-    const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
-    const float lhs = U32AsFloat(static_cast<uint32_t>(
-        ResolveVectorLane(instruction.operands.at(1), context, lane)));
-    const float rhs = U32AsFloat(static_cast<uint32_t>(
-        ResolveVectorLane(instruction.operands.at(2), context, lane)));
-    context.wave.vgpr.Write(vdst, lane, FloatAsU32(lhs - rhs));
-  }
-};
-
-// v_mul_f32_e32: dst = src0 * src1 (float)
-class VMulF32Handler final : public VectorLaneHandler<VMulF32Handler> {
- public:
-  void ExecuteLane(const DecodedInstruction& instruction,
-                   EncodedWaveContext& context, uint32_t lane) const {
-    const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
-    const float lhs = U32AsFloat(static_cast<uint32_t>(
-        ResolveVectorLane(instruction.operands.at(1), context, lane)));
-    const float rhs = U32AsFloat(static_cast<uint32_t>(
-        ResolveVectorLane(instruction.operands.at(2), context, lane)));
-    context.wave.vgpr.Write(vdst, lane, FloatAsU32(lhs * rhs));
-  }
-};
+// ============================================================================
+// Specialized Handlers (not suitable for templating)
+// ============================================================================
 
 // v_lshlrev_b32_e32: dst = src1 << (src0 & 31) (shift left logical)
 class VLshlrevB32Handler final : public VectorLaneHandler<VLshlrevB32Handler> {
