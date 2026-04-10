@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <deque>
@@ -97,5 +98,26 @@ struct WaveStatsSnapshot {
 
 /// Format wave stats for logging.
 std::string FormatWaveStatsMessage(const WaveStatsSnapshot& stats);
+
+// ============================================================================
+// Issue Quantum Constants (shared across execution engines)
+// ============================================================================
+
+/// Minimum issue quantum for execution timing.
+constexpr uint64_t kIssueQuantumCycles = 4;
+
+/// Quantize a cycle value to the next issue quantum boundary.
+inline uint64_t QuantizeToNextIssueQuantum(uint64_t cycle) {
+  const uint64_t remainder = cycle % kIssueQuantumCycles;
+  if (remainder == 0) {
+    return cycle;
+  }
+  return cycle + (kIssueQuantumCycles - remainder);
+}
+
+/// Quantize an issue duration to valid quantum boundaries.
+inline uint64_t QuantizeIssueDuration(uint64_t cycles) {
+  return std::max(kIssueQuantumCycles, QuantizeToNextIssueQuantum(cycles));
+}
 
 }  // namespace gpu_model

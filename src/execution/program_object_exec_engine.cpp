@@ -28,6 +28,7 @@
 #include "gpu_model/execution/internal/encoded_issue_candidate.h"
 #include "gpu_model/execution/internal/tensor_op_utils.h"
 #include "gpu_model/execution/internal/issue_eligibility.h"
+#include "gpu_model/execution/internal/wave_state.h"
 #include "gpu_model/debug/trace/event_factory.h"
 #include "gpu_model/debug/trace/wave_launch_trace.h"
 #include "gpu_model/instruction/encoded/internal/encoded_instruction_descriptor.h"
@@ -48,7 +49,7 @@ namespace {
 
 constexpr uint8_t kEncodedPendingMemoryCompletionTurns = 5;
 constexpr uint32_t kInvalidTraceSlotId = std::numeric_limits<uint32_t>::max();
-constexpr uint64_t kFunctionalIssueQuantumCycles = 4;
+// Note: kIssueQuantumCycles is now in wave_state.h
 
 struct RawWave {
   size_t block_index = 0;
@@ -154,17 +155,8 @@ bool IssueLimitsUnset(const ArchitecturalIssueLimits& limits) {
          limits.global_data_share_or_export == 0 && limits.special == 0;
 }
 
-uint64_t QuantizeToNextIssueQuantum(uint64_t cycle) {
-  const uint64_t remainder = cycle % kFunctionalIssueQuantumCycles;
-  if (remainder == 0) {
-    return cycle;
-  }
-  return cycle + (kFunctionalIssueQuantumCycles - remainder);
-}
-
-uint64_t QuantizeIssueDuration(uint64_t cycles) {
-  return std::max(kFunctionalIssueQuantumCycles, QuantizeToNextIssueQuantum(cycles));
-}
+// Note: kIssueQuantumCycles, QuantizeToNextIssueQuantum, QuantizeIssueDuration
+// are now in wave_state.h
 
 ArchitecturalIssuePolicy ResolveIssuePolicy(const CycleTimingConfig& timing_config,
                                             const GpuArchSpec& spec) {

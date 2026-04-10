@@ -29,6 +29,7 @@
 #include "gpu_model/execution/internal/async_scoreboard.h"
 #include "gpu_model/execution/internal/issue_eligibility.h"
 #include "gpu_model/execution/internal/opcode_execution_info.h"
+#include "gpu_model/execution/internal/wave_state.h"
 #include "gpu_model/execution/memory_ops.h"
 #include "gpu_model/execution/plan_apply.h"
 #include "gpu_model/execution/sync_ops.h"
@@ -41,19 +42,8 @@ namespace gpu_model {
 
 namespace {
 
-constexpr uint64_t kFunctionalIssueQuantumCycles = 4;
-
-uint64_t QuantizeToNextIssueQuantum(uint64_t cycle) {
-  const uint64_t remainder = cycle % kFunctionalIssueQuantumCycles;
-  if (remainder == 0) {
-    return cycle;
-  }
-  return cycle + (kFunctionalIssueQuantumCycles - remainder);
-}
-
-uint64_t QuantizeIssueDuration(uint64_t cycles) {
-  return std::max(kFunctionalIssueQuantumCycles, QuantizeToNextIssueQuantum(cycles));
-}
+// Note: kIssueQuantumCycles, QuantizeToNextIssueQuantum, QuantizeIssueDuration
+// are now in wave_state.h
 
 uint32_t DefaultFunctionalParallelWorkerCount() {
   const uint32_t cpu_count = std::max(1u, std::thread::hardware_concurrency());
@@ -166,25 +156,7 @@ struct FunctionalWaveState {
   uint64_t next_issue_cycle = 0;
 };
 
-struct WaveStatsSnapshot {
-  uint32_t launch = 0;
-  uint32_t init = 0;
-  uint32_t active = 0;
-  uint32_t runnable = 0;
-  uint32_t waiting = 0;
-  uint32_t end = 0;
-};
-
-std::string FormatWaveStatsMessage(const WaveStatsSnapshot& stats) {
-  std::ostringstream oss;
-  oss << "launch=" << stats.launch;
-  oss << " init=" << stats.init;
-  oss << " active=" << stats.active;
-  oss << " runnable=" << stats.runnable;
-  oss << " waiting=" << stats.waiting;
-  oss << " end=" << stats.end;
-  return oss.str();
-}
+// Note: WaveStatsSnapshot is now in wave_state.h
 
 void MarkWaveWaiting(WaveContext& wave, WaveWaitReason reason) {
   if (wave.run_state == WaveRunState::Completed) {
@@ -493,6 +465,16 @@ TraceMemoryArriveKind TraceMemoryArriveKindForMemoryRequest(const MemoryRequest&
   return TraceMemoryArriveKind::Load;
 }
 
+struct FunctionalBlockBarrierState {
+  explicit FunctionalBlockBarrierState(uint32_t expected_wave_count)
+      : expected_wave_count(expected_wave_count) {}
+
+  uint32_t expected_wave_count = 0;
+  std::atomic<uint32_t> arrived_wave_count{0};
+  std::atomic<uint32_t> completed_wave_count{0};
+  std::atomic<uint64_t> generation{0};
+};
+
 struct ExecutableBlock {
   uint32_t block_id = 0;
   uint32_t dpc_id = 0;
@@ -509,7 +491,7 @@ struct ExecutableBlock {
   std::unique_ptr<std::mutex> control_mutex;
   std::unique_ptr<std::mutex> wave_state_mutex;
   std::unique_ptr<std::mutex> shared_mutex;
-  std::shared_ptr<struct BlockBarrierState> barrier_state;
+  std::shared_ptr<FunctionalBlockBarrierState> barrier_state;
 };
 
 struct WaveTaskRef {
@@ -522,16 +504,6 @@ struct ApSchedulerState {
   std::deque<WaveTaskRef> resumed;
   std::deque<WaveTaskRef> runnable;
   std::vector<size_t> block_indices;
-};
-
-struct BlockBarrierState {
-  explicit BlockBarrierState(uint32_t expected_wave_count)
-      : expected_wave_count(expected_wave_count) {}
-
-  uint32_t expected_wave_count = 0;
-  std::atomic<uint32_t> arrived_wave_count{0};
-  std::atomic<uint32_t> completed_wave_count{0};
-  std::atomic<uint64_t> generation{0};
 };
 
 uint64_t LoadLaneValue(const std::vector<std::byte>& memory, const LaneAccess& lane) {
@@ -577,7 +549,7 @@ std::vector<ExecutableBlock> MaterializeBlocks(const PlacementMap& placement,
         .control_mutex = std::make_unique<std::mutex>(),
         .wave_state_mutex = std::make_unique<std::mutex>(),
         .shared_mutex = std::make_unique<std::mutex>(),
-        .barrier_state = std::make_shared<BlockBarrierState>(
+        .barrier_state = std::make_shared<FunctionalBlockBarrierState>(
             static_cast<uint32_t>(shared_block.waves.size())),
     };
     for (size_t wave_index = 0; wave_index < block.waves.size(); ++wave_index) {
