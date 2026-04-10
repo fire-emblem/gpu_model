@@ -109,6 +109,7 @@ gpu_model_run_interposed_mode() {
   local -a env_args=(
     "GPU_MODEL_EXECUTION_MODE=$exec_mode"
     "GPU_MODEL_FUNCTIONAL_MODE=$functional_mode"
+    "GPU_MODEL_DISABLE_TRACE=0"
     "GPU_MODEL_TRACE_DIR=$mode_dir"
     "GPU_MODEL_LOG_MODULES=hip_runtime_abi"
     "GPU_MODEL_LOG_LEVEL=info"

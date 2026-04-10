@@ -2351,6 +2351,7 @@ class EncodedExecutionCore {
       throw std::out_of_range("raw GCN wave pc out of range");
     }
     const auto& decoded = image_.decoded_instructions()[it->second];
+    (void)decoded;
     const InstructionObject* object =
         (it->second < image_.instruction_objects().size() && image_.instruction_objects()[it->second] != nullptr)
             ? image_.instruction_objects()[it->second].get()
@@ -2711,12 +2712,8 @@ class EncodedExecutionCore {
   void ExecuteInstruction(const DecodedInstruction& decoded,
                           const InstructionObject* object,
                           EncodedWaveContext& context) {
-    if (object != nullptr) {
-      object->Execute(context);
-    } else {
-      const auto& handler = EncodedSemanticHandlerRegistry::Get(decoded);
-      handler.Execute(decoded, context);
-    }
+    const auto& handler = EncodedSemanticHandlerRegistry::Get(decoded);
+    handler.Execute(decoded, context);
   }
 };
 

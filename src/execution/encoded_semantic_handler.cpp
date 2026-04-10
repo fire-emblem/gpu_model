@@ -445,6 +445,14 @@ class ScalarAluHandler final : public IEncodedSemanticHandler {
       const uint32_t rhs =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(2), context));
       StoreScalarPair(instruction.operands.at(0), context, lhs << (rhs & 63u));
+    } else if (descriptor.op_type == GcnIsaOpType::Sop2 &&
+               descriptor.opcode == static_cast<uint16_t>(GcnIsaSop2Opcode::S_LSHL_B32)) {
+      const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
+      const uint32_t lhs =
+          static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(1), context));
+      const uint32_t rhs =
+          static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(2), context));
+      context.wave.sgpr.Write(sdst, lhs << (rhs & 31u));
     } else if (descriptor.op_type == GcnIsaOpType::Sopk &&
                descriptor.opcode == static_cast<uint16_t>(GcnIsaSopkOpcode::S_MOVK_I32)) {
       const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
@@ -681,6 +689,20 @@ class VectorAluHandler final : public IEncodedSemanticHandler {
         const uint32_t src2 =
             static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(3), context, lane));
         context.wave.vgpr.Write(vdst, lane, (src0 << (shift & 31u)) + src2);
+      }
+    } else if (instruction.mnemonic == "v_add3_u32") {
+      const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
+      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        if (!context.wave.exec.test(lane)) {
+          continue;
+        }
+        const uint32_t src0 =
+            static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(1), context, lane));
+        const uint32_t src1 =
+            static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(2), context, lane));
+        const uint32_t src2 =
+            static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(3), context, lane));
+        context.wave.vgpr.Write(vdst, lane, src0 + src1 + src2);
       }
     } else if (instruction.mnemonic == "v_add_co_u32_e32") {
       const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
@@ -1179,17 +1201,24 @@ class VectorAluHandler final : public IEncodedSemanticHandler {
     } else if (instruction.mnemonic == "v_mad_u64_u32") {
       const auto [vdst, _] = RequireVectorRange(instruction.operands.at(0));
       // operand 1 is sdst (scalar destination pair) - currently ignored
-      const uint32_t src0 = RequireScalarIndex(instruction.operands.at(2));
-      const uint32_t src1 = RequireVectorIndex(instruction.operands.at(3));
-      const uint32_t src2_pair = RequireVectorRange(instruction.operands.at(4)).first;
       for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
         if (!context.wave.exec.test(lane)) {
           continue;
         }
-        const uint64_t mul_lhs = static_cast<uint32_t>(context.wave.sgpr.Read(src0));
-        const uint64_t mul_rhs = static_cast<uint32_t>(context.wave.vgpr.Read(src1, lane));
-        const uint64_t acc_lo = static_cast<uint32_t>(context.wave.vgpr.Read(src2_pair, lane));
-        const uint64_t acc_hi = static_cast<uint32_t>(context.wave.vgpr.Read(src2_pair + 1, lane));
+        const uint64_t mul_lhs = ResolveVectorLane(instruction.operands.at(2), context, lane);
+        const uint64_t mul_rhs = ResolveVectorLane(instruction.operands.at(3), context, lane);
+        const auto src2_kind = instruction.operands.at(4).kind;
+        const uint32_t src2_first = src2_kind == DecodedInstructionOperandKind::VectorRegRange
+                                        ? RequireVectorRange(instruction.operands.at(4)).first
+                                        : RequireVectorIndex(instruction.operands.at(4));
+        const uint64_t acc_lo = static_cast<uint32_t>(
+            src2_kind == DecodedInstructionOperandKind::VectorRegRange
+                ? context.wave.vgpr.Read(src2_first, lane)
+                : ResolveVectorLane(instruction.operands.at(4), context, lane));
+        const uint64_t acc_hi = static_cast<uint32_t>(
+            src2_kind == DecodedInstructionOperandKind::VectorRegRange
+                ? context.wave.vgpr.Read(src2_first + 1, lane)
+                : 0u);
         const uint64_t acc = (acc_hi << 32u) | acc_lo;
         const uint64_t value = acc + mul_lhs * mul_rhs;
         context.wave.vgpr.Write(vdst, lane, static_cast<uint32_t>(value & 0xffffffffu));
@@ -1898,6 +1927,7 @@ const std::vector<HandlerBinding>& HandlerBindings() {
       {.mnemonic = "v_mul_hi_u32", .handler = &kVectorAluHandler},
       {.mnemonic = "v_or3_b32", .handler = &kVectorAluHandler},
       {.mnemonic = "v_mad_u32_u24", .handler = &kVectorAluHandler},
+      {.mnemonic = "v_add3_u32", .handler = &kVectorAluHandler},
       {.mnemonic = "v_cmp_lt_u32_e32", .handler = &kVectorCompareHandler},
       {.mnemonic = "v_cmp_le_u32_e32", .handler = &kVectorCompareHandler},
       {.mnemonic = "v_cmp_gt_i32_e64", .handler = &kVectorCompareHandler},
