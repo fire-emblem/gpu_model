@@ -72,8 +72,8 @@
 | 组件 | 文件 | 行数 | 职责 |
 |------|------|------|------|
 | InstructionObject | `instruction_object.cpp` | 150 | 指令对象容器，持有 DecodedInstruction + Handler 引用 |
-| EncodedInstructionBinding | `encoded_instruction_binding.cpp` | 71 | 指令绑定工厂，O(1) 查找 |
-| EncodedSemanticHandler | `encoded_semantic_handler.cpp` | 2201 | 编码指令语义处理器，66 个 Handler 类 |
+| EncodedInstructionBinding | `encoded_instruction_binding.cpp` | 69 | 指令绑定工厂，O(1) 查找 |
+| EncodedSemanticHandler | `encoded_semantic_handler.cpp` | 2140 | 编码指令语义处理器，46 个 Handler 类 + 模板化泛型 |
 | SemanticHandler | `semantic_handler.cpp` | 897 | 抽象指令语义处理器，用于抽象指令执行路径 |
 | EncodedHandlerUtils | `encoded_handler_utils.h` | 133 | 共享辅助函数 |
 
@@ -228,7 +228,50 @@ class VAddU32Handler final : public VectorLaneHandler<VAddU32Handler> {
 - 编译期多态
 - 类型安全
 
-### 4.4 Template Method 模式
+### 4.4 泛型 Handler 模板
+
+**问题**：多个 Handler 只有操作符不同（`+`、`-`、`&`、`|`、`^`），代码高度重复。
+
+**解决方案**：使用模板参数传递操作符，消除重复代码。
+
+```cpp
+// 二元整数操作模板
+template <auto Op>
+class BinaryU32Handler final : public VectorLaneHandler<BinaryU32Handler<Op>> {
+ public:
+  void ExecuteLane(const DecodedInstruction& instruction,
+                   EncodedWaveContext& context, uint32_t lane) const {
+    const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
+    const uint32_t lhs = ResolveVectorLane(instruction.operands.at(1), context, lane);
+    const uint32_t rhs = ResolveVectorLane(instruction.operands.at(2), context, lane);
+    context.wave.vgpr.Write(vdst, lane, Op(lhs, rhs));
+  }
+};
+
+// 操作符定义
+constexpr auto OpAddU32 = [](uint32_t a, uint32_t b) { return a + b; };
+constexpr auto OpSubU32 = [](uint32_t a, uint32_t b) { return a - b; };
+constexpr auto OpAndU32 = [](uint32_t a, uint32_t b) { return a & b; };
+
+// 类型别名 - 一行替代原来的 12 行类定义
+using VAddU32Handler = BinaryU32Handler<OpAddU32>;
+using VSubU32Handler = BinaryU32Handler<OpSubU32>;
+using VAndB32Handler = BinaryU32Handler<OpAndU32>;
+```
+
+**效果**：
+- 10 个重复 Handler → 10 行类型别名
+- 代码量减少 ~60 行
+- 添加新操作只需 1 行
+
+**模板类型**：
+| 模板 | 用途 | 实例 |
+|------|------|------|
+| `BinaryU32Handler<Op>` | 整数二元操作 | add, sub, and, or, xor |
+| `BinaryF32Handler<Op>` | 浮点二元操作 | fadd, fsub, fmul |
+| `UnaryU32Handler<Op>` | 整数一元操作 | mov, not |
+
+### 4.5 Template Method 模式
 
 **问题**：所有 Handler 都需要 trace callback 和 PC advancement。
 
@@ -373,27 +416,35 @@ if (context.on_execute) {
 
 ### 8.1 添加新指令
 
-1. 在 `encoded_semantic_handler.cpp` 中添加 Handler 类：
+**方式一：使用模板化泛型 Handler（推荐用于简单操作）**
+
+如果新指令是简单的二元/一元操作，直接使用现有模板：
 
 ```cpp
-class VNewOpHandler final : public VectorLaneHandler<VNewOpHandler> {
+// 1. 定义操作符
+constexpr auto OpNewU32 = [](uint32_t a, uint32_t b) { return a OP b; };
+
+// 2. 创建类型别名
+using VNewOpHandler = BinaryU32Handler<OpNewU32>;
+
+// 3. 注册
+static const VNewOpHandler kVNewOpHandler;
+registry.Register("v_new_op", &kVNewOpHandler);
+```
+
+**方式二：创建专用 Handler（用于复杂操作）**
+
+```cpp
+class VComplexHandler final : public VectorLaneHandler<VComplexHandler> {
  public:
   void ExecuteLane(const DecodedInstruction& instruction,
                    EncodedWaveContext& context, uint32_t lane) const {
-    // 实现具体逻辑
+    // 实现复杂逻辑
   }
 };
-```
 
-2. 注册 Handler：
-
-```cpp
-static const VNewOpHandler kVNewOpHandler;
-
-void RegisterVectorAluHandlers() {
-  // ...
-  registry.Register("v_new_op", &kVNewOpHandler);
-}
+static const VComplexHandler kVComplexHandler;
+registry.Register("v_complex", &kVComplexHandler);
 ```
 
 ### 8.2 添加新的指令格式
@@ -424,8 +475,9 @@ void RegisterVectorAluHandlers() {
 | Phase 2 | 简化 Instruction 类层次结构 | 557 行 → 69 行 (-88%) |
 | Phase 3 | 删除 12 个未使用的 handler 头文件 | -144 行 |
 | Phase 4 | 删除 13 个未使用的头文件和空目录 | -154 行 |
+| Phase 5 | 模板化 10 个重复 Handler | 2201 行 → 2140 行 (-61 行) |
 
-**总计消除：~813 行冗余/死代码**
+**总计消除：~920 行冗余/死代码**
 
 ## 11. 文件清单
 
@@ -436,11 +488,14 @@ src/
 │       ├── instruction_object.cpp          # 指令对象 (150 行)
 │       ├── instruction_decoder.cpp         # 指令解码器
 │       └── internal/
-│           ├── encoded_instruction_binding.cpp  # 绑定工厂 (71 行)
+│           ├── encoded_instruction_binding.cpp  # 绑定工厂 (69 行)
 │           └── encoded_gcn_encoding_def.cpp    # GCN 编码定义
 │
 ├── execution/
-│   ├── encoded_semantic_handler.cpp        # 编码指令处理器 (2201 行)
+│   ├── encoded_semantic_handler.cpp        # 编码指令处理器 (2140 行)
+│   │   # - 46 个专用 Handler 类
+│   │   # - 3 个模板化泛型 Handler (BinaryU32, BinaryF32, UnaryU32)
+│   │   # - 10 个类型别名 (VAddU32Handler 等)
 │   ├── program_object_exec_engine.cpp      # 编码执行引擎 (2788 行)
 │   ├── functional_exec_engine.cpp          # 功能执行引擎 (1753 行)
 │   ├── cycle_exec_engine.cpp               # 周期执行引擎 (1932 行)
