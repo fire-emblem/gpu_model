@@ -98,6 +98,7 @@ add_library(gpu_model STATIC
   src/execution/sync_ops.cpp
   src/execution/plan_apply.cpp
   src/execution/internal/semantic_handler.cpp
+  src/execution/internal/wave_state.cpp
   src/execution/internal/semantics.cpp
   src/execution/wave_context_builder.cpp
   src/execution/internal/issue_model.cpp

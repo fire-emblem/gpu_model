@@ -37,12 +37,12 @@ By default, `trace.txt` should avoid information that:
 Include by default:
 
 - run / config / kernel / wave-init context
+- only the minimum static context needed to interpret the run
 - compact lifecycle events
 - expanded `wave_step` instruction facts
 - core stall summary
-- instruction-mix summary
-- branch summary
-- core utilization / issue-efficiency summary
+- compact performance summary
+- warning / anomaly summary
 
 Do not include by default:
 
@@ -51,6 +51,7 @@ Do not include by default:
 - full memory dumps
 - per-cycle empty/no-op logs
 - exhaustive per-unit diagnostics that lack direct actionability
+- fields that can be trivially derived from other already-printed defaults
 
 ## Vector Rendering Policy
 
@@ -95,15 +96,11 @@ trace_sink_enabled: {true|false}
 run_id: {run_id}
 input_file: {input_file}
 config_file: {config_file}
-workload_name: {workload_name}
 result: {PASS|FAIL|UNKNOWN}
 
 [MODEL_CONFIG]
-num_dpc: {num_dpc}
-num_ap_per_dpc: {num_ap_per_dpc}
 num_peu_per_ap: {num_peu_per_ap}
 num_wave_slots_per_peu: {num_wave_slots_per_peu}
-max_concurrent_blocks: {max_concurrent_blocks}
 max_issuable_waves: {max_issuable_waves}
 issue_quantum_cycles: {issue_quantum_cycles}
 wave_launch_cycles: {wave_launch_cycles}
@@ -118,26 +115,23 @@ vector_align_columns: true
 [KERNEL]
 kernel_name: {kernel_name}
 kernel_launch_uid: {kernel_launch_uid}
-stream_id: {stream_id}
 grid_dim: ({grid_x},{grid_y},{grid_z})
 block_dim: ({block_x},{block_y},{block_z})
 regs_per_thread: {regs}
-lmem_per_thread: {lmem}
 smem_per_block: {smem}
-cmem_bytes: {cmem}
 occupancy_limiter: {limiter}
 
 [WAVE_INIT]
-wave={stable_wave_id} block={block_id} loc=dpc{dpc_id}/ap{ap_id}/peu{peu_id}/slot{slot_id} slot_model={slot_model} start_pc={start_pc} exec_mask={exec_mask} ready_at={ready_at_global_cycle} next_issue_at={next_issue_earliest_global_cycle}
+wave={stable_wave_id} block={block_id} loc=dpc{dpc_id}/ap{ap_id}/peu{peu_id}/slot{slot_id} slot_model={slot_model} start_pc={start_pc} exec_mask={exec_mask}
 
 [EVENTS]
 # cycle     seq   kind            wave      pc        asm/details
 [000000] #1   wave_generate  w{stable_wave_id}  {start_pc}   block={block_id} slot={slot_id}
 [000001] #2   slot_bind      w{stable_wave_id}  {start_pc}   slot={slot_id} model={slot_model} reason={bind_reason}
-[000004] #3   issue_select   w{stable_wave_id}  {pc}         asm="{asm}" eligible={eligible_count} budget={issue_budget}
+[000004] #3   issue_select   w{stable_wave_id}  {pc}         eligible={eligible_count} budget={issue_budget}
 [000005] #4   wave_wait      w{stable_wave_id}  {pc}         reason={stall_reason} blocked={blocked_domain} deps="{deps}"
 [000008] #5   wave_arrive    w{stable_wave_id}  {pc}         kind={arrive_kind} progress={arrive_progress} flow={flow_id} resumed_ready={0|1}
-[000008] #6   wave_resume    w{stable_wave_id}  {pc}         reason={resume_reason} ready_at={ready_at_global_cycle} next_issue_at={next_issue_earliest_global_cycle}
+[000008] #6   wave_resume    w{stable_wave_id}  {pc}         reason={resume_reason}
 [000032] #7   wave_exit      w{stable_wave_id}  {pc}         wave_cycle_total={wave_cycle_total} wave_cycle_active={wave_cycle_active}
 
 [000012] #8   wave_step      w{stable_wave_id}  {pc}         {full_asm}
@@ -168,7 +162,25 @@ stall_barrier: {stall_barrier}
 stall_resource_busy: {stall_resource_busy}
 stall_warp_switch: {stall_warp_switch}
 
-[INSTRUCTION_MIX]
+[MEMORY_AND_RESOURCES]
+shared_loads: {shared_loads}
+shared_stores: {shared_stores}
+shared_bank_conflict_penalty_cycles: {shared_bank_conflict_penalty_cycles}
+shared_bank_conflict_pct: {shared_bank_conflict_pct}
+private_loads: {private_loads}
+private_stores: {private_stores}
+private_mem_bytes: {private_mem_bytes}
+global_mem_loads: {global_mem_loads}
+global_mem_stores: {global_mem_stores}
+global_mem_bytes: {global_mem_bytes}
+regs_per_thread: {regs}
+register_pressure_pct: {register_pressure_pct}
+smem_per_block: {smem}
+shared_mem_utilization_pct: {shared_mem_utilization_pct}
+waves_limited_by_registers: {waves_limited_by_registers}
+waves_limited_by_shared_mem: {waves_limited_by_shared_mem}
+
+[PERF]
 instruction_mix_total: {instruction_mix_total}
 scalar_alu: {scalar_alu_count} ({scalar_alu_ratio}%)
 scalar_mem: {scalar_mem_count} ({scalar_mem_ratio}%)
@@ -178,27 +190,28 @@ branch: {branch_count} ({branch_ratio}%)
 sync: {sync_count} ({sync_ratio}%)
 tensor: {tensor_count} ({tensor_ratio}%)
 other: {other_count} ({other_ratio}%)
-
-[CONTROL_FLOW]
 branch_total: {branch_total}
-branch_taken: {branch_taken}
-branch_not_taken: {branch_not_taken}
 branch_divergent: {branch_divergent}
 barrier_total: {barrier_total}
 waitcnt_total: {waitcnt_total}
-
-[UTILIZATION]
 peu_utilization_pct: {peu_utilization_pct}
 wave_slot_utilization_pct: {wave_slot_utilization_pct}
 issue_slot_utilization_pct: {issue_slot_utilization_pct}
 memory_pipeline_utilization_pct: {memory_pipeline_utilization_pct}
-
-[ISSUE_EFFICIENCY]
 issue_eligible_cycles: {issue_eligible_cycles}
 issue_selected_cycles: {issue_selected_cycles}
-issue_empty_cycles: {issue_empty_cycles}
 issue_conflict_cycles: {issue_conflict_cycles}
 issue_backpressure_cycles: {issue_backpressure_cycles}
+
+[WARNINGS]
+# Only emit lines when threshold is crossed or an anomaly is detected.
+# Recommended default warning kinds:
+# - private_mem_bytes
+# - shared_bank_conflict_pct
+# - register_pressure_pct
+# - shared_mem_utilization_pct
+# - branch_divergent
+WARNING {warning_kind} value={value} threshold={threshold} detail="{detail}"
 
 [END]
 exit_detected: true
@@ -212,14 +225,17 @@ This template keeps:
 - enough event context to reconstruct scheduling and waits
 - enough per-instruction evidence to debug semantics
 - enough summary fields to classify bottlenecks
+- enough memory/resource signals to diagnose common dense-kernel pathologies
 
-This template deliberately excludes several fields from the broader reference:
+This template deliberately excludes several fields from the broader reference or treats
+them as optional:
 
 - DPC/AP utilization
 - shared/tensor pipeline utilization
 - large environment dumps
 - extra path / process metadata
 - deep per-unit breakdowns
+- fields derivable from already printed defaults
 
 Those fields may still be useful, but they are better treated as optional or advanced-detail
 fields rather than default always-on trace content.
@@ -236,6 +252,8 @@ If a deeper diagnosis mode is enabled, the following fields are good candidates 
 - top-N longest memory waits
 - per-category average issue cycles
 - full vector lane expansion with `trace_vector_step=1`
+- detailed bank-by-bank shared conflict histograms
+- full spill/load-store address traces
 
 ## Example
 
@@ -256,15 +274,11 @@ trace_sink_enabled: true
 run_id: 42
 input_file: kernel.co
 config_file: configs/c500.yaml
-workload_name: vecadd
 result: PASS
 
 [MODEL_CONFIG]
-num_dpc: 1
-num_ap_per_dpc: 2
 num_peu_per_ap: 4
 num_wave_slots_per_peu: 8
-max_concurrent_blocks: 16
 max_issuable_waves: 4
 issue_quantum_cycles: 4
 wave_launch_cycles: 1
@@ -279,22 +293,19 @@ vector_align_columns: true
 [KERNEL]
 kernel_name: vecadd_kernel
 kernel_launch_uid: 7
-stream_id: 0
 grid_dim: (128,1,1)
 block_dim: (256,1,1)
 regs_per_thread: 24
-lmem_per_thread: 0
 smem_per_block: 0
-cmem_bytes: 64
 occupancy_limiter: registers
 
 [WAVE_INIT]
-wave=700000 block=0 loc=dpc0/ap0/peu0/slot0 slot_model=resident_fixed start_pc=0x100 exec_mask=0xffffffffffffffff ready_at=0 next_issue_at=0
+wave=700000 block=0 loc=dpc0/ap0/peu0/slot0 slot_model=resident_fixed start_pc=0x100 exec_mask=0xffffffffffffffff
 
 [EVENTS]
 [000000] #1   wave_generate  w700000  0x100   block=0 slot=0
 [000001] #2   slot_bind      w700000  0x100   slot=0 model=resident_fixed reason=launch
-[000004] #3   issue_select   w700000  0x100   asm="s_load_dword s4, s[0:1], 0x0" eligible=1 budget=1
+[000004] #3   issue_select   w700000  0x100   eligible=1 budget=1
 [000004] #4   wave_step      w700000  0x100   s_load_dword s4, s[0:1], 0x0
   rw:
     R:
@@ -307,7 +318,7 @@ wave=700000 block=0 loc=dpc0/ap0/peu0/slot0 slot_model=resident_fixed start_pc=0
   state: waitcnt_before=vmcnt=1 waitcnt_after=vmcnt=0
 [000005] #5   wave_wait      w700000  0x104   reason=waitcnt blocked=global deps="vmcnt>0"
 [000008] #6   wave_arrive    w700000  0x104   kind=load progress=complete flow=91 resumed_ready=1
-[000008] #7   wave_resume    w700000  0x104   reason=arrive_ready ready_at=8 next_issue_at=8
+[000008] #7   wave_resume    w700000  0x104   reason=arrive_ready
 [000012] #8   wave_step      w700000  0x104   v_add_f32 v0, v1, v2
   rw:
     R:
@@ -353,7 +364,25 @@ stall_barrier: 0
 stall_resource_busy: 3
 stall_warp_switch: 12
 
-[INSTRUCTION_MIX]
+[MEMORY_AND_RESOURCES]
+shared_loads: 320
+shared_stores: 192
+shared_bank_conflict_penalty_cycles: 288
+shared_bank_conflict_pct: 4.69
+private_loads: 8
+private_stores: 8
+private_mem_bytes: 512
+global_mem_loads: 896
+global_mem_stores: 128
+global_mem_bytes: 65536
+regs_per_thread: 24
+register_pressure_pct: 75.0
+smem_per_block: 8192
+shared_mem_utilization_pct: 12.5
+waves_limited_by_registers: 1
+waves_limited_by_shared_mem: 0
+
+[PERF]
 instruction_mix_total: 4096
 scalar_alu: 256 (6.25%)
 scalar_mem: 512 (12.50%)
@@ -363,27 +392,21 @@ branch: 192 (4.69%)
 sync: 160 (3.91%)
 tensor: 0 (0.00%)
 other: 32 (0.78%)
-
-[CONTROL_FLOW]
 branch_total: 192
-branch_taken: 144
-branch_not_taken: 48
 branch_divergent: 12
 barrier_total: 16
 waitcnt_total: 80
-
-[UTILIZATION]
 peu_utilization_pct: 63.7
 wave_slot_utilization_pct: 59.1
 issue_slot_utilization_pct: 52.8
 memory_pipeline_utilization_pct: 47.5
-
-[ISSUE_EFFICIENCY]
 issue_eligible_cycles: 104
 issue_selected_cycles: 96
-issue_empty_cycles: 24
 issue_conflict_cycles: 11
 issue_backpressure_cycles: 7
+
+[WARNINGS]
+WARNING private_mem_bytes value=512 threshold=0 detail="private memory traffic detected; check for spills or unintended private accesses"
 
 [END]
 exit_detected: true

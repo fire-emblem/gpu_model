@@ -7,7 +7,9 @@
 #include "gpu_model/instruction/encoded/internal/encoded_gcn_encoding_def.h"
 #include "gpu_model/instruction/encoded/internal/encoded_instruction_binding.h"
 #include "gpu_model/execution/encoded_semantic_handler.h"
+#include "gpu_model/execution/internal/encoded_handler_utils.h"
 #include "gpu_model/instruction/encoded/instruction_decoder.h"
+#include "gpu_model/util/logging.h"
 
 namespace gpu_model {
 
@@ -124,6 +126,8 @@ ParsedInstructionArray InstructionArrayParser::Parse(std::span<const std::byte> 
     result.decoded_instructions.push_back(InstructionDecoder{}.Decode(instruction));
   }
   result.instruction_objects = Parse(result.decoded_instructions);
+  GPU_MODEL_LOG_DEBUG("instruction", "Parsed %zu instructions from %zu bytes",
+                      result.instruction_objects.size(), text_bytes.size());
   return result;
 }
 
@@ -135,6 +139,7 @@ ParsedInstructionArray InstructionArrayParser::Parse(const std::vector<EncodedGc
     result.decoded_instructions.push_back(InstructionDecoder{}.Decode(instruction));
   }
   result.instruction_objects = Parse(result.decoded_instructions);
+  GPU_MODEL_LOG_DEBUG("instruction", "Parsed %zu instructions", result.instruction_objects.size());
   return result;
 }
 

@@ -3,9 +3,7 @@
 #include <bit>
 #include <bitset>
 #include <cmath>
-#include <cstdarg>
 #include <cstdint>
-#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <stdexcept>
@@ -13,118 +11,22 @@
 #include <unordered_map>
 #include <vector>
 
-#include <loguru.hpp>
-
 #include "gpu_model/util/logging.h"
 #include "gpu_model/instruction/encoded/internal/encoded_gcn_encoding_def.h"
 #include "gpu_model/instruction/encoded/internal/encoded_gcn_db_lookup.h"
 #include "gpu_model/execution/sync_ops.h"
 #include "gpu_model/execution/internal/tensor_op_utils.h"
+#include "gpu_model/execution/internal/float_utils.h"
+#include "gpu_model/execution/internal/encoded_handler_utils.h"
 
 namespace gpu_model {
 
 namespace {
 
-uint32_t LaneCount(const EncodedWaveContext& context) {
-  return context.wave.thread_count < kWaveSize ? context.wave.thread_count : kWaveSize;
-}
-
-std::bitset<64> MaskFromU64(uint64_t value) {
-  return std::bitset<64>(value);
-}
-
-uint32_t LoadU32(const std::vector<std::byte>& bytes, uint32_t offset) {
-  uint32_t value = 0;
-  std::memcpy(&value, bytes.data() + offset, sizeof(value));
-  return value;
-}
-
-void StoreU32(std::vector<std::byte>& bytes, uint32_t offset, uint32_t value) {
-  std::memcpy(bytes.data() + offset, &value, sizeof(value));
-}
-
-uint64_t BranchTarget(uint64_t pc, int32_t simm16) {
-  const int64_t target = static_cast<int64_t>(pc) + 4 + static_cast<int64_t>(simm16) * 4;
-  return static_cast<uint64_t>(target);
-}
-
-float U32AsFloat(uint32_t bits) {
-  return std::bit_cast<float>(bits);
-}
-
-uint32_t FloatAsU32(float value) {
-  return std::bit_cast<uint32_t>(value);
-}
-
-float HalfToFloat(uint16_t bits) {
-  const uint32_t sign = static_cast<uint32_t>(bits & 0x8000u) << 16u;
-  const uint32_t exp = (bits >> 10u) & 0x1fu;
-  const uint32_t frac = bits & 0x03ffu;
-
-  if (exp == 0u) {
-    if (frac == 0u) {
-      return std::bit_cast<float>(sign);
-    }
-    float mantissa = static_cast<float>(frac) / 1024.0f;
-    float value = std::ldexp(mantissa, -14);
-    return (bits & 0x8000u) != 0 ? -value : value;
-  }
-  if (exp == 0x1fu) {
-    const uint32_t out = sign | 0x7f800000u | (frac << 13u);
-    return std::bit_cast<float>(out);
-  }
-  const uint32_t out = sign | ((exp + 112u) << 23u) | (frac << 13u);
-  return std::bit_cast<float>(out);
-}
-
-float BFloat16ToFloat(uint16_t bits) {
-  return std::bit_cast<float>(static_cast<uint32_t>(bits) << 16u);
-}
-
-bool DebugEnabled() {
-  return std::getenv("GPU_MODEL_ENCODED_EXEC_DEBUG") != nullptr ||
-         logging::ShouldLog("encoded_exec", loguru::Verbosity_INFO);
-}
-
-void DebugLog(const char* fmt, ...) {
-  if (!DebugEnabled()) {
-    return;
-  }
-  va_list args;
-  va_start(args, fmt);
-  char buffer[2048];
-  std::vsnprintf(buffer, sizeof(buffer), fmt, args);
-  va_end(args);
-  GPU_MODEL_LOG_INFO("encoded_exec", "%s", buffer);
-}
-
-uint32_t RequireScalarIndex(const DecodedInstructionOperand& operand) {
-  if (operand.kind != DecodedInstructionOperandKind::ScalarReg || operand.info.reg_count != 1) {
-    throw std::invalid_argument("expected scalar register operand");
-  }
-  return operand.info.reg_first;
-}
-
-uint32_t RequireVectorIndex(const DecodedInstructionOperand& operand) {
-  if (operand.kind != DecodedInstructionOperandKind::VectorReg || operand.info.reg_count != 1) {
-    throw std::invalid_argument("expected vector register operand");
-  }
-  return operand.info.reg_first;
-}
-
-uint32_t RequireAccumulatorIndex(const DecodedInstructionOperand& operand) {
-  if (operand.kind != DecodedInstructionOperandKind::AccumulatorReg || operand.info.reg_count != 1) {
-    throw std::invalid_argument("expected accumulator register operand");
-  }
-  return operand.info.reg_first;
-}
-
-std::pair<uint32_t, uint32_t> RequireScalarRange(const DecodedInstructionOperand& operand) {
-  if (operand.kind != DecodedInstructionOperandKind::ScalarRegRange || operand.info.reg_count == 0) {
-    throw std::invalid_argument("expected scalar register range operand");
-  }
-  return {operand.info.reg_first, operand.info.reg_first + operand.info.reg_count - 1};
-}
+// Note: LaneCount, MaskFromU64, LoadU32, StoreU32, DebugEnabled/EncodedDebugLog,
+// RequireScalarIndex, RequireVectorIndex, RequireAccumulatorIndex,
+// RequireScalarRange, ResolveScalarPair are now provided by
+// gpu_model/execution/internal/encoded_handler_utils.h
 
 std::pair<uint32_t, uint32_t> RequireVectorRange(const DecodedInstructionOperand& operand) {
   if (operand.kind != DecodedInstructionOperandKind::VectorRegRange || operand.info.reg_count == 0) {
@@ -153,35 +55,6 @@ uint64_t ResolveScalarLike(const DecodedInstructionOperand& operand, const Encod
     return context.wave.exec.to_ullong();
   }
   throw std::invalid_argument("unsupported scalar-like raw operand");
-}
-
-uint64_t ResolveScalarPair(const DecodedInstructionOperand& operand, const EncodedWaveContext& context) {
-  if (operand.kind == DecodedInstructionOperandKind::Immediate ||
-      operand.kind == DecodedInstructionOperandKind::BranchTarget) {
-    if (!operand.info.has_immediate) {
-      throw std::invalid_argument("scalar pair immediate missing value");
-    }
-    return static_cast<uint64_t>(operand.info.immediate);
-  }
-  if (operand.kind == DecodedInstructionOperandKind::ScalarReg) {
-    const uint32_t first = operand.info.reg_first;
-    return static_cast<uint64_t>(context.wave.sgpr.Read(first)) |
-           (static_cast<uint64_t>(context.wave.sgpr.Read(first + 1)) << 32u);
-  }
-  if (operand.kind == DecodedInstructionOperandKind::ScalarRegRange && operand.info.reg_count == 2) {
-    const uint32_t first = operand.info.reg_first;
-    return static_cast<uint64_t>(context.wave.sgpr.Read(first)) |
-           (static_cast<uint64_t>(context.wave.sgpr.Read(first + 1)) << 32u);
-  }
-  if (operand.kind == DecodedInstructionOperandKind::SpecialReg &&
-      operand.info.special_reg == GcnSpecialReg::Vcc) {
-    return context.vcc;
-  }
-  if (operand.kind == DecodedInstructionOperandKind::SpecialReg &&
-      operand.info.special_reg == GcnSpecialReg::Exec) {
-    return context.wave.exec.to_ullong();
-  }
-  throw std::invalid_argument("unsupported scalar pair operand");
 }
 
 void StoreScalarPair(const DecodedInstructionOperand& operand, EncodedWaveContext& context, uint64_t value) {
@@ -261,6 +134,11 @@ const GcnIsaOpcodeDescriptor& RequireCanonicalOpcode(const DecodedInstruction& i
 class BaseHandler : public IEncodedSemanticHandler {
  public:
   void Execute(const DecodedInstruction& instruction, EncodedWaveContext& context) const override {
+    // Debug log for instruction execution
+    EncodedDebugLog("Execute: pc=0x%llx mnemonic=%s",
+                    static_cast<unsigned long long>(instruction.pc),
+                    instruction.mnemonic.c_str());
+
     // Emit trace callback for instruction start
     if (context.on_execute) {
       context.on_execute(instruction, context, "start");
@@ -1296,7 +1174,7 @@ class ScalarAluHandler final : public BaseHandler {
       StoreScalarPair(instruction.operands.at(0), context, value);
       if (instruction.operands.at(0).kind == DecodedInstructionOperandKind::SpecialReg &&
           instruction.operands.at(0).info.special_reg == GcnSpecialReg::Exec) {
-        DebugLog("pc=0x%llx s_or_b64 exec lhs=0x%llx rhs=0x%llx out=0x%llx",
+        EncodedDebugLog("pc=0x%llx s_or_b64 exec lhs=0x%llx rhs=0x%llx out=0x%llx",
                  static_cast<unsigned long long>(instruction.pc),
                  static_cast<unsigned long long>(lhs),
                  static_cast<unsigned long long>(rhs),
@@ -1669,7 +1547,7 @@ class VectorCompareHandler final : public BaseHandler {
         instruction.operands.at(0).kind == DecodedInstructionOperandKind::SpecialReg) {
       StoreScalarPair(instruction.operands.at(0), context, mask);
     }
-    DebugLog("pc=0x%llx %s mask=0x%llx",
+    EncodedDebugLog("pc=0x%llx %s mask=0x%llx",
              static_cast<unsigned long long>(instruction.pc),
              instruction.mnemonic.c_str(),
              static_cast<unsigned long long>(mask));
@@ -1693,7 +1571,7 @@ class MaskHandler final : public BaseHandler {
     } else {
       context.wave.exec = MaskFromU64(mask & ~exec_before);
     }
-    DebugLog("pc=0x%llx %s exec=0x%llx",
+    EncodedDebugLog("pc=0x%llx %s exec=0x%llx",
              static_cast<unsigned long long>(instruction.pc),
              instruction.mnemonic.c_str(),
              static_cast<unsigned long long>(context.wave.exec.to_ullong()));
@@ -1794,7 +1672,7 @@ class FlatMemoryHandler final : public BaseHandler {
         request.lanes[lane] = LaneAccess{.active = true, .addr = address, .bytes = 4, .value = 0};
         context.wave.vgpr.Write(vdst, lane, context.memory.LoadGlobalValue<uint32_t>(address));
         if (lane == 0) {
-          DebugLog("pc=0x%llx global_load addr=0x%llx -> v%u=0x%llx",
+          EncodedDebugLog("pc=0x%llx global_load addr=0x%llx -> v%u=0x%llx",
                    static_cast<unsigned long long>(instruction.pc),
                    static_cast<unsigned long long>(address), vdst,
                    static_cast<unsigned long long>(context.wave.vgpr.Read(vdst, lane)));
@@ -1826,7 +1704,7 @@ class FlatMemoryHandler final : public BaseHandler {
           context.memory.StoreGlobalValue<uint32_t>(
               address, static_cast<uint32_t>(context.wave.vgpr.Read(data, lane)));
           if (lane == 0) {
-            DebugLog("pc=0x%llx global_store addr=0x%llx value=0x%llx",
+            EncodedDebugLog("pc=0x%llx global_store addr=0x%llx value=0x%llx",
                      static_cast<unsigned long long>(instruction.pc),
                      static_cast<unsigned long long>(address),
                      static_cast<unsigned long long>(context.wave.vgpr.Read(data, lane)));
@@ -1854,7 +1732,7 @@ class FlatMemoryHandler final : public BaseHandler {
           context.memory.StoreGlobalValue<uint32_t>(
               address, static_cast<uint32_t>(context.wave.vgpr.Read(data, lane)));
           if (lane == 0) {
-            DebugLog("pc=0x%llx global_store addr=0x%llx value=0x%llx",
+            EncodedDebugLog("pc=0x%llx global_store addr=0x%llx value=0x%llx",
                      static_cast<unsigned long long>(instruction.pc),
                      static_cast<unsigned long long>(address),
                      static_cast<unsigned long long>(context.wave.vgpr.Read(data, lane)));
@@ -1930,7 +1808,7 @@ class SharedMemoryHandler final : public BaseHandler {
         };
         StoreU32(context.block.shared_memory, byte_offset, value);
         if (lane == 0) {
-          DebugLog("pc=0x%llx ds_write_b32 addr=0x%x value=0x%x",
+          EncodedDebugLog("pc=0x%llx ds_write_b32 addr=0x%x value=0x%x",
                    static_cast<unsigned long long>(instruction.pc), byte_offset, value);
         }
       }
@@ -1963,7 +1841,7 @@ class SharedMemoryHandler final : public BaseHandler {
         const uint32_t value = LoadU32(context.block.shared_memory, byte_offset);
         context.wave.vgpr.Write(vdst, lane, value);
         if (lane == 0) {
-          DebugLog("pc=0x%llx ds_read_b32 addr=0x%x value=0x%x",
+          EncodedDebugLog("pc=0x%llx ds_read_b32 addr=0x%x value=0x%x",
                    static_cast<unsigned long long>(instruction.pc), byte_offset, value);
         }
       }
@@ -2291,7 +2169,7 @@ const IEncodedSemanticHandler& EncodedSemanticHandlerRegistry::Get(std::string_v
       return *binding.handler;
     }
   }
-  DebugLog("EncodedSemanticHandlerRegistry::Get mnemonic=%.*s not found",
+  EncodedDebugLog("EncodedSemanticHandlerRegistry::Get mnemonic=%.*s not found",
            static_cast<int>(mnemonic.size()), mnemonic.data());
   throw std::invalid_argument("unsupported raw GCN opcode: " + std::string(mnemonic));
 }

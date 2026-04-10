@@ -1,40 +1,22 @@
 #include "gpu_model/instruction/encoded/internal/encoded_instruction_binding.h"
 
-#include <bitset>
-#include <cstdarg>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
 #include <stdexcept>
 #include <string>
+#include <unordered_map>
 
-#include <loguru.hpp>
-
-#include "gpu_model/util/logging.h"
 #include "gpu_model/instruction/encoded/internal/encoded_gcn_encoding_def.h"
 #include "gpu_model/instruction/encoded/internal/encoded_instruction_descriptor.h"
 #include "gpu_model/execution/encoded_semantic_handler.h"
+#include "gpu_model/execution/internal/encoded_handler_utils.h"
+#include "gpu_model/execution/internal/float_utils.h"
 
 namespace gpu_model {
 
 namespace {
 
-bool DebugEnabled() {
-  return std::getenv("GPU_MODEL_ENCODED_EXEC_DEBUG") != nullptr ||
-         logging::ShouldLog("encoded_exec", loguru::Verbosity_INFO);
-}
-
-void DebugLog(const char* fmt, ...) {
-  if (!DebugEnabled()) {
-    return;
-  }
-  va_list args;
-  va_start(args, fmt);
-  char buffer[2048];
-  std::vsnprintf(buffer, sizeof(buffer), fmt, args);
-  va_end(args);
-  GPU_MODEL_LOG_INFO("encoded_exec", "%s", buffer);
-}
+// Note: DebugEnabled/EncodedDebugLog, MaskFromU64, BranchTarget, RequireScalarRange,
+// RequireScalarIndex, RequireVectorIndex, ResolveScalarPair are now provided by
+// gpu_model/execution/internal/encoded_handler_utils.h
 
 std::pair<std::string_view, std::string_view> PlaceholderNamesForFormatClass(
     EncodedGcnInstFormatClass format_class) {
@@ -93,58 +75,10 @@ class UnsupportedInstructionHandler final : public IEncodedSemanticHandler {
   }
 };
 
-std::bitset<64> MaskFromU64(uint64_t value) {
-  return std::bitset<64>(value);
-}
-
-uint64_t BranchTarget(uint64_t pc, int32_t simm16) {
-  const int64_t target = static_cast<int64_t>(pc) + 4 + static_cast<int64_t>(simm16) * 4;
-  return static_cast<uint64_t>(target);
-}
-
-std::pair<uint32_t, uint32_t> RequireScalarRange(const DecodedInstructionOperand& operand) {
-  if (operand.kind != DecodedInstructionOperandKind::ScalarRegRange || operand.info.reg_count == 0) {
-    throw std::invalid_argument("expected scalar register range operand");
-  }
-  return {operand.info.reg_first, operand.info.reg_first + operand.info.reg_count - 1};
-}
-
-uint64_t ResolveScalarPair(const DecodedInstructionOperand& operand, const EncodedWaveContext& context) {
-  if (operand.kind == DecodedInstructionOperandKind::Immediate ||
-      operand.kind == DecodedInstructionOperandKind::BranchTarget) {
-    if (!operand.info.has_immediate) {
-      throw std::invalid_argument("scalar pair immediate missing value");
-    }
-    return static_cast<uint64_t>(operand.info.immediate);
-  }
-  if (operand.kind == DecodedInstructionOperandKind::ScalarReg) {
-    const uint32_t first = operand.info.reg_first;
-    return static_cast<uint64_t>(context.wave.sgpr.Read(first)) |
-           (static_cast<uint64_t>(context.wave.sgpr.Read(first + 1)) << 32u);
-  }
-  if (operand.kind == DecodedInstructionOperandKind::ScalarRegRange && operand.info.reg_count == 2) {
-    const uint32_t first = operand.info.reg_first;
-    return static_cast<uint64_t>(context.wave.sgpr.Read(first)) |
-           (static_cast<uint64_t>(context.wave.sgpr.Read(first + 1)) << 32u);
-  }
-  if (operand.kind == DecodedInstructionOperandKind::SpecialReg &&
-      operand.info.special_reg == GcnSpecialReg::Vcc) {
-    return context.vcc;
-  }
-  if (operand.kind == DecodedInstructionOperandKind::SpecialReg &&
-      operand.info.special_reg == GcnSpecialReg::Exec) {
-    return context.wave.exec.to_ullong();
-  }
-  throw std::invalid_argument("unsupported scalar pair operand");
-}
-
 class EncodedInstructionObject : public InstructionObject {
  public:
   using InstructionObject::InstructionObject;
-
-  virtual void Execute(EncodedWaveContext& context) const {
-    InstructionObject::Execute(context);
-  }
+  // Note: Execute() removed - actual execution goes through EncodedSemanticHandlerRegistry
 };
 
 class SmrdInstructionBase : public EncodedInstructionObject {
@@ -254,22 +188,6 @@ class SAndSaveexecB64Instruction final : public Sop1InstructionBase {
   using Sop1InstructionBase::Sop1InstructionBase;
 
   std::string_view class_name() const override { return "s_and_saveexec_b64"; }
-
-  void Execute(EncodedWaveContext& context) const override {
-    const auto& instruction = decoded();
-    const auto [sdst, _] = RequireScalarRange(instruction.operands.at(0));
-    const uint64_t exec_before = context.wave.exec.to_ullong();
-    const uint64_t mask = ResolveScalarPair(instruction.operands.at(1), context);
-    context.wave.sgpr.Write(sdst, static_cast<uint32_t>(exec_before & 0xffffffffu));
-    context.wave.sgpr.Write(sdst + 1, static_cast<uint32_t>(exec_before >> 32u));
-    context.wave.exec = context.wave.exec & MaskFromU64(mask);
-    DebugLog("pc=0x%llx s_and_saveexec_b64 before=0x%llx mask=0x%llx after=0x%llx",
-             static_cast<unsigned long long>(instruction.pc),
-             static_cast<unsigned long long>(exec_before),
-             static_cast<unsigned long long>(mask),
-             static_cast<unsigned long long>(context.wave.exec.to_ullong()));
-    context.wave.pc += instruction.size_bytes;
-  }
 };
 
 class SAndn2SaveexecB64Instruction final : public Sop1InstructionBase {
@@ -277,17 +195,6 @@ class SAndn2SaveexecB64Instruction final : public Sop1InstructionBase {
   using Sop1InstructionBase::Sop1InstructionBase;
 
   std::string_view class_name() const override { return "s_andn2_saveexec_b64"; }
-
-  void Execute(EncodedWaveContext& context) const override {
-    const auto& instruction = decoded();
-    const auto [sdst, _] = RequireScalarRange(instruction.operands.at(0));
-    const uint64_t exec_before = context.wave.exec.to_ullong();
-    const uint64_t mask = ResolveScalarPair(instruction.operands.at(1), context);
-    context.wave.sgpr.Write(sdst, static_cast<uint32_t>(exec_before & 0xffffffffu));
-    context.wave.sgpr.Write(sdst + 1, static_cast<uint32_t>(exec_before >> 32u));
-    context.wave.exec = MaskFromU64(mask & ~exec_before);
-    context.wave.pc += instruction.size_bytes;
-  }
 };
 
 class SNopInstruction final : public SoppInstructionBase {
@@ -295,10 +202,6 @@ class SNopInstruction final : public SoppInstructionBase {
   using SoppInstructionBase::SoppInstructionBase;
 
   std::string_view class_name() const override { return "s_nop"; }
-
-  void Execute(EncodedWaveContext& context) const override {
-    context.wave.pc += decoded().size_bytes;
-  }
 };
 
 class SWaitcntInstruction final : public SoppInstructionBase {
@@ -306,10 +209,6 @@ class SWaitcntInstruction final : public SoppInstructionBase {
   using SoppInstructionBase::SoppInstructionBase;
 
   std::string_view class_name() const override { return "s_waitcnt"; }
-
-  void Execute(EncodedWaveContext& context) const override {
-    context.wave.pc += decoded().size_bytes;
-  }
 };
 
 class SEndpgmInstruction final : public SoppInstructionBase {
@@ -317,11 +216,6 @@ class SEndpgmInstruction final : public SoppInstructionBase {
   using SoppInstructionBase::SoppInstructionBase;
 
   std::string_view class_name() const override { return "s_endpgm"; }
-
-  void Execute(EncodedWaveContext& context) const override {
-    context.wave.status = WaveStatus::Exited;
-    ++context.stats.wave_exits;
-  }
 };
 
 class SBarrierInstruction final : public SoppInstructionBase {
@@ -329,102 +223,44 @@ class SBarrierInstruction final : public SoppInstructionBase {
   using SoppInstructionBase::SoppInstructionBase;
 
   std::string_view class_name() const override { return "s_barrier"; }
-
-  void Execute(EncodedWaveContext& context) const override {
-    ++context.stats.barriers;
-    context.wave.status = WaveStatus::Stalled;
-    context.wave.waiting_at_barrier = true;
-    context.wave.barrier_generation = context.block.barrier_generation;
-    ++context.block.barrier_arrivals;
-  }
 };
 
-class BranchInstructionBase : public SoppInstructionBase {
+// Note: BranchInstructionBase removed - branch execution is handled by EncodedSemanticHandlerRegistry
+
+class SBranchInstruction final : public SoppInstructionBase {
  public:
   using SoppInstructionBase::SoppInstructionBase;
-
- protected:
-  int32_t branch_offset() const {
-    const auto& operand = decoded().operands.at(0);
-    if (!operand.info.has_immediate) {
-      throw std::invalid_argument("branch instruction missing immediate");
-    }
-    return static_cast<int32_t>(operand.info.immediate);
-  }
-
-  void BranchOrAdvance(EncodedWaveContext& context, bool take_branch) const {
-    if (take_branch) {
-      context.wave.pc = BranchTarget(context.wave.pc, branch_offset());
-      return;
-    }
-    context.wave.pc += decoded().size_bytes;
-  }
-};
-
-class SBranchInstruction final : public BranchInstructionBase {
- public:
-  using BranchInstructionBase::BranchInstructionBase;
-
   std::string_view class_name() const override { return "s_branch"; }
-
-  void Execute(EncodedWaveContext& context) const override {
-    BranchOrAdvance(context, true);
-  }
 };
 
-class SCbranchScc0Instruction final : public BranchInstructionBase {
+class SCbranchScc0Instruction final : public SoppInstructionBase {
  public:
-  using BranchInstructionBase::BranchInstructionBase;
-
+  using SoppInstructionBase::SoppInstructionBase;
   std::string_view class_name() const override { return "s_cbranch_scc0"; }
-
-  void Execute(EncodedWaveContext& context) const override {
-    BranchOrAdvance(context, !context.wave.ScalarMaskBit0());
-  }
 };
 
-class SCbranchScc1Instruction final : public BranchInstructionBase {
+class SCbranchScc1Instruction final : public SoppInstructionBase {
  public:
-  using BranchInstructionBase::BranchInstructionBase;
-
+  using SoppInstructionBase::SoppInstructionBase;
   std::string_view class_name() const override { return "s_cbranch_scc1"; }
-
-  void Execute(EncodedWaveContext& context) const override {
-    BranchOrAdvance(context, context.wave.ScalarMaskBit0());
-  }
 };
 
-class SCbranchVcczInstruction final : public BranchInstructionBase {
+class SCbranchVcczInstruction final : public SoppInstructionBase {
  public:
-  using BranchInstructionBase::BranchInstructionBase;
-
+  using SoppInstructionBase::SoppInstructionBase;
   std::string_view class_name() const override { return "s_cbranch_vccz"; }
-
-  void Execute(EncodedWaveContext& context) const override {
-    BranchOrAdvance(context, context.vcc == 0);
-  }
 };
 
-class SCbranchExeczInstruction final : public BranchInstructionBase {
+class SCbranchExeczInstruction final : public SoppInstructionBase {
  public:
-  using BranchInstructionBase::BranchInstructionBase;
-
+  using SoppInstructionBase::SoppInstructionBase;
   std::string_view class_name() const override { return "s_cbranch_execz"; }
-
-  void Execute(EncodedWaveContext& context) const override {
-    BranchOrAdvance(context, context.wave.exec.none());
-  }
 };
 
-class SCbranchExecnzInstruction final : public BranchInstructionBase {
+class SCbranchExecnzInstruction final : public SoppInstructionBase {
  public:
-  using BranchInstructionBase::BranchInstructionBase;
-
+  using SoppInstructionBase::SoppInstructionBase;
   std::string_view class_name() const override { return "s_cbranch_execnz"; }
-
-  void Execute(EncodedWaveContext& context) const override {
-    BranchOrAdvance(context, context.wave.exec.any());
-  }
 };
 
 #define DEFINE_RAW_GCN_OPCODE_CLASS(ClassName, BaseClass, TextName) \
@@ -564,134 +400,130 @@ InstructionObjectPtr MakeInstruction(DecodedInstruction instruction) {
   return std::make_unique<T>(std::move(instruction), handler);
 }
 
-struct InstructionFactoryEntry {
-  std::string_view mnemonic;
-  InstructionFactoryFn factory;
-};
+// Factory registry using unordered_map for O(1) lookup
+const std::unordered_map<std::string_view, InstructionFactoryFn>& GetInstructionFactoryMap() {
+  static const std::unordered_map<std::string_view, InstructionFactoryFn> kFactoryMap = {
+      {"s_load_dword", &MakeInstruction<SLoadDwordInstruction>},
+      {"s_load_dwordx2", &MakeInstruction<SLoadDwordx2Instruction>},
+      {"s_load_dwordx4", &MakeInstruction<SLoadDwordx4Instruction>},
+      {"s_mov_b32", &MakeInstruction<SMovB32Instruction>},
+      {"s_mov_b64", &MakeInstruction<SMovB64Instruction>},
+      {"s_abs_i32", &MakeInstruction<SAbsI32Instruction>},
+      {"s_sext_i32_i16", &MakeInstruction<SSextI32I16Instruction>},
+      {"s_bcnt1_i32_b64", &MakeInstruction<SBcnt1I32B64Instruction>},
+      {"s_movk_i32", &MakeInstruction<SMovkI32Instruction>},
+      {"s_and_saveexec_b64", &MakeInstruction<SAndSaveexecB64Instruction>},
+      {"s_andn2_saveexec_b64", &MakeInstruction<SAndn2SaveexecB64Instruction>},
+      {"s_cselect_b64", &MakeInstruction<SCselectB64Instruction>},
+      {"s_andn2_b64", &MakeInstruction<SAndn2B64Instruction>},
+      {"s_or_b64", &MakeInstruction<SOrB64Instruction>},
+      {"s_xor_b64", &MakeInstruction<SXorB64Instruction>},
+      {"s_or_b32", &MakeInstruction<SOrB32Instruction>},
+      {"s_and_b64", &MakeInstruction<SAndB64Instruction>},
+      {"s_and_b32", &MakeInstruction<SAndB32Instruction>},
+      {"s_mul_i32", &MakeInstruction<SMulI32Instruction>},
+      {"s_sub_i32", &MakeInstruction<SSubI32Instruction>},
+      {"s_add_i32", &MakeInstruction<SAddI32Instruction>},
+      {"s_add_u32", &MakeInstruction<SAddU32Instruction>},
+      {"s_addc_u32", &MakeInstruction<SAddcU32Instruction>},
+      {"s_lshl_b32", &MakeInstruction<SLshlB32Instruction>},
+      {"s_lshr_b32", &MakeInstruction<SLshrB32Instruction>},
+      {"s_ashr_i32", &MakeInstruction<SAshrI32Instruction>},
+      {"s_lshl_b64", &MakeInstruction<SLshlB64Instruction>},
+      {"s_cmp_lt_i32", &MakeInstruction<SCmpLtI32Instruction>},
+      {"s_cmp_gt_i32", &MakeInstruction<SCmpGtI32Instruction>},
+      {"s_cmp_eq_u32", &MakeInstruction<SCmpEqU32Instruction>},
+      {"s_cmp_lg_u32", &MakeInstruction<SCmpLgU32Instruction>},
+      {"s_cmp_gt_u32", &MakeInstruction<SCmpGtU32Instruction>},
+      {"s_cmp_lt_u32", &MakeInstruction<SCmpLtU32Instruction>},
+      {"s_nop", &MakeInstruction<SNopInstruction>},
+      {"s_endpgm", &MakeInstruction<SEndpgmInstruction>},
+      {"s_branch", &MakeInstruction<SBranchInstruction>},
+      {"s_cbranch_scc0", &MakeInstruction<SCbranchScc0Instruction>},
+      {"s_cbranch_scc1", &MakeInstruction<SCbranchScc1Instruction>},
+      {"s_cbranch_vccz", &MakeInstruction<SCbranchVcczInstruction>},
+      {"s_cbranch_execz", &MakeInstruction<SCbranchExeczInstruction>},
+      {"s_cbranch_execnz", &MakeInstruction<SCbranchExecnzInstruction>},
+      {"s_barrier", &MakeInstruction<SBarrierInstruction>},
+      {"s_waitcnt", &MakeInstruction<SWaitcntInstruction>},
+      {"v_not_b32_e32", &MakeInstruction<VNotB32Instruction>},
+      {"v_mov_b32_e32", &MakeInstruction<VMovB32Instruction>},
+      {"v_rndne_f32_e32", &MakeInstruction<VRndneF32Instruction>},
+      {"v_cvt_i32_f32_e32", &MakeInstruction<VCvtI32F32Instruction>},
+      {"v_cvt_f32_i32_e32", &MakeInstruction<VCvtF32I32Instruction>},
+      {"v_cvt_f32_u32_e32", &MakeInstruction<VCvtF32U32Instruction>},
+      {"v_cvt_u32_f32_e32", &MakeInstruction<VCvtU32F32Instruction>},
+      {"v_exp_f32_e32", &MakeInstruction<VExpF32Instruction>},
+      {"v_rcp_f32_e32", &MakeInstruction<VRcpF32Instruction>},
+      {"v_rcp_iflag_f32_e32", &MakeInstruction<VRcpIflagF32Instruction>},
+      {"v_add_u32_e32", &MakeInstruction<VAddU32Instruction>},
+      {"v_sub_u32_e32", &MakeInstruction<VSubU32Instruction>},
+      {"v_ashrrev_i32_e32", &MakeInstruction<VAshrrevI32Instruction>},
+      {"v_lshlrev_b32_e32", &MakeInstruction<VLshlrevB32Instruction>},
+      {"v_and_b32_e32", &MakeInstruction<VAndB32Instruction>},
+      {"v_or_b32_e32", &MakeInstruction<VOrB32Instruction>},
+      {"v_xor_b32_e32", &MakeInstruction<VXorB32Instruction>},
+      {"v_subrev_u32_e32", &MakeInstruction<VSubrevU32Instruction>},
+      {"v_add_co_u32_e32", &MakeInstruction<VAddCoU32E32Instruction>},
+      {"v_addc_co_u32_e32", &MakeInstruction<VAddcCoU32E32Instruction>},
+      {"v_add_f32_e32", &MakeInstruction<VAddF32Instruction>},
+      {"v_sub_f32_e32", &MakeInstruction<VSubF32Instruction>},
+      {"v_mul_f32_e32", &MakeInstruction<VMulF32Instruction>},
+      {"v_max_f32_e32", &MakeInstruction<VMaxF32Instruction>},
+      {"v_max_i32_e32", &MakeInstruction<VMaxI32Instruction>},
+      {"v_fmac_f32_e32", &MakeInstruction<VFmacF32Instruction>},
+      {"v_cndmask_b32_e32", &MakeInstruction<VCndmaskB32E32Instruction>},
+      {"v_lshlrev_b64", &MakeInstruction<VLshlrevB64Instruction>},
+      {"v_or3_b32", &MakeInstruction<VOr3B32Instruction>},
+      {"v_lshl_add_u32", &MakeInstruction<VLshlAddU32Instruction>},
+      {"v_fma_f32", &MakeInstruction<VFmaF32Instruction>},
+      {"v_mbcnt_lo_u32_b32", &MakeInstruction<VMbcntLoInstruction>},
+      {"v_mbcnt_hi_u32_b32", &MakeInstruction<VMbcntHiInstruction>},
+      {"v_ldexp_f32", &MakeInstruction<VLdexpF32Instruction>},
+      {"v_div_fmas_f32", &MakeInstruction<VDivFmasF32Instruction>},
+      {"v_div_fixup_f32", &MakeInstruction<VDivFixupF32Instruction>},
+      {"v_cndmask_b32_e64", &MakeInstruction<VCndmaskB32E64Instruction>},
+      {"v_cmp_lt_u32_e64", &MakeInstruction<VCmpLtU32E64Instruction>},
+      {"v_cmp_gt_i32_e64", &MakeInstruction<VCmpGtI32E64Instruction>},
+      {"v_cmp_gt_u32_e64", &MakeInstruction<VCmpGtU32E64Instruction>},
+      {"v_mul_lo_i32", &MakeInstruction<VMulLoI32Instruction>},
+      {"v_mul_hi_u32", &MakeInstruction<VMulHiU32Instruction>},
+      {"v_add_co_u32_e64", &MakeInstruction<VAddCoU32E64Instruction>},
+      {"v_addc_co_u32_e64", &MakeInstruction<VAddcCoU32E64Instruction>},
+      {"v_div_scale_f32", &MakeInstruction<VDivScaleF32Instruction>},
+      {"v_mad_u64_u32", &MakeInstruction<VMadU64U32Instruction>},
+      {"v_mfma_f32_16x16x4f32", &MakeInstruction<VMfmaF32Instruction>},
+      {"v_mfma_f32_16x16x4f16", &MakeInstruction<VMfmaF16Instruction>},
+      {"v_mfma_i32_16x16x4i8", &MakeInstruction<VMfmaI8Instruction>},
+      {"v_mfma_f32_16x16x2bf16", &MakeInstruction<VMfmaBf16Instruction>},
+      {"v_mfma_f32_32x32x2f32", &MakeInstruction<VMfmaF32WideInstruction>},
+      {"v_mfma_i32_16x16x16i8", &MakeInstruction<VMfmaI8WideInstruction>},
+      {"v_pk_mov_b32", &MakeInstruction<VPkMovB32Instruction>},
+      {"v_accvgpr_read_b32", &MakeInstruction<VAccvgprReadB32Instruction>},
+      {"v_accvgpr_write_b32", &MakeInstruction<VAccvgprWriteB32Instruction>},
+      {"v_cmp_gt_i32_e32", &MakeInstruction<VCmpGtI32Instruction>},
+      {"v_cmp_le_i32_e32", &MakeInstruction<VCmpLeI32Instruction>},
+      {"v_cmp_lt_i32_e32", &MakeInstruction<VCmpLtI32Instruction>},
+      {"v_cmp_lt_u32_e32", &MakeInstruction<VCmpLtU32Instruction>},
+      {"v_cmp_le_u32_e32", &MakeInstruction<VCmpLeU32Instruction>},
+      {"v_cmp_gt_u32_e32", &MakeInstruction<VCmpGtU32Instruction>},
+      {"v_cmp_eq_u32_e32", &MakeInstruction<VCmpEqU32Instruction>},
+      {"v_cmp_ngt_f32_e32", &MakeInstruction<VCmpNgtF32Instruction>},
+      {"v_cmp_nlt_f32_e32", &MakeInstruction<VCmpNltF32Instruction>},
+      {"global_load_dword", &MakeInstruction<GlobalLoadDwordInstruction>},
+      {"global_store_dword", &MakeInstruction<GlobalStoreDwordInstruction>},
+      {"global_atomic_add", &MakeInstruction<GlobalAtomicAddInstruction>},
+      {"ds_write_b32", &MakeInstruction<DsWriteB32Instruction>},
+      {"ds_read_b32", &MakeInstruction<DsReadB32Instruction>},
+      {"ds_read2_b32", &MakeInstruction<DsRead2B32Instruction>},
+  };
+  return kFactoryMap;
+}
 
-constexpr InstructionFactoryEntry kInstructionFactories[] = {
-    {"s_load_dword", &MakeInstruction<SLoadDwordInstruction>},
-    {"s_load_dwordx2", &MakeInstruction<SLoadDwordx2Instruction>},
-    {"s_load_dwordx4", &MakeInstruction<SLoadDwordx4Instruction>},
-    {"s_mov_b32", &MakeInstruction<SMovB32Instruction>},
-    {"s_mov_b64", &MakeInstruction<SMovB64Instruction>},
-    {"s_abs_i32", &MakeInstruction<SAbsI32Instruction>},
-    {"s_sext_i32_i16", &MakeInstruction<SSextI32I16Instruction>},
-    {"s_bcnt1_i32_b64", &MakeInstruction<SBcnt1I32B64Instruction>},
-    {"s_movk_i32", &MakeInstruction<SMovkI32Instruction>},
-    {"s_and_saveexec_b64", &MakeInstruction<SAndSaveexecB64Instruction>},
-    {"s_andn2_saveexec_b64", &MakeInstruction<SAndn2SaveexecB64Instruction>},
-    {"s_cselect_b64", &MakeInstruction<SCselectB64Instruction>},
-    {"s_andn2_b64", &MakeInstruction<SAndn2B64Instruction>},
-    {"s_or_b64", &MakeInstruction<SOrB64Instruction>},
-    {"s_xor_b64", &MakeInstruction<SXorB64Instruction>},
-    {"s_or_b32", &MakeInstruction<SOrB32Instruction>},
-    {"s_and_b64", &MakeInstruction<SAndB64Instruction>},
-    {"s_and_b32", &MakeInstruction<SAndB32Instruction>},
-    {"s_mul_i32", &MakeInstruction<SMulI32Instruction>},
-    {"s_sub_i32", &MakeInstruction<SSubI32Instruction>},
-    {"s_add_i32", &MakeInstruction<SAddI32Instruction>},
-    {"s_add_u32", &MakeInstruction<SAddU32Instruction>},
-    {"s_addc_u32", &MakeInstruction<SAddcU32Instruction>},
-    {"s_lshl_b32", &MakeInstruction<SLshlB32Instruction>},
-    {"s_lshr_b32", &MakeInstruction<SLshrB32Instruction>},
-    {"s_ashr_i32", &MakeInstruction<SAshrI32Instruction>},
-    {"s_lshl_b64", &MakeInstruction<SLshlB64Instruction>},
-    {"s_cmp_lt_i32", &MakeInstruction<SCmpLtI32Instruction>},
-    {"s_cmp_gt_i32", &MakeInstruction<SCmpGtI32Instruction>},
-    {"s_cmp_eq_u32", &MakeInstruction<SCmpEqU32Instruction>},
-    {"s_cmp_lg_u32", &MakeInstruction<SCmpLgU32Instruction>},
-    {"s_cmp_gt_u32", &MakeInstruction<SCmpGtU32Instruction>},
-    {"s_cmp_lt_u32", &MakeInstruction<SCmpLtU32Instruction>},
-    {"s_nop", &MakeInstruction<SNopInstruction>},
-    {"s_endpgm", &MakeInstruction<SEndpgmInstruction>},
-    {"s_branch", &MakeInstruction<SBranchInstruction>},
-    {"s_cbranch_scc0", &MakeInstruction<SCbranchScc0Instruction>},
-    {"s_cbranch_scc1", &MakeInstruction<SCbranchScc1Instruction>},
-    {"s_cbranch_vccz", &MakeInstruction<SCbranchVcczInstruction>},
-    {"s_cbranch_execz", &MakeInstruction<SCbranchExeczInstruction>},
-    {"s_cbranch_execnz", &MakeInstruction<SCbranchExecnzInstruction>},
-    {"s_barrier", &MakeInstruction<SBarrierInstruction>},
-    {"s_waitcnt", &MakeInstruction<SWaitcntInstruction>},
-    {"v_not_b32_e32", &MakeInstruction<VNotB32Instruction>},
-    {"v_mov_b32_e32", &MakeInstruction<VMovB32Instruction>},
-    {"v_rndne_f32_e32", &MakeInstruction<VRndneF32Instruction>},
-    {"v_cvt_i32_f32_e32", &MakeInstruction<VCvtI32F32Instruction>},
-    {"v_cvt_f32_i32_e32", &MakeInstruction<VCvtF32I32Instruction>},
-    {"v_cvt_f32_u32_e32", &MakeInstruction<VCvtF32U32Instruction>},
-    {"v_cvt_u32_f32_e32", &MakeInstruction<VCvtU32F32Instruction>},
-    {"v_exp_f32_e32", &MakeInstruction<VExpF32Instruction>},
-    {"v_rcp_f32_e32", &MakeInstruction<VRcpF32Instruction>},
-    {"v_rcp_iflag_f32_e32", &MakeInstruction<VRcpIflagF32Instruction>},
-    {"v_add_u32_e32", &MakeInstruction<VAddU32Instruction>},
-    {"v_sub_u32_e32", &MakeInstruction<VSubU32Instruction>},
-    {"v_ashrrev_i32_e32", &MakeInstruction<VAshrrevI32Instruction>},
-    {"v_lshlrev_b32_e32", &MakeInstruction<VLshlrevB32Instruction>},
-    {"v_and_b32_e32", &MakeInstruction<VAndB32Instruction>},
-    {"v_or_b32_e32", &MakeInstruction<VOrB32Instruction>},
-    {"v_xor_b32_e32", &MakeInstruction<VXorB32Instruction>},
-    {"v_subrev_u32_e32", &MakeInstruction<VSubrevU32Instruction>},
-    {"v_add_co_u32_e32", &MakeInstruction<VAddCoU32E32Instruction>},
-    {"v_addc_co_u32_e32", &MakeInstruction<VAddcCoU32E32Instruction>},
-    {"v_add_f32_e32", &MakeInstruction<VAddF32Instruction>},
-    {"v_sub_f32_e32", &MakeInstruction<VSubF32Instruction>},
-    {"v_mul_f32_e32", &MakeInstruction<VMulF32Instruction>},
-    {"v_max_f32_e32", &MakeInstruction<VMaxF32Instruction>},
-    {"v_max_i32_e32", &MakeInstruction<VMaxI32Instruction>},
-    {"v_fmac_f32_e32", &MakeInstruction<VFmacF32Instruction>},
-    {"v_cndmask_b32_e32", &MakeInstruction<VCndmaskB32E32Instruction>},
-    {"v_lshlrev_b64", &MakeInstruction<VLshlrevB64Instruction>},
-    {"v_or3_b32", &MakeInstruction<VOr3B32Instruction>},
-    {"v_lshl_add_u32", &MakeInstruction<VLshlAddU32Instruction>},
-    {"v_fma_f32", &MakeInstruction<VFmaF32Instruction>},
-    {"v_mbcnt_lo_u32_b32", &MakeInstruction<VMbcntLoInstruction>},
-    {"v_mbcnt_hi_u32_b32", &MakeInstruction<VMbcntHiInstruction>},
-    {"v_ldexp_f32", &MakeInstruction<VLdexpF32Instruction>},
-    {"v_div_fmas_f32", &MakeInstruction<VDivFmasF32Instruction>},
-    {"v_div_fixup_f32", &MakeInstruction<VDivFixupF32Instruction>},
-    {"v_cndmask_b32_e64", &MakeInstruction<VCndmaskB32E64Instruction>},
-    {"v_cmp_lt_u32_e64", &MakeInstruction<VCmpLtU32E64Instruction>},
-    {"v_cmp_gt_i32_e64", &MakeInstruction<VCmpGtI32E64Instruction>},
-    {"v_cmp_gt_u32_e64", &MakeInstruction<VCmpGtU32E64Instruction>},
-    {"v_mul_lo_i32", &MakeInstruction<VMulLoI32Instruction>},
-    {"v_mul_hi_u32", &MakeInstruction<VMulHiU32Instruction>},
-    {"v_add_co_u32_e64", &MakeInstruction<VAddCoU32E64Instruction>},
-    {"v_addc_co_u32_e64", &MakeInstruction<VAddcCoU32E64Instruction>},
-    {"v_div_scale_f32", &MakeInstruction<VDivScaleF32Instruction>},
-    {"v_mad_u64_u32", &MakeInstruction<VMadU64U32Instruction>},
-    {"v_mfma_f32_16x16x4f32", &MakeInstruction<VMfmaF32Instruction>},
-    {"v_mfma_f32_16x16x4f16", &MakeInstruction<VMfmaF16Instruction>},
-    {"v_mfma_i32_16x16x4i8", &MakeInstruction<VMfmaI8Instruction>},
-    {"v_mfma_f32_16x16x2bf16", &MakeInstruction<VMfmaBf16Instruction>},
-    {"v_mfma_f32_32x32x2f32", &MakeInstruction<VMfmaF32WideInstruction>},
-    {"v_mfma_i32_16x16x16i8", &MakeInstruction<VMfmaI8WideInstruction>},
-    {"v_pk_mov_b32", &MakeInstruction<VPkMovB32Instruction>},
-    {"v_accvgpr_read_b32", &MakeInstruction<VAccvgprReadB32Instruction>},
-    {"v_accvgpr_write_b32", &MakeInstruction<VAccvgprWriteB32Instruction>},
-    {"v_cmp_gt_i32_e32", &MakeInstruction<VCmpGtI32Instruction>},
-    {"v_cmp_le_i32_e32", &MakeInstruction<VCmpLeI32Instruction>},
-    {"v_cmp_lt_i32_e32", &MakeInstruction<VCmpLtI32Instruction>},
-    {"v_cmp_lt_u32_e32", &MakeInstruction<VCmpLtU32Instruction>},
-    {"v_cmp_le_u32_e32", &MakeInstruction<VCmpLeU32Instruction>},
-    {"v_cmp_gt_u32_e32", &MakeInstruction<VCmpGtU32Instruction>},
-    {"v_cmp_eq_u32_e32", &MakeInstruction<VCmpEqU32Instruction>},
-    {"v_cmp_ngt_f32_e32", &MakeInstruction<VCmpNgtF32Instruction>},
-    {"v_cmp_nlt_f32_e32", &MakeInstruction<VCmpNltF32Instruction>},
-    {"global_load_dword", &MakeInstruction<GlobalLoadDwordInstruction>},
-    {"global_store_dword", &MakeInstruction<GlobalStoreDwordInstruction>},
-    {"global_atomic_add", &MakeInstruction<GlobalAtomicAddInstruction>},
-    {"ds_write_b32", &MakeInstruction<DsWriteB32Instruction>},
-    {"ds_read_b32", &MakeInstruction<DsReadB32Instruction>},
-    {"ds_read2_b32", &MakeInstruction<DsRead2B32Instruction>},
-};
-
-const InstructionFactoryEntry* FindInstructionFactory(std::string_view mnemonic) {
-  for (const auto& entry : kInstructionFactories) {
-    if (entry.mnemonic == mnemonic) {
-      return &entry;
-    }
-  }
-  return nullptr;
+InstructionFactoryFn FindInstructionFactory(std::string_view mnemonic) {
+  const auto& map = GetInstructionFactoryMap();
+  const auto it = map.find(mnemonic);
+  return it != map.end() ? it->second : nullptr;
 }
 
 }  // namespace
@@ -701,13 +533,22 @@ InstructionObjectPtr BindEncodedInstructionObject(DecodedInstruction instruction
   if (match == nullptr || !match->known()) {
     const auto [op_type_name, class_name] =
         PlaceholderNamesForFormatClass(instruction.format_class);
+    EncodedDebugLog("BindEncodedInstruction: pc=0x%llx placeholder class=%s",
+                    static_cast<unsigned long long>(instruction.pc),
+                    class_name.data());
     return MakePlaceholderInstruction(std::move(instruction), op_type_name, class_name);
   }
-  if (const auto* factory = FindInstructionFactory(match->encoding_def->mnemonic); factory != nullptr) {
+  if (const auto factory = FindInstructionFactory(match->encoding_def->mnemonic); factory != nullptr) {
     instruction.mnemonic = std::string(match->encoding_def->mnemonic);
-    return factory->factory(std::move(instruction));
+    EncodedDebugLog("BindEncodedInstruction: pc=0x%llx mnemonic=%s",
+                    static_cast<unsigned long long>(instruction.pc),
+                    instruction.mnemonic.c_str());
+    return factory(std::move(instruction));
   }
   const auto desc = DescribeEncodedInstruction(instruction);
+  EncodedDebugLog("BindEncodedInstruction: pc=0x%llx fallback placeholder class=%s",
+                  static_cast<unsigned long long>(instruction.pc),
+                  desc.placeholder_class_name.data());
   return MakePlaceholderInstruction(std::move(instruction),
                                     desc.placeholder_op_type_name,
                                     desc.placeholder_class_name);
