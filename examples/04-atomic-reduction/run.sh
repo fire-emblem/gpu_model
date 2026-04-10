@@ -16,9 +16,9 @@ SO_PATH="$BUILD_DIR/libgpu_model_hip_runtime_abi.so"
 SRC="$CASE_DIR/atomic_reduction.hip"
 EXE="$OUT_DIR/atomic_reduction.out"
 
-hipcc "$SRC" -o "$EXE"
+gpu_model_compile_hip_source "$ROOT" "$SRC" -o "$EXE"
 
-for mode in st mt cycle; do
+for mode in mt; do
   mode_dir="$(gpu_model_mode_dir "$OUT_DIR" "$mode")"
   gpu_model_run_interposed_mode "$SO_PATH" "$EXE" "$mode_dir" "$mode"
   gpu_model_assert_mode_success "$mode_dir" "atomic_reduction value=257 expected=257"

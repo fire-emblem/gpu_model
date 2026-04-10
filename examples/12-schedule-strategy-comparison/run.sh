@@ -30,7 +30,7 @@ echo "All variants process the same 4096 elements using grid-stride loops."
 echo ""
 
 for name in vecadd_low_parallelism vecadd_moderate_parallelism vecadd_optimal_parallelism; do
-  hipcc "$CASE_DIR/${name}.hip" -o "$OUT_DIR/${name}.out"
+  gpu_model_compile_hip_source "$ROOT" "$CASE_DIR/${name}.hip" -o "$OUT_DIR/${name}.out"
   for mode in st mt cycle; do
     mode_dir="$(gpu_model_mode_dir "$OUT_DIR" "$mode" "$name")"
     gpu_model_run_interposed_mode "$SO_PATH" "$OUT_DIR/${name}.out" "$mode_dir" "$mode"

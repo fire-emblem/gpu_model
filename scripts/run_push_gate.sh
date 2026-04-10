@@ -89,6 +89,7 @@ run_all_examples() {
   cmake --build "$EXAMPLES_BUILD_DIR" --target gpu_model_tests gpu_model_hip_runtime_abi gpu_model_perfetto_waitcnt_slots_demo -j "$JOBS" \
     2>&1 | tee "$GATE_LOG_DIR/examples.build.log"
   echo "[push-gate] run all examples on examples release build"
+  echo "[push-gate] note: non-comparison examples default to mt; comparison examples keep explicit multi-mode coverage"
   local examples=(
     "01-vecadd-basic"
     "02-fma-loop"

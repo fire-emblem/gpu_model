@@ -1,6 +1,6 @@
 # Algorithm Comparison: Matrix Transpose
 
-Compares three matrix transpose algorithms on a 256x256 single-precision matrix, demonstrating how memory access patterns affect GPU performance.
+Compares three matrix transpose algorithms on a single-precision matrix, demonstrating how memory access patterns affect GPU performance.
 
 ## What This Example Shows
 
@@ -27,6 +27,13 @@ Uses statically-allocated shared memory with padding (`tile[TILE][TILE+1]`). The
 - **Read pattern**: Coalesced global load
 - **Write pattern**: Coalesced global store
 - **Optimization**: Bank-conflict-free shared memory access via padding
+
+默认运行使用 `128x128` 矩阵，便于把 example 执行时间控制在可接受范围内。
+可用环境变量恢复更大规模，例如：
+
+```bash
+GPU_MODEL_TRANSPOSE_WIDTH=256 GPU_MODEL_TRANSPOSE_HEIGHT=256 ./run.sh
+```
 
 ## Cycle Model Results
 

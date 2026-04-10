@@ -1,10 +1,24 @@
 #include <hip/hip_runtime.h>
 
+#include <cstdlib>
 #include <cstdio>
 #include <vector>
 
 // Optimized Algorithm: Shared memory transpose using dynamic shared memory
 constexpr int TILE = 16;
+
+int ReadMatrixDimEnv(const char* name, int fallback) {
+  const char* value = std::getenv(name);
+  if (value == nullptr || *value == '\0') {
+    return fallback;
+  }
+  char* end = nullptr;
+  const long parsed = std::strtol(value, &end, 10);
+  if (end == value || *end != '\0' || parsed <= 0 || parsed > 4096) {
+    return fallback;
+  }
+  return static_cast<int>(parsed);
+}
 
 extern "C" __global__ void transpose_shared(const float* in, float* out, int width, int height) {
   // Use dynamic shared memory
@@ -29,9 +43,9 @@ extern "C" __global__ void transpose_shared(const float* in, float* out, int wid
 }
 
 int main() {
-  constexpr int width = 256;
-  constexpr int height = 256;
-  constexpr int n = width * height;
+  const int width = ReadMatrixDimEnv("GPU_MODEL_TRANSPOSE_WIDTH", 128);
+  const int height = ReadMatrixDimEnv("GPU_MODEL_TRANSPOSE_HEIGHT", 128);
+  const int n = width * height;
 
   std::vector<float> in(n), out(n, -1.0f);
   for (int i = 0; i < n; ++i) {

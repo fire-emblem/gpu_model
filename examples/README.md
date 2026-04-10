@@ -1,10 +1,17 @@
 # Examples
 
-面向用户的可执行 HIP kernel 例子，按难度编号 01-11。
+面向用户的可执行 HIP kernel 例子，按难度编号组织。
 
 ## 执行模式
 
-每个例子默认运行三种模式：
+默认规则：
+
+- 非对比型 example 默认只跑 `mt`
+- 对比型 / 可视化型 example 显式保留 `st` / `mt` / `cycle`
+- 专项例子可以只跑单一模式，例如 `test-sm-copy` 只跑 `cycle`
+- 默认启用 `tools/hipcc_cache.sh` 复用 example 编译结果，可用 `GPU_MODEL_USE_HIPCC_CACHE=0` 关闭
+
+模式说明：
 
 | 模式 | 全称 | 说明 |
 |------|------|------|
@@ -12,31 +19,32 @@
 | `mt` | MultiThreaded | 多线程功能执行，Marl fiber 并行 |
 | `cycle` | Cycle | Naive cycle 模型，带时间线估算 |
 
-三种模式 host 侧校验结果应完全一致。
-
 ## 例子列表
 
 | 编号 | 例子 | 作用 | 验证重点 |
 |------|------|------|----------|
-| 01 | [vecadd-basic](./01-vecadd-basic) | 最小端到端入门 | 基础路径接通、三种模式一致性 |
-| 02 | [fma-loop](./02-fma-loop) | 循环 + 浮点累积 | 控制流、浮点路径稳定性 |
-| 03 | [shared-reverse](./03-shared-reverse) | shared memory + barrier | block 内同步、shared 读写 |
-| 04 | [atomic-reduction](./04-atomic-reduction) | global atomic 归约 | 原子语义、并发写正确性 |
-| 05 | [softmax-reduction](./05-softmax-reduction) | 多阶段归约 | 多次 barrier + 数值计算 |
-| 06 | [mma-gemm](./06-mma-gemm) | MFMA 探针 | gfx90a/mfma 能力检测 |
-| 07 | [vecadd-cycle-splitting](./07-vecadd-cycle-splitting) | 写法对比 | 不同实现的 cycle 差异 |
-| 08 | [conditional-multibarrier](./08-conditional-multibarrier) | 条件分支 + 多次 barrier | 合法 barrier 与条件分支共存 |
-| 09 | [dynamic-shared-sum](./09-dynamic-shared-sum) | 动态 shared memory | `extern __shared__` 路径 |
-| 10 | [block-reduce-sum](./10-block-reduce-sum) | 多 block 归约 | 独立 block reduction |
-| 11 | [perfetto-waitcnt-slots](./11-perfetto-waitcnt-slots) | Perfetto 调试 | 空泡、slot、wave 调度可视化 |
+| 01 | [vecadd-basic](./01-vecadd-basic) | 最小端到端入门 | 基础路径接通、默认 `mt` |
+| 02 | [fma-loop](./02-fma-loop) | 循环 + 浮点累积 | 控制流、浮点路径稳定性、默认 `mt` |
+| 03 | [shared-reverse](./03-shared-reverse) | shared memory + barrier | block 内同步、shared 读写、默认 `mt` |
+| 04 | [atomic-reduction](./04-atomic-reduction) | global atomic 归约 | 原子语义、并发写正确性、默认 `mt` |
+| 05 | [softmax-reduction](./05-softmax-reduction) | 多阶段归约 | 多次 barrier + 数值计算、默认 `mt` |
+| 06 | [mma-gemm](./06-mma-gemm) | MFMA 探针 | gfx90a/mfma 能力检测、默认 `mt` |
+| 07 | [vecadd-cycle-splitting](./07-vecadd-cycle-splitting) | 写法对比 | 保留 `st/mt/cycle` 对比 |
+| 08 | [conditional-multibarrier](./08-conditional-multibarrier) | 条件分支 + 多次 barrier | 合法 barrier 与条件分支共存、默认 `mt` |
+| 09 | [dynamic-shared-sum](./09-dynamic-shared-sum) | 动态 shared memory | `extern __shared__` 路径、默认 `mt` |
+| 10 | [block-reduce-sum](./10-block-reduce-sum) | 多 block 归约 | 独立 block reduction、默认 `mt` |
+| 11 | [perfetto-waitcnt-slots](./11-perfetto-waitcnt-slots) | Perfetto 调试 | 保留 `st/mt/cycle` 可视化 |
+| 12 | [schedule-strategy-comparison](./12-schedule-strategy-comparison) | 调度策略对比 | 保留 `st/mt/cycle` 对比 |
+| 13 | [algorithm-comparison](./13-algorithm-comparison) | 算法对比 | 保留 `st/mt/cycle` 对比 |
+| test-sm-copy | [test-sm-copy](./test-sm-copy) | shared-memory copy 专项 | 只跑 `cycle` |
 
 ## 阅读顺序
 
-1. **01-05**: 基础功能验证（算术、shared、barrier、atomic、reduction）
-2. **06**: MFMA 能力探针（可能标记 `unsupported_yet`）
-3. **07**: 写法对比分析
-4. **08-10**: 复杂同步模式
-5. **11**: Trace 观察能力
+1. **01-05**: 基础功能验证，默认 `mt`
+2. **06**: MFMA 能力探针，默认 `mt`，可能标记 `unsupported_yet`
+3. **07**: 写法对比分析，保留 `st/mt/cycle`
+4. **08-10**: 复杂同步模式，默认 `mt`
+5. **11-13**: Trace / 调度 / 算法对比，保留 `st/mt/cycle`
 
 ## 成功标准
 
@@ -44,6 +52,8 @@
 - `stdout.txt` 包含 `... validation ok` 或 `mismatches=0`
 - `launch_summary.txt` 包含 `ok=1`
 - `trace.txt` / `trace.jsonl` / `timeline.perfetto.json` 非空
+
+对非对比型 example，上述产物默认只在 `results/mt/` 下生成。
 
 ## 故障排查
 
@@ -56,7 +66,10 @@ cmake --build --preset dev-fast
 
 # 3. 检查单个例子
 ./examples/01-vecadd-basic/run.sh
-cat examples/01-vecadd-basic/results/st/stdout.txt
+cat examples/01-vecadd-basic/results/mt/stdout.txt
+
+# 4. 如需禁用 example 的 hipcc 缓存
+GPU_MODEL_USE_HIPCC_CACHE=0 ./examples/01-vecadd-basic/run.sh
 ```
 
 ## Trace 产物

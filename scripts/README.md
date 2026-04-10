@@ -26,6 +26,9 @@
       - 可用环境变量 `GPU_MODEL_GATE_DEBUG_ASAN_GTEST_FILTER` 覆盖
     - `Release` 全量 `gpu_model_tests`
     - `Release` 全部 `examples/01-11/run.sh`
+      - 普通 example 默认只跑 `mt`
+      - 对比 / 可视化 example 保留 `st/mt/cycle`
+      - 默认显式关闭 `GPU_MODEL_USE_HIPCC_CACHE`，保证 gate 结果可重复
   - 三条 pipeline 各自使用独立 build 目录，避免互相影响
   - 完整日志默认落到 `results/push-gate/`
   - 其中 release/debug 的 `gpu_model_tests` 还会额外生成

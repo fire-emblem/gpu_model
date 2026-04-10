@@ -27,6 +27,16 @@ gpu_model_require_cmd() {
   fi
 }
 
+gpu_model_compile_hip_source() {
+  local root="$1"
+  shift
+  if [[ "${GPU_MODEL_USE_HIPCC_CACHE:-1}" != "0" ]]; then
+    "$root/tools/hipcc_cache.sh" "$@"
+  else
+    hipcc "$@"
+  fi
+}
+
 gpu_model_ensure_targets() {
   local build_dir="$1"
   shift

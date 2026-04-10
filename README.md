@@ -32,6 +32,8 @@ cmake --build --preset dev-fast
 ## 核心能力
 
 - **三种执行模式**: `st` (单线程功能执行)、`mt` (多线程功能执行)、`cycle` (naive cycle 模型)
+- **Example 默认策略**: 非对比型 example 默认只跑 `mt`，对比/可视化 example 显式保留多模式
+- **Example 编译缓存**: example 默认通过 `tools/hipcc_cache.sh` 复用 `hipcc` 输出，可用 `GPU_MODEL_USE_HIPCC_CACHE=0` 关闭
 - **真实 HIP 程序支持**: 通过 `LD_PRELOAD` 拦截 HIP API，host 原生执行 + kernel 在模型中运行
 - **Trace 可视化**: 输出 `timeline.perfetto.json`，支持 Chrome Trace Viewer 分析
 - **GCN ISA 解码**: 支持 AMDGPU object / HIP fatbin / HIP `.out` 加载与执行
@@ -52,7 +54,7 @@ cmake --build --preset dev-fast
 
 ## Examples
 
-详见 [examples/README.md](examples/README.md)，按难度编号 01-11：
+详见 [examples/README.md](examples/README.md)，按难度编号组织：
 
 | 编号 | 例子 | 验证重点 |
 |------|------|----------|
@@ -67,6 +69,8 @@ cmake --build --preset dev-fast
 | 09 | dynamic-shared-sum | 动态 shared memory |
 | 10 | block-reduce-sum | 多 block 归约 |
 | 11 | perfetto-waitcnt-slots | Trace 调试可视化 |
+| 12 | schedule-strategy-comparison | 调度策略对比 |
+| 13 | algorithm-comparison | 算法对比 |
 
 ## Scripts
 

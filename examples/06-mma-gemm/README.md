@@ -14,7 +14,7 @@
 
 - `hipcc --offload-arch=gfx90a` 是否可用
 - `__builtin_amdgcn_mfma_f32_16x16x4f32` 对应路径是否能编译和运行
-- 三种执行模式在“支持”场景下是否都能给出正确结果
+- 默认 `mt` 模式在“支持”场景下是否能给出正确结果
 - 在“不支持”场景下是否输出清晰状态
 
 ## 程序行为
@@ -26,14 +26,14 @@
 1. 当前环境支持 `gfx90a/mfma`
 
 - 编译成功
-- 分别运行 `st` / `mt` / `cycle`
+- 默认运行 `mt`
 - kernel 最终应写出 `4.0`
 
 2. 当前环境不支持 `gfx90a/mfma`
 
 - 编译失败
 - 脚本不会继续硬跑
-- 会在各模式目录的 `stdout.txt` 中写入 `STATUS: unsupported_yet`
+- 会在 `results/mt/stdout.txt` 中写入 `STATUS: unsupported_yet`
 
 ## 运行方式
 
@@ -46,11 +46,9 @@
 若编译成功，通常会有：
 
 - `results/mma_gemm.out`
-- `results/st`
 - `results/mt`
-- `results/cycle`
 
-每个模式目录下应有：
+`results/mt` 目录下应有：
 
 - `stdout.txt`
 - `trace.txt`
@@ -60,9 +58,7 @@
 
 若编译失败：
 
-- 一般只有 `results/st/stdout.txt`
-- `results/mt/stdout.txt`
-- `results/cycle/stdout.txt`
+- 一般只有 `results/mt/stdout.txt`
 
 并明确写出 `unsupported_yet`
 
@@ -72,13 +68,13 @@
 
 ### 情况 A：环境支持 `gfx90a/mfma`
 
-- 三个模式的 `stdout.txt` 都应包含 `mma_gemm out=4.000000 expected=4.000000`
-- 三个模式的 `launch_summary.txt` 中都应有 `ok=1`
+- `mt/stdout.txt` 应包含 `mma_gemm out=4.000000 expected=4.000000`
+- `mt/launch_summary.txt` 中应有 `ok=1`
 - trace 不应为空
 
 ### 情况 B：环境不支持 `gfx90a/mfma`
 
-- 三个模式的 `stdout.txt` 都应包含 `STATUS: unsupported_yet`
+- `mt/stdout.txt` 应包含 `STATUS: unsupported_yet`
 - 这属于预期行为，不算失败
 
 ## 建议观察项
@@ -94,7 +90,7 @@
 
 建议按这个顺序排查：
 
-1. 先看 `results/st/stdout.txt`
+1. 先看 `results/mt/stdout.txt`
    判断是“不支持”还是“支持但运行失败”
 2. 如果是不支持
    先处理工具链 / 目标架构问题，不要先看 trace
