@@ -79,6 +79,9 @@ std::string RenderRecorderTextTrace(const Recorder& recorder) {
   if (recorder.run_snapshot().has_value()) {
     const auto& run = *recorder.run_snapshot();
     text += "[RUN]\n";
+    if (!run.invocation.empty()) {
+      text += "invocation=" + run.invocation + "\n";
+    }
     text += "execution_model=" + run.execution_model + "\n";
     text += "trace_time_basis=" + run.trace_time_basis + "\n";
     text += "trace_cycle_is_physical_time=" + std::string(run.trace_cycle_is_physical_time ? "true" : "false") + "\n";
@@ -170,7 +173,19 @@ std::string RenderRecorderJsonTrace(const Recorder& recorder) {
   // Emit run snapshot as first JSON object
   if (recorder.run_snapshot().has_value()) {
     const auto& run = *recorder.run_snapshot();
-    text += "{\"type\":\"run_snapshot\",\"execution_model\":\"" + run.execution_model +
+    text += "{\"type\":\"run_snapshot\"";
+    if (!run.invocation.empty()) {
+      // Escape quotes and backslashes in invocation string
+      std::string escaped;
+      for (char c : run.invocation) {
+        if (c == '"' || c == '\\') {
+          escaped += '\\';
+        }
+        escaped += c;
+      }
+      text += ",\"invocation\":\"" + escaped + "\"";
+    }
+    text += ",\"execution_model\":\"" + run.execution_model +
             "\",\"trace_time_basis\":\"" + run.trace_time_basis +
             "\",\"trace_cycle_is_physical_time\":" + (run.trace_cycle_is_physical_time ? "true" : "false") + "}\n";
   }

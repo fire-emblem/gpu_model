@@ -10,6 +10,7 @@ namespace gpu_model {
 // TraceRunSnapshot captures run-level static context.
 // All fields are producer-owned facts; trace does not infer or compute.
 struct TraceRunSnapshot {
+  std::string invocation;            // Full invocation line: env vars + command
   std::string execution_model;       // "functional" or "cycle"
   std::string trace_time_basis;      // "modeled_cycle"
   bool trace_cycle_is_physical_time = false;

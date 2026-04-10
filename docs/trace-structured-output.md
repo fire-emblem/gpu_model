@@ -25,7 +25,9 @@ Recorder facts remain the shared protocol for all trace artifacts; text, JSON, a
 
 ### Sectioned `trace.txt`
 
-The structured text renderer will print ordered headers, snapshot contexts, run/kernel/model summaries, a `[WAVE_INIT]` roster, `[EVENTS]` for typed events, and `[SUMMARY]`/`[WARNINGS]` tails. Every line is produced from recorder-held facts; the renderer never guesses ready/wait/issue transitions. This format keeps `cycle` as modeled time, consistent with the AGENTS/my_design rules.
+The structured text renderer will print ordered headers, snapshots, run/kernel/model summaries, a `[WAVE_INIT]` roster, `[EVENTS]` for typed events, and `[SUMMARY]`/`[WARNINGS]` tails. Every line is produced from recorder-held facts; the renderer never guesses ready/wait/issue transitions. This format keeps `cycle` as modeled time, consistent with the AGENTS/my_design rules.
+
+**Invocation Line:** The `[RUN]` section includes an `invocation` field that captures the full execution context: all `GPU_MODEL_*` environment variables followed by the command line. This enables reproducibility without needing separate documentation.
 
 Example output:
 ```
@@ -33,6 +35,7 @@ GPU_MODEL TRACE
 ================
 
 [RUN]
+invocation=GPU_MODEL_EXECUTION_MODE=functional GPU_MODEL_DISABLE_TRACE=0 ./examples/01-vecadd-basic/run.sh
 execution_model=cycle
 trace_time_basis=modeled_cycle
 trace_cycle_is_physical_time=false
@@ -64,7 +67,7 @@ gpu_tot_sim_cycle=704
 
 Example output:
 ```json
-{"type":"run_snapshot","execution_model":"cycle","trace_time_basis":"modeled_cycle","trace_cycle_is_physical_time":false}
+{"type":"run_snapshot","invocation":"GPU_MODEL_EXECUTION_MODE=functional GPU_MODEL_DISABLE_TRACE=0 ./run.sh","execution_model":"cycle","trace_time_basis":"modeled_cycle","trace_cycle_is_physical_time":false}
 {"type":"model_config_snapshot","num_dpcs":8,"num_aps_per_dpc":13,...}
 {"type":"kernel_snapshot","kernel_name":"vecadd","grid_dim":[30,1,1],...}
 ... events ...

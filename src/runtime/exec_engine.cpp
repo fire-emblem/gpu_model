@@ -20,6 +20,7 @@
 #include "gpu_model/loader/asm_parser.h"
 #include "gpu_model/runtime/runtime_config.h"
 #include "gpu_model/util/logging.h"
+#include "gpu_model/util/invocation.h"
 
 namespace gpu_model {
 
@@ -305,6 +306,7 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
   try {
     // Emit run snapshot
     TraceRunSnapshot run_snapshot{
+        .invocation = CaptureInvocationLine(),
         .execution_model = request.mode == ExecutionMode::Cycle ? "cycle" : "functional",
         .trace_time_basis = "modeled_cycle",
         .trace_cycle_is_physical_time = false,

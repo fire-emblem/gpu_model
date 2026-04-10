@@ -169,6 +169,7 @@ trace_sink_enabled: {true|false}
 trace_disable_env: GPU_MODEL_DISABLE_TRACE
 
 [RUN]
+invocation: {gpu_model_env_vars} {command_line}
 run_id: {run_id}
 pid: {pid}
 start_time_utc: {start_time_utc}
@@ -374,6 +375,7 @@ trace_sink_enabled: true
 trace_disable_env: GPU_MODEL_DISABLE_TRACE
 
 [RUN]
+invocation: GPU_MODEL_EXECUTION_MODE=cycle GPU_MODEL_DISABLE_TRACE=0 ./build/example kernel.co
 run_id: 42
 pid: 18342
 start_time_utc: 2026-04-10T11:20:33Z

@@ -138,6 +138,7 @@ add_library(gpu_model STATIC
   src/debug/timeline/timeline_comparator.cpp
   src/debug/info/debug_info_io.cpp
   src/debug/trace/trace_sink.cpp
+  src/util/invocation.cpp
 )
 
 set_target_properties(gpu_model PROPERTIES POSITION_INDEPENDENT_CODE ON)
