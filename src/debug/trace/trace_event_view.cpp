@@ -203,6 +203,18 @@ std::string CanonicalNameFromRuntimeKind(TraceEventKind kind) {
       return "wave_resume";
     case TraceEventKind::WaveSwitchAway:
       return "wave_switch_away";
+    case TraceEventKind::WaveStep:
+      return "wave_step";
+    case TraceEventKind::Commit:
+      return "commit";
+    case TraceEventKind::WaveExit:
+      return "wave_exit";
+    case TraceEventKind::WaveStats:
+      return "wave_stats";
+    case TraceEventKind::MemoryAccess:
+      return "memory_access";
+    case TraceEventKind::ExecMaskUpdate:
+      return "exec_mask_update";
     default:
       break;
   }

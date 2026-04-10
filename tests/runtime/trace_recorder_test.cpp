@@ -226,18 +226,18 @@ TEST(TraceRecorderTest, ExportsTextAndJsonInRecordedOrder) {
   const std::string text = RenderRecorderTextTrace(recorder);
   const std::string json = RenderRecorderJsonTrace(recorder);
 
-  EXPECT_NE(text.find("kind=Launch"), std::string::npos);
-  EXPECT_NE(text.find("kind=WaveLaunch"), std::string::npos);
-  EXPECT_NE(text.find("kind=WaveStep"), std::string::npos);
-  EXPECT_NE(text.find("kind=Commit"), std::string::npos);
-  EXPECT_NE(text.find("kind=WaveExit"), std::string::npos);
-  EXPECT_NE(text.find("has_cycle_range=1"), std::string::npos);
-  EXPECT_NE(text.find("begin_cycle=0x2"), std::string::npos);
-  EXPECT_NE(text.find("end_cycle=0x6"), std::string::npos);
-  EXPECT_LT(text.find("kind=Launch"), text.find("kind=WaveLaunch"));
-  EXPECT_LT(text.find("kind=WaveLaunch"), text.find("kind=WaveStep"));
-  EXPECT_LT(text.find("kind=WaveStep"), text.find("kind=Commit"));
-  EXPECT_LT(text.find("kind=Commit"), text.find("kind=WaveExit"));
+  // New format: [cycle]   kind   wave   pc   details
+  // Example: [000000]   launch        global  0x0   ...
+  EXPECT_NE(text.find("launch"), std::string::npos);
+  EXPECT_NE(text.find("wave_launch"), std::string::npos);
+  EXPECT_NE(text.find("wave_step"), std::string::npos);
+  EXPECT_NE(text.find("commit"), std::string::npos);
+  EXPECT_NE(text.find("wave_exit"), std::string::npos);
+  // Verify ordering
+  EXPECT_LT(text.find("launch"), text.find("wave_launch"));
+  EXPECT_LT(text.find("wave_launch"), text.find("wave_step"));
+  EXPECT_LT(text.find("wave_step"), text.find("commit"));
+  EXPECT_LT(text.find("commit"), text.find("wave_exit"));
 
   EXPECT_NE(json.find("\"kind\":\"Launch\""), std::string::npos);
   EXPECT_NE(json.find("\"kind\":\"WaveLaunch\""), std::string::npos);

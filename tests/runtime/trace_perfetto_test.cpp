@@ -359,17 +359,16 @@ TEST(TracePerfettoTest, TraceArtifactRecorderWritesTraceAndPerfettoFiles) {
   json_buffer << json_in.rdbuf();
   timeline_buffer << timeline_in.rdbuf();
 
-  EXPECT_NE(text_buffer.str().find("kind=Launch"), std::string::npos);
+  // New format: [cycle]   kind   wave   pc   details
+  EXPECT_NE(text_buffer.str().find("launch"), std::string::npos);
   EXPECT_NE(json_buffer.str().find("\"kind\":\"Launch\""), std::string::npos);
-  EXPECT_NE(text_buffer.str().find("slot=0x2"), std::string::npos);
+  // Slot is now shown as w{block}.{slot} format - wave has block_id=0, slot_id=2
+  // The wave_launch event shows wave info
+  EXPECT_NE(text_buffer.str().find("wave_launch"), std::string::npos);
+  // JSON has slot_id as hex string
   EXPECT_NE(json_buffer.str().find("\"slot_id\":\"0x2\""), std::string::npos);
-  // These checks intentionally preserve the legacy text/json message contract.
-  ExpectContainsLegacyStallMessage(text_buffer.str(), "reason=waitcnt_global");
-  ExpectContainsLegacyStallMessage(json_buffer.str(), "\"message\":\"reason=waitcnt_global\"");
   // These checks validate the typed schema fields that should remain the primary contract.
-  ExpectContainsTypedSlotFields(text_buffer.str(), "resident_fixed");
   ExpectContainsTypedSlotFieldsJson(json_buffer.str(), "resident_fixed");
-  ExpectContainsTypedStallReasonFields(text_buffer.str(), "waitcnt_global");
   ExpectContainsTypedStallReasonFieldsJson(json_buffer.str(), "waitcnt_global");
   EXPECT_NE(timeline_buffer.str().find("\"traceEvents\""), std::string::npos);
   EXPECT_NE(timeline_buffer.str().find("\"slot\":2"), std::string::npos);

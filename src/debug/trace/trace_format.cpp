@@ -19,36 +19,29 @@ std::string HexU64(uint64_t value) {
 std::string FormatTextTraceLineFromFields(const TraceEvent& event,
                                          const TraceEventExportFields& fields) {
   std::ostringstream out;
-  out << "pc=" << HexU64(event.pc) << " cycle=" << HexU64(event.cycle)
-      << " dpc=" << HexU64(event.dpc_id) << " ap=" << HexU64(event.ap_id)
-      << " peu=" << HexU64(event.peu_id) << " slot=" << HexU64(event.slot_id)
-      << " slot_model=" << fields.slot_model
-      << " slot_model_kind=" << fields.slot_model
-      << " kind=" << TraceEventKindName(event.kind) << " block=" << HexU64(event.block_id)
-      << " wave=" << HexU64(event.wave_id)
-      << " canonical_name=" << fields.canonical_name
-      << " presentation_name=" << fields.presentation_name
-      << " display_name=" << fields.display_name
-      << " category=" << fields.category
-      << " stall_reason=" << fields.stall_reason
-      << " barrier_kind=" << fields.barrier_kind
-      << " arrive_kind=" << fields.arrive_kind
-      << " arrive_progress=" << fields.arrive_progress
-      << " lifecycle_stage=" << fields.lifecycle_stage
-      << " waitcnt_thresholds=" << fields.waitcnt_thresholds
-      << " waitcnt_pending_before=" << fields.waitcnt_pending_before
-      << " waitcnt_pending=" << fields.waitcnt_pending
-      << " waitcnt_pending_transition=" << fields.waitcnt_pending_transition
-      << " waitcnt_blocked_domains=" << fields.waitcnt_blocked_domains
-      << " has_cycle_range=" << (fields.has_cycle_range ? 1 : 0)
-      << " begin_cycle=" << fields.begin_cycle
-      << " end_cycle=" << fields.end_cycle;
-  if (fields.has_flow) {
-    out << " has_flow=1"
-        << " flow_id=" << fields.flow_id
-        << " flow_phase=" << fields.flow_phase;
+  // Format: [cycle]   kind   w{block}.{slot}  pc   details
+  // Example: [000000]   wave_generate  w0.0  0x100   block=0 slot=0
+
+  // Cycle in brackets, 6 digits zero-padded
+  out << "[" << std::setfill('0') << std::setw(6) << event.cycle << "]   ";
+
+  // Event kind (canonical name), left-aligned in 16-char field with space padding
+  out << std::setfill(' ') << std::setw(16) << std::left << fields.canonical_name << "  ";
+
+  // Wave identifier: w{block}.{slot} or just "global" for program events
+  if (event.wave_id != 0 || event.block_id != 0) {
+    out << "w" << event.block_id << "." << event.slot_id << "  ";
+  } else {
+    out << "global  ";
   }
-  out << " msg=" << fields.compatibility_message << '\n';
+
+  // PC in hex
+  out << HexU64(event.pc) << "   ";
+
+  // Display name / message as details
+  out << fields.display_name;
+
+  out << '\n';
   return out.str();
 }
 

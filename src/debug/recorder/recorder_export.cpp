@@ -80,7 +80,7 @@ std::string RenderRecorderTextTrace(const Recorder& recorder) {
     const auto& run = *recorder.run_snapshot();
     text += "[RUN]\n";
     if (!run.invocation.empty()) {
-      text += "invocation=" + run.invocation + "\n";
+      text += run.invocation + "\n";
     }
     text += "execution_model=" + run.execution_model + "\n";
     text += "trace_time_basis=" + run.trace_time_basis + "\n";
@@ -118,12 +118,14 @@ std::string RenderRecorderTextTrace(const Recorder& recorder) {
   if (!recorder.wave_init_snapshots().empty()) {
     text += "[WAVE_INIT]\n";
     for (const auto& wave_init : recorder.wave_init_snapshots()) {
-      text += "wave_id=" + std::to_string(wave_init.stable_wave_id) +
+      // Format: wave=w{block}.{slot} loc=dpc{dpc}/ap{ap}/peu{peu}/slot{slot} slot_model={model} start_pc=0x{pc}
+      text += "wave=w" + std::to_string(wave_init.block_id) + "." + std::to_string(wave_init.slot_id) +
               " block=" + std::to_string(wave_init.block_id) +
               " dpc=" + std::to_string(wave_init.dpc_id) +
               " ap=" + std::to_string(wave_init.ap_id) +
               " peu=" + std::to_string(wave_init.peu_id) +
               " slot=" + std::to_string(wave_init.slot_id) +
+              " slot_model=" + wave_init.slot_model +
               " start_pc=0x" + std::to_string(wave_init.start_pc) + "\n";
     }
     text += "\n";
@@ -212,7 +214,7 @@ std::string RenderRecorderJsonTrace(const Recorder& recorder) {
 
   // Emit wave init snapshots
   for (const auto& wave_init : recorder.wave_init_snapshots()) {
-    text += "{\"type\":\"wave_init_snapshot\",\"stable_wave_id\":" + std::to_string(wave_init.stable_wave_id) +
+    text += "{\"type\":\"wave_init_snapshot\",\"wave\":\"w" + std::to_string(wave_init.block_id) + "." + std::to_string(wave_init.slot_id) + "\"" +
             ",\"block_id\":" + std::to_string(wave_init.block_id) +
             ",\"dpc_id\":" + std::to_string(wave_init.dpc_id) +
             ",\"ap_id\":" + std::to_string(wave_init.ap_id) +
