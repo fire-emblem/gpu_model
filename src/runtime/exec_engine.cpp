@@ -470,12 +470,6 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
 
     // Emit summary snapshot
     const auto& pcs = result.program_cycle_stats;
-    const uint64_t memory_insts = pcs.has_value()
-                                      ? (pcs->global_loads + pcs->global_stores +
-                                         pcs->shared_loads + pcs->shared_stores +
-                                         pcs->private_loads + pcs->private_stores +
-                                         pcs->scalar_loads + pcs->scalar_stores)
-                                      : 0;
     TraceSummarySnapshot summary_snapshot{
         .kernel_status = result.ok ? "PASS" : "FAIL",
         .launch_index = request.launch_index,
@@ -498,11 +492,13 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
                            ? pcs->stall_resource + pcs->stall_dependency
                            : 0,
         .scalar_alu_insts = pcs.has_value() ? pcs->scalar_alu_insts : 0,
+        .scalar_mem_insts = pcs.has_value() ? pcs->scalar_mem_insts : 0,
         .vector_alu_insts = pcs.has_value() ? pcs->vector_alu_insts : 0,
-        .tensor_insts = pcs.has_value() ? pcs->tensor_insts : 0,
+        .vector_mem_insts = pcs.has_value() ? pcs->vector_mem_insts : 0,
         .branch_insts = pcs.has_value() ? pcs->branch_insts : 0,
-        .barrier_insts = pcs.has_value() ? pcs->barrier_insts : 0,
-        .memory_insts = memory_insts,
+        .sync_insts = pcs.has_value() ? pcs->sync_insts : 0,
+        .tensor_insts = pcs.has_value() ? pcs->tensor_insts : 0,
+        .other_insts = pcs.has_value() ? pcs->other_insts : 0,
         .global_loads = pcs.has_value() ? pcs->global_loads : 0,
         .global_stores = pcs.has_value() ? pcs->global_stores : 0,
         .shared_loads = pcs.has_value() ? pcs->shared_loads : 0,

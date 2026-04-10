@@ -263,25 +263,17 @@ uint64_t StableWaveKey(const WaveContext& wave) {
 
 std::optional<ExecutedStepClass> ClassifyExecutedInstruction(const Instruction& instruction,
                                                              const OpPlan& plan) {
-  if (plan.sync_barrier || plan.sync_wave_barrier) {
-    return ExecutedStepClass::Barrier;
-  }
-  if (plan.wait_cnt) {
-    return ExecutedStepClass::Wait;
-  }
-  if (plan.memory.has_value()) {
-    switch (plan.memory->space) {
-      case MemorySpace::Global:
-        return ExecutedStepClass::GlobalMem;
-      case MemorySpace::Shared:
-        return ExecutedStepClass::SharedMem;
-      case MemorySpace::Private:
-        return ExecutedStepClass::PrivateMem;
-      case MemorySpace::Constant:
-        return ExecutedStepClass::ScalarMem;
-    }
+  // Sync instructions: barrier, waitcnt
+  if (plan.sync_barrier || plan.sync_wave_barrier || plan.wait_cnt) {
+    return ExecutedStepClass::Sync;
   }
 
+  // Vector memory instructions: global, shared, private
+  if (plan.memory.has_value()) {
+    return ExecutedStepClass::VectorMem;
+  }
+
+  // Classify by semantic family (hardware execution unit)
   switch (GetOpcodeExecutionInfo(instruction.opcode).family) {
     case SemanticFamily::ScalarAlu:
     case SemanticFamily::ScalarCompare:
@@ -293,17 +285,17 @@ std::optional<ExecutedStepClass> ClassifyExecutedInstruction(const Instruction& 
     case SemanticFamily::ScalarMemory:
       return ExecutedStepClass::ScalarMem;
     case SemanticFamily::VectorMemory:
-      return ExecutedStepClass::GlobalMem;
     case SemanticFamily::LocalDataShare:
-      return ExecutedStepClass::SharedMem;
+      return ExecutedStepClass::VectorMem;
+    case SemanticFamily::Branch:
+      return ExecutedStepClass::Branch;
     case SemanticFamily::Builtin:
     case SemanticFamily::Mask:
-    case SemanticFamily::Branch:
     case SemanticFamily::Sync:
     case SemanticFamily::Special:
-      return std::nullopt;
+      return ExecutedStepClass::Other;
   }
-  return std::nullopt;
+  return ExecutedStepClass::Other;
 }
 
 uint64_t CostForExecutedStep(const OpPlan& plan,
@@ -312,19 +304,18 @@ uint64_t CostForExecutedStep(const OpPlan& plan,
   switch (step_class) {
     case ExecutedStepClass::ScalarAlu:
     case ExecutedStepClass::VectorAlu:
+    case ExecutedStepClass::Branch:
+    case ExecutedStepClass::Sync:
       return plan.issue_cycles;
     case ExecutedStepClass::Tensor:
       return config.tensor_cycles;
-    case ExecutedStepClass::SharedMem:
-      return config.shared_mem_cycles;
     case ExecutedStepClass::ScalarMem:
       return config.scalar_mem_cycles;
-    case ExecutedStepClass::GlobalMem:
+    case ExecutedStepClass::VectorMem:
+      // VectorMem includes global, shared, private memory
+      // Use global_mem_cycles as default (dominant case)
       return config.global_mem_cycles;
-    case ExecutedStepClass::PrivateMem:
-      return config.private_mem_cycles;
-    case ExecutedStepClass::Barrier:
-    case ExecutedStepClass::Wait:
+    case ExecutedStepClass::Other:
       return plan.issue_cycles == 0 ? config.default_issue_cycles : plan.issue_cycles;
   }
   return config.default_issue_cycles;
@@ -1265,10 +1256,10 @@ class FunctionalExecutionCoreImpl {
       }
       any_waiting = true;
       block.wave_states[i].wave_cycle_total += 1;
-      if (wave.wait_reason == WaveWaitReason::BlockBarrier) {
-        RecordExecutedWorkEvent(wave, ExecutedStepClass::Barrier, 1);
-      } else if (IsMemoryWaitReason(wave.wait_reason)) {
-        RecordExecutedWorkEvent(wave, ExecutedStepClass::Wait, 1);
+      // Both barrier and memory wait are sync operations
+      if (wave.wait_reason == WaveWaitReason::BlockBarrier ||
+          IsMemoryWaitReason(wave.wait_reason)) {
+        RecordExecutedWorkEvent(wave, ExecutedStepClass::Sync, 1);
       }
     }
     return any_waiting;

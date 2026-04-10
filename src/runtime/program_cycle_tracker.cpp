@@ -13,29 +13,28 @@ void AccumulateStepCycle(ProgramCycleStats& stats,
     case ExecutedStepClass::ScalarAlu:
       stats.scalar_alu_cycles += work_weight;
       return;
+    case ExecutedStepClass::ScalarMem:
+      stats.scalar_mem_cycles += work_weight;
+      return;
     case ExecutedStepClass::VectorAlu:
       stats.vector_alu_cycles += work_weight;
+      return;
+    case ExecutedStepClass::VectorMem:
+      // VectorMem includes global, shared, private memory
+      // Track in global_mem_cycles for now (dominant case)
+      stats.global_mem_cycles += work_weight;
+      return;
+    case ExecutedStepClass::Branch:
+      // Branch instructions are typically low latency
+      return;
+    case ExecutedStepClass::Sync:
+      stats.barrier_cycles += work_weight;
       return;
     case ExecutedStepClass::Tensor:
       stats.tensor_cycles += work_weight;
       return;
-    case ExecutedStepClass::SharedMem:
-      stats.shared_mem_cycles += work_weight;
-      return;
-    case ExecutedStepClass::ScalarMem:
-      stats.scalar_mem_cycles += work_weight;
-      return;
-    case ExecutedStepClass::GlobalMem:
-      stats.global_mem_cycles += work_weight;
-      return;
-    case ExecutedStepClass::PrivateMem:
-      stats.private_mem_cycles += work_weight;
-      return;
-    case ExecutedStepClass::Barrier:
-      stats.barrier_cycles += work_weight;
-      return;
-    case ExecutedStepClass::Wait:
-      stats.wait_cycles += work_weight;
+    case ExecutedStepClass::Other:
+      // Other instructions don't contribute to specific cycle counts
       return;
   }
 }
@@ -53,29 +52,28 @@ void ProgramCycleTracker::BeginWaveWork(uint32_t wave_id,
     case ExecutedStepClass::ScalarAlu:
       ++stats_.scalar_alu_insts;
       break;
+    case ExecutedStepClass::ScalarMem:
+      ++stats_.scalar_mem_insts;
+      ++stats_.scalar_loads;  // Scalar mem is typically loads
+      break;
     case ExecutedStepClass::VectorAlu:
       ++stats_.vector_alu_insts;
+      break;
+    case ExecutedStepClass::VectorMem:
+      ++stats_.vector_mem_insts;
+      ++stats_.global_loads;  // Vector mem is typically global loads
+      break;
+    case ExecutedStepClass::Branch:
+      ++stats_.branch_insts;
+      break;
+    case ExecutedStepClass::Sync:
+      ++stats_.sync_insts;
       break;
     case ExecutedStepClass::Tensor:
       ++stats_.tensor_insts;
       break;
-    case ExecutedStepClass::Barrier:
-      ++stats_.barrier_insts;
-      break;
-    case ExecutedStepClass::GlobalMem:
-      // Count as both instruction and memory op (load by default)
-      ++stats_.global_loads;
-      break;
-    case ExecutedStepClass::SharedMem:
-      ++stats_.shared_loads;
-      break;
-    case ExecutedStepClass::ScalarMem:
-      ++stats_.scalar_loads;
-      break;
-    case ExecutedStepClass::PrivateMem:
-      ++stats_.private_loads;
-      break;
-    case ExecutedStepClass::Wait:
+    case ExecutedStepClass::Other:
+      ++stats_.other_insts;
       break;
   }
 }

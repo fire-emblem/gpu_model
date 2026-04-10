@@ -211,11 +211,13 @@ std::string RenderRecorderTextTrace(const Recorder& recorder) {
     };
     text += "instruction_mix_total=" + std::to_string(total_insts) + "\n";
     text += "scalar_alu=" + std::to_string(summary.scalar_alu_insts) + " (" + pct(summary.scalar_alu_insts) + "%)\n";
+    text += "scalar_mem=" + std::to_string(summary.scalar_mem_insts) + " (" + pct(summary.scalar_mem_insts) + "%)\n";
     text += "vector_alu=" + std::to_string(summary.vector_alu_insts) + " (" + pct(summary.vector_alu_insts) + "%)\n";
-    text += "tensor=" + std::to_string(summary.tensor_insts) + " (" + pct(summary.tensor_insts) + "%)\n";
+    text += "vector_mem=" + std::to_string(summary.vector_mem_insts) + " (" + pct(summary.vector_mem_insts) + "%)\n";
     text += "branch=" + std::to_string(summary.branch_insts) + " (" + pct(summary.branch_insts) + "%)\n";
-    text += "barrier=" + std::to_string(summary.barrier_insts) + " (" + pct(summary.barrier_insts) + "%)\n";
-    text += "memory=" + std::to_string(summary.memory_insts) + " (" + pct(summary.memory_insts) + "%)\n";
+    text += "sync=" + std::to_string(summary.sync_insts) + " (" + pct(summary.sync_insts) + "%)\n";
+    text += "tensor=" + std::to_string(summary.tensor_insts) + " (" + pct(summary.tensor_insts) + "%)\n";
+    text += "other=" + std::to_string(summary.other_insts) + " (" + pct(summary.other_insts) + "%)\n";
     text += "\n";
 
     // Wave statistics

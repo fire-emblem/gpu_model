@@ -789,9 +789,9 @@ TEST(ExecutedFlowProgramCycleStatsTest,
   ProgramCycleTracker agg;
   agg.BeginWaveWork(/*wave_id=*/0, ExecutedStepClass::VectorAlu, /*cost_cycles=*/4,
                     /*work_weight=*/64);
-  agg.BeginWaveWork(/*wave_id=*/1, ExecutedStepClass::SharedMem, /*cost_cycles=*/32,
+  agg.BeginWaveWork(/*wave_id=*/1, ExecutedStepClass::VectorMem, /*cost_cycles=*/32,
                     /*work_weight=*/128);
-  agg.MarkWaveWaiting(/*wave_id=*/2, ExecutedStepClass::Wait, /*cost_cycles=*/4,
+  agg.MarkWaveWaiting(/*wave_id=*/2, ExecutedStepClass::Sync, /*cost_cycles=*/4,
                       /*work_weight=*/64);
 
   for (int i = 0; i < 32; ++i) {
@@ -805,12 +805,10 @@ TEST(ExecutedFlowProgramCycleStatsTest,
   const auto stats = agg.Finish();
   EXPECT_EQ(stats.total_issued_work_cycles,
             stats.scalar_alu_cycles + stats.vector_alu_cycles + stats.tensor_cycles +
-                stats.shared_mem_cycles + stats.scalar_mem_cycles +
-                stats.global_mem_cycles + stats.private_mem_cycles +
-                stats.barrier_cycles + stats.wait_cycles);
+                stats.global_mem_cycles + stats.barrier_cycles);
   EXPECT_EQ(stats.vector_alu_cycles, 4u * 64u);
-  EXPECT_EQ(stats.shared_mem_cycles, 32u * 128u);
-  EXPECT_EQ(stats.wait_cycles, 4u * 64u);
+  EXPECT_EQ(stats.global_mem_cycles, 32u * 128u);
+  EXPECT_EQ(stats.barrier_cycles, 4u * 64u);
 }
 
 TEST(ExecutedFlowProgramCycleStatsTest,
@@ -820,13 +818,13 @@ TEST(ExecutedFlowProgramCycleStatsTest,
       {.start_tick = 0,
        .kind = SyntheticWeightedWorkStep::Kind::BeginWork,
        .wave_id = 0,
-       .step_class = ExecutedStepClass::SharedMem,
+       .step_class = ExecutedStepClass::VectorMem,
        .cost_cycles = 32,
        .work_weight = 64},
       {.start_tick = 0,
        .kind = SyntheticWeightedWorkStep::Kind::Wait,
        .wave_id = 1,
-       .step_class = ExecutedStepClass::Wait,
+       .step_class = ExecutedStepClass::Sync,
        .cost_cycles = 4,
        .work_weight = 64},
       {.start_tick = 32,
@@ -845,9 +843,9 @@ TEST(ExecutedFlowProgramCycleStatsTest,
   }
 
   const auto stats = agg.Finish();
-  EXPECT_EQ(stats.shared_mem_cycles, 32u * 64u);
-  EXPECT_EQ(stats.wait_cycles, 4u * 64u);
-  EXPECT_EQ(stats.total_issued_work_cycles, stats.shared_mem_cycles + stats.wait_cycles);
+  EXPECT_EQ(stats.global_mem_cycles, 32u * 64u);
+  EXPECT_EQ(stats.barrier_cycles, 4u * 64u);
+  EXPECT_EQ(stats.total_issued_work_cycles, stats.global_mem_cycles + stats.barrier_cycles);
 }
 
 TEST(ExecutedFlowProgramCycleStatsTest,
@@ -856,13 +854,13 @@ TEST(ExecutedFlowProgramCycleStatsTest,
   agg.BeginWaveWork(/*wave_id=*/7, ExecutedStepClass::VectorAlu, /*cost_cycles=*/0,
                     /*work_weight=*/64);
   agg.MarkWaveRunnable(/*wave_id=*/11);
-  agg.MarkWaveWaiting(/*wave_id=*/13, ExecutedStepClass::Wait, /*cost_cycles=*/0,
+  agg.MarkWaveWaiting(/*wave_id=*/13, ExecutedStepClass::Sync, /*cost_cycles=*/0,
                       /*work_weight=*/64);
   EXPECT_TRUE(agg.Done());
   const auto stats = agg.Finish();
   EXPECT_EQ(stats.total_cycles, 0u);
   EXPECT_EQ(stats.total_issued_work_cycles, 0u);
-  EXPECT_EQ(stats.wait_cycles, 0u);
+  EXPECT_EQ(stats.barrier_cycles, 0u);
 }
 
 TEST(ExecutedFlowProgramCycleStatsTest,

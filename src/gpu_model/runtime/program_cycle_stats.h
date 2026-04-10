@@ -23,10 +23,13 @@ struct ProgramCycleStats {
   // === Instruction Counts ===
   uint64_t instructions_executed = 0;
   uint64_t scalar_alu_insts = 0;
+  uint64_t scalar_mem_insts = 0;
   uint64_t vector_alu_insts = 0;
-  uint64_t tensor_insts = 0;
+  uint64_t vector_mem_insts = 0;
   uint64_t branch_insts = 0;
-  uint64_t barrier_insts = 0;
+  uint64_t sync_insts = 0;
+  uint64_t tensor_insts = 0;
+  uint64_t other_insts = 0;
 
   // === Memory Operations ===
   uint64_t global_loads = 0;

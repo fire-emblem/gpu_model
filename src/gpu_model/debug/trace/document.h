@@ -78,13 +78,15 @@ struct TraceSummarySnapshot {
   uint64_t stall_barrier_slot = 0;
   uint64_t stall_other = 0;
 
-  // === Instruction Mix ===
-  uint64_t scalar_alu_insts = 0;
-  uint64_t vector_alu_insts = 0;
-  uint64_t tensor_insts = 0;
-  uint64_t branch_insts = 0;
-  uint64_t barrier_insts = 0;
-  uint64_t memory_insts = 0;         // global + shared + private + scalar mem ops
+  // === Instruction Mix (hardware execution unit classification) ===
+  uint64_t scalar_alu_insts = 0;      // SOP1, SOP2, SOPC, SOPK (non-branch, non-sync)
+  uint64_t scalar_mem_insts = 0;      // SMRD, SMEM
+  uint64_t vector_alu_insts = 0;      // VOP1, VOP2, VOP3, VOPC, VINTRP
+  uint64_t vector_mem_insts = 0;      // FLAT, MUBUF, MTBUF, MIMG, DS
+  uint64_t branch_insts = 0;          // s_branch, s_cbranch_*
+  uint64_t sync_insts = 0;            // s_barrier, s_waitcnt
+  uint64_t tensor_insts = 0;          // v_mfma_*, v_accvgpr_*
+  uint64_t other_insts = 0;           // s_endpgm, s_nop, mask instructions
 
   // === Memory Operations ===
   uint64_t global_loads = 0;

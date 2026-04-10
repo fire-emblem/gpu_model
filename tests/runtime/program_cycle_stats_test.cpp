@@ -186,8 +186,8 @@ TEST(ProgramCycleStatsTest, TracksBarrierInstructions) {
   auto stats = result.program_cycle_stats;
   ASSERT_TRUE(stats.has_value());
 
-  // Should track barrier instructions
-  EXPECT_GE(stats->barrier_insts, 1);
+  // Should track sync instructions (barrier, waitcnt)
+  EXPECT_GE(stats->sync_insts, 1);
 }
 
 TEST(ProgramCycleStatsTest, TracksMultipleWaves) {

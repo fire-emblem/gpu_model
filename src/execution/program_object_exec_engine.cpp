@@ -555,41 +555,50 @@ std::optional<uint64_t> EncodedSpecificOpCycleOverride(std::string_view mnemonic
   return std::nullopt;
 }
 
-std::optional<ExecutedStepClass> ClassifyEncodedInstructionStep(
+ExecutedStepClass ClassifyEncodedInstructionStep(
     const DecodedInstruction& instruction,
     const EncodedInstructionDescriptor& descriptor) {
   const std::string_view mnemonic(instruction.mnemonic);
-  if (mnemonic == "s_endpgm" || mnemonic == "s_nop" || IsBranchMnemonic(mnemonic) ||
-      IsMaskMnemonic(mnemonic)) {
-    return std::nullopt;
+
+  // Sync instructions: s_barrier, s_waitcnt
+  if (mnemonic == "s_barrier" || mnemonic == "s_waitcnt") {
+    return ExecutedStepClass::Sync;
   }
-  if (mnemonic == "s_barrier") {
-    return ExecutedStepClass::Barrier;
+
+  // Branch instructions: s_branch, s_cbranch_*
+  if (IsBranchMnemonic(mnemonic)) {
+    return ExecutedStepClass::Branch;
   }
-  if (mnemonic == "s_waitcnt") {
-    return ExecutedStepClass::Wait;
-  }
+
+  // Tensor instructions: v_mfma_*, v_accvgpr_*
   if (IsTensorMnemonic(mnemonic)) {
     return ExecutedStepClass::Tensor;
   }
 
+  // Other/terminator instructions: s_endpgm, s_nop, mask operations
+  if (mnemonic == "s_endpgm" || mnemonic == "s_nop" || IsMaskMnemonic(mnemonic)) {
+    return ExecutedStepClass::Other;
+  }
+
+  // Classify by instruction category (hardware execution unit)
   switch (descriptor.category) {
     case EncodedInstructionCategory::ScalarMemory:
+      // SMRD, SMEM - scalar memory operations
       return ExecutedStepClass::ScalarMem;
     case EncodedInstructionCategory::Scalar:
+      // SOP1, SOP2, SOPC, SOPK - scalar ALU operations
       return ExecutedStepClass::ScalarAlu;
     case EncodedInstructionCategory::Vector:
+      // VOP1, VOP2, VOP3, VOPC, VINTRP - vector ALU operations
       return ExecutedStepClass::VectorAlu;
     case EncodedInstructionCategory::Memory:
-      if (instruction.format_class == EncodedGcnInstFormatClass::Ds ||
-          mnemonic.starts_with("ds_")) {
-        return ExecutedStepClass::SharedMem;
-      }
-      return ExecutedStepClass::GlobalMem;
+      // FLAT, MUBUF, MTBUF, MIMG, DS - vector memory operations
+      // All memory operations (global, shared, private) are vector memory
+      return ExecutedStepClass::VectorMem;
     case EncodedInstructionCategory::Unknown:
-      return std::nullopt;
+      return ExecutedStepClass::Other;
   }
-  return std::nullopt;
+  return ExecutedStepClass::Other;
 }
 
 uint64_t CostForEncodedStep(const DecodedInstruction& instruction,
@@ -601,31 +610,27 @@ uint64_t CostForEncodedStep(const DecodedInstruction& instruction,
   switch (step_class) {
     case ExecutedStepClass::ScalarAlu:
     case ExecutedStepClass::VectorAlu:
-    case ExecutedStepClass::Barrier:
-    case ExecutedStepClass::Wait:
+    case ExecutedStepClass::Branch:
+    case ExecutedStepClass::Sync:
       return ResolveEncodedIssueCycles(instruction.mnemonic, descriptor, spec, timing_config);
     case ExecutedStepClass::Tensor:
       return config.tensor_cycles;
-    case ExecutedStepClass::SharedMem:
-      if (const auto override = EncodedSpecificOpCycleOverride(instruction.mnemonic, timing_config);
-          override.has_value()) {
-        return *override;
-      }
-      return config.shared_mem_cycles;
     case ExecutedStepClass::ScalarMem:
       if (const auto override = EncodedSpecificOpCycleOverride(instruction.mnemonic, timing_config);
           override.has_value()) {
         return *override;
       }
       return config.scalar_mem_cycles;
-    case ExecutedStepClass::GlobalMem:
+    case ExecutedStepClass::VectorMem:
+      // VectorMem includes global, shared, private memory
+      // Use global_mem_cycles as default (dominant case)
       if (const auto override = EncodedSpecificOpCycleOverride(instruction.mnemonic, timing_config);
           override.has_value()) {
         return *override;
       }
       return config.global_mem_cycles;
-    case ExecutedStepClass::PrivateMem:
-      return config.private_mem_cycles;
+    case ExecutedStepClass::Other:
+      return config.default_issue_cycles;
   }
   return config.default_issue_cycles;
 }
@@ -2429,10 +2434,10 @@ class EncodedExecutionCore {
       }
       any_waiting = true;
       block.wave_states[i].wave_cycle_total += 1;
-      if (raw_wave.wave.wait_reason == WaveWaitReason::BlockBarrier) {
-        RecordExecutedStep(raw_wave.wave, ExecutedStepClass::Barrier, 1);
-      } else if (IsMemoryWaitReason(raw_wave.wave.wait_reason)) {
-        RecordExecutedStep(raw_wave.wave, ExecutedStepClass::Wait, 1);
+      // Both barrier and memory wait are sync operations
+      if (raw_wave.wave.wait_reason == WaveWaitReason::BlockBarrier ||
+          IsMemoryWaitReason(raw_wave.wave.wait_reason)) {
+        RecordExecutedStep(raw_wave.wave, ExecutedStepClass::Sync, 1);
       }
     }
     return any_waiting;
@@ -2484,13 +2489,12 @@ class EncodedExecutionCore {
     ExecutionStats step_stats;
     ++step_stats.wave_steps;
     ++step_stats.instructions_issued;
-    if (const auto step_class = ClassifyEncodedInstructionStep(decoded, descriptor); step_class.has_value()) {
-      RecordExecutedStep(wave,
-                         *step_class,
-                         CostForEncodedStep(decoded, descriptor, *step_class, spec_,
-                                            timing_config_,
-                                            cycle_stats_config_));
-    }
+    const auto step_class = ClassifyEncodedInstructionStep(decoded, descriptor);
+    RecordExecutedStep(wave,
+                       step_class,
+                       CostForEncodedStep(decoded, descriptor, step_class, spec_,
+                                          timing_config_,
+                                          cycle_stats_config_));
 
     const uint64_t issue_cycle = wave_state.next_issue_cycle;
     const uint64_t commit_cycle = issue_cycle + issue_duration;
@@ -2663,10 +2667,10 @@ class EncodedExecutionCore {
     ExecutionStats step_stats;
     ++step_stats.wave_steps;
     ++step_stats.instructions_issued;
-    if (step_class.has_value() && !maybe_domain.has_value()) {
+    if (!maybe_domain.has_value()) {
       RecordExecutedStep(wave,
-                         *step_class,
-                         CostForEncodedStep(decoded, descriptor, *step_class, spec_,
+                         step_class,
+                         CostForEncodedStep(decoded, descriptor, step_class, spec_,
                                             timing_config_,
                                             cycle_stats_config_));
     }
@@ -2836,9 +2840,7 @@ class EncodedExecutionCore {
           wave_state.pending_memory_ops.back().ready_cycle = ready_cycle;
         }
       }
-      if (step_class.has_value()) {
-        RecordExecutedStep(wave, *step_class, ready_cycle - cycle);
-      }
+      RecordExecutedStep(wave, step_class, ready_cycle - cycle);
     }
 
     CommitStats(step_stats);

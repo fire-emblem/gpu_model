@@ -8,15 +8,14 @@
 namespace gpu_model {
 
 enum class ExecutedStepClass {
-  ScalarAlu,
-  VectorAlu,
-  Tensor,
-  SharedMem,
-  ScalarMem,
-  GlobalMem,
-  PrivateMem,
-  Barrier,
-  Wait,
+  ScalarAlu,    // SOP1, SOP2, SOPC, SOPK (non-branch, non-sync)
+  ScalarMem,    // SMRD, SMEM
+  VectorAlu,    // VOP1, VOP2, VOP3, VOPC, VINTRP
+  VectorMem,    // FLAT, MUBUF, MTBUF, MIMG, DS (global/shared/private)
+  Branch,       // SOPP branch instructions (s_branch, s_cbranch_*, etc.)
+  Sync,         // s_barrier, s_waitcnt
+  Tensor,       // VOP3P tensor operations
+  Other,        // s_endpgm, s_nop, mask instructions, etc.
 };
 
 class ProgramCycleTracker {
