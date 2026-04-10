@@ -991,33 +991,77 @@ TraceWaveStepDetail BuildRawWaveStepDetail(const DecodedInstruction& instruction
   // Assembly text using DecodedInstruction::Dump()
   detail.asm_text = instruction.Dump();
 
-  // Process operands to extract reads and writes
-  // Note: This is a simplified model; real ISA may have different conventions
+  // Helper to format scalar register value
+  auto format_scalar_reg = [&](uint32_t reg_index) -> std::string {
+    return "s" + std::to_string(reg_index) + "=" + HexU64(wave.sgpr.Read(reg_index));
+  };
+
+  // Helper to format vector register values (sampled)
+  auto format_vector_reg = [&](uint32_t reg_index) -> std::string {
+    std::ostringstream out;
+    out << "v" << reg_index << "[step=4]:\n";
+    bool emitted = false;
+    for (uint32_t lane = 0; lane < kWaveSize; lane += 4) {
+      if (!wave.exec.test(lane)) {
+        continue;
+      }
+      emitted = true;
+      out << "        lane " << std::setw(4) << lane << "  "
+          << HexU64(wave.vgpr.Read(reg_index, lane)) << "\n";
+    }
+    if (!emitted) {
+      out << "        <no active lanes>\n";
+    }
+    return out.str();
+  };
+
+  // Process operands to extract reads and writes with values
   for (size_t i = 0; i < instruction.operands.size(); ++i) {
     const DecodedInstructionOperand& op = instruction.operands[i];
+    const GcnOperandInfo& info = op.info;
 
-    // Build operand string with value
-    std::string op_str = op.text;
+    // Build operand string with actual value
+    std::string op_with_value;
+
+    if (op.kind == DecodedInstructionOperandKind::ScalarReg) {
+      op_with_value = format_scalar_reg(info.reg_first);
+    } else if (op.kind == DecodedInstructionOperandKind::ScalarRegRange) {
+      std::ostringstream out;
+      out << "s[" << info.reg_first << ":" << (info.reg_first + info.reg_count - 1) << "]=";
+      for (uint32_t r = 0; r < info.reg_count; ++r) {
+        if (r > 0) out << ":";
+        out << HexU64(wave.sgpr.Read(info.reg_first + r));
+      }
+      op_with_value = out.str();
+    } else if (op.kind == DecodedInstructionOperandKind::VectorReg) {
+      op_with_value = format_vector_reg(info.reg_first);
+    } else if (op.kind == DecodedInstructionOperandKind::VectorRegRange) {
+      // For vector register ranges, show first register
+      op_with_value = format_vector_reg(info.reg_first);
+    } else if (op.kind == DecodedInstructionOperandKind::Immediate) {
+      op_with_value = op.text + "=" + HexU64(static_cast<uint64_t>(info.immediate));
+    } else {
+      op_with_value = op.text;
+    }
 
     // First operand is typically destination (write)
-    // Note: This is ISA-specific; may need adjustment
     if (i == 0 && instruction.operands.size() > 1) {
       // Destination operand
       if (op.kind == DecodedInstructionOperandKind::ScalarReg ||
           op.kind == DecodedInstructionOperandKind::ScalarRegRange) {
-        detail.scalar_writes.push_back(op_str);
+        detail.scalar_writes.push_back(op_with_value);
       } else if (op.kind == DecodedInstructionOperandKind::VectorReg ||
                  op.kind == DecodedInstructionOperandKind::VectorRegRange) {
-        detail.vector_writes.push_back(op_str);
+        detail.vector_writes.push_back(op_with_value);
       }
     } else {
       // Source operands (reads)
       if (op.kind == DecodedInstructionOperandKind::ScalarReg ||
           op.kind == DecodedInstructionOperandKind::ScalarRegRange) {
-        detail.scalar_reads.push_back(op_str);
+        detail.scalar_reads.push_back(op_with_value);
       } else if (op.kind == DecodedInstructionOperandKind::VectorReg ||
                  op.kind == DecodedInstructionOperandKind::VectorRegRange) {
-        detail.vector_reads.push_back(op_str);
+        detail.vector_reads.push_back(op_with_value);
       }
     }
   }
