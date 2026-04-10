@@ -166,6 +166,48 @@ std::string RenderRecorderTextTrace(const Recorder& recorder) {
 
 std::string RenderRecorderJsonTrace(const Recorder& recorder) {
   std::string text;
+
+  // Emit run snapshot as first JSON object
+  if (recorder.run_snapshot().has_value()) {
+    const auto& run = *recorder.run_snapshot();
+    text += "{\"type\":\"run_snapshot\",\"execution_model\":\"" + run.execution_model +
+            "\",\"trace_time_basis\":\"" + run.trace_time_basis +
+            "\",\"trace_cycle_is_physical_time\":" + (run.trace_cycle_is_physical_time ? "true" : "false") + "}\n";
+  }
+
+  // Emit model config snapshot
+  if (recorder.model_config_snapshot().has_value()) {
+    const auto& config = *recorder.model_config_snapshot();
+    text += "{\"type\":\"model_config_snapshot\",\"num_dpcs\":" + std::to_string(config.num_dpcs) +
+            ",\"num_aps_per_dpc\":" + std::to_string(config.num_aps_per_dpc) +
+            ",\"num_peus_per_ap\":" + std::to_string(config.num_peus_per_ap) +
+            ",\"num_slots_per_peu\":" + std::to_string(config.num_slots_per_peu) +
+            ",\"slot_model\":\"" + config.slot_model + "\"}\n";
+  }
+
+  // Emit kernel snapshot
+  if (recorder.kernel_snapshot().has_value()) {
+    const auto& kernel = *recorder.kernel_snapshot();
+    text += "{\"type\":\"kernel_snapshot\",\"kernel_name\":\"" + kernel.kernel_name +
+            "\",\"grid_dim\":[" + std::to_string(kernel.grid_dim_x) + "," +
+            std::to_string(kernel.grid_dim_y) + "," + std::to_string(kernel.grid_dim_z) + "]" +
+            ",\"block_dim\":[" + std::to_string(kernel.block_dim_x) + "," +
+            std::to_string(kernel.block_dim_y) + "," + std::to_string(kernel.block_dim_z) + "]}\n";
+  }
+
+  // Emit wave init snapshots
+  for (const auto& wave_init : recorder.wave_init_snapshots()) {
+    text += "{\"type\":\"wave_init_snapshot\",\"stable_wave_id\":" + std::to_string(wave_init.stable_wave_id) +
+            ",\"block_id\":" + std::to_string(wave_init.block_id) +
+            ",\"dpc_id\":" + std::to_string(wave_init.dpc_id) +
+            ",\"ap_id\":" + std::to_string(wave_init.ap_id) +
+            ",\"peu_id\":" + std::to_string(wave_init.peu_id) +
+            ",\"slot_id\":" + std::to_string(wave_init.slot_id) +
+            ",\"slot_model\":\"" + wave_init.slot_model + "\"" +
+            ",\"start_pc\":" + std::to_string(wave_init.start_pc) + "}\n";
+  }
+
+  // Emit events
   for (const auto& recorded : CollectOrderedRecordedEvents(recorder)) {
     if (recorded.program_event != nullptr) {
       text += FormatJsonTraceEventLine(*recorded.program_event);
@@ -173,6 +215,27 @@ std::string RenderRecorderJsonTrace(const Recorder& recorder) {
       text += FormatJsonTraceEventLine(*recorded.entry);
     }
   }
+
+  // Emit summary snapshot
+  if (recorder.summary_snapshot().has_value()) {
+    const auto& summary = *recorder.summary_snapshot();
+    text += "{\"type\":\"summary_snapshot\",\"kernel_status\":\"" + summary.kernel_status + "\"" +
+            ",\"gpu_tot_sim_cycle\":" + std::to_string(summary.gpu_tot_sim_cycle) +
+            ",\"gpu_tot_sim_insn\":" + std::to_string(summary.gpu_tot_sim_insn) +
+            ",\"gpu_tot_ipc\":" + std::to_string(summary.gpu_tot_ipc) +
+            ",\"gpu_tot_wave_exits\":" + std::to_string(summary.gpu_tot_wave_exits) +
+            ",\"stall_waitcnt\":" + std::to_string(summary.stall_waitcnt_global) +
+            ",\"stall_warp_switch\":" + std::to_string(summary.stall_warp_switch) +
+            ",\"stall_barrier\":" + std::to_string(summary.stall_barrier_slot) + "}\n";
+  }
+
+  // Emit warning snapshots
+  for (const auto& warning : recorder.warning_snapshots()) {
+    text += "{\"type\":\"warning_snapshot\",\"warning_kind\":\"" + warning.warning_kind +
+            "\",\"message\":\"" + warning.message + "\"" +
+            ",\"cycle\":" + std::to_string(warning.cycle) + "}\n";
+  }
+
   return text;
 }
 
