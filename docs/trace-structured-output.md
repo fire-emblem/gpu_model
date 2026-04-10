@@ -27,9 +27,49 @@ Recorder facts remain the shared protocol for all trace artifacts; text, JSON, a
 
 The structured text renderer will print ordered headers, snapshot contexts, run/kernel/model summaries, a `[WAVE_INIT]` roster, `[EVENTS]` for typed events, and `[SUMMARY]`/`[WARNINGS]` tails. Every line is produced from recorder-held facts; the renderer never guesses ready/wait/issue transitions. This format keeps `cycle` as modeled time, consistent with the AGENTS/my_design rules.
 
+Example output:
+```
+GPU_MODEL TRACE
+================
+
+[RUN]
+execution_model=cycle
+trace_time_basis=modeled_cycle
+trace_cycle_is_physical_time=false
+
+[MODEL_CONFIG]
+num_dpcs=8
+num_aps_per_dpc=13
+num_peus_per_ap=4
+num_slots_per_peu=8
+slot_model=resident_fixed
+
+[KERNEL]
+kernel_name=vecadd
+grid_dim=30,1,1
+block_dim=1024,1,1
+
+[EVENTS]
+... events ...
+
+[SUMMARY]
+kernel_status=PASS
+gpu_tot_sim_cycle=704
+...
+```
+
 ### Enriched `trace.jsonl`
 
 `trace.jsonl` serves as a typed serialization of the shared recorder facts: each entry reflects snapshots, event metadata, or `WaveStep` detail. Structured fields replace message parsing, and the JSON always references modeled-cycle counters (e.g., the `cycle` field continues to match the engine's internal time counter).
+
+Example output:
+```json
+{"type":"run_snapshot","execution_model":"cycle","trace_time_basis":"modeled_cycle","trace_cycle_is_physical_time":false}
+{"type":"model_config_snapshot","num_dpcs":8,"num_aps_per_dpc":13,...}
+{"type":"kernel_snapshot","kernel_name":"vecadd","grid_dim":[30,1,1],...}
+... events ...
+{"type":"summary_snapshot","kernel_status":"PASS","gpu_tot_sim_cycle":704,...}
+```
 
 ### `timeline.perfetto.json`
 
@@ -38,3 +78,27 @@ Perfetto exports continue to rely on the existing modeled-time semantics. The re
 ### Snapshots and WaveStep Detail
 
 Run/kernel/model/wave-init/summary snapshots must live in the recorder before rendering, which allows `trace.txt` and `trace.jsonl` to write unambiguous sections and facts. Every `WaveStep` will embed structured detail (asm, operands, timing, state deltas) so the renderer can describe execution without re-deriving anything from natural-language `message` text. This keeps `WaveStep` as the authoritative execution fact and preserves the `WaveResume` semantics declared above. Warnings are produced by distinct producer-owned `TraceWarningSnapshot` records and remain deferred beyond phase 1, so the renderer does not invent `[WARNINGS]` content for the initial rollout.
+
+## Implementation Status
+
+### Phase 1: Formalize Producer Facts ✅
+
+- `TraceRunSnapshot`, `TraceModelConfigSnapshot`, `TraceKernelSnapshot`
+- `TraceWaveInitSnapshot`, `TraceSummarySnapshot`, `TraceWarningSnapshot`
+- `TraceWaveStepDetail` for structured instruction execution facts
+- Recorder extended to hold document-level snapshots
+- TraceSink interface extended with snapshot methods
+- ExecEngine feeds run/model/kernel/summary snapshots
+
+### Phase 2: Formalize Artifact Contracts ✅
+
+- Structured `trace.txt` renderer with sections
+- Enriched `trace.jsonl` renderer with typed snapshot objects
+- Tests migrated to new structured output contracts
+- Examples updated to verify sectioned output
+
+### Phase 3: Formalize Analysis Layer (Deferred)
+
+- Richer warning families
+- Richer utilization/resource sections
+- Compare/replay/offline analysis capabilities
