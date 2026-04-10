@@ -1,6 +1,8 @@
 #include "gpu_model/debug/recorder/export.h"
 
 #include <algorithm>
+#include <iomanip>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -9,6 +11,12 @@
 namespace gpu_model {
 
 namespace {
+
+std::string HexU64(uint64_t value) {
+  std::ostringstream out;
+  out << "0x" << std::hex << std::nouppercase << value;
+  return out.str();
+}
 
 struct OrderedRecordedEvent {
   uint64_t sequence = 0;
@@ -122,13 +130,14 @@ std::string RenderRecorderTextTrace(const Recorder& recorder) {
   if (!recorder.wave_init_snapshots().empty()) {
     text += "[WAVE_INIT]\n";
     for (const auto& wave_init : recorder.wave_init_snapshots()) {
-      // Format: wave=w{block}.{slot} loc=dpc{dpc}/ap{ap}/peu{peu}/slot{slot} slot_model={model} start_pc=0x{pc}
-      text += "wave=w" + std::to_string(wave_init.block_id) + "." + std::to_string(wave_init.slot_id) +
+      // Format: wave=0x{stable_wave_id} block={block_id} loc=dpc{dpc}/ap{ap}/peu{peu}/slot{slot} slot_model={model} start_pc=0x{pc}
+      // stable_wave_id = (block_id << 32) | wave_id, hex format for readability
+      text += "wave=" + HexU64(wave_init.stable_wave_id) +
               " block=" + std::to_string(wave_init.block_id) +
-              " dpc=" + std::to_string(wave_init.dpc_id) +
-              " ap=" + std::to_string(wave_init.ap_id) +
-              " peu=" + std::to_string(wave_init.peu_id) +
-              " slot=" + std::to_string(wave_init.slot_id) +
+              " loc=dpc" + std::to_string(wave_init.dpc_id) +
+              "/ap" + std::to_string(wave_init.ap_id) +
+              "/peu" + std::to_string(wave_init.peu_id) +
+              "/slot" + std::to_string(wave_init.slot_id) +
               " slot_model=" + wave_init.slot_model +
               " start_pc=0x" + std::to_string(wave_init.start_pc) + "\n";
     }
@@ -222,7 +231,7 @@ std::string RenderRecorderJsonTrace(const Recorder& recorder) {
 
   // Emit wave init snapshots
   for (const auto& wave_init : recorder.wave_init_snapshots()) {
-    text += "{\"type\":\"wave_init_snapshot\",\"wave\":\"w" + std::to_string(wave_init.block_id) + "." + std::to_string(wave_init.slot_id) + "\"" +
+    text += "{\"type\":\"wave_init_snapshot\",\"wave\":\"" + std::to_string(wave_init.stable_wave_id) + "\"" +
             ",\"block_id\":" + std::to_string(wave_init.block_id) +
             ",\"dpc_id\":" + std::to_string(wave_init.dpc_id) +
             ",\"ap_id\":" + std::to_string(wave_init.ap_id) +

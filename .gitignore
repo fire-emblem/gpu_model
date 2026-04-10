@@ -10,3 +10,4 @@ results/
 .toolchains/
 __pycache__/
 Testing/
+.omx/

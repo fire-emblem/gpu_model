@@ -10,6 +10,34 @@ namespace gpu_model {
 
 namespace {
 
+// Returns true if the event kind is wave-specific (should show wave identifier)
+bool IsWaveSpecificEvent(TraceEventKind kind) {
+  switch (kind) {
+    case TraceEventKind::WaveLaunch:
+    case TraceEventKind::WaveGenerate:
+    case TraceEventKind::WaveDispatch:
+    case TraceEventKind::SlotBind:
+    case TraceEventKind::ActivePromote:
+    case TraceEventKind::IssueSelect:
+    case TraceEventKind::WaveWait:
+    case TraceEventKind::WaveArrive:
+    case TraceEventKind::WaveResume:
+    case TraceEventKind::WaveSwitchAway:
+    case TraceEventKind::WaveStats:
+    case TraceEventKind::WaveStep:
+    case TraceEventKind::Commit:
+    case TraceEventKind::ExecMaskUpdate:
+    case TraceEventKind::MemoryAccess:
+    case TraceEventKind::Barrier:
+    case TraceEventKind::WaveExit:
+    case TraceEventKind::Stall:
+    case TraceEventKind::Arrive:
+      return true;
+    default:
+      return false;
+  }
+}
+
 std::string HexU64(uint64_t value) {
   std::ostringstream out;
   out << "0x" << std::hex << std::nouppercase << value;
@@ -95,8 +123,8 @@ std::string FormatTextTraceLineFromFields(const TraceEvent& event,
                                          const TraceEventExportFields& fields,
                                          uint64_t sequence = 0) {
   std::ostringstream out;
-  // Format: [cycle] #seq   kind   w{block}.{slot}  pc   asm/details
-  // Example: [000000] #1   wave_generate  w0.0  0x100   block=0 slot=0
+  // Format: [cycle] #seq   kind   wave=xxx  pc=0xXXX  asm/details
+  // Example: [000000] #1   wave_generate  wave=700000  pc=0x100  block=0 slot=0
 
   // Cycle in brackets, 6 digits zero-padded
   out << "[" << std::setfill('0') << std::setw(6) << event.cycle << "] ";
@@ -107,15 +135,21 @@ std::string FormatTextTraceLineFromFields(const TraceEvent& event,
   // Event kind (canonical name), left-aligned in 16-char field with space padding
   out << std::setfill(' ') << std::setw(16) << std::left << fields.canonical_name << "  ";
 
-  // Wave identifier: w{block}.{slot} or just "global" for program events
-  if (event.wave_id != 0 || event.block_id != 0) {
-    out << "w" << event.block_id << "." << event.slot_id << "  ";
+  // Wave identifier: wave=0x{stable_wave_id} where stable_wave_id = (block_id << 32) | wave_id
+  // Use stable_wave_id for unique wave identification per reference template.
+  // Show wave= for wave-specific events (even if wave_id == 0 for block 0 wave 0).
+  // Block events and program events show as global.
+  // Hex format is more readable for large values (e.g., 0x100000001 vs 4294967297).
+  if (IsWaveSpecificEvent(event.kind)) {
+    uint64_t stable_wave_id =
+        (static_cast<uint64_t>(event.block_id) << 32u) | static_cast<uint64_t>(event.wave_id);
+    out << "wave=" << HexU64(stable_wave_id) << "  ";
   } else {
     out << "global  ";
   }
 
-  // PC in hex
-  out << HexU64(event.pc) << "   ";
+  // PC in hex with explicit prefix
+  out << "pc=" << HexU64(event.pc) << "  ";
 
   // Display name / message as details
   out << fields.display_name;
