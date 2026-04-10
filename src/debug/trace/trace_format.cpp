@@ -16,14 +16,93 @@ std::string HexU64(uint64_t value) {
   return out.str();
 }
 
-std::string FormatTextTraceLineFromFields(const TraceEvent& event,
-                                         const TraceEventExportFields& fields) {
+std::string FormatWaveStepDetailBlock(const TraceWaveStepDetail& detail) {
   std::ostringstream out;
-  // Format: [cycle]   kind   w{block}.{slot}  pc   details
-  // Example: [000000]   wave_generate  w0.0  0x100   block=0 slot=0
+
+  // rw: block
+  if (!detail.scalar_reads.empty() || !detail.vector_reads.empty() ||
+      !detail.scalar_writes.empty() || !detail.vector_writes.empty()) {
+    out << "  rw:\n";
+
+    // Reads
+    if (!detail.scalar_reads.empty() || !detail.vector_reads.empty()) {
+      out << "    R:\n";
+      if (!detail.scalar_reads.empty()) {
+        out << "      scalar: ";
+        for (size_t i = 0; i < detail.scalar_reads.size(); ++i) {
+          if (i > 0) out << " ";
+          out << detail.scalar_reads[i];
+        }
+        out << "\n";
+      }
+      for (const auto& vr : detail.vector_reads) {
+        out << "      " << vr << "\n";
+      }
+    }
+
+    // Writes
+    if (!detail.scalar_writes.empty() || !detail.vector_writes.empty()) {
+      out << "    W:\n";
+      if (!detail.scalar_writes.empty()) {
+        out << "      scalar: ";
+        for (size_t i = 0; i < detail.scalar_writes.size(); ++i) {
+          if (i > 0) out << " ";
+          out << detail.scalar_writes[i];
+        }
+        out << "\n";
+      }
+      for (const auto& vw : detail.vector_writes) {
+        out << "      " << vw << "\n";
+      }
+    }
+  }
+
+  // mem: block
+  if (!detail.mem_summary.empty() && detail.mem_summary != "none") {
+    out << "  mem: " << detail.mem_summary << "\n";
+  }
+
+  // mask: block
+  if (!detail.exec_before.empty() || !detail.exec_after.empty()) {
+    out << "  mask: exec_before=" << detail.exec_before;
+    if (!detail.exec_after.empty()) {
+      out << " exec_after=" << detail.exec_after;
+    }
+    out << "\n";
+  }
+
+  // timing: block
+  if (detail.issue_cycle > 0 || detail.commit_cycle > 0 || detail.duration_cycles > 0) {
+    out << "  timing: issue=" << detail.issue_cycle;
+    if (detail.commit_cycle > 0) {
+      out << " commit=" << detail.commit_cycle;
+    }
+    if (detail.duration_cycles > 0) {
+      out << " dur=" << detail.duration_cycles;
+    }
+    out << "\n";
+  }
+
+  // state: block
+  if (!detail.state_summary.empty()) {
+    out << "  state: " << detail.state_summary << "\n";
+  }
+
+  return out.str();
+}
+
+std::string FormatTextTraceLineFromFields(const TraceEvent& event,
+                                         const TraceEventExportFields& fields,
+                                         uint64_t sequence = 0) {
+  std::ostringstream out;
+  // Format: [cycle] #seq   kind   w{block}.{slot}  pc   asm/details
+  // Example: [000000] #1   wave_generate  w0.0  0x100   block=0 slot=0
 
   // Cycle in brackets, 6 digits zero-padded
-  out << "[" << std::setfill('0') << std::setw(6) << event.cycle << "]   ";
+  out << "[" << std::setfill('0') << std::setw(6) << event.cycle << "] ";
+
+  // Sequence number with # prefix
+  out << "#" << std::setfill(' ') << std::setw(3) << std::right << sequence << "   ";
 
   // Event kind (canonical name), left-aligned in 16-char field with space padding
   out << std::setfill(' ') << std::setw(16) << std::left << fields.canonical_name << "  ";
@@ -42,6 +121,12 @@ std::string FormatTextTraceLineFromFields(const TraceEvent& event,
   out << fields.display_name;
 
   out << '\n';
+
+  // WaveStep expanded block
+  if (event.kind == TraceEventKind::WaveStep && event.step_detail.has_value()) {
+    out << FormatWaveStepDetailBlock(*event.step_detail);
+  }
+
   return out.str();
 }
 
@@ -133,7 +218,7 @@ std::string_view TraceEventKindName(TraceEventKind kind) {
 std::string FormatTextTraceEventLine(const TraceEvent& event) {
   const CanonicalTraceEvent canonical = MakeCanonicalTraceEvent(event);
   const auto& fields = canonical.fields;
-  return FormatTextTraceLineFromFields(event, fields);
+  return FormatTextTraceLineFromFields(event, fields, 0);
 }
 
 std::string FormatJsonTraceEventLine(const TraceEvent& event) {
@@ -147,11 +232,11 @@ namespace {
 }  // namespace
 
 std::string FormatTextTraceEventLine(const RecorderProgramEvent& event) {
-  return FormatTextTraceLineFromFields(event.event, MakeTraceEventExportFields(event));
+  return FormatTextTraceLineFromFields(event.event, MakeTraceEventExportFields(event), event.sequence);
 }
 
 std::string FormatTextTraceEventLine(const RecorderEntry& event) {
-  return FormatTextTraceLineFromFields(event.event, MakeTraceEventExportFields(event));
+  return FormatTextTraceLineFromFields(event.event, MakeTraceEventExportFields(event), event.sequence);
 }
 
 std::string FormatJsonTraceEventLine(const RecorderProgramEvent& event) {

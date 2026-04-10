@@ -36,6 +36,9 @@ struct DecodedInstruction {
   std::vector<uint32_t> words{};
   std::string mnemonic{};
   std::vector<DecodedInstructionOperand> operands{};
+
+  // Format complete assembly text: "v_add_f32 v0, v1, v2"
+  std::string Dump() const;
 };
 
 }  // namespace gpu_model

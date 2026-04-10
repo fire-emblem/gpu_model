@@ -5,6 +5,7 @@
 #include <sstream>
 #include <string_view>
 
+#include "gpu_model/isa/instruction.h"
 #include "gpu_model/isa/opcode.h"
 #include "gpu_model/isa/operand.h"
 
@@ -78,6 +79,82 @@ std::string FormatWaveStepMessage(const Instruction& instruction, const WaveCont
     out << "\n  [" << HexU64(i, 2) << "] " << FormatOperand(instruction.operands[i], wave);
   }
   return out.str();
+}
+
+std::string FormatAssemblyText(const Instruction& instruction) {
+  return instruction.Dump();
+}
+
+TraceWaveStepDetail BuildWaveStepDetail(const Instruction& instruction, const WaveContext& wave) {
+  TraceWaveStepDetail detail;
+
+  // Assembly text using Instruction::Dump()
+  detail.asm_text = instruction.Dump();
+
+  // Process operands to extract reads and writes
+  // Convention: first operand is often destination (write), rest are sources (reads)
+  // Note: This is a simplified model; real ISA may have different conventions
+  for (size_t i = 0; i < instruction.operands.size(); ++i) {
+    const Operand& op = instruction.operands[i];
+
+    if (op.kind != OperandKind::Register) {
+      continue;
+    }
+
+    std::string reg_value;
+    if (op.reg.file == RegisterFile::Scalar) {
+      reg_value = Instruction::DumpOperand(op) + "=" + HexU64(wave.sgpr.Read(op.reg.index));
+    } else {
+      // For vector registers, show sampled values
+      std::ostringstream vout;
+      vout << Instruction::DumpOperand(op) << "[step=4]:\n";
+      bool emitted = false;
+      for (uint32_t lane = 0; lane < kWaveSize; lane += 4) {
+        if (!wave.exec.test(lane)) {
+          continue;
+        }
+        emitted = true;
+        vout << "        lane " << std::setw(4) << lane << "  "
+             << HexU64(wave.vgpr.Read(op.reg.index, lane)) << "\n";
+      }
+      if (!emitted) {
+        vout << "        <no active lanes>\n";
+      }
+      reg_value = vout.str();
+    }
+
+    // First register operand is typically destination (write)
+    // Note: This is ISA-specific; may need adjustment
+    if (i == 0 && instruction.operands.size() > 1) {
+      // Destination operand
+      if (op.reg.file == RegisterFile::Scalar) {
+        detail.scalar_writes.push_back(reg_value);
+      } else {
+        detail.vector_writes.push_back(reg_value);
+      }
+    } else {
+      // Source operands (reads)
+      if (op.reg.file == RegisterFile::Scalar) {
+        detail.scalar_reads.push_back(reg_value);
+      } else {
+        detail.vector_reads.push_back(reg_value);
+      }
+    }
+  }
+
+  // Exec mask
+  std::ostringstream exec_out;
+  exec_out << "0x" << std::hex << wave.exec.to_ullong();
+  detail.exec_before = exec_out.str();
+  detail.exec_after = exec_out.str();  // May be updated by instruction
+
+  // Memory summary (placeholder for now)
+  detail.mem_summary = "none";
+
+  // State summary (placeholder for waitcnt state)
+  detail.state_summary = "";
+
+  return detail;
 }
 
 }  // namespace gpu_model

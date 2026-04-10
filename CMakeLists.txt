@@ -71,8 +71,10 @@ add_library(gpu_model STATIC
   src/instruction/encoded/internal/encoded_gcn_db_lookup.cpp
   src/instruction/encoded/encoded_gcn_inst_format.cpp
   src/instruction/encoded/internal/encoded_gcn_encoding_def.cpp
+  src/instruction/encoded/decoded_instruction.cpp
   src/instruction/encoded/instruction_decoder.cpp
   src/instruction/encoded/encoded_instruction_formatter.cpp
+  src/isa/instruction.cpp
   src/isa/instruction_builder.cpp
   src/isa/kernel_metadata.cpp
   src/isa/kernel_program_builder.cpp

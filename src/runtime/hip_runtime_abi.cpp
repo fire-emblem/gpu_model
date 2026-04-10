@@ -34,7 +34,7 @@ bool DebugEnabled() {
   return gpu_model::logging::ShouldLog("hip_runtime_abi", loguru::Verbosity_INFO);
 }
 
-const char* ToFunctionalModeName(gpu_model::FunctionalExecutionMode mode) {
+[[maybe_unused]] const char* ToFunctionalModeName(gpu_model::FunctionalExecutionMode mode) {
   switch (mode) {
     case gpu_model::FunctionalExecutionMode::SingleThreaded:
       return "st";

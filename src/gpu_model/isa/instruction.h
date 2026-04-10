@@ -20,6 +20,12 @@ struct Instruction {
   uint32_t size_bytes = 4;
   std::vector<Operand> operands{};
   DebugLoc debug_loc{};
+
+  // Format complete assembly text: "v_add_f32 v0, v1, v2"
+  std::string Dump() const;
+
+  // Format operand name only: "v0", "s1", "0x100"
+  static std::string DumpOperand(const Operand& op);
 };
 
 }  // namespace gpu_model

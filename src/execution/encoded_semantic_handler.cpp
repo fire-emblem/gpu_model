@@ -700,8 +700,8 @@ class VCndmaskB32E64Handler final : public VectorLaneHandler<VCndmaskB32E64Handl
 // v_pk_mov_b32: no-op placeholder for pack-move
 class VPkMovB32Handler final : public BaseHandler {
  protected:
-  void ExecuteImpl(const DecodedInstruction& instruction,
-                   EncodedWaveContext& context) const override {
+  void ExecuteImpl(const DecodedInstruction& /*instruction*/,
+                   EncodedWaveContext& /*context*/) const override {
     // Until VOP3P pack-move operand decoding is modeled explicitly, treat the
     // instruction as a supported no-op for decode/binding purposes.
   }

@@ -143,4 +143,5 @@ target_compile_definitions(gpu_model_tests
     GPU_MODEL_TEST_REPO_ROOT="${GPU_MODEL_TEST_REPO_ROOT_REAL}"
 )
 
-gpu_model_enable_warnings(gpu_model_tests)
+# Use warnings without -Werror for tests (test code may have intentional patterns)
+gpu_model_enable_warnings_no_error(gpu_model_tests)

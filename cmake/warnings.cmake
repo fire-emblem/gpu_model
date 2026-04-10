@@ -1,5 +1,13 @@
 function(gpu_model_enable_warnings target_name)
   if(MSVC)
+    target_compile_options(${target_name} PRIVATE /W4 /permissive- /WX)
+  else()
+    target_compile_options(${target_name} PRIVATE -Wall -Wextra -Wpedantic -Werror)
+  endif()
+endfunction()
+
+function(gpu_model_enable_warnings_no_error target_name)
+  if(MSVC)
     target_compile_options(${target_name} PRIVATE /W4 /permissive-)
   else()
     target_compile_options(${target_name} PRIVATE -Wall -Wextra -Wpedantic)

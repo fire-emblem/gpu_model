@@ -211,6 +211,7 @@ inline TraceEvent MakeTraceWaveEvent(const TraceWaveView& wave,
       .semantic_category = {},
       .display_name = {},
       .message = std::move(message),
+      .step_detail = std::nullopt,
   };
 }
 
@@ -233,6 +234,7 @@ inline TraceEvent MakeTraceEvent(TraceEventKind kind,
       .semantic_category = {},
       .display_name = {},
       .message = std::move(message),
+      .step_detail = std::nullopt,
   };
 }
 
@@ -265,6 +267,7 @@ inline TraceEvent MakeTraceBlockEvent(uint32_t dpc_id,
       .semantic_category = {},
       .display_name = {},
       .message = std::move(message),
+      .step_detail = std::nullopt,
   };
 }
 
@@ -383,6 +386,23 @@ inline TraceEvent MakeTraceWaveStepEvent(const TraceWaveView& wave,
     event.range_end_cycle = cycle + issue_duration_cycles;
   }
   event.display_name = MakeTraceWaveStepDisplayName(event.message);
+  return event;
+}
+
+// Overload that accepts structured step detail
+inline TraceEvent MakeTraceWaveStepEvent(const TraceWaveView& wave,
+                                         uint64_t cycle,
+                                         TraceSlotModelKind slot_model,
+                                         std::string detail,
+                                         TraceWaveStepDetail step_detail,
+                                         uint64_t pc = std::numeric_limits<uint64_t>::max(),
+                                         uint64_t issue_duration_cycles = 0) {
+  TraceEvent event = MakeTraceWaveStepEvent(wave, cycle, slot_model, std::move(detail), pc, issue_duration_cycles);
+  // Use asm_text from step_detail as display_name for better readability
+  if (!step_detail.asm_text.empty()) {
+    event.display_name = step_detail.asm_text;
+  }
+  event.step_detail = std::move(step_detail);
   return event;
 }
 

@@ -1448,6 +1448,7 @@ class FunctionalExecutionCoreImpl {
                                            issue_cycle,
                                            TraceSlotModelKind::LogicalUnbounded,
                                            FormatWaveStepMessage(instruction, wave),
+                                           BuildWaveStepDetail(instruction, wave),
                                            issue_pc,
                                            QuantizeIssueDuration(issue_duration)));
     RememberScheduledWaveForPeu(block, wave);

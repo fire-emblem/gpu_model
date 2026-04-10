@@ -984,6 +984,56 @@ std::string FormatRawWaveStepMessage(const DecodedInstruction& instruction,
   return out.str();
 }
 
+TraceWaveStepDetail BuildRawWaveStepDetail(const DecodedInstruction& instruction,
+                                            const WaveContext& wave) {
+  TraceWaveStepDetail detail;
+
+  // Assembly text using DecodedInstruction::Dump()
+  detail.asm_text = instruction.Dump();
+
+  // Process operands to extract reads and writes
+  // Note: This is a simplified model; real ISA may have different conventions
+  for (size_t i = 0; i < instruction.operands.size(); ++i) {
+    const DecodedInstructionOperand& op = instruction.operands[i];
+
+    // Build operand string with value
+    std::string op_str = op.text;
+
+    // First operand is typically destination (write)
+    // Note: This is ISA-specific; may need adjustment
+    if (i == 0 && instruction.operands.size() > 1) {
+      // Destination operand
+      if (op.kind == DecodedInstructionOperandKind::ScalarReg ||
+          op.kind == DecodedInstructionOperandKind::ScalarRegRange) {
+        detail.scalar_writes.push_back(op_str);
+      } else if (op.kind == DecodedInstructionOperandKind::VectorReg ||
+                 op.kind == DecodedInstructionOperandKind::VectorRegRange) {
+        detail.vector_writes.push_back(op_str);
+      }
+    } else {
+      // Source operands (reads)
+      if (op.kind == DecodedInstructionOperandKind::ScalarReg ||
+          op.kind == DecodedInstructionOperandKind::ScalarRegRange) {
+        detail.scalar_reads.push_back(op_str);
+      } else if (op.kind == DecodedInstructionOperandKind::VectorReg ||
+                 op.kind == DecodedInstructionOperandKind::VectorRegRange) {
+        detail.vector_reads.push_back(op_str);
+      }
+    }
+  }
+
+  // Exec mask
+  std::ostringstream exec_out;
+  exec_out << "0x" << std::hex << wave.exec.to_ullong();
+  detail.exec_before = exec_out.str();
+  detail.exec_after = exec_out.str();
+
+  // Memory summary (placeholder for now)
+  detail.mem_summary = "none";
+
+  return detail;
+}
+
 std::vector<RawBlock> MaterializeRawBlocks(const PlacementMap& placement,
                                            LaunchConfig config,
                                            uint32_t shared_bytes) {
@@ -2409,6 +2459,14 @@ class EncodedExecutionCore {
                               FormatRawWaveStepMessage(decoded, object, wave));
     step_event.has_cycle_range = true;
     step_event.range_end_cycle = issue_cycle + issue_duration;
+    // Fill step_detail with structured instruction info
+    step_event.step_detail = BuildRawWaveStepDetail(decoded, wave);
+    // Use Dump() for display_name to show full assembly
+    step_event.display_name = decoded.Dump();
+    // Fill timing info
+    step_event.step_detail->issue_cycle = issue_cycle;
+    step_event.step_detail->commit_cycle = commit_cycle;
+    step_event.step_detail->duration_cycles = issue_duration;
     TraceEventLocked(std::move(step_event));
     RememberScheduledWaveForPeu(block, raw_wave);
     TraceEventLocked(
@@ -2570,8 +2628,16 @@ class EncodedExecutionCore {
                                                   cycle,
                                                   FormatRawWaveStepMessage(decoded, object, wave));
     step_event.has_cycle_range = true;
-    step_event.range_end_cycle =
-        cycle + QuantizeIssueDuration(std::max<uint64_t>(1u, issue_cycles));
+    const uint64_t duration = QuantizeIssueDuration(std::max<uint64_t>(1u, issue_cycles));
+    step_event.range_end_cycle = cycle + duration;
+    // Fill step_detail with structured instruction info
+    step_event.step_detail = BuildRawWaveStepDetail(decoded, wave);
+    // Use Dump() for display_name to show full assembly
+    step_event.display_name = decoded.Dump();
+    // Fill timing info
+    step_event.step_detail->issue_cycle = cycle;
+    step_event.step_detail->commit_cycle = commit_cycle;
+    step_event.step_detail->duration_cycles = duration;
     TraceEventLocked(std::move(step_event));
     TraceEventLocked(
         MakeTraceCommitEvent(MakeRawTraceWaveView(raw_wave), commit_cycle, TraceSlotModel()));
