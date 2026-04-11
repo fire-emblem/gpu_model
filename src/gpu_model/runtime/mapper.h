@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "gpu_model/arch/gpu_arch_spec.h"
+#include "gpu_model/gpu_arch/chip_config/gpu_arch_spec.h"
 #include "gpu_model/runtime/launch_config.h"
 
 namespace gpu_model {

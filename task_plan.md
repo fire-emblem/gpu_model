@@ -70,7 +70,8 @@
 ### 阶段 8：架构重构 Phase 2 准备
 - [x] 为当前 wave 落盘单独实施计划：`docs/superpowers/plans/2026-04-12-architecture-restructure-wave1.md`
 - [x] 继续把稳定值类型从 `execution/`、`runtime/` 头中下沉
-- [x] 开始 `gpu_arch/` 目录落地，优先处理 `chip_config` 和 `issue_config`
+- [x] 提取 `gpu_arch/issue_config/` 并完成对应测试迁移
+- [x] 提取 `gpu_arch/chip_config/`，让 `GpuArchSpec` 开始脱离旧 `arch/` 入口
 - [ ] 制定 `WaveContext` 结构/运行时状态拆分清单
 - [ ] 为 `state/` 层拆分准备最小兼容桥接策略
 - **状态：** in_progress

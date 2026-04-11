@@ -69,7 +69,7 @@
     - `cmake --build build-gate-release --target gpu_model_tests -j8`
     - `./build-gate-release/tests/gpu_model_tests --gtest_filter='IssueConfigTest.*:ExecutionNamingTest.*:CycleSmokeTest.*:HipRuntimeTest.EncodedCycleLaunchReportsCacheAndSharedBankStats'`
 
-- [ ] **Task 3: 提取 `gpu_arch/chip_config/` 并开始让 `GpuArchSpec` 脱离旧 arch 入口**
+- [x] **Task 3: 提取 `gpu_arch/chip_config/` 并开始让 `GpuArchSpec` 脱离旧 arch 入口**
   - 文件：
     - Create: `src/gpu_model/gpu_arch/chip_config/gpu_arch_spec.h`
     - Create: `src/gpu_model/gpu_arch/chip_config/gpu_arch_spec.cpp`（如仅桥接则可不建 cpp）

@@ -5,7 +5,7 @@
 #include <bitset>
 #include <cstdint>
 
-#include "gpu_model/arch/gpu_arch_spec.h"
+#include "gpu_model/gpu_arch/chip_config/gpu_arch_spec.h"
 #include "gpu_model/debug/trace/sink.h"
 #include "gpu_model/execution/internal/op_plan.h"
 #include "gpu_model/memory/memory_system.h"

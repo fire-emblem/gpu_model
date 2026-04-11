@@ -309,6 +309,34 @@
   - `tests/CMakeLists.txt`
   - `CMakeLists.txt`
 
+### 阶段 17：Wave 1 Task 3 chip_config 提取
+- **状态：** complete
+- 执行的操作：
+  - 新增 `gpu_arch/chip_config/gpu_arch_spec.h`，承接 `GpuArchSpec` 及其配套值类型定义
+  - 将旧 `src/gpu_model/arch/gpu_arch_spec.h` 收口为兼容桥接头
+  - 将 `arch_registry`、`mac500_spec`、`mapper`、`cache_model`、`shared_bank_model` 以及首批 execution 头切到新 `chip_config` 路径
+  - 新增 `tests/arch/gpu_arch_spec_test.cpp`，并补 `tests/arch/arch_registry_test.cpp` 对旧桥接头的显式保护
+  - 完成 Task 3 release 编译与定向测试验证
+- 创建/修改的文件：
+  - `src/gpu_model/gpu_arch/chip_config/gpu_arch_spec.h`
+  - `src/gpu_model/arch/gpu_arch_spec.h`
+  - `src/gpu_model/arch/arch_registry.h`
+  - `src/arch/mac500_spec.cpp`
+  - `src/gpu_model/runtime/mapper.h`
+  - `src/gpu_model/memory/cache_model.h`
+  - `src/gpu_model/memory/shared_bank_model.h`
+  - `src/gpu_model/execution/cycle_exec_engine.h`
+  - `src/gpu_model/execution/internal/cycle_issue_policy.h`
+  - `src/gpu_model/execution/internal/semantics.h`
+  - `src/gpu_model/execution/program_object_exec_engine.h`
+  - `tests/arch/gpu_arch_spec_test.cpp`
+  - `tests/arch/arch_registry_test.cpp`
+  - `tests/CMakeLists.txt`
+  - `docs/superpowers/plans/2026-04-12-architecture-restructure-wave1.md`
+  - `task_plan.md`
+  - `findings.md`
+  - `progress.md`
+
 ## 会话：2026-04-11
 
 ### 阶段 32：全项目架构优化分析

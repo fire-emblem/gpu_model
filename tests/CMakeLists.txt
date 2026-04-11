@@ -6,6 +6,7 @@ add_executable(gpu_model_tests
   instruction/internal/encoded_gcn_db_lookup_test.cpp
   arch/arch_registry_test.cpp
   arch/issue_config_test.cpp
+  arch/gpu_arch_spec_test.cpp
   instruction/instruction_decoder_test.cpp
   instruction/instruction_formatter_test.cpp
   instruction/encoded_gcn_inst_format_test.cpp

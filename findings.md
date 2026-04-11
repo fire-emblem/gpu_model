@@ -158,6 +158,11 @@
   - `abi-minimal-closure`
   - `wave-launch-abi-summary`
   - `shared-heavy-hip-kernel-closure`
+- Wave 1 Task 3 已完成 `GpuArchSpec` 的第一轮分层收口：
+  - 新稳定头落到 `src/gpu_model/gpu_arch/chip_config/gpu_arch_spec.h`
+  - 旧 `src/gpu_model/arch/gpu_arch_spec.h` 已退化为桥接头
+  - `arch_registry`、`mac500_spec`、`mapper`、`cache_model`、`shared_bank_model` 以及首批 execution 头已切到新路径
+  - 仓内保留一条显式桥接测试，直接覆盖旧 `arch/gpu_arch_spec.h` 兼容性
   这些主题现在只保留为模块状态中的稳定 backlog，不再维持独立设计/计划文档。
 - 当时那一轮规划的最高优先级曾调整为：
   - runtime API closure
