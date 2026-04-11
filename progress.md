@@ -219,6 +219,63 @@
   - 将历史任务主题提炼为当前正式 task tracks，并重写 `task_plan.md`
   - 将历史设计中稳定成立的约束回写到 `docs/my_design.md`
 
+## 会话：2026-04-12
+
+### 阶段 12：工作区清理与架构重构启动
+- **状态：** in_progress
+- 执行的操作：
+  - 核对 `docs/architecture-restructuring-plan.md` 与 `docs/architecture/project_architecture_refactor_analysis.md`
+  - 将当前重构批次收口为 `Phase 1: utils/ 基础设施层`
+  - 清理未跟踪本地产物与会话噪音，恢复干净工作树
+  - 准备开始 `utils/logging`、`utils/config`、`utils/math` 迁移与 include 收口
+- 创建/修改的文件：
+  - `task_plan.md`
+  - `findings.md`
+  - `progress.md`
+
+### 阶段 13：Phase 1 utils 基础设施层迁移
+- **状态：** complete
+- 执行的操作：
+  - 新增 `src/gpu_model/utils/config/execution_mode.h`，集中 `ExecutionMode / FunctionalExecutionMode / FunctionalExecutionConfig`
+  - 新增 `src/gpu_model/utils/config/runtime_config.h` 与 `src/gpu_model/utils/config/invocation.h`
+  - 新增 `src/gpu_model/utils/logging/runtime_log_service.h` 与 `src/gpu_model/utils/logging/log_macros.h`
+  - 新增 `src/gpu_model/utils/math/float_convert.h` 与 `src/gpu_model/utils/math/bit_utils.h`
+  - 将旧 `gpu_model/util/*`、`gpu_model/logging/*`、`gpu_model/runtime/runtime_config.h` 改为兼容桥接头
+  - 更新 runtime、encoded execution、tests 的核心 include 到新 `gpu_model/utils/...` 路径
+  - 将 `float_utils.h`、`encoded_handler_utils.h` 中的纯基础工具开始下沉到 `utils/math/`
+  - 运行增量构建、轻量门禁和 hipcc/encoded 定向回归，确认无行为回归
+- 创建/修改的文件：
+  - `src/gpu_model/utils/config/execution_mode.h`
+  - `src/gpu_model/utils/config/runtime_config.h`
+  - `src/gpu_model/utils/config/invocation.h`
+  - `src/gpu_model/utils/logging/runtime_log_service.h`
+  - `src/gpu_model/utils/logging/log_macros.h`
+  - `src/gpu_model/utils/math/float_convert.h`
+  - `src/gpu_model/utils/math/bit_utils.h`
+  - `src/gpu_model/runtime/launch_request.h`
+  - `src/gpu_model/runtime/runtime_config.h`
+  - `src/gpu_model/runtime/exec_engine.h`
+  - `src/gpu_model/execution/internal/float_utils.h`
+  - `src/gpu_model/execution/internal/encoded_handler_utils.h`
+  - `src/runtime/config/runtime_config.cpp`
+  - `src/runtime/exec_engine.cpp`
+  - `src/runtime/logging/runtime_log_service.cpp`
+  - `src/util/invocation.cpp`
+  - `tests/test_main.cpp`
+  - `tests/runtime/hipcc_parallel_execution_test.cpp`
+
+### 阶段 14：Wave 1 实施计划落盘
+- **状态：** complete
+- 执行的操作：
+  - 使用 superpowers 计划工作流将当前重构收口为 Wave 1
+  - 明确 Task 0~3 的优先级、串并行关系和每任务的验证命令
+  - 明确每个任务完成后都必须单独 commit + push
+- 创建/修改的文件：
+  - `docs/superpowers/plans/2026-04-12-architecture-restructure-wave1.md`
+  - `task_plan.md`
+  - `findings.md`
+  - `progress.md`
+
 ## 会话：2026-04-11
 
 ### 阶段 32：全项目架构优化分析

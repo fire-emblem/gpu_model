@@ -218,6 +218,33 @@
   - 再做 `ProgramCycleStats`、stall taxonomy、`ready / selected / issue` 与 timeline 解释面
   - representative kernel / example 继续作为 cycle calibration baseline
   - trace/log 服务于 cycle observability，但不反向定义业务语义
+- 用户最新又明确要求：
+  - 先清理工作区
+  - 再按照 `docs` 中已有架构设计文档启动实际重构
+- 当前这轮实现基线已收口为：
+  - 设计基线：`docs/architecture-restructuring-plan.md`
+  - 优先顺序：先 `Phase 1: utils/`，后 `gpu_arch/`、`state/`、`instruction/`
+  - 批次约束：第一批只做基础设施抽取和 include 边界收口，不改执行语义
+- 工作区清理已完成：
+  - 已删除 `.omc/`、`examples/01-vecadd-basic/.omc/`、`examples/01-vecadd-basic/a.log`
+  - 已删除 `atomic_max_test-*` 本地产物
+  - 当前 `git status --short` 为空，可作为新一轮重构起点
+- `Phase 1: utils/` 第一批已落地的关键收口：
+  - 新增 `src/gpu_model/utils/config/`、`src/gpu_model/utils/logging/`、`src/gpu_model/utils/math/`
+  - 旧 `gpu_model/util/*`、`gpu_model/logging/*`、`gpu_model/runtime/runtime_config.h` 现作为兼容桥接头
+  - `RuntimeConfig` 已切断对 `exec_engine.h` 的直接头依赖
+  - `ExecutionMode / FunctionalExecutionMode / FunctionalExecutionConfig` 已集中到稳定配置头
+  - `HalfToFloat / BFloat16ToFloat / U32AsFloat / FloatAsU32` 与 `MaskFromU64 / LoadU32 / StoreU32` 已开始从 execution internal 中抽出
+- 第一批 include 收口结果：
+  - `src/` 与 `tests/` 中对 `gpu_model/util/logging.h`、`gpu_model/util/invocation.h`、`gpu_model/logging/runtime_log_service.h`、`gpu_model/runtime/runtime_config.h` 的直接 include 已切到新的 `gpu_model/utils/...` 路径
+  - 旧路径暂时保留，作为后续批次回滚和渐进迁移的兼容层
+- 当前验证结果：
+  - `cmake --build build-gate-release --target gpu_model_tests -j8` 通过
+  - `scripts/run_push_gate_light.sh` 通过
+  - `./build-gate-release/tests/gpu_model_tests --gtest_filter='InstructionDecoderTest.DecodesRepresentativeSop2ScalarAluInstructions:HipCycleValidationTest.SharedAtomicAddFunctionalMt:HipCycleValidationTest.SharedAtomicAddCycle:HipCycleValidationTest.HistogramSharedFunctionalMt:HipCycleValidationTest.HistogramSharedCycle:HipCycleValidationTest.HistogramSharedObserveTraceIncludesMemoryAddressesAndValues:HipRuntimeTest.EncodedCycleLaunchEmitsAdvancingTraceCycles:HipRuntimeTest.EncodedCycleLaunchReportsCacheAndSharedBankStats'` 通过
+- 当前执行计划已单独落盘：
+  - `docs/superpowers/plans/2026-04-12-architecture-restructure-wave1.md`
+  - 本轮按 Task 0~3 粒度逐任务验证、commit、push
 - 新一轮全仓架构审视结论：
   - 当前项目的大方向基本正确，但代码层仍处于“设计已收口、边界未完全落地”的半收口状态
   - 最严重的结构问题不是单个文件大，而是：

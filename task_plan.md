@@ -4,7 +4,7 @@
 以当前模块设计为基础，将 `cycle time` 与 `cycle model` 准确性作为第一优先级，持续推进 `ProgramCycleStats`、stall taxonomy、`ready/selected/issue` 与 timeline 解释面；runtime API、memory pool / `mmap`、ISA 指令验证改为按 cycle 主线需求驱动的补充项，并将模块交互关系、开发计划和模块开发状态统一记录到正式文档。
 
 ## 当前阶段
-阶段 6
+阶段 8
 
 ## 各阶段
 
@@ -55,8 +55,25 @@
 - [x] 识别当前最主要的架构债：公共/内部边界泄漏、runtime 总控类、状态所有权重叠、artifact ingestion 职责交叉、execution 共享域模型不纯、构建边界过弱
 - [x] 将分析落盘到 `docs/architecture/project_architecture_refactor_analysis.md`
 - [x] 将分析文档接入 `docs/README.md`，并补各阶段完成判定，避免分析文档成为孤立结论
-- [ ] 后续如进入实现，按 Phase 1 `边界清理` 优先推进
-- **状态：** in_progress
+- [x] 后续如进入实现，按 Phase 1 `边界清理` 优先推进
+- **状态：** complete
+
+### 阶段 7：架构重构 Phase 1 启动
+- [x] 清理工作区未跟踪产物，恢复干净工作树
+- [x] 以 `docs/architecture-restructuring-plan.md` 作为已批准设计基线
+- [x] 将当前实现批次收口为 `Phase 1: utils/ 基础设施层`
+- [x] 迁移 logging/config/math 到 `src/gpu_model/utils/`
+- [x] 更新 include 路径并切断对 execution 内部类型的非必要依赖
+- [x] 跑 Phase 1 编译与定向测试验证
+- **状态：** complete
+
+### 阶段 8：架构重构 Phase 2 准备
+- [x] 为当前 wave 落盘单独实施计划：`docs/superpowers/plans/2026-04-12-architecture-restructure-wave1.md`
+- [ ] 继续把稳定值类型从 `execution/`、`runtime/` 头中下沉
+- [ ] 开始 `gpu_arch/` 目录落地，优先处理 `chip_config` 和 `issue_config`
+- [ ] 制定 `WaveContext` 结构/运行时状态拆分清单
+- [ ] 为 `state/` 层拆分准备最小兼容桥接策略
+- **状态：** pending
 
 ## 当前正式任务清单
 1. `Semantic calibration`
