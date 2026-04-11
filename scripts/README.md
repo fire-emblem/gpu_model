@@ -4,6 +4,26 @@
 
 当前比较关键的入口：
 
+- `install_quality_tools.sh`
+  - 安装代码质量检查所需的最小工具集合
+  - 当前包含：
+    - `lizard`：圈复杂度
+    - `jscpd`：重复率
+    - `cppcheck`：静态检查
+  - `lizard` 默认装到仓库忽略目录 `.cache/quality-tools/`
+  - `cppcheck` 缺失时会尝试通过 `apt-get` 安装
+
+- `run_quality_checks.sh`
+  - 一键运行项目级代码质量检查
+  - 当前包含三类检查：
+    - `jscpd`：重复代码检测与重复率报告
+    - `lizard`：圈复杂度、函数长度、参数数量扫描
+    - `cppcheck`：基于 `compile_commands.json` 的静态检查
+  - 输出默认落到 `results/quality/`
+  - 默认是报告模式，不把已有告警直接升级为 gate failure
+  - 若要切为严格模式，可设置：
+    - `GPU_MODEL_QUALITY_STRICT=1`
+
 - `install_git_hooks.sh`
   - 安装仓库内 git hooks
   - 会把 `core.hooksPath` 指到仓库里的 `.githooks`
