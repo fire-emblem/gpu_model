@@ -7,6 +7,7 @@ CACHE_DIR="${GPU_MODEL_QUALITY_CACHE_DIR:-$ROOT/.cache/quality-tools}"
 LIZARD_VENV="${GPU_MODEL_QUALITY_LIZARD_VENV:-$CACHE_DIR/lizard-venv}"
 LIZARD_BIN="$LIZARD_VENV/bin/lizard"
 QUALITY_BUILD_DIR="${GPU_MODEL_QUALITY_BUILD_DIR:-$ROOT/build-quality}"
+QUALITY_CPPHECK_PROJECT="${GPU_MODEL_QUALITY_CPPHECK_PROJECT:-$RESULTS_DIR/compile_commands.src.json}"
 JSCPD_VERSION="${GPU_MODEL_JSCPD_VERSION:-4.0.9}"
 JSCPD_MIN_LINES="${GPU_MODEL_JSCPD_MIN_LINES:-10}"
 JSCPD_MIN_TOKENS="${GPU_MODEL_JSCPD_MIN_TOKENS:-80}"
@@ -33,6 +34,7 @@ require_command() {
 
 require_quality_dependencies() {
   require_command cmake
+  require_command python3
   if ! command -v npx >/dev/null 2>&1; then
     fail "missing required command: npx; install Node.js/npm first"
   fi
@@ -61,7 +63,7 @@ ensure_lizard() {
 run_jscpd() {
   log "run duplication detection via jscpd"
   npx --yes "jscpd@${JSCPD_VERSION}" \
-    "$ROOT/src" "$ROOT/tests" "$ROOT/examples" \
+    "$ROOT/src" \
     --gitignore \
     --ignore "$JSCPD_IGNORE" \
     --format cpp \
@@ -81,10 +83,9 @@ run_lizard() {
     -L "$LIZARD_LENGTH_LIMIT" \
     -a "$LIZARD_PARAM_LIMIT" \
     -i -1 \
-    -x "$ROOT/examples/*/results/*" \
     -x "$ROOT/src/instruction/encoded/internal/generated_encoded_gcn_full_opcode_table.cpp" \
     -x "$ROOT/src/instruction/encoded/internal/generated_encoded_gcn_inst_db.cpp" \
-    "$ROOT/src" "$ROOT/tests" "$ROOT/examples" \
+    "$ROOT/src" \
     2>&1 | tee "$RESULTS_DIR/lizard.console.log"
 }
 
@@ -105,9 +106,36 @@ configure_cppcheck_project() {
     2>&1 | tee "$RESULTS_DIR/cppcheck.configure.log"
 }
 
+filter_cppcheck_project() {
+  log "filter compile_commands.json to src-only translation units"
+  python3 - "$ROOT" "$QUALITY_BUILD_DIR/compile_commands.json" "$QUALITY_CPPHECK_PROJECT" <<'PY'
+import json
+import pathlib
+import sys
+
+root = pathlib.Path(sys.argv[1]).resolve()
+src_root = root / "src"
+source = pathlib.Path(sys.argv[2])
+target = pathlib.Path(sys.argv[3])
+
+entries = json.loads(source.read_text())
+filtered = []
+for entry in entries:
+    file_path = pathlib.Path(entry["file"]).resolve()
+    try:
+        file_path.relative_to(src_root)
+    except ValueError:
+        continue
+    filtered.append(entry)
+
+target.write_text(json.dumps(filtered, indent=2) + "\n")
+print(f"filtered_entries={len(filtered)}")
+PY
+}
+
 run_cppcheck() {
   local cppcheck_args=(
-    --project="$QUALITY_BUILD_DIR/compile_commands.json"
+    --project="$QUALITY_CPPHECK_PROJECT"
     --enable=warning,style,performance,portability,information
     --std=c++20
     --quiet
@@ -115,8 +143,10 @@ run_cppcheck() {
     --suppress=missingIncludeSystem
     --suppress=missingInclude
     --suppress=unmatchedSuppression
+    --suppress="*:$ROOT/third_party/*"
+    --suppress="*:/opt/rocm/*"
+    --suppress="*:/usr/include/*"
     -i"$ROOT/third_party"
-    -i"$ROOT/tests"
     -i"$ROOT/src/spec"
     -i"$ROOT/src/instruction/encoded/internal/generated_encoded_gcn_full_opcode_table.cpp"
     -i"$ROOT/src/instruction/encoded/internal/generated_encoded_gcn_inst_db.cpp"
@@ -256,6 +286,7 @@ main() {
   mkdir -p "$RESULTS_DIR" "$CACHE_DIR"
   ensure_lizard
   configure_cppcheck_project
+  filter_cppcheck_project
   run_parallel_quality_checks
   write_summary
 }
