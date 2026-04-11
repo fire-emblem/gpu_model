@@ -110,6 +110,7 @@ run_cppcheck() {
     --project="$QUALITY_BUILD_DIR/compile_commands.json"
     --enable=warning,style,performance,portability,information
     --std=c++20
+    --quiet
     --inline-suppr
     --suppress=missingIncludeSystem
     --suppress=missingInclude
@@ -129,6 +130,97 @@ run_cppcheck() {
   cppcheck "${cppcheck_args[@]}" 2>&1 | tee "$RESULTS_DIR/cppcheck.log"
 }
 
+write_summary() {
+  local jscpd_summary="jscpd summary unavailable"
+  local lizard_summary="lizard summary unavailable"
+  local cppcheck_summary="cppcheck summary unavailable"
+  local cppcheck_top_ids="cppcheck ids unavailable"
+
+  if command -v python3 >/dev/null 2>&1; then
+    jscpd_summary="$(python3 - "$RESULTS_DIR/jscpd/jscpd-report.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1]) as f:
+    total = json.load(f)["statistics"]["total"]
+
+print(
+    "sources={sources} lines={lines} tokens={tokens} clones={clones} "
+    "duplicated_lines={duplicated_lines} duplication={duplication:.2f}% "
+    "duplicated_tokens={duplicated_tokens} token_duplication={token_duplication:.2f}%".format(
+        sources=total["sources"],
+        lines=total["lines"],
+        tokens=total["tokens"],
+        clones=total["clones"],
+        duplicated_lines=total["duplicatedLines"],
+        duplication=total["percentage"],
+        duplicated_tokens=total["duplicatedTokens"],
+        token_duplication=total["percentageTokens"],
+    )
+)
+PY
+)"
+
+    readarray -t cppcheck_summary_lines < <(python3 - "$RESULTS_DIR/cppcheck.log" <<'PY'
+import collections
+import re
+import sys
+
+severity = collections.Counter()
+ids = collections.Counter()
+
+with open(sys.argv[1], errors="ignore") as f:
+    for line in f:
+        m = re.search(r':\s+(error|warning|style|performance|portability|information):', line)
+        if m:
+            severity[m.group(1)] += 1
+        m2 = re.search(r'\[([^\]]+)\]\s*$', line.rstrip())
+        if m2:
+            ids[m2.group(1)] += 1
+
+print(
+    "error={error} warning={warning} style={style} performance={performance} "
+    "portability={portability} information={information}".format(
+        error=severity["error"],
+        warning=severity["warning"],
+        style=severity["style"],
+        performance=severity["performance"],
+        portability=severity["portability"],
+        information=severity["information"],
+    )
+)
+print(", ".join(f"{name}={count}" for name, count in ids.most_common(5)) or "none")
+PY
+)
+    cppcheck_summary="${cppcheck_summary_lines[0]:-cppcheck summary unavailable}"
+    cppcheck_top_ids="${cppcheck_summary_lines[1]:-none}"
+  fi
+
+  lizard_summary="$(awk '
+    /^Total nloc/ { capture = 1; next }
+    capture && /^-+/ { next }
+    capture && NF >= 8 {
+      printf "total_nloc=%s avg_nloc=%s avg_ccn=%s avg_token=%s functions=%s warnings=%s function_warning_ratio=%s nloc_warning_ratio=%s",
+             $1, $2, $3, $4, $5, $6, $7, $8
+      exit
+    }
+  ' "$RESULTS_DIR/lizard.console.log")"
+
+  cat <<EOF | tee "$RESULTS_DIR/summary.txt"
+[quality] ok
+- jscpd: $jscpd_summary
+- lizard: $lizard_summary
+- cppcheck severities: $cppcheck_summary
+- cppcheck top ids: $cppcheck_top_ids
+- duplication report: $RESULTS_DIR/jscpd
+- duplication console log: $RESULTS_DIR/jscpd.console.log
+- complexity console log: $RESULTS_DIR/lizard.console.log
+- cppcheck configure log: $RESULTS_DIR/cppcheck.configure.log
+- cppcheck diagnostics: $RESULTS_DIR/cppcheck.log
+- strict mode: $QUALITY_STRICT
+EOF
+}
+
 main() {
   require_quality_dependencies
   mkdir -p "$RESULTS_DIR" "$CACHE_DIR"
@@ -137,16 +229,7 @@ main() {
   run_lizard
   configure_cppcheck_project
   run_cppcheck
-
-  cat <<EOF | tee "$RESULTS_DIR/summary.txt"
-[quality] ok
-- duplication report: $RESULTS_DIR/jscpd
-- duplication console log: $RESULTS_DIR/jscpd.console.log
-- complexity console log: $RESULTS_DIR/lizard.console.log
-- cppcheck configure log: $RESULTS_DIR/cppcheck.configure.log
-- cppcheck diagnostics: $RESULTS_DIR/cppcheck.log
-- strict mode: $QUALITY_STRICT
-EOF
+  write_summary
 }
 
 main "$@"

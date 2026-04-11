@@ -20,6 +20,10 @@
     - `lizard`：圈复杂度、函数长度、参数数量扫描
     - `cppcheck`：基于 `compile_commands.json` 的静态检查
   - 输出默认落到 `results/quality/`
+  - `summary.txt` 会直接汇总：
+    - duplication 百分比
+    - `lizard` warning 数
+    - `cppcheck` 按 severity 的计数
   - 默认是报告模式，不把已有告警直接升级为 gate failure
   - 若要切为严格模式，可设置：
     - `GPU_MODEL_QUALITY_STRICT=1`
