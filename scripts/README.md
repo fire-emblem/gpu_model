@@ -19,6 +19,9 @@
     - `jscpd`：重复代码检测与重复率报告
     - `lizard`：圈复杂度、函数长度、参数数量扫描
     - `cppcheck`：基于 `compile_commands.json` 的静态检查
+  - 执行顺序：
+    - 先生成 `cppcheck` 所需的 `compile_commands.json`
+    - 再并行运行 `jscpd` / `lizard` / `cppcheck`
   - 输出默认落到 `results/quality/`
   - `summary.txt` 会直接汇总：
     - duplication 百分比

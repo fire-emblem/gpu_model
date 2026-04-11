@@ -130,6 +130,36 @@ run_cppcheck() {
   cppcheck "${cppcheck_args[@]}" 2>&1 | tee "$RESULTS_DIR/cppcheck.log"
 }
 
+run_parallel_quality_checks() {
+  local failures=()
+
+  log "run jscpd, lizard, and cppcheck in parallel"
+  run_jscpd &
+  local jscpd_pid=$!
+
+  run_lizard &
+  local lizard_pid=$!
+
+  run_cppcheck &
+  local cppcheck_pid=$!
+
+  if ! wait "$jscpd_pid"; then
+    failures+=("jscpd")
+  fi
+
+  if ! wait "$lizard_pid"; then
+    failures+=("lizard")
+  fi
+
+  if ! wait "$cppcheck_pid"; then
+    failures+=("cppcheck")
+  fi
+
+  if [ "${#failures[@]}" -ne 0 ]; then
+    fail "quality checks failed: ${failures[*]}"
+  fi
+}
+
 write_summary() {
   local jscpd_summary="jscpd summary unavailable"
   local lizard_summary="lizard summary unavailable"
@@ -225,10 +255,8 @@ main() {
   require_quality_dependencies
   mkdir -p "$RESULTS_DIR" "$CACHE_DIR"
   ensure_lizard
-  run_jscpd
-  run_lizard
   configure_cppcheck_project
-  run_cppcheck
+  run_parallel_quality_checks
   write_summary
 }
 
