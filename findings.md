@@ -218,6 +218,26 @@
   - 再做 `ProgramCycleStats`、stall taxonomy、`ready / selected / issue` 与 timeline 解释面
   - representative kernel / example 继续作为 cycle calibration baseline
   - trace/log 服务于 cycle observability，但不反向定义业务语义
+- 新一轮全仓架构审视结论：
+  - 当前项目的大方向基本正确，但代码层仍处于“设计已收口、边界未完全落地”的半收口状态
+  - 最严重的结构问题不是单个文件大，而是：
+    - 公共头与 `internal/*` 仍相互泄漏
+    - `ExecEngine / ModelRuntime / RuntimeSession` 都偏总控类
+    - `MemorySystem / DeviceMemoryManager / ModelRuntime` 之间仍有状态所有权重叠
+    - `ObjectReader / encoded_program_object.cpp` 仍把 artifact 提取、外部工具调用、解析和组装耦在一起
+    - execution 共享状态层还未完全从 trace / eligibility 等实现细节中纯化出来
+    - 构建层仍只有一个大静态库和一个大测试二进制，无法帮助守住模块边界
+- 直接证据已经核对：
+  - `src/gpu_model/execution/functional_exec_engine.h` 直接依赖 `execution/internal/semantics.h`
+  - `src/gpu_model/execution/cycle_exec_engine.h` 直接依赖 `execution/internal/execution_engine.h`
+  - `src/gpu_model/arch/gpu_arch_spec.h` 直接依赖 `execution/internal/issue_model.h`
+  - `src/gpu_model/runtime/exec_engine.h` 直接依赖 `cycle_exec_engine.h`
+  - `src/gpu_model/execution/program_object_exec_engine.h` 通过 `CycleTimingConfig` 被 cycle 头绑定
+  - `src/program/encoded_program_object.cpp` 内同时存在 `RunCommand/popen`、临时目录管理、fatbin 提取、ELF 解析和 `ProgramObject` 组装
+- 已新增正式分析文档：
+  - `docs/architecture/project_architecture_refactor_analysis.md`
+  - 文档已补充 Phase 1 到 Phase 5 的完成判定，避免后续重构只停留在方向描述
+  - `docs/README.md` 已接入该文档，作为当前主文档阅读顺序的一部分
   - runtime / memory / ISA 作为 dependency-driven supplement，而不是默认前置关键路径
 - 本轮 cycle-first 推进中又补齐了一处真实缺口：
   - modeled-kernel 的 `ExecutionMode::Cycle` 路径此前不会回填 `result.program_cycle_stats`

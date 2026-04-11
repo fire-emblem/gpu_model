@@ -11,6 +11,7 @@
 - [README.md](/data/gpu_model/README.md)
 - [task_plan.md](/data/gpu_model/task_plan.md)
 - [my_design.md](/data/gpu_model/docs/my_design.md)
+- [architecture/project_architecture_refactor_analysis.md](/data/gpu_model/docs/architecture/project_architecture_refactor_analysis.md)
 - [cycle-issue-eligibility-policy.md](/data/gpu_model/docs/cycle-issue-eligibility-policy.md)
 - [cycle-issue-design-gap-analysis.md](/data/gpu_model/docs/cycle-issue-design-gap-analysis.md)
 - [runtime-layering.md](/data/gpu_model/docs/runtime-layering.md)
@@ -27,6 +28,8 @@
   - 记录参考资料中的 `round_robin / oldest_first` 与当前实现的映射关系
 - [cycle-issue-design-gap-analysis.md](/data/gpu_model/docs/cycle-issue-design-gap-analysis.md)
   - 记录当前 `cycle_exec_engine` 在 wave issue 选择上的主要差距、建议调整方向和实际约束例子
+- [architecture/project_architecture_refactor_analysis.md](/data/gpu_model/docs/architecture/project_architecture_refactor_analysis.md)
+  - 记录全项目层面的架构债、重构优先级、推荐目标形态和各阶段完成判定
 
 正式阅读顺序：
 
@@ -34,13 +37,15 @@
    - 看当前还要做什么
 2. [my_design.md](/data/gpu_model/docs/my_design.md)
    - 看当前正式设计约束和模块语义
-3. [cycle-issue-eligibility-policy.md](/data/gpu_model/docs/cycle-issue-eligibility-policy.md)
+3. [architecture/project_architecture_refactor_analysis.md](/data/gpu_model/docs/architecture/project_architecture_refactor_analysis.md)
+   - 看全项目架构债的优先级、分阶段重构顺序和完成判定
+4. [cycle-issue-eligibility-policy.md](/data/gpu_model/docs/cycle-issue-eligibility-policy.md)
    - 看 `cycle issue` 的正式语义边界与参考口径
-4. [cycle-issue-design-gap-analysis.md](/data/gpu_model/docs/cycle-issue-design-gap-analysis.md)
+5. [cycle-issue-design-gap-analysis.md](/data/gpu_model/docs/cycle-issue-design-gap-analysis.md)
    - 看当前 `cycle issue` 设计目标与现有代码框架之间的差距
-5. [runtime-layering.md](/data/gpu_model/docs/runtime-layering.md)
+6. [runtime-layering.md](/data/gpu_model/docs/runtime-layering.md)
    - 看 runtime 正式分层
-6. [module-development-status.md](/data/gpu_model/docs/module-development-status.md)
+7. [module-development-status.md](/data/gpu_model/docs/module-development-status.md)
    - 看模块完成度、缺口和推进顺序
 
 ## 2. 历史计划 / 实施存档

@@ -4,7 +4,7 @@
 以当前模块设计为基础，将 `cycle time` 与 `cycle model` 准确性作为第一优先级，持续推进 `ProgramCycleStats`、stall taxonomy、`ready/selected/issue` 与 timeline 解释面；runtime API、memory pool / `mmap`、ISA 指令验证改为按 cycle 主线需求驱动的补充项，并将模块交互关系、开发计划和模块开发状态统一记录到正式文档。
 
 ## 当前阶段
-阶段 4
+阶段 6
 
 ## 各阶段
 
@@ -49,6 +49,15 @@
 - [ ] 将新增实现结果及时回写到正式设计和状态文档
 - **状态：** pending
 
+### 阶段 6：全项目架构优化分析
+- [x] 恢复当前规划上下文并核对未同步工作树背景
+- [x] 盘点顶层模块、公共头、实现层和构建层边界
+- [x] 识别当前最主要的架构债：公共/内部边界泄漏、runtime 总控类、状态所有权重叠、artifact ingestion 职责交叉、execution 共享域模型不纯、构建边界过弱
+- [x] 将分析落盘到 `docs/architecture/project_architecture_refactor_analysis.md`
+- [x] 将分析文档接入 `docs/README.md`，并补各阶段完成判定，避免分析文档成为孤立结论
+- [ ] 后续如进入实现，按 Phase 1 `边界清理` 优先推进
+- **状态：** in_progress
+
 ## 当前正式任务清单
 1. `Semantic calibration`
    - 目标：把 `cycle time` 与 `cycle model` 准确性提到第一优先级，让 `st / mt / cycle` 的结果、时间语义和 program-level 解释面保持一致。
@@ -81,6 +90,14 @@
 8. `HipRuntime compatibility naming cleanup`
    - 目标：从语义上移除”interposer 是独立模块”的历史遗留。
    - 当前缺口：仍残留在文件名、测试名、CMake target、日志模块名中。
+
+9. `Architecture boundary cleanup`
+   - 目标：把“正式设计已经确定的边界”真正落实到代码结构、公共头、状态所有权和构建边界中。
+   - 当前缺口：
+     - 公共头仍直接依赖 `internal/*`
+     - `ExecEngine / ModelRuntime / RuntimeSession` 仍偏总控类
+     - `MemorySystem / DeviceMemoryManager / ModelRuntime` 仍有所有权重叠
+     - `ObjectReader / encoded_program_object.cpp` 仍把外部工具调用、解析、组装耦在一起
 
 ## 串行 / 并行划分
 

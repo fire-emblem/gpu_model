@@ -218,16 +218,54 @@
 - 执行的操作：
   - 将历史任务主题提炼为当前正式 task tracks，并重写 `task_plan.md`
   - 将历史设计中稳定成立的约束回写到 `docs/my_design.md`
-  - 将 runtime 正式分层解释收口到 `docs/runtime-layering.md`
-  - 将模块状态文档的“缺口与推进顺序”改写为面向当前正式 task tracks 的表达
-  - 同步更新 `findings.md` 与 `progress.md`
+
+## 会话：2026-04-11
+
+### 阶段 32：全项目架构优化分析
+- **状态：** in_progress
+- 执行的操作：
+  - 恢复 `task_plan.md` / `findings.md` / `progress.md` 上下文，并运行 `session-catchup.py`
+  - 核对当前工作树，确认除分析文档外还存在若干未提交源码改动，本轮不消费这些源码脏改动
+  - 审阅正式设计和状态文档：
+    - `docs/my_design.md`
+    - `docs/module-development-status.md`
+    - `docs/architecture/full_project_architecture_review.md`
+    - `docs/architecture/system_architecture_design.md`
+  - 盘点仓库顶层目录和主模块：
+    - `src/gpu_model/*` 公共头层
+    - `src/runtime/*`
+    - `src/execution/*`
+    - `src/program/*`
+    - `src/debug/*`
+    - `src/memory/*`
+    - `tests/*`
+  - 核对公共头与内部实现泄漏证据：
+    - `functional_exec_engine.h -> execution/internal/semantics.h`
+    - `cycle_exec_engine.h -> execution/internal/execution_engine.h`
+    - `gpu_arch_spec.h -> execution/internal/issue_model.h`
+    - `exec_engine.h -> cycle_exec_engine.h`
+  - 核对 runtime 总控类与隐式状态证据：
+    - `ExecEngineImpl::Launch` 负担过重
+    - `RuntimeSession` 暴露过宽 compatibility 接口
+    - `GetRuntimeSession()` / `RuntimeConfigManager::Instance()` 仍是核心路径中的全局状态
+  - 核对 program/loader 路径职责交叉证据：
+    - `encoded_program_object.cpp` 同时承担外部工具调用、临时目录、fatbin 提取、ELF 解析、`ProgramObject` 组装
+    - `object_reader.cpp` 仍单独承担 asm stem 路径，说明 ingestion pipeline 尚未统一抽象
+  - 核对 memory/trace/build 层结构问题：
+    - `MemorySystem / DeviceMemoryManager / ModelRuntime` 所有权边界仍重叠
+    - `TraceSink` 公共头直接暴露多个具体 sink 类型
+    - CMake 仍是单一 `gpu_model` 大库 + `gpu_model_tests` 大测试二进制
+  - 新增并补强架构分析文档：
+    - `docs/architecture/project_architecture_refactor_analysis.md`
+    - 已补 Phase 1 到 Phase 5 的完成判定
+  - 更新 `docs/README.md`，将该文档接入当前主文档阅读顺序
+  - 更新规划文件，使“全项目架构优化分析”成为可恢复任务，而不是一次性对话结论
 - 创建/修改的文件：
   - `task_plan.md`
-  - `docs/my_design.md`
-  - `docs/runtime-layering.md`
-  - `docs/module-development-status.md`
+  - `docs/README.md`
   - `findings.md`
   - `progress.md`
+  - `docs/architecture/project_architecture_refactor_analysis.md`
 
 ### 阶段 12：历史计划资产继续收紧
 - **状态：** in_progress
