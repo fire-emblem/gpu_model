@@ -1063,6 +1063,9 @@ std::vector<IssueSchedulerCandidate> BuildResidentIssueCandidates(
                 .age_order_key = WaveAgeOrderKey(*scheduled_wave, cycle),
                 .issue_type = ArchitecturalIssueType::Special,
                 .ready = false,
+                .eligible_since_cycle = scheduled_wave->eligible_since_valid ? scheduled_wave->eligible_since_cycle : 0,
+                .next_issue_earliest_global_cycle = scheduled_wave->next_issue_cycle,
+                .blocked_reason = IssueBlockedReason::WaveWaiting,
             });
             continue;
           }
@@ -1078,6 +1081,11 @@ std::vector<IssueSchedulerCandidate> BuildResidentIssueCandidates(
         .age_order_key = WaveAgeOrderKey(*scheduled_wave, cycle),
         .issue_type = issue_type,
         .ready = ready,
+        .eligible_since_cycle = scheduled_wave->eligible_since_valid ? scheduled_wave->eligible_since_cycle : 0,
+        .next_issue_earliest_global_cycle = scheduled_wave->next_issue_cycle,
+        .blocked_reason = ready ? IssueBlockedReason::None
+                                 : (timing_ready ? IssueBlockedReason::WaveWaiting
+                                                 : IssueBlockedReason::NotYetEligible),
     });
   }
 
