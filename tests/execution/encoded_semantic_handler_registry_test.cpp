@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 
+#include <string>
+
 #include "gpu_model/execution/encoded_semantic_handler.h"
 #include "gpu_model/instruction/encoded/decoded_instruction.h"
 
@@ -39,6 +41,26 @@ TEST(EncodedSemanticHandlerRegistryTest, ResolvesFromDecodedInstruction) {
   instruction.encoding_id = 18;
   instruction.mnemonic = "global_load_dword";
   EXPECT_NO_THROW((void)EncodedSemanticHandlerRegistry::Get(instruction));
+}
+
+TEST(EncodedSemanticHandlerRegistryTest, UnsupportedErrorIncludesBinaryAndAsmText) {
+  DecodedInstruction instruction;
+  instruction.pc = 0x1200;
+  instruction.size_bytes = 4;
+  instruction.words = {0xbe800101u};
+  instruction.mnemonic = "unsupported_test_opcode";
+  instruction.asm_op = "s_brev_b32";
+  instruction.asm_text = "s_brev_b32 s0, s1";
+
+  try {
+    (void)EncodedSemanticHandlerRegistry::Get(instruction);
+    FAIL() << "expected unsupported opcode to throw";
+  } catch (const std::invalid_argument& error) {
+    const std::string message = error.what();
+    EXPECT_NE(message.find("unsupported raw GCN opcode"), std::string::npos);
+    EXPECT_NE(message.find("0xbe800101"), std::string::npos);
+    EXPECT_NE(message.find("s_brev_b32 s0, s1"), std::string::npos);
+  }
 }
 
 }  // namespace

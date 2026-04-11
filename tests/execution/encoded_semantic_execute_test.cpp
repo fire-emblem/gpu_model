@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "gpu_model/execution/encoded_semantic_handler.h"
+#include "gpu_model/instruction/encoded/internal/encoded_gcn_db_lookup.h"
 
 namespace gpu_model {
 namespace {
@@ -378,6 +379,16 @@ TEST_F(EncodedSemanticExecuteTest, ExecutesScalarCompareInstructionsAndWritesScc
 
   {
     Harness harness;
+    harness.wave.sgpr.Write(0, 1u);
+    harness.wave.sgpr.Write(1, 0u);
+    auto compare = Inst("s_cmp_lg_u64", 126, {SRange(0, 2), Imm(0)}, 0x172a, 4, {0xbf138000u});
+    harness.wave.pc = compare.pc;
+    EncodedSemanticHandlerRegistry::Get(compare).Execute(compare, harness.context);
+    EXPECT_TRUE(harness.wave.ScalarMaskBit0());
+  }
+
+  {
+    Harness harness;
     harness.wave.sgpr.Write(1, static_cast<uint32_t>(7));
     harness.wave.sgpr.Write(2, static_cast<uint32_t>(-3));
     auto compare = Inst("s_cmp_gt_i32", 0, {SReg(1), SReg(2)}, 0x172c, 4, {0xbf020201u});
@@ -433,6 +444,16 @@ TEST_F(EncodedSemanticExecuteTest, ExecutesRepresentativeSop2ScalarAluInstructio
     harness.wave.pc = inst.pc;
     EncodedSemanticHandlerRegistry::Get(inst).Execute(inst, harness.context);
     EXPECT_EQ(harness.wave.sgpr.Read(7), 42u);
+  }
+
+  {
+    Harness harness;
+    harness.wave.sgpr.Write(2, static_cast<uint32_t>(-3));
+    harness.wave.sgpr.Write(8, static_cast<uint32_t>(7));
+    auto inst = Inst("s_max_i32", 125, {SReg(2), SReg(2), SReg(8)}, 0x176e, 4, {0x84020802u});
+    harness.wave.pc = inst.pc;
+    EncodedSemanticHandlerRegistry::Get(inst).Execute(inst, harness.context);
+    EXPECT_EQ(harness.wave.sgpr.Read(2), 7u);
   }
 
   {
@@ -731,6 +752,48 @@ TEST_F(EncodedSemanticExecuteTest, ExecutesAdditionalVectorCompareInstructions) 
     harness.wave.pc = compare.pc;
     EncodedSemanticHandlerRegistry::Get(compare).Execute(compare, harness.context);
     EXPECT_EQ(harness.vcc & 0x1ull, 0x1ull);
+  }
+}
+
+TEST_F(EncodedSemanticExecuteTest, ExecutesAsmBoundVectorLaneReadAndE64CompareInstructions) {
+  {
+    Harness harness;
+    harness.wave.vgpr.Write(0, 3, 0xdeadbeefu);
+    harness.wave.sgpr.Write(3, 3u);
+
+    auto inst = Inst("v_readlane_b32",
+                     128,
+                     {SReg(8), VReg(0), SReg(3)},
+                     0x1750,
+                     8,
+                     {0xd2890008u, 0x00000700u});
+    harness.wave.pc = inst.pc;
+    EncodedSemanticHandlerRegistry::Get(inst).Execute(inst, harness.context);
+
+    EXPECT_EQ(harness.wave.sgpr.Read(8), 0xdeadbeefu);
+    EXPECT_EQ(harness.wave.pc, 0x1758u);
+  }
+
+  {
+    Harness harness;
+    harness.wave.exec.reset();
+    harness.wave.exec.set(0);
+    harness.wave.exec.set(1);
+    harness.wave.vgpr.Write(0, 0, 0u);
+    harness.wave.vgpr.Write(0, 1, 7u);
+
+    auto inst = Inst("v_cmp_eq_u32_e64",
+                     127,
+                     {SRange(0, 2), Imm(0), VReg(0)},
+                     0x1758,
+                     8,
+                     {0xd0ca0000u, 0x00020080u});
+    harness.wave.pc = inst.pc;
+    EncodedSemanticHandlerRegistry::Get(inst).Execute(inst, harness.context);
+
+    EXPECT_EQ(harness.wave.sgpr.Read(0), 0x1u);
+    EXPECT_EQ(harness.wave.sgpr.Read(1), 0u);
+    EXPECT_EQ(harness.wave.pc, 0x1760u);
   }
 }
 
@@ -1311,7 +1374,10 @@ TEST_F(EncodedSemanticExecuteTest, ExecutesGlobalAtomicAddAndReturnsOldValue) {
   harness.wave.vgpr.Write(1, 0, 5u);
   harness.wave.vgpr.Write(1, 1, 7u);
 
-  auto atomic_add = Inst("global_atomic_add", 84, {VReg(0), VReg(1), SRange(2, 2)}, 0x1800, 8);
+  const auto* atomic_add_def = FindGeneratedGcnInstDefByMnemonic("global_atomic_add");
+  ASSERT_NE(atomic_add_def, nullptr);
+  auto atomic_add = Inst("global_atomic_add", atomic_add_def->id, {VReg(0), VReg(1), SRange(2, 2)},
+                         0x1800, 8);
   harness.wave.pc = atomic_add.pc;
   EncodedSemanticHandlerRegistry::Get(atomic_add).Execute(atomic_add, harness.context);
 
@@ -1321,6 +1387,145 @@ TEST_F(EncodedSemanticExecuteTest, ExecutesGlobalAtomicAddAndReturnsOldValue) {
   EXPECT_EQ(harness.stats.global_loads, 1u);
   EXPECT_EQ(harness.stats.global_stores, 1u);
   EXPECT_EQ(harness.wave.pc, 0x1808u);
+}
+
+TEST_F(EncodedSemanticExecuteTest, ExecutesSharedAtomicAddWithoutReturnWriteback) {
+  Harness harness;
+  harness.wave.thread_count = 2;
+  harness.wave.exec.reset();
+  harness.wave.exec.set(0);
+  harness.wave.exec.set(1);
+
+  const uint32_t initial = 10u;
+  std::memcpy(harness.shared_memory.data(), &initial, sizeof(initial));
+  harness.wave.vgpr.Write(4, 0, 0u);
+  harness.wave.vgpr.Write(4, 1, 0u);
+  harness.wave.vgpr.Write(5, 0, 3u);
+  harness.wave.vgpr.Write(5, 1, 7u);
+
+  const auto* atomic_add_def = FindGeneratedGcnInstDefByMnemonic("ds_add_u32");
+  ASSERT_NE(atomic_add_def, nullptr);
+  auto atomic_add = Inst("ds_add_u32", atomic_add_def->id, {VReg(4), VReg(5)}, 0x1810, 8);
+  harness.wave.pc = atomic_add.pc;
+  EncodedSemanticHandlerRegistry::Get(atomic_add).Execute(atomic_add, harness.context);
+
+  uint32_t actual = 0;
+  std::memcpy(&actual, harness.shared_memory.data(), sizeof(actual));
+  EXPECT_EQ(actual, 20u);
+  EXPECT_EQ(harness.wave.vgpr.Read(4, 0), 0u);
+  EXPECT_EQ(harness.wave.vgpr.Read(4, 1), 0u);
+  EXPECT_EQ(harness.wave.vgpr.Read(5, 0), 3u);
+  EXPECT_EQ(harness.wave.vgpr.Read(5, 1), 7u);
+  EXPECT_EQ(harness.stats.shared_loads, 1u);
+  EXPECT_EQ(harness.stats.shared_stores, 1u);
+  EXPECT_EQ(harness.wave.pc, 0x1818u);
+}
+
+TEST_F(EncodedSemanticExecuteTest, ExecutesSharedAtomicAddAcrossMultipleAddressesInOneWave) {
+  Harness harness;
+  harness.wave.thread_count = kWaveSize;
+  harness.wave.ResetInitialExec();
+
+  for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+    harness.wave.vgpr.Write(4, lane, static_cast<uint32_t>((lane % 8u) * sizeof(uint32_t)));
+    harness.wave.vgpr.Write(5, lane, 1u);
+  }
+
+  const auto* atomic_add_def = FindGeneratedGcnInstDefByMnemonic("ds_add_u32");
+  ASSERT_NE(atomic_add_def, nullptr);
+  auto atomic_add = Inst("ds_add_u32", atomic_add_def->id, {VReg(4), VReg(5)}, 0x1820, 8);
+  harness.wave.pc = atomic_add.pc;
+  EncodedSemanticHandlerRegistry::Get(atomic_add).Execute(atomic_add, harness.context);
+
+  for (uint32_t bin = 0; bin < 8; ++bin) {
+    uint32_t actual = 0;
+    std::memcpy(&actual,
+                harness.shared_memory.data() + bin * sizeof(uint32_t),
+                sizeof(actual));
+    EXPECT_EQ(actual, 8u) << "bin=" << bin;
+  }
+  EXPECT_EQ(harness.stats.shared_loads, 1u);
+  EXPECT_EQ(harness.stats.shared_stores, 1u);
+  EXPECT_EQ(harness.wave.pc, 0x1828u);
+}
+
+TEST_F(EncodedSemanticExecuteTest, ExecutesHistogramObserveTailForNonZeroBlock) {
+  Harness harness;
+  harness.wave.thread_count = kWaveSize;
+  harness.wave.ResetInitialExec();
+
+  const uint64_t observe_base = harness.memory.AllocateGlobal(40u * sizeof(uint32_t));
+  harness.wave.sgpr.Write(3, 8u);   // bins
+  harness.wave.sgpr.Write(6, 1u);   // blockIdx.x
+  harness.wave.sgpr.Write(7, 4u);   // gridDim.x
+  harness.wave.sgpr.Write(10, static_cast<uint32_t>(observe_base));
+  harness.wave.sgpr.Write(11, static_cast<uint32_t>(observe_base >> 32u));
+  harness.vcc = 0xffu;  // only lanes 0..7 write block/global hist
+
+  for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+    harness.wave.vgpr.Write(0, lane, lane);
+    harness.wave.vgpr.Write(1, lane, lane * sizeof(uint32_t));
+  }
+  for (uint32_t bin = 0; bin < 8; ++bin) {
+    uint32_t count = 8u;
+    std::memcpy(harness.shared_memory.data() + bin * sizeof(uint32_t), &count, sizeof(count));
+  }
+
+  auto mask = Inst("s_and_saveexec_b64", 9, {SRange(0, 2), Special(GcnSpecialReg::Vcc)}, 0x1900, 4);
+  auto ds_read = Inst("ds_read_b32", 31, {VReg(4), VReg(1)}, 0x1904, 8);
+  auto s_mul_block = Inst("s_mul_i32", 6, {SReg(2), SReg(3), SReg(6)}, 0x190c, 4,
+                          {EncodeSop2Word(/*opcode=*/36, /*sdst=*/2, /*ssrc0=*/3, /*ssrc1=*/6)});
+  auto v_add_block = Inst("v_add_u32_e32", 7, {VReg(2), SReg(2), VReg(0)}, 0x1910, 4);
+  auto v_zero = Inst("v_mov_b32_e32", 13, {VReg(3), Imm(0)}, 0x1914, 4);
+  auto s_mul_global = Inst("s_mul_i32", 6, {SReg(0), SReg(7), SReg(3)}, 0x1918, 4,
+                           {EncodeSop2Word(/*opcode=*/36, /*sdst=*/0, /*ssrc0=*/7, /*ssrc1=*/3)});
+  auto s_mov_zero = Inst("s_mov_b32", 53, {SReg(1), Imm(0)}, 0x191c, 4);
+  auto v_shift_pair = Inst("v_lshlrev_b64", 17, {VRange(2, 2), Imm(2), VRange(2, 2)}, 0x1920, 8);
+  auto s_shift_pair = Inst("s_lshl_b64", 73, {SRange(0, 2), SRange(0, 2), Imm(2)}, 0x1928, 4,
+                           {EncodeSop2Word(/*opcode=*/46, /*sdst=*/0, /*ssrc0=*/0, /*ssrc1=*/255)});
+  auto v_mov_hi = Inst("v_mov_b32_e32", 13, {VReg(0), SReg(11)}, 0x192c, 4);
+  auto v_add_store_lo = Inst("v_add_co_u32_e32", 15, {VReg(2), Special(GcnSpecialReg::Vcc), SReg(10), VReg(2)},
+                             0x1930, 4);
+  auto s_add_global_lo = Inst("s_add_u32", 69, {SReg(0), SReg(10), SReg(0)}, 0x1934, 4,
+                              {EncodeSop2Word(/*opcode=*/0, /*sdst=*/0, /*ssrc0=*/10, /*ssrc1=*/0)});
+  auto v_add_store_hi = Inst("v_addc_co_u32_e32",
+                             16,
+                             {VReg(3), Special(GcnSpecialReg::Vcc), VReg(0), VReg(3), Special(GcnSpecialReg::Vcc)},
+                             0x1938,
+                             4);
+  auto s_add_global_hi = Inst("s_addc_u32", 70, {SReg(1), SReg(11), SReg(1)}, 0x193c, 4,
+                              {EncodeSop2Word(/*opcode=*/1, /*sdst=*/1, /*ssrc0=*/11, /*ssrc1=*/1)});
+  auto global_store = Inst("global_store_dword", 19, {VRange(2, 2), VReg(4)}, 0x1940, 8);
+  auto global_atomic =
+      Inst("global_atomic_add", 100, {VReg(1), VReg(4), SRange(0, 2)}, 0x1948, 8);
+  global_atomic.asm_text = "global_atomic_add v1, v4, s[0:1]";
+
+  for (auto* inst : {&mask,
+                     &ds_read,
+                     &s_mul_block,
+                     &v_add_block,
+                     &v_zero,
+                     &s_mul_global,
+                     &s_mov_zero,
+                     &v_shift_pair,
+                     &s_shift_pair,
+                     &v_mov_hi,
+                     &v_add_store_lo,
+                     &s_add_global_lo,
+                     &v_add_store_hi,
+                     &s_add_global_hi,
+                     &global_store,
+                     &global_atomic}) {
+    harness.wave.pc = inst->pc;
+    EncodedSemanticHandlerRegistry::Get(*inst).Execute(*inst, harness.context);
+  }
+
+  for (uint32_t bin = 0; bin < 8; ++bin) {
+    EXPECT_EQ(harness.memory.LoadGlobalValue<uint32_t>(observe_base + (8u + bin) * sizeof(uint32_t)), 8u)
+        << "block_hist bin=" << bin;
+    EXPECT_EQ(harness.memory.LoadGlobalValue<uint32_t>(observe_base + (32u + bin) * sizeof(uint32_t)), 8u)
+        << "global_hist bin=" << bin;
+  }
 }
 
 }  // namespace

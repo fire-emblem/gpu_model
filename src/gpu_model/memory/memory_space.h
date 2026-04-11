@@ -17,4 +17,11 @@ enum class AccessKind {
   AsyncStore,
 };
 
+enum class AtomicOp {
+  Add,
+  Max,
+  Min,
+  Exch,
+};
+
 }  // namespace gpu_model

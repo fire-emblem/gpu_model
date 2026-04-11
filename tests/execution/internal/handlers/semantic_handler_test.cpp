@@ -9,7 +9,7 @@ namespace gpu_model {
 namespace {
 
 TEST(SemanticHandlerTest, DispatchesBuiltinAndScalarAluFamilies) {
-  const auto spec = ArchRegistry::Get("c500");
+  const auto spec = ArchRegistry::Get("mac500");
   ASSERT_NE(spec, nullptr);
 
   InstructionBuilder builder;

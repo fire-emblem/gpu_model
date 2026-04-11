@@ -19,6 +19,7 @@
 #include "gpu_model/program/program_object.h"
 #include "gpu_model/runtime/hip_runtime.h"
 #include "gpu_model/runtime/model_runtime.h"
+#include "gpu_model/target/amdgpu_target_config.h"
 #include "tests/test_utils/hipcc_cache_test_utils.h"
 
 namespace gpu_model {
@@ -77,7 +78,8 @@ std::filesystem::path AssembleLlvmMcFixture(const std::string& stem,
     out << ReadTextFile(fixture_path);
   }
   const std::string command =
-      "llvm-mc -triple=amdgcn-amd-amdhsa -mcpu=gfx900 -filetype=obj " +
+      "llvm-mc -triple=" + std::string(kProjectAmdgpuTriple) + " -mcpu=" +
+      std::string(kProjectAmdgpuMcpu) + " -filetype=obj " +
       ShellQuote(asm_path) + " -o " + ShellQuote(obj_path);
   if (std::system(command.c_str()) != 0) {
     throw std::runtime_error("llvm-mc failed for fixture: " + fixture_path.string());
@@ -195,7 +197,7 @@ TEST(ModelRuntimeCoreTest, SimulatesMallocMemcpyLaunchAndSynchronizeFlow) {
         s_restoreexec_b64 s10
         s_endpgm
       )",
-      MetadataBlob{.values = {{"arch", "c500"}}});
+      MetadataBlob{.values = {{"arch", "mac500"}}});
 
   std::vector<int32_t> a(n), b(n), c(n, -1);
   for (uint32_t i = 0; i < n; ++i) {
@@ -244,7 +246,7 @@ TEST(ModelRuntimeCoreTest, ExposesModelDevicePropertiesAndAttributes) {
   EXPECT_FALSE(runtime_api.SetDevice(1));
 
   const auto props = runtime_api.GetDeviceProperties(0);
-  EXPECT_EQ(props.name, "c500");
+  EXPECT_EQ(props.name, "mac500");
   EXPECT_EQ(props.warp_size, 64);
   EXPECT_EQ(props.max_threads_per_block, 1024);
   EXPECT_EQ(props.multi_processor_count, 104);
@@ -324,7 +326,7 @@ TEST(ModelRuntimeCoreTest, RegistersProgramObjectsAndLaunchesByModuleAndKernelNa
   ProgramObject image(
       "const_from_registry",
       R"(
-        .meta arch=c500
+        .meta arch=mac500
         s_load_kernarg s0, 0
         s_load_kernarg s1, 1
         v_get_global_id_x v0
@@ -347,7 +349,7 @@ TEST(ModelRuntimeCoreTest, RegistersProgramObjectsAndLaunchesByModuleAndKernelNa
   const_segment.bytes.resize(table.size() * sizeof(int32_t));
   std::memcpy(const_segment.bytes.data(), table.data(), const_segment.bytes.size());
   ProgramObject image_with_const(image.kernel_name(), image.assembly_text(),
-                                MetadataBlob{.values = {{"arch", "c500"}}},
+                                MetadataBlob{.values = {{"arch", "mac500"}}},
                                 std::move(const_segment));
   ExecutableImageIO::Write(image_path, image_with_const);
 
@@ -460,7 +462,7 @@ TEST(ModelRuntimeCoreTest, LaunchProgramObjectUsesLatestConstantPoolResidency) {
     return ProgramObject(
         kernel_name,
         R"(
-          .meta arch=c500
+          .meta arch=mac500
           s_load_kernarg s0, 0
           s_load_kernarg s1, 1
           v_get_global_id_x v0
@@ -474,7 +476,7 @@ TEST(ModelRuntimeCoreTest, LaunchProgramObjectUsesLatestConstantPoolResidency) {
           s_restoreexec_b64 s10
           s_endpgm
         )",
-        MetadataBlob{.values = {{"arch", "c500"}}}, std::move(const_segment));
+        MetadataBlob{.values = {{"arch", "mac500"}}}, std::move(const_segment));
   };
 
   ModelRuntime runtime_api;
@@ -595,7 +597,7 @@ TEST(ModelRuntimeCoreTest, LoadsSectionedExecutableImageAndLaunchesRegisteredKer
   ProgramObject image(
       "sectioned_registry_kernel",
       R"(
-        .meta arch=c500
+        .meta arch=mac500
         s_load_kernarg s0, 0
         s_load_kernarg s1, 1
         v_get_global_id_x v0
@@ -609,7 +611,7 @@ TEST(ModelRuntimeCoreTest, LoadsSectionedExecutableImageAndLaunchesRegisteredKer
         s_restoreexec_b64 s10
         s_endpgm
       )",
-      MetadataBlob{.values = {{"arch", "c500"}}});
+      MetadataBlob{.values = {{"arch", "mac500"}}});
 
   ExecutableImageIO::Write(path, image);
 
@@ -651,7 +653,7 @@ TEST(HipRuntimeTest, LoadsBundleAndLooseFilesByModuleAndCanUnload) {
   ProgramObject bundle_image(
       "bundle_kernel",
       R"(
-        .meta arch=c500
+        .meta arch=mac500
         s_load_kernarg s0, 0
         s_load_kernarg s1, 1
         v_get_global_id_x v0
@@ -665,7 +667,7 @@ TEST(HipRuntimeTest, LoadsBundleAndLooseFilesByModuleAndCanUnload) {
         s_restoreexec_b64 s10
         s_endpgm
       )",
-      MetadataBlob{.values = {{"arch", "c500"}}});
+      MetadataBlob{.values = {{"arch", "mac500"}}});
   const auto bundle_path = temp_dir / "bundle_kernel.gpubin";
   ProgramBundleIO::Write(bundle_path, bundle_image);
 
@@ -690,7 +692,7 @@ TEST(HipRuntimeTest, LoadsBundleAndLooseFilesByModuleAndCanUnload) {
   {
     std::ofstream meta_file(temp_dir / "stem_kernel.gasm.meta");
     ASSERT_TRUE(static_cast<bool>(meta_file));
-    meta_file << "arch=c500\n";
+    meta_file << "arch=mac500\n";
   }
 
   HipRuntime hooks;
@@ -802,7 +804,8 @@ TEST(ModelRuntimeCoreTest, LaunchesAmdgpuObjectFileThroughObjectReaderPath) {
   }
 
   const std::string command =
-      "llc -march=amdgcn -mcpu=gfx900 -filetype=obj " + ir_path.string() + " -o " + obj_path.string();
+      "llc -march=amdgcn -mcpu=" + std::string(kProjectAmdgpuMcpu) + " -filetype=obj " +
+      ir_path.string() + " -o " + obj_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   ModelRuntime runtime_api;
@@ -844,7 +847,7 @@ TEST(ModelRuntimeCoreTest, LaunchesHipExecutableWithEmbeddedFatbin) {
       LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
       {},
       ExecutionMode::Functional,
-      "c500",
+      "mac500",
       nullptr);
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -1013,7 +1016,7 @@ TEST(ModelRuntimeCoreTest, LaunchesRegisteredEncodedObjectModule) {
       },
       std::move(args),
       ExecutionMode::Functional,
-      "c500");
+      "mac500");
   ASSERT_TRUE(result.ok) << result.error_message;
 
   runtime_api.MemcpyDtoH<float>(c_addr, std::span<float>(c));
@@ -1068,7 +1071,7 @@ TEST(HipRuntimeTest, LaunchProgramObjectPopulatesLastLoadResult) {
       LaunchConfig{.grid_dim_x = 2, .block_dim_x = 64},
       std::move(args),
       ExecutionMode::Functional,
-      "c500",
+      "mac500",
       nullptr);
   ASSERT_TRUE(result.ok) << result.error_message;
   ASSERT_TRUE(result.program_cycle_stats.has_value());
@@ -1143,7 +1146,7 @@ TEST(HipRuntimeTest, EncodedCycleLaunchEmitsAdvancingTraceCycles) {
       LaunchConfig{.grid_dim_x = 2, .block_dim_x = 64},
       std::move(args),
       ExecutionMode::Cycle,
-      "c500",
+      "mac500",
       &trace);
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -1212,7 +1215,7 @@ TEST(HipRuntimeTest, EncodedCycleLaunchReportsCacheAndSharedBankStats) {
       LaunchConfig{.grid_dim_x = 2, .block_dim_x = 64},
       std::move(args),
       ExecutionMode::Cycle,
-      "c500",
+      "mac500",
       nullptr);
   ASSERT_TRUE(result.ok) << result.error_message;
   EXPECT_GT(result.stats.global_loads, 0u);
@@ -1272,7 +1275,7 @@ TEST(HipRuntimeTest, EncodedCycleLaunchEmitsArriveTraceForMemoryOps) {
       LaunchConfig{.grid_dim_x = 2, .block_dim_x = 64},
       std::move(args),
       ExecutionMode::Cycle,
-      "c500",
+      "mac500",
       &trace);
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -1293,7 +1296,7 @@ TEST(HipRuntimeTest, EncodedCycleRespectsApResidentBlockLimit) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
 
-  const auto spec = ArchRegistry::Get("c500");
+  const auto spec = ArchRegistry::Get("mac500");
   ASSERT_NE(spec, nullptr);
 
   const auto temp_dir = MakeUniqueTempDir("gpu_model_runtime_cycle_resident_blocks");
@@ -1327,7 +1330,7 @@ TEST(HipRuntimeTest, EncodedCycleRespectsApResidentBlockLimit) {
       },
       {},
       ExecutionMode::Cycle,
-      "c500",
+      "mac500",
       &trace);
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -1352,7 +1355,7 @@ TEST(HipRuntimeTest, EncodedCycleDelaysBackfillByBlockLaunchTiming) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
 
-  const auto spec = ArchRegistry::Get("c500");
+  const auto spec = ArchRegistry::Get("mac500");
   ASSERT_NE(spec, nullptr);
 
   const auto temp_dir = MakeUniqueTempDir("gpu_model_runtime_cycle_block_launch_delay");
@@ -1392,7 +1395,7 @@ TEST(HipRuntimeTest, EncodedCycleDelaysBackfillByBlockLaunchTiming) {
       },
       {},
       ExecutionMode::Cycle,
-      "c500",
+      "mac500",
       &trace);
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -1447,7 +1450,7 @@ TEST(HipRuntimeTest, EncodedCycleEmitsWarpSwitchStallBetweenTwoWaves) {
       LaunchConfig{.grid_dim_x = 1, .block_dim_x = 320},
       std::move(args),
       ExecutionMode::Cycle,
-      "c500",
+      "mac500",
       &trace);
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -1468,7 +1471,7 @@ TEST(HipRuntimeTest, EncodedCycleStandbyBlockDoesNotLaunchUntilActiveSlotOpens) 
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
 
-  const auto spec = ArchRegistry::Get("c500");
+  const auto spec = ArchRegistry::Get("mac500");
   ASSERT_NE(spec, nullptr);
 
   const auto temp_dir = MakeUniqueTempDir("gpu_model_runtime_cycle_standby_launch");
@@ -1503,7 +1506,7 @@ TEST(HipRuntimeTest, EncodedCycleStandbyBlockDoesNotLaunchUntilActiveSlotOpens) 
       LaunchConfig{.grid_dim_x = 1 + spec->total_ap_count(), .block_dim_x = 1024},
       std::move(args),
       ExecutionMode::Cycle,
-      "c500",
+      "mac500",
       &trace);
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -1528,7 +1531,7 @@ TEST(HipRuntimeTest, EncodedCycleStandbyWavePromotesAfterActiveWaveExits) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
 
-  const auto spec = ArchRegistry::Get("c500");
+  const auto spec = ArchRegistry::Get("mac500");
   ASSERT_NE(spec, nullptr);
 
   const auto temp_dir = MakeUniqueTempDir("gpu_model_runtime_cycle_standby_promote");
@@ -1563,7 +1566,7 @@ TEST(HipRuntimeTest, EncodedCycleStandbyWavePromotesAfterActiveWaveExits) {
       LaunchConfig{.grid_dim_x = spec->total_ap_count() + 1, .block_dim_x = 1024},
       std::move(args),
       ExecutionMode::Cycle,
-      "c500",
+      "mac500",
       &trace);
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -1583,7 +1586,7 @@ TEST(HipRuntimeTest, EncodedCycleBarrierWaitingWaveYieldsActiveSlotUntilRelease)
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
 
-  const auto spec = ArchRegistry::Get("c500");
+  const auto spec = ArchRegistry::Get("mac500");
   ASSERT_NE(spec, nullptr);
 
   const auto temp_dir = MakeUniqueTempDir("gpu_model_runtime_cycle_barrier_yield");
@@ -1621,7 +1624,7 @@ TEST(HipRuntimeTest, EncodedCycleBarrierWaitingWaveYieldsActiveSlotUntilRelease)
       },
       std::move(args),
       ExecutionMode::Cycle,
-      "c500",
+      "mac500",
       &trace);
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -1694,7 +1697,7 @@ TEST(ModelRuntimeCoreTest, LaunchesHipVecAddExecutableAndValidatesOutput) {
       LaunchConfig{.grid_dim_x = 3, .block_dim_x = 128},
       std::move(args),
       ExecutionMode::Functional,
-      "c500",
+      "mac500",
       nullptr);
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -1772,7 +1775,7 @@ TEST(ModelRuntimeCoreTest, LaunchesHipFmaLoopExecutableAndValidatesOutput) {
       LaunchConfig{.grid_dim_x = 3, .block_dim_x = 128},
       std::move(args),
       ExecutionMode::Functional,
-      "c500",
+      "mac500",
       nullptr);
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -1845,7 +1848,7 @@ TEST(ModelRuntimeCoreTest, LaunchesHipBiasChainExecutableAndValidatesOutput) {
       LaunchConfig{.grid_dim_x = 3, .block_dim_x = 64},
       std::move(args),
       ExecutionMode::Functional,
-      "c500",
+      "mac500",
       nullptr);
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -1909,7 +1912,7 @@ TEST(ModelRuntimeCoreTest, LaunchesHipVecAddExecutableAtLargeScaleAndValidatesOu
       LaunchConfig{.grid_dim_x = 30, .block_dim_x = 1024},
       std::move(args),
       ExecutionMode::Functional,
-      "c500",
+      "mac500",
       nullptr);
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -1991,7 +1994,7 @@ TEST(ModelRuntimeCoreTest, LaunchesHipVecAddExecutableAcrossLaunchShapes) {
         LaunchConfig{.grid_dim_x = test_case.grid_dim_x, .block_dim_x = test_case.block_dim_x},
         std::move(args),
         ExecutionMode::Functional,
-        "c500",
+        "mac500",
         nullptr);
     ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -2050,7 +2053,7 @@ TEST(ModelRuntimeCoreTest, LaunchesHipTwoDimensionalExecutable) {
       LaunchConfig{.grid_dim_x = 2, .grid_dim_y = 2, .block_dim_x = 8, .block_dim_y = 4},
       std::move(args),
       ExecutionMode::Functional,
-      "c500",
+      "mac500",
       nullptr);
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -2114,7 +2117,7 @@ TEST(ModelRuntimeCoreTest, LaunchesHipThreeDimensionalHiddenArgsExecutable) {
       },
       std::move(args),
       ExecutionMode::Functional,
-      "c500",
+      "mac500",
       nullptr);
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -2175,7 +2178,7 @@ TEST(ModelRuntimeCoreTest, LaunchesHipThreeDimensionalBuiltinIdsExecutable) {
       },
       std::move(args),
       ExecutionMode::Functional,
-      "c500",
+      "mac500",
       &trace);
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -2262,7 +2265,7 @@ TEST(ModelRuntimeCoreTest, LaunchesHipMixedArgsAggregateExecutable) {
       LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
       std::move(args),
       ExecutionMode::Functional,
-      "c500",
+      "mac500",
       nullptr);
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -2326,7 +2329,7 @@ TEST(ModelRuntimeCoreTest, LaunchesHipDynamicSharedExecutable) {
       },
       std::move(args),
       ExecutionMode::Functional,
-      "c500",
+      "mac500",
       nullptr);
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -2390,7 +2393,7 @@ TEST(ModelRuntimeCoreTest, LaunchesHipAtomicCountExecutable) {
         LaunchConfig{.grid_dim_x = test_case.grid_dim_x, .block_dim_x = test_case.block_dim_x},
         std::move(args),
         ExecutionMode::Functional,
-        "c500",
+        "mac500",
         nullptr);
     ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -2435,7 +2438,7 @@ TEST(ModelRuntimeCoreTest, LaunchesLlvmMcAggregateByValueObject) {
       LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
       std::move(args),
       ExecutionMode::Functional,
-      "c500",
+      "mac500",
       nullptr);
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -2481,7 +2484,7 @@ TEST(ModelRuntimeCoreTest, LaunchesLlvmMcThreeDimensionalHiddenArgsObject) {
       config,
       std::move(args),
       ExecutionMode::Functional,
-      "c500",
+      "mac500",
       nullptr);
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -2515,7 +2518,7 @@ TEST(ModelRuntimeCoreTest, LaunchesLlvmMcFallbackAbiObject) {
       LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
       std::move(args),
       ExecutionMode::Functional,
-      "c500",
+      "mac500",
       &trace);
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -2600,7 +2603,7 @@ TEST(ModelRuntimeCoreTest, LaunchesHipSoftmaxExecutable) {
       LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
       std::move(args),
       ExecutionMode::Functional,
-      "c500",
+      "mac500",
       nullptr);
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -2671,7 +2674,7 @@ TEST(ModelRuntimeCoreTest, LaunchesHipBlockReduceExecutable) {
       LaunchConfig{.grid_dim_x = grid_dim, .block_dim_x = block_dim},
       std::move(args),
       ExecutionMode::Functional,
-      "c500",
+      "mac500",
       nullptr);
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -2710,7 +2713,7 @@ TEST(ModelRuntimeCoreTest, LaunchesHipMfmaExecutable) {
   }
 
   const std::string command =
-      test_utils::HipccCacheCommand() + " --offload-arch=gfx90a " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   if (std::system(command.c_str()) != 0) {
     GTEST_SKIP() << "gfx90a mfma compilation not available";
   }
@@ -2730,7 +2733,7 @@ TEST(ModelRuntimeCoreTest, LaunchesHipMfmaExecutable) {
       LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
       std::move(args),
       ExecutionMode::Functional,
-      "c500",
+      "mac500",
       &trace);
   ASSERT_TRUE(result.ok) << result.error_message;
   runtime_api.MemcpyDtoH<float>(out_addr, std::span<float>(&output, 1));
@@ -2794,7 +2797,7 @@ TEST(ModelRuntimeCoreTest, DescribesHipMfmaExecutableWithTypedTensorAbi) {
   }
 
   const std::string command =
-      test_utils::HipccCacheCommand() + " --offload-arch=gfx90a " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   if (std::system(command.c_str()) != 0) {
     GTEST_SKIP() << "gfx90a mfma compilation not available";
   }
@@ -2864,7 +2867,7 @@ TEST(ModelRuntimeCoreTest, LaunchesHipSharedReverseExecutableAndValidatesOutput)
       LaunchConfig{.grid_dim_x = 2, .block_dim_x = 64},
       std::move(args),
       ExecutionMode::Functional,
-      "c500",
+      "mac500",
       nullptr);
   ASSERT_TRUE(result.ok) << result.error_message;
 

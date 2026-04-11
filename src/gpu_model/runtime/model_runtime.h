@@ -55,7 +55,7 @@ class ModelRuntime {
                             LaunchConfig config,
                             KernelArgPack args,
                             ExecutionMode mode = ExecutionMode::Functional,
-                            const std::string& arch_name = "c500",
+                            const std::string& arch_name = "mac500",
                             TraceSink* trace = nullptr,
                             RuntimeSubmissionContext submission_context = {});
   void LoadModule(const ModuleLoadRequest& request);

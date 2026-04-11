@@ -5,13 +5,13 @@
 namespace gpu_model {
 namespace {
 
-TEST(ArchRegistryTest, C500SpecExists) {
-  const auto spec = ArchRegistry::Get("c500");
+TEST(ArchRegistryTest, Mac500SpecExists) {
+  const auto spec = ArchRegistry::Get("mac500");
   EXPECT_NE(spec, nullptr);
 }
 
-TEST(ArchRegistryTest, C500FieldsMatchDesign) {
-  const auto spec = ArchRegistry::Get("c500");
+TEST(ArchRegistryTest, Mac500FieldsMatchDesign) {
+  const auto spec = ArchRegistry::Get("mac500");
   ASSERT_NE(spec, nullptr);
   EXPECT_EQ(spec->wave_size, 64u);
   EXPECT_EQ(spec->dpc_count, 8u);

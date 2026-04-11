@@ -191,7 +191,7 @@ FloatLaunchRunResult RunHeavyVecaddPerfMode(const ProgramObject& image,
       },
       std::move(args),
       ExecutionMode::Functional,
-      "c500",
+      "mac500",
       nullptr);
 
   std::vector<float> output(n);
@@ -286,7 +286,7 @@ TEST(HipccParallelExecutionTest, ThreeDimensionalVecaddAddsMatchesBetweenStAndMt
         },
         std::move(args),
         ExecutionMode::Functional,
-        "c500",
+        "mac500",
         nullptr);
     const auto end = std::chrono::steady_clock::now();
     EXPECT_TRUE(launch.ok) << launch.error_message;
@@ -416,7 +416,7 @@ TEST(HipccParallelExecutionTest, MultiWaveHeavyKernelShowsMtSpeedupWithDefaultWo
         },
         std::move(args),
         ExecutionMode::Functional,
-        "c500",
+        "mac500",
         nullptr);
     const auto end = std::chrono::steady_clock::now();
     EXPECT_TRUE(launch.ok) << launch.error_message;
@@ -546,7 +546,7 @@ TEST(HipccParallelExecutionTest,
         LaunchConfig{.grid_dim_x = 1, .block_dim_x = 128},
         std::move(args),
         ExecutionMode::Functional,
-        "c500",
+        "mac500",
         nullptr);
     EXPECT_TRUE(launch.ok) << launch.error_message;
 
@@ -653,7 +653,7 @@ TEST(HipccParallelExecutionTest,
         LaunchConfig{.grid_dim_x = grid_dim, .block_dim_x = block_dim},
         std::move(args),
         mode,
-        "c500",
+        "mac500",
         nullptr);
     EXPECT_TRUE(launch.ok) << launch.error_message;
     hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(out));
@@ -760,7 +760,7 @@ TEST(HipccParallelExecutionTest,
         LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
         std::move(args),
         mode,
-        "c500",
+        "mac500",
         nullptr);
     EXPECT_TRUE(launch.ok) << launch.error_message;
     hooks.MemcpyDtoH<float>(out_addr, std::span<float>(output));
@@ -848,7 +848,7 @@ TEST(HipccParallelExecutionTest,
         LaunchConfig{.grid_dim_x = 3, .block_dim_x = 128},
         std::move(args),
         mode,
-        "c500",
+        "mac500",
         nullptr);
     EXPECT_TRUE(launch.ok) << launch.error_message;
 
@@ -942,7 +942,7 @@ TEST(HipccParallelExecutionTest,
         LaunchConfig{.grid_dim_x = 30, .block_dim_x = 1024},
         std::move(args),
         mode,
-        "c500",
+        "mac500",
         nullptr);
     EXPECT_TRUE(launch.ok) << launch.error_message;
     hooks.MemcpyDtoH<float>(c_addr, std::span<float>(c));
@@ -1055,7 +1055,7 @@ TEST(HipccParallelExecutionTest,
           LaunchConfig{.grid_dim_x = test_case.grid_dim_x, .block_dim_x = test_case.block_dim_x},
           std::move(args),
           mode,
-          "c500",
+          "mac500",
           nullptr);
       EXPECT_TRUE(launch.ok) << launch.error_message;
       hooks.MemcpyDtoH<float>(c_addr, std::span<float>(c));
@@ -1195,7 +1195,7 @@ TEST(HipccParallelExecutionTest,
           test_case.config,
           std::move(args),
           mode,
-          "c500",
+          "mac500",
           nullptr);
       EXPECT_TRUE(launch.ok) << launch.error_message;
       hooks.MemcpyDtoH<float>(c_addr, std::span<float>(c));
@@ -1312,7 +1312,7 @@ TEST(HipccParallelExecutionTest,
         LaunchConfig{.grid_dim_x = 3, .block_dim_x = 128},
         std::move(args),
         mode,
-        "c500",
+        "mac500",
         nullptr);
     EXPECT_TRUE(launch.ok) << launch.error_message;
     hooks.MemcpyDtoH<float>(c_addr, std::span<float>(c));
@@ -1375,7 +1375,7 @@ TEST(HipccParallelExecutionTest,
   }
 
   const std::string command =
-      test_utils::HipccCacheCommand() + " --offload-arch=gfx90a " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   if (std::system(command.c_str()) != 0) {
     GTEST_SKIP() << "gfx90a mfma compilation not available";
   }
@@ -1401,7 +1401,7 @@ TEST(HipccParallelExecutionTest,
         LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
         std::move(args),
         mode,
-        "c500",
+        "mac500",
         nullptr);
     EXPECT_TRUE(launch.ok) << launch.error_message;
     hooks.MemcpyDtoH<float>(out_addr, std::span<float>(&output, 1));
@@ -1504,7 +1504,7 @@ TEST(HipccParallelExecutionTest,
         LaunchConfig{.grid_dim_x = 3, .block_dim_x = 128},
         std::move(args),
         mode,
-        "c500",
+        "mac500",
         nullptr);
     EXPECT_TRUE(launch.ok) << launch.error_message;
     hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(output));
@@ -1616,7 +1616,7 @@ TEST(HipccParallelExecutionTest,
         LaunchConfig{.grid_dim_x = grid_dim, .block_dim_x = block_dim},
         std::move(args),
         mode,
-        "c500",
+        "mac500",
         nullptr);
     EXPECT_TRUE(launch.ok) << launch.error_message;
     hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(output));
@@ -1751,7 +1751,7 @@ TEST(HipccParallelExecutionTest,
           LaunchConfig{.grid_dim_x = test_case.grid_dim_x, .block_dim_x = test_case.block_dim_x},
           std::move(args),
           mode,
-          "c500",
+          "mac500",
           nullptr);
       EXPECT_TRUE(launch.ok) << launch.error_message;
       hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(output));
@@ -1898,7 +1898,7 @@ TEST(HipccParallelExecutionTest,
           LaunchConfig{.grid_dim_x = grid_dim, .block_dim_x = block_dim},
           std::move(args),
           mode,
-          "c500",
+          "mac500",
           nullptr);
       EXPECT_TRUE(launch.ok) << launch.error_message;
       hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(out));
@@ -2036,7 +2036,7 @@ TEST(HipccParallelExecutionTest,
           LaunchConfig{.grid_dim_x = test_case.grid_dim_x, .block_dim_x = block_dim},
           std::move(args),
           mode,
-          "c500",
+          "mac500",
           nullptr);
       EXPECT_TRUE(launch.ok) << launch.error_message;
       hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(out));
@@ -2186,7 +2186,7 @@ TEST(HipccParallelExecutionTest,
         LaunchConfig{.grid_dim_x = grid_dim, .block_dim_x = block_dim},
         std::move(args),
         mode,
-        "c500",
+        "mac500",
         nullptr);
     if (!launch.ok) {
       ADD_FAILURE() << launch.error_message;
@@ -2443,7 +2443,7 @@ TEST(HipccParallelExecutionTest,
         LaunchConfig{.grid_dim_x = grid_dim, .block_dim_x = block_dim},
         std::move(args),
         mode,
-        "c500",
+        "mac500",
         nullptr);
     if (!launch.ok) {
       ADD_FAILURE() << launch.error_message;

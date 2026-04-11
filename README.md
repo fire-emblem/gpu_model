@@ -77,7 +77,7 @@ cmake --build --preset dev-fast
 | 脚本 | 用途 |
 |------|------|
 | `./scripts/install_quality_tools.sh` | 安装质量检查工具 |
-| `./scripts/run_quality_checks.sh` | 只扫描 `src/`；先生成并过滤 `compile_commands.json`，再并行运行重复率 / 圈复杂度 / `cppcheck` 静态检查，并生成 `results/quality/summary.txt` |
+| `./scripts/run_quality_checks.sh` | 手动一键质量扫描入口，不纳入默认 push gate；只扫描 `src/`，先生成并过滤 `compile_commands.json`，再并行运行重复率 / 圈复杂度 / `cppcheck` 静态检查，并生成 `results/quality/summary.txt` |
 | `./scripts/run_push_gate_light.sh` | 快速回归 (推荐日常使用) |
 | `./scripts/run_exec_checks.sh` | 执行检查 |
 | `./scripts/run_real_hip_kernel_regression.sh` | HIP kernel 回归 |

@@ -12,7 +12,7 @@ TEST(GcnInstDbLookupTest, FindsInstructionByIdAndMnemonic) {
 
   const auto* by_name = FindGeneratedGcnInstDefByMnemonic("global_atomic_add");
   ASSERT_NE(by_name, nullptr);
-  EXPECT_EQ(by_name->id, 84u);
+  EXPECT_EQ(FindGeneratedGcnInstDefById(by_name->id), by_name);
 }
 
 TEST(GcnInstDbLookupTest, FindsInstructionByFormatOpcodeAndSize) {

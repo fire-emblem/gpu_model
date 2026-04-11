@@ -4,9 +4,9 @@
 
 namespace gpu_model::detail {
 
-std::shared_ptr<const GpuArchSpec> MakeC500Spec() {
+std::shared_ptr<const GpuArchSpec> MakeMac500Spec() {
   auto spec = std::make_shared<GpuArchSpec>();
-  spec->name = "c500";
+  spec->name = "mac500";
   spec->wave_size = 64;
   spec->dpc_count = 8;
   spec->ap_per_dpc = 13;

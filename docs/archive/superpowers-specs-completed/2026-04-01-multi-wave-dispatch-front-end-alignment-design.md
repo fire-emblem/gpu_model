@@ -30,7 +30,7 @@
 - `wave_size = 64`
 - 所以单 block 最多 `16` 个 waves
 - `Mapper` 当前按 `wave_id % peu_per_ap` 分配 wave 到 `PEU`
-- `c500` 当前是 `4 PEU / AP`
+- `mac500` 当前是 `4 PEU / AP`
 
 因此单 block 最多只会形成 `16 / 4 = 4 waves / PEU`。
 

@@ -7,6 +7,7 @@
 #include <string>
 
 #include "gpu_model/program/object_reader.h"
+#include "gpu_model/target/amdgpu_target_config.h"
 #include "tests/test_utils/hipcc_cache_test_utils.h"
 
 namespace gpu_model {
@@ -52,7 +53,8 @@ TEST(AmdgpuObjLoaderTest, LoadsExecutableKernelFromAmdgpuObjectFile) {
   }
 
   const std::string command =
-      "llc -march=amdgcn -mcpu=gfx900 -filetype=obj " + ir_path.string() + " -o " + obj_path.string();
+      "llc -march=amdgcn -mcpu=" + std::string(kProjectAmdgpuMcpu) + " -filetype=obj " +
+      ir_path.string() + " -o " + obj_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   const auto image = ObjectReader{}.LoadProgramObject(obj_path);

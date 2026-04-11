@@ -192,7 +192,7 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
     }
   }
   if (arch_name.empty()) {
-    arch_name = "c500";
+    arch_name = "mac500";
   }
 
   const auto spec = ArchRegistry::Get(arch_name);

@@ -622,7 +622,7 @@ TEST_P(HipFeatureModelRuntimeTest, ExecutesFeatureKernelAndValidatesResults) {
           LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x},
           std::move(args),
           ExecutionMode::Functional,
-          "c500",
+          "mac500",
           nullptr);
       ASSERT_TRUE(result.ok) << result.error_message;
       hooks.MemcpyDtoH<float>(out_addr, std::span<float>(out));
@@ -650,7 +650,7 @@ TEST_P(HipFeatureModelRuntimeTest, ExecutesFeatureKernelAndValidatesResults) {
           LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x},
           std::move(args),
           ExecutionMode::Functional,
-          "c500",
+          "mac500",
           nullptr);
       ASSERT_TRUE(result.ok) << result.error_message;
       hooks.MemcpyDtoH<float>(out_addr, std::span<float>(out));
@@ -676,7 +676,7 @@ TEST_P(HipFeatureModelRuntimeTest, ExecutesFeatureKernelAndValidatesResults) {
           },
           std::move(args),
           ExecutionMode::Functional,
-          "c500",
+          "mac500",
           nullptr);
       ASSERT_TRUE(result.ok) << result.error_message;
       hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(out));

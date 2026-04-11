@@ -65,7 +65,7 @@ target_link_libraries(gpu_model_loguru
 
 add_library(gpu_model STATIC
   src/arch/arch_registry.cpp
-  src/arch/c500_spec.cpp
+  src/arch/mac500_spec.cpp
   src/instruction/encoded/internal/generated_encoded_gcn_full_opcode_table.cpp
   src/instruction/encoded/internal/generated_encoded_gcn_inst_db.cpp
   src/instruction/encoded/internal/encoded_gcn_db_lookup.cpp

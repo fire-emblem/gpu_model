@@ -53,7 +53,7 @@ class HipRuntime {
                                       LaunchConfig config,
                                       void** args,
                                       ExecutionMode mode = ExecutionMode::Functional,
-                                      const std::string& arch_name = "c500",
+                                      const std::string& arch_name = "mac500",
                                       TraceSink* trace = nullptr,
                                       RuntimeSubmissionContext submission_context = {});
   DeviceLoadPlan BuildExecutableLoadPlan(const std::filesystem::path& executable_path,
@@ -91,7 +91,7 @@ class HipRuntime {
                             LaunchConfig config,
                             KernelArgPack args,
                             ExecutionMode mode = ExecutionMode::Functional,
-                            const std::string& arch_name = "c500",
+                            const std::string& arch_name = "mac500",
                             TraceSink* trace = nullptr,
                             RuntimeSubmissionContext submission_context = {});
 

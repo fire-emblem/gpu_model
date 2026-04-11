@@ -1,15 +1,15 @@
-本页面向入门开发者，聚焦“设备属性与配置查询路径”的端到端链路：从 HIP 兼容层 API（如 hipGetDeviceProperties/hipDeviceGetAttribute）到内部 HipRuntime/RuntimeSession/ModelRuntime 的分层职责，再到 ArchRegistry 和具体架构规格（c500）如何提供底层数值；同时说明运行时配置（执行模式、并行度、Trace/Log 开关）通过环境变量被解析并影响查询结果或执行流程。您当前位于“运行时接口与兼容层”章节的“设备属性与配置查询路径”页面 [You are currently here]。Sources: [runtime_session.h](src/gpu_model/runtime/runtime_session.h#L57-L66)
+本页面向入门开发者，聚焦“设备属性与配置查询路径”的端到端链路：从 HIP 兼容层 API（如 hipGetDeviceProperties/hipDeviceGetAttribute）到内部 HipRuntime/RuntimeSession/ModelRuntime 的分层职责，再到 ArchRegistry 和具体架构规格（mac500）如何提供底层数值；同时说明运行时配置（执行模式、并行度、Trace/Log 开关）通过环境变量被解析并影响查询结果或执行流程。您当前位于“运行时接口与兼容层”章节的“设备属性与配置查询路径”页面 [You are currently here]。Sources: [runtime_session.h](src/gpu_model/runtime/runtime_session.h#L57-L66)
 
 ## 一、查询总览与分层职责（从第一性原理出发）
-从第一性原理看，设备属性查询本质是“前端 API 语义 → 运行时门面 → 会话态路由 → 模型后端 → 架构规格”的数据下行与汇聚映射；配置查询则是“环境变量 → 运行时配置解析 → 执行/追踪策略”的控制上行影响。该过程遵循清晰的层次边界：hip_runtime_abi 只做 C ABI 兼容与校验，HipRuntime 做门面与会话代理，RuntimeSession 保持线程本地状态并协调内存与追踪，ModelRuntime 聚合设备与模块、向架构注册表取数，最终由 GpuArchSpec（c500）提供规格来源。Sources: [hip_runtime_abi.cpp](src/runtime/hip_runtime_abi.cpp#L309-L339)
+从第一性原理看，设备属性查询本质是“前端 API 语义 → 运行时门面 → 会话态路由 → 模型后端 → 架构规格”的数据下行与汇聚映射；配置查询则是“环境变量 → 运行时配置解析 → 执行/追踪策略”的控制上行影响。该过程遵循清晰的层次边界：hip_runtime_abi 只做 C ABI 兼容与校验，HipRuntime 做门面与会话代理，RuntimeSession 保持线程本地状态并协调内存与追踪，ModelRuntime 聚合设备与模块、向架构注册表取数，最终由 GpuArchSpec（mac500）提供规格来源。Sources: [hip_runtime_abi.cpp](src/runtime/hip_runtime_abi.cpp#L309-L339)
 
 Mermaid 架构关系图（阅读提示：自左向右表示调用方向，自上而下表示抽象到具体）
 graph TD
   A[HIP 兼容层 API<br/>hipGetDevice/hipGetDeviceCount<br/>hipGetDeviceProperties/hipDeviceGetAttribute] --> B[HipRuntime 门面]
   B --> C[RuntimeSession 会话态<br/>设备/事件/Launch 配置/Trace]
   C --> D[ModelRuntime 后端<br/>GetDeviceProperties/GetDeviceAttribute]
-  D --> E[ArchRegistry::Get(\"c500\")]
-  E --> F[GpuArchSpec(c500)]
+  D --> E[ArchRegistry::Get(\"mac500\")]
+  E --> F[GpuArchSpec(mac500)]
   D -.-> G[BuildRuntimeDeviceProperties<br/>（由 GpuArchSpec 转 RuntimeDeviceProperties）]
   A -.-> H[环境变量解析<br/>执行模式/Trace/Log 等]
   H --> C
@@ -30,16 +30,16 @@ Sources: [model_runtime.cpp](src/runtime/core/model_runtime.cpp#L144-L153)
 Sources: [hip_runtime_abi.cpp](src/runtime/hip_runtime_abi.cpp#L309-L329)
 
 ## 三、设备属性对象构建链：从架构规格到 RuntimeDeviceProperties
-- 架构规格注册：ArchRegistry 将字符串 "c500" 绑定到 detail::MakeC500Spec()，属性提供者即 GpuArchSpec(c500)。Sources: [arch_registry.cpp](src/arch/arch_registry.cpp#L15-L19)
+- 架构规格注册：ArchRegistry 将字符串 "mac500" 绑定到 detail::MakeMac500Spec()，属性提供者即 GpuArchSpec(mac500)。Sources: [arch_registry.cpp](src/arch/arch_registry.cpp#L15-L19)
 
-- c500 规格内容：包含 wave_size、处理器拓扑（dpc/ap/peu）、缓存/共享存储与时间参数等，是设备属性的“单一事实来源”。Sources: [c500_spec.cpp](src/arch/c500_spec.cpp#L7-L26)
+- mac500 规格内容：包含 wave_size、处理器拓扑（dpc/ap/peu）、缓存/共享存储与时间参数等，是设备属性的“单一事实来源”。Sources: [mac500_spec.cpp](src/arch/mac500_spec.cpp#L7-L26)
 
-- 属性装配：ModelRuntime::GetDeviceProperties 固定取 "c500" 规格并调用 BuildRuntimeDeviceProperties，将 GpuArchSpec 映射为 RuntimeDeviceProperties（如 warp_size、multi_processor_count、l2_cache_size 等）。Sources: [model_runtime.cpp](src/runtime/core/model_runtime.cpp#L144-L153)
+- 属性装配：ModelRuntime::GetDeviceProperties 固定取 "mac500" 规格并调用 BuildRuntimeDeviceProperties，将 GpuArchSpec 映射为 RuntimeDeviceProperties（如 warp_size、multi_processor_count、l2_cache_size 等）。Sources: [model_runtime.cpp](src/runtime/core/model_runtime.cpp#L144-L153)
 
 - BuildRuntimeDeviceProperties 细节：从 spec.name/wave_size/total_ap_count/cache_model 等字段构建 name/warp_size/multi_processor_count/l2_cache_size 等最终用于对外的属性对象。Sources: [model_runtime.cpp](src/runtime/core/model_runtime.cpp#L16-L35)
 
 ## 四、hipGetDevicePropertiesR0600 字段填充映射
-- ABI 层将 RuntimeDeviceProperties 拷贝映射到 hipDeviceProp_tR0600 的各字段，包括总显存、SM 数、时钟、L2、共享内存、寄存器、统一寻址与托管内存能力等，同时写入 gcnArchName="c500"。Sources: [hip_runtime_abi.cpp](src/runtime/hip_runtime_abi.cpp#L339-L378)
+- ABI 层将 RuntimeDeviceProperties 拷贝映射到 hipDeviceProp_tR0600 的各字段，包括总显存、SM 数、时钟、L2、共享内存、寄存器、统一寻址与托管内存能力等，同时写入 gcnArchName="mac500"。Sources: [hip_runtime_abi.cpp](src/runtime/hip_runtime_abi.cpp#L339-L378)
 
 表：RuntimeDeviceProperties → hipDeviceProp_tR0600（部分字段）
 - name → name（字符串拷贝）
@@ -115,7 +115,7 @@ Sources: [runtime_config.cpp](src/runtime/config/runtime_config.cpp#L130-L189)
 
 - 属性枚举不支持：未知的 hipDeviceAttribute_t 将返回 hipErrorInvalidValue，可对照内部分派表增补映射。Sources: [hip_runtime_abi.cpp](src/runtime/hip_runtime_abi.cpp#L481-L489)
 
-- 属性值来源一致性：所有属性由 RuntimeDeviceProperties 提供，并通过 BuildRuntimeDeviceProperties→ArchRegistry(c500) 保持一致性。若需调整属性，请从 GpuArchSpec(c500) 与装配函数入手。Sources: [model_runtime.cpp](src/runtime/core/model_runtime.cpp#L16-L35)
+- 属性值来源一致性：所有属性由 RuntimeDeviceProperties 提供，并通过 BuildRuntimeDeviceProperties→ArchRegistry(mac500) 保持一致性。若需调整属性，请从 GpuArchSpec(mac500) 与装配函数入手。Sources: [model_runtime.cpp](src/runtime/core/model_runtime.cpp#L16-L35)
 
 Mermaid 步骤图：hipGetDeviceProperties 故障快速排查
 flowchart TD
@@ -123,14 +123,14 @@ flowchart TD
   A -->|否| E[返回 hipErrorInvalidDevice]
   A -->|是| B[HipRuntime→RuntimeSession 路由]
   B --> C[ModelRuntime::GetDeviceProperties]
-  C --> D[ArchRegistry::Get(\"c500\") / 缺失则抛错]
+  C --> D[ArchRegistry::Get(\"mac500\") / 缺失则抛错]
   D --> F[BuildRuntimeDeviceProperties 装配]
   F --> G[ABI 拷贝到 hipDeviceProp_tR0600]
   G --> H[返回 hipSuccess]
 Sources: [model_runtime.cpp](src/runtime/core/model_runtime.cpp#L144-L153)
 
 ## 九、面向扩展的认知锚点（何处修改能改变“查询结果”）
-- 改变“值从何来”：修改 c500 架构规格（GpuArchSpec）与 BuildRuntimeDeviceProperties 的映射逻辑，影响所有属性查询的一致来源。Sources: [c500_spec.cpp](src/arch/c500_spec.cpp#L7-L26)
+- 改变“值从何来”：修改 mac500 架构规格（GpuArchSpec）与 BuildRuntimeDeviceProperties 的映射逻辑，影响所有属性查询的一致来源。Sources: [mac500_spec.cpp](src/arch/mac500_spec.cpp#L7-L26)
 
 - 改变“值如何暴露”：在 hip_runtime_abi 的属性转换与分派表中增补字段映射或新增枚举处理分支。Sources: [hip_runtime_abi.cpp](src/runtime/hip_runtime_abi.cpp#L339-L378)
 

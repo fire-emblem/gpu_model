@@ -382,7 +382,7 @@ start_time_utc: 2026-04-10T11:20:33Z
 binary_path: /data/gpu_model/build/example
 resolved_binary_path: /data/gpu_model/build/example
 input_file: kernel.co
-config_file: configs/c500.yaml
+config_file: configs/mac500.yaml
 workload_name: vecadd
 iteration: 1
 result: UNKNOWN

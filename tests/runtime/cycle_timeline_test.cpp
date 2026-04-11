@@ -863,7 +863,7 @@ TEST(CycleTimelineTest, GoogleTraceShowsIssueGroupConflictWithTypedNameAndCatego
 
 TEST(CycleTimelineTest, GoogleTraceRuntimeArgsSharePresentationFields) {
   std::vector<TraceEvent> events{
-      MakeTraceRuntimeLaunchEvent(/*cycle=*/5, "kernel=timeline_runtime arch=c500"),
+      MakeTraceRuntimeLaunchEvent(/*cycle=*/5, "kernel=timeline_runtime arch=mac500"),
       MakeTraceBlockEvent(/*dpc_id=*/0,
                           /*ap_id=*/0,
                           /*block_id=*/3,
@@ -878,7 +878,7 @@ TEST(CycleTimelineTest, GoogleTraceRuntimeArgsSharePresentationFields) {
   EXPECT_NE(trace.find("\"canonical_name\":\"launch\""), std::string::npos);
   EXPECT_NE(trace.find("\"presentation_name\":\"launch\""), std::string::npos);
   EXPECT_NE(trace.find("\"category\":\"runtime\""), std::string::npos);
-  EXPECT_NE(trace.find("\"message\":\"kernel=timeline_runtime arch=c500\""), std::string::npos);
+  EXPECT_NE(trace.find("\"message\":\"kernel=timeline_runtime arch=mac500\""), std::string::npos);
   EXPECT_NE(trace.find("\"name\":\"block_activate\""), std::string::npos);
   EXPECT_NE(trace.find("\"cat\":\"launch/block\""), std::string::npos);
   EXPECT_NE(trace.find("\"canonical_name\":\"block_activate\""), std::string::npos);

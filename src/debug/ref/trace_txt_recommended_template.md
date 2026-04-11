@@ -273,7 +273,7 @@ trace_sink_enabled: true
 [RUN]
 run_id: 42
 input_file: kernel.co
-config_file: configs/c500.yaml
+config_file: configs/mac500.yaml
 result: PASS
 
 [MODEL_CONFIG]

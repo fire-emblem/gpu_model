@@ -228,7 +228,7 @@ TEST(TraceFlowTest, EncodedCycleAsyncLoadIssueAndArriveShareFlowId) {
   runtime.memory().StoreGlobalValue<int32_t>(base_addr, 11);
 
   LaunchRequest request;
-  request.arch_name = "c500";
+  request.arch_name = "mac500";
   request.program_object = &assembled.image;
   request.mode = ExecutionMode::Cycle;
   request.config.grid_dim_x = 1;
@@ -285,7 +285,7 @@ TEST(TraceFlowTest, EncodedCycleAsyncLoadFlowIdsStayUniqueAcrossLaunchesOnSameEn
   runtime.memory().StoreGlobalValue<int32_t>(base_addr, 11);
 
   LaunchRequest request;
-  request.arch_name = "c500";
+  request.arch_name = "mac500";
   request.program_object = &assembled.image;
   request.mode = ExecutionMode::Cycle;
   request.config.grid_dim_x = 1;

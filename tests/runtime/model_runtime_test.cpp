@@ -23,7 +23,7 @@ std::filesystem::path MakeUniqueTempDir(const std::string& stem) {
   return path;
 }
 
-TEST(ModelRuntimeTest, ExposesSingleC500DevicePropertiesAndAttributes) {
+TEST(ModelRuntimeTest, ExposesSingleMac500DevicePropertiesAndAttributes) {
   ModelRuntime api;
   EXPECT_EQ(api.GetDeviceCount(), 1);
   EXPECT_EQ(api.GetDevice(), 0);
@@ -32,7 +32,7 @@ TEST(ModelRuntimeTest, ExposesSingleC500DevicePropertiesAndAttributes) {
   EXPECT_EQ(api.GetDevice(), 0);
 
   const auto props = api.GetDeviceProperties(0);
-  EXPECT_EQ(props.name, "c500");
+  EXPECT_EQ(props.name, "mac500");
   EXPECT_EQ(props.warp_size, 64);
   EXPECT_EQ(props.max_threads_per_block, 1024);
   EXPECT_EQ(props.multi_processor_count, 104);
@@ -127,7 +127,7 @@ TEST(ModelRuntimeTest, LaunchesProgramObjectThroughNativeFacade) {
         s_restoreexec_b64 s10
         s_endpgm
       )",
-      MetadataBlob{.values = {{"arch", "c500"}}});
+      MetadataBlob{.values = {{"arch", "mac500"}}});
 
   std::vector<int32_t> a(n), b(n), c(n, -1);
   for (uint32_t i = 0; i < n; ++i) {
@@ -166,7 +166,7 @@ TEST(ModelRuntimeTest, LoadsModulesThroughUnifiedNativeFacadeAndAutoFormatDetect
   ProgramObject bundle_image(
       "bundle_kernel",
       R"(
-        .meta arch=c500
+        .meta arch=mac500
         s_load_kernarg s0, 0
         s_load_kernarg s1, 1
         v_get_global_id_x v0
@@ -180,23 +180,23 @@ TEST(ModelRuntimeTest, LoadsModulesThroughUnifiedNativeFacadeAndAutoFormatDetect
         s_restoreexec_b64 s10
         s_endpgm
       )",
-      MetadataBlob{.values = {{"arch", "c500"}}});
+      MetadataBlob{.values = {{"arch", "mac500"}}});
   const auto bundle_path = temp_dir / "bundle_kernel.gpubin";
   ProgramBundleIO::Write(bundle_path, bundle_image);
 
   ProgramObject sectioned_image("sectioned_kernel", "s_endpgm\n",
-                               MetadataBlob{.values = {{"arch", "c500"}}});
+                               MetadataBlob{.values = {{"arch", "mac500"}}});
   const auto sectioned_path = temp_dir / "sectioned_kernel.gpusec";
   ExecutableImageIO::Write(sectioned_path, sectioned_image);
 
   const auto stem_path = temp_dir / "stem_kernel.gasm";
   {
     std::ofstream asm_file(stem_path);
-    asm_file << ".meta arch=c500\ns_endpgm\n";
+    asm_file << ".meta arch=mac500\ns_endpgm\n";
   }
   {
     std::ofstream meta_file(temp_dir / "stem_kernel.gasm.meta");
-    meta_file << "arch=c500\n";
+    meta_file << "arch=mac500\n";
     meta_file << "entry=stem_kernel\n";
   }
 
@@ -271,7 +271,7 @@ TEST(ModelRuntimeTest, DescribesHipMfmaExecutableWithTypedTensorAbi) {
   }
 
   const std::string command =
-      test_utils::HipccCacheCommand() + " --offload-arch=gfx90a " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   if (std::system(command.c_str()) != 0) {
     GTEST_SKIP() << "gfx90a mfma compilation not available";
   }
@@ -353,7 +353,7 @@ TEST(ModelRuntimeTest, LaunchesProgramObjectFromAmdgpuObject) {
       },
       std::move(args),
       ExecutionMode::Functional,
-      "c500",
+      "mac500",
       nullptr);
   ASSERT_TRUE(result.ok) << result.error_message;
   ASSERT_TRUE(result.program_cycle_stats.has_value());
@@ -442,7 +442,7 @@ TEST(ModelRuntimeTest, LaunchesRegisteredEncodedObjectModule) {
       },
       std::move(args),
       ExecutionMode::Functional,
-      "c500",
+      "mac500",
       nullptr);
   ASSERT_TRUE(result.ok) << result.error_message;
 

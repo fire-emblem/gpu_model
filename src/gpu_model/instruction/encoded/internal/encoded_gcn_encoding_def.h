@@ -36,14 +36,20 @@ enum class EncodedOperandDecoderKind {
   DsRead2B32,
   DsReadB32,
   DsWriteB32,
+  DsAtomicNoRtnB32,
+  DsAtomicRtnB32,
   Sop1Scalar,
   Sop1ScalarPair,
+  Sop1ScalarSrcPair,
   Sop2Scalar,
   Sop2ScalarPair,
+  Sop2ScalarPairScalar,
   SopcScalar,
+  SopcScalarPair,
   Vop1Generic,
   Vop2Generic,
   Vop3aGeneric,
+  Vop3Readlane,
   Vop3CmpE64,
   VopcGeneric,
   Vop3MadU64U32,
@@ -61,6 +67,10 @@ struct EncodedGcnMatchRecord {
 void DecodeEncodedGcnOperands(EncodedGcnInstruction& instruction);
 const EncodedGcnMatchRecord* FindEncodedGcnMatchRecord(const std::vector<uint32_t>& words);
 const EncodedGcnEncodingDef* FindEncodedGcnEncodingDef(const std::vector<uint32_t>& words);
+const EncodedGcnEncodingDef* FindEncodedGcnEncodingDefByMnemonic(
+    std::string_view mnemonic,
+    EncodedGcnInstFormatClass format_class = EncodedGcnInstFormatClass::Unknown,
+    uint32_t size_bytes = 0);
 std::string_view LookupEncodedGcnOpcodeName(const std::vector<uint32_t>& words);
 
 }  // namespace gpu_model

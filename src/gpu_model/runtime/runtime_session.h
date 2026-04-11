@@ -99,7 +99,7 @@ class RuntimeSession {
                                       LaunchConfig config,
                                       void** args,
                                       ExecutionMode mode = ExecutionMode::Functional,
-                                      const std::string& arch_name = "c500",
+                                      const std::string& arch_name = "mac500",
                                       TraceSink* trace = nullptr,
                                       RuntimeSubmissionContext submission_context = {});
   FunctionalExecutionMode functional_execution_mode() const;

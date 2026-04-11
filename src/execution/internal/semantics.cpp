@@ -73,11 +73,17 @@ std::optional<uint64_t> IssueClassOverrideForOpcode(
     case Opcode::MLoadGlobal:
     case Opcode::MStoreGlobal:
     case Opcode::MAtomicAddGlobal:
+    case Opcode::MAtomicMaxGlobal:
+    case Opcode::MAtomicMinGlobal:
+    case Opcode::MAtomicExchGlobal:
     case Opcode::MLoadGlobalAddr:
     case Opcode::MStoreGlobalAddr:
     case Opcode::MLoadShared:
     case Opcode::MStoreShared:
     case Opcode::MAtomicAddShared:
+    case Opcode::MAtomicMaxShared:
+    case Opcode::MAtomicMinShared:
+    case Opcode::MAtomicExchShared:
     case Opcode::MLoadPrivate:
     case Opcode::MStorePrivate:
     case Opcode::MLoadConst:

@@ -922,7 +922,7 @@ int main() {
   if (hipSetDevice(0) != hipSuccess) return 11;
   if (hipGetDevice(&device) != hipSuccess || device != 0) return 12;
   if (hipGetDeviceProperties(&props, 0) != hipSuccess) return 13;
-  if (std::strcmp(props.name, "c500") != 0) return 14;
+  if (std::strcmp(props.name, "mac500") != 0) return 14;
   if (props.warpSize != 64) return 15;
   if (props.maxThreadsPerBlock != 1024) return 16;
   if (props.multiProcessorCount != 104) return 17;
@@ -1848,7 +1848,7 @@ TEST(HipRuntimeAbiTest, LaunchesHipMfmaExecutableThroughRegisteredHostFunction) 
   }
 
   const std::string command =
-      test_utils::HipccCacheCommand() + " --offload-arch=gfx90a " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   if (std::system(command.c_str()) != 0) {
     GTEST_SKIP() << "gfx90a mfma compilation not available";
   }
@@ -1900,7 +1900,7 @@ TEST(HipRuntimeAbiTest, BuildsExecutableLoadPlanForHipMfmaWithTypedTensorAbi) {
   }
 
   const std::string command =
-      test_utils::HipccCacheCommand() + " --offload-arch=gfx90a " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   if (std::system(command.c_str()) != 0) {
     GTEST_SKIP() << "gfx90a mfma compilation not available";
   }

@@ -42,7 +42,7 @@ struct ExecutionStats {
 };
 
 struct LaunchRequest {
-  std::string arch_name = "c500";
+  std::string arch_name = "mac500";
   const ExecutableKernel* kernel = nullptr;
   const ProgramObject* program_object = nullptr;
   const DeviceLoadResult* device_load = nullptr;

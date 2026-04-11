@@ -185,18 +185,18 @@
 - `CycleEligibleWaveSelectionPolicyForSpec(...)`
 - `CycleIssuePolicyWithLimits(...)`
 
-当前 `c500` 默认值在：
+当前 `mac500` 默认值在：
 
-- [`src/arch/c500_spec.cpp`](../src/arch/c500_spec.cpp)
+- [`src/arch/mac500_spec.cpp`](../src/arch/mac500_spec.cpp)
 
-其中默认 policy 仍来自 spec，而不是写死在 scheduler 内部。当前 `c500` 还把：
+其中默认 policy 仍来自 spec，而不是写死在 scheduler 内部。当前 `mac500` 还把：
 
 - `branch`
 - `special`
 
 放到了同一个 issue group，这意味着它们在默认 bundle 里互相冲突。
 
-当前 `c500` 的 wave-order selection 默认值是：
+当前 `mac500` 的 wave-order selection 默认值是：
 
 - `EligibleWaveSelectionPolicy::RoundRobin`
 

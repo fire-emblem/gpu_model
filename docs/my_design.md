@@ -333,7 +333,7 @@ operand 只描述静态信息，不直接持有执行态寄存器值。
 
 ### 5.1 设备规格
 
-例如 `c500`：
+例如 `mac500`：
 
 - wave size = 64
 - shared memory = 64 KB

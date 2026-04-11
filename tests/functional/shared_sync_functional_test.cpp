@@ -423,7 +423,7 @@ TEST(SharedSyncFunctionalTest, MultiThreadedSingleWorkerCanRunOtherBlockWaveWhil
   ASSERT_NE(early_post_barrier_store_pc, std::numeric_limits<uint64_t>::max());
   ASSERT_NE(late_pre_barrier_pc, std::numeric_limits<uint64_t>::max());
 
-  const auto spec = ArchRegistry::Get("c500");
+  const auto spec = ArchRegistry::Get("mac500");
   ASSERT_TRUE(spec);
   const uint32_t paired_block_id = spec->total_ap_count();
   const uint32_t grid_dim_x = paired_block_id + 1;

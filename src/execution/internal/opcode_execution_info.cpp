@@ -121,6 +121,9 @@ const OpcodeExecutionInfo& GetOpcodeExecutionInfo(Opcode opcode) {
     case Opcode::MLoadGlobal:
     case Opcode::MStoreGlobal:
     case Opcode::MAtomicAddGlobal:
+    case Opcode::MAtomicMaxGlobal:
+    case Opcode::MAtomicMinGlobal:
+    case Opcode::MAtomicExchGlobal:
     case Opcode::MLoadGlobalAddr:
     case Opcode::MStoreGlobalAddr:
     case Opcode::MLoadPrivate:
@@ -130,6 +133,9 @@ const OpcodeExecutionInfo& GetOpcodeExecutionInfo(Opcode opcode) {
     case Opcode::MLoadShared:
     case Opcode::MStoreShared:
     case Opcode::MAtomicAddShared:
+    case Opcode::MAtomicMaxShared:
+    case Opcode::MAtomicMinShared:
+    case Opcode::MAtomicExchShared:
       return kLds;
     case Opcode::MaskSaveExec:
     case Opcode::MaskRestoreExec:

@@ -32,8 +32,7 @@ test_utils::AssembledModule AssembleAndDecodeLlvmMcModuleFromFixture(
     const std::string& kernel_name,
     const std::filesystem::path& fixture_path) {
   const auto text = ReadTextFile(fixture_path);
-  const auto mcpu = ExtractFixtureDirective(text, "GPU_MODEL_MCPU").value_or("gfx900");
-  return test_utils::AssembleAndDecodeLlvmMcModule(stem, kernel_name, text, mcpu);
+  return test_utils::AssembleAndDecodeLlvmMcModule(stem, kernel_name, text);
 }
 
 std::optional<std::string> ExtractFixtureDirective(const std::string& text, std::string_view key) {
@@ -282,6 +281,48 @@ TEST(AsmModuleIntegrationTest, DecodesFlatAndAtomicLlvmMcAssemblyModule) {
   EXPECT_EQ(atomic_it->decoded_operands[0].text, "v5");
   EXPECT_EQ(atomic_it->decoded_operands[1].text, "v6");
   EXPECT_EQ(atomic_it->decoded_operands[2].text, "s[0:1]");
+}
+
+TEST(AsmModuleIntegrationTest, BindsLlvmMcDisassemblyToDecodedInstructionObjects) {
+  if (!test_utils::HasLlvmMcAmdgpuToolchain()) {
+    GTEST_SKIP() << "required llvm-mc/LLVM/binutils tools not available";
+  }
+
+  const auto assembled = test_utils::AssembleAndDecodeLlvmMcModule(
+      "gpu_model_llvm_mc_binding_module",
+      "asm_binding_probe",
+      test_utils::WrapAmdgpuKernelAssembly(
+          "asm_binding_probe",
+          "  s_load_dword s0, s[4:5], 0x2c\n"
+          "  s_endpgm\n",
+          6,
+          1));
+  const auto& image = assembled.image;
+
+  ASSERT_EQ(image.instructions().size(), 2u);
+  ASSERT_EQ(image.decoded_instructions().size(), 2u);
+  ASSERT_EQ(image.instruction_objects().size(), 2u);
+  ASSERT_NE(image.instruction_objects()[0], nullptr);
+  ASSERT_NE(image.instruction_objects()[1], nullptr);
+
+  EXPECT_EQ(image.instructions()[0].asm_op, "s_load_dword");
+  EXPECT_EQ(image.instructions()[0].asm_text, "s_load_dword s0, s[4:5], 0x2c");
+  EXPECT_EQ(image.instructions()[1].asm_op, "s_endpgm");
+  EXPECT_EQ(image.instructions()[1].asm_text, "s_endpgm");
+
+  EXPECT_EQ(image.decoded_instructions()[0].asm_op, "s_load_dword");
+  EXPECT_EQ(image.decoded_instructions()[0].asm_text, "s_load_dword s0, s[4:5], 0x2c");
+  EXPECT_EQ(image.decoded_instructions()[1].asm_op, "s_endpgm");
+  EXPECT_EQ(image.decoded_instructions()[1].asm_text, "s_endpgm");
+
+  EXPECT_EQ(image.instruction_objects()[0]->decoded().asm_op, "s_load_dword");
+  EXPECT_EQ(image.instruction_objects()[0]->decoded().asm_text,
+            "s_load_dword s0, s[4:5], 0x2c");
+  EXPECT_EQ(image.instruction_objects()[1]->decoded().asm_op, "s_endpgm");
+  EXPECT_EQ(image.instruction_objects()[1]->decoded().asm_text, "s_endpgm");
+
+  EXPECT_NE(image.assembly_text().find("s_load_dword s0, s[4:5], 0x2c"), std::string::npos);
+  EXPECT_NE(image.assembly_text().find("s_endpgm"), std::string::npos);
 }
 
 class LoaderAsmFixtureTest : public ::testing::TestWithParam<std::filesystem::path> {};

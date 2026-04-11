@@ -107,7 +107,7 @@
   - 已落地一批前端增强：generation / dispatch latency 与 block/wave frontend events
 - 创建/修改的文件：
   - `include/gpu_model/arch/gpu_arch_spec.h`
-  - `src/arch/c500_spec.cpp`
+  - `src/arch/mac500_spec.cpp`
   - `src/execution/cycle_exec_engine.cpp`
   - `tests/runtime/trace_test.cpp`
   - `tests/cycle/cycle_smoke_test.cpp`
@@ -274,7 +274,7 @@
   - 保留仍能提供剩余事务线索的 archive 文档，尤其是 ISA 覆盖、LLVM artifact integration、cycle 顶层建模、functional mt scheduler、memory segment loading、PEU/wave issue model
   - 同步更新 `findings.md`
 - 创建/修改的文件：
-  - `docs/plans/2026-03-27-c500-gpu-function-model.md`
+  - `docs/plans/2026-03-27-mac500-gpu-function-model.md`
   - `docs/plans/2026-03-27-gcn-aligned-code-architecture.md`
   - `docs/plans/2026-03-27-multi-target-isa-exec-layering.md`
   - `docs/plans/2026-03-28-exec-architecture-refactor-assessment.md`

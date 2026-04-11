@@ -40,7 +40,7 @@ enum class RuntimeDeviceAttribute {
 };
 
 struct RuntimeDeviceProperties {
-  std::string name = "c500";
+  std::string name = "mac500";
   size_t total_global_mem = 64ull * 1024ull * 1024ull * 1024ull;
   size_t shared_mem_per_block = 64ull * 1024ull;
   size_t shared_mem_per_multiprocessor = 64ull * 1024ull;

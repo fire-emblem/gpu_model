@@ -15,7 +15,7 @@ TEST(AsmParserTest, PreservesMetadataConstSegmentAndLabels) {
   ProgramObject image(
       "tiny_kernel",
       R"(
-        .meta arch=c500
+        .meta arch=mac500
         s_load_kernarg s0, 0
       exit:
         s_endpgm
@@ -27,7 +27,7 @@ TEST(AsmParserTest, PreservesMetadataConstSegmentAndLabels) {
 
   EXPECT_EQ(kernel.instructions().size(), 2u);
   EXPECT_EQ(kernel.ResolveLabel("exit"), 8u);
-  EXPECT_EQ(kernel.metadata().values.at("arch"), "c500");
+  EXPECT_EQ(kernel.metadata().values.at("arch"), "mac500");
   EXPECT_EQ(kernel.metadata().values.at("source"), "asm");
   EXPECT_EQ(kernel.const_segment().bytes.size(), 3u);
 }
@@ -36,7 +36,7 @@ TEST(AsmParserTest, ResolvesLabelsInPcSpaceUsingInstructionEncodingSize) {
   ProgramObject image(
       "pc_size_asm",
       R"(
-        .meta arch=c500
+        .meta arch=mac500
         buffer_load_dword v1, s0, v0, 4
       exit:
         s_endpgm
@@ -59,7 +59,7 @@ TEST(AsmParserTest, LaunchesParsedVecAddKernelFunctionally) {
   ProgramObject image(
       "vecadd_asm",
       R"(
-        .meta arch=c500
+        .meta arch=mac500
         s_load_kernarg s0, 0
         s_load_kernarg s1, 1
         s_load_kernarg s2, 2
@@ -116,7 +116,7 @@ TEST(AsmParserTest, ParsesWaitCntAssemblySyntax) {
   ProgramObject image(
       "waitcnt_asm",
       R"(
-        .meta arch=c500
+        .meta arch=mac500
         s_waitcnt vmcnt(0) & lgkmcnt(1)
         s_endpgm
       )");
@@ -135,7 +135,7 @@ TEST(AsmParserTest, LaunchesParsedVectorFloatAddKernelFunctionally) {
   ProgramObject image(
       "vecadd_f32_asm",
       R"(
-        .meta arch=c500
+        .meta arch=mac500
         s_load_kernarg s0, 0
         s_load_kernarg s1, 1
         s_load_kernarg s2, 2
@@ -189,7 +189,7 @@ TEST(AsmParserTest, LaunchesParsedGlobalAddressLoadAndStoreFunctionally) {
   ProgramObject image(
       "global_addr_asm",
       R"(
-        .meta arch=c500
+        .meta arch=mac500
         s_load_kernarg s0, 0
         s_load_kernarg s1, 1
         s_load_kernarg s2, 2

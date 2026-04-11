@@ -7,6 +7,7 @@
 #include <fstream>
 
 #include "gpu_model/program/object_reader.h"
+#include "gpu_model/target/amdgpu_target_config.h"
 #include "tests/test_utils/hipcc_cache_test_utils.h"
 
 namespace gpu_model {
@@ -51,7 +52,8 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesRawInstructionsFromAmdgpuObject) {
   }
 
   const std::string command =
-      "llc -march=amdgcn -mcpu=gfx900 -filetype=obj " + ir_path.string() + " -o " + obj_path.string();
+      "llc -march=amdgcn -mcpu=" + std::string(kProjectAmdgpuMcpu) + " -filetype=obj " +
+      ir_path.string() + " -o " + obj_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   const auto image = ObjectReader{}.LoadProgramObject(obj_path, "empty_kernel");
@@ -455,7 +457,7 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipMfmaExecutableWithoutUnknownInstruct
            "int main() { return 0; }\n";
   }
   const std::string command =
-      test_utils::HipccCacheCommand() + " --offload-arch=gfx90a " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   if (std::system(command.c_str()) != 0) {
     GTEST_SKIP() << "gfx90a mfma compilation not available";
   }
@@ -507,7 +509,7 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipMfmaFp16ExecutableWithoutUnknownInst
            "int main() { return 0; }\n";
   }
   const std::string command =
-      test_utils::HipccCacheCommand() + " --offload-arch=gfx90a " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   if (std::system(command.c_str()) != 0) {
     GTEST_SKIP() << "gfx90a mfma fp16 compilation not available";
   }
@@ -555,7 +557,7 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipMfmaI8ExecutableWithoutUnknownInstru
            "int main() { return 0; }\n";
   }
   const std::string command =
-      test_utils::HipccCacheCommand() + " --offload-arch=gfx90a " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   if (std::system(command.c_str()) != 0) {
     GTEST_SKIP() << "gfx90a mfma i8 compilation not available";
   }
@@ -606,7 +608,7 @@ TEST(AmdgpuCodeObjectDecoderTest, DecodesHipMfmaBf16ExecutableWithoutUnknownInst
            "int main() { return 0; }\n";
   }
   const std::string command =
-      test_utils::HipccCacheCommand() + " --offload-arch=gfx90a " + src_path.string() + " -o " + exe_path.string();
+      test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   if (std::system(command.c_str()) != 0) {
     GTEST_SKIP() << "gfx90a mfma bf16 compilation not available";
   }

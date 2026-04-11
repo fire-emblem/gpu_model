@@ -6,6 +6,8 @@
 #include <string>
 #include <unistd.h>
 
+#include "gpu_model/target/amdgpu_target_config.h"
+
 namespace gpu_model::test_utils {
 
 inline std::filesystem::path CurrentTestBinaryPath() {
@@ -40,7 +42,8 @@ inline std::string ShellQuote(const std::filesystem::path& path) {
 }
 
 inline std::string HipccCacheCommand() {
-  return ShellQuote(RepoRootPath() / "tools/hipcc_cache.sh");
+  return ShellQuote(RepoRootPath() / "tools/hipcc_cache.sh") + " --offload-arch=" +
+         std::string(kProjectAmdgpuMcpu);
 }
 
 }  // namespace gpu_model::test_utils

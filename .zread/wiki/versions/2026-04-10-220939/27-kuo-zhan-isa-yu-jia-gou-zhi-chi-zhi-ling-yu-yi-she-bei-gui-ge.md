@@ -3,7 +3,7 @@
 ## 架构假设与核验（从第一性原则出发）
 - 假设A：指令处理有两条并行执行路径，分别服务于真实 AMDGPU 二进制（编码指令路径）与项目内部抽象 IR（抽象指令路径）；两者在“语义处理器注册与 O(1) 查找”机制上同构。经设计文档与实现核验，存在 EncodedSemanticHandlerRegistry/ISemanticHandler 体系与双路径执行引擎。Sources: [instruction_system_design.md](docs/architecture/instruction_system_design.md#L140-L220)
 - 假设B：ISA 编码支持来源于结构化 YAML（src/spec/gcn_db），通过生成脚本产出静态表，为解码器/匹配器/语义分派提供权威“编码描述”。经生成脚本与格式说明核验可证。Sources: [gen_gcn_isa_db.py](scripts/gen_gcn_isa_db.py#L1-L60) [gcn-isa-db-format.md](src/spec/gcn-isa-db-format.md#L1-L70)
-- 假设C：设备规格独立于 ISA，通过 GpuArchSpec 注入波规模、缓存/共享银行、发射/切换时序、可驻留/可发射资源上界与调度政策；ArchRegistry 以名称查表返回规格。经头文件与 c500 实例、注册表实现核验。Sources: [gpu_arch_spec.h](src/gpu_model/arch/gpu_arch_spec.h#L1-L60) [c500_spec.cpp](src/arch/c500_spec.cpp#L1-L49) [arch_registry.cpp](src/arch/arch_registry.cpp#L1-L29)
+- 假设C：设备规格独立于 ISA，通过 GpuArchSpec 注入波规模、缓存/共享银行、发射/切换时序、可驻留/可发射资源上界与调度政策；ArchRegistry 以名称查表返回规格。经头文件与 mac500 实例、注册表实现核验。Sources: [gpu_arch_spec.h](src/gpu_model/arch/gpu_arch_spec.h#L1-L60) [mac500_spec.cpp](src/arch/mac500_spec.cpp#L1-L49) [arch_registry.cpp](src/arch/arch_registry.cpp#L1-L29)
 
 ## 关键关系图（概念层）
 下图描述从 ISA 数据源到执行与调度的端到端路径，标示两条指令链路以及与设备规格的耦合点。Sources: [instruction_system_design.md](docs/architecture/instruction_system_design.md#L80-L140) [gcn-isa-db-format.md](src/spec/gcn-isa-db-format.md#L70-L120)
@@ -51,7 +51,7 @@ flowchart LR
 | 新增抽象 IR 指令（ProgramObject） | src/isa/opcode_descriptor.cpp + instruction_builder.cpp | 新 OpcodeDescriptor 行；Builder 添便捷构造 | 类别/语义家族正确；执行路径可命中 |
 | 新增/变更设备架构规格 | src/arch/*.cpp + ArchRegistry | 新 MakeXxxSpec() 与字段；注册 name→spec | 发射/驻留/调度/缓存/共享银行等行为变化符预期 |
 
-表格以“入口最小原则”确保修改集中：编码链路尽量只改 YAML+Handler，抽象 IR 只改 Opcode/Builder，设备规格只改 Spec/Registry。Sources: [opcode_descriptor.cpp](src/isa/opcode_descriptor.cpp#L1-L60) [instruction_builder.cpp](src/isa/instruction_builder.cpp#L1-L60) [arch_registry.cpp](src/arch/arch_registry.cpp#L1-L29) [c500_spec.cpp](src/arch/c500_spec.cpp#L1-L49)
+表格以“入口最小原则”确保修改集中：编码链路尽量只改 YAML+Handler，抽象 IR 只改 Opcode/Builder，设备规格只改 Spec/Registry。Sources: [opcode_descriptor.cpp](src/isa/opcode_descriptor.cpp#L1-L60) [instruction_builder.cpp](src/isa/instruction_builder.cpp#L1-L60) [arch_registry.cpp](src/arch/arch_registry.cpp#L1-L29) [mac500_spec.cpp](src/arch/mac500_spec.cpp#L1-L49)
 
 ## 扩展编码 GCN 指令（Raw Object 路径）
 - 数据源与生成：在 src/spec/gcn_db/*.yaml 定义 profile/format/opcode/operands/flags/semantic_family；通过 scripts/gen_gcn_isa_db.py 生成 EncodedGcnEncodingDef/InstDefs/FormatDefs 等静态表，供解码/匹配与语义分派使用。Sources: [gcn-isa-db-format.md](src/spec/gcn-isa-db-format.md#L120-L200) [gen_gcn_isa_db.py](scripts/gen_gcn_isa_db.py#L140-L200)
@@ -90,8 +90,8 @@ flowchart TD
 
 ## 新增/调整设备架构规格（GpuArchSpec）
 - 定义字段：GpuArchSpec 定义 wave_size、计算阵列布局（dpc/ap/peu）、可驻留/可发射波上界、默认发射周期、特性开关（l1/l2/mma等）、缓存/共享银行模型、launch 时序、发射上限与策略、可选按操作类/操作符的周期覆盖。Sources: [gpu_arch_spec.h](src/gpu_model/arch/gpu_arch_spec.h#L1-L98)
-- 规格实例：以 c500 为例，设置 wave_size=64、cache model 延迟/行宽/容量、eligible_wave_selection_policy=RoundRobin、issue policy 由 limits 推导等；这是“无侵入注入”的参考实现。Sources: [c500_spec.cpp](src/arch/c500_spec.cpp#L1-L49)
-- 注册与获取：拦截名-规约映射在 ArchRegistry，“c500”→MakeC500Spec()，可按需添加新命名并返回 shared_ptr<const GpuArchSpec>。Sources: [arch_registry.cpp](src/arch/arch_registry.cpp#L1-L29)
+- 规格实例：以 mac500 为例，设置 wave_size=64、cache model 延迟/行宽/容量、eligible_wave_selection_policy=RoundRobin、issue policy 由 limits 推导等；这是“无侵入注入”的参考实现。Sources: [mac500_spec.cpp](src/arch/mac500_spec.cpp#L1-L49)
+- 注册与获取：拦截名-规约映射在 ArchRegistry，“mac500”→MakeMac500Spec()，可按需添加新命名并返回 shared_ptr<const GpuArchSpec>。Sources: [arch_registry.cpp](src/arch/arch_registry.cpp#L1-L29)
 
 影响面要点：
 - 发射/调度：issue_limits/issue_policy/eligible_wave_selection_policy 影响可发射波集合与选择顺序。Sources: [gpu_arch_spec.h](src/gpu_model/arch/gpu_arch_spec.h#L60-L98)
@@ -123,7 +123,7 @@ flowchart TD
 
 3) 新增一个设备架构规格（例如“c600”）
 - 步骤
-  - 参考 c500_spec.cpp 建立 MakeC600Spec()：配置 wave_size / cache_model / shared_bank_model / launch_timing / cycle_resources（issue_limits、eligible_wave_selection_policy 等）。Sources: [c500_spec.cpp](src/arch/c500_spec.cpp#L1-L49) [gpu_arch_spec.h](src/gpu_model/arch/gpu_arch_spec.h#L1-L98)
+  - 参考 mac500_spec.cpp 建立 MakeC600Spec()：配置 wave_size / cache_model / shared_bank_model / launch_timing / cycle_resources（issue_limits、eligible_wave_selection_policy 等）。Sources: [mac500_spec.cpp](src/arch/mac500_spec.cpp#L1-L49) [gpu_arch_spec.h](src/gpu_model/arch/gpu_arch_spec.h#L1-L98)
   - 在 ArchRegistry 注册 {"c600", MakeC600Spec()}。Sources: [arch_registry.cpp](src/arch/arch_registry.cpp#L1-L29)
 - 验证
   - 对比时间线/调度表现（驻留/可发射波数、访存延迟）与预期一致。Sources: [gpu_arch_spec.h](src/gpu_model/arch/gpu_arch_spec.h#L60-L98)

@@ -217,7 +217,7 @@
 但缺少两类关键收口：
 
 1. 参数化层
-   - 当前主要依赖单一 `c500` spec 和硬编码默认值
+   - 当前主要依赖单一 `mac500` spec 和硬编码默认值
 2. 校准与说明层
    - 还缺系统的“和真实硬件差异说明”
    - 还缺稳定的 microbenchmark 校准基线
@@ -550,7 +550,7 @@ unsupported instruction 如果不做系统归档，最终会演变成：
 
 ## P1
 
-### TODO P1-1：把 `c500` spec 演进为 preset + override 模型
+### TODO P1-1：把 `mac500` spec 演进为 preset + override 模型
 
 建议能力：
 

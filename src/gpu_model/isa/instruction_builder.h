@@ -119,6 +119,21 @@ class InstructionBuilder : public KernelProgramBuilder {
                                        std::string_view src,
                                        uint32_t scale_bytes = 1,
                                        uint32_t offset_bytes = 0);
+  InstructionBuilder& MAtomicMaxGlobal(std::string_view base,
+                                       std::string_view index,
+                                       std::string_view src,
+                                       uint32_t scale_bytes = 1,
+                                       uint32_t offset_bytes = 0);
+  InstructionBuilder& MAtomicMinGlobal(std::string_view base,
+                                       std::string_view index,
+                                       std::string_view src,
+                                       uint32_t scale_bytes = 1,
+                                       uint32_t offset_bytes = 0);
+  InstructionBuilder& MAtomicExchGlobal(std::string_view base,
+                                        std::string_view index,
+                                        std::string_view src,
+                                        uint32_t scale_bytes = 1,
+                                        uint32_t offset_bytes = 0);
   InstructionBuilder& MLoadGlobalAddr(std::string_view dest,
                                       std::string_view addr_lo,
                                       std::string_view addr_hi,
@@ -136,6 +151,15 @@ class InstructionBuilder : public KernelProgramBuilder {
   InstructionBuilder& MAtomicAddShared(std::string_view index,
                                        std::string_view src,
                                        uint32_t scale_bytes = 1);
+  InstructionBuilder& MAtomicMaxShared(std::string_view index,
+                                       std::string_view src,
+                                       uint32_t scale_bytes = 1);
+  InstructionBuilder& MAtomicMinShared(std::string_view index,
+                                       std::string_view src,
+                                       uint32_t scale_bytes = 1);
+  InstructionBuilder& MAtomicExchShared(std::string_view index,
+                                        std::string_view src,
+                                        uint32_t scale_bytes = 1);
   InstructionBuilder& MLoadPrivate(std::string_view dest,
                                    std::string_view index,
                                    uint32_t scale_bytes = 1);

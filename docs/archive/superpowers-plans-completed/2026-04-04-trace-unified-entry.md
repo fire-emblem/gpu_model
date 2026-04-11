@@ -583,9 +583,9 @@ Add these tests in `tests/runtime/trace_test.cpp`:
 ```cpp
 TEST(TraceTest, RuntimeLaunchFactoriesPreserveCanonicalLaunchMessages) {
   const TraceEvent event = MakeTraceRuntimeLaunchEvent(
-      /*cycle=*/0, "kernel=factory_runtime arch=c500");
+      /*cycle=*/0, "kernel=factory_runtime arch=mac500");
   EXPECT_EQ(event.kind, TraceEventKind::Launch);
-  EXPECT_EQ(event.message, "kernel=factory_runtime arch=c500");
+  EXPECT_EQ(event.message, "kernel=factory_runtime arch=mac500");
 }
 
 TEST(TraceTest, EncodedTraceUsesCanonicalArriveAndBarrierReleaseMessages) {
@@ -618,7 +618,7 @@ TEST(TraceTest, EncodedTraceUsesCanonicalArriveAndBarrierReleaseMessages) {
   runtime.memory().StoreGlobalValue<int32_t>(out_addr, 0);
 
   LaunchRequest request;
-  request.arch_name = "c500";
+  request.arch_name = "mac500";
   request.encoded_program_object = &image;
   request.mode = ExecutionMode::Cycle;
   request.config.grid_dim_x = 1;

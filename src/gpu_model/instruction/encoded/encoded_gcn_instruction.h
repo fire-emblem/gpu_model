@@ -35,6 +35,8 @@ struct EncodedGcnInstruction {
   uint32_t encoding_id = 0;
   std::string mnemonic;
   std::string operands;
+  std::string asm_op;
+  std::string asm_text;
   std::vector<EncodedGcnOperand> decoded_operands;
 };
 

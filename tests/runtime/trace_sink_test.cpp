@@ -242,7 +242,7 @@ TEST(TraceSinkTest, WritesJsonTraceFile) {
   ASSERT_TRUE(static_cast<bool>(std::getline(input, line)));
   EXPECT_NE(line.find("\"kind\":\"Launch\""), std::string::npos);
   EXPECT_NE(line.find("\"pc\":\"0x0\""), std::string::npos);
-  EXPECT_NE(line.find("\"message\":\"kernel=json_trace_kernel arch=c500\""), std::string::npos);
+  EXPECT_NE(line.find("\"message\":\"kernel=json_trace_kernel arch=mac500\""), std::string::npos);
   std::filesystem::remove(path);
 }
 

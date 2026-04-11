@@ -168,7 +168,7 @@ TEST(CycleSmokeTest, FrontendLatenciesAdvanceCycleWithoutTraceSink) {
 }
 
 TEST(CycleSmokeTest, QueuesBlocksWhenGridExceedsPhysicalApCount) {
-  const auto spec = ArchRegistry::Get("c500");
+  const auto spec = ArchRegistry::Get("mac500");
   ASSERT_NE(spec, nullptr);
 
   CollectingTraceSink trace;
@@ -491,7 +491,7 @@ TEST(CycleSmokeTest, SamePeuIssueCyclesStayOnFourCycleGrid) {
 }
 
 TEST(CycleSmokeTest, VectorIssueLimitOverrideAllowsTwoWaveBundleIssue) {
-  const auto spec = ArchRegistry::Get("c500");
+  const auto spec = ArchRegistry::Get("mac500");
   ASSERT_NE(spec, nullptr);
 
   CollectingTraceSink baseline_trace;
@@ -547,7 +547,7 @@ TEST(CycleSmokeTest, VectorIssueLimitOverrideAllowsTwoWaveBundleIssue) {
 }
 
 TEST(CycleSmokeTest, ReadyWaveLosingBundleSelectionEmitsIssueGroupConflictStall) {
-  const auto spec = ArchRegistry::Get("c500");
+  const auto spec = ArchRegistry::Get("mac500");
   ASSERT_NE(spec, nullptr);
 
   CollectingTraceSink trace;
@@ -586,7 +586,7 @@ TEST(CycleSmokeTest, ReadyWaveLosingBundleSelectionEmitsIssueGroupConflictStall)
 }
 
 TEST(CycleSmokeTest, IssuePolicyOverrideCanWidenVectorBundleWithoutSeparateLimitOverride) {
-  const auto spec = ArchRegistry::Get("c500");
+  const auto spec = ArchRegistry::Get("mac500");
   ASSERT_NE(spec, nullptr);
 
   InstructionBuilder builder;
@@ -636,7 +636,7 @@ TEST(CycleSmokeTest, IssuePolicyOverrideCanWidenVectorBundleWithoutSeparateLimit
 }
 
 TEST(CycleSmokeTest, IssueLimitOverrideTakesPriorityOverIssuePolicyTypeLimits) {
-  const auto spec = ArchRegistry::Get("c500");
+  const auto spec = ArchRegistry::Get("mac500");
   ASSERT_NE(spec, nullptr);
 
   InstructionBuilder builder;

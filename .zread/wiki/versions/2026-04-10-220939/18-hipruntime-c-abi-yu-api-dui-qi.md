@@ -65,7 +65,7 @@ flowchart TD
 Trace 控制由 GPU_MODEL_DISABLE_TRACE 环境变量决定，ABI 层在 launch 期间解析 TraceArtifactRecorder 并在结束时 flush，同时追加 launch_summary.txt 记录执行模式、功能模式与周期统计。Sources: [runtime_env_config.cpp](src/runtime/config/runtime_env_config.cpp#L14-L21) [hip_runtime_abi.cpp](src/runtime/hip_runtime_abi.cpp#L60-L67) [hip_runtime_abi.cpp](src/runtime/hip_runtime_abi.cpp#L626-L636)
 
 ## 设备属性与属性映射规则
-hipGetDevicePropertiesR0600 将内部属性拷贝到 R0600 结构：包括 name、memory、并行度上限、时钟与缓存等，gcnArchName 固定返回 “c500”。这为 HIP 程序中常用查询接口提供稳定返回。Sources: [hip_runtime_abi.cpp](src/runtime/hip_runtime_abi.cpp#L332-L379)
+hipGetDevicePropertiesR0600 将内部属性拷贝到 R0600 结构：包括 name、memory、并行度上限、时钟与缓存等，gcnArchName 固定返回 “mac500”。这为 HIP 程序中常用查询接口提供稳定返回。Sources: [hip_runtime_abi.cpp](src/runtime/hip_runtime_abi.cpp#L332-L379)
 
 hipDeviceGetAttribute 使用显式 switch 将 HIP 枚举映射到内部 RuntimeDeviceAttribute；未覆盖枚举返回 hipErrorInvalidValue，未解析值同样作为错误返回。Sources: [hip_runtime_abi.cpp](src/runtime/hip_runtime_abi.cpp#L381-L489)
 
@@ -95,7 +95,7 @@ ABI 层通过 Remember() 写入 last_error，hipGetLastError 消费并清零，h
 - 事件不记录真实时间，hipEventElapsedTime 固定 0.0f；StreamWaitEvent 不产生真实等待。Sources: [hip_runtime_abi.cpp](src/runtime/hip_runtime_abi.cpp#L581-L590) [hip_runtime_abi.cpp](src/runtime/hip_runtime_abi.cpp#L527-L535)  
 - Async API 退化为同步行为；需要有效流句柄通过校验。Sources: [hip_runtime_abi.cpp](src/runtime/hip_runtime_abi.cpp#L245-L254)  
 - 未注册 host 符号的 kernel 启动将被拒绝，返回明确错误。Sources: [runtime_session.cpp](src/runtime/core/runtime_session.cpp#L378-L385)  
-- 设备标识与 gcnArchName 固定返回 “c500”，用于内部架构选择。Sources: [hip_runtime_abi.cpp](src/runtime/hip_runtime_abi.cpp#L373-L376)
+- 设备标识与 gcnArchName 固定返回 “mac500”，用于内部架构选择。Sources: [hip_runtime_abi.cpp](src/runtime/hip_runtime_abi.cpp#L373-L376)
 
 ## 内核启动调用链（顺序图）
 ```mermaid

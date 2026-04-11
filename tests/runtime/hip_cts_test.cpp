@@ -211,7 +211,7 @@ int main() { return 0; }
 )";
     }
     const std::string command =
-        test_utils::HipccCacheCommand() + " --offload-arch=gfx90a " + src_path.string() + " -o " + artifact.exe_path.string();
+        test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + artifact.exe_path.string();
     if (std::system(command.c_str()) != 0) {
       throw std::runtime_error("failed to build mfma HIP CTS artifact");
     }
@@ -706,7 +706,7 @@ TEST_P(HipCtsModelRuntimeTest, ExecutesHipOutAndValidatesResults) {
           LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x},
           std::move(args),
           ExecutionMode::Functional,
-          "c500",
+          "mac500",
           nullptr);
       ASSERT_TRUE(result.ok) << result.error_message;
       hooks.MemcpyDtoH<float>(out_addr, std::span<float>(out));
@@ -734,7 +734,7 @@ TEST_P(HipCtsModelRuntimeTest, ExecutesHipOutAndValidatesResults) {
           LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x},
           std::move(args),
           ExecutionMode::Functional,
-          "c500",
+          "mac500",
           nullptr);
       ASSERT_TRUE(result.ok) << result.error_message;
       hooks.MemcpyDtoH<float>(out_addr, std::span<float>(out));
@@ -764,7 +764,7 @@ TEST_P(HipCtsModelRuntimeTest, ExecutesHipOutAndValidatesResults) {
           LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x},
           std::move(args),
           ExecutionMode::Functional,
-          "c500",
+          "mac500",
           nullptr);
       ASSERT_TRUE(result.ok) << result.error_message;
       hooks.MemcpyDtoH<float>(out_addr, std::span<float>(out));
@@ -789,7 +789,7 @@ TEST_P(HipCtsModelRuntimeTest, ExecutesHipOutAndValidatesResults) {
           LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
           std::move(args),
           ExecutionMode::Functional,
-          "c500",
+          "mac500",
           nullptr);
       ASSERT_TRUE(result.ok) << result.error_message;
       hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(&out, 1));
@@ -809,7 +809,7 @@ TEST_P(HipCtsModelRuntimeTest, ExecutesHipOutAndValidatesResults) {
           LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x},
           std::move(args),
           ExecutionMode::Functional,
-          "c500",
+          "mac500",
           nullptr);
       ASSERT_TRUE(result.ok) << result.error_message;
       hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(&out, 1));
@@ -839,7 +839,7 @@ TEST_P(HipCtsModelRuntimeTest, ExecutesHipOutAndValidatesResults) {
           LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x},
           std::move(args),
           ExecutionMode::Functional,
-          "c500",
+          "mac500",
           nullptr);
       ASSERT_TRUE(result.ok) << result.error_message;
       hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(out));
@@ -862,7 +862,7 @@ TEST_P(HipCtsModelRuntimeTest, ExecutesHipOutAndValidatesResults) {
           },
           std::move(args),
           ExecutionMode::Functional,
-          "c500",
+          "mac500",
           nullptr);
       ASSERT_TRUE(result.ok) << result.error_message;
       hooks.MemcpyDtoH<int32_t>(out_addr, std::span<int32_t>(out));
@@ -886,7 +886,7 @@ TEST_P(HipCtsModelRuntimeTest, ExecutesHipOutAndValidatesResults) {
           LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x},
           std::move(args),
           ExecutionMode::Functional,
-          "c500",
+          "mac500",
           nullptr);
       ASSERT_TRUE(result.ok) << result.error_message;
       hooks.MemcpyDtoH<float>(out_addr, std::span<float>(out));
@@ -910,7 +910,7 @@ TEST_P(HipCtsModelRuntimeTest, ExecutesHipOutAndValidatesResults) {
           LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x},
           std::move(args),
           ExecutionMode::Functional,
-          "c500",
+          "mac500",
           nullptr);
       ASSERT_TRUE(result.ok) << result.error_message;
       hooks.MemcpyDtoH<float>(out_addr, std::span<float>(out));
@@ -928,7 +928,7 @@ TEST_P(HipCtsModelRuntimeTest, ExecutesHipOutAndValidatesResults) {
           LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
           std::move(args),
           ExecutionMode::Functional,
-          "c500",
+          "mac500",
           nullptr);
       ASSERT_TRUE(result.ok) << result.error_message;
       hooks.MemcpyDtoH<float>(out_addr, std::span<float>(&out, 1));

@@ -1,7 +1,7 @@
-本页聚焦模型中 Wave（波前）、Block（工作组）与 Device（设备拓扑）三层语义及其状态管理：如何定义 Wave 可运行性、等待原因与挂起计数，Block 级 barrier 的达成与释放条件，以及设备级拓扑（DPC/AP/PEU）和属性对上述语义的约束。目标读者为需要基于内部状态构建调度/同步/可视化的高级开发者。Sources: [wave_context.h](src/gpu_model/execution/wave_context.h#L13-L35) [execution_state.h](src/gpu_model/execution/internal/execution_state.h#L12-L21) [c500_spec.cpp](src/arch/c500_spec.cpp#L11-L16) [device_properties.h](src/gpu_model/runtime/device_properties.h#L42-L55)
+本页聚焦模型中 Wave（波前）、Block（工作组）与 Device（设备拓扑）三层语义及其状态管理：如何定义 Wave 可运行性、等待原因与挂起计数，Block 级 barrier 的达成与释放条件，以及设备级拓扑（DPC/AP/PEU）和属性对上述语义的约束。目标读者为需要基于内部状态构建调度/同步/可视化的高级开发者。Sources: [wave_context.h](src/gpu_model/execution/wave_context.h#L13-L35) [execution_state.h](src/gpu_model/execution/internal/execution_state.h#L12-L21) [mac500_spec.cpp](src/arch/mac500_spec.cpp#L11-L16) [device_properties.h](src/gpu_model/runtime/device_properties.h#L42-L55)
 
 ## 语义分层与对象关系总览
-模型采用自上而下的设备拓扑：Device 由多个 DPC 组成，每个 DPC 含多个 AP，每个 AP 含多个 PEU；Block 被放置到特定的 dpc/ap 上并划分为多个 Wave，Wave 再映射到具体 peu。该拓扑由映射器产出 Placement（含 block_id、block_idx_xyz、dpc_id、ap_id 以及 waves 的 wave_id/peu_id/lane_count），并作为后续执行状态构建输入。Sources: [mapper.h](src/gpu_model/runtime/mapper.h#L11-L26) [mapper.h](src/gpu_model/runtime/mapper.h#L28-L35) [c500_spec.cpp](src/arch/c500_spec.cpp#L11-L16)
+模型采用自上而下的设备拓扑：Device 由多个 DPC 组成，每个 DPC 含多个 AP，每个 AP 含多个 PEU；Block 被放置到特定的 dpc/ap 上并划分为多个 Wave，Wave 再映射到具体 peu。该拓扑由映射器产出 Placement（含 block_id、block_idx_xyz、dpc_id、ap_id 以及 waves 的 wave_id/peu_id/lane_count），并作为后续执行状态构建输入。Sources: [mapper.h](src/gpu_model/runtime/mapper.h#L11-L26) [mapper.h](src/gpu_model/runtime/mapper.h#L28-L35) [mac500_spec.cpp](src/arch/mac500_spec.cpp#L11-L16)
 
 下图给出层级与主要状态承载对象（ExecutionBlockState、WaveContext）的关系，便于建立“谁持有何状态”的全局心智模型。Sources: [execution_state.h](src/gpu_model/execution/internal/execution_state.h#L12-L21) [wave_context.h](src/gpu_model/execution/wave_context.h#L36-L67)
 
@@ -89,7 +89,7 @@ Block 封装在 ExecutionBlockState 中，包含 barrier_generation/arrivals、s
 ## 设备属性与资源约束
 设备运行时属性给出 warp_size（64）、每 Block/每 Multiprocessor 的共享内存与寄存器上限，以及网格/块尺寸约束；这些属性限定了 Wave 规模与 Block 资源的上界。Sources: [device_properties.h](src/gpu_model/runtime/device_properties.h#L42-L55) [device_properties.h](src/gpu_model/runtime/device_properties.h#L56-L75)
 
-架构规格 c500 进一步定义了每 DPC/AP/PEU 的数量、每 PEU 可驻留/可发射的 Wave 数，以及每 AP 的 barrier 槽位数等周期资源参数，为 barrier 并发与调度选择提供硬约束。Sources: [c500_spec.cpp](src/arch/c500_spec.cpp#L11-L16) [c500_spec.cpp](src/arch/c500_spec.cpp#L37-L45)
+架构规格 mac500 进一步定义了每 DPC/AP/PEU 的数量、每 PEU 可驻留/可发射的 Wave 数，以及每 AP 的 barrier 槽位数等周期资源参数，为 barrier 并发与调度选择提供硬约束。Sources: [mac500_spec.cpp](src/arch/mac500_spec.cpp#L11-L16) [mac500_spec.cpp](src/arch/mac500_spec.cpp#L37-L45)
 
 ## 类/模块交互视图
 交互主线：Mapper 产出 Placement → WaveContextBuilder 构建 ExecutionBlockState/WaveContext → 前端用 IssueEligibility 判定可发射性（含 waitcnt/前端门控）→ SyncOps 进行 barrier 到达与释放 → WaveContext/ExecutionBlockState 状态被更新。Sources: [mapper.h](src/gpu_model/runtime/mapper.h#L28-L35) [wave_context_builder.h](src/gpu_model/execution/wave_context_builder.h#L10-L15) [issue_eligibility.h](src/gpu_model/execution/internal/issue_eligibility.h#L45-L53) [sync_ops.h](src/gpu_model/execution/sync_ops.h#L7-L29)

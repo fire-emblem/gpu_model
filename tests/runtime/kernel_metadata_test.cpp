@@ -9,7 +9,7 @@ namespace {
 
 TEST(KernelMetadataTest, ParsesStructuredLaunchMetadata) {
   MetadataBlob metadata{.values = {
-                            {"arch", "c500"},
+                            {"arch", "mac500"},
                             {"entry", "meta_kernel"},
                             {"module_kernels", "meta_kernel,other_kernel"},
                             {"arg_count", "2"},
@@ -25,7 +25,7 @@ TEST(KernelMetadataTest, ParsesStructuredLaunchMetadata) {
   ASSERT_TRUE(parsed.required_shared_bytes.has_value());
   ASSERT_TRUE(parsed.block_dim_multiple.has_value());
   ASSERT_TRUE(parsed.max_block_dim.has_value());
-  EXPECT_EQ(*parsed.arch, "c500");
+  EXPECT_EQ(*parsed.arch, "mac500");
   EXPECT_EQ(*parsed.entry, "meta_kernel");
   ASSERT_EQ(parsed.module_kernels.size(), 2u);
   EXPECT_EQ(parsed.module_kernels[0], "meta_kernel");
@@ -89,7 +89,7 @@ TEST(KernelMetadataTest, RejectsLaunchesThatViolateMetadataConstraints) {
   const auto kernel = builder.Build(
       "validated_kernel",
       MetadataBlob{.values = {
-                       {"arch", "c500"},
+                       {"arch", "mac500"},
                        {"entry", "validated_kernel"},
                        {"arg_count", "1"},
                        {"required_shared_bytes", "128"},
@@ -147,7 +147,7 @@ TEST(KernelMetadataTest, RejectsKernelNameNotPresentInModuleKernelList) {
   const auto kernel = builder.Build(
       "actual_kernel",
       MetadataBlob{.values = {
-                       {"arch", "c500"},
+                       {"arch", "mac500"},
                        {"entry", "actual_kernel"},
                        {"module_name", "demo_mod"},
                        {"module_kernels", "other_kernel,third_kernel"},

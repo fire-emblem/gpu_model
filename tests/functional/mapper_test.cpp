@@ -6,8 +6,8 @@
 namespace gpu_model {
 namespace {
 
-TEST(MapperTest, MapsBlocksToApsAndWavesToPeusForC500) {
-  const auto spec = ArchRegistry::Get("c500");
+TEST(MapperTest, MapsBlocksToApsAndWavesToPeusForMac500) {
+  const auto spec = ArchRegistry::Get("mac500");
   ASSERT_NE(spec, nullptr);
 
   LaunchConfig config{.grid_dim_x = 2, .block_dim_x = 128};
@@ -22,7 +22,7 @@ TEST(MapperTest, MapsBlocksToApsAndWavesToPeusForC500) {
 }
 
 TEST(MapperTest, TailWaveUsesPartialLaneCount) {
-  const auto spec = ArchRegistry::Get("c500");
+  const auto spec = ArchRegistry::Get("mac500");
   ASSERT_NE(spec, nullptr);
 
   LaunchConfig config{.grid_dim_x = 1, .block_dim_x = 96};
@@ -34,7 +34,7 @@ TEST(MapperTest, TailWaveUsesPartialLaneCount) {
 }
 
 TEST(MapperTest, Supports2DGridAndBlockCoordinates) {
-  const auto spec = ArchRegistry::Get("c500");
+  const auto spec = ArchRegistry::Get("mac500");
   ASSERT_NE(spec, nullptr);
 
   LaunchConfig config{
@@ -58,7 +58,7 @@ TEST(MapperTest, Supports2DGridAndBlockCoordinates) {
 }
 
 TEST(MapperTest, Supports3DGridAndBlockCoordinates) {
-  const auto spec = ArchRegistry::Get("c500");
+  const auto spec = ArchRegistry::Get("mac500");
   ASSERT_NE(spec, nullptr);
 
   LaunchConfig config{

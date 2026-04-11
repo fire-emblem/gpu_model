@@ -10,7 +10,7 @@ namespace gpu_model {
 namespace {
 
 TEST(CycleIssuePolicyTest, ReturnsConfiguredIssueLimitsFromSpec) {
-  const auto spec = ArchRegistry::Get("c500");
+  const auto spec = ArchRegistry::Get("mac500");
   ASSERT_NE(spec, nullptr);
 
   const auto limits = CycleIssueLimitsForSpec(*spec);
@@ -24,7 +24,7 @@ TEST(CycleIssuePolicyTest, ReturnsConfiguredIssueLimitsFromSpec) {
 }
 
 TEST(CycleIssuePolicyTest, ReturnsConfiguredIssuePolicyFromSpec) {
-  const auto spec = ArchRegistry::Get("c500");
+  const auto spec = ArchRegistry::Get("mac500");
   ASSERT_NE(spec, nullptr);
 
   const auto policy = CycleIssuePolicyForSpec(*spec);
@@ -37,8 +37,8 @@ TEST(CycleIssuePolicyTest, ReturnsConfiguredIssuePolicyFromSpec) {
             EligibleWaveSelectionPolicy::RoundRobin);
 }
 
-TEST(CycleIssuePolicyTest, C500DefaultPolicyMakesBranchAndSpecialConflictInScheduler) {
-  const auto spec = ArchRegistry::Get("c500");
+TEST(CycleIssuePolicyTest, Mac500DefaultPolicyMakesBranchAndSpecialConflictInScheduler) {
+  const auto spec = ArchRegistry::Get("mac500");
   ASSERT_NE(spec, nullptr);
 
   const std::vector<IssueSchedulerCandidate> candidates{
@@ -59,7 +59,7 @@ TEST(CycleIssuePolicyTest, C500DefaultPolicyMakesBranchAndSpecialConflictInSched
 }
 
 TEST(CycleIssuePolicyTest, ApplyingLimitsToGroupedPolicyPreservesTypeGrouping) {
-  const auto spec = ArchRegistry::Get("c500");
+  const auto spec = ArchRegistry::Get("mac500");
   ASSERT_NE(spec, nullptr);
 
   ArchitecturalIssueLimits widened_limits = CycleIssueLimitsForSpec(*spec);

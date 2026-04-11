@@ -13,6 +13,7 @@
 #include "gpu_model/debug/trace/sink.h"
 #include "gpu_model/program/object_reader.h"
 #include "gpu_model/runtime/exec_engine.h"
+#include "gpu_model/target/amdgpu_target_config.h"
 #include "tests/test_utils/llvm_mc_test_support.h"
 #include "tests/test_utils/trace_test_support.h"
 
@@ -106,10 +107,20 @@ std::filesystem::path AssembleLlvmMcFixture(const std::string& stem,
     if (!out) {
       throw std::runtime_error("failed to create asm file: " + asm_path.string());
     }
-    out << ReadTextFile(fixture_path);
+    std::string text = ReadTextFile(fixture_path);
+    const std::string needle = ".amdgcn_target";
+    const std::string replacement =
+        ".amdgcn_target \"" + std::string(kProjectAmdgpuTargetId) + "\"";
+    if (const size_t pos = text.find(needle); pos != std::string::npos) {
+      const size_t line_end = text.find('\n', pos);
+      text.replace(pos, line_end == std::string::npos ? text.size() - pos : line_end - pos,
+                   replacement);
+    }
+    out << text;
   }
   const std::string command =
-      "llvm-mc -triple=amdgcn-amd-amdhsa -mcpu=gfx900 -filetype=obj " +
+      "llvm-mc -triple=" + std::string(kProjectAmdgpuTriple) + " -mcpu=" +
+      std::string(kProjectAmdgpuMcpu) + " -filetype=obj " +
       ShellQuote(asm_path) + " -o " + ShellQuote(obj_path);
   if (std::system(command.c_str()) != 0) {
     throw std::runtime_error("llvm-mc failed for fixture: " + fixture_path.string());
@@ -142,7 +153,7 @@ TEST(TraceEncodedTest, UsesCanonicalArriveAndBarrierReleaseMessages) {
   const auto image = ObjectReader{}.LoadProgramObject(obj_path, "asm_ds_lds_variants");
 
   LaunchRequest request;
-  request.arch_name = "c500";
+  request.arch_name = "mac500";
   request.program_object = &image;
   request.mode = ExecutionMode::Cycle;
   request.config.grid_dim_x = 1;
@@ -197,7 +208,7 @@ TEST(TraceEncodedTest, PerfettoProtoShowsEncodedFunctionalLogicalUnboundedSlotsO
   runtime.memory().StoreGlobalValue<int32_t>(out_addr, 0);
 
   LaunchRequest request;
-  request.arch_name = "c500";
+  request.arch_name = "mac500";
   request.program_object = &image;
   request.mode = ExecutionMode::Functional;
   request.config.grid_dim_x = 1;
@@ -256,7 +267,7 @@ TEST(TraceEncodedTest, FunctionalSamePeuEmitsWaveSwitchAwayMarkers) {
   runtime.memory().StoreGlobalValue<int32_t>(out_addr, 0);
 
   LaunchRequest request;
-  request.arch_name = "c500";
+  request.arch_name = "mac500";
   request.program_object = &image;
   request.mode = ExecutionMode::Functional;
   request.config.grid_dim_x = 1;
@@ -297,7 +308,7 @@ TEST(TraceEncodedTest, FunctionalSamePeuDoesNotEmitSwitchAwayAfterWaveExit) {
   runtime.memory().StoreGlobalValue<int32_t>(out_addr, 0);
 
   LaunchRequest request;
-  request.arch_name = "c500";
+  request.arch_name = "mac500";
   request.program_object = &image;
   request.mode = ExecutionMode::Functional;
   request.config.grid_dim_x = 1;
@@ -374,7 +385,7 @@ TEST(TraceEncodedTest, FunctionalSamePeuSwitchAwayBelongsToPreviouslyIssuedWave)
   runtime.memory().StoreGlobalValue<int32_t>(out_addr, 0);
 
   LaunchRequest request;
-  request.arch_name = "c500";
+  request.arch_name = "mac500";
   request.program_object = &image;
   request.mode = ExecutionMode::Functional;
   request.config.grid_dim_x = 1;
@@ -463,7 +474,7 @@ TEST(TraceEncodedTest, PerfettoProtoShowsEncodedCycleResidentSlotsAcrossPeus) {
   runtime.memory().StoreGlobalValue<int32_t>(out_addr, 0);
 
   LaunchRequest request;
-  request.arch_name = "c500";
+  request.arch_name = "mac500";
   request.program_object = &image;
   request.mode = ExecutionMode::Cycle;
   request.config.grid_dim_x = 1;
@@ -522,7 +533,7 @@ TEST(TraceEncodedTest, CycleReadyWaveLosingBundleSelectionEmitsIssueGroupConflic
     GTEST_SKIP() << "required llvm-mc/LLVM/binutils tools not available";
   }
 
-  const auto spec = ArchRegistry::Get("c500");
+  const auto spec = ArchRegistry::Get("mac500");
   ASSERT_NE(spec, nullptr);
 
   const auto obj_path = AssembleLlvmMcFixture(
@@ -543,7 +554,7 @@ TEST(TraceEncodedTest, CycleReadyWaveLosingBundleSelectionEmitsIssueGroupConflic
   runtime.memory().StoreGlobalValue<int32_t>(out_addr, 0);
 
   LaunchRequest request;
-  request.arch_name = "c500";
+  request.arch_name = "mac500";
   request.program_object = &image;
   request.mode = ExecutionMode::Cycle;
   request.config.grid_dim_x = 1;
@@ -605,7 +616,7 @@ TEST(TraceEncodedTest, PerfettoProtoShowsEncodedCycleGenerateDispatchAndSlotBind
   runtime.memory().StoreGlobalValue<int32_t>(out_addr, 0);
 
   LaunchRequest request;
-  request.arch_name = "c500";
+  request.arch_name = "mac500";
   request.program_object = &image;
   request.mode = ExecutionMode::Cycle;
   request.config.grid_dim_x = 1;
@@ -744,7 +755,7 @@ amdhsa.kernels:
   runtime.memory().StoreGlobalValue<int32_t>(base_addr, 11);
 
   LaunchRequest request;
-  request.arch_name = "c500";
+  request.arch_name = "mac500";
   request.program_object = &assembled.image;
   request.mode = ExecutionMode::Functional;
   request.config.grid_dim_x = 1;
@@ -795,7 +806,7 @@ TEST(TraceEncodedTest, CycleDoesNotStallBeforeExplicitWaitcnt) {
   ASSERT_NE(waitcnt_pc, std::numeric_limits<uint64_t>::max());
 
   LaunchRequest request;
-  request.arch_name = "c500";
+  request.arch_name = "mac500";
   request.program_object = &assembled.image;
   request.mode = ExecutionMode::Cycle;
   request.config.grid_dim_x = 1;
@@ -845,7 +856,7 @@ TEST(TraceEncodedTest, FunctionalWaitcntEmitsWaveWaitArriveAndResumeMarkers) {
   ASSERT_NE(resume_pc, std::numeric_limits<uint64_t>::max());
 
   LaunchRequest request;
-  request.arch_name = "c500";
+  request.arch_name = "mac500";
   request.program_object = &assembled.image;
   request.mode = ExecutionMode::Functional;
   request.config.grid_dim_x = 1;
@@ -958,7 +969,7 @@ amdhsa.kernels:
   ASSERT_NE(waitcnt_pc, std::numeric_limits<uint64_t>::max());
 
   LaunchRequest request;
-  request.arch_name = "c500";
+  request.arch_name = "mac500";
   request.program_object = &assembled.image;
   request.mode = ExecutionMode::Functional;
   request.config.grid_dim_x = 1;
@@ -1021,7 +1032,7 @@ TEST(TraceEncodedTest, CycleWaitcntEmitsWaveWaitArriveAndResumeMarkers) {
   ASSERT_NE(resume_pc, std::numeric_limits<uint64_t>::max());
 
   LaunchRequest request;
-  request.arch_name = "c500";
+  request.arch_name = "mac500";
   request.program_object = &assembled.image;
   request.mode = ExecutionMode::Cycle;
   request.config.grid_dim_x = 1;
@@ -1069,7 +1080,7 @@ TEST(TraceEncodedTest, CycleSamePeuWaitcntEmitsWaveSwitchAwayMarkers) {
   }
 
   LaunchRequest request;
-  request.arch_name = "c500";
+  request.arch_name = "mac500";
   request.program_object = &assembled.image;
   request.mode = ExecutionMode::Cycle;
   request.config.grid_dim_x = 1;
@@ -1151,7 +1162,7 @@ amdhsa.kernels:
   runtime.SetFunctionalExecutionMode(FunctionalExecutionMode::MultiThreaded);
 
   LaunchRequest request;
-  request.arch_name = "c500";
+  request.arch_name = "mac500";
   request.program_object = &assembled.image;
   request.mode = ExecutionMode::Functional;
   request.config.grid_dim_x = 2;
@@ -1224,7 +1235,7 @@ amdhsa.kernels:
         FunctionalExecutionConfig{.mode = mode, .worker_threads = 2});
 
     LaunchRequest request;
-    request.arch_name = "c500";
+    request.arch_name = "mac500";
     request.program_object = &assembled.image;
     request.mode = ExecutionMode::Functional;
     request.config.grid_dim_x = 1;
@@ -1286,7 +1297,7 @@ TEST(TraceEncodedTest, FunctionalSamePeuWaitcntTimelineMatchesAcrossSingleAndMul
     }
 
     LaunchRequest request;
-    request.arch_name = "c500";
+    request.arch_name = "mac500";
     request.program_object = &assembled.image;
     request.mode = ExecutionMode::Functional;
     request.config.grid_dim_x = 1;
@@ -1417,7 +1428,7 @@ amdhsa.kernels:
   runtime.memory().StoreGlobalValue<int32_t>(base_addr, 11);
 
   LaunchRequest request;
-  request.arch_name = "c500";
+  request.arch_name = "mac500";
   request.program_object = &assembled.image;
   request.mode = ExecutionMode::Functional;
   request.config.grid_dim_x = 1;

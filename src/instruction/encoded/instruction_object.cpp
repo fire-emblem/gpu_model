@@ -64,7 +64,7 @@ std::vector<uint32_t> ReadWords(std::span<const std::byte> bytes, size_t offset,
 }
 
 std::vector<EncodedGcnInstruction> ParseRawInstructions(std::span<const std::byte> text_bytes,
-                                                    uint64_t start_pc) {
+                                                        uint64_t start_pc) {
   std::vector<EncodedGcnInstruction> instructions;
   size_t offset = 0;
   while (offset < text_bytes.size()) {
@@ -117,27 +117,37 @@ std::vector<InstructionObjectPtr> InstructionArrayParser::Parse(
   return objects;
 }
 
+std::vector<EncodedGcnInstruction> InstructionArrayParser::ParseRaw(
+    std::span<const std::byte> text_bytes, uint64_t start_pc) {
+  return ParseRawInstructions(text_bytes, start_pc);
+}
+
+std::vector<DecodedInstruction> InstructionArrayParser::Decode(
+    const std::vector<EncodedGcnInstruction>& instructions) {
+  std::vector<DecodedInstruction> decoded;
+  decoded.reserve(instructions.size());
+  for (const auto& instruction : instructions) {
+    decoded.push_back(InstructionDecoder{}.Decode(instruction));
+  }
+  return decoded;
+}
+
 ParsedInstructionArray InstructionArrayParser::Parse(std::span<const std::byte> text_bytes,
                                                      uint64_t start_pc) {
   ParsedInstructionArray result;
-  result.raw_instructions = ParseRawInstructions(text_bytes, start_pc);
-  result.decoded_instructions.reserve(result.raw_instructions.size());
-  for (const auto& instruction : result.raw_instructions) {
-    result.decoded_instructions.push_back(InstructionDecoder{}.Decode(instruction));
-  }
+  result.raw_instructions = ParseRaw(text_bytes, start_pc);
+  result.decoded_instructions = Decode(result.raw_instructions);
   result.instruction_objects = Parse(result.decoded_instructions);
   GPU_MODEL_LOG_DEBUG("instruction", "Parsed %zu instructions from %zu bytes",
                       result.instruction_objects.size(), text_bytes.size());
   return result;
 }
 
-ParsedInstructionArray InstructionArrayParser::Parse(const std::vector<EncodedGcnInstruction>& instructions) {
+ParsedInstructionArray InstructionArrayParser::Parse(
+    const std::vector<EncodedGcnInstruction>& instructions) {
   ParsedInstructionArray result;
   result.raw_instructions = instructions;
-  result.decoded_instructions.reserve(instructions.size());
-  for (const auto& instruction : instructions) {
-    result.decoded_instructions.push_back(InstructionDecoder{}.Decode(instruction));
-  }
+  result.decoded_instructions = Decode(result.raw_instructions);
   result.instruction_objects = Parse(result.decoded_instructions);
   GPU_MODEL_LOG_DEBUG("instruction", "Parsed %zu instructions", result.instruction_objects.size());
   return result;

@@ -5,6 +5,7 @@
 
 #include "gpu_model/instruction/encoded/instruction_object.h"
 #include "gpu_model/program/program_object.h"
+#include "gpu_model/target/amdgpu_target_config.h"
 
 namespace gpu_model::test_utils {
 
@@ -28,12 +29,12 @@ struct AssembledInstructionStream {
 AssembledModule AssembleAndDecodeLlvmMcModule(const std::string& stem,
                                               const std::string& kernel_name,
                                               const std::string& assembly_text,
-                                              const std::string& mcpu = "gfx900");
+                                              std::string_view mcpu = kProjectAmdgpuMcpu);
 
 AssembledInstructionStream AssembleInstructionStream(const std::string& stem,
                                                      const std::string& assembly_text,
                                                      uint64_t start_pc = 0,
-                                                     const std::string& mcpu = "gfx900");
+                                                     std::string_view mcpu = kProjectAmdgpuMcpu);
 
 std::string WrapAmdgpuKernelAssembly(const std::string& kernel_name,
                                      const std::string& kernel_body_asm,

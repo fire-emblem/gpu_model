@@ -585,7 +585,7 @@ TEST(TraceEventTest, TraceEventViewProvidesStableCanonicalNamesForWaveStateEdgeM
 
 TEST(TraceEventTest, TraceEventViewProvidesStableCanonicalNamesForRuntimeProgramEvents) {
   const TraceEvent launch = MakeTraceRuntimeLaunchEvent(
-      /*cycle=*/1, "kernel=runtime_trace_test arch=c500");
+      /*cycle=*/1, "kernel=runtime_trace_test arch=mac500");
   const TraceEvent block_placed =
       MakeTraceBlockPlacedEvent(/*dpc_id=*/0, /*ap_id=*/1, /*block_id=*/2, /*cycle=*/2, "placed");
   const TraceEvent block_admit =
@@ -842,9 +842,9 @@ TEST(TraceEventTest, SemanticFactoriesPreserveLegacyMessageCompatibility) {
 
 TEST(TraceEventTest, RuntimeLaunchFactoriesPreserveCanonicalLaunchMessages) {
   const TraceEvent event = MakeTraceRuntimeLaunchEvent(
-      /*cycle=*/0, "kernel=factory_runtime arch=c500");
+      /*cycle=*/0, "kernel=factory_runtime arch=mac500");
   EXPECT_EQ(event.kind, TraceEventKind::Launch);
-  EXPECT_EQ(event.message, "kernel=factory_runtime arch=c500");
+  EXPECT_EQ(event.message, "kernel=factory_runtime arch=mac500");
 }
 
 TEST(TraceEventTest, UnifiedFactoriesSupportRepresentativeHandBuiltTraceScenarios) {

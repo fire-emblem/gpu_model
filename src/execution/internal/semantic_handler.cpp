@@ -666,9 +666,16 @@ class VectorMemoryHandler final : public ISemanticHandler {
         plan.memory = request;
         return plan;
       }
-      case Opcode::MAtomicAddGlobal: {
+      case Opcode::MAtomicAddGlobal:
+      case Opcode::MAtomicMaxGlobal:
+      case Opcode::MAtomicMinGlobal:
+      case Opcode::MAtomicExchGlobal: {
         request.space = MemorySpace::Global;
         request.kind = AccessKind::Atomic;
+        request.atomic_op = instruction.opcode == Opcode::MAtomicAddGlobal   ? AtomicOp::Add
+                          : instruction.opcode == Opcode::MAtomicMaxGlobal   ? AtomicOp::Max
+                          : instruction.opcode == Opcode::MAtomicMinGlobal   ? AtomicOp::Min
+                          : AtomicOp::Exch;
         const uint64_t scale = ReadScalarOperand(instruction.operands.at(3), wave);
         const uint64_t offset = instruction.operands.size() > 4
                                     ? ReadScalarOperand(instruction.operands.at(4), wave)
@@ -720,9 +727,19 @@ class VectorMemoryHandler final : public ISemanticHandler {
       }
       case Opcode::MStoreShared:
       case Opcode::MAtomicAddShared:
+      case Opcode::MAtomicMaxShared:
+      case Opcode::MAtomicMinShared:
+      case Opcode::MAtomicExchShared:
       case Opcode::MStorePrivate: {
-        request.kind = instruction.opcode == Opcode::MAtomicAddShared ? AccessKind::Atomic
-                                                                      : AccessKind::Store;
+        request.kind = instruction.opcode == Opcode::MStoreShared ||
+                       instruction.opcode == Opcode::MStorePrivate ? AccessKind::Store
+                                                                    : AccessKind::Atomic;
+        if (request.kind == AccessKind::Atomic) {
+          request.atomic_op = instruction.opcode == Opcode::MAtomicAddShared ? AtomicOp::Add
+                            : instruction.opcode == Opcode::MAtomicMaxShared ? AtomicOp::Max
+                            : instruction.opcode == Opcode::MAtomicMinShared ? AtomicOp::Min
+                            : AtomicOp::Exch;
+        }
         request.space = instruction.opcode == Opcode::MStorePrivate ? MemorySpace::Private
                                                                     : MemorySpace::Shared;
         const uint64_t scale = ReadScalarOperand(instruction.operands.at(2), wave);

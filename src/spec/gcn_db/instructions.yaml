@@ -917,6 +917,146 @@ instructions:
     reg_count: 1
     scale: 1
     special_reg: ''
+- id: 96
+  profile: gfx6_gfx8
+  format: ds
+  opcode: 0
+  size_bytes: 8
+  mnemonic: ds_add_u32
+  semantic_family: lds
+  issue_family: lds
+  flags:
+    is_memory: true
+    is_atomic: true
+  implicit_reads:
+  - exec
+  operands:
+  - name: vdst
+    kind: vector_reg
+    role: def
+    field: vdst
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: addr
+    kind: vector_reg
+    role: use
+    field: addr
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: data0
+    kind: vector_reg
+    role: use
+    field: data0
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+- id: 97
+  profile: gfx6_gfx8
+  format: ds
+  opcode: 5
+  size_bytes: 8
+  mnemonic: ds_min_i32
+  semantic_family: lds
+  issue_family: lds
+  flags:
+    is_memory: true
+    is_atomic: true
+  implicit_reads:
+  - exec
+  operands:
+  - name: vdst
+    kind: vector_reg
+    role: def
+    field: vdst
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: addr
+    kind: vector_reg
+    role: use
+    field: addr
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: data0
+    kind: vector_reg
+    role: use
+    field: data0
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+- id: 98
+  profile: gfx6_gfx8
+  format: ds
+  opcode: 6
+  size_bytes: 8
+  mnemonic: ds_max_i32
+  semantic_family: lds
+  issue_family: lds
+  flags:
+    is_memory: true
+    is_atomic: true
+  implicit_reads:
+  - exec
+  operands:
+  - name: vdst
+    kind: vector_reg
+    role: def
+    field: vdst
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: addr
+    kind: vector_reg
+    role: use
+    field: addr
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: data0
+    kind: vector_reg
+    role: use
+    field: data0
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+- id: 99
+  profile: gfx6_gfx8
+  format: ds
+  opcode: 11
+  size_bytes: 8
+  mnemonic: ds_swap_b32
+  semantic_family: lds
+  issue_family: lds
+  flags:
+    is_memory: true
+    is_atomic: true
+  implicit_reads:
+  - exec
+  operands:
+  - name: vdst
+    kind: vector_reg
+    role: def
+    field: vdst
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: addr
+    kind: vector_reg
+    role: use
+    field: addr
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: data0
+    kind: vector_reg
+    role: use
+    field: data0
+    reg_count: 1
+    scale: 1
+    special_reg: ''
 - id: 32
   profile: gfx6_gfx8
   format: vop1
@@ -2728,7 +2868,7 @@ instructions:
     reg_count: 1
     scale: 1
     special_reg: ''
-- id: 84
+- id: 100
   profile: gfx6_gfx8
   format: flat
   opcode: 66
@@ -2761,5 +2901,195 @@ instructions:
     role: use
     field: saddr
     reg_count: 2
+    scale: 1
+    special_reg: ''
+- id: 101
+  profile: gfx6_gfx8
+  format: flat
+  opcode: 68
+  size_bytes: 8
+  mnemonic: global_atomic_smin
+  semantic_family: vector_memory
+  issue_family: vector_memory
+  flags:
+    is_memory: true
+    is_atomic: true
+  implicit_reads:
+  - exec
+  operands:
+  - name: vdst
+    kind: vector_reg
+    role: def
+    field: addr
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: data
+    kind: vector_reg
+    role: use
+    field: data
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: saddr
+    kind: scalar_reg_range
+    role: use
+    field: saddr
+    reg_count: 2
+    scale: 1
+    special_reg: ''
+- id: 102
+  profile: gfx6_gfx8
+  format: flat
+  opcode: 70
+  size_bytes: 8
+  mnemonic: global_atomic_smax
+  semantic_family: vector_memory
+  issue_family: vector_memory
+  flags:
+    is_memory: true
+    is_atomic: true
+  implicit_reads:
+  - exec
+  operands:
+  - name: vdst
+    kind: vector_reg
+    role: def
+    field: addr
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: data
+    kind: vector_reg
+    role: use
+    field: data
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: saddr
+    kind: scalar_reg_range
+    role: use
+    field: saddr
+    reg_count: 2
+    scale: 1
+    special_reg: ''
+- id: 103
+  profile: gfx6_gfx8
+  format: flat
+  opcode: 64
+  size_bytes: 8
+  mnemonic: global_atomic_swap
+  semantic_family: vector_memory
+  issue_family: vector_memory
+  flags:
+    is_memory: true
+    is_atomic: true
+  implicit_reads:
+  - exec
+  operands:
+  - name: vdst
+    kind: vector_reg
+    role: def
+    field: addr
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: data
+    kind: vector_reg
+    role: use
+    field: data
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: saddr
+    kind: scalar_reg_range
+    role: use
+    field: saddr
+    reg_count: 2
+    scale: 1
+    special_reg: ''
+# Buffer atomic instructions (MUBUF format)
+- id: 104
+  profile: gfx6_gfx8
+  format: mubuf
+  opcode: 64
+  size_bytes: 8
+  mnemonic: buffer_atomic_swap
+  semantic_family: vector_memory
+  issue_family: vector_memory
+  flags:
+    is_memory: true
+    is_atomic: true
+  implicit_reads:
+  - exec
+  operands:
+  - name: vdst
+    kind: vector_reg
+    role: def
+    field: vdst
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: data
+    kind: vector_reg
+    role: use
+    field: data
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+- id: 105
+  profile: gfx6_gfx8
+  format: mubuf
+  opcode: 68
+  size_bytes: 8
+  mnemonic: buffer_atomic_smin
+  semantic_family: vector_memory
+  issue_family: vector_memory
+  flags:
+    is_memory: true
+    is_atomic: true
+  implicit_reads:
+  - exec
+  operands:
+  - name: vdst
+    kind: vector_reg
+    role: def
+    field: vdst
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: data
+    kind: vector_reg
+    role: use
+    field: data
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+- id: 106
+  profile: gfx6_gfx8
+  format: mubuf
+  opcode: 70
+  size_bytes: 8
+  mnemonic: buffer_atomic_smax
+  semantic_family: vector_memory
+  issue_family: vector_memory
+  flags:
+    is_memory: true
+    is_atomic: true
+  implicit_reads:
+  - exec
+  operands:
+  - name: vdst
+    kind: vector_reg
+    role: def
+    field: vdst
+    reg_count: 1
+    scale: 1
+    special_reg: ''
+  - name: data
+    kind: vector_reg
+    role: use
+    field: data
+    reg_count: 1
     scale: 1
     special_reg: ''

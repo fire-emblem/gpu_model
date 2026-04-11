@@ -63,11 +63,17 @@ enum class Opcode {
   MLoadGlobal,
   MStoreGlobal,
   MAtomicAddGlobal,
+  MAtomicMaxGlobal,
+  MAtomicMinGlobal,
+  MAtomicExchGlobal,
   MLoadGlobalAddr,
   MStoreGlobalAddr,
   MLoadShared,
   MStoreShared,
   MAtomicAddShared,
+  MAtomicMaxShared,
+  MAtomicMinShared,
+  MAtomicExchShared,
   MLoadPrivate,
   MStorePrivate,
   MLoadConst,
@@ -200,6 +206,12 @@ inline std::string_view ToString(Opcode opcode) {
       return "buffer_store_dword";
     case Opcode::MAtomicAddGlobal:
       return "buffer_atomic_add_u32";
+    case Opcode::MAtomicMaxGlobal:
+      return "buffer_atomic_max_u32";
+    case Opcode::MAtomicMinGlobal:
+      return "buffer_atomic_min_u32";
+    case Opcode::MAtomicExchGlobal:
+      return "buffer_atomic_swap_u32";
     case Opcode::MLoadGlobalAddr:
       return "global_load_dword_addr";
     case Opcode::MStoreGlobalAddr:
@@ -210,6 +222,12 @@ inline std::string_view ToString(Opcode opcode) {
       return "ds_write_b32";
     case Opcode::MAtomicAddShared:
       return "ds_add_u32";
+    case Opcode::MAtomicMaxShared:
+      return "ds_max_u32";
+    case Opcode::MAtomicMinShared:
+      return "ds_min_u32";
+    case Opcode::MAtomicExchShared:
+      return "ds_swap_u32";
     case Opcode::MLoadPrivate:
       return "scratch_load_dword";
     case Opcode::MStorePrivate:

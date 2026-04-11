@@ -35,10 +35,14 @@ struct DecodedInstruction {
   GcnInstLayout layout{};
   std::vector<uint32_t> words{};
   std::string mnemonic{};
+  std::string asm_op{};
+  std::string asm_text{};
   std::vector<DecodedInstructionOperand> operands{};
 
   // Format complete assembly text: "v_add_f32 v0, v1, v2"
   std::string Dump() const;
+  std::string BoundAsmText() const;
+  std::string HexWords() const;
 };
 
 }  // namespace gpu_model

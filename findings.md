@@ -114,7 +114,7 @@
   - `docs/module-development-status.md` 保留模块状态、缺口和推进顺序
   - 历史 plans/specs 只作为 archive，不再承担现行规范职责
 - `docs/plans` 二次审计后，以下文件已确认主要是 bootstrap / 重构过渡讨论，现已被正式设计文档吸收，继续保留只会提高误导风险：
-  - `2026-03-27-c500-gpu-function-model.md`
+  - `2026-03-27-mac500-gpu-function-model.md`
   - `2026-03-27-gcn-aligned-code-architecture.md`
   - `2026-03-27-multi-target-isa-exec-layering.md`
   - `2026-03-28-exec-architecture-refactor-assessment.md`

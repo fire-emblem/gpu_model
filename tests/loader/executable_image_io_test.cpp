@@ -32,7 +32,7 @@ TEST(ExecutableImageIOTest, RoundTripsSectionedImageAndLaunchesIt) {
   const ProgramObject original(
       "sectioned_const_kernel",
       R"(
-        .meta arch=c500
+        .meta arch=mac500
         s_load_kernarg s0, 0
         s_load_kernarg s1, 1
         v_get_global_id_x v0
@@ -46,7 +46,7 @@ TEST(ExecutableImageIOTest, RoundTripsSectionedImageAndLaunchesIt) {
         s_restoreexec_b64 s10
         s_endpgm
       )",
-      MetadataBlob{.values = {{"arch", "c500"}, {"format", "sectioned"}}},
+      MetadataBlob{.values = {{"arch", "mac500"}, {"format", "sectioned"}}},
       MakeConstSegment(table));
 
   ExecutableImageIO::Write(path, original);
@@ -108,7 +108,7 @@ TEST(ExecutableImageIOTest, RoundTripsDataSection) {
       std::filesystem::temp_directory_path() / "gpu_model_data_image.gpusec";
 
   ProgramObject image(
-      "data_kernel", "s_endpgm\n", MetadataBlob{.values = {{"arch", "c500"}}}, {},
+      "data_kernel", "s_endpgm\n", MetadataBlob{.values = {{"arch", "mac500"}}}, {},
       DataSegment{.bytes = {std::byte{0x41}, std::byte{0x42}, std::byte{0x43}}});
   ExecutableImageIO::Write(path, image);
 

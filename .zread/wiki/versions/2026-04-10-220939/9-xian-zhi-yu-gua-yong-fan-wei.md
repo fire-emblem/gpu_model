@@ -82,7 +82,7 @@ timeline.perfetto.json 与 trace.txt 中的 cycle 是“模型时间”，用于
 现阶段提供 Global/Constant/Kernarg/Data/Shared/Private 等语义空间与字节级 MemorySystem；缓存路径以轻量级接口预留为主，不建模 coherence/MSHR/GPUVM/页错误/DMA，合并策略与 VL1/SL1/L2 命中延迟按分层接口逐步演进。Sources: [docs/module-development-status.md](docs/module-development-status.md#L121-L136) [docs/memory-hierarchy-interface-reservation.md](docs/memory-hierarchy-interface-reservation.md#L20-L38) [docs/memory-hierarchy-interface-reservation.md](docs/memory-hierarchy-interface-reservation.md#L66-L85)
 
 ## 设备与架构适配边界
-第一阶段目标针对 c500 设备规格，单卡、wave64、固定拓扑与统一的 device property 查询；这一定义限定了“适用范围”的架构前提。Sources: [docs/module-development-status.md](docs/module-development-status.md#L162-L166)
+第一阶段目标针对 mac500 设备规格，单卡、wave64、固定拓扑与统一的 device property 查询；这一定义限定了“适用范围”的架构前提。Sources: [docs/module-development-status.md](docs/module-development-status.md#L162-L166)
 
 ## 常见误解澄清
 - “cycle 等于硬件时钟”：错误。这里的 cycle 是模型时间，用于解释执行顺序、等待与气泡分布，非物理时钟。Sources: [README.md](README.md#L92-L96)

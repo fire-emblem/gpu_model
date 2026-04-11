@@ -42,7 +42,7 @@ TEST(TraceRecorderTest, BuildsPerWaveEntriesAndInstructionCycleRanges) {
       .pc = 0x80,
   };
 
-  recorder.Record(MakeTraceRuntimeLaunchEvent(0, "kernel=recorder_test arch=c500"));
+  recorder.Record(MakeTraceRuntimeLaunchEvent(0, "kernel=recorder_test arch=mac500"));
   recorder.Record(
       MakeTraceWaveStepEvent(wave0, 8, TraceSlotModelKind::ResidentFixed, "pc=0x40 op=v_add_i32"));
   recorder.Record(MakeTraceCommitEvent(wave0, 12, TraceSlotModelKind::ResidentFixed));
@@ -215,7 +215,7 @@ TEST(TraceRecorderTest, ExportsTextAndJsonInRecordedOrder) {
       .pc = 0x24,
   };
 
-  recorder.Record(MakeTraceRuntimeLaunchEvent(0, "kernel=recorder_export arch=c500"));
+  recorder.Record(MakeTraceRuntimeLaunchEvent(0, "kernel=recorder_export arch=mac500"));
   recorder.Record(MakeTraceWaveLaunchEvent(
       wave, 1, "lanes=0x40 exec=0xffffffffffffffff", TraceSlotModelKind::ResidentFixed));
   recorder.Record(

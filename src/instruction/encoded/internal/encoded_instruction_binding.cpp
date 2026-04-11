@@ -12,11 +12,25 @@ namespace gpu_model {
 
 namespace {
 
+std::string InstructionDebugContext(const DecodedInstruction& instruction) {
+  std::string message;
+  const std::string hex_words = instruction.HexWords();
+  if (!hex_words.empty()) {
+    message += " binary=" + hex_words;
+  }
+  const std::string asm_text = instruction.BoundAsmText();
+  if (!asm_text.empty()) {
+    message += " asm=\"" + asm_text + "\"";
+  }
+  return message;
+}
+
 // Unsupported handler for unknown/placeholder instructions
 class UnsupportedInstructionHandler final : public IEncodedSemanticHandler {
  public:
   void Execute(const DecodedInstruction& instruction, EncodedWaveContext&) const override {
-    throw std::invalid_argument("unsupported instantiated raw GCN opcode: " + instruction.mnemonic);
+    throw std::invalid_argument("unsupported instantiated raw GCN opcode: " + instruction.mnemonic +
+                                InstructionDebugContext(instruction));
   }
 };
 
@@ -50,9 +64,6 @@ InstructionObjectPtr BindEncodedInstructionObject(DecodedInstruction instruction
   if (match == nullptr || !match->known()) {
     // Unknown instruction - create placeholder
     const std::string class_name = op_type_name + "_placeholder";
-    EncodedDebugLog("BindEncodedInstruction: pc=0x%llx placeholder class=%s",
-                    static_cast<unsigned long long>(instruction.pc),
-                    class_name.c_str());
     return std::make_unique<EncodedInstructionObject>(
         std::move(instruction), kUnsupportedHandler, op_type_name, class_name);
   }
@@ -60,10 +71,11 @@ InstructionObjectPtr BindEncodedInstructionObject(DecodedInstruction instruction
   // Known instruction - create with handler
   const std::string class_name(match->encoding_def->mnemonic);
   instruction.mnemonic = class_name;
+  instruction.encoding_id = match->encoding_def->id;
+  if (instruction.size_bytes == 0) {
+    instruction.size_bytes = match->encoding_def->size_bytes;
+  }
   const auto& handler = EncodedSemanticHandlerRegistry::Get(instruction);
-  EncodedDebugLog("BindEncodedInstruction: pc=0x%llx mnemonic=%s",
-                  static_cast<unsigned long long>(instruction.pc),
-                  class_name.c_str());
   return std::make_unique<EncodedInstructionObject>(
       std::move(instruction), handler, op_type_name, class_name);
 }

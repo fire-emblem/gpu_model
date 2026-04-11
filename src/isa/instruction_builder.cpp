@@ -457,6 +457,36 @@ InstructionBuilder& InstructionBuilder::MAtomicAddGlobal(std::string_view base,
                          ImmediateOperand(scale_bytes), ImmediateOperand(offset_bytes)});
 }
 
+InstructionBuilder& InstructionBuilder::MAtomicMaxGlobal(std::string_view base,
+                                                         std::string_view index,
+                                                         std::string_view src,
+                                                         uint32_t scale_bytes,
+                                                         uint32_t offset_bytes) {
+  return AddInstruction(Opcode::MAtomicMaxGlobal,
+                        {ParseRegOperand(base), ParseRegOperand(index), ParseRegOperand(src),
+                         ImmediateOperand(scale_bytes), ImmediateOperand(offset_bytes)});
+}
+
+InstructionBuilder& InstructionBuilder::MAtomicMinGlobal(std::string_view base,
+                                                         std::string_view index,
+                                                         std::string_view src,
+                                                         uint32_t scale_bytes,
+                                                         uint32_t offset_bytes) {
+  return AddInstruction(Opcode::MAtomicMinGlobal,
+                        {ParseRegOperand(base), ParseRegOperand(index), ParseRegOperand(src),
+                         ImmediateOperand(scale_bytes), ImmediateOperand(offset_bytes)});
+}
+
+InstructionBuilder& InstructionBuilder::MAtomicExchGlobal(std::string_view base,
+                                                          std::string_view index,
+                                                          std::string_view src,
+                                                          uint32_t scale_bytes,
+                                                          uint32_t offset_bytes) {
+  return AddInstruction(Opcode::MAtomicExchGlobal,
+                        {ParseRegOperand(base), ParseRegOperand(index), ParseRegOperand(src),
+                         ImmediateOperand(scale_bytes), ImmediateOperand(offset_bytes)});
+}
+
 InstructionBuilder& InstructionBuilder::MLoadGlobalAddr(std::string_view dest,
                                                         std::string_view addr_lo,
                                                         std::string_view addr_hi,
@@ -495,6 +525,30 @@ InstructionBuilder& InstructionBuilder::MAtomicAddShared(std::string_view index,
                                                          std::string_view src,
                                                          uint32_t scale_bytes) {
   return AddInstruction(Opcode::MAtomicAddShared,
+                        {ParseRegOperand(index), ParseRegOperand(src),
+                         ImmediateOperand(scale_bytes)});
+}
+
+InstructionBuilder& InstructionBuilder::MAtomicMaxShared(std::string_view index,
+                                                         std::string_view src,
+                                                         uint32_t scale_bytes) {
+  return AddInstruction(Opcode::MAtomicMaxShared,
+                        {ParseRegOperand(index), ParseRegOperand(src),
+                         ImmediateOperand(scale_bytes)});
+}
+
+InstructionBuilder& InstructionBuilder::MAtomicMinShared(std::string_view index,
+                                                         std::string_view src,
+                                                         uint32_t scale_bytes) {
+  return AddInstruction(Opcode::MAtomicMinShared,
+                        {ParseRegOperand(index), ParseRegOperand(src),
+                         ImmediateOperand(scale_bytes)});
+}
+
+InstructionBuilder& InstructionBuilder::MAtomicExchShared(std::string_view index,
+                                                          std::string_view src,
+                                                          uint32_t scale_bytes) {
+  return AddInstruction(Opcode::MAtomicExchShared,
                         {ParseRegOperand(index), ParseRegOperand(src),
                          ImmediateOperand(scale_bytes)});
 }

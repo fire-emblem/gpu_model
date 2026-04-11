@@ -145,9 +145,9 @@ RuntimeDeviceProperties ModelRuntime::GetDeviceProperties(int device_id) const {
   if (device_id != 0) {
     throw std::out_of_range("invalid device id");
   }
-  const auto spec = ArchRegistry::Get("c500");
+  const auto spec = ArchRegistry::Get("mac500");
   if (!spec) {
-    throw std::runtime_error("missing c500 arch spec");
+    throw std::runtime_error("missing mac500 arch spec");
   }
   return BuildRuntimeDeviceProperties(*spec);
 }

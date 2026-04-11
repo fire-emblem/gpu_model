@@ -130,7 +130,7 @@ TEST(CycleApResidentBlocksTest, SingleApAdmitsTwoResidentBlocksBeforeBackfilling
                                  /*warp_switch_cycles=*/1,
                                  /*arg_load_cycles=*/4);
 
-  const auto spec = ArchRegistry::Get("c500");
+  const auto spec = ArchRegistry::Get("mac500");
   ASSERT_NE(spec, nullptr);
   const auto kernel = BuildCycleResidentExitKernel();
 
@@ -164,7 +164,7 @@ TEST(CycleApResidentBlocksTest, RetiredBlockBackfillsPendingBlockOnSameAp) {
                                  /*warp_switch_cycles=*/1,
                                  /*arg_load_cycles=*/4);
 
-  const auto spec = ArchRegistry::Get("c500");
+  const auto spec = ArchRegistry::Get("mac500");
   ASSERT_NE(spec, nullptr);
   const auto kernel = BuildCycleResidentExitKernel();
 
@@ -197,7 +197,7 @@ TEST(CycleApResidentBlocksTest, ResidentStandbyBlockDoesNotLaunchWavesUntilActiv
                                  /*warp_switch_cycles=*/1,
                                  /*arg_load_cycles=*/4);
 
-  const auto spec = ArchRegistry::Get("c500");
+  const auto spec = ArchRegistry::Get("mac500");
   ASSERT_NE(spec, nullptr);
   const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
   runtime.memory().StoreGlobalValue<int32_t>(base_addr, 7);
@@ -237,7 +237,7 @@ TEST(CycleApResidentBlocksTest, StandbyWavePromotesAfterActiveWaveExits) {
                                  /*warp_switch_cycles=*/1,
                                  /*arg_load_cycles=*/4);
 
-  const auto spec = ArchRegistry::Get("c500");
+  const auto spec = ArchRegistry::Get("mac500");
   ASSERT_NE(spec, nullptr);
   const uint64_t base_addr = runtime.memory().AllocateGlobal(sizeof(int32_t));
   runtime.memory().StoreGlobalValue<int32_t>(base_addr, 7);
@@ -281,7 +281,7 @@ TEST(CycleApResidentBlocksTest, BarrierWaitingResidentWaveYieldsActiveSlotUntilR
                                  /*warp_switch_cycles=*/1,
                                  /*arg_load_cycles=*/4);
 
-  const auto spec = ArchRegistry::Get("c500");
+  const auto spec = ArchRegistry::Get("mac500");
   ASSERT_NE(spec, nullptr);
   const auto kernel = BuildCycleResidentBarrierYieldKernel();
 

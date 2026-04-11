@@ -1455,8 +1455,23 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                                   }
                                   const int32_t prior = static_cast<int32_t>(
                                       LoadLaneValue(context.memory, request.lanes[lane]));
-                                  const int32_t updated =
-                                      prior + static_cast<int32_t>(request.lanes[lane].value);
+                                  int32_t updated;
+                                  switch (request.atomic_op) {
+                                    case AtomicOp::Add:
+                                      updated = prior + static_cast<int32_t>(request.lanes[lane].value);
+                                      break;
+                                    case AtomicOp::Max:
+                                      updated = std::max(prior, static_cast<int32_t>(request.lanes[lane].value));
+                                      break;
+                                    case AtomicOp::Min:
+                                      updated = std::min(prior, static_cast<int32_t>(request.lanes[lane].value));
+                                      break;
+                                    case AtomicOp::Exch:
+                                      updated = static_cast<int32_t>(request.lanes[lane].value);
+                                      break;
+                                    default:
+                                      throw std::invalid_argument("unsupported atomic op");
+                                  }
                                   LaneAccess writeback = request.lanes[lane];
                                   writeback.value = static_cast<uint64_t>(static_cast<int64_t>(updated));
                                   StoreLaneValue(context.memory, writeback);
@@ -1544,8 +1559,23 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                                   }
                                   const int32_t prior = static_cast<int32_t>(
                                       LoadLaneValue(candidate->block->shared_memory, request.lanes[lane]));
-                                  const int32_t updated =
-                                      prior + static_cast<int32_t>(request.lanes[lane].value);
+                                  int32_t updated;
+                                  switch (request.atomic_op) {
+                                    case AtomicOp::Add:
+                                      updated = prior + static_cast<int32_t>(request.lanes[lane].value);
+                                      break;
+                                    case AtomicOp::Max:
+                                      updated = std::max(prior, static_cast<int32_t>(request.lanes[lane].value));
+                                      break;
+                                    case AtomicOp::Min:
+                                      updated = std::min(prior, static_cast<int32_t>(request.lanes[lane].value));
+                                      break;
+                                    case AtomicOp::Exch:
+                                      updated = static_cast<int32_t>(request.lanes[lane].value);
+                                      break;
+                                    default:
+                                      throw std::invalid_argument("unsupported atomic op");
+                                  }
                                   LaneAccess writeback = request.lanes[lane];
                                   writeback.value = static_cast<uint64_t>(static_cast<int64_t>(updated));
                                   StoreLaneValue(candidate->block->shared_memory, writeback);

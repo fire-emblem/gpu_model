@@ -171,7 +171,7 @@ TEST(TracePerfettoTest, PerfettoProtoUsesCanonicalNamesForRuntimeAndFrontEndMark
   };
 
   const std::vector<TraceEvent> events{
-      MakeTraceRuntimeLaunchEvent(/*cycle=*/1, "kernel=perfetto_runtime arch=c500"),
+      MakeTraceRuntimeLaunchEvent(/*cycle=*/1, "kernel=perfetto_runtime arch=mac500"),
       MakeTraceBlockEvent(/*dpc_id=*/0,
                           /*ap_id=*/0,
                           /*block_id=*/3,
@@ -318,7 +318,7 @@ TEST(TracePerfettoTest, TraceArtifactRecorderWritesTraceAndPerfettoFiles) {
 
   {
     TraceArtifactRecorder trace(out_dir);
-    trace.OnEvent(MakeTraceRuntimeLaunchEvent(0, "kernel=artifact_trace arch=c500"));
+    trace.OnEvent(MakeTraceRuntimeLaunchEvent(0, "kernel=artifact_trace arch=mac500"));
     const TraceWaveView wave{
         .dpc_id = 0,
         .ap_id = 0,
@@ -436,7 +436,7 @@ TEST(TracePerfettoTest, TraceArtifactRecorderOwnsUnifiedRecorderState) {
       .wave_id = 3,
       .pc = 0x20,
   };
-  trace.OnEvent(MakeTraceRuntimeLaunchEvent(0, "kernel=artifact_state arch=c500"));
+  trace.OnEvent(MakeTraceRuntimeLaunchEvent(0, "kernel=artifact_state arch=mac500"));
   trace.OnEvent(
       MakeTraceWaveStepEvent(wave, 4, TraceSlotModelKind::ResidentFixed, "pc=0x20 op=v_add_i32"));
   trace.OnEvent(MakeTraceCommitEvent(wave, 8, TraceSlotModelKind::ResidentFixed));

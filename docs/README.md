@@ -12,6 +12,7 @@
 - [task_plan.md](/data/gpu_model/task_plan.md)
 - [my_design.md](/data/gpu_model/docs/my_design.md)
 - [architecture/project_architecture_refactor_analysis.md](/data/gpu_model/docs/architecture/project_architecture_refactor_analysis.md)
+- [architecture/src_quality_priority_analysis.md](/data/gpu_model/docs/architecture/src_quality_priority_analysis.md)
 - [cycle-issue-eligibility-policy.md](/data/gpu_model/docs/cycle-issue-eligibility-policy.md)
 - [cycle-issue-design-gap-analysis.md](/data/gpu_model/docs/cycle-issue-design-gap-analysis.md)
 - [runtime-layering.md](/data/gpu_model/docs/runtime-layering.md)
@@ -30,6 +31,8 @@
   - 记录当前 `cycle_exec_engine` 在 wave issue 选择上的主要差距、建议调整方向和实际约束例子
 - [architecture/project_architecture_refactor_analysis.md](/data/gpu_model/docs/architecture/project_architecture_refactor_analysis.md)
   - 记录全项目层面的架构债、重构优先级、推荐目标形态和各阶段完成判定
+- [architecture/src_quality_priority_analysis.md](/data/gpu_model/docs/architecture/src_quality_priority_analysis.md)
+  - 记录当前 `src-only` 质量扫描下的关键问题、优先级排序和建议处理顺序
 
 正式阅读顺序：
 
@@ -39,13 +42,15 @@
    - 看当前正式设计约束和模块语义
 3. [architecture/project_architecture_refactor_analysis.md](/data/gpu_model/docs/architecture/project_architecture_refactor_analysis.md)
    - 看全项目架构债的优先级、分阶段重构顺序和完成判定
-4. [cycle-issue-eligibility-policy.md](/data/gpu_model/docs/cycle-issue-eligibility-policy.md)
+4. [architecture/src_quality_priority_analysis.md](/data/gpu_model/docs/architecture/src_quality_priority_analysis.md)
+   - 看当前 `src-only` 质量问题的优先级、风险和建议处理顺序
+5. [cycle-issue-eligibility-policy.md](/data/gpu_model/docs/cycle-issue-eligibility-policy.md)
    - 看 `cycle issue` 的正式语义边界与参考口径
-5. [cycle-issue-design-gap-analysis.md](/data/gpu_model/docs/cycle-issue-design-gap-analysis.md)
+6. [cycle-issue-design-gap-analysis.md](/data/gpu_model/docs/cycle-issue-design-gap-analysis.md)
    - 看当前 `cycle issue` 设计目标与现有代码框架之间的差距
-6. [runtime-layering.md](/data/gpu_model/docs/runtime-layering.md)
+7. [runtime-layering.md](/data/gpu_model/docs/runtime-layering.md)
    - 看 runtime 正式分层
-7. [module-development-status.md](/data/gpu_model/docs/module-development-status.md)
+8. [module-development-status.md](/data/gpu_model/docs/module-development-status.md)
    - 看模块完成度、缺口和推进顺序
 
 ## 2. 历史计划 / 实施存档

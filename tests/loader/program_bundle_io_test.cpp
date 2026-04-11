@@ -30,7 +30,7 @@ TEST(ProgramBundleIOTest, RoundTripsProgramObjectAndLaunchesLoadedBundle) {
   const ProgramObject original(
       "bundle_const_kernel",
       R"(
-        .meta arch=c500
+        .meta arch=mac500
         s_load_kernarg s0, 0
         s_load_kernarg s1, 1
         v_get_global_id_x v0
@@ -44,7 +44,7 @@ TEST(ProgramBundleIOTest, RoundTripsProgramObjectAndLaunchesLoadedBundle) {
         s_restoreexec_b64 s10
         s_endpgm
       )",
-      MetadataBlob{.values = {{"arch", "c500"}, {"format", "bundle"}}},
+      MetadataBlob{.values = {{"arch", "mac500"}, {"format", "bundle"}}},
       MakeConstSegment(table));
 
   ProgramBundleIO::Write(bundle_path, original);
@@ -84,7 +84,7 @@ TEST(ProgramBundleIOTest, RoundTripsDataSegment) {
 
   ProgramObject original(
       "bundle_data_kernel", "s_endpgm\n",
-      MetadataBlob{.values = {{"arch", "c500"}, {"format", "bundle_raw"}}}, {},
+      MetadataBlob{.values = {{"arch", "mac500"}, {"format", "bundle_raw"}}}, {},
       DataSegment{.bytes = {std::byte{0xde}, std::byte{0xad}, std::byte{0xbe}, std::byte{0xef}}});
 
   ProgramBundleIO::Write(bundle_path, original);

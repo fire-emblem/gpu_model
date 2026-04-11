@@ -48,7 +48,7 @@ TEST(ProgramObjectLaunchTest, RuntimeEngineLaunchesExplicitProgramObjectInput) {
   } aggregate{3, 5, 7};
 
   LaunchRequest request;
-  request.arch_name = "c500";
+  request.arch_name = "mac500";
   request.program_object = &image;
   request.config = LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64};
   request.args.PushU64(out_addr);
@@ -128,7 +128,7 @@ amdhsa.kernels:
   runtime.memory().StoreGlobalValue<uint32_t>(out_addr, 7u);
 
   LaunchRequest request;
-  request.arch_name = "c500";
+  request.arch_name = "mac500";
   request.program_object = &image;
   request.mode = ExecutionMode::Cycle;
   request.trace = &trace;

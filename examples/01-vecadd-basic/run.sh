@@ -18,7 +18,7 @@ EXE="$OUT_DIR/vecadd.out"
 
 gpu_model_compile_hip_source "$ROOT" "$SRC" -o "$EXE"
 
-for mode in mt; do
+for mode in cycle; do
   mode_dir="$(gpu_model_mode_dir "$OUT_DIR" "$mode")"
   gpu_model_run_interposed_mode "$SO_PATH" "$EXE" "$mode_dir" "$mode"
   gpu_model_assert_mode_success "$mode_dir" "vecadd validation ok"

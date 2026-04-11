@@ -50,7 +50,7 @@ TEST(ProgramSourceReaderTest, LoadsProgramObjectFromFilesAndLaunchesIt) {
   {
     std::ofstream meta_file(meta_path);
     ASSERT_TRUE(static_cast<bool>(meta_file));
-    meta_file << "arch=c500\n";
+    meta_file << "arch=mac500\n";
     meta_file << "entry=const_image\n";
   }
   std::vector<int32_t> table(32);
@@ -60,7 +60,7 @@ TEST(ProgramSourceReaderTest, LoadsProgramObjectFromFilesAndLaunchesIt) {
   WriteBinaryFile(const_path, table);
 
   const ProgramObject image = ObjectReader{}.LoadFromStem(asm_path);
-  EXPECT_EQ(image.metadata().values.at("arch"), "c500");
+  EXPECT_EQ(image.metadata().values.at("arch"), "mac500");
   EXPECT_EQ(image.metadata().values.at("entry"), "const_image");
   EXPECT_EQ(image.const_segment().bytes.size(), table.size() * sizeof(int32_t));
 

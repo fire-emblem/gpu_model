@@ -17,6 +17,8 @@ struct InstructionEncoding {
   std::vector<uint32_t> words;
   EncodedGcnInstFormatClass format_class = EncodedGcnInstFormatClass::Unknown;
   std::string mnemonic;
+  std::string asm_op;
+  std::string asm_text;
 
   InstructionEncoding() = default;
 
@@ -34,7 +36,14 @@ struct InstructionEncoding {
         size_bytes(static_cast<uint32_t>(instruction.size_bytes)),
         words(instruction.words),
         format_class(static_cast<EncodedGcnInstFormatClass>(instruction.format_class)),
-        mnemonic(instruction.mnemonic) {}
+        mnemonic(instruction.mnemonic) {
+    if constexpr (requires { instruction.asm_op; }) {
+      asm_op = instruction.asm_op;
+    }
+    if constexpr (requires { instruction.asm_text; }) {
+      asm_text = instruction.asm_text;
+    }
+  }
 };
 
 class InstructionDecoder {

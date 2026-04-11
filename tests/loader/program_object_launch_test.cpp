@@ -27,7 +27,7 @@ TEST(ProgramObjectLaunchTest, LaunchesProgramObjectDirectlyWithConstSegment) {
   ProgramObject image(
       "const_image_kernel",
       R"(
-        .meta arch=c500
+        .meta arch=mac500
         s_load_kernarg s0, 0
         s_load_kernarg s1, 1
         v_get_global_id_x v0

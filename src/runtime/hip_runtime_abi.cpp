@@ -341,7 +341,7 @@ hipError_t hipGetDevicePropertiesR0600(hipDeviceProp_tR0600* prop, int deviceId)
   prop->concurrentManagedAccess = props.concurrent_managed_access;
   prop->cooperativeLaunch = props.cooperative_launch;
   prop->hostRegisterSupported = props.host_register_supported;
-  std::snprintf(prop->gcnArchName, sizeof(prop->gcnArchName), "%s", "c500");
+  std::snprintf(prop->gcnArchName, sizeof(prop->gcnArchName), "%s", "mac500");
   prop->maxSharedMemoryPerMultiProcessor = props.max_shared_mem_per_multiprocessor;
   prop->pciBusID = props.pci_bus_id;
   prop->pciDeviceID = props.pci_device_id;
@@ -590,7 +590,7 @@ hipError_t hipLaunchKernel(const void* function_address,
       config,
       args,
       execution_mode,
-      "c500",
+      "mac500",
       trace,
       CurrentSubmissionContext());
   if (trace != nullptr) {

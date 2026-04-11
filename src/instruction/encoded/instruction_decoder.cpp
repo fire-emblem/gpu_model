@@ -13,7 +13,18 @@ DecodedInstruction InstructionDecoder::Decode(const InstructionEncoding& instruc
   decoded.format_class = instruction.format_class;
   decoded.layout = MakeGcnInstLayout(instruction.words);
 
-  if (const auto* def = FindEncodedGcnEncodingDef(instruction.words)) {
+  const auto* preferred_def = !instruction.asm_op.empty()
+                                  ? FindEncodedGcnEncodingDefByMnemonic(
+                                        instruction.asm_op, instruction.format_class, instruction.size_bytes)
+                                  : FindEncodedGcnEncodingDefByMnemonic(
+                                        instruction.mnemonic,
+                                        instruction.format_class,
+                                        instruction.size_bytes);
+
+  if (preferred_def != nullptr) {
+    decoded.encoding_id = preferred_def->id;
+    decoded.mnemonic = std::string(preferred_def->mnemonic);
+  } else if (const auto* def = FindEncodedGcnEncodingDef(instruction.words)) {
     decoded.encoding_id = def->id;
     decoded.mnemonic = std::string(def->mnemonic);
   } else {
@@ -29,6 +40,8 @@ DecodedInstruction InstructionDecoder::Decode(const InstructionEncoding& instruc
   expanded.words = instruction.words;
   expanded.format_class = instruction.format_class;
   expanded.mnemonic = instruction.mnemonic;
+  expanded.asm_op = instruction.asm_op;
+  expanded.asm_text = instruction.asm_text;
   DecodeEncodedGcnOperands(expanded);
   for (const auto& operand : expanded.decoded_operands) {
     DecodedInstructionOperandKind kind = DecodedInstructionOperandKind::Unknown;
@@ -64,6 +77,8 @@ DecodedInstruction InstructionDecoder::Decode(const InstructionEncoding& instruc
     decoded.operands.push_back(
         DecodedInstructionOperand{.kind = kind, .text = operand.text, .info = operand.info});
   }
+  decoded.asm_op = instruction.asm_op.empty() ? decoded.mnemonic : instruction.asm_op;
+  decoded.asm_text = instruction.asm_text.empty() ? decoded.Dump() : instruction.asm_text;
   return decoded;
 }
 

@@ -1571,14 +1571,46 @@ class FunctionalExecutionCoreImpl {
             std::lock_guard<std::mutex> lock(*block.shared_mutex);
             int32_t prior =
                 static_cast<int32_t>(LoadLaneValue(block.shared_memory, request.lanes[lane]));
-            const int32_t updated = prior + static_cast<int32_t>(request.lanes[lane].value);
+            int32_t updated;
+            switch (request.atomic_op) {
+              case AtomicOp::Add:
+                updated = prior + static_cast<int32_t>(request.lanes[lane].value);
+                break;
+              case AtomicOp::Max:
+                updated = std::max(prior, static_cast<int32_t>(request.lanes[lane].value));
+                break;
+              case AtomicOp::Min:
+                updated = std::min(prior, static_cast<int32_t>(request.lanes[lane].value));
+                break;
+              case AtomicOp::Exch:
+                updated = static_cast<int32_t>(request.lanes[lane].value);
+                break;
+              default:
+                throw std::invalid_argument("unsupported atomic op");
+            }
             LaneAccess writeback = request.lanes[lane];
             writeback.value = static_cast<uint64_t>(static_cast<int64_t>(updated));
             StoreLaneValue(block.shared_memory, writeback);
           } else if (request.space == MemorySpace::Global) {
             std::lock_guard<std::mutex> lock(global_memory_mutex_);
             int32_t prior = context_.memory.LoadGlobalValue<int32_t>(request.lanes[lane].addr);
-            const int32_t updated = prior + static_cast<int32_t>(request.lanes[lane].value);
+            int32_t updated;
+            switch (request.atomic_op) {
+              case AtomicOp::Add:
+                updated = prior + static_cast<int32_t>(request.lanes[lane].value);
+                break;
+              case AtomicOp::Max:
+                updated = std::max(prior, static_cast<int32_t>(request.lanes[lane].value));
+                break;
+              case AtomicOp::Min:
+                updated = std::min(prior, static_cast<int32_t>(request.lanes[lane].value));
+                break;
+              case AtomicOp::Exch:
+                updated = static_cast<int32_t>(request.lanes[lane].value);
+                break;
+              default:
+                throw std::invalid_argument("unsupported atomic op");
+            }
             context_.memory.StoreGlobalValue<int32_t>(request.lanes[lane].addr, updated);
           } else {
             throw std::invalid_argument("unsupported atomic memory space");

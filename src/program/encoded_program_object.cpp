@@ -5,8 +5,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <fstream>
 #include <filesystem>
+#include <fstream>
+#include <iomanip>
 #include <sstream>
 #include <span>
 #include <stdexcept>
@@ -19,6 +20,7 @@
 #include "gpu_model/instruction/encoded/internal/encoded_gcn_encoding_def.h"
 #include "gpu_model/instruction/encoded/instruction_object.h"
 #include "gpu_model/isa/kernel_metadata.h"
+#include "gpu_model/target/amdgpu_target_config.h"
 
 namespace gpu_model {
 
@@ -77,6 +79,58 @@ std::string RunCommand(std::string command) {
   return output;
 }
 
+bool HasCommand(std::string_view command_name) {
+  const std::string probe = "command -v " + std::string(command_name) + " >/dev/null 2>&1";
+  return std::system(probe.c_str()) == 0;
+}
+
+std::string ReadElfHeaderText(const std::filesystem::path& path) {
+  return RunCommand("readelf -h " + ShellQuote(path.string()));
+}
+
+std::string ReadElfSectionTableText(const std::filesystem::path& path) {
+  return RunCommand("readelf -S " + ShellQuote(path.string()));
+}
+
+std::string ReadElfSymbolTableText(const std::filesystem::path& path) {
+  return RunCommand("readelf -Ws " + ShellQuote(path.string()));
+}
+
+std::string ReadElfNotesText(const std::filesystem::path& path) {
+  return RunCommand("llvm-readelf --notes " + ShellQuote(path.string()));
+}
+
+std::string ReadAmdgpuFileHeadersText(const std::filesystem::path& path) {
+  return RunCommand("llvm-readobj --file-headers " + ShellQuote(path.string()));
+}
+
+void DumpElfSection(const std::filesystem::path& path,
+                    std::string_view section_name,
+                    const std::filesystem::path& output_path) {
+  RunCommand("llvm-objcopy --dump-section " + std::string(section_name) + "=" +
+             ShellQuote(output_path.string()) + " " + ShellQuote(path.string()));
+}
+
+std::string ListOffloadBundles(const std::filesystem::path& fatbin_path) {
+  return RunCommand("clang-offload-bundler --list --type=o --input=" +
+                    ShellQuote(fatbin_path.string()));
+}
+
+void UnbundleOffloadTarget(const std::filesystem::path& fatbin_path,
+                           std::string_view target,
+                           const std::filesystem::path& output_path) {
+  RunCommand("clang-offload-bundler --unbundle --type=o --input=" +
+             ShellQuote(fatbin_path.string()) + " --targets=" +
+             ShellQuote(std::string(target)) + " --output=" +
+             ShellQuote(output_path.string()));
+}
+
+std::string DisassembleHexByteStreamWithLlvmMc(const std::filesystem::path& input_path) {
+  return RunCommand("llvm-mc --disassemble --triple=" + std::string(kProjectAmdgpuTriple) +
+                    " --mcpu=" + std::string(kProjectAmdgpuMcpu) + " " +
+                    ShellQuote(input_path.string()));
+}
+
 class ScopedTempDir {
  public:
   ScopedTempDir() {
@@ -104,12 +158,12 @@ class ScopedTempDir {
 };
 
 bool IsAmdgpuElf(const std::filesystem::path& path) {
-  const std::string header = RunCommand("readelf -h " + ShellQuote(path.string()));
+  const std::string header = ReadElfHeaderText(path);
   return header.find("Machine:                           AMD GPU") != std::string::npos;
 }
 
 bool HasHipFatbin(const std::filesystem::path& path) {
-  const std::string sections = RunCommand("readelf -S " + ShellQuote(path.string()));
+  const std::string sections = ReadElfSectionTableText(path);
   return sections.find(".hip_fatbin") != std::string::npos;
 }
 
@@ -133,10 +187,8 @@ MaterializedCodeObject MaterializeDeviceCodeObject(const std::filesystem::path& 
 
   const auto fatbin_path = temp_dir.path() / "kernel.hip_fatbin";
   const auto device_path = temp_dir.path() / "kernel_device.co";
-  RunCommand("llvm-objcopy --dump-section .hip_fatbin=" + ShellQuote(fatbin_path.string()) + " " +
-             ShellQuote(path.string()));
-  const std::string bundles = RunCommand("clang-offload-bundler --list --type=o --input=" +
-                                         ShellQuote(fatbin_path.string()));
+  DumpElfSection(path, ".hip_fatbin", fatbin_path);
+  const std::string bundles = ListOffloadBundles(fatbin_path);
   std::istringstream bundle_stream(bundles);
   std::string bundle;
   std::string target;
@@ -149,8 +201,7 @@ MaterializedCodeObject MaterializeDeviceCodeObject(const std::filesystem::path& 
   if (target.empty()) {
     throw std::runtime_error("HIP fatbin does not contain an AMDGPU device bundle");
   }
-  RunCommand("clang-offload-bundler --unbundle --type=o --input=" + ShellQuote(fatbin_path.string()) +
-             " --targets=" + ShellQuote(target) + " --output=" + ShellQuote(device_path.string()));
+  UnbundleOffloadTarget(fatbin_path, target, device_path);
   return MaterializedCodeObject{
       .path = device_path,
       .metadata = MetadataBlob{},
@@ -429,13 +480,30 @@ std::vector<NoteKernelMetadata> ParseKernelMetadataNotes(const std::string& note
   return kernels;
 }
 
+std::string ExtractMetadataScalar(const std::string& notes, std::string_view key) {
+  const std::string prefix = std::string(key) + ':';
+  std::istringstream input(notes);
+  std::string line;
+  while (std::getline(input, line)) {
+    const std::string trimmed = Trim(line);
+    if (trimmed.rfind(prefix, 0) != 0) {
+      continue;
+    }
+    return Trim(std::string_view(trimmed).substr(prefix.size()));
+  }
+  return {};
+}
+
 MetadataBlob BuildMetadataFromNotes(const std::filesystem::path& note_source_path,
                                     const std::string& kernel_name,
                                     MetadataBlob metadata = {}) {
   metadata.values["entry"] = kernel_name;
 
-  const std::string notes =
-      RunCommand("llvm-readelf --notes " + ShellQuote(note_source_path.string()));
+  const std::string notes = ReadElfNotesText(note_source_path);
+  if (const std::string amdhsa_target = ExtractMetadataScalar(notes, "amdhsa.target");
+      !amdhsa_target.empty()) {
+    metadata.values["amdhsa_target"] = amdhsa_target;
+  }
   const auto kernels = ParseKernelMetadataNotes(notes);
   for (const auto& kernel : kernels) {
     if (kernel.name != kernel_name) {
@@ -548,6 +616,147 @@ std::vector<std::byte> ReadBinaryFile(const std::filesystem::path& path) {
   return bytes;
 }
 
+bool HasLlvmMc() {
+  static const bool available = HasCommand("llvm-mc");
+  return available;
+}
+
+std::string McpuFromMetadata(const MetadataBlob& metadata) {
+  const auto it = metadata.values.find("amdhsa_target");
+  if (it == metadata.values.end() || it->second.empty()) {
+    return {};
+  }
+  return NormalizeAmdgpuMcpu(it->second);
+}
+
+std::string McpuFromFileHeaders(const std::filesystem::path& path) {
+  static constexpr std::string_view kPrefix = "EF_AMDGPU_MACH_AMDGCN_";
+  const std::string headers = ReadAmdgpuFileHeadersText(path);
+  std::istringstream input(headers);
+  std::string line;
+  while (std::getline(input, line)) {
+    const std::string trimmed = Trim(line);
+    const size_t pos = trimmed.find(kPrefix);
+    if (pos == std::string::npos) {
+      continue;
+    }
+    return NormalizeAmdgpuMcpu(trimmed.substr(pos + kPrefix.size()));
+  }
+  return {};
+}
+
+std::string ResolveArtifactAmdgpuMcpu(const MetadataBlob& metadata,
+                                      const std::filesystem::path& path) {
+  if (std::string mcpu = McpuFromMetadata(metadata); !mcpu.empty()) {
+    return mcpu;
+  }
+  if (std::string mcpu = McpuFromFileHeaders(path); !mcpu.empty()) {
+    return mcpu;
+  }
+  return {};
+}
+
+void ValidateProjectAmdgpuTarget(const std::filesystem::path& path,
+                                 const MetadataBlob& metadata) {
+  const std::string actual = ResolveArtifactAmdgpuMcpu(metadata, path);
+  if (!actual.empty() && IsProjectAmdgpuMcpu(actual)) {
+    return;
+  }
+  throw std::runtime_error(ProjectAmdgpuTargetErrorMessage(actual.empty() ? "<unknown>" : actual) +
+                           " [artifact=" + path.string() + "]");
+}
+
+std::string FormatHexByteStream(std::span<const std::byte> bytes) {
+  std::ostringstream out;
+  out << std::hex << std::setfill('0');
+  for (size_t i = 0; i < bytes.size(); ++i) {
+    if (i != 0) {
+      out << ' ';
+    }
+    out << "0x" << std::setw(2) << std::to_integer<unsigned int>(bytes[i]);
+  }
+  return out.str();
+}
+
+struct LlvmMcInstructionLine {
+  std::string op;
+  std::string text;
+};
+
+std::vector<LlvmMcInstructionLine> DisassembleCodeSegmentWithLlvmMc(
+    std::span<const std::byte> code_bytes,
+    const ScopedTempDir& temp_dir) {
+  std::vector<LlvmMcInstructionLine> lines;
+  if (code_bytes.empty() || !HasLlvmMc()) {
+    return lines;
+  }
+
+  const auto input_path = temp_dir.path() / "kernel_disasm_input.txt";
+  {
+    std::ofstream out(input_path);
+    if (!out) {
+      throw std::runtime_error("failed to create llvm-mc disassembly input");
+    }
+    out << FormatHexByteStream(code_bytes) << '\n';
+  }
+
+  const std::string output = DisassembleHexByteStreamWithLlvmMc(input_path);
+  std::istringstream input(output);
+  std::string line;
+  while (std::getline(input, line)) {
+    const std::string trimmed = Trim(line);
+    if (trimmed.empty() || trimmed == ".text") {
+      continue;
+    }
+    const size_t split = trimmed.find_first_of(" \t");
+    lines.push_back(LlvmMcInstructionLine{
+        .op = split == std::string::npos ? trimmed : trimmed.substr(0, split),
+        .text = trimmed,
+    });
+  }
+  return lines;
+}
+
+std::string ExtractAsmOperands(const LlvmMcInstructionLine& line) {
+  const size_t split = line.text.find_first_of(" \t");
+  if (split == std::string::npos) {
+    return {};
+  }
+  return Trim(std::string_view(line.text).substr(split + 1));
+}
+
+void BindLlvmMcDisassembly(ParsedInstructionArray& parsed,
+                           const std::vector<LlvmMcInstructionLine>& disassembly) {
+  if (disassembly.empty()) {
+    return;
+  }
+  if (disassembly.size() != parsed.raw_instructions.size() ||
+      disassembly.size() != parsed.decoded_instructions.size()) {
+    throw std::runtime_error("llvm-mc disassembly count does not match decoded instruction count");
+  }
+
+  for (size_t i = 0; i < disassembly.size(); ++i) {
+    parsed.raw_instructions[i].asm_op = disassembly[i].op;
+    parsed.raw_instructions[i].asm_text = disassembly[i].text;
+    if (parsed.raw_instructions[i].operands.empty()) {
+      parsed.raw_instructions[i].operands = ExtractAsmOperands(disassembly[i]);
+    }
+    parsed.decoded_instructions[i].asm_op = disassembly[i].op;
+    parsed.decoded_instructions[i].asm_text = disassembly[i].text;
+  }
+}
+
+std::string JoinLlvmMcAssemblyText(const std::vector<LlvmMcInstructionLine>& disassembly) {
+  std::ostringstream out;
+  for (size_t i = 0; i < disassembly.size(); ++i) {
+    if (i != 0) {
+      out << '\n';
+    }
+    out << disassembly[i].text;
+  }
+  return out.str();
+}
+
 }  // namespace
 
 ProgramObject ObjectReader::LoadProgramObject(const std::filesystem::path& path,
@@ -556,23 +765,21 @@ ProgramObject ObjectReader::LoadProgramObject(const std::filesystem::path& path,
   const auto materialized = MaterializeDeviceCodeObject(path, temp_dir);
   const auto& device_path = materialized.path;
   ProgramObject code_object;
-  const auto symbols =
-      ParseSymbols(RunCommand("readelf -Ws " + ShellQuote(device_path.string())));
+  const auto symbols = ParseSymbols(ReadElfSymbolTableText(device_path));
   const auto selected_symbol = SelectKernelSymbol(symbols, kernel_name);
   code_object.set_kernel_name(selected_symbol.name);
   code_object.set_metadata(
       BuildMetadataFromNotes(device_path, code_object.kernel_name(), materialized.metadata));
+  ValidateProjectAmdgpuTarget(device_path, code_object.metadata());
 
   const auto descriptor_symbol_name_it = code_object.metadata().values.find("descriptor_symbol");
   if (descriptor_symbol_name_it != code_object.metadata().values.end() &&
       !descriptor_symbol_name_it->second.empty()) {
     const auto descriptor_symbol = SelectDescriptorSymbol(symbols, descriptor_symbol_name_it->second);
     const auto rodata_dump_path = temp_dir.path() / "rodata.bin";
-    RunCommand("llvm-objcopy --dump-section .rodata=" + ShellQuote(rodata_dump_path.string()) + " " +
-               ShellQuote(device_path.string()));
+    DumpElfSection(device_path, ".rodata", rodata_dump_path);
     const auto rodata_bytes = ReadBinaryFile(rodata_dump_path);
-    const auto rodata_info = ParseSectionInfo(
-        RunCommand("readelf -S " + ShellQuote(device_path.string())), ".rodata");
+    const auto rodata_info = ParseSectionInfo(ReadElfSectionTableText(device_path), ".rodata");
     const uint64_t descriptor_offset = descriptor_symbol.value - rodata_info.addr;
     if (descriptor_offset + descriptor_symbol.size > rodata_bytes.size()) {
       throw std::runtime_error("kernel descriptor range exceeds dumped .rodata bytes");
@@ -590,11 +797,9 @@ ProgramObject ObjectReader::LoadProgramObject(const std::filesystem::path& path,
   }
 
   const auto text_dump_path = temp_dir.path() / "text.bin";
-  RunCommand("llvm-objcopy --dump-section .text=" + ShellQuote(text_dump_path.string()) + " " +
-             ShellQuote(device_path.string()));
+  DumpElfSection(device_path, ".text", text_dump_path);
   const auto text_bytes = ReadBinaryFile(text_dump_path);
-  const auto section_info = ParseSectionInfo(
-      RunCommand("readelf -S " + ShellQuote(device_path.string())), ".text");
+  const auto section_info = ParseSectionInfo(ReadElfSectionTableText(device_path), ".text");
   const auto symbol_info = selected_symbol;
 
   const uint64_t kernel_offset = symbol_info.value - section_info.addr;
@@ -605,7 +810,22 @@ ProgramObject ObjectReader::LoadProgramObject(const std::filesystem::path& path,
   const auto code_begin = static_cast<size_t>(kernel_offset);
   const auto code_size = static_cast<size_t>(symbol_info.size);
   std::span<const std::byte> kernel_text{text_bytes.data() + code_begin, code_size};
-  auto parsed = InstructionArrayParser::Parse(kernel_text, symbol_info.value);
+  ParsedInstructionArray parsed;
+  parsed.raw_instructions = InstructionArrayParser::ParseRaw(kernel_text, symbol_info.value);
+  parsed.decoded_instructions = InstructionArrayParser::Decode(parsed.raw_instructions);
+  const auto llvm_mc_disassembly = DisassembleCodeSegmentWithLlvmMc(kernel_text, temp_dir);
+  BindLlvmMcDisassembly(parsed, llvm_mc_disassembly);
+  for (auto& instruction : parsed.raw_instructions) {
+    if (!instruction.asm_op.empty()) {
+      instruction.mnemonic = instruction.asm_op;
+      DecodeEncodedGcnOperands(instruction);
+    }
+  }
+  parsed.decoded_instructions = InstructionArrayParser::Decode(parsed.raw_instructions);
+  parsed.instruction_objects = InstructionArrayParser::Parse(parsed.decoded_instructions);
+  if (!llvm_mc_disassembly.empty()) {
+    code_object.set_assembly_text(JoinLlvmMcAssemblyText(llvm_mc_disassembly));
+  }
   code_object.set_instructions(std::move(parsed.raw_instructions));
   code_object.set_decoded_instructions(std::move(parsed.decoded_instructions));
   code_object.set_instruction_objects(std::move(parsed.instruction_objects));

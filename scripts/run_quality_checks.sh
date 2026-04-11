@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Standalone quality scan entrypoint.
+# This script is intentionally opt-in and is not part of the default push gate.
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RESULTS_DIR="${GPU_MODEL_QUALITY_RESULTS_DIR:-$ROOT/results/quality}"
 CACHE_DIR="${GPU_MODEL_QUALITY_CACHE_DIR:-$ROOT/.cache/quality-tools}"

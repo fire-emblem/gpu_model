@@ -213,7 +213,7 @@ struct FunctionalExecHarness {
   ExecutionContext context;
 
   FunctionalExecHarness(ExecutableKernel kernel_in, LaunchConfig launch_config_in)
-      : spec(ArchRegistry::Get("c500")),
+      : spec(ArchRegistry::Get("mac500")),
         kernel(std::move(kernel_in)),
         launch_config(launch_config_in),
         placement(Mapper::Place(*spec, launch_config)),

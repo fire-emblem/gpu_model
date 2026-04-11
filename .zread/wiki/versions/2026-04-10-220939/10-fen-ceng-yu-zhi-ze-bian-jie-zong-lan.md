@@ -98,7 +98,7 @@ Sources: [system_architecture_design.md](docs/architecture/system_architecture_d
 ## ExecEngine 边界与执行器族
 - 存在三种执行器：FunctionalExecEngine、CycleExecEngine、ProgramObjectExecEngine，由 ExecEngine 统一调度；这一关系在编译期头文件依赖中直接体现。Sources: [exec_engine.cpp](src/runtime/exec_engine.cpp#L1-L30)
 - ExecEngineImpl 内聚 MemorySystem、TraceSink 选择、全套时序/发射策略覆盖开关（如共享银行冲突模型、全球存储层级延迟、launch 各阶段周期等），并通过 Launch() 在运行时解析架构规格与执行模式。Sources: [exec_engine.cpp](src/runtime/exec_engine.cpp#L41-L110)
-- Launch() 入口内解析 arch_name，默认回落 c500，通过 ArchRegistry 查表；查无则返回错误，查到则据规格驱动执行。Sources: [exec_engine.cpp](src/runtime/exec_engine.cpp#L140-L200)
+- Launch() 入口内解析 arch_name，默认回落 mac500，通过 ArchRegistry 查表；查无则返回错误，查到则据规格驱动执行。Sources: [exec_engine.cpp](src/runtime/exec_engine.cpp#L140-L200)
 
 表：执行器族定位（面向“分层”而非工作流细节）
 - FunctionalExecEngine：功能语义优先，支持单/多线程模式

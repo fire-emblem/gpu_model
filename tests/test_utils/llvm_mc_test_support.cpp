@@ -10,6 +10,7 @@
 
 #include "gpu_model/instruction/encoded/instruction_object.h"
 #include "gpu_model/program/object_reader.h"
+#include "gpu_model/target/amdgpu_target_config.h"
 
 namespace gpu_model::test_utils {
 
@@ -42,6 +43,20 @@ std::vector<std::byte> ReadBinaryFile(const std::filesystem::path& path) {
   return bytes;
 }
 
+std::string NormalizeAssemblyTarget(std::string text) {
+  const std::string needle = ".amdgcn_target";
+  const std::string replacement =
+      ".amdgcn_target \"" + std::string(kProjectAmdgpuTargetId) + "\"";
+  size_t pos = 0;
+  while ((pos = text.find(needle, pos)) != std::string::npos) {
+    const size_t line_end = text.find('\n', pos);
+    text.replace(pos, line_end == std::string::npos ? text.size() - pos : line_end - pos,
+                 replacement);
+    pos += replacement.size();
+  }
+  return text;
+}
+
 }  // namespace
 
 bool HasLlvmMcAmdgpuToolchain() {
@@ -55,7 +70,7 @@ bool HasLlvmMcAmdgpuToolchain() {
 AssembledModule AssembleAndDecodeLlvmMcModule(const std::string& stem,
                                               const std::string& kernel_name,
                                               const std::string& assembly_text,
-                                              const std::string& mcpu) {
+                                              std::string_view mcpu) {
   const auto temp_dir = MakeUniqueTempDir(stem);
   const auto asm_path = temp_dir / (kernel_name + ".s");
   const auto obj_path = temp_dir / (kernel_name + ".o");
@@ -64,11 +79,12 @@ AssembledModule AssembleAndDecodeLlvmMcModule(const std::string& stem,
     if (!out) {
       throw std::runtime_error("failed to create asm file: " + asm_path.string());
     }
-    out << assembly_text;
+    out << NormalizeAssemblyTarget(assembly_text);
   }
 
   const std::string assemble_command =
-      "llvm-mc -triple=amdgcn-amd-amdhsa -mcpu=" + mcpu + " -filetype=obj " +
+      "llvm-mc -triple=" + std::string(kProjectAmdgpuTriple) + " -mcpu=" + std::string(mcpu) +
+      " -filetype=obj " +
       ShellQuote(asm_path) + " -o " + ShellQuote(obj_path);
   if (std::system(assemble_command.c_str()) != 0) {
     throw std::runtime_error("llvm-mc failed for asm module: " + kernel_name);
@@ -85,7 +101,7 @@ AssembledModule AssembleAndDecodeLlvmMcModule(const std::string& stem,
 AssembledInstructionStream AssembleInstructionStream(const std::string& stem,
                                                      const std::string& assembly_text,
                                                      uint64_t start_pc,
-                                                     const std::string& mcpu) {
+                                                     std::string_view mcpu) {
   const auto temp_dir = MakeUniqueTempDir(stem);
   const auto asm_path = temp_dir / (stem + ".s");
   const auto obj_path = temp_dir / (stem + ".o");
@@ -95,11 +111,12 @@ AssembledInstructionStream AssembleInstructionStream(const std::string& stem,
     if (!out) {
       throw std::runtime_error("failed to create asm file: " + asm_path.string());
     }
-    out << assembly_text;
+    out << NormalizeAssemblyTarget(assembly_text);
   }
 
   const std::string assemble_command =
-      "llvm-mc -triple=amdgcn-amd-amdhsa -mcpu=" + mcpu + " -filetype=obj " +
+      "llvm-mc -triple=" + std::string(kProjectAmdgpuTriple) + " -mcpu=" + std::string(mcpu) +
+      " -filetype=obj " +
       ShellQuote(asm_path) + " -o " + ShellQuote(obj_path);
   if (std::system(assemble_command.c_str()) != 0) {
     throw std::runtime_error("llvm-mc failed for instruction stream: " + stem);
@@ -127,7 +144,7 @@ std::string WrapAmdgpuKernelAssembly(const std::string& kernel_name,
                                      uint32_t kernarg_segment_size,
                                      uint32_t kernarg_segment_align) {
   std::ostringstream out;
-  out << ".amdgcn_target \"amdgcn-amd-amdhsa--gfx900\"\n\n";
+  out << ".amdgcn_target \"" << kProjectAmdgpuTargetId << "\"\n\n";
   out << ".text\n";
   out << ".globl " << kernel_name << "\n";
   out << ".p2align 8\n";

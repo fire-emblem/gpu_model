@@ -51,6 +51,10 @@ struct ParsedInstructionArray {
 
 class InstructionArrayParser {
  public:
+  static std::vector<EncodedGcnInstruction> ParseRaw(std::span<const std::byte> text_bytes,
+                                                     uint64_t start_pc);
+  static std::vector<DecodedInstruction> Decode(
+      const std::vector<EncodedGcnInstruction>& instructions);
   static ParsedInstructionArray Parse(std::span<const std::byte> text_bytes, uint64_t start_pc);
   static ParsedInstructionArray Parse(const std::vector<EncodedGcnInstruction>& instructions);
   static std::vector<InstructionObjectPtr> Parse(const std::vector<DecodedInstruction>& instructions);

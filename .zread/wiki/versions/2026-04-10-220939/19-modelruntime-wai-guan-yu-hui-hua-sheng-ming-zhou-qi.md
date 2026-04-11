@@ -52,7 +52,7 @@ Sources: [model_runtime.h](src/gpu_model/runtime/model_runtime.h#L61-L77) [model
 ## 设备选择与属性查询
 设备模型当前固定为单设备：GetDeviceCount 始终返回 1；仅允许 SetDevice(0)，否则返回 false；GetDevice 返回当前设备编号（默认 0）。这一策略将复杂性下沉至 ExecEngine 与架构规格层，外观层面保持稳定接口。Sources: [model_runtime.cpp](src/runtime/core/model_runtime.cpp#L116-L131)
 
-设备属性由 BuildRuntimeDeviceProperties 从注册的 GpuArchSpec（默认为 c500）构建，包含线程/多处理器规模、共享内存、L2、时钟与内存带宽等字段；GetDeviceProperties 将架构名固定解析为 "c500" 并抛错处理非法 device_id。属性枚举到整数的映射由 GetDeviceAttribute 集中完成。Sources: [model_runtime.cpp](src/runtime/core/model_runtime.cpp#L16-L35) [model_runtime.cpp](src/runtime/core/model_runtime.cpp#L144-L153) [model_runtime.cpp](src/runtime/core/model_runtime.cpp#L155-L219)
+设备属性由 BuildRuntimeDeviceProperties 从注册的 GpuArchSpec（默认为 mac500）构建，包含线程/多处理器规模、共享内存、L2、时钟与内存带宽等字段；GetDeviceProperties 将架构名固定解析为 "mac500" 并抛错处理非法 device_id。属性枚举到整数的映射由 GetDeviceAttribute 集中完成。Sources: [model_runtime.cpp](src/runtime/core/model_runtime.cpp#L16-L35) [model_runtime.cpp](src/runtime/core/model_runtime.cpp#L144-L153) [model_runtime.cpp](src/runtime/core/model_runtime.cpp#L155-L219)
 
 建议在需要更细的属性/路径说明时，参阅[设备属性与配置查询路径](20-she-bei-shu-xing-yu-pei-zhi-cha-xun-lu-jing)。Sources: [model_runtime.cpp](src/runtime/core/model_runtime.cpp#L144-L153)
 
@@ -106,7 +106,7 @@ Sources: [runtime_session.h](src/gpu_model/runtime/runtime_session.h#L93-L105) [
 - Free(addr): 从分配表移除记录；不直接调用底层释放接口。副作用：仅影响 allocations_。Sources: [model_runtime.cpp](src/runtime/core/model_runtime.cpp#L56-L58)
 - MemcpyDeviceToDevice/MemsetD8/D16/D32: 纯设备端拷贝/填充。副作用：写入 Global 空间。Sources: [model_runtime.cpp](src/runtime/core/model_runtime.cpp#L76-L101)
 - GetDeviceCount/GetDevice/SetDevice: 单设备模型，device_id 必须为 0。副作用：更新 current_device_。Sources: [model_runtime.cpp](src/runtime/core/model_runtime.cpp#L116-L131)
-- GetDeviceProperties/GetDeviceAttribute: 基于 "c500" 架构规格映射生成。副作用：无；非法 device_id 抛出异常。Sources: [model_runtime.cpp](src/runtime/core/model_runtime.cpp#L144-L153) [model_runtime.cpp](src/runtime/core/model_runtime.cpp#L155-L219)
+- GetDeviceProperties/GetDeviceAttribute: 基于 "mac500" 架构规格映射生成。副作用：无；非法 device_id 抛出异常。Sources: [model_runtime.cpp](src/runtime/core/model_runtime.cpp#L144-L153) [model_runtime.cpp](src/runtime/core/model_runtime.cpp#L155-L219)
 - LoadModule/UnloadModule/HasModule/HasKernel/ListModules/ListKernels: 通过 RuntimeModuleRegistry 完成。副作用：更新注册表状态。Sources: [model_runtime.cpp](src/runtime/core/model_runtime.cpp#L262-L287) [module_registry.h](src/gpu_model/runtime/module_registry.h#L20-L38)
 - Launch/LaunchKernel/LaunchProgramObject/LaunchRegisteredKernel: 构造 LaunchRequest 并委托 ExecEngine。副作用：发射执行；可能写入 last_load_result_。Sources: [model_runtime.cpp](src/runtime/core/model_runtime.cpp#L140-L142) [model_runtime.cpp](src/runtime/core/model_runtime.cpp#L223-L241) [model_runtime.cpp](src/runtime/core/model_runtime.cpp#L244-L260) [model_runtime.cpp](src/runtime/core/model_runtime.cpp#L289-L312)
 - DeviceSynchronize/StreamSynchronize: 外观级空实现，用于对齐 API；依赖 ExecEngine 发射完成。Sources: [model_runtime.cpp](src/runtime/core/model_runtime.cpp#L68-L74)
