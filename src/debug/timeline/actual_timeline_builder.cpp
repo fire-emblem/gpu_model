@@ -16,6 +16,16 @@ TimelineLaneKey MakeLaneKey(const RecorderWave& wave) {
   };
 }
 
+std::string ExtractMnemonic(const std::string& display_name) {
+  // If display_name contains assembly text like "buffer_load_dword v1, s0, ...",
+  // extract just the mnemonic (first word)
+  const auto space_pos = display_name.find(' ');
+  if (space_pos != std::string::npos) {
+    return display_name.substr(0, space_pos);
+  }
+  return display_name;
+}
+
 std::string EventName(const RecorderEntry& entry) {
   if (!entry.presentation_name.empty()) {
     return entry.presentation_name;
@@ -24,7 +34,7 @@ std::string EventName(const RecorderEntry& entry) {
     return entry.canonical_name;
   }
   if (!entry.display_name.empty()) {
-    return entry.display_name;
+    return ExtractMnemonic(entry.display_name);
   }
   return entry.compatibility_message;
 }

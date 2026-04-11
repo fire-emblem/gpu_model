@@ -26,6 +26,16 @@ std::string ExtractOpName(const std::string& message) {
   return message.substr(start, end == std::string::npos ? std::string::npos : end - start);
 }
 
+std::string ExtractMnemonic(const std::string& display_name) {
+  // If display_name contains assembly text like "buffer_load_dword v1, s0, ...",
+  // extract just the mnemonic (first word)
+  const auto space_pos = display_name.find(' ');
+  if (space_pos != std::string::npos) {
+    return display_name.substr(0, space_pos);
+  }
+  return display_name;
+}
+
 uint64_t ComputeEndCycle(const Recorder& recorder) {
   uint64_t end = 0;
   for (const auto& event : recorder.events()) {
@@ -173,7 +183,7 @@ TimelineData BuildTimelineData(const Recorder& recorder,
         open_issue.push(&entry);
         const std::string op =
             entry.display_name.empty() ? ExtractOpName(entry.compatibility_message)
-                                       : entry.display_name;
+                                       : ExtractMnemonic(entry.display_name);
         AssignSymbol(op, data.symbols);
         continue;
       }
@@ -189,7 +199,7 @@ TimelineData BuildTimelineData(const Recorder& recorder,
         }
         const std::string op = issue.display_name.empty()
                                    ? ExtractOpName(issue.compatibility_message)
-                                   : issue.display_name;
+                                   : ExtractMnemonic(issue.display_name);
         if (op == "s_waitcnt") {
           continue;
         }

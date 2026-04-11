@@ -315,12 +315,12 @@ TEST(TimelineExpectationTest, WaveSwitchMatchesExpectedTimelineSemantics) {
       .required_slices = {},
       .required_markers =
           {
-              MakeExpectedMarker(MakeEventKey(lane, waitcnt_pc, "wave_switch_away"), 408),
+              MakeExpectedMarker(MakeEventKey(lane, waitcnt_pc, "wave_switch_away"), 412),
               MakeExpectedMarker(MakeEventKey(lane, waitcnt_pc, "load_arrive_resume"),
-                                 444,
+                                 448,
                                  std::nullopt,
                                  TraceArriveProgressKind::Resume),
-              MakeExpectedMarker(MakeEventKey(lane, resume_pc, "wave_resume"), 444),
+              MakeExpectedMarker(MakeEventKey(lane, resume_pc, "wave_resume"), 448),
           },
       .forbidden_slices = {},
       .ordering =

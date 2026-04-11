@@ -374,6 +374,14 @@ TraceEventView MakeTraceEventView(const TraceEvent& event) {
     view.canonical_name = CanonicalNameFromLifecycle(view.lifecycle_stage);
   } else if (event.kind == TraceEventKind::Stall && view.stall_reason != TraceStallReason::None) {
     view.canonical_name = CanonicalNameFromStall(view.waitcnt_state, view.stall_reason);
+  } else if (event.kind == TraceEventKind::WaveStep && !event.display_name.empty()) {
+    // WaveStep events use the instruction mnemonic as canonical name
+    // Extract just the mnemonic (first word) from display_name
+    const std::string_view display = event.display_name;
+    const auto space_pos = display.find(' ');
+    view.canonical_name = space_pos != std::string_view::npos
+        ? std::string(display.substr(0, space_pos))
+        : event.display_name;
   } else if (!CanonicalNameFromRuntimeKind(event.kind).empty()) {
     view.canonical_name = CanonicalNameFromRuntimeKind(event.kind);
   } else if (!event.display_name.empty()) {
