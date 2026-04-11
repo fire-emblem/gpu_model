@@ -29,6 +29,14 @@ LaunchResult LaunchProgramCycleStatsKernel(const ExecutableKernel& kernel,
                                            uint32_t shared_memory_bytes = 0,
                                            uint32_t worker_threads = 2) {
   ExecEngine runtime;
+  // Set warp_switch_cycles=0 to isolate timing behavior without switch penalty
+  runtime.SetLaunchTimingProfile(
+      /*kernel_launch_gap_cycles=*/8,
+      /*kernel_launch_cycles=*/0,
+      /*block_launch_cycles=*/0,
+      /*wave_launch_cycles=*/0,
+      /*warp_switch_cycles=*/0,
+      /*arg_load_cycles=*/4);
   if (mode == FunctionalExecutionMode::MultiThreaded) {
     runtime.SetFunctionalExecutionConfig(
         FunctionalExecutionConfig{
@@ -52,6 +60,14 @@ LaunchResult LaunchKernelInCycleMode(const ExecutableKernel& kernel,
                                      uint32_t grid_dim_x = 1,
                                      uint32_t shared_memory_bytes = 0) {
   ExecEngine runtime;
+  // Set warp_switch_cycles=0 to isolate timing behavior without switch penalty
+  runtime.SetLaunchTimingProfile(
+      /*kernel_launch_gap_cycles=*/8,
+      /*kernel_launch_cycles=*/0,
+      /*block_launch_cycles=*/0,
+      /*wave_launch_cycles=*/0,
+      /*warp_switch_cycles=*/0,
+      /*arg_load_cycles=*/4);
   LaunchRequest request;
   request.kernel = &kernel;
   request.mode = ExecutionMode::Cycle;
