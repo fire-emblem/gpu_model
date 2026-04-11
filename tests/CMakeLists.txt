@@ -119,6 +119,8 @@ add_executable(gpu_model_tests
   runtime/trace_encoded_test.cpp
   runtime/hip_runtime_test.cpp
   runtime/execution_stats_test.cpp
+  runtime/multi_launch_test.cpp
+  runtime/multi_launch_debug_test.cpp
   instruction/instruction_naming_test.cpp
 )
 
