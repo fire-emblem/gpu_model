@@ -11,6 +11,7 @@
 #include <condition_variable>
 #include <deque>
 #include <future>
+#include <iomanip>
 #include <map>
 #include <mutex>
 #include <optional>
@@ -422,9 +423,13 @@ void InitializeWaveAbiState(WaveContext& wave,
   }
 }
 
-std::string HexU64(uint64_t value) {
+std::string HexU64(uint64_t value, int width = 0) {
   std::ostringstream out;
-  out << "0x" << std::hex << std::nouppercase << value;
+  out << "0x" << std::hex << std::nouppercase;
+  if (width > 0) {
+    out << std::setfill('0') << std::setw(width);
+  }
+  out << value;
   return out.str();
 }
 
@@ -441,6 +446,186 @@ std::vector<uint64_t> ActiveAddresses(const MemoryRequest& request) {
     }
   }
   return addrs;
+}
+
+std::string MemorySpaceName(MemorySpace space) {
+  switch (space) {
+    case MemorySpace::Global:
+      return "global";
+    case MemorySpace::Constant:
+      return "constant";
+    case MemorySpace::Shared:
+      return "shared";
+    case MemorySpace::Private:
+      return "private";
+  }
+  return "unknown";
+}
+
+std::string AccessKindName(AccessKind kind) {
+  switch (kind) {
+    case AccessKind::Load:
+      return "load";
+    case AccessKind::Store:
+      return "store";
+    case AccessKind::Atomic:
+      return "atomic";
+    case AccessKind::AsyncLoad:
+      return "async_load";
+    case AccessKind::AsyncStore:
+      return "async_store";
+  }
+  return "unknown";
+}
+
+std::string FormatBytesValue(std::span<const std::byte> bytes) {
+  if (bytes.empty()) {
+    return "0x0";
+  }
+  if (bytes.size() == sizeof(uint32_t)) {
+    uint32_t value = 0;
+    std::memcpy(&value, bytes.data(), sizeof(value));
+    return HexU64(value, 8);
+  }
+  if (bytes.size() == sizeof(uint64_t)) {
+    uint64_t value = 0;
+    std::memcpy(&value, bytes.data(), sizeof(value));
+    return HexU64(value, 16);
+  }
+  std::ostringstream out;
+  out << "0x";
+  for (size_t i = bytes.size(); i > 0; --i) {
+    out << std::hex << std::nouppercase << std::setfill('0') << std::setw(2)
+        << std::to_integer<unsigned int>(bytes[i - 1]);
+  }
+  return out.str();
+}
+
+std::string FormatLaneValue(uint64_t value, uint32_t bytes) {
+  if (bytes == 0) {
+    return "0x0";
+  }
+  if (bytes >= sizeof(uint64_t)) {
+    return HexU64(value, 16);
+  }
+  const uint64_t mask = (uint64_t{1} << (bytes * 8u)) - 1u;
+  return HexU64(value & mask, static_cast<int>(bytes * 2u));
+}
+
+bool ReadLaneBytes(const MemoryRequest& request,
+                   const LaneAccess& lane,
+                   const MemorySystem& memory,
+                   const std::vector<std::byte>& shared_memory,
+                   std::vector<std::byte>* bytes) {
+  if (!lane.active || lane.bytes == 0 || bytes == nullptr) {
+    return false;
+  }
+  bytes->assign(static_cast<size_t>(lane.bytes), std::byte{0});
+  if (request.space == MemorySpace::Global || request.space == MemorySpace::Constant) {
+    if (!memory.HasGlobalRange(lane.addr, lane.bytes)) {
+      return false;
+    }
+    memory.ReadGlobal(lane.addr, std::span<std::byte>(*bytes));
+    return true;
+  }
+  if (request.space == MemorySpace::Shared) {
+    const size_t begin = static_cast<size_t>(lane.addr);
+    const size_t end = begin + lane.bytes;
+    if (end > shared_memory.size()) {
+      return false;
+    }
+    std::memcpy(bytes->data(), shared_memory.data() + begin, lane.bytes);
+    return true;
+  }
+  return false;
+}
+
+std::string ReadLaneValueText(const MemoryRequest& request,
+                              const LaneAccess& lane,
+                              const MemorySystem& memory,
+                              const std::vector<std::byte>& shared_memory) {
+  if (lane.has_read_value) {
+    return FormatLaneValue(lane.read_value, lane.bytes);
+  }
+  std::vector<std::byte> bytes;
+  if (!ReadLaneBytes(request, lane, memory, shared_memory, &bytes)) {
+    return {};
+  }
+  return FormatBytesValue(bytes);
+}
+
+std::string WriteLaneValueText(const MemoryRequest& request,
+                               const LaneAccess& lane,
+                               const MemorySystem& memory,
+                               const std::vector<std::byte>& shared_memory) {
+  if (lane.has_write_value) {
+    return FormatLaneValue(lane.write_value, lane.bytes);
+  }
+  if (request.kind == AccessKind::Store) {
+    return FormatLaneValue(lane.value, lane.bytes);
+  }
+  std::vector<std::byte> bytes;
+  if (!ReadLaneBytes(request, lane, memory, shared_memory, &bytes)) {
+    return {};
+  }
+  return FormatBytesValue(bytes);
+}
+
+std::string FormatMemorySummary(const MemoryRequest& request,
+                                const MemorySystem& memory,
+                                const std::vector<std::byte>& shared_memory) {
+  std::ostringstream out;
+  const size_t active_count =
+      std::count_if(request.lanes.begin(), request.lanes.end(), [](const LaneAccess& lane) {
+        return lane.active;
+      });
+  out << "space=" << MemorySpaceName(request.space)
+      << " kind=" << AccessKindName(request.kind)
+      << " active=" << active_count
+      << " sample={";
+  bool truncated = false;
+  size_t emitted = 0;
+  for (uint32_t lane_id = 0; lane_id < kWaveSize; ++lane_id) {
+    const auto& lane = request.lanes[lane_id];
+    if (!lane.active) {
+      continue;
+    }
+    const bool should_sample = active_count <= 4 || lane_id == 0 || (lane_id % 4u) == 0;
+    if (!should_sample) {
+      truncated = true;
+      continue;
+    }
+    if (emitted++ > 0) {
+      out << "; ";
+    }
+    out << "lane" << lane_id
+        << " addr=" << HexU64(lane.addr)
+        << " bytes=" << lane.bytes;
+    if (request.kind == AccessKind::Load || lane.has_read_value) {
+      const std::string read = ReadLaneValueText(request, lane, memory, shared_memory);
+      if (!read.empty()) {
+        out << " read=" << read;
+      }
+    }
+    if (request.kind == AccessKind::Store || request.kind == AccessKind::Atomic ||
+        lane.has_write_value) {
+      const std::string write = WriteLaneValueText(request, lane, memory, shared_memory);
+      if (!write.empty()) {
+        out << " write=" << write;
+      }
+    }
+    if (request.kind == AccessKind::Atomic && (!lane.has_write_value || lane.write_value != lane.value)) {
+      out << " operand=" << FormatLaneValue(lane.value, lane.bytes);
+    }
+  }
+  if (emitted == 0) {
+    out << "none";
+  }
+  if (truncated) {
+    out << "; ...";
+  }
+  out << "}";
+  return out.str();
 }
 
 bool IsBranchMnemonic(std::string_view mnemonic) {
@@ -996,7 +1181,10 @@ std::string FormatRawWaveStepMessage(const DecodedInstruction& instruction,
 }
 
 TraceWaveStepDetail BuildRawWaveStepDetail(const DecodedInstruction& instruction,
-                                            const WaveContext& wave) {
+                                           const WaveContext& wave,
+                                           const std::optional<MemoryRequest>& memory_request,
+                                           const MemorySystem& memory,
+                                           const std::vector<std::byte>& shared_memory) {
   TraceWaveStepDetail detail;
 
   // Assembly text using DecodedInstruction::Dump()
@@ -1083,8 +1271,9 @@ TraceWaveStepDetail BuildRawWaveStepDetail(const DecodedInstruction& instruction
   detail.exec_before = exec_out.str();
   detail.exec_after = exec_out.str();
 
-  // Memory summary (placeholder for now)
-  detail.mem_summary = "none";
+  detail.mem_summary = memory_request.has_value()
+                           ? FormatMemorySummary(*memory_request, memory, shared_memory)
+                           : "none";
 
   return detail;
 }
@@ -2504,29 +2693,30 @@ class EncodedExecutionCore {
     wave_state.next_issue_cycle = commit_cycle;
     wave_state.wave_cycle_total += issue_duration;
     wave_state.wave_cycle_active += issue_duration;
+    const uint64_t issue_pc = wave.pc;
+    const WaveContext trace_wave = wave;
     TraceEventLocked(
         MakeTraceIssueSelectEvent(MakeRawTraceWaveView(raw_wave), issue_cycle, TraceSlotModel()));
-    TraceEvent step_event =
-        MakeRawWaveTraceEvent(raw_wave,
-                              TraceEventKind::WaveStep,
-                              issue_cycle,
-                              FormatRawWaveStepMessage(decoded, object, wave));
-    step_event.has_cycle_range = true;
-    step_event.range_end_cycle = issue_cycle + issue_duration;
-    // Fill step_detail with structured instruction info
-    step_event.step_detail = BuildRawWaveStepDetail(decoded, wave);
-    // Use Dump() for display_name to show full assembly
-    step_event.display_name = decoded.Dump();
-    // Fill timing info
-    step_event.step_detail->issue_cycle = issue_cycle;
-    step_event.step_detail->commit_cycle = commit_cycle;
-    step_event.step_detail->duration_cycles = issue_duration;
-    TraceEventLocked(std::move(step_event));
-    RememberScheduledWaveForPeu(block, raw_wave);
-    TraceEventLocked(
-        MakeTraceCommitEvent(MakeRawTraceWaveView(raw_wave), commit_cycle, TraceSlotModel()));
 
     if (decoded.mnemonic == "s_waitcnt") {
+      TraceEvent step_event =
+          MakeRawWaveTraceEvent(raw_wave,
+                                TraceEventKind::WaveStep,
+                                issue_cycle,
+                                FormatRawWaveStepMessage(decoded, object, trace_wave),
+                                issue_pc);
+      step_event.has_cycle_range = true;
+      step_event.range_end_cycle = issue_cycle + issue_duration;
+      step_event.step_detail = BuildRawWaveStepDetail(
+          decoded, trace_wave, std::nullopt, memory_, block.shared_memory);
+      step_event.display_name = decoded.Dump();
+      step_event.step_detail->issue_cycle = issue_cycle;
+      step_event.step_detail->commit_cycle = commit_cycle;
+      step_event.step_detail->duration_cycles = issue_duration;
+      TraceEventLocked(std::move(step_event));
+      RememberScheduledWaveForPeu(block, raw_wave);
+      TraceEventLocked(
+          MakeTraceCommitEvent(MakeRawTraceWaveView(raw_wave), commit_cycle, TraceSlotModel()));
       std::lock_guard<std::mutex> lock(*block.wave_state_mutex);
       if (const auto wait_reason = WaitCntBlockReasonForDecodedInstruction(wave, decoded);
           wait_reason.has_value()) {
@@ -2583,6 +2773,25 @@ class EncodedExecutionCore {
     } else {
       ExecuteInstruction(decoded, context);
     }
+
+    TraceEvent step_event =
+        MakeRawWaveTraceEvent(raw_wave,
+                              TraceEventKind::WaveStep,
+                              issue_cycle,
+                              FormatRawWaveStepMessage(decoded, object, trace_wave),
+                              issue_pc);
+    step_event.has_cycle_range = true;
+    step_event.range_end_cycle = issue_cycle + issue_duration;
+    step_event.step_detail = BuildRawWaveStepDetail(
+        decoded, wave, captured_memory_request, memory_, block.shared_memory);
+    step_event.display_name = decoded.Dump();
+    step_event.step_detail->issue_cycle = issue_cycle;
+    step_event.step_detail->commit_cycle = commit_cycle;
+    step_event.step_detail->duration_cycles = issue_duration;
+    TraceEventLocked(std::move(step_event));
+    RememberScheduledWaveForPeu(block, raw_wave);
+    TraceEventLocked(
+        MakeTraceCommitEvent(MakeRawTraceWaveView(raw_wave), commit_cycle, TraceSlotModel()));
 
     uint64_t ready_cycle = commit_cycle + kEncodedPendingMemoryCompletionTurns;
     if (captured_memory_request.has_value()) {
@@ -2663,6 +2872,8 @@ class EncodedExecutionCore {
     ObserveExecutionCycle(commit_cycle);
     const auto maybe_domain = MemoryDomainForEncodedInstruction(decoded, descriptor);
     const auto step_class = ClassifyEncodedInstructionStep(decoded, descriptor);
+    const uint64_t issue_pc = wave.pc;
+    const WaveContext trace_wave = wave;
 
     ExecutionStats step_stats;
     ++step_stats.wave_steps;
@@ -2675,28 +2886,27 @@ class EncodedExecutionCore {
                                             cycle_stats_config_));
     }
 
+    const uint64_t duration = QuantizeIssueDuration(std::max<uint64_t>(1u, issue_cycles));
     TraceEventLocked(
         MakeTraceIssueSelectEvent(MakeRawTraceWaveView(raw_wave), cycle, TraceSlotModel()));
-    TraceEvent step_event = MakeRawWaveTraceEvent(raw_wave,
-                                                  TraceEventKind::WaveStep,
-                                                  cycle,
-                                                  FormatRawWaveStepMessage(decoded, object, wave));
-    step_event.has_cycle_range = true;
-    const uint64_t duration = QuantizeIssueDuration(std::max<uint64_t>(1u, issue_cycles));
-    step_event.range_end_cycle = cycle + duration;
-    // Fill step_detail with structured instruction info
-    step_event.step_detail = BuildRawWaveStepDetail(decoded, wave);
-    // Use Dump() for display_name to show full assembly
-    step_event.display_name = decoded.Dump();
-    // Fill timing info
-    step_event.step_detail->issue_cycle = cycle;
-    step_event.step_detail->commit_cycle = commit_cycle;
-    step_event.step_detail->duration_cycles = duration;
-    TraceEventLocked(std::move(step_event));
-    TraceEventLocked(
-        MakeTraceCommitEvent(MakeRawTraceWaveView(raw_wave), commit_cycle, TraceSlotModel()));
 
     if (decoded.mnemonic == "s_waitcnt") {
+      TraceEvent step_event = MakeRawWaveTraceEvent(raw_wave,
+                                                    TraceEventKind::WaveStep,
+                                                    cycle,
+                                                    FormatRawWaveStepMessage(decoded, object, trace_wave),
+                                                    issue_pc);
+      step_event.has_cycle_range = true;
+      step_event.range_end_cycle = cycle + duration;
+      step_event.step_detail = BuildRawWaveStepDetail(
+          decoded, trace_wave, std::nullopt, memory_, block.shared_memory);
+      step_event.display_name = decoded.Dump();
+      step_event.step_detail->issue_cycle = cycle;
+      step_event.step_detail->commit_cycle = commit_cycle;
+      step_event.step_detail->duration_cycles = duration;
+      TraceEventLocked(std::move(step_event));
+      TraceEventLocked(
+          MakeTraceCommitEvent(MakeRawTraceWaveView(raw_wave), commit_cycle, TraceSlotModel()));
       std::lock_guard<std::mutex> lock(*block.wave_state_mutex);
       if (const auto wait_reason = WaitCntBlockReasonForDecodedInstruction(wave, decoded);
           wait_reason.has_value()) {
@@ -2740,6 +2950,23 @@ class EncodedExecutionCore {
                                &captured_memory_request);
     const auto& handler = EncodedSemanticHandlerRegistry::Get(decoded);
     handler.Execute(decoded, context);
+
+    TraceEvent step_event = MakeRawWaveTraceEvent(raw_wave,
+                                                  TraceEventKind::WaveStep,
+                                                  cycle,
+                                                  FormatRawWaveStepMessage(decoded, object, trace_wave),
+                                                  issue_pc);
+    step_event.has_cycle_range = true;
+    step_event.range_end_cycle = cycle + duration;
+    step_event.step_detail = BuildRawWaveStepDetail(
+        decoded, wave, captured_memory_request, memory_, block.shared_memory);
+    step_event.display_name = decoded.Dump();
+    step_event.step_detail->issue_cycle = cycle;
+    step_event.step_detail->commit_cycle = commit_cycle;
+    step_event.step_detail->duration_cycles = duration;
+    TraceEventLocked(std::move(step_event));
+    TraceEventLocked(
+        MakeTraceCommitEvent(MakeRawTraceWaveView(raw_wave), commit_cycle, TraceSlotModel()));
 
     uint64_t ready_cycle = commit_cycle;
     if (captured_memory_request.has_value()) {

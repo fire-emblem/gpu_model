@@ -15,12 +15,17 @@ struct LaneAccess {
   uint64_t addr = 0;
   uint32_t bytes = 0;
   uint64_t value = 0;
+  bool has_read_value = false;
+  uint64_t read_value = 0;
+  bool has_write_value = false;
+  uint64_t write_value = 0;
 };
 
 struct MemoryRequest {
   uint64_t id = 0;
   MemorySpace space = MemorySpace::Global;
   AccessKind kind = AccessKind::Load;
+  AtomicOp atomic_op = AtomicOp::Add;
   std::bitset<64> exec_snapshot;
   std::array<LaneAccess, 64> lanes{};
   std::optional<RegRef> dst;

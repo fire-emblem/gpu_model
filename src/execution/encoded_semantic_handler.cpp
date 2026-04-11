@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -27,6 +28,46 @@ namespace {
 // RequireScalarIndex, RequireVectorIndex, RequireAccumulatorIndex,
 // RequireScalarRange, ResolveScalarPair are now provided by
 // gpu_model/execution/internal/encoded_handler_utils.h
+
+std::string InstructionDebugContext(const DecodedInstruction& instruction) {
+  std::string message = " [pc=0x" + [] (uint64_t pc) {
+    std::ostringstream out;
+    out << std::hex << pc;
+    return out.str();
+  }(instruction.pc);
+  const std::string hex_words = instruction.HexWords();
+  if (!hex_words.empty()) {
+    message += ", binary=" + hex_words;
+  }
+  const std::string asm_text = instruction.BoundAsmText();
+  if (!asm_text.empty()) {
+    message += ", asm=\"" + asm_text + "\"";
+  }
+  message += "]";
+  return message;
+}
+
+uint32_t ReverseBits32(uint32_t value) {
+  value = ((value & 0x55555555u) << 1u) | ((value >> 1u) & 0x55555555u);
+  value = ((value & 0x33333333u) << 2u) | ((value >> 2u) & 0x33333333u);
+  value = ((value & 0x0f0f0f0fu) << 4u) | ((value >> 4u) & 0x0f0f0f0fu);
+  value = ((value & 0x00ff00ffu) << 8u) | ((value >> 8u) & 0x00ff00ffu);
+  return (value << 16u) | (value >> 16u);
+}
+
+[[noreturn]] void ThrowUnsupportedInstruction(const std::string& prefix,
+                                              const DecodedInstruction& instruction) {
+  throw std::invalid_argument(prefix + instruction.mnemonic + InstructionDebugContext(instruction));
+}
+
+[[noreturn]] void RethrowWithInstructionContext(const std::exception& error,
+                                                const DecodedInstruction& instruction) {
+  std::string message = error.what();
+  if (message.find(" [pc=0x") == std::string::npos) {
+    message += InstructionDebugContext(instruction);
+  }
+  throw std::invalid_argument(std::move(message));
+}
 
 std::pair<uint32_t, uint32_t> RequireVectorRange(const DecodedInstructionOperand& operand) {
   if (operand.kind != DecodedInstructionOperandKind::VectorRegRange || operand.info.reg_count == 0) {
@@ -116,6 +157,131 @@ uint64_t ResolveVectorLane(const DecodedInstructionOperand& operand,
                               " text=" + operand.text);
 }
 
+struct FlatAtomicOperands {
+  const DecodedInstructionOperand* return_dest = nullptr;
+  const DecodedInstructionOperand* address = nullptr;
+  const DecodedInstructionOperand* data = nullptr;
+  const DecodedInstructionOperand* scalar_base = nullptr;
+  int64_t offset = 0;
+};
+
+struct SharedAtomicOperands {
+  const DecodedInstructionOperand* return_dest = nullptr;
+  const DecodedInstructionOperand* address = nullptr;
+  const DecodedInstructionOperand* data = nullptr;
+  uint32_t offset = 0;
+};
+
+SharedAtomicOperands ResolveSharedAtomicOperands(const DecodedInstruction& instruction) {
+  SharedAtomicOperands operands;
+  if (instruction.operands.size() < 2) {
+    throw std::invalid_argument("shared atomic instruction is missing operands");
+  }
+
+  size_t cursor = 0;
+  if (instruction.operands.size() >= 3 &&
+      instruction.operands.at(0).kind == DecodedInstructionOperandKind::VectorReg &&
+      instruction.operands.at(1).kind == DecodedInstructionOperandKind::VectorReg &&
+      instruction.operands.at(2).kind == DecodedInstructionOperandKind::VectorReg) {
+    operands.return_dest = &instruction.operands.at(0);
+    cursor = 1;
+  }
+
+  if (instruction.operands.size() < cursor + 2) {
+    throw std::invalid_argument("shared atomic instruction is missing address/data operands");
+  }
+
+  operands.address = &instruction.operands.at(cursor);
+  operands.data = &instruction.operands.at(cursor + 1);
+  if (instruction.operands.size() > cursor + 2) {
+    const auto& tail = instruction.operands.at(cursor + 2);
+    if (!tail.info.has_immediate) {
+      throw std::invalid_argument("shared atomic offset operand is not immediate");
+    }
+    operands.offset = static_cast<uint32_t>(tail.info.immediate);
+  }
+  return operands;
+}
+
+void StoreSharedAtomicReturnValue(const SharedAtomicOperands& operands,
+                                  EncodedWaveContext& context,
+                                  uint32_t lane,
+                                  uint32_t old_value) {
+  if (operands.return_dest == nullptr) {
+    return;
+  }
+  context.wave.vgpr.Write(RequireVectorIndex(*operands.return_dest), lane, old_value);
+}
+
+FlatAtomicOperands ResolveFlatAtomicOperands(const DecodedInstruction& instruction) {
+  FlatAtomicOperands operands;
+  if (!instruction.operands.empty() && instruction.operands.back().info.has_immediate) {
+    operands.offset = instruction.operands.back().info.immediate;
+  }
+  if (instruction.operands.size() < 2) {
+    throw std::invalid_argument("flat atomic instruction is missing operands");
+  }
+
+  const auto& first = instruction.operands.at(0);
+  if (first.kind == DecodedInstructionOperandKind::VectorRegRange) {
+    operands.address = &first;
+    operands.data = &instruction.operands.at(1);
+    return operands;
+  }
+
+  if (instruction.operands.size() >= 3 &&
+      first.kind == DecodedInstructionOperandKind::VectorReg &&
+      instruction.operands.at(1).kind == DecodedInstructionOperandKind::VectorReg &&
+      instruction.operands.at(2).kind == DecodedInstructionOperandKind::ScalarRegRange) {
+    operands.data = &instruction.operands.at(1);
+    operands.scalar_base = &instruction.operands.at(2);
+    if (!instruction.asm_text.empty()) {
+      operands.address = &first;
+    } else {
+      operands.return_dest = &first;
+    }
+    return operands;
+  }
+
+  throw std::invalid_argument("unsupported flat atomic operand layout");
+}
+
+uint64_t ResolveFlatAtomicAddress(const FlatAtomicOperands& operands,
+                                  const EncodedWaveContext& context,
+                                  uint32_t lane) {
+  if (operands.address != nullptr &&
+      operands.address->kind == DecodedInstructionOperandKind::VectorRegRange) {
+    const auto [first, _] = RequireVectorRange(*operands.address);
+    const uint64_t lo = static_cast<uint32_t>(context.wave.vgpr.Read(first, lane));
+    const uint64_t hi = static_cast<uint32_t>(context.wave.vgpr.Read(first + 1, lane));
+    return static_cast<uint64_t>(static_cast<int64_t>((hi << 32u) | lo) + operands.offset);
+  }
+
+  if (operands.scalar_base != nullptr) {
+    const auto [first, _] = RequireScalarRange(*operands.scalar_base);
+    const uint64_t base = static_cast<uint64_t>(context.wave.sgpr.Read(first)) |
+                          (static_cast<uint64_t>(context.wave.sgpr.Read(first + 1)) << 32u);
+    if (operands.address != nullptr) {
+      const int32_t lane_offset =
+          static_cast<int32_t>(ResolveVectorLane(*operands.address, context, lane));
+      return static_cast<uint64_t>(static_cast<int64_t>(base) + lane_offset + operands.offset);
+    }
+    return static_cast<uint64_t>(static_cast<int64_t>(base) + operands.offset);
+  }
+
+  throw std::invalid_argument("flat atomic address source is missing");
+}
+
+void StoreFlatAtomicReturnValue(const FlatAtomicOperands& operands,
+                                EncodedWaveContext& context,
+                                uint32_t lane,
+                                uint32_t old_value) {
+  if (operands.return_dest == nullptr) {
+    return;
+  }
+  context.wave.vgpr.Write(RequireVectorIndex(*operands.return_dest), lane, old_value);
+}
+
 const GcnIsaOpcodeDescriptor& RequireCanonicalOpcode(const DecodedInstruction& instruction) {
   if (const auto* match = FindEncodedGcnMatchRecord(instruction.words); match != nullptr &&
       match->opcode_descriptor != nullptr) {
@@ -125,7 +291,8 @@ const GcnIsaOpcodeDescriptor& RequireCanonicalOpcode(const DecodedInstruction& i
       descriptor != nullptr) {
     return *descriptor;
   }
-  throw std::invalid_argument("missing canonical opcode descriptor: " + instruction.mnemonic);
+  throw std::invalid_argument("missing canonical opcode descriptor: " + instruction.mnemonic +
+                              InstructionDebugContext(instruction));
 }
 
 // Base handler class with trace support and unified PC update
@@ -134,18 +301,17 @@ const GcnIsaOpcodeDescriptor& RequireCanonicalOpcode(const DecodedInstruction& i
 class BaseHandler : public IEncodedSemanticHandler {
  public:
   void Execute(const DecodedInstruction& instruction, EncodedWaveContext& context) const override {
-    // Debug log for instruction execution
-    EncodedDebugLog("Execute: pc=0x%llx mnemonic=%s",
-                    static_cast<unsigned long long>(instruction.pc),
-                    instruction.mnemonic.c_str());
-
     // Emit trace callback for instruction start
     if (context.on_execute) {
       context.on_execute(instruction, context, "start");
     }
 
     // Execute the actual instruction logic
-    ExecuteImpl(instruction, context);
+    try {
+      ExecuteImpl(instruction, context);
+    } catch (const std::exception& error) {
+      RethrowWithInstructionContext(error, instruction);
+    }
 
     // Emit trace callback for instruction end
     if (context.on_execute) {
@@ -483,6 +649,20 @@ class VMadU32U24Handler final : public VectorLaneHandler<VMadU32U24Handler> {
   }
 };
 
+// v_mul_u32_u24_e32: dst = (src0[23:0] * src1[23:0])[31:0]
+class VMulU32U24Handler final : public VectorLaneHandler<VMulU32U24Handler> {
+ public:
+  void ExecuteLane(const DecodedInstruction& instruction,
+                   EncodedWaveContext& context, uint32_t lane) const {
+    const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
+    const uint32_t lhs = static_cast<uint32_t>(
+        ResolveVectorLane(instruction.operands.at(1), context, lane)) & 0x00ffffffu;
+    const uint32_t rhs = static_cast<uint32_t>(
+        ResolveVectorLane(instruction.operands.at(2), context, lane)) & 0x00ffffffu;
+    context.wave.vgpr.Write(vdst, lane, lhs * rhs);
+  }
+};
+
 // v_mul_lo_i32: dst = (src0 * src1)[31:0] (low 32 bits of signed multiply)
 class VMulLoI32Handler final : public VectorLaneHandler<VMulLoI32Handler> {
  public:
@@ -565,6 +745,19 @@ class VLdexpF32Handler final : public VectorLaneHandler<VLdexpF32Handler> {
     const int exp = static_cast<int>(
         ResolveVectorLane(instruction.operands.at(2), context, lane));
     context.wave.vgpr.Write(vdst, lane, FloatAsU32(std::ldexp(value, exp)));
+  }
+};
+
+class VReadlaneB32Handler final : public BaseHandler {
+ protected:
+  void ExecuteImpl(const DecodedInstruction& instruction,
+                   EncodedWaveContext& context) const override {
+    const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
+    const uint32_t lane = static_cast<uint32_t>(
+        ResolveScalarLike(instruction.operands.at(2), context)) & 63u;
+    const uint32_t value = static_cast<uint32_t>(
+        ResolveVectorLane(instruction.operands.at(1), context, lane));
+    context.wave.sgpr.Write(sdst, value);
   }
 };
 
@@ -1026,18 +1219,32 @@ class ScalarMemoryHandler final : public BaseHandler {
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(2), context));
       const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
       const uint64_t base = ResolveScalarPair(instruction.operands.at(1), context);
-      request.lanes[0] = LaneAccess{.active = true, .addr = base + offset, .bytes = 4, .value = 0};
+      const uint32_t value = context.memory.LoadGlobalValue<uint32_t>(base + offset);
+      request.lanes[0] = LaneAccess{
+          .active = true,
+          .addr = base + offset,
+          .bytes = 4,
+          .value = value,
+          .has_read_value = true,
+          .read_value = value,
+      };
       request.dst = RegRef{.file = RegisterFile::Scalar, .index = sdst};
-      context.wave.sgpr.Write(
-          sdst, context.memory.LoadGlobalValue<uint32_t>(base + offset));
+      context.wave.sgpr.Write(sdst, value);
     } else if (instruction.mnemonic == "s_load_dwordx2") {
       const uint32_t offset =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(2), context));
       const auto [sdst, _] = RequireScalarRange(instruction.operands.at(0));
       const uint64_t base = ResolveScalarPair(instruction.operands.at(1), context);
-      request.lanes[0] = LaneAccess{.active = true, .addr = base + offset, .bytes = 8, .value = 0};
-      request.dst = RegRef{.file = RegisterFile::Scalar, .index = sdst};
       const uint64_t value = context.memory.LoadGlobalValue<uint64_t>(base + offset);
+      request.lanes[0] = LaneAccess{
+          .active = true,
+          .addr = base + offset,
+          .bytes = 8,
+          .value = value,
+          .has_read_value = true,
+          .read_value = value,
+      };
+      request.dst = RegRef{.file = RegisterFile::Scalar, .index = sdst};
       context.wave.sgpr.Write(sdst, static_cast<uint32_t>(value & 0xffffffffu));
       context.wave.sgpr.Write(sdst + 1, static_cast<uint32_t>(value >> 32u));
     } else if (instruction.mnemonic == "s_load_dwordx4") {
@@ -1052,7 +1259,7 @@ class ScalarMemoryHandler final : public BaseHandler {
       context.wave.sgpr.Write(sdst + 2, context.memory.LoadGlobalValue<uint32_t>(base + offset + 8));
       context.wave.sgpr.Write(sdst + 3, context.memory.LoadGlobalValue<uint32_t>(base + offset + 12));
     } else {
-      throw std::invalid_argument("unsupported scalar memory opcode: " + instruction.mnemonic);
+      ThrowUnsupportedInstruction("unsupported scalar memory opcode: ", instruction);
     }
     if (context.captured_memory_request != nullptr) {
       *context.captured_memory_request = request;
@@ -1091,6 +1298,12 @@ class ScalarAluHandler final : public BaseHandler {
       const int32_t value =
           static_cast<int32_t>(ResolveScalarLike(instruction.operands.at(1), context));
       context.wave.sgpr.Write(sdst, static_cast<uint32_t>(value < 0 ? -value : value));
+    } else if (descriptor.op_type == GcnIsaOpType::Sop1 &&
+               descriptor.opcode == static_cast<uint16_t>(GcnIsaSop1Opcode::S_BREV_B32)) {
+      const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
+      const uint32_t value =
+          static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(1), context));
+      context.wave.sgpr.Write(sdst, ReverseBits32(value));
     } else if (descriptor.op_type == GcnIsaOpType::Sop2 &&
                descriptor.opcode == static_cast<uint16_t>(GcnIsaSop2Opcode::S_SUB_I32)) {
       const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
@@ -1105,20 +1318,19 @@ class ScalarAluHandler final : public BaseHandler {
       const int16_t value = static_cast<int16_t>(
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(1), context)) & 0xffffu);
       context.wave.sgpr.Write(sdst, static_cast<uint32_t>(static_cast<int32_t>(value)));
+    } else if (descriptor.op_type == GcnIsaOpType::Sop1 &&
+               descriptor.opcode == static_cast<uint16_t>(GcnIsaSop1Opcode::S_FF1_I32_B64)) {
+      const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
+      const uint64_t value = ResolveScalarPair(instruction.operands.at(1), context);
+      const int32_t result =
+          value == 0 ? -1 : static_cast<int32_t>(std::countr_zero(value));
+      context.wave.sgpr.Write(sdst, static_cast<uint32_t>(result));
     } else if (descriptor.op_type == GcnIsaOpType::Sop2 &&
                descriptor.opcode == static_cast<uint16_t>(GcnIsaSop2Opcode::S_OR_B64)) {
       const uint64_t lhs = ResolveScalarPair(instruction.operands.at(1), context);
       const uint64_t rhs = ResolveScalarPair(instruction.operands.at(2), context);
       const uint64_t value = lhs | rhs;
       StoreScalarPair(instruction.operands.at(0), context, value);
-      if (instruction.operands.at(0).kind == DecodedInstructionOperandKind::SpecialReg &&
-          instruction.operands.at(0).info.special_reg == GcnSpecialReg::Exec) {
-        EncodedDebugLog("pc=0x%llx s_or_b64 exec lhs=0x%llx rhs=0x%llx out=0x%llx",
-                 static_cast<unsigned long long>(instruction.pc),
-                 static_cast<unsigned long long>(lhs),
-                 static_cast<unsigned long long>(rhs),
-                 static_cast<unsigned long long>(value));
-      }
     } else if (descriptor.op_type == GcnIsaOpType::Sop2 &&
                descriptor.opcode == static_cast<uint16_t>(GcnIsaSop2Opcode::S_OR_B32)) {
       const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
@@ -1161,6 +1373,22 @@ class ScalarAluHandler final : public BaseHandler {
       const uint32_t rhs =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(2), context));
       context.wave.sgpr.Write(sdst, lhs + rhs);
+    } else if (descriptor.op_type == GcnIsaOpType::Sop2 &&
+               descriptor.opcode == static_cast<uint16_t>(GcnIsaSop2Opcode::S_MAX_I32)) {
+      const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
+      const int32_t lhs =
+          static_cast<int32_t>(ResolveScalarLike(instruction.operands.at(1), context));
+      const int32_t rhs =
+          static_cast<int32_t>(ResolveScalarLike(instruction.operands.at(2), context));
+      context.wave.sgpr.Write(sdst, static_cast<uint32_t>(std::max(lhs, rhs)));
+    } else if (descriptor.op_type == GcnIsaOpType::Sop2 &&
+               descriptor.opcode == static_cast<uint16_t>(GcnIsaSop2Opcode::S_MIN_I32)) {
+      const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
+      const int32_t lhs =
+          static_cast<int32_t>(ResolveScalarLike(instruction.operands.at(1), context));
+      const int32_t rhs =
+          static_cast<int32_t>(ResolveScalarLike(instruction.operands.at(2), context));
+      context.wave.sgpr.Write(sdst, static_cast<uint32_t>(std::min(lhs, rhs)));
     } else if (descriptor.op_type == GcnIsaOpType::Sop2 &&
                descriptor.opcode == static_cast<uint16_t>(GcnIsaSop2Opcode::S_ADD_U32)) {
       const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
@@ -1224,7 +1452,7 @@ class ScalarAluHandler final : public BaseHandler {
       const uint64_t value = ResolveScalarPair(instruction.operands.at(1), context);
       context.wave.sgpr.Write(sdst, static_cast<uint32_t>(std::popcount(value)));
     } else {
-      throw std::invalid_argument("unsupported scalar alu opcode: " + instruction.mnemonic);
+      ThrowUnsupportedInstruction("unsupported scalar alu opcode: ", instruction);
     }
   }
 };
@@ -1268,8 +1496,13 @@ class ScalarCompareHandler final : public BaseHandler {
       const uint32_t rhs =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(1), context));
       context.wave.SetScalarMaskBit0(lhs < rhs);
+    } else if (descriptor.op_type == GcnIsaOpType::Sopc &&
+               descriptor.opcode == static_cast<uint16_t>(GcnIsaSopcOpcode::S_CMP_LG_U64)) {
+      const uint64_t lhs = ResolveScalarPair(instruction.operands.at(0), context);
+      const uint64_t rhs = ResolveScalarPair(instruction.operands.at(1), context);
+      context.wave.SetScalarMaskBit0(lhs != rhs);
     } else {
-      throw std::invalid_argument("unsupported scalar compare opcode: " + instruction.mnemonic);
+      ThrowUnsupportedInstruction("unsupported scalar compare opcode: ", instruction);
     }
   }
 };
@@ -1323,6 +1556,44 @@ class VectorCompareHandler final : public BaseHandler {
         const uint32_t rhs =
             static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(2), context, lane));
         if (lhs < rhs) {
+          mask |= (1ull << lane);
+        }
+      }
+      if (instruction.operands.at(0).kind == DecodedInstructionOperandKind::ScalarRegRange ||
+          instruction.operands.at(0).kind == DecodedInstructionOperandKind::SpecialReg) {
+        StoreScalarPair(instruction.operands.at(0), context, mask);
+      }
+      return;
+    }
+    if (instruction.mnemonic == "v_cmp_le_u32_e64") {
+      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        if (!context.wave.exec.test(lane)) {
+          continue;
+        }
+        const uint32_t lhs =
+            static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(1), context, lane));
+        const uint32_t rhs =
+            static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(2), context, lane));
+        if (lhs <= rhs) {
+          mask |= (1ull << lane);
+        }
+      }
+      if (instruction.operands.at(0).kind == DecodedInstructionOperandKind::ScalarRegRange ||
+          instruction.operands.at(0).kind == DecodedInstructionOperandKind::SpecialReg) {
+        StoreScalarPair(instruction.operands.at(0), context, mask);
+      }
+      return;
+    }
+    if (instruction.mnemonic == "v_cmp_eq_u32_e64") {
+      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        if (!context.wave.exec.test(lane)) {
+          continue;
+        }
+        const uint32_t lhs =
+            static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(1), context, lane));
+        const uint32_t rhs =
+            static_cast<uint32_t>(ResolveVectorLane(instruction.operands.at(2), context, lane));
+        if (lhs == rhs) {
           mask |= (1ull << lane);
         }
       }
@@ -1476,7 +1747,7 @@ class VectorCompareHandler final : public BaseHandler {
       break;
       }
       default:
-        throw std::invalid_argument("unsupported vector compare opcode: " + instruction.mnemonic);
+        ThrowUnsupportedInstruction("unsupported vector compare opcode: ", instruction);
     }
     if (instruction.operands.at(0).kind == DecodedInstructionOperandKind::SpecialReg &&
         instruction.operands.at(0).info.special_reg == GcnSpecialReg::Vcc) {
@@ -1486,10 +1757,6 @@ class VectorCompareHandler final : public BaseHandler {
         instruction.operands.at(0).kind == DecodedInstructionOperandKind::SpecialReg) {
       StoreScalarPair(instruction.operands.at(0), context, mask);
     }
-    EncodedDebugLog("pc=0x%llx %s mask=0x%llx",
-             static_cast<unsigned long long>(instruction.pc),
-             instruction.mnemonic.c_str(),
-             static_cast<unsigned long long>(mask));
   }
 };
 
@@ -1498,7 +1765,7 @@ class MaskHandler final : public BaseHandler {
   void ExecuteImpl(const DecodedInstruction& instruction, EncodedWaveContext& context) const override {
     if (instruction.mnemonic != "s_and_saveexec_b64" &&
         instruction.mnemonic != "s_andn2_saveexec_b64") {
-      throw std::invalid_argument("unsupported mask opcode: " + instruction.mnemonic);
+      ThrowUnsupportedInstruction("unsupported mask opcode: ", instruction);
     }
     const auto [sdst, _] = RequireScalarRange(instruction.operands.at(0));
     const uint64_t exec_before = context.wave.exec.to_ullong();
@@ -1510,10 +1777,6 @@ class MaskHandler final : public BaseHandler {
     } else {
       context.wave.exec = MaskFromU64(mask & ~exec_before);
     }
-    EncodedDebugLog("pc=0x%llx %s exec=0x%llx",
-             static_cast<unsigned long long>(instruction.pc),
-             instruction.mnemonic.c_str(),
-             static_cast<unsigned long long>(context.wave.exec.to_ullong()));
   }
 };
 
@@ -1577,7 +1840,7 @@ class BranchHandler final : public IEncodedSemanticHandler {
       break;
       }
       default:
-        throw std::invalid_argument("unsupported branch opcode: " + instruction.mnemonic);
+        ThrowUnsupportedInstruction("unsupported branch opcode: ", instruction);
     }
 
     // Emit trace callback for instruction end
@@ -1607,15 +1870,17 @@ class FlatMemoryHandler final : public BaseHandler {
         const uint64_t lo = static_cast<uint32_t>(context.wave.vgpr.Read(addr, lane));
         const uint64_t hi = static_cast<uint32_t>(context.wave.vgpr.Read(addr + 1, lane));
         const uint64_t address = static_cast<uint64_t>(static_cast<int64_t>((hi << 32u) | lo) + offset);
+        const uint32_t value = context.memory.LoadGlobalValue<uint32_t>(address);
         request.exec_snapshot.set(lane);
-        request.lanes[lane] = LaneAccess{.active = true, .addr = address, .bytes = 4, .value = 0};
-        context.wave.vgpr.Write(vdst, lane, context.memory.LoadGlobalValue<uint32_t>(address));
-        if (lane == 0) {
-          EncodedDebugLog("pc=0x%llx global_load addr=0x%llx -> v%u=0x%llx",
-                   static_cast<unsigned long long>(instruction.pc),
-                   static_cast<unsigned long long>(address), vdst,
-                   static_cast<unsigned long long>(context.wave.vgpr.Read(vdst, lane)));
-        }
+        request.lanes[lane] = LaneAccess{
+            .active = true,
+            .addr = address,
+            .bytes = 4,
+            .value = value,
+            .has_read_value = true,
+            .read_value = value,
+        };
+        context.wave.vgpr.Write(vdst, lane, value);
       }
       ++context.stats.global_loads;
     } else if (instruction.mnemonic == "global_store_dword") {
@@ -1639,15 +1904,11 @@ class FlatMemoryHandler final : public BaseHandler {
               .addr = address,
               .bytes = 4,
               .value = static_cast<uint32_t>(context.wave.vgpr.Read(data, lane)),
+              .has_write_value = true,
+              .write_value = static_cast<uint32_t>(context.wave.vgpr.Read(data, lane)),
           };
           context.memory.StoreGlobalValue<uint32_t>(
               address, static_cast<uint32_t>(context.wave.vgpr.Read(data, lane)));
-          if (lane == 0) {
-            EncodedDebugLog("pc=0x%llx global_store addr=0x%llx value=0x%llx",
-                     static_cast<unsigned long long>(instruction.pc),
-                     static_cast<unsigned long long>(address),
-                     static_cast<unsigned long long>(context.wave.vgpr.Read(data, lane)));
-          }
         }
       } else {
         const uint32_t vaddr = RequireVectorIndex(instruction.operands.at(0));
@@ -1667,46 +1928,249 @@ class FlatMemoryHandler final : public BaseHandler {
               .addr = address,
               .bytes = 4,
               .value = static_cast<uint32_t>(context.wave.vgpr.Read(data, lane)),
+              .has_write_value = true,
+              .write_value = static_cast<uint32_t>(context.wave.vgpr.Read(data, lane)),
           };
           context.memory.StoreGlobalValue<uint32_t>(
               address, static_cast<uint32_t>(context.wave.vgpr.Read(data, lane)));
-          if (lane == 0) {
-            EncodedDebugLog("pc=0x%llx global_store addr=0x%llx value=0x%llx",
-                     static_cast<unsigned long long>(instruction.pc),
-                     static_cast<unsigned long long>(address),
-                     static_cast<unsigned long long>(context.wave.vgpr.Read(data, lane)));
-          }
         }
       }
       ++context.stats.global_stores;
     } else if (instruction.mnemonic == "global_atomic_add") {
       request.kind = AccessKind::Atomic;
+      const FlatAtomicOperands operands = ResolveFlatAtomicOperands(instruction);
+      const uint32_t data = RequireVectorIndex(*operands.data);
+      if (operands.return_dest != nullptr) {
+        request.dst = RegRef{.file = RegisterFile::Vector,
+                             .index = RequireVectorIndex(*operands.return_dest)};
+      }
+      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        if (!context.wave.exec.test(lane)) {
+          continue;
+        }
+        const uint64_t address = ResolveFlatAtomicAddress(operands, context, lane);
+        const uint32_t old_value = context.memory.LoadGlobalValue<uint32_t>(address);
+        const uint32_t add_value = static_cast<uint32_t>(context.wave.vgpr.Read(data, lane));
+        request.exec_snapshot.set(lane);
+        request.lanes[lane] = LaneAccess{
+            .active = true,
+            .addr = address,
+            .bytes = 4,
+            .value = add_value,
+            .has_read_value = true,
+            .read_value = old_value,
+            .has_write_value = true,
+            .write_value = old_value + add_value,
+        };
+        context.memory.StoreGlobalValue<uint32_t>(address, old_value + add_value);
+        StoreFlatAtomicReturnValue(operands, context, lane, old_value);
+      }
+      ++context.stats.global_loads;
+      ++context.stats.global_stores;
+    } else if (instruction.mnemonic == "global_atomic_smin") {
+      request.kind = AccessKind::Atomic;
+      const FlatAtomicOperands operands = ResolveFlatAtomicOperands(instruction);
+      const uint32_t data = RequireVectorIndex(*operands.data);
+      if (operands.return_dest != nullptr) {
+        request.dst = RegRef{.file = RegisterFile::Vector,
+                             .index = RequireVectorIndex(*operands.return_dest)};
+      }
+      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        if (!context.wave.exec.test(lane)) {
+          continue;
+        }
+        const uint64_t address = ResolveFlatAtomicAddress(operands, context, lane);
+        const int32_t old_value = context.memory.LoadGlobalValue<int32_t>(address);
+        const int32_t new_value = static_cast<int32_t>(context.wave.vgpr.Read(data, lane));
+        request.exec_snapshot.set(lane);
+        request.lanes[lane] = LaneAccess{
+            .active = true,
+            .addr = address,
+            .bytes = 4,
+            .value = static_cast<uint32_t>(new_value),
+            .has_read_value = true,
+            .read_value = static_cast<uint32_t>(old_value),
+            .has_write_value = true,
+            .write_value = static_cast<uint32_t>(std::min(old_value, new_value)),
+        };
+        context.memory.StoreGlobalValue<int32_t>(address, std::min(old_value, new_value));
+        StoreFlatAtomicReturnValue(operands, context, lane, static_cast<uint32_t>(old_value));
+      }
+      ++context.stats.global_loads;
+      ++context.stats.global_stores;
+    } else if (instruction.mnemonic == "global_atomic_smax") {
+      request.kind = AccessKind::Atomic;
+      const FlatAtomicOperands operands = ResolveFlatAtomicOperands(instruction);
+      const uint32_t data = RequireVectorIndex(*operands.data);
+      if (operands.return_dest != nullptr) {
+        request.dst = RegRef{.file = RegisterFile::Vector,
+                             .index = RequireVectorIndex(*operands.return_dest)};
+      }
+      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        if (!context.wave.exec.test(lane)) {
+          continue;
+        }
+        const uint64_t address = ResolveFlatAtomicAddress(operands, context, lane);
+        const int32_t old_value = context.memory.LoadGlobalValue<int32_t>(address);
+        const int32_t new_value = static_cast<int32_t>(context.wave.vgpr.Read(data, lane));
+        request.exec_snapshot.set(lane);
+        request.lanes[lane] = LaneAccess{
+            .active = true,
+            .addr = address,
+            .bytes = 4,
+            .value = static_cast<uint32_t>(new_value),
+            .has_read_value = true,
+            .read_value = static_cast<uint32_t>(old_value),
+            .has_write_value = true,
+            .write_value = static_cast<uint32_t>(std::max(old_value, new_value)),
+        };
+        context.memory.StoreGlobalValue<int32_t>(address, std::max(old_value, new_value));
+        StoreFlatAtomicReturnValue(operands, context, lane, static_cast<uint32_t>(old_value));
+      }
+      ++context.stats.global_loads;
+      ++context.stats.global_stores;
+    } else if (instruction.mnemonic == "global_atomic_swap") {
+      request.kind = AccessKind::Atomic;
+      const FlatAtomicOperands operands = ResolveFlatAtomicOperands(instruction);
+      const uint32_t data = RequireVectorIndex(*operands.data);
+      if (operands.return_dest != nullptr) {
+        request.dst = RegRef{.file = RegisterFile::Vector,
+                             .index = RequireVectorIndex(*operands.return_dest)};
+      }
+      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        if (!context.wave.exec.test(lane)) {
+          continue;
+        }
+        const uint64_t address = ResolveFlatAtomicAddress(operands, context, lane);
+        const uint32_t old_value = context.memory.LoadGlobalValue<uint32_t>(address);
+        const uint32_t new_value = static_cast<uint32_t>(context.wave.vgpr.Read(data, lane));
+        request.exec_snapshot.set(lane);
+        request.lanes[lane] = LaneAccess{
+            .active = true,
+            .addr = address,
+            .bytes = 4,
+            .value = new_value,
+            .has_read_value = true,
+            .read_value = old_value,
+            .has_write_value = true,
+            .write_value = new_value,
+        };
+        context.memory.StoreGlobalValue<uint32_t>(address, new_value);
+        StoreFlatAtomicReturnValue(operands, context, lane, old_value);
+      }
+      ++context.stats.global_loads;
+      ++context.stats.global_stores;
+    } else {
+      ThrowUnsupportedInstruction("unsupported flat memory opcode: ", instruction);
+    }
+    if (context.captured_memory_request != nullptr) {
+      *context.captured_memory_request = request;
+    }
+  }
+};
+
+class BufferMemoryHandler final : public BaseHandler {
+ protected:
+  void ExecuteImpl(const DecodedInstruction& instruction, EncodedWaveContext& context) const override {
+    MemoryRequest request;
+    request.space = MemorySpace::Global;
+    request.kind = AccessKind::Atomic;
+
+    // MUBUF atomic instructions use buffer descriptor (4 scalar registers) + vector offset
+    // Format: buffer_atomic_* vdst, data, s[base:base+3], voffset
+    // For simplicity, we extract the base address from the buffer descriptor
+
+    if (instruction.mnemonic == "buffer_atomic_smax") {
       const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
       const uint32_t data = RequireVectorIndex(instruction.operands.at(1));
-      const uint32_t saddr = RequireScalarRange(instruction.operands.at(2)).first;
-      const uint64_t base = static_cast<uint64_t>(context.wave.sgpr.Read(saddr)) |
-                            (static_cast<uint64_t>(context.wave.sgpr.Read(saddr + 1)) << 32u);
+      // Buffer descriptor is in scalar registers (4 consecutive registers)
+      // For now, we use a simplified model where the base address is in s[base:base+1]
+      const auto [sbase, _] = RequireScalarRange(instruction.operands.at(2));
+      const uint64_t base = static_cast<uint64_t>(context.wave.sgpr.Read(sbase)) |
+                            (static_cast<uint64_t>(context.wave.sgpr.Read(sbase + 1)) << 32u);
       request.dst = RegRef{.file = RegisterFile::Vector, .index = vdst};
       for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
         if (!context.wave.exec.test(lane)) {
           continue;
         }
+        const int32_t old_value = context.memory.LoadGlobalValue<int32_t>(base);
+        const int32_t new_value = static_cast<int32_t>(context.wave.vgpr.Read(data, lane));
         request.exec_snapshot.set(lane);
         request.lanes[lane] = LaneAccess{
             .active = true,
             .addr = base,
             .bytes = 4,
-            .value = static_cast<uint32_t>(context.wave.vgpr.Read(data, lane)),
+            .value = static_cast<uint32_t>(new_value),
+            .has_read_value = true,
+            .read_value = static_cast<uint32_t>(old_value),
+            .has_write_value = true,
+            .write_value = static_cast<uint32_t>(std::max(old_value, new_value)),
         };
+        context.memory.StoreGlobalValue<int32_t>(base, std::max(old_value, new_value));
+        context.wave.vgpr.Write(vdst, lane, static_cast<uint32_t>(old_value));
+      }
+      ++context.stats.global_loads;
+      ++context.stats.global_stores;
+    } else if (instruction.mnemonic == "buffer_atomic_smin") {
+      const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
+      const uint32_t data = RequireVectorIndex(instruction.operands.at(1));
+      const auto [sbase, _] = RequireScalarRange(instruction.operands.at(2));
+      const uint64_t base = static_cast<uint64_t>(context.wave.sgpr.Read(sbase)) |
+                            (static_cast<uint64_t>(context.wave.sgpr.Read(sbase + 1)) << 32u);
+      request.dst = RegRef{.file = RegisterFile::Vector, .index = vdst};
+      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        if (!context.wave.exec.test(lane)) {
+          continue;
+        }
+        const int32_t old_value = context.memory.LoadGlobalValue<int32_t>(base);
+        const int32_t new_value = static_cast<int32_t>(context.wave.vgpr.Read(data, lane));
+        request.exec_snapshot.set(lane);
+        request.lanes[lane] = LaneAccess{
+            .active = true,
+            .addr = base,
+            .bytes = 4,
+            .value = static_cast<uint32_t>(new_value),
+            .has_read_value = true,
+            .read_value = static_cast<uint32_t>(old_value),
+            .has_write_value = true,
+            .write_value = static_cast<uint32_t>(std::min(old_value, new_value)),
+        };
+        context.memory.StoreGlobalValue<int32_t>(base, std::min(old_value, new_value));
+        context.wave.vgpr.Write(vdst, lane, static_cast<uint32_t>(old_value));
+      }
+      ++context.stats.global_loads;
+      ++context.stats.global_stores;
+    } else if (instruction.mnemonic == "buffer_atomic_swap") {
+      const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
+      const uint32_t data = RequireVectorIndex(instruction.operands.at(1));
+      const auto [sbase, _] = RequireScalarRange(instruction.operands.at(2));
+      const uint64_t base = static_cast<uint64_t>(context.wave.sgpr.Read(sbase)) |
+                            (static_cast<uint64_t>(context.wave.sgpr.Read(sbase + 1)) << 32u);
+      request.dst = RegRef{.file = RegisterFile::Vector, .index = vdst};
+      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        if (!context.wave.exec.test(lane)) {
+          continue;
+        }
         const uint32_t old_value = context.memory.LoadGlobalValue<uint32_t>(base);
-        const uint32_t add_value = static_cast<uint32_t>(context.wave.vgpr.Read(data, lane));
-        context.memory.StoreGlobalValue<uint32_t>(base, old_value + add_value);
+        const uint32_t new_value = static_cast<uint32_t>(context.wave.vgpr.Read(data, lane));
+        request.exec_snapshot.set(lane);
+        request.lanes[lane] = LaneAccess{
+            .active = true,
+            .addr = base,
+            .bytes = 4,
+            .value = new_value,
+            .has_read_value = true,
+            .read_value = old_value,
+            .has_write_value = true,
+            .write_value = new_value,
+        };
+        context.memory.StoreGlobalValue<uint32_t>(base, new_value);
         context.wave.vgpr.Write(vdst, lane, old_value);
       }
       ++context.stats.global_loads;
       ++context.stats.global_stores;
     } else {
-      throw std::invalid_argument("unsupported flat memory opcode: " + instruction.mnemonic);
+      ThrowUnsupportedInstruction("unsupported buffer memory opcode: ", instruction);
     }
     if (context.captured_memory_request != nullptr) {
       *context.captured_memory_request = request;
@@ -1744,12 +2208,10 @@ class SharedMemoryHandler final : public BaseHandler {
             .addr = byte_offset,
             .bytes = 4,
             .value = value,
+            .has_write_value = true,
+            .write_value = value,
         };
         StoreU32(context.block.shared_memory, byte_offset, value);
-        if (lane == 0) {
-          EncodedDebugLog("pc=0x%llx ds_write_b32 addr=0x%x value=0x%x",
-                   static_cast<unsigned long long>(instruction.pc), byte_offset, value);
-        }
       }
       ++context.stats.shared_stores;
       if (context.captured_memory_request != nullptr) {
@@ -1776,13 +2238,16 @@ class SharedMemoryHandler final : public BaseHandler {
           continue;
         }
         request.exec_snapshot.set(lane);
-        request.lanes[lane] = LaneAccess{.active = true, .addr = byte_offset, .bytes = 4, .value = 0};
         const uint32_t value = LoadU32(context.block.shared_memory, byte_offset);
+        request.lanes[lane] = LaneAccess{
+            .active = true,
+            .addr = byte_offset,
+            .bytes = 4,
+            .value = value,
+            .has_read_value = true,
+            .read_value = value,
+        };
         context.wave.vgpr.Write(vdst, lane, value);
-        if (lane == 0) {
-          EncodedDebugLog("pc=0x%llx ds_read_b32 addr=0x%x value=0x%x",
-                   static_cast<unsigned long long>(instruction.pc), byte_offset, value);
-        }
       }
       ++context.stats.shared_loads;
       if (context.captured_memory_request != nullptr) {
@@ -1815,7 +2280,221 @@ class SharedMemoryHandler final : public BaseHandler {
       ++context.stats.shared_loads;
       return;
     }
-    throw std::invalid_argument("unsupported shared memory opcode: " + instruction.mnemonic);
+    // DS atomic operations
+    if (instruction.mnemonic == "ds_add_u32") {
+      request.kind = AccessKind::Atomic;
+      const auto operands = ResolveSharedAtomicOperands(instruction);
+      const uint32_t addr_vgpr = RequireVectorIndex(*operands.address);
+      const uint32_t data_vgpr = RequireVectorIndex(*operands.data);
+      if (operands.return_dest != nullptr) {
+        request.dst = RegRef{
+            .file = RegisterFile::Vector,
+            .index = RequireVectorIndex(*operands.return_dest),
+        };
+      }
+      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        uint32_t byte_offset = static_cast<uint32_t>(context.wave.vgpr.Read(addr_vgpr, lane));
+        if (!context.wave.exec.test(lane) || context.block.shared_memory.empty()) {
+          continue;
+        }
+        byte_offset += operands.offset;
+        byte_offset %= static_cast<uint32_t>(context.block.shared_memory.size());
+        if (static_cast<size_t>(byte_offset) + sizeof(uint32_t) > context.block.shared_memory.size()) {
+          continue;
+        }
+        const uint32_t old_value = LoadU32(context.block.shared_memory, byte_offset);
+        const uint32_t add_value = static_cast<uint32_t>(context.wave.vgpr.Read(data_vgpr, lane));
+        StoreU32(context.block.shared_memory, byte_offset, old_value + add_value);
+        StoreSharedAtomicReturnValue(operands, context, lane, old_value);
+        request.exec_snapshot.set(lane);
+        request.lanes[lane] = LaneAccess{
+            .active = true,
+            .addr = byte_offset,
+            .bytes = 4,
+            .value = add_value,
+            .has_read_value = true,
+            .read_value = old_value,
+            .has_write_value = true,
+            .write_value = old_value + add_value,
+        };
+      }
+      ++context.stats.shared_loads;
+      ++context.stats.shared_stores;
+      if (context.captured_memory_request != nullptr) {
+        *context.captured_memory_request = request;
+      }
+      return;
+    }
+    if (instruction.mnemonic == "ds_min_i32") {
+      request.kind = AccessKind::Atomic;
+      const auto operands = ResolveSharedAtomicOperands(instruction);
+      const uint32_t addr_vgpr = RequireVectorIndex(*operands.address);
+      const uint32_t data_vgpr = RequireVectorIndex(*operands.data);
+      if (operands.return_dest != nullptr) {
+        request.dst = RegRef{
+            .file = RegisterFile::Vector,
+            .index = RequireVectorIndex(*operands.return_dest),
+        };
+      }
+      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        uint32_t byte_offset = static_cast<uint32_t>(context.wave.vgpr.Read(addr_vgpr, lane));
+        if (!context.wave.exec.test(lane) || context.block.shared_memory.empty()) {
+          continue;
+        }
+        byte_offset += operands.offset;
+        byte_offset %= static_cast<uint32_t>(context.block.shared_memory.size());
+        if (static_cast<size_t>(byte_offset) + sizeof(uint32_t) > context.block.shared_memory.size()) {
+          continue;
+        }
+        const int32_t old_value = static_cast<int32_t>(LoadU32(context.block.shared_memory, byte_offset));
+        const int32_t new_value = static_cast<int32_t>(context.wave.vgpr.Read(data_vgpr, lane));
+        StoreU32(context.block.shared_memory, byte_offset, static_cast<uint32_t>(std::min(old_value, new_value)));
+        StoreSharedAtomicReturnValue(operands, context, lane, static_cast<uint32_t>(old_value));
+        request.exec_snapshot.set(lane);
+        request.lanes[lane] = LaneAccess{
+            .active = true,
+            .addr = byte_offset,
+            .bytes = 4,
+            .value = static_cast<uint32_t>(new_value),
+            .has_read_value = true,
+            .read_value = static_cast<uint32_t>(old_value),
+            .has_write_value = true,
+            .write_value = static_cast<uint32_t>(std::min(old_value, new_value)),
+        };
+      }
+      ++context.stats.shared_loads;
+      ++context.stats.shared_stores;
+      if (context.captured_memory_request != nullptr) {
+        *context.captured_memory_request = request;
+      }
+      return;
+    }
+    if (instruction.mnemonic == "ds_max_i32") {
+      request.kind = AccessKind::Atomic;
+      const auto operands = ResolveSharedAtomicOperands(instruction);
+      const uint32_t addr_vgpr = RequireVectorIndex(*operands.address);
+      const uint32_t data_vgpr = RequireVectorIndex(*operands.data);
+      if (operands.return_dest != nullptr) {
+        request.dst = RegRef{
+            .file = RegisterFile::Vector,
+            .index = RequireVectorIndex(*operands.return_dest),
+        };
+      }
+      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        uint32_t byte_offset = static_cast<uint32_t>(context.wave.vgpr.Read(addr_vgpr, lane));
+        if (!context.wave.exec.test(lane) || context.block.shared_memory.empty()) {
+          continue;
+        }
+        byte_offset += operands.offset;
+        byte_offset %= static_cast<uint32_t>(context.block.shared_memory.size());
+        if (static_cast<size_t>(byte_offset) + sizeof(uint32_t) > context.block.shared_memory.size()) {
+          continue;
+        }
+        const int32_t old_value = static_cast<int32_t>(LoadU32(context.block.shared_memory, byte_offset));
+        const int32_t new_value = static_cast<int32_t>(context.wave.vgpr.Read(data_vgpr, lane));
+        StoreU32(context.block.shared_memory, byte_offset, static_cast<uint32_t>(std::max(old_value, new_value)));
+        StoreSharedAtomicReturnValue(operands, context, lane, static_cast<uint32_t>(old_value));
+        request.exec_snapshot.set(lane);
+        request.lanes[lane] = LaneAccess{
+            .active = true,
+            .addr = byte_offset,
+            .bytes = 4,
+            .value = static_cast<uint32_t>(new_value),
+            .has_read_value = true,
+            .read_value = static_cast<uint32_t>(old_value),
+            .has_write_value = true,
+            .write_value = static_cast<uint32_t>(std::max(old_value, new_value)),
+        };
+      }
+      ++context.stats.shared_loads;
+      ++context.stats.shared_stores;
+      if (context.captured_memory_request != nullptr) {
+        *context.captured_memory_request = request;
+      }
+      return;
+    }
+    if (instruction.mnemonic == "ds_swap_b32") {
+      request.kind = AccessKind::Atomic;
+      const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
+      const uint32_t addr_vgpr = RequireVectorIndex(instruction.operands.at(1));
+      const uint32_t data_vgpr = RequireVectorIndex(instruction.operands.at(2));
+      request.dst = RegRef{.file = RegisterFile::Vector, .index = vdst};
+      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        uint32_t byte_offset = static_cast<uint32_t>(context.wave.vgpr.Read(addr_vgpr, lane));
+        if (!context.wave.exec.test(lane) || context.block.shared_memory.empty()) {
+          continue;
+        }
+        byte_offset %= static_cast<uint32_t>(context.block.shared_memory.size());
+        if (static_cast<size_t>(byte_offset) + sizeof(uint32_t) > context.block.shared_memory.size()) {
+          continue;
+        }
+        const uint32_t old_value = LoadU32(context.block.shared_memory, byte_offset);
+        const uint32_t new_value = static_cast<uint32_t>(context.wave.vgpr.Read(data_vgpr, lane));
+        StoreU32(context.block.shared_memory, byte_offset, new_value);
+        context.wave.vgpr.Write(vdst, lane, old_value);
+        request.exec_snapshot.set(lane);
+        request.lanes[lane] = LaneAccess{
+            .active = true,
+            .addr = byte_offset,
+            .bytes = 4,
+            .value = new_value,
+            .has_read_value = true,
+            .read_value = old_value,
+            .has_write_value = true,
+            .write_value = new_value,
+        };
+      }
+      ++context.stats.shared_loads;
+      ++context.stats.shared_stores;
+      if (context.captured_memory_request != nullptr) {
+        *context.captured_memory_request = request;
+      }
+      return;
+    }
+    if (instruction.mnemonic == "ds_wrxchg_rtn_b32") {
+      request.kind = AccessKind::Atomic;
+      const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
+      const uint32_t addr_vgpr = RequireVectorIndex(instruction.operands.at(1));
+      const uint32_t data_vgpr = RequireVectorIndex(instruction.operands.at(2));
+      const uint32_t offset = instruction.operands.size() >= 4 &&
+                                      instruction.operands.back().info.has_immediate
+                                  ? static_cast<uint32_t>(instruction.operands.back().info.immediate)
+                                  : 0u;
+      request.dst = RegRef{.file = RegisterFile::Vector, .index = vdst};
+      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        uint32_t byte_offset = static_cast<uint32_t>(context.wave.vgpr.Read(addr_vgpr, lane));
+        if (!context.wave.exec.test(lane) || context.block.shared_memory.empty()) {
+          continue;
+        }
+        byte_offset += offset;
+        byte_offset %= static_cast<uint32_t>(context.block.shared_memory.size());
+        if (static_cast<size_t>(byte_offset) + sizeof(uint32_t) > context.block.shared_memory.size()) {
+          continue;
+        }
+        const uint32_t old_value = LoadU32(context.block.shared_memory, byte_offset);
+        const uint32_t new_value = static_cast<uint32_t>(context.wave.vgpr.Read(data_vgpr, lane));
+        StoreU32(context.block.shared_memory, byte_offset, new_value);
+        context.wave.vgpr.Write(vdst, lane, old_value);
+        request.exec_snapshot.set(lane);
+        request.lanes[lane] = LaneAccess{
+            .active = true,
+            .addr = byte_offset,
+            .bytes = 4,
+            .value = new_value,
+            .has_read_value = true,
+            .read_value = old_value,
+            .has_write_value = true,
+            .write_value = new_value,
+        };
+      }
+      ++context.stats.shared_loads;
+      ++context.stats.shared_stores;
+      if (context.captured_memory_request != nullptr) {
+        *context.captured_memory_request = request;
+      }
+      return;
+    }
+    ThrowUnsupportedInstruction("unsupported shared memory opcode: ", instruction);
   }
 };
 
@@ -1848,7 +2527,7 @@ class SpecialHandler final : public IEncodedSemanticHandler {
         ++context.stats.wave_exits;
         break;
       default:
-        throw std::invalid_argument("unsupported special opcode: " + instruction.mnemonic);
+        ThrowUnsupportedInstruction("unsupported special opcode: ", instruction);
     }
 
     // Emit trace callback for instruction end
@@ -1919,12 +2598,14 @@ static const VSubrevU32Handler kVSubrevU32Handler;
 static const VOr3B32Handler kVOr3B32Handler;
 static const VAdd3U32Handler kVAdd3U32Handler;
 static const VMadU32U24Handler kVMadU32U24Handler;
+static const VMulU32U24Handler kVMulU32U24Handler;
 static const VMulLoI32Handler kVMulLoI32Handler;
 static const VMulHiU32Handler kVMulHiU32Handler;
 static const VRcpIflagF32Handler kVRcpIflagF32Handler;
 static const VAshrrevI32Handler kVAshrrevI32Handler;
 static const VLshlAddU32Handler kVLshlAddU32Handler;
 static const VLdexpF32Handler kVLdexpF32Handler;
+static const VReadlaneB32Handler kVReadlaneB32Handler;
 static const VDivScaleF32Handler kVDivScaleF32Handler;
 static const VDivFmasF32Handler kVDivFmasF32Handler;
 static const VDivFixupF32Handler kVDivFixupF32Handler;
@@ -1977,12 +2658,14 @@ void RegisterVectorAluHandlers() {
   registry.Register("v_or3_b32", &kVOr3B32Handler);
   registry.Register("v_add3_u32", &kVAdd3U32Handler);
   registry.Register("v_mad_u32_u24", &kVMadU32U24Handler);
+  registry.Register("v_mul_u32_u24_e32", &kVMulU32U24Handler);
   registry.Register("v_mul_lo_i32", &kVMulLoI32Handler);
   registry.Register("v_mul_hi_u32", &kVMulHiU32Handler);
   registry.Register("v_rcp_iflag_f32_e32", &kVRcpIflagF32Handler);
   registry.Register("v_ashrrev_i32_e32", &kVAshrrevI32Handler);
   registry.Register("v_lshl_add_u32", &kVLshlAddU32Handler);
   registry.Register("v_ldexp_f32", &kVLdexpF32Handler);
+  registry.Register("v_readlane_b32", &kVReadlaneB32Handler);
   registry.Register("v_div_scale_f32", &kVDivScaleF32Handler);
   registry.Register("v_div_fmas_f32", &kVDivFmasF32Handler);
   registry.Register("v_div_fixup_f32", &kVDivFixupF32Handler);
@@ -2063,12 +2746,17 @@ const std::vector<HandlerBinding>& HandlerBindings() {
   static const ScalarAluHandler kScalarAluHandler;
   static const ScalarCompareHandler kScalarCompareHandler;
   static const SharedMemoryHandler kSharedMemoryHandler;
+  static const BufferMemoryHandler kBufferMemoryHandler;
   static const VectorCompareHandler kVectorCompareHandler;
   // Note: Vector ALU handlers are now in HandlerRegistry for O(1) lookup
   static const std::vector<HandlerBinding> kBindings = {
       {.mnemonic = "s_and_saveexec_b64", .handler = &kMaskHandler},
       {.mnemonic = "s_andn2_saveexec_b64", .handler = &kMaskHandler},
       {.mnemonic = "s_abs_i32", .handler = &kScalarAluHandler},
+      {.mnemonic = "s_brev_b32", .handler = &kScalarAluHandler},
+      {.mnemonic = "s_ff1_i32_b64", .handler = &kScalarAluHandler},
+      {.mnemonic = "s_max_i32", .handler = &kScalarAluHandler},
+      {.mnemonic = "s_min_i32", .handler = &kScalarAluHandler},
       {.mnemonic = "s_sub_i32", .handler = &kScalarAluHandler},
       {.mnemonic = "s_lshl_b32", .handler = &kScalarAluHandler},
       {.mnemonic = "s_or_b32", .handler = &kScalarAluHandler},
@@ -2076,14 +2764,22 @@ const std::vector<HandlerBinding>& HandlerBindings() {
       {.mnemonic = "s_movk_i32", .handler = &kScalarAluHandler},
       {.mnemonic = "s_cmp_gt_i32", .handler = &kScalarCompareHandler},
       {.mnemonic = "s_cmp_lg_u32", .handler = &kScalarCompareHandler},
+      {.mnemonic = "s_cmp_lg_u64", .handler = &kScalarCompareHandler},
       {.mnemonic = "ds_read2_b32", .handler = &kSharedMemoryHandler},
       {.mnemonic = "ds_read_b32", .handler = &kSharedMemoryHandler},
       {.mnemonic = "ds_write_b32", .handler = &kSharedMemoryHandler},
+      {.mnemonic = "ds_wrxchg_rtn_b32", .handler = &kSharedMemoryHandler},
+      // Buffer atomic handlers
+      {.mnemonic = "buffer_atomic_smax", .handler = &kBufferMemoryHandler},
+      {.mnemonic = "buffer_atomic_smin", .handler = &kBufferMemoryHandler},
+      {.mnemonic = "buffer_atomic_swap", .handler = &kBufferMemoryHandler},
       // Vector ALU handlers moved to HandlerRegistry
       {.mnemonic = "v_cmp_lt_u32_e32", .handler = &kVectorCompareHandler},
+      {.mnemonic = "v_cmp_eq_u32_e64", .handler = &kVectorCompareHandler},
       {.mnemonic = "v_cmp_le_u32_e32", .handler = &kVectorCompareHandler},
       {.mnemonic = "v_cmp_gt_i32_e64", .handler = &kVectorCompareHandler},
       {.mnemonic = "v_cmp_lt_u32_e64", .handler = &kVectorCompareHandler},
+      {.mnemonic = "v_cmp_le_u32_e64", .handler = &kVectorCompareHandler},
       {.mnemonic = "v_cmp_gt_u32_e64", .handler = &kVectorCompareHandler},
   };
   return kBindings;
@@ -2108,8 +2804,6 @@ const IEncodedSemanticHandler& EncodedSemanticHandlerRegistry::Get(std::string_v
       return *binding.handler;
     }
   }
-  EncodedDebugLog("EncodedSemanticHandlerRegistry::Get mnemonic=%.*s not found",
-           static_cast<int>(mnemonic.size()), mnemonic.data());
   throw std::invalid_argument("unsupported raw GCN opcode: " + std::string(mnemonic));
 }
 
@@ -2134,7 +2828,7 @@ const IEncodedSemanticHandler& EncodedSemanticHandlerRegistry::Get(
       }
     }
   }
-  return Get(std::string_view(instruction.mnemonic));
+  ThrowUnsupportedInstruction("unsupported raw GCN opcode: ", instruction);
 }
 
 }  // namespace gpu_model

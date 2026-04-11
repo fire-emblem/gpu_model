@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+#include "gpu_model/debug/trace/sink.h"
 #include "gpu_model/program/object_reader.h"
 #include "gpu_model/runtime/model_runtime.h"
 #include "tests/test_utils/hipcc_cache_test_utils.h"
@@ -166,6 +167,142 @@ extern "C" __global__ void softmax_row(const float* in, float* out, int n) {
   if (idx < n) out[idx] = e / scratch[0];
 }
 
+// Global atomic max
+extern "C" __global__ void global_atomic_max(int* out, int n, int val) {
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n) atomicMax(out, val + i);
+}
+
+// Global atomic min
+extern "C" __global__ void global_atomic_min(int* out, int n, int val) {
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n) atomicMin(out, val - i);
+}
+
+// Global atomic exchange
+extern "C" __global__ void global_atomic_exch(int* out, int n, int val) {
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n) atomicExch(out + i, val);
+}
+
+// Shared memory atomic add
+extern "C" __global__ void shared_atomic_add(int* out, int n) {
+  __shared__ int scratch[64];
+  int tid = threadIdx.x;
+
+  if (tid == 0) scratch[0] = 0;
+  __syncthreads();
+
+  if (tid < n) atomicAdd(&scratch[0], tid + 1);
+  __syncthreads();
+
+  if (tid == 0) out[blockIdx.x] = scratch[0];
+}
+
+// Shared memory atomic exchange
+extern "C" __global__ void shared_atomic_exch(int* out, int n) {
+  __shared__ int scratch[64];
+  int tid = threadIdx.x;
+
+  // Initialize
+  if (tid < n) scratch[tid] = -1;
+  __syncthreads();
+
+  // Each thread writes to its slot
+  if (tid < n) atomicExch(&scratch[tid], tid * 10);
+  __syncthreads();
+
+  // Read back and store
+  if (tid < n) out[tid] = scratch[tid];
+}
+
+// Private memory test - each thread uses private array
+extern "C" __global__ void private_array_sum(const int* in, int* out, int n) {
+  int tid = threadIdx.x;
+  int idx = blockIdx.x * blockDim.x + tid;
+
+  // Private array (compiler will put in registers or scratch)
+  int priv[8];
+  for (int i = 0; i < 8; ++i) {
+    priv[i] = idx * 8 + i;
+  }
+
+  int sum = 0;
+  for (int i = 0; i < 8; ++i) {
+    sum += priv[i];
+  }
+
+  if (idx < n) out[idx] = sum;
+}
+
+// Private memory with load/store pattern
+extern "C" __global__ void private_load_store(const float* in, float* out, int n) {
+  int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  if (idx >= n) return;
+
+  // Load to private
+  float priv = in[idx];
+
+  // Compute in private
+  priv = priv * 2.0f + 1.0f;
+
+  // Store from private
+  out[idx] = priv;
+}
+
+// Histogram using shared atomics then global write
+extern "C" __global__ void histogram_shared(const int* data, int* hist, int n, int bins) {
+  __shared__ int local_hist[64];
+  int tid = threadIdx.x;
+  int idx = blockIdx.x * blockDim.x + tid;
+
+  // Initialize local histogram
+  if (tid < bins) local_hist[tid] = 0;
+  __syncthreads();
+
+  // Count in shared memory
+  if (idx < n) {
+    int bin = data[idx] % bins;
+    atomicAdd(&local_hist[bin], 1);
+  }
+  __syncthreads();
+
+  // Write to global
+  if (tid < bins) {
+    atomicAdd(&hist[tid], local_hist[tid]);
+  }
+}
+
+// Histogram probe that exposes both per-block shared accumulation and the
+// final cross-block global accumulation in one launch.
+extern "C" __global__ void histogram_shared_observe(const int* data,
+                                                    int* observe,
+                                                    int n,
+                                                    int bins) {
+  __shared__ int local_hist[64];
+  int tid = threadIdx.x;
+  int idx = blockIdx.x * blockDim.x + tid;
+  int* block_hist = observe;
+  int* hist = observe + gridDim.x * bins;
+
+  if (tid < bins) local_hist[tid] = 0;
+  __syncthreads();
+
+  if (idx < n) {
+    int bin = data[idx] % bins;
+    atomicAdd(&local_hist[bin], 1);
+  }
+  __syncthreads();
+
+  if (tid < bins) {
+    const int count = local_hist[tid];
+    // Each block owns a disjoint block_hist slice, so this write is race-free.
+    block_hist[blockIdx.x * bins + tid] = count;
+    // All blocks merge into the same global histogram, so the add must stay atomic.
+    atomicAdd(&hist[tid], count);
+  }
+}
+
 int main() { return 0; }
 )";
 
@@ -255,7 +392,7 @@ TEST(HipCycleValidationTest, VecAddFunctionalMt) {
       LaunchConfig{.grid_dim_x = 4, .block_dim_x = 64},
       std::move(args),
       ExecutionMode::Functional,
-      "c500",
+      "mac500",
       nullptr);
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -297,7 +434,7 @@ TEST(HipCycleValidationTest, VecAddCycle) {
       LaunchConfig{.grid_dim_x = 4, .block_dim_x = 64},
       std::move(args),
       ExecutionMode::Cycle,
-      "c500",
+      "mac500",
       nullptr);
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -349,7 +486,7 @@ TEST(HipCycleValidationTest, FmaLoopFunctionalMt) {
       LaunchConfig{.grid_dim_x = 2, .block_dim_x = 64},
       std::move(args),
       ExecutionMode::Functional,
-      "c500",
+      "mac500",
       nullptr);
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -397,7 +534,7 @@ TEST(HipCycleValidationTest, FmaLoopCycle) {
       LaunchConfig{.grid_dim_x = 2, .block_dim_x = 64},
       std::move(args),
       ExecutionMode::Cycle,
-      "c500",
+      "mac500",
       nullptr);
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -444,7 +581,7 @@ TEST(HipCycleValidationTest, SharedReverseFunctionalMt) {
       LaunchConfig{.grid_dim_x = 2, .block_dim_x = 64},
       std::move(args),
       ExecutionMode::Functional,
-      "c500",
+      "mac500",
       nullptr);
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -487,7 +624,7 @@ TEST(HipCycleValidationTest, SharedReverseCycle) {
       LaunchConfig{.grid_dim_x = 2, .block_dim_x = 64},
       std::move(args),
       ExecutionMode::Cycle,
-      "c500",
+      "mac500",
       nullptr);
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -522,7 +659,7 @@ TEST(HipCycleValidationTest, DynamicSharedSumFunctionalMt) {
       LaunchConfig{.grid_dim_x = grid_x, .block_dim_x = block_x, .shared_memory_bytes = block_x * sizeof(int)},
       std::move(args),
       ExecutionMode::Functional,
-      "c500",
+      "mac500",
       nullptr);
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -553,7 +690,7 @@ TEST(HipCycleValidationTest, DynamicSharedSumCycle) {
       LaunchConfig{.grid_dim_x = grid_x, .block_dim_x = block_x, .shared_memory_bytes = block_x * sizeof(int)},
       std::move(args),
       ExecutionMode::Cycle,
-      "c500",
+      "mac500",
       nullptr);
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -589,7 +726,7 @@ TEST(HipCycleValidationTest, AtomicCountFunctionalMt) {
       LaunchConfig{.grid_dim_x = 4, .block_dim_x = 64},
       std::move(args),
       ExecutionMode::Functional,
-      "c500",
+      "mac500",
       nullptr);
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -621,7 +758,7 @@ TEST(HipCycleValidationTest, AtomicCountCycle) {
       LaunchConfig{.grid_dim_x = 4, .block_dim_x = 64},
       std::move(args),
       ExecutionMode::Cycle,
-      "c500",
+      "mac500",
       nullptr);
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -669,7 +806,7 @@ TEST(HipCycleValidationTest, MultiLaunchVecAddFunctionalMt) {
         LaunchConfig{.grid_dim_x = 2, .block_dim_x = 64},
         std::move(args),
         ExecutionMode::Functional,
-        "c500",
+        "mac500",
         nullptr);
     ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -714,7 +851,7 @@ TEST(HipCycleValidationTest, MultiLaunchVecAddCycle) {
         LaunchConfig{.grid_dim_x = 2, .block_dim_x = 64},
         std::move(args),
         ExecutionMode::Cycle,
-        "c500",
+        "mac500",
         nullptr);
     ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -763,7 +900,7 @@ TEST(HipCycleValidationTest, ChainedLaunchVecAddThenMulFunctionalMt) {
         LaunchConfig{.grid_dim_x = 2, .block_dim_x = 64},
         std::move(args),
         ExecutionMode::Functional,
-        "c500",
+        "mac500",
         nullptr);
     ASSERT_TRUE(result.ok) << result.error_message;
   }
@@ -781,7 +918,7 @@ TEST(HipCycleValidationTest, ChainedLaunchVecAddThenMulFunctionalMt) {
         LaunchConfig{.grid_dim_x = 2, .block_dim_x = 64},
         std::move(args),
         ExecutionMode::Functional,
-        "c500",
+        "mac500",
         nullptr);
     ASSERT_TRUE(result.ok) << result.error_message;
   }
@@ -833,7 +970,7 @@ TEST(HipCycleValidationTest, ChainedLaunchVecAddThenMulCycle) {
         LaunchConfig{.grid_dim_x = 2, .block_dim_x = 64},
         std::move(args),
         ExecutionMode::Cycle,
-        "c500",
+        "mac500",
         nullptr);
     ASSERT_TRUE(result.ok) << result.error_message;
   }
@@ -851,7 +988,7 @@ TEST(HipCycleValidationTest, ChainedLaunchVecAddThenMulCycle) {
         LaunchConfig{.grid_dim_x = 2, .block_dim_x = 64},
         std::move(args),
         ExecutionMode::Cycle,
-        "c500",
+        "mac500",
         nullptr);
     ASSERT_TRUE(result.ok) << result.error_message;
   }
@@ -901,7 +1038,7 @@ TEST(HipCycleValidationTest, VecAddMtAndCycleProduceIdenticalResults) {
         LaunchConfig{.grid_dim_x = 4, .block_dim_x = 64},
         std::move(args),
         ExecutionMode::Functional,
-        "c500",
+        "mac500",
         nullptr);
     ASSERT_TRUE(result.ok) << result.error_message;
   }
@@ -925,7 +1062,7 @@ TEST(HipCycleValidationTest, VecAddMtAndCycleProduceIdenticalResults) {
         LaunchConfig{.grid_dim_x = 4, .block_dim_x = 64},
         std::move(args),
         ExecutionMode::Cycle,
-        "c500",
+        "mac500",
         nullptr);
     ASSERT_TRUE(result.ok) << result.error_message;
   }
@@ -935,6 +1072,716 @@ TEST(HipCycleValidationTest, VecAddMtAndCycleProduceIdenticalResults) {
   mt_runtime.MemcpyDtoH<float>(mt_out, std::span<float>(mt_result));
   cycle_runtime.MemcpyDtoH<float>(cycle_out, std::span<float>(cycle_result));
   ExpectNearVector(mt_result, cycle_result);
+}
+
+// =============================================================================
+// Global Atomic Max/Min/Exchange Tests
+// =============================================================================
+
+TEST(HipCycleValidationTest, GlobalAtomicMaxFunctionalMt) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  ModelRuntime runtime;
+  const uint32_t n = 64;
+  const int base_val = 100;
+
+  const uint64_t out_addr = runtime.Malloc(sizeof(int));
+  int initial = 0;
+  runtime.MemcpyHtoD<int>(out_addr, std::span<const int>(&initial, 1));
+
+  KernelArgPack args;
+  args.PushU64(out_addr);
+  args.PushU32(n);
+  args.PushI32(base_val);
+
+  auto result = runtime.LaunchProgramObject(
+      ObjectReader{}.LoadProgramObject(GetCommonArtifact().exe_path, "global_atomic_max"),
+      LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
+      std::move(args),
+      ExecutionMode::Functional,
+      "mac500",
+      nullptr);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  int actual = 0;
+  runtime.MemcpyDtoH<int>(out_addr, std::span<int>(&actual, 1));
+  // Max of (100 + i) for i in 0..63 = 163
+  EXPECT_EQ(actual, base_val + static_cast<int>(n) - 1);
+}
+
+TEST(HipCycleValidationTest, GlobalAtomicMaxCycle) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  ModelRuntime runtime;
+  const uint32_t n = 64;
+  const int base_val = 100;
+
+  const uint64_t out_addr = runtime.Malloc(sizeof(int));
+  int initial = 0;
+  runtime.MemcpyHtoD<int>(out_addr, std::span<const int>(&initial, 1));
+
+  KernelArgPack args;
+  args.PushU64(out_addr);
+  args.PushU32(n);
+  args.PushI32(base_val);
+
+  auto result = runtime.LaunchProgramObject(
+      ObjectReader{}.LoadProgramObject(GetCommonArtifact().exe_path, "global_atomic_max"),
+      LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
+      std::move(args),
+      ExecutionMode::Cycle,
+      "mac500",
+      nullptr);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  int actual = 0;
+  runtime.MemcpyDtoH<int>(out_addr, std::span<int>(&actual, 1));
+  EXPECT_EQ(actual, base_val + static_cast<int>(n) - 1);
+}
+
+TEST(HipCycleValidationTest, GlobalAtomicMinFunctionalMt) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  ModelRuntime runtime;
+  const uint32_t n = 64;
+  const int base_val = 1000;
+
+  const uint64_t out_addr = runtime.Malloc(sizeof(int));
+  int initial = 9999;
+  runtime.MemcpyHtoD<int>(out_addr, std::span<const int>(&initial, 1));
+
+  KernelArgPack args;
+  args.PushU64(out_addr);
+  args.PushU32(n);
+  args.PushI32(base_val);
+
+  auto result = runtime.LaunchProgramObject(
+      ObjectReader{}.LoadProgramObject(GetCommonArtifact().exe_path, "global_atomic_min"),
+      LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
+      std::move(args),
+      ExecutionMode::Functional,
+      "mac500",
+      nullptr);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  int actual = 0;
+  runtime.MemcpyDtoH<int>(out_addr, std::span<int>(&actual, 1));
+  // Min of (1000 - i) for i in 0..63 = 936
+  EXPECT_EQ(actual, base_val - static_cast<int>(n) + 1);
+}
+
+TEST(HipCycleValidationTest, GlobalAtomicMinCycle) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  ModelRuntime runtime;
+  const uint32_t n = 64;
+  const int base_val = 1000;
+
+  const uint64_t out_addr = runtime.Malloc(sizeof(int));
+  int initial = 9999;
+  runtime.MemcpyHtoD<int>(out_addr, std::span<const int>(&initial, 1));
+
+  KernelArgPack args;
+  args.PushU64(out_addr);
+  args.PushU32(n);
+  args.PushI32(base_val);
+
+  auto result = runtime.LaunchProgramObject(
+      ObjectReader{}.LoadProgramObject(GetCommonArtifact().exe_path, "global_atomic_min"),
+      LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
+      std::move(args),
+      ExecutionMode::Cycle,
+      "mac500",
+      nullptr);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  int actual = 0;
+  runtime.MemcpyDtoH<int>(out_addr, std::span<int>(&actual, 1));
+  EXPECT_EQ(actual, base_val - static_cast<int>(n) + 1);
+}
+
+TEST(HipCycleValidationTest, GlobalAtomicExchFunctionalMt) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  ModelRuntime runtime;
+  const uint32_t n = 64;
+  const int val = 42;
+
+  const uint64_t out_addr = runtime.Malloc(n * sizeof(int));
+  std::vector<int> initial(n, -1);
+  runtime.MemcpyHtoD<int>(out_addr, std::span<const int>(initial));
+
+  KernelArgPack args;
+  args.PushU64(out_addr);
+  args.PushU32(n);
+  args.PushI32(val);
+
+  auto result = runtime.LaunchProgramObject(
+      ObjectReader{}.LoadProgramObject(GetCommonArtifact().exe_path, "global_atomic_exch"),
+      LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
+      std::move(args),
+      ExecutionMode::Functional,
+      "mac500",
+      nullptr);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  std::vector<int> actual(n);
+  runtime.MemcpyDtoH<int>(out_addr, std::span<int>(actual));
+  for (uint32_t i = 0; i < n; ++i) {
+    EXPECT_EQ(actual[i], val);
+  }
+}
+
+TEST(HipCycleValidationTest, GlobalAtomicExchCycle) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  ModelRuntime runtime;
+  const uint32_t n = 64;
+  const int val = 42;
+
+  const uint64_t out_addr = runtime.Malloc(n * sizeof(int));
+  std::vector<int> initial(n, -1);
+  runtime.MemcpyHtoD<int>(out_addr, std::span<const int>(initial));
+
+  KernelArgPack args;
+  args.PushU64(out_addr);
+  args.PushU32(n);
+  args.PushI32(val);
+
+  auto result = runtime.LaunchProgramObject(
+      ObjectReader{}.LoadProgramObject(GetCommonArtifact().exe_path, "global_atomic_exch"),
+      LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
+      std::move(args),
+      ExecutionMode::Cycle,
+      "mac500",
+      nullptr);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  std::vector<int> actual(n);
+  runtime.MemcpyDtoH<int>(out_addr, std::span<int>(actual));
+  for (uint32_t i = 0; i < n; ++i) {
+    EXPECT_EQ(actual[i], val);
+  }
+}
+
+// =============================================================================
+// Shared Memory Atomic Tests
+// =============================================================================
+
+TEST(HipCycleValidationTest, SharedAtomicAddFunctionalMt) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  ModelRuntime runtime;
+  const uint32_t n = 64;
+  const uint32_t grid_dim_x = 4;
+  const uint64_t out_addr = runtime.Malloc(grid_dim_x * sizeof(int));
+  std::vector<int> out_init(grid_dim_x, 0);
+  runtime.MemcpyHtoD<int>(out_addr, std::span<const int>(out_init));
+
+  KernelArgPack args;
+  args.PushU64(out_addr);
+  args.PushU32(n);
+
+  auto result = runtime.LaunchProgramObject(
+      ObjectReader{}.LoadProgramObject(GetCommonArtifact().exe_path, "shared_atomic_add"),
+      LaunchConfig{.grid_dim_x = grid_dim_x, .block_dim_x = 64, .shared_memory_bytes = 256},
+      std::move(args),
+      ExecutionMode::Functional,
+      "mac500",
+      nullptr);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  std::vector<int> actual(grid_dim_x);
+  runtime.MemcpyDtoH<int>(out_addr, std::span<int>(actual));
+  // Sum of (tid + 1) for tid in 0..63 = 64*65/2 = 2080
+  for (uint32_t block = 0; block < grid_dim_x; ++block) {
+    EXPECT_EQ(actual[block], 64 * 65 / 2) << "block=" << block;
+  }
+}
+
+TEST(HipCycleValidationTest, SharedAtomicAddCycle) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  ModelRuntime runtime;
+  const uint32_t n = 64;
+  const uint32_t grid_dim_x = 4;
+  const uint64_t out_addr = runtime.Malloc(grid_dim_x * sizeof(int));
+  std::vector<int> out_init(grid_dim_x, 0);
+  runtime.MemcpyHtoD<int>(out_addr, std::span<const int>(out_init));
+
+  KernelArgPack args;
+  args.PushU64(out_addr);
+  args.PushU32(n);
+
+  auto result = runtime.LaunchProgramObject(
+      ObjectReader{}.LoadProgramObject(GetCommonArtifact().exe_path, "shared_atomic_add"),
+      LaunchConfig{.grid_dim_x = grid_dim_x, .block_dim_x = 64, .shared_memory_bytes = 256},
+      std::move(args),
+      ExecutionMode::Cycle,
+      "mac500",
+      nullptr);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  std::vector<int> actual(grid_dim_x);
+  runtime.MemcpyDtoH<int>(out_addr, std::span<int>(actual));
+  for (uint32_t block = 0; block < grid_dim_x; ++block) {
+    EXPECT_EQ(actual[block], 64 * 65 / 2) << "block=" << block;
+  }
+}
+
+TEST(HipCycleValidationTest, SharedAtomicExchFunctionalMt) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  ModelRuntime runtime;
+  const uint32_t n = 64;
+
+  const uint64_t out_addr = runtime.Malloc(n * sizeof(int));
+
+  KernelArgPack args;
+  args.PushU64(out_addr);
+  args.PushU32(n);
+
+  auto result = runtime.LaunchProgramObject(
+      ObjectReader{}.LoadProgramObject(GetCommonArtifact().exe_path, "shared_atomic_exch"),
+      LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64, .shared_memory_bytes = 256},
+      std::move(args),
+      ExecutionMode::Functional,
+      "mac500",
+      nullptr);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  std::vector<int> actual(n);
+  runtime.MemcpyDtoH<int>(out_addr, std::span<int>(actual));
+  for (uint32_t i = 0; i < n; ++i) {
+    EXPECT_EQ(actual[i], static_cast<int>(i) * 10);
+  }
+}
+
+TEST(HipCycleValidationTest, SharedAtomicExchCycle) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  ModelRuntime runtime;
+  const uint32_t n = 64;
+
+  const uint64_t out_addr = runtime.Malloc(n * sizeof(int));
+
+  KernelArgPack args;
+  args.PushU64(out_addr);
+  args.PushU32(n);
+
+  auto result = runtime.LaunchProgramObject(
+      ObjectReader{}.LoadProgramObject(GetCommonArtifact().exe_path, "shared_atomic_exch"),
+      LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64, .shared_memory_bytes = 256},
+      std::move(args),
+      ExecutionMode::Cycle,
+      "mac500",
+      nullptr);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  std::vector<int> actual(n);
+  runtime.MemcpyDtoH<int>(out_addr, std::span<int>(actual));
+  for (uint32_t i = 0; i < n; ++i) {
+    EXPECT_EQ(actual[i], static_cast<int>(i) * 10);
+  }
+}
+
+// =============================================================================
+// Private Memory Tests
+// =============================================================================
+
+TEST(HipCycleValidationTest, PrivateArraySumFunctionalMt) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  ModelRuntime runtime;
+  const uint32_t n = 64;
+
+  const uint64_t in_addr = runtime.Malloc(n * sizeof(int));
+  const uint64_t out_addr = runtime.Malloc(n * sizeof(int));
+
+  KernelArgPack args;
+  args.PushU64(in_addr);
+  args.PushU64(out_addr);
+  args.PushU32(n);
+
+  auto result = runtime.LaunchProgramObject(
+      ObjectReader{}.LoadProgramObject(GetCommonArtifact().exe_path, "private_array_sum"),
+      LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
+      std::move(args),
+      ExecutionMode::Functional,
+      "mac500",
+      nullptr);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  std::vector<int> actual(n);
+  runtime.MemcpyDtoH<int>(out_addr, std::span<int>(actual));
+  // Each thread computes sum of idx*8 + i for i in 0..7
+  for (uint32_t idx = 0; idx < n; ++idx) {
+    int expected = 0;
+    for (int i = 0; i < 8; ++i) {
+      expected += static_cast<int>(idx) * 8 + i;
+    }
+    EXPECT_EQ(actual[idx], expected);
+  }
+}
+
+TEST(HipCycleValidationTest, PrivateArraySumCycle) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  ModelRuntime runtime;
+  const uint32_t n = 64;
+
+  const uint64_t in_addr = runtime.Malloc(n * sizeof(int));
+  const uint64_t out_addr = runtime.Malloc(n * sizeof(int));
+
+  KernelArgPack args;
+  args.PushU64(in_addr);
+  args.PushU64(out_addr);
+  args.PushU32(n);
+
+  auto result = runtime.LaunchProgramObject(
+      ObjectReader{}.LoadProgramObject(GetCommonArtifact().exe_path, "private_array_sum"),
+      LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
+      std::move(args),
+      ExecutionMode::Cycle,
+      "mac500",
+      nullptr);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  std::vector<int> actual(n);
+  runtime.MemcpyDtoH<int>(out_addr, std::span<int>(actual));
+  for (uint32_t idx = 0; idx < n; ++idx) {
+    int expected = 0;
+    for (int i = 0; i < 8; ++i) {
+      expected += static_cast<int>(idx) * 8 + i;
+    }
+    EXPECT_EQ(actual[idx], expected);
+  }
+}
+
+TEST(HipCycleValidationTest, PrivateLoadStoreFunctionalMt) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  ModelRuntime runtime;
+  const uint32_t n = 64;
+
+  std::vector<float> input(n);
+  for (uint32_t i = 0; i < n; ++i) {
+    input[i] = static_cast<float>(i);
+  }
+
+  const uint64_t in_addr = runtime.Malloc(n * sizeof(float));
+  const uint64_t out_addr = runtime.Malloc(n * sizeof(float));
+  runtime.MemcpyHtoD<float>(in_addr, std::span<const float>(input));
+
+  KernelArgPack args;
+  args.PushU64(in_addr);
+  args.PushU64(out_addr);
+  args.PushU32(n);
+
+  auto result = runtime.LaunchProgramObject(
+      ObjectReader{}.LoadProgramObject(GetCommonArtifact().exe_path, "private_load_store"),
+      LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
+      std::move(args),
+      ExecutionMode::Functional,
+      "mac500",
+      nullptr);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  std::vector<float> actual(n);
+  runtime.MemcpyDtoH<float>(out_addr, std::span<float>(actual));
+  for (uint32_t i = 0; i < n; ++i) {
+    float expected = input[i] * 2.0f + 1.0f;
+    EXPECT_NEAR(actual[i], expected, 1e-4f);
+  }
+}
+
+TEST(HipCycleValidationTest, PrivateLoadStoreCycle) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  ModelRuntime runtime;
+  const uint32_t n = 64;
+
+  std::vector<float> input(n);
+  for (uint32_t i = 0; i < n; ++i) {
+    input[i] = static_cast<float>(i);
+  }
+
+  const uint64_t in_addr = runtime.Malloc(n * sizeof(float));
+  const uint64_t out_addr = runtime.Malloc(n * sizeof(float));
+  runtime.MemcpyHtoD<float>(in_addr, std::span<const float>(input));
+
+  KernelArgPack args;
+  args.PushU64(in_addr);
+  args.PushU64(out_addr);
+  args.PushU32(n);
+
+  auto result = runtime.LaunchProgramObject(
+      ObjectReader{}.LoadProgramObject(GetCommonArtifact().exe_path, "private_load_store"),
+      LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
+      std::move(args),
+      ExecutionMode::Cycle,
+      "mac500",
+      nullptr);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  std::vector<float> actual(n);
+  runtime.MemcpyDtoH<float>(out_addr, std::span<float>(actual));
+  for (uint32_t i = 0; i < n; ++i) {
+    float expected = input[i] * 2.0f + 1.0f;
+    EXPECT_NEAR(actual[i], expected, 1e-4f);
+  }
+}
+
+// =============================================================================
+// Histogram with Shared Atomics Tests
+// =============================================================================
+
+TEST(HipCycleValidationTest, HistogramSharedFunctionalMt) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  ModelRuntime runtime;
+  const uint32_t n = 256;
+  const uint32_t bins = 8;
+  const uint32_t grid_dim_x = 4;
+  const uint32_t block_dim_x = 64;
+  const uint32_t shared_memory_bytes = 256;
+
+  std::vector<int> data(n);
+  for (uint32_t i = 0; i < n; ++i) {
+    data[i] = static_cast<int>(i % bins);
+  }
+
+  const uint64_t data_addr = runtime.Malloc(n * sizeof(int));
+  const uint32_t observe_count = grid_dim_x * bins + bins;
+  const uint64_t observe_addr = runtime.Malloc(observe_count * sizeof(int));
+  runtime.MemcpyHtoD<int>(data_addr, std::span<const int>(data));
+
+  std::vector<int> observe_init(observe_count, 0);
+  const auto run_histogram_observe = [&](uint32_t launch_n) {
+    runtime.MemcpyHtoD<int>(observe_addr, std::span<const int>(observe_init));
+
+    KernelArgPack args;
+    args.PushU64(data_addr);
+    args.PushU64(observe_addr);
+    args.PushU32(launch_n);
+    args.PushU32(bins);
+
+    auto result = runtime.LaunchProgramObject(
+        ObjectReader{}.LoadProgramObject(GetCommonArtifact().exe_path, "histogram_shared_observe"),
+        LaunchConfig{
+            .grid_dim_x = grid_dim_x,
+            .block_dim_x = block_dim_x,
+            .shared_memory_bytes = shared_memory_bytes,
+        },
+        std::move(args),
+        ExecutionMode::Functional,
+        "mac500",
+        nullptr);
+
+    std::vector<int> observe(observe_count);
+    runtime.MemcpyDtoH<int>(observe_addr, std::span<int>(observe));
+    std::vector<int> actual_block_hist(observe.begin(), observe.begin() + grid_dim_x * bins);
+    std::vector<int> actual_hist(observe.begin() + grid_dim_x * bins, observe.end());
+    return std::tuple{std::move(result), std::move(actual_block_hist), std::move(actual_hist)};
+  };
+
+  auto [result, actual_block_hist, actual_hist] = run_histogram_observe(/*launch_n=*/n);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  {
+    SCOPED_TRACE("per_block_shared_atomic_accumulation");
+    for (uint32_t block = 0; block < grid_dim_x; ++block) {
+      for (uint32_t b = 0; b < bins; ++b) {
+        EXPECT_EQ(actual_block_hist[block * bins + b], static_cast<int>(block_dim_x / bins))
+            << "block=" << block << " bin=" << b;
+      }
+    }
+  }
+
+  {
+    SCOPED_TRACE("multi_block_global_aggregation");
+    for (uint32_t b = 0; b < bins; ++b) {
+      EXPECT_EQ(actual_hist[b], static_cast<int>(n / bins));
+    }
+  }
+}
+
+TEST(HipCycleValidationTest, HistogramSharedCycle) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  ModelRuntime runtime;
+  const uint32_t n = 256;
+  const uint32_t bins = 8;
+  const uint32_t grid_dim_x = 4;
+  const uint32_t block_dim_x = 64;
+  const uint32_t shared_memory_bytes = 256;
+
+  std::vector<int> data(n);
+  for (uint32_t i = 0; i < n; ++i) {
+    data[i] = static_cast<int>(i % bins);
+  }
+
+  const uint64_t data_addr = runtime.Malloc(n * sizeof(int));
+  const uint32_t observe_count = grid_dim_x * bins + bins;
+  const uint64_t observe_addr = runtime.Malloc(observe_count * sizeof(int));
+  runtime.MemcpyHtoD<int>(data_addr, std::span<const int>(data));
+
+  std::vector<int> observe_init(observe_count, 0);
+  const auto run_histogram_observe = [&](uint32_t launch_n) {
+    runtime.MemcpyHtoD<int>(observe_addr, std::span<const int>(observe_init));
+
+    KernelArgPack args;
+    args.PushU64(data_addr);
+    args.PushU64(observe_addr);
+    args.PushU32(launch_n);
+    args.PushU32(bins);
+
+    auto result = runtime.LaunchProgramObject(
+        ObjectReader{}.LoadProgramObject(GetCommonArtifact().exe_path, "histogram_shared_observe"),
+        LaunchConfig{
+            .grid_dim_x = grid_dim_x,
+            .block_dim_x = block_dim_x,
+            .shared_memory_bytes = shared_memory_bytes,
+        },
+        std::move(args),
+        ExecutionMode::Cycle,
+        "mac500",
+        nullptr);
+
+    std::vector<int> observe(observe_count);
+    runtime.MemcpyDtoH<int>(observe_addr, std::span<int>(observe));
+    std::vector<int> actual_block_hist(observe.begin(), observe.begin() + grid_dim_x * bins);
+    std::vector<int> actual_hist(observe.begin() + grid_dim_x * bins, observe.end());
+    return std::tuple{std::move(result), std::move(actual_block_hist), std::move(actual_hist)};
+  };
+
+  auto [result, actual_block_hist, actual_hist] = run_histogram_observe(/*launch_n=*/n);
+  ASSERT_TRUE(result.ok) << result.error_message;
+
+  {
+    SCOPED_TRACE("per_block_shared_atomic_accumulation");
+    for (uint32_t block = 0; block < grid_dim_x; ++block) {
+      for (uint32_t b = 0; b < bins; ++b) {
+        EXPECT_EQ(actual_block_hist[block * bins + b], static_cast<int>(block_dim_x / bins))
+            << "block=" << block << " bin=" << b;
+      }
+    }
+  }
+
+  {
+    SCOPED_TRACE("multi_block_global_aggregation");
+    for (uint32_t b = 0; b < bins; ++b) {
+      EXPECT_EQ(actual_hist[b], static_cast<int>(n / bins));
+    }
+  }
+}
+
+TEST(HipCycleValidationTest, HistogramSharedObserveTraceIncludesMemoryAddressesAndValues) {
+  if (!HasHipHostToolchain()) {
+    GTEST_SKIP() << "required HIP/LLVM tools not available";
+  }
+
+  const auto run_and_collect = [](ExecutionMode mode) {
+    ModelRuntime runtime;
+    constexpr uint32_t n = 64;
+    constexpr uint32_t bins = 8;
+    constexpr uint32_t grid_dim_x = 1;
+    constexpr uint32_t block_dim_x = 64;
+    constexpr uint32_t shared_memory_bytes = 256;
+
+    std::vector<int> data(n);
+    for (uint32_t i = 0; i < n; ++i) {
+      data[i] = static_cast<int>(i % bins);
+    }
+
+    const uint64_t data_addr = runtime.Malloc(n * sizeof(int));
+    const uint32_t observe_count = grid_dim_x * bins + bins;
+    const uint64_t observe_addr = runtime.Malloc(observe_count * sizeof(int));
+    runtime.MemcpyHtoD<int>(data_addr, std::span<const int>(data));
+
+    std::vector<int> observe_init(observe_count, 0);
+    runtime.MemcpyHtoD<int>(observe_addr, std::span<const int>(observe_init));
+
+    CollectingTraceSink trace;
+    KernelArgPack args;
+    args.PushU64(data_addr);
+    args.PushU64(observe_addr);
+    args.PushU32(n);
+    args.PushU32(bins);
+
+    const auto result = runtime.LaunchProgramObject(
+        ObjectReader{}.LoadProgramObject(GetCommonArtifact().exe_path, "histogram_shared_observe"),
+        LaunchConfig{
+            .grid_dim_x = grid_dim_x,
+            .block_dim_x = block_dim_x,
+            .shared_memory_bytes = shared_memory_bytes,
+        },
+        std::move(args),
+        mode,
+        "mac500",
+        &trace);
+    return std::pair{result, trace.events()};
+  };
+
+  const auto assert_mem_summary = [](const std::vector<TraceEvent>& events,
+                                     std::string_view mnemonic,
+                                     std::initializer_list<std::string_view> required_tokens) {
+    const auto it = std::find_if(events.begin(), events.end(), [&](const TraceEvent& event) {
+      return event.kind == TraceEventKind::WaveStep &&
+             !event.display_name.empty() &&
+             event.display_name.find(mnemonic) != std::string::npos;
+    });
+    ASSERT_NE(it, events.end()) << mnemonic;
+    ASSERT_TRUE(it->step_detail.has_value()) << mnemonic;
+    EXPECT_NE(it->step_detail->mem_summary, "none") << mnemonic;
+    for (const auto token : required_tokens) {
+      EXPECT_NE(it->step_detail->mem_summary.find(token), std::string::npos)
+          << mnemonic << " mem_summary=" << it->step_detail->mem_summary;
+    }
+  };
+
+  for (const auto mode : {ExecutionMode::Functional, ExecutionMode::Cycle}) {
+    const auto [result, events] = run_and_collect(mode);
+    ASSERT_TRUE(result.ok) << result.error_message;
+
+    assert_mem_summary(events, "global_load_dword", {"space=global", "kind=load", "addr=", "read="});
+    assert_mem_summary(events, "ds_add_u32", {"space=shared", "kind=atomic", "addr=", "read=", "write="});
+    assert_mem_summary(events, "ds_read_b32", {"space=shared", "kind=load", "addr=", "read="});
+    assert_mem_summary(events, "global_store_dword", {"space=global", "kind=store", "addr=", "write="});
+    assert_mem_summary(events, "global_atomic_add", {"space=global", "kind=atomic", "addr=", "read=", "write="});
+  }
 }
 
 }  // namespace
