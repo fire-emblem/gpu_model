@@ -121,6 +121,7 @@ add_executable(gpu_model_tests
   runtime/execution_stats_test.cpp
   runtime/multi_launch_test.cpp
   runtime/multi_launch_debug_test.cpp
+  runtime/hip_cycle_validation_test.cpp
   instruction/instruction_naming_test.cpp
 )
 
