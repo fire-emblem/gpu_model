@@ -212,6 +212,7 @@ struct PeuSlot {
   std::optional<TraceWaveView> last_wave_trace;
   uint64_t last_wave_pc = 0;
   size_t issue_round_robin_index = 0;
+  uint64_t switch_ready_cycle = 0;  // Earliest cycle when wave switch is ready
   std::vector<ScheduledWave*> waves;
   std::vector<ScheduledWave*> resident_waves;
   std::vector<ResidentIssueSlot> resident_slots;
@@ -461,8 +462,15 @@ uint64_t WaveTag(const WaveContext& wave) {
   return (static_cast<uint64_t>(wave.block_id) << 32) | wave.wave_id;
 }
 
-uint64_t WaveAgeOrderKey(const ScheduledWave& scheduled_wave) {
-  return WaveTag(scheduled_wave.wave);
+uint64_t WaveAgeOrderKey(const ScheduledWave& scheduled_wave, uint64_t current_cycle) {
+  // Use eligible_since_cycle for dynamic ready age (oldest-first semantics)
+  // Fall back to WaveTag for static ordering if not yet eligible
+  if (scheduled_wave.eligible_since_valid && scheduled_wave.eligible_since_cycle > 0) {
+    // Lower value = earlier eligible = higher priority
+    return scheduled_wave.eligible_since_cycle;
+  }
+  // Not yet eligible: use current_cycle + WaveTag to sort after eligible waves
+  return current_cycle + WaveTag(scheduled_wave.wave);
 }
 
 constexpr std::string_view kStallReasonBarrierSlotUnavailable = "barrier_slot_unavailable";
@@ -1022,6 +1030,16 @@ std::vector<IssueSchedulerCandidate> BuildResidentIssueCandidates(
 
     ordered_resident_slots.push_back(&resident_slot);
     auto& wave = scheduled_wave->wave;
+    
+    // Check next_issue_cycle timing constraint
+    const bool timing_ready = scheduled_wave->next_issue_cycle <= cycle;
+    
+    // Track eligible_since_cycle for dynamic age ordering
+    if (timing_ready && !scheduled_wave->eligible_since_valid) {
+      scheduled_wave->eligible_since_cycle = cycle;
+      scheduled_wave->eligible_since_valid = true;
+    }
+    
     bool ready = false;
     auto issue_type = ArchitecturalIssueType::Special;
     if (kernel.ContainsPc(wave.pc)) {
@@ -1037,7 +1055,7 @@ std::vector<IssueSchedulerCandidate> BuildResidentIssueCandidates(
             candidates.push_back(IssueSchedulerCandidate{
                 .candidate_index = ordered_resident_slots.size() - 1,
                 .wave_id = wave.wave_id,
-                .age_order_key = WaveAgeOrderKey(*scheduled_wave),
+                .age_order_key = WaveAgeOrderKey(*scheduled_wave, cycle),
                 .issue_type = ArchitecturalIssueType::Special,
                 .ready = false,
             });
@@ -1045,14 +1063,14 @@ std::vector<IssueSchedulerCandidate> BuildResidentIssueCandidates(
           }
         }
       }
-      ready = CanIssueInstruction(scheduled_wave->dispatch_enabled, wave, instruction);
+      ready = timing_ready && CanIssueInstruction(scheduled_wave->dispatch_enabled, wave, instruction);
       issue_type = ArchitecturalIssueTypeForOpcode(instruction.opcode)
                        .value_or(ArchitecturalIssueType::Special);
     }
     candidates.push_back(IssueSchedulerCandidate{
         .candidate_index = ordered_resident_slots.size() - 1,
         .wave_id = wave.wave_id,
-        .age_order_key = WaveAgeOrderKey(*scheduled_wave),
+        .age_order_key = WaveAgeOrderKey(*scheduled_wave, cycle),
         .issue_type = issue_type,
         .ready = ready,
     });
@@ -1212,7 +1230,31 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
         const Instruction instruction = context.kernel.InstructionAtPc(wave.pc);
         const uint32_t slot_id = TraceSlotId(*candidate);
         const uint64_t wave_tag = WaveTag(wave);
-        context.trace.OnEvent(MakeTraceIssueSelectEvent(
+
+        // Calculate actual_issue_cycle considering switch penalty and wave timing
+        const bool wave_switched = slot.last_wave_tag != std::numeric_limits<uint64_t>::max() &&
+                                    slot.last_wave_tag != wave_tag;
+        const uint64_t switch_penalty = wave_switched 
+            ? timing_config_.launch_timing.warp_switch_cycles 
+            : 0;
+        
+        // Update switch_ready_cycle if wave switched
+        if (wave_switched && switch_penalty > 0) {
+          slot.switch_ready_cycle = cycle + switch_penalty;
+        }
+        
+        // Calculate actual issue cycle
+        const uint64_t actual_issue_cycle = std::max({cycle, candidate->next_issue_cycle, slot.switch_ready_cycle});
+        
+        // Emit switch events if penalty applies
+        if (wave_switched && switch_penalty > 0 && slot.last_wave_trace.has_value()) {
+          context.trace.OnEvent(MakeTraceWaveSwitchAwayEvent(
+              *slot.last_wave_trace, cycle, TraceSlotModelKind::ResidentFixed, slot.last_wave_pc));
+          context.trace.OnEvent(MakeTraceWaveSwitchStallEvent(
+              *slot.last_wave_trace, cycle, TraceSlotModelKind::ResidentFixed, slot.last_wave_pc));
+        }
+        
+                context.trace.OnEvent(MakeTraceIssueSelectEvent(
             MakeTraceWaveView(*candidate, slot_id), cycle, TraceSlotModelKind::ResidentFixed));
         if (context.stats != nullptr) {
           ++context.stats->wave_steps;
@@ -1231,18 +1273,18 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
           }
         }
         context.trace.OnEvent(MakeTraceWaveStepEvent(MakeTraceWaveView(*candidate, slot_id),
-                                                     cycle,
+                                                     actual_issue_cycle,
                                                      TraceSlotModelKind::ResidentFixed,
                                                      FormatWaveStepMessage(instruction, wave),
                                                      std::numeric_limits<uint64_t>::max(),
                                                      QuantizeIssueDuration(plan.issue_cycles)));
-        const uint64_t commit_cycle = cycle + plan.issue_cycles;
+        const uint64_t commit_cycle = actual_issue_cycle + plan.issue_cycles;
         bundle_commit_cycle = std::max(bundle_commit_cycle, commit_cycle);
         bundle_last_wave_tag = wave_tag;
         slot.last_wave_trace = MakeTraceWaveView(*candidate, slot_id);
         slot.last_wave_pc = wave.pc;
         // Update issue timing state
-        candidate->last_issue_cycle = cycle;
+        candidate->last_issue_cycle = actual_issue_cycle;
         candidate->next_issue_cycle = commit_cycle;
         candidate->eligible_since_valid = false;
         wave.status = WaveStatus::Stalled;

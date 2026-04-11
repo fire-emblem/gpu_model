@@ -208,7 +208,81 @@ GPGPU-Sim 在 [`shader.cc`](../third_party/gpgpu-sim_distribution/src/gpgpu-sim/
 - `eligible` 不等于“所有后续 issue 资源都一定已满足”
 - 后续至少要把 `next_issue_cycle`、switch penalty、必要时 pipe readiness 拆出来
 
-### 4.4 GPGPU-Sim 不是当前工程的直接目标
+### 4.4 GPGPU-Sim 还有更丰富的 scheduler family，但当前工程不必照搬
+
+GPGPU-Sim 里不仅有：
+
+- `lrr_scheduler`
+- `oldest_scheduler`
+
+还显式提供：
+
+- `rrr_scheduler`
+- `gto_scheduler`
+- `two_level_active_scheduler`
+- `swl_scheduler`
+
+以及一组相关参数：
+
+- `gpgpu_num_sched_per_core`
+- `gpgpu_max_insn_issue_per_warp`
+- `gpgpu_dual_issue_diff_exec_units`
+
+这说明 GPGPU-Sim 把下面几件事拆得很开：
+
+- warp 排序策略
+- 每 core 有几个 scheduler
+- 一个 warp 每 cycle 最多能发几条
+- dual issue 是否必须使用不同执行单元
+
+对当前仓库的意义不是“也要一口气支持这些 scheduler family”，而是：
+
+- 现有 `EligibleWaveSelectionPolicy` 只覆盖了 wave 排序
+- `ArchitecturalIssuePolicy` 只覆盖了 bundle type/group 约束
+- 还缺一层“wave 自身最早何时可再发”的 timing contract
+
+换句话说，当前仓库的抽象分层还不完整，但并不意味着要直接引入：
+
+- `GTO`
+- two-level active
+- SWL
+
+这些更激进的调度策略。
+
+### 4.5 GPGPU-Sim 还有显式 stall taxonomy，当前工程仍偏扁平
+
+GPGPU-Sim 在 `scheduler_unit::cycle()` 里至少区分：
+
+- `valid_inst == false`
+  - idle 或 control hazard
+- `ready_inst == false`
+  - RAW / scoreboard / long-latency wait
+- `issued_inst == false`
+  - pipeline resource stall
+
+也就是说，它不是只有“ready / not ready”两态，而是把：
+
+- 指令本身是否有效
+- 依赖是否满足
+- pipeline 是否接得住
+
+分成了不同层次。
+
+这对当前仓库是一个很重要的提醒：
+
+- 当前 `IssueSchedulerCandidate.ready` 太像“压缩后的最终布尔值”
+- 如果后续要把 cycle issue 做得更稳，至少应该把：
+  - `eligible`
+  - `selected`
+  - `issue_deferred_by_switch`
+  - `issue_deferred_by_pipe`
+  - `issue_deferred_by_group_conflict`
+
+在 engine 里区分开
+
+即使 scheduler 本身仍只消费一个最小子集。
+
+### 4.6 GPGPU-Sim 不是当前工程的直接目标
 
 需要明确：
 
@@ -222,11 +296,39 @@ GPGPU-Sim 在 [`shader.cc`](../third_party/gpgpu-sim_distribution/src/gpgpu-sim/
 - issue 资源显式化
 - 真实阻塞原因不被压缩成一个布尔 ready
 
+### 4.7 GPGPU-Sim 抽象与当前仓库对象的一对一映射
+
+为了让后续改造更可执行，可以把当前最相关的抽象先做一层对照：
+
+| GPGPU-Sim 抽象 | 当前仓库里最接近的对象 | 当前状态 | 后续建议 |
+|---|---|---|---|
+| `scheduler_unit::order_warps()` | `IssueScheduler::SelectIssueBundle(...)` 前的 candidate traversal | 已有 | 保留 |
+| `sort_warps_by_oldest_dynamic_id(...)` | `WaveAgeOrderKey(...)` | 仅静态 key | 改成 `eligible_since_cycle` |
+| `scheduler_unit::cycle()` 中的 readiness checks | `ResidentSlotReadyToIssue(...)` + `CanIssueInstruction(...)` | 已有但偏粗 | 拆成 eligibility projection |
+| `waiting()` / `ibuffer_empty()` / scoreboard / pipe free | `wave.status/run_state/valid_entry` + `slot.busy_until` | 缺少中间层 | 增加 `next_issue_cycle` 和更细 blocked cause |
+| `issue_warp(...)` | cycle 路径里的 `WaveStep + Commit + future arrive` | 已有 | 保留，但把 selection 与 actual issue 解耦 |
+| `gpgpu_num_sched_per_core` | 当前无直接对应 | 未建模 | 本轮不引入 |
+| `gpgpu_max_insn_issue_per_warp` | 当前同 wave 同 bundle 最多一次 | 简化存在 | 暂保留 1，不扩成 dual issue |
+| `gpgpu_dual_issue_diff_exec_units` | `ArchitecturalIssuePolicy.type/group limits` 的粗粒度近似 | 仅 bundle 约束 | 本轮不做 per-wave dual issue |
+
+这个映射的目的不是证明两边已经等价，而是明确：
+
+- 当前仓库已经有 `排序` 和 `bundle 仲裁`
+- 当前仓库缺的是 `排序之后到真正发射之前` 的那一层状态
+
+因此下一步最该补的是：
+
+- eligibility projection
+- wave 自身 earliest-next-issue timing
+- scheduler-driven switch timing
+
+而不是直接补更多 scheduler family。
+
 ## 5. 当前主要差距
 
 下面这些差距，才是当前 `cycle issue` 逻辑和设计目标之间最重要的偏差。
 
-### 4.1 `cycle_exec_engine` 缺少 per-wave 的 `next_issue_cycle`
+### 5.1 `cycle_exec_engine` 缺少 per-wave 的 `next_issue_cycle`
 
 当前 `cycle_exec_engine` 里的 `ScheduledWave` 只保存：
 
@@ -253,7 +355,7 @@ GPGPU-Sim 在 [`shader.cc`](../third_party/gpgpu-sim_distribution/src/gpgpu-sim/
 - 设计目标要的是“按 `global_cycle` 检查 wave 最早可发时间”
 - 当前实现更接近“只要前端活着、状态 runnable、入口有效，就认为它 ready”
 
-### 4.2 当前把 PEU 节流近似成了 `busy_until = bundle_commit_cycle`
+### 5.2 当前把 PEU 节流近似成了 `busy_until = bundle_commit_cycle`
 
 在 [`src/execution/cycle_exec_engine.cpp`](../src/execution/cycle_exec_engine.cpp) 中，当前 bundle 发出后会做：
 
@@ -284,7 +386,7 @@ GPGPU-Sim 在 [`shader.cc`](../third_party/gpgpu-sim_distribution/src/gpgpu-sim/
 
 至少应拆成两层，不能只用一个 `busy_until` 粗暴代理全部。
 
-### 4.3 scheduler-driven wave switch penalty 还没进入真实 issue 路径
+### 5.3 scheduler-driven wave switch penalty 还没进入真实 issue 路径
 
 当前 `cycle_exec_engine` 会在 wave 进入：
 
@@ -305,7 +407,7 @@ GPGPU-Sim 在 [`shader.cc`](../third_party/gpgpu-sim_distribution/src/gpgpu-sim/
 
 这是一个实质差距，不只是 trace 缺 marker。
 
-### 4.4 `OldestFirst` 的 age key 现在还是静态 key，不是动态 ready age
+### 5.4 `OldestFirst` 的 age key 现在还是静态 key，不是动态 ready age
 
 当前 `cycle_exec_engine` 的 `WaveAgeOrderKey(...)` 直接返回：
 
@@ -319,7 +421,7 @@ GPGPU-Sim 在 [`shader.cc`](../third_party/gpgpu-sim_distribution/src/gpgpu-sim/
 
 因此现在的 `OldestFirst` 只是“按静态 wave 编号排序”，不是设计目标里的 oldest-ready-first。
 
-### 4.5 candidate 结构过窄，只能表达 `ready=true/false`
+### 5.5 candidate 结构过窄，只能表达 `ready=true/false`
 
 当前 `IssueSchedulerCandidate` 只有：
 
@@ -346,7 +448,7 @@ GPGPU-Sim 在 [`shader.cc`](../third_party/gpgpu-sim_distribution/src/gpgpu-sim/
 
 表达力不够。
 
-### 4.6 `cycle_exec_engine` 还没有和共享 `WaveExecutionState` 对齐
+### 5.6 `cycle_exec_engine` 还没有和共享 `WaveExecutionState` 对齐
 
 [`src/gpu_model/execution/internal/wave_state.h`](../src/gpu_model/execution/internal/wave_state.h) 已经提供了统一的 `WaveExecutionState`：
 
@@ -367,6 +469,78 @@ GPGPU-Sim 在 [`shader.cc`](../third_party/gpgpu-sim_distribution/src/gpgpu-sim/
 ## 6. 建议调整方向
 
 下面给出的是“当前框架上最合理的收敛方向”，不是一步到位重写整个 cycle front-end。
+
+在吸收 GPGPU-Sim 经验时，建议把“可以借鉴的抽象”和“本轮不建议照搬的机制”区分开：
+
+- 可以借鉴：
+  - 排序、资格检查、执行资源检查、真正 issue 分层
+  - 动态 age key
+  - 更细的 stall taxonomy
+  - “每轮排序后再做真正发射检查”的主循环形状
+- 本轮不建议照搬：
+  - ibuffer
+  - 完整 scoreboard
+  - 多 scheduler per core
+  - dual-issue per warp
+  - CUDA 风格寄存器集 / pipe register 结构
+
+当前工程这一轮更适合做的是“补齐分层”，不是“补齐整套硬件前端”。
+
+### 6.0 分阶段调整层次
+
+为了避免范围膨胀，建议把后续改造分成三层。
+
+#### 第一层：最小语义闭环
+
+目标：
+
+- 让 `eligible -> selected -> issue` 在 `global_cycle` 约束下真正成立
+
+范围：
+
+- `next_issue_cycle`
+- `eligible_since_cycle`
+- scheduler-driven `warp_switch_cycles`
+- `IssueSelect` 与 `WaveStep` 时间解耦
+
+这层做完后，应能回答：
+
+- 为什么一个 wave 这拍 eligible 但没 issue
+- 为什么 resume 后没有立刻消费
+- 为什么 `OldestFirst` 和 `RoundRobin` 会产生不同选择
+
+#### 第二层：资源层次显式化
+
+目标：
+
+- 让 issue 选择不再只靠一个 `busy_until`
+
+范围：
+
+- `selection_ready_cycle`
+- `last_bundle_commit_cycle`
+- 必要时按 type/group 增加 `resource_ready_cycle`
+
+这层做完后，应能区分：
+
+- scheduler 本轮能不能再选
+- 选中了之后能不能立刻发
+- 资源冲突是 switch、group 还是 pipe
+
+#### 第三层：更细的 front-end / pipe 结构
+
+目标：
+
+- 在需要时再向 GPGPU-Sim / NaviSim 那类模型靠近
+
+范围：
+
+- fetch / ibuffer
+- 更细 scoreboard
+- per-pipe ready cycle
+- 更复杂的 scheduler family
+
+这层不应与第一层绑在同一轮里推进。
 
 ### 6.1 先补 wave 级 issue timing state
 
@@ -497,6 +671,12 @@ GPGPU-Sim 在 [`shader.cc`](../third_party/gpgpu-sim_distribution/src/gpgpu-sim/
 
 - scheduler 仍然只消费最小子集
 - engine 可利用完整投影做 stall reason、diagnostics 和 focused tests
+
+这样做的一个直接好处是：
+
+- 当前仓库仍可保持 `IssueScheduler` 简洁
+- 但 engine 不再被迫把所有状态压缩成 `ready=true/false`
+- 文档、测试和 trace 也能围绕更稳定的 engine-side facts 建立
 
 ### 6.7 调整顺序建议
 
@@ -682,7 +862,261 @@ struct PeuIssueTimingState {
 - 现有 `IssueScheduler` policy 抽象不推翻
 - trace 继续只是 typed event consumer
 
-## 10. 暂不建议在这一轮解决的点
+## 10. 文件级改造落点
+
+为了避免后续实现时范围扩散，建议先把“该改什么文件、各文件承担什么职责”写死。
+
+### 10.1 [`src/gpu_model/execution/internal/wave_state.h`](../src/gpu_model/execution/internal/wave_state.h)
+
+这是最适合承接共享 wave issue timing 契约的位置。
+
+建议修改：
+
+- 在 `WaveExecutionState` 中补：
+  - `eligible_since_cycle`
+  - `eligible_since_valid`
+- 保留现有：
+  - `last_issue_cycle`
+  - `next_issue_cycle`
+
+建议职责：
+
+- `WaveExecutionState` 成为 functional / program-object / cycle 三条执行路径共享的 wave issue 时间状态来源
+- `eligible_since_*` 只表达“进入当前 eligible 集合的时间”，不表达被选中或真正 issue
+
+不建议：
+
+- 把 scheduler policy、blocked reason、trace marker 这些逻辑塞进共享状态头文件
+- 让 `wave_cycle_total / active` 去承载全局调度时间语义
+
+### 10.2 [`src/execution/cycle_exec_engine.cpp`](../src/execution/cycle_exec_engine.cpp)
+
+这是本轮实现的主战场，大部分语义修正都应落在这里。
+
+建议修改：
+
+- `ScheduledWave` 对齐或持有 `WaveExecutionState`
+- 把当前 candidate 构造拆成两层：
+  - engine-side `eligibility projection`
+  - scheduler-side `IssueSchedulerCandidate`
+- 把当前主循环里的：
+  - `if (slot.busy_until > cycle) continue;`
+  - `IssueSelect(cycle) + WaveStep(cycle) + slot.busy_until=bundle_commit_cycle`
+  改成：
+  - 先判断 `selection_ready_cycle`
+  - 再计算 `actual_issue_cycle`
+  - 再独立安排 `commit_cycle`
+- 在 scheduler 选中不同 wave 时，真实引入 `warp_switch_cycles`
+- 在 wave `resume`、bundle miss、async arrive 时，维护：
+  - `next_issue_cycle`
+  - `eligible_since_cycle`
+
+建议职责：
+
+- 维护真实的 `eligible -> selected -> issue -> commit` 时序边
+- 维护 PEU 本地 timing state，例如：
+  - `selection_ready_cycle`
+  - `switch_ready_cycle`
+  - `last_bundle_commit_cycle`
+- 发出 typed event，但不把 trace 当状态机
+
+不建议：
+
+- 把完整 scoreboard / ibuffer / 多 scheduler per core 一起塞进这一轮
+- 把所有 blocked cause 都下推到 `IssueScheduler`
+
+### 10.3 [`src/gpu_model/execution/internal/issue_scheduler.h`](../src/gpu_model/execution/internal/issue_scheduler.h) 与 [`src/execution/internal/issue_scheduler.cpp`](../src/execution/internal/issue_scheduler.cpp)
+
+这两处只应该保持“policy 层最小输入”。
+
+建议修改：
+
+- 继续让 scheduler 只消费：
+  - `wave_id`
+  - `issue_type`
+  - `ready/eligible`
+  - `age_order_key`
+- `OldestFirst` 继续只看 `age_order_key`，但这个 key 必须从 engine 传入动态 `eligible_since_cycle`
+
+更推荐的做法：
+
+- 不把 `blocked_reason`
+- 不把 `switch_ready_cycle`
+- 不把 `next_issue_cycle`
+
+直接加进 `IssueSchedulerCandidate` 并强迫 scheduler 理解。
+
+更稳妥的分层是：
+
+- `cycle_exec_engine` 先生成 richer projection
+- 再投影成最小 `IssueSchedulerCandidate`
+- scheduler 只做排序和 bundle 仲裁
+
+这样能避免 policy 层被 timing/状态细节污染。
+
+### 10.4 [`src/execution/program_object_exec_engine.cpp`](../src/execution/program_object_exec_engine.cpp)
+
+这个文件本轮更适合作为“语义对照源”，不适合作为主要修改面。
+
+建议用途：
+
+- 参考其已有的：
+  - `last_issue_cycle / next_issue_cycle`
+  - switch penalty 进入 issue 路径
+  - `IssueSelect(issue_cycle)` 与 `WaveStep(issue_cycle)` 的时间来源
+- 用来约束 cycle 路径不再继续漂移
+
+不建议：
+
+- 为了“统一”而同步重写 program-object 路径
+- 在这里再引入第二套只给 cycle 用的分支逻辑
+
+### 10.5 测试文件落点
+
+建议把验证拆到最接近语义边界的现有测试文件里，而不是新建一个“大而全”的 cycle issue mega test。
+
+优先落点：
+
+- [`tests/execution/internal/issue_scheduler_test.cpp`](../tests/execution/internal/issue_scheduler_test.cpp)
+  - 保住 policy 单测边界
+  - 验证 `OldestFirst` 只看动态 age key
+- [`tests/cycle/cycle_smoke_test.cpp`](../tests/cycle/cycle_smoke_test.cpp)
+  - 验证 `resume -> IssueSelect -> WaveStep`
+  - 验证 selection/issue 分离
+  - 验证 same-PEU 轮转和 oldest-first 集成行为
+- [`tests/cycle/waitcnt_barrier_switch_focused_test.cpp`](../tests/cycle/waitcnt_barrier_switch_focused_test.cpp)
+  - 验证 wait/barrier 恢复语义
+  - 验证 scheduler-driven switch penalty 不被误写成 wait-only 事件
+- [`tests/cycle/async_memory_cycle_test.cpp`](../tests/cycle/async_memory_cycle_test.cpp)
+  - 验证 async return 只影响相关 wave，不全局卡住 PEU
+  - 验证 bundle/slot timing 仍保持一致
+
+### 10.6 当前源码证据锚点
+
+下面这些代码位置可以直接作为“当前实现事实”的证据锚点。
+
+- [`src/execution/cycle_exec_engine.cpp`](../src/execution/cycle_exec_engine.cpp)
+  - 第 469-470 行：`WaveAgeOrderKey(...)` 直接返回 `WaveTag(...)`
+  - 第 1007-1063 行：`BuildResidentIssueCandidates(...)` 只向 scheduler 投喂 `age_order_key + issue_type + ready`
+  - 第 1162 行：PEU 选择入口仍由 `slot.busy_until > cycle` 粗门控
+  - 第 1220-1243 行：`IssueSelect` 与 `WaveStep` 当前都记录在 `cycle`
+  - 第 1244 行与第 1920 行：`commit_cycle` 汇总后回写 `slot.busy_until = bundle_commit_cycle`
+- [`src/execution/program_object_exec_engine.cpp`](../src/execution/program_object_exec_engine.cpp)
+  - 第 1955-1958 行：已有 scheduler-driven `switch_penalty` 计算
+  - 第 1959-1967 行：已有与 switch penalty 对应的 `WaveSwitchAway / WarpSwitch` 事件
+  - 第 2489-2494 行：已有 `issue_cycle = next_issue_cycle`、`last_issue_cycle`、`next_issue_cycle = commit_cycle`
+- [`src/gpu_model/execution/internal/wave_state.h`](../src/gpu_model/execution/internal/wave_state.h)
+  - 第 57-58 行：共享 `WaveExecutionState` 已经有 `last_issue_cycle / next_issue_cycle`
+  - 当前还没有 `eligible_since_cycle`
+- [`tests/cycle/cycle_smoke_test.cpp`](../tests/cycle/cycle_smoke_test.cpp)
+  - 第 345-386 行：已经验证 `resume` 不保证立即消费
+  - 第 389-442 行：已经验证 `WaveResume < IssueSelect < WaveStep` 的可观察顺序
+- [`tests/cycle/async_memory_cycle_test.cpp`](../tests/cycle/async_memory_cycle_test.cpp)
+  - 第 297-324 行：已经验证 resident slot 不能绕过 PEU issue timing
+  - 第 402-430 行：已经验证 load 发出后，同 wave 独立 scalar issue 可以先于 arrive
+- [`tests/execution/internal/issue_scheduler_test.cpp`](../tests/execution/internal/issue_scheduler_test.cpp)
+  - 第 194-219 行：已经验证 `OldestFirst` 依赖 `age_order_key`，而不是 selection cursor
+
+这组证据说明：
+
+- 文档里的差距判断不是抽象推演
+- 当前代码确实已经具备一部分接近目标的骨架
+- 但真正缺的仍然是：
+  - dynamic ready age
+  - per-wave next-issue timing
+  - selection 与 issue 的真实时间解耦
+  - switch penalty 进入 cycle 路径
+
+## 11. Focused Regression / Verification Matrix
+
+下面给出更适合这一轮改造的 focused 验证矩阵。
+
+| 目标语义 | 主改动文件 | 可复用现有测试 | 建议新增/调整测试 | 完成证据 |
+|---|---|---|---|---|
+| `next_issue_cycle` 真正参与 eligible 过滤 | `src/execution/cycle_exec_engine.cpp` `src/gpu_model/execution/internal/wave_state.h` | [`tests/cycle/cycle_smoke_test.cpp`](../tests/cycle/cycle_smoke_test.cpp) 里已有 `ReadyDoesNotGuaranteeImmediateConsumerIssue`、`ResumeSelectionAndIssueOrderingStayObservable` | 增加“resume 后 wave 可见但因为 `next_issue_cycle` 尚未到而未 issue”的精确 cycle 断言 | `WaveResume < IssueSelect < WaveStep`，且 `WaveStep.cycle >= next_issue_cycle` |
+| scheduler-driven switch penalty 进入真实 issue 路径 | `src/execution/cycle_exec_engine.cpp` | [`tests/cycle/waitcnt_barrier_switch_focused_test.cpp`](../tests/cycle/waitcnt_barrier_switch_focused_test.cpp) 已覆盖 wait/switch 事件存在性 | 增加“不同 wave 被选中且 `warp_switch_cycles > 0` 时，`IssueSelect` 与 `WaveStep` 之间出现 penalty gap”的断言 | 对新 wave 有 `IssueSelect.cycle < WaveStep.cycle`，且 gap 满足 switch 约束 |
+| `OldestFirst` 使用动态 ready age 而不是静态 wave id | `src/execution/cycle_exec_engine.cpp` `src/execution/internal/issue_scheduler.cpp` | [`tests/execution/internal/issue_scheduler_test.cpp`](../tests/execution/internal/issue_scheduler_test.cpp) 已有 `ExplicitOldestFirstPolicyUsesAgeOrderKeyInsteadOfSelectionCursor` | 新增 cycle 集成测试：较晚编号但更早 eligible 的 wave 必须先被选中 | 在 `OldestFirst` 下，选择顺序随 `eligible_since_cycle` 变化，而不是随 `WaveTag` 变化 |
+| bundle 冲突不会清掉持续等待 wave 的 ready age | `src/execution/cycle_exec_engine.cpp` | [`tests/cycle/async_memory_cycle_test.cpp`](../tests/cycle/async_memory_cycle_test.cpp) 已覆盖 resident slot / issue limit 基线 | 新增“同 type limit=1，两 wave 都 ready，未选中 wave 保留 `eligible_since_cycle`，下一轮应优先被服务” | 第二轮选择结果继承上一轮等待 age，而不是重新计龄 |
+| async return 不会错误串住整个 PEU 的时序 | `src/execution/cycle_exec_engine.cpp` | [`tests/cycle/async_memory_cycle_test.cpp`](../tests/cycle/async_memory_cycle_test.cpp) 已有 `LoadAllowsIndependentScalarIssueBeforeArrive`、`ResidentSlotsDoNotBypassPeuIssueTiming` | 增加 same-PEU 多 wave 测试：等待 wave 的 arrive 只更新自身 `next_issue_cycle` | 其他 runnable wave 的 `WaveStep` 周期不受等待 wave 的 arrive/commit 粗暴牵连 |
+| trace 仍然只是 consumer，不参与调度决策 | `src/execution/cycle_exec_engine.cpp` | [`tests/cycle/cycle_smoke_test.cpp`](../tests/cycle/cycle_smoke_test.cpp) 已有 `FrontendLatenciesAdvanceCycleWithoutTraceSink` | 如实现触及事件顺序，可补一个“无 trace sink 仍得到相同结果/周期”的 focused case | 关闭 trace sink 时，功能结果和关键 cycle 不发生语义性漂移 |
+
+补充建议：
+
+- 单测层先锁 policy 与 age key 规则
+- cycle 集成层再锁 `resume/select/issue/commit` 边界
+- 不要只看 trace 文本顺序，关键断言应直接比较 event `cycle`、`kind`、`wave_id`、`peu_id`
+
+## 12. 实施完成前的最小验收标准
+
+如果后续进入代码实现阶段，至少应满足下面这些 AC，才算这轮 “cycle issue 选择语义补齐” 完成。
+
+### AC-1 `resume` 只表示重新 eligible，不表示立即 issue
+
+必须存在明确证据表明：
+
+- `WaveResume` 可以早于 `IssueSelect`
+- `IssueSelect` 可以早于 `WaveStep`
+- `WaveResume` 发生后，consumer 指令不是被硬塞回同 cycle
+
+### AC-2 scheduler 切换 wave 时，`warp_switch_cycles` 是真实 issue 约束
+
+当：
+
+- 上一条真正 issue 的 wave 与本轮选中的 wave 不同
+- 且 `warp_switch_cycles > 0`
+
+则必须满足：
+
+- `IssueSelect` 可发生在选择周期
+- `WaveStep` 不能早于 switch penalty 满足前
+
+### AC-3 `OldestFirst` 必须是 dynamic ready age，不是静态 `WaveTag`
+
+必须满足：
+
+- 较早进入 eligible 集合的 wave 会先于较晚进入的 wave
+- 即使其 `wave_id` 更大，也不能被静态编号反超
+
+### AC-4 bundle miss 不会重置 wave 的等待年龄
+
+当 wave 因：
+
+- type limit
+- group limit
+- same-wave bundle restriction
+
+在当前轮未被选中时，必须满足：
+
+- 它仍保持 eligible
+- `eligible_since_cycle` 不被重置
+- 下一轮 oldest-first 仍把它视为持续等待服务的 wave
+
+### AC-5 async wait/arrive 只影响相关 wave，不全局锁死 PEU
+
+必须满足：
+
+- waiting wave 的 `commit/arrive` 不直接充当整个 PEU 的唯一 `busy_until`
+- 同一 PEU 上其他 runnable waves 仍可按自身 timing 正常 issue
+
+### AC-6 trace 关闭或缺席时，行为语义不变
+
+必须满足：
+
+- 没有 trace sink 时，cycle model 仍能给出一致的功能结果和关键时序
+- 不能靠 trace side effect 才让 `IssueSelect/WaveStep/Commit/Arrive` 顺序成立
+
+### AC-7 本轮完成不应以更大重写为前提
+
+这一轮 AC 不要求：
+
+- ibuffer
+- 完整 scoreboard
+- multi-scheduler-per-core
+- per-warp dual issue
+
+只要求把当前框架内的最小语义闭环补实。
+
+## 13. 暂不建议在这一轮解决的点
 
 下面这些点很重要，但不建议和本轮最小闭环一起做：
 
@@ -698,7 +1132,7 @@ struct PeuIssueTimingState {
 - 会把 front-end、execution、trace、tests 一起放大
 - 容易让当前“先把 `eligible -> selected -> issue` 语义边界做实”的目标失焦
 
-## 11. 当前结论
+## 14. 当前结论
 
 当前 `cycle_exec_engine` 的 issue 逻辑已经具备：
 

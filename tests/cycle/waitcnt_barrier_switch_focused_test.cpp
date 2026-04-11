@@ -69,6 +69,21 @@ size_t FirstBarrierCycleIndex(const std::vector<TraceEvent>& events,
   return std::numeric_limits<size_t>::max();
 }
 
+size_t FirstBarrierIndexForWave(const std::vector<TraceEvent>& events,
+                                TraceBarrierKind barrier_kind,
+                                uint32_t block_id,
+                                uint32_t wave_id) {
+  for (size_t i = 0; i < events.size(); ++i) {
+    if (events[i].kind == TraceEventKind::Barrier &&
+        events[i].barrier_kind == barrier_kind &&
+        events[i].block_id == block_id &&
+        events[i].wave_id == wave_id) {
+      return i;
+    }
+  }
+  return std::numeric_limits<size_t>::max();
+}
+
 size_t FirstArriveIndexWithProgress(const std::vector<TraceEvent>& events,
                                     TraceArriveProgressKind progress) {
   for (size_t i = 0; i < events.size(); ++i) {
@@ -377,7 +392,7 @@ TEST(WaitcntBarrierSwitchFocusedTest,
 
   // Find barrier arrive and wave_wait events for the first wave
   const size_t barrier_arrive_index =
-      FirstBarrierCycleIndex(events, TraceBarrierKind::Arrive);
+      FirstBarrierIndexForWave(events, TraceBarrierKind::Arrive, /*block_id=*/0, /*wave_id=*/0);
   const size_t wave_wait_index = FirstEventIndexForWave(
       events, TraceEventKind::WaveWait, /*block_id=*/0, /*wave_id=*/0);
 
@@ -453,10 +468,12 @@ TEST(WaitcntBarrierSwitchFocusedTest,
   const auto& events = trace.events();
 
   // Verify the ordering for the first wave
+  // Note: With switch penalties, waves may issue barriers at different cycles
+  // We need to compare events from the same wave
   const size_t wave_wait_index = FirstEventIndexForWave(
       events, TraceEventKind::WaveWait, /*block_id=*/0, /*wave_id=*/0);
   const size_t barrier_arrive_index =
-      FirstBarrierCycleIndex(events, TraceBarrierKind::Arrive);
+      FirstBarrierIndexForWave(events, TraceBarrierKind::Arrive, /*block_id=*/0, /*wave_id=*/0);
   const size_t barrier_release_index =
       FirstBarrierCycleIndex(events, TraceBarrierKind::Release);
   const size_t wave_resume_index = FirstEventIndexForWave(
@@ -768,7 +785,7 @@ TEST(WaitcntBarrierSwitchFocusedTest,
   const size_t wave_wait_index = FirstEventIndexForWave(
       events, TraceEventKind::WaveWait, /*block_id=*/0, /*wave_id=*/0);
   const size_t barrier_arrive_index =
-      FirstBarrierCycleIndex(events, TraceBarrierKind::Arrive);
+      FirstBarrierIndexForWave(events, TraceBarrierKind::Arrive, /*block_id=*/0, /*wave_id=*/0);
   const size_t barrier_release_index =
       FirstBarrierCycleIndex(events, TraceBarrierKind::Release);
   const size_t wave_resume_index = FirstEventIndexForWave(

@@ -446,6 +446,15 @@ TEST(CycleSmokeTest, SamePeuIssueCyclesStayOnFourCycleGrid) {
   CollectingTraceSink trace;
   ExecEngine runtime(&trace);
   runtime.SetFixedGlobalMemoryLatency(20);
+  // Set warp_switch_cycles to 0 so issue cycles align on grid
+  runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
+                                 /*kernel_launch_cycles=*/0,
+                                 /*block_launch_cycles=*/0,
+                                 /*wave_generation_cycles=*/0,
+                                 /*wave_dispatch_cycles=*/0,
+                                 /*wave_launch_cycles=*/0,
+                                 /*warp_switch_cycles=*/0,  // No switch penalty for this test
+                                 /*arg_load_cycles=*/4);
 
   const auto kernel = BuildSamePeuReadyNotSelectedKernel();
 
