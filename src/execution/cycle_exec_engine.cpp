@@ -207,6 +207,11 @@ struct PeuSlot {
   uint32_t dpc_id = 0;
   uint32_t ap_id = 0;
   uint32_t peu_id = 0;
+  // Selection timing: when PEU can next select a wave for issue
+  uint64_t selection_ready_cycle = 0;
+  // Commit timing: when current bundle finishes committing
+  uint64_t last_bundle_commit_cycle = 0;
+  // Legacy busy_until for backward compatibility (max of selection and commit)
   uint64_t busy_until = 0;
   uint64_t last_wave_tag = std::numeric_limits<uint64_t>::max();
   std::optional<TraceWaveView> last_wave_trace;
@@ -1106,6 +1111,8 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
 
   for (auto& slot : slots) {
     slot.busy_until = 0;
+    slot.selection_ready_cycle = 0;
+    slot.last_bundle_commit_cycle = 0;
     l1_caches.emplace(L1Key{.dpc_id = slot.dpc_id, .ap_id = slot.ap_id},
                       CacheModel(timing_config_.cache_model));
   }
@@ -1172,7 +1179,8 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
 
     bool issued_any = false;
     for (auto& slot : slots) {
-      if (slot.busy_until > cycle) {
+      // Selection gate: PEU can select when selection_ready_cycle is satisfied
+      if (slot.selection_ready_cycle > cycle) {
         continue;
       }
 
@@ -1968,7 +1976,13 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
         });
         issued_any = true;
       }
-      slot.busy_until = bundle_commit_cycle;
+      // Update timing state:
+      // - selection_ready_cycle: when PEU can next select (currently tied to commit for backward compatibility)
+      // - last_bundle_commit_cycle: when current bundle finishes committing
+      // Future: selection_ready_cycle could be decoupled from commit for finer-grained scheduling
+      slot.selection_ready_cycle = bundle_commit_cycle;
+      slot.last_bundle_commit_cycle = bundle_commit_cycle;
+      slot.busy_until = bundle_commit_cycle;  // Keep for backward compatibility
       slot.last_wave_tag = bundle_last_wave_tag;
     }
 
