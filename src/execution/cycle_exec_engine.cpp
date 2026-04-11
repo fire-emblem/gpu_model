@@ -172,6 +172,11 @@ struct ScheduledWave {
   bool launch_scheduled = false;
   size_t peu_slot_index = std::numeric_limits<size_t>::max();
   size_t resident_slot_id = std::numeric_limits<size_t>::max();
+  // Issue timing state (aligned with WaveExecutionState)
+  uint64_t last_issue_cycle = 0;
+  uint64_t next_issue_cycle = 0;
+  uint64_t eligible_since_cycle = 0;
+  bool eligible_since_valid = false;
 };
 
 struct ExecutableBlock {
@@ -1236,6 +1241,10 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
         bundle_last_wave_tag = wave_tag;
         slot.last_wave_trace = MakeTraceWaveView(*candidate, slot_id);
         slot.last_wave_pc = wave.pc;
+        // Update issue timing state
+        candidate->last_issue_cycle = cycle;
+        candidate->next_issue_cycle = commit_cycle;
+        candidate->eligible_since_valid = false;
         wave.status = WaveStatus::Stalled;
         wave.valid_entry = false;
         uint64_t flow_id = 0;
@@ -1426,6 +1435,8 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                                   candidate->wave.status = WaveStatus::Active;
                                 }
                               } else {
+                                candidate->eligible_since_cycle = arrive_cycle;
+                                candidate->eligible_since_valid = true;
                                 context.trace.OnEvent(MakeTraceWaveResumeEvent(
                                     MakeTraceWaveView(*candidate, slot_id),
                                     arrive_cycle,
@@ -1508,6 +1519,8 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                               if (!ResumeWaitcntWaveIfReady(context.kernel, candidate->wave)) {
                                 candidate->wave.status = WaveStatus::Active;
                               } else {
+                                candidate->eligible_since_cycle = ready_cycle;
+                                candidate->eligible_since_valid = true;
                                 context.trace.OnEvent(MakeTraceWaveResumeEvent(
                                     MakeTraceWaveView(*candidate, slot_id),
                                     ready_cycle,
@@ -1574,6 +1587,8 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                               if (!ResumeWaitcntWaveIfReady(context.kernel, candidate->wave)) {
                                 candidate->wave.valid_entry = true;
                               } else {
+                                candidate->eligible_since_cycle = arrive_cycle;
+                                candidate->eligible_since_valid = true;
                                 context.trace.OnEvent(MakeTraceWaveResumeEvent(
                                     MakeTraceWaveView(*candidate, slot_id),
                                     arrive_cycle,
@@ -1666,6 +1681,8 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                               if (!ResumeWaitcntWaveIfReady(context.kernel, candidate->wave)) {
                                 candidate->wave.valid_entry = true;
                               } else {
+                                candidate->eligible_since_cycle = arrive_cycle;
+                                candidate->eligible_since_valid = true;
                                 context.trace.OnEvent(MakeTraceWaveResumeEvent(
                                     MakeTraceWaveView(*candidate, slot_id),
                                     arrive_cycle,
@@ -1767,6 +1784,8 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                       if (released_wave == nullptr || released_wave->wave.waiting_at_barrier) {
                         continue;
                       }
+                      released_wave->eligible_since_cycle = commit_cycle;
+                      released_wave->eligible_since_valid = true;
                       context.trace.OnEvent(MakeTraceWaveResumeEvent(
                           MakeTraceWaveView(*released_wave, TraceSlotId(*released_wave)),
                           commit_cycle,

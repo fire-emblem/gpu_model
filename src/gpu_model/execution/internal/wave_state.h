@@ -56,6 +56,8 @@ struct WaveExecutionState {
   uint64_t wave_cycle_active = 0;
   uint64_t last_issue_cycle = 0;
   uint64_t next_issue_cycle = 0;
+  uint64_t eligible_since_cycle = 0;
+  bool eligible_since_valid = false;
 };
 
 /// PEU (Processing Element Unit) slot state.
