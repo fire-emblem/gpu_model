@@ -297,7 +297,14 @@ TEST(AsyncMemoryCycleTest, ResidentSlotsStillHonorIssueLimitsPerPeu) {
 TEST(AsyncMemoryCycleTest, ResidentSlotsDoNotBypassPeuIssueTiming) {
   CollectingTraceSink trace;
   ExecEngine runtime(&trace);
-  ConfigureZeroFrontendTiming(runtime);
+  runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
+                                 /*kernel_launch_cycles=*/0,
+                                 /*block_launch_cycles=*/0,
+                                 /*wave_generation_cycles=*/0,
+                                 /*wave_dispatch_cycles=*/0,
+                                 /*wave_launch_cycles=*/0,
+                                 /*warp_switch_cycles=*/0,  // No switch penalty to isolate PEU timing
+                                 /*arg_load_cycles=*/4);
 
   InstructionBuilder builder;
   builder.SMov("s0", 1);
@@ -333,7 +340,7 @@ TEST(AsyncMemoryCycleTest, ResidentSlotBundlesUsePeuWideMaxTiming) {
                                  /*wave_generation_cycles=*/0,
                                  /*wave_dispatch_cycles=*/0,
                                  /*wave_launch_cycles=*/4,
-                                 /*warp_switch_cycles=*/1,
+                                 /*warp_switch_cycles=*/0,  // No switch penalty to isolate PEU timing
                                  /*arg_load_cycles=*/4);
 
   IssueCycleClassOverridesSpec class_overrides;
