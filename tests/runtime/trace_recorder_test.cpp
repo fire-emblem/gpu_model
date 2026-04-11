@@ -226,12 +226,14 @@ TEST(TraceRecorderTest, ExportsTextAndJsonInRecordedOrder) {
   const std::string text = RenderRecorderTextTrace(recorder);
   const std::string json = RenderRecorderJsonTrace(recorder);
 
-  // Text trace now only includes wave_step and wave_exit for cleaner output.
+  // Text trace now only includes WaveStep and WaveExit for cleaner output.
   // Other events are still available in JSON trace.
-  EXPECT_NE(text.find("wave_step"), std::string::npos);
+  // WaveStep uses the instruction mnemonic as canonical_name (e.g., "v_add_i32")
+  // WaveExit uses "wave_exit" as canonical_name
+  EXPECT_NE(text.find("v_add_i32"), std::string::npos);
   EXPECT_NE(text.find("wave_exit"), std::string::npos);
   // Verify ordering
-  EXPECT_LT(text.find("wave_step"), text.find("wave_exit"));
+  EXPECT_LT(text.find("v_add_i32"), text.find("wave_exit"));
 
   // JSON trace still contains all events
   EXPECT_NE(json.find("\"kind\":\"Launch\""), std::string::npos);

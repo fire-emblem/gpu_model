@@ -1163,9 +1163,9 @@ amdhsa.kernels:
 
   const std::string timeline = ReadTextFile(out_dir / "timeline.perfetto.json");
   EXPECT_NE(timeline.find("\"ph\":\"X\""), std::string::npos) << timeline;
-  // Updated to expect full assembly instruction (opcode + operands)
-  EXPECT_NE(timeline.find("\"name\":\"v_mov_b32_e32 v1, 1\""), std::string::npos) << timeline;
-  EXPECT_NE(timeline.find("\"name\":\"v_add_u32_e32 v2, v1, v1\""), std::string::npos) << timeline;
+  // Instruction name is the mnemonic only (e.g., "v_mov_b32_e32")
+  EXPECT_NE(timeline.find("\"name\":\"v_mov_b32_e32\""), std::string::npos) << timeline;
+  EXPECT_NE(timeline.find("\"name\":\"v_add_u32_e32\""), std::string::npos) << timeline;
   EXPECT_NE(timeline.find("\"dur\":4"), std::string::npos) << timeline;
 }
 
