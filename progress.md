@@ -337,6 +337,32 @@
   - `findings.md`
   - `progress.md`
 
+### 阶段 18：Wave 1 Task 4 state 兼容桥接
+- **状态：** complete
+- 执行的操作：
+  - 新增 `state/wave/wave_runtime_state.h`，承接当前 `WaveContext` 运行时定义
+  - 新增 `state/ap/ap_runtime_state.h`，将 `ApState` 与 `ExecutionBlockState` 收口到同一 state 层目录
+  - 将旧 `execution/wave_context.h`、`execution/internal/execution_state.h`、`state/ap_state.h` 收口为兼容桥接头
+  - 更新 `state/peu_state.h` 与 `execution/wave_context_builder.h` 指向新的 state 层入口
+  - 将纯状态测试迁移到 `tests/state/`，并补 `ApRuntimeStateTest`
+  - 完成 release 编译与 Task 4 定向测试验证
+- 创建/修改的文件：
+  - `src/gpu_model/state/wave/wave_runtime_state.h`
+  - `src/gpu_model/state/ap/ap_runtime_state.h`
+  - `src/gpu_model/execution/wave_context.h`
+  - `src/gpu_model/execution/internal/execution_state.h`
+  - `src/gpu_model/execution/wave_context_builder.h`
+  - `src/gpu_model/state/ap_state.h`
+  - `src/gpu_model/state/peu_state.h`
+  - `tests/state/wave_runtime_state_test.cpp`
+  - `tests/state/ap_runtime_state_test.cpp`
+  - `tests/execution/execution_naming_test.cpp`
+  - `tests/CMakeLists.txt`
+  - `docs/superpowers/plans/2026-04-12-architecture-restructure-wave1.md`
+  - `task_plan.md`
+  - `findings.md`
+  - `progress.md`
+
 ## 会话：2026-04-11
 
 ### 阶段 32：全项目架构优化分析

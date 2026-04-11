@@ -2,8 +2,9 @@
 
 #include <vector>
 
-#include "gpu_model/execution/internal/execution_state.h"
+#include "gpu_model/runtime/mapper.h"
 #include "gpu_model/runtime/launch_config.h"
+#include "gpu_model/state/ap/ap_runtime_state.h"
 
 namespace gpu_model {
 

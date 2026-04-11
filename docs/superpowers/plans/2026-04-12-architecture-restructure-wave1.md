@@ -88,7 +88,23 @@
 
 ### P1 后续任务
 
-- [ ] **Task 4: 为 `WaveContext` / `ExecutionBlockState` 拆分准备兼容层**
+- [x] **Task 4: 为 `WaveContext` / `ExecutionBlockState` 拆分准备兼容层**
+  - 文件：
+    - Create: `src/gpu_model/state/wave/wave_runtime_state.h`
+    - Create: `src/gpu_model/state/ap/ap_runtime_state.h`
+    - Modify: `src/gpu_model/execution/wave_context.h`
+    - Modify: `src/gpu_model/execution/internal/execution_state.h`
+    - Modify: `src/gpu_model/execution/wave_context_builder.h`
+    - Modify: `src/gpu_model/state/ap_state.h`
+    - Modify: `src/gpu_model/state/peu_state.h`
+  - 测试对应迁移：
+    - Move: `tests/execution/wave_context_test.cpp -> tests/state/wave_runtime_state_test.cpp`
+    - Create: `tests/state/ap_runtime_state_test.cpp`
+    - Modify: `tests/execution/execution_naming_test.cpp`
+    - Modify: `tests/CMakeLists.txt`
+  - 验证：
+    - `cmake --build build-gate-release --target gpu_model_tests -j8`
+    - `./build-gate-release/tests/gpu_model_tests --gtest_filter='ExecutionNamingTest.*:WaveContextBuilderTest.*:WaveContextTest.*:ApRuntimeStateTest.*:CycleSmokeTest.*'`
   - 只做清单和薄桥接，不在 Wave 1 深拆执行状态机
   - 目标是给 Phase 3 `state/` 层拆分铺路
 
@@ -120,7 +136,7 @@
 
 ## Done Criteria
 
-- Task 1~3 全部完成并已各自 push
+- Task 1~4 全部完成并已各自 push
 - 计划/发现/进度文件同步到最新状态
 - `gpu_arch_spec.h -> execution/internal/issue_model.h` 违规已经解除
-- `utils/` 与 `gpu_arch/` 第一轮桥接稳定，后续 Phase 2/3 可继续推进
+- `utils/`、`gpu_arch/` 与 `state/` 第一轮桥接稳定，后续 Phase 2/3 可继续推进

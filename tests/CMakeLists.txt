@@ -18,6 +18,8 @@ add_executable(gpu_model_tests
   execution/sync_ops_test.cpp
   execution/plan_apply_test.cpp
   execution/functional_exec_engine_waitcnt_test.cpp
+  state/ap_runtime_state_test.cpp
+  state/wave_runtime_state_test.cpp
 
   # instruction/execution migrated coverage
   execution/internal/tensor_op_utils_test.cpp
@@ -35,7 +37,6 @@ add_executable(gpu_model_tests
   execution/encoded_semantic_handler_registry_test.cpp
   execution/internal/handlers/semantic_handler_test.cpp
   isa/opcode_descriptor_test.cpp
-  execution/wave_context_test.cpp
   functional/mapper_test.cpp
   functional/vecadd_functional_test.cpp
   functional/predicated_if_functional_test.cpp

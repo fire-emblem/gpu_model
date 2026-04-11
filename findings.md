@@ -163,6 +163,13 @@
   - 旧 `src/gpu_model/arch/gpu_arch_spec.h` 已退化为桥接头
   - `arch_registry`、`mac500_spec`、`mapper`、`cache_model`、`shared_bank_model` 以及首批 execution 头已切到新路径
   - 仓内保留一条显式桥接测试，直接覆盖旧 `arch/gpu_arch_spec.h` 兼容性
+- Wave 1 Task 4 已完成 `state/` 层的第一轮兼容桥接：
+  - `state/wave/wave_runtime_state.h` 承接当前 `WaveContext` 运行时定义，旧 `execution/wave_context.h` 收口为桥接头
+  - `state/ap/ap_runtime_state.h` 共置 `ApState` 与 `ExecutionBlockState`，先把重叠运行时容器放到同一层，后续 Phase 3 再决定真正合并
+  - `tests/state/` 已开始承接纯状态测试；`wave_context` 的纯状态回归已迁出 `tests/execution/`
+  - 当前仍未做的深拆边界是：
+    - `WaveContext` 中的 ID/寄存器定义仍未拆到 `gpu_arch/wave/`
+    - `ApState` 与 `ExecutionBlockState` 仍是并置，不是同一 runtime type
   这些主题现在只保留为模块状态中的稳定 backlog，不再维持独立设计/计划文档。
 - 当时那一轮规划的最高优先级曾调整为：
   - runtime API closure

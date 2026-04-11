@@ -8,9 +8,10 @@
 #include "gpu_model/execution/memory_ops.h"
 #include "gpu_model/execution/plan_apply.h"
 #include "gpu_model/execution/sync_ops.h"
-#include "gpu_model/execution/wave_context.h"
 #include "gpu_model/execution/wave_context_builder.h"
 #include "gpu_model/runtime/exec_engine.h"
+#include "gpu_model/state/ap/ap_runtime_state.h"
+#include "gpu_model/state/wave/wave_runtime_state.h"
 
 namespace gpu_model {
 namespace {
@@ -39,6 +40,7 @@ TEST(ExecutionNamingTest, ExecutionHeadersDeclarePrimaryTypes) {
   static_assert(std::is_same_v<decltype(std::declval<WaveContext>().status), WaveStatus>);
   static_assert(std::is_same_v<decltype(std::declval<WaveContext>().private_memory),
                                std::array<std::vector<std::byte>, kWaveSize>>);
+  static_assert(std::is_same_v<decltype(std::declval<ApState>().barrier), BarrierState>);
 }
 
 TEST(ExecutionNamingTest, ExecutionHeadersDeclarePrimaryUtilities) {
