@@ -288,6 +288,27 @@
   - `findings.md`
   - `progress.md`
 
+### 阶段 16：Wave 1 Task 2 issue_config 提取
+- **状态：** complete
+- 执行的操作：
+  - 新增 `gpu_arch/issue_config` 稳定头与实现，迁移 `ArchitecturalIssueType`、`ArchitecturalIssuePolicy` 等定义
+  - 将旧 `execution/internal/issue_model.h` 收口为兼容桥接头
+  - 删除旧 `src/execution/internal/issue_model.cpp`，改由新 `src/gpu_arch/issue_config/issue_config.cpp` 提供实现
+  - 将对应测试迁移到 `tests/arch/issue_config_test.cpp`，并更新 CMake 测试清单
+  - 完成 release/asan 编译与 Task 2 定向测试验证
+- 创建/修改的文件：
+  - `src/gpu_model/gpu_arch/issue_config/issue_config.h`
+  - `src/gpu_arch/issue_config/issue_config.cpp`
+  - `src/gpu_model/execution/internal/issue_model.h`
+  - `src/gpu_model/arch/gpu_arch_spec.h`
+  - `src/gpu_model/execution/internal/encoded_issue_type.h`
+  - `src/gpu_model/execution/internal/opcode_execution_info.h`
+  - `src/gpu_model/execution/internal/issue_scheduler.h`
+  - `src/execution/cycle_exec_engine.cpp`
+  - `tests/arch/issue_config_test.cpp`
+  - `tests/CMakeLists.txt`
+  - `CMakeLists.txt`
+
 ## 会话：2026-04-11
 
 ### 阶段 32：全项目架构优化分析

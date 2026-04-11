@@ -5,6 +5,7 @@ add_executable(gpu_model_tests
   instruction/internal/generated_encoded_gcn_inst_db_test.cpp
   instruction/internal/encoded_gcn_db_lookup_test.cpp
   arch/arch_registry_test.cpp
+  arch/issue_config_test.cpp
   instruction/instruction_decoder_test.cpp
   instruction/instruction_formatter_test.cpp
   instruction/encoded_gcn_inst_format_test.cpp
@@ -19,7 +20,6 @@ add_executable(gpu_model_tests
 
   # instruction/execution migrated coverage
   execution/internal/tensor_op_utils_test.cpp
-  execution/internal/issue_model_test.cpp
   execution/internal/issue_eligibility_test.cpp
   execution/internal/issue_scheduler_test.cpp
   execution/internal/barrier_resource_pool_test.cpp

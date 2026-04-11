@@ -22,7 +22,7 @@
 #include "gpu_model/execution/internal/barrier_resource_pool.h"
 #include "gpu_model/execution/internal/cycle_issue_policy.h"
 #include "gpu_model/execution/internal/event_queue.h"
-#include "gpu_model/execution/internal/issue_model.h"
+#include "gpu_model/gpu_arch/issue_config/issue_config.h"
 #include "gpu_model/execution/internal/issue_scheduler.h"
 #include "gpu_model/execution/internal/opcode_execution_info.h"
 #include "gpu_model/execution/internal/async_scoreboard.h"

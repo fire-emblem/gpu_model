@@ -3,7 +3,7 @@
 #include <optional>
 #include <string_view>
 
-#include "gpu_model/execution/internal/issue_model.h"
+#include "gpu_model/gpu_arch/issue_config/issue_config.h"
 
 namespace gpu_model {
 

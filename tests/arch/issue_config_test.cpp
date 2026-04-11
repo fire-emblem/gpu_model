@@ -1,11 +1,11 @@
 #include <gtest/gtest.h>
 
-#include "gpu_model/execution/internal/issue_model.h"
+#include "gpu_model/gpu_arch/issue_config/issue_config.h"
 
 namespace gpu_model {
 namespace {
 
-TEST(IssueModelTest, MapsRepresentativeOpcodesToWhitepaperIssueTypes) {
+TEST(IssueConfigTest, MapsRepresentativeOpcodesToWhitepaperIssueTypes) {
   EXPECT_EQ(ArchitecturalIssueTypeForOpcode(Opcode::BBranch), ArchitecturalIssueType::Branch);
   EXPECT_EQ(ArchitecturalIssueTypeForOpcode(Opcode::SAdd), ArchitecturalIssueType::ScalarAluOrMemory);
   EXPECT_EQ(ArchitecturalIssueTypeForOpcode(Opcode::SBufferLoadDword),
@@ -19,7 +19,7 @@ TEST(IssueModelTest, MapsRepresentativeOpcodesToWhitepaperIssueTypes) {
             ArchitecturalIssueType::Special);
 }
 
-TEST(IssueModelTest, DefaultArchitecturalIssueLimitsAllowOnePerType) {
+TEST(IssueConfigTest, DefaultArchitecturalIssueLimitsAllowOnePerType) {
   const auto limits = DefaultArchitecturalIssueLimits();
   EXPECT_EQ(limits.branch, 1u);
   EXPECT_EQ(limits.scalar_alu_or_memory, 1u);

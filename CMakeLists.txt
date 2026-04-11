@@ -103,7 +103,7 @@ add_library(gpu_model STATIC
   src/execution/internal/wave_state.cpp
   src/execution/internal/semantics.cpp
   src/execution/wave_context_builder.cpp
-  src/execution/internal/issue_model.cpp
+  src/gpu_arch/issue_config/issue_config.cpp
   src/execution/internal/issue_scheduler.cpp
   src/execution/internal/issue_eligibility.cpp
   src/execution/internal/async_scoreboard.cpp

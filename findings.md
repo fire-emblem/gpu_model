@@ -249,6 +249,11 @@
   - `utils/config`、`utils/logging`、`utils/math` 已作为稳定新入口落地
   - 旧 `util/`、`logging/`、`runtime/runtime_config.h` 已退化为兼容桥接
   - 后续 Task 2 可以在此基础上继续抽 `gpu_arch/issue_config`
+- Task 2 当前完成状态：
+  - `gpu_model/gpu_arch/issue_config/issue_config.h` 与 `src/gpu_arch/issue_config/issue_config.cpp` 已落地
+  - 旧 `gpu_model/execution/internal/issue_model.h` 已退化为桥接头
+  - `tests/execution/internal/issue_model_test.cpp` 已迁到 `tests/arch/issue_config_test.cpp`
+  - 文档中定义的 `gpu_arch_spec.h -> execution/internal/issue_model.h` 分层违规已解除
 - 新一轮全仓架构审视结论：
   - 当前项目的大方向基本正确，但代码层仍处于“设计已收口、边界未完全落地”的半收口状态
   - 最严重的结构问题不是单个文件大，而是：

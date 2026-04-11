@@ -49,7 +49,7 @@
     - `scripts/run_push_gate_light.sh`
     - `./build-gate-release/tests/gpu_model_tests --gtest_filter='InstructionDecoderTest.DecodesRepresentativeSop2ScalarAluInstructions:HipCycleValidationTest.SharedAtomicAddFunctionalMt:HipCycleValidationTest.SharedAtomicAddCycle:HipCycleValidationTest.HistogramSharedFunctionalMt:HipCycleValidationTest.HistogramSharedCycle:HipCycleValidationTest.HistogramSharedObserveTraceIncludesMemoryAddressesAndValues:HipRuntimeTest.EncodedCycleLaunchEmitsAdvancingTraceCycles:HipRuntimeTest.EncodedCycleLaunchReportsCacheAndSharedBankStats'`
 
-- [ ] **Task 2: 提取 `gpu_arch/issue_config/` 并迁移 issue policy 相关测试**
+- [x] **Task 2: 提取 `gpu_arch/issue_config/` 并迁移 issue policy 相关测试**
   - 文件：
     - Create: `src/gpu_model/gpu_arch/issue_config/issue_config.h`
     - Create: `src/gpu_model/gpu_arch/issue_config/issue_config.cpp`
