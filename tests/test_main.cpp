@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
-#include "gpu_model/util/logging.h"
-#include "gpu_model/runtime/runtime_config.h"
+#include "gpu_model/utils/logging/log_macros.h"
+#include "gpu_model/utils/config/runtime_config.h"
 
 int main(int argc, char** argv) {
   // Configure test defaults:

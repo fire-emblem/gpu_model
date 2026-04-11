@@ -1,4 +1,4 @@
-#include "gpu_model/logging/runtime_log_service.h"
+#include "gpu_model/utils/logging/runtime_log_service.h"
 
 #include <algorithm>
 #include <array>

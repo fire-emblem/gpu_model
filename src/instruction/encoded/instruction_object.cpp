@@ -9,7 +9,7 @@
 #include "gpu_model/execution/encoded_semantic_handler.h"
 #include "gpu_model/execution/internal/encoded_handler_utils.h"
 #include "gpu_model/instruction/encoded/instruction_decoder.h"
-#include "gpu_model/util/logging.h"
+#include "gpu_model/utils/logging/log_macros.h"
 
 namespace gpu_model {
 

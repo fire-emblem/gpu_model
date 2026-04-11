@@ -1,6 +1,6 @@
 #pragma once
 
-#include <bitset>
+#include <cstdlib>
 #include <cstdarg>
 #include <cstdint>
 #include <cstdio>
@@ -9,9 +9,10 @@
 
 #include <loguru.hpp>
 
-#include "gpu_model/util/logging.h"
-#include "gpu_model/instruction/encoded/decoded_instruction.h"
 #include "gpu_model/execution/encoded_semantic_handler.h"
+#include "gpu_model/instruction/encoded/decoded_instruction.h"
+#include "gpu_model/utils/logging/log_macros.h"
+#include "gpu_model/utils/math/bit_utils.h"
 
 namespace gpu_model {
 
@@ -34,16 +35,6 @@ inline void EncodedDebugLog(const char* fmt, ...) {
   std::vsnprintf(buffer, sizeof(buffer), fmt, args);
   va_end(args);
   GPU_MODEL_LOG_INFO("encoded_exec", "%s", buffer);
-}
-
-// ============================================================================
-// Bit Manipulation Utilities
-// ============================================================================
-
-// Note: BranchTarget is in gpu_model/execution/internal/float_utils.h
-
-inline std::bitset<64> MaskFromU64(uint64_t value) {
-  return std::bitset<64>(value);
 }
 
 // ============================================================================
@@ -118,16 +109,6 @@ inline uint64_t ResolveScalarPair(const DecodedInstructionOperand& operand,
 
 inline uint32_t LaneCount(const EncodedWaveContext& context) {
   return context.wave.thread_count < kWaveSize ? context.wave.thread_count : kWaveSize;
-}
-
-inline uint32_t LoadU32(const std::vector<std::byte>& bytes, uint32_t offset) {
-  uint32_t value = 0;
-  std::memcpy(&value, bytes.data() + offset, sizeof(value));
-  return value;
-}
-
-inline void StoreU32(std::vector<std::byte>& bytes, uint32_t offset, uint32_t value) {
-  std::memcpy(bytes.data() + offset, &value, sizeof(value));
 }
 
 }  // namespace gpu_model

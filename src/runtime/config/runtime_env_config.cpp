@@ -1,6 +1,7 @@
 #include "gpu_model/runtime/runtime_env_config.h"
 
 #include <cstdlib>
+#include <algorithm>
 #include <thread>
 #include <string_view>
 

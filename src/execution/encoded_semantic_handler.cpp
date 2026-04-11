@@ -12,7 +12,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "gpu_model/util/logging.h"
+#include "gpu_model/utils/logging/log_macros.h"
 #include "gpu_model/instruction/encoded/internal/encoded_gcn_encoding_def.h"
 #include "gpu_model/instruction/encoded/internal/encoded_gcn_db_lookup.h"
 #include "gpu_model/execution/sync_ops.h"

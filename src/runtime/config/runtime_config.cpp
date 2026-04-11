@@ -1,4 +1,4 @@
-#include "gpu_model/runtime/runtime_config.h"
+#include "gpu_model/utils/config/runtime_config.h"
 
 #include <cstdlib>
 #include <cstdio>

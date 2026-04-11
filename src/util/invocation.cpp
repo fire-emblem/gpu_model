@@ -1,4 +1,4 @@
-#include "gpu_model/util/invocation.h"
+#include "gpu_model/utils/config/invocation.h"
 
 #include <cstring>
 #include <fstream>

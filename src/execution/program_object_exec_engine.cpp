@@ -43,7 +43,7 @@
 #include "gpu_model/runtime/kernarg_packer.h"
 #include "gpu_model/runtime/mapper.h"
 #include "gpu_model/runtime/program_cycle_tracker.h"
-#include "gpu_model/util/logging.h"
+#include "gpu_model/utils/logging/log_macros.h"
 
 namespace gpu_model {
 

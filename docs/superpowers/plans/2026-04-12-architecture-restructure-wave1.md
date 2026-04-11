@@ -31,7 +31,7 @@
     - 当前 wave 的任务边界、优先级、并行策略都已记录
     - 后续 commit 粒度以本文件任务为准
 
-- [ ] **Task 1: 完成并提交 Phase 1 `utils/` 基础设施层**
+- [x] **Task 1: 完成并提交 Phase 1 `utils/` 基础设施层**
   - 文件：
     - Create: `src/gpu_model/utils/config/*`
     - Create: `src/gpu_model/utils/logging/*`

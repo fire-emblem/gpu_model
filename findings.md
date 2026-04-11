@@ -245,6 +245,10 @@
 - 当前执行计划已单独落盘：
   - `docs/superpowers/plans/2026-04-12-architecture-restructure-wave1.md`
   - 本轮按 Task 0~3 粒度逐任务验证、commit、push
+- Task 1 当前完成状态：
+  - `utils/config`、`utils/logging`、`utils/math` 已作为稳定新入口落地
+  - 旧 `util/`、`logging/`、`runtime/runtime_config.h` 已退化为兼容桥接
+  - 后续 Task 2 可以在此基础上继续抽 `gpu_arch/issue_config`
 - 新一轮全仓架构审视结论：
   - 当前项目的大方向基本正确，但代码层仍处于“设计已收口、边界未完全落地”的半收口状态
   - 最严重的结构问题不是单个文件大，而是：

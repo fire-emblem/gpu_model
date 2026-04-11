@@ -18,9 +18,9 @@
 #include "gpu_model/isa/kernel_metadata.h"
 #include "gpu_model/loader/device_image_loader.h"
 #include "gpu_model/loader/asm_parser.h"
-#include "gpu_model/runtime/runtime_config.h"
-#include "gpu_model/util/logging.h"
-#include "gpu_model/util/invocation.h"
+#include "gpu_model/utils/config/runtime_config.h"
+#include "gpu_model/utils/logging/log_macros.h"
+#include "gpu_model/utils/config/invocation.h"
 
 namespace gpu_model {
 

@@ -14,7 +14,7 @@
 #include "gpu_model/runtime/model_runtime.h"
 #include "tests/test_utils/hipcc_cache_test_utils.h"
 #include "gpu_model/runtime/exec_engine.h"
-#include "gpu_model/util/logging.h"
+#include "gpu_model/utils/logging/log_macros.h"
 
 namespace gpu_model {
 namespace {

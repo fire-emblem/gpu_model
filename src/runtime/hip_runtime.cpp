@@ -2,7 +2,7 @@
 
 #include "gpu_model/debug/trace/artifact_recorder.h"
 #include "gpu_model/runtime/runtime_session.h"
-#include "gpu_model/util/logging.h"
+#include "gpu_model/utils/logging/log_macros.h"
 
 namespace gpu_model {
 

@@ -276,6 +276,18 @@
   - `findings.md`
   - `progress.md`
 
+### 阶段 15：Wave 1 Task 1 完成与待提交
+- **状态：** complete
+- 执行的操作：
+  - 复用已落地的 `utils/` 基础设施层改动，重新按 Task 1 粒度核对范围
+  - 重新运行 Task 1 关键回归，确认 docs-only 提交之后代码路径仍通过
+  - 将 Wave 1 计划状态推进到“Task 1 完成，下一步 Task 2”
+- 创建/修改的文件：
+  - `docs/superpowers/plans/2026-04-12-architecture-restructure-wave1.md`
+  - `task_plan.md`
+  - `findings.md`
+  - `progress.md`
+
 ## 会话：2026-04-11
 
 ### 阶段 32：全项目架构优化分析

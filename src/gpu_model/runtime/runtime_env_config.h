@@ -1,6 +1,6 @@
 #pragma once
 
-#include "gpu_model/execution/functional_execution_mode.h"
+#include "gpu_model/utils/config/execution_mode.h"
 
 namespace gpu_model {
 

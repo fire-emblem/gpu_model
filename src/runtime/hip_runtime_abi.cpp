@@ -21,7 +21,7 @@
 #include "gpu_model/debug/trace/artifact_recorder.h"
 #include "gpu_model/runtime/hip_runtime.h"
 #include "gpu_model/runtime/runtime_session.h"
-#include "gpu_model/util/logging.h"
+#include "gpu_model/utils/logging/log_macros.h"
 
 using gpu_model::LaunchConfig;
 using gpu_model::TraceArtifactRecorder;

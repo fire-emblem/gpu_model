@@ -9,6 +9,7 @@
 #include "gpu_model/runtime/mapper.h"
 #include "gpu_model/runtime/program_cycle_stats.h"
 #include "gpu_model/runtime/runtime_submission_context.h"
+#include "gpu_model/utils/config/execution_mode.h"
 
 namespace gpu_model {
 
@@ -16,11 +17,6 @@ class ExecutableKernel;
 class ProgramObject;
 class TraceSink;
 struct DeviceLoadResult;
-
-enum class ExecutionMode {
-  Functional,
-  Cycle,
-};
 
 struct ExecutionStats {
   uint64_t wave_steps = 0;
