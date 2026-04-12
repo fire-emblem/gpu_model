@@ -2,11 +2,11 @@
 
 #include <type_traits>
 
-#include "gpu_model/program/executable_kernel.h"
-#include "gpu_model/program/program_object.h"
-#include "gpu_model/runtime/exec_engine.h"
-#include "gpu_model/runtime/hip_runtime.h"
-#include "gpu_model/runtime/model_runtime.h"
+#include "program/executable/executable_kernel.h"
+#include "program/program_object/program_object.h"
+#include "runtime/exec_engine.h"
+#include "runtime/hip_runtime.h"
+#include "runtime/model_runtime.h"
 
 namespace gpu_model {
 namespace {

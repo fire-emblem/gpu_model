@@ -2,12 +2,12 @@
 
 #include <vector>
 
-#include "gpu_model/instruction/encoded/internal/encoded_gcn_encoding_def.h"
-#include "gpu_model/execution/encoded_semantic_handler.h"
-#include "gpu_model/execution/wave_context.h"
-#include "gpu_model/instruction/encoded/instruction_object.h"
-#include "gpu_model/memory/memory_system.h"
-#include "gpu_model/runtime/launch_request.h"
+#include "instruction/decode/encoded/internal/encoded_gcn_encoding_def.h"
+#include "execution/encoded/encoded_semantic_handler.h"
+#include "execution/wave_context.h"
+#include "instruction/decode/encoded/instruction_object.h"
+#include "gpu_arch/memory/memory_system.h"
+#include "runtime/launch_request.h"
 
 namespace gpu_model {
 namespace {

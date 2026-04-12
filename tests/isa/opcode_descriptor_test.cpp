@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
-#include "gpu_model/execution/internal/opcode_execution_info.h"
-#include "gpu_model/isa/opcode_descriptor.h"
+#include "execution/internal/opcode_execution_info.h"
+#include "instruction/isa/opcode_descriptor.h"
 
 namespace gpu_model {
 namespace {

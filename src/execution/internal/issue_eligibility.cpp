@@ -1,4 +1,4 @@
-#include "gpu_model/execution/internal/issue_eligibility.h"
+#include "execution/internal/issue_eligibility.h"
 
 namespace gpu_model {
 

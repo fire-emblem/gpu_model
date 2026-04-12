@@ -1,4 +1,4 @@
-#include "gpu_model/execution/internal/event_queue.h"
+#include "execution/internal/event_queue.h"
 
 namespace gpu_model {
 

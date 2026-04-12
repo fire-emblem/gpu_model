@@ -1,14 +1,14 @@
-#include "gpu_model/debug/trace/artifact_recorder.h"
+#include "debug/trace/artifact_recorder.h"
 
 #include <fstream>
 #include <stdexcept>
 #include <utility>
 #include <vector>
 
-#include "gpu_model/debug/recorder/export.h"
-#include "gpu_model/debug/recorder/recorder.h"
-#include "gpu_model/debug/recorder/trace_adapter.h"
-#include "gpu_model/debug/timeline/cycle_timeline.h"
+#include "debug/recorder/export.h"
+#include "debug/recorder/recorder.h"
+#include "debug/recorder/trace_adapter.h"
+#include "debug/timeline/cycle_timeline.h"
 
 namespace gpu_model {
 

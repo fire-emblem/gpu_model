@@ -1,10 +1,10 @@
-#include "gpu_model/execution/internal/cycle_issue_schedule.h"
+#include "execution/internal/cycle_issue_schedule.h"
 
 #include <string>
 
-#include "gpu_model/execution/internal/barrier_resource_pool.h"
-#include "gpu_model/instruction/isa/opcode.h"
-#include "gpu_model/program/executable_kernel.h"
+#include "execution/internal/barrier_resource_pool.h"
+#include "instruction/isa/opcode.h"
+#include "program/executable/executable_kernel.h"
 
 namespace gpu_model {
 namespace cycle_internal {

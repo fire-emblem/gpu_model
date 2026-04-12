@@ -6,11 +6,11 @@
 #include <sstream>
 #include <string>
 
-#include "gpu_model/debug/trace/artifact_recorder.h"
-#include "gpu_model/debug/trace/event_factory.h"
-#include "gpu_model/debug/trace/sink.h"
-#include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/exec_engine.h"
+#include "debug/trace/artifact_recorder.h"
+#include "debug/trace/event_factory.h"
+#include "debug/trace/sink.h"
+#include "instruction/isa/instruction_builder.h"
+#include "runtime/exec_engine.h"
 #include "tests/test_utils/trace_test_support.h"
 
 namespace gpu_model {

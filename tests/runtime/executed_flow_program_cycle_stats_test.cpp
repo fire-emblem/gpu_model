@@ -7,10 +7,10 @@
 #include <algorithm>
 #include <vector>
 
-#include "gpu_model/arch/arch_registry.h"
-#include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/program_cycle_tracker.h"
-#include "gpu_model/runtime/exec_engine.h"
+#include "gpu_arch/chip_config/arch_registry.h"
+#include "instruction/isa/instruction_builder.h"
+#include "runtime/program_cycle_tracker.h"
+#include "runtime/exec_engine.h"
 
 namespace gpu_model {
 namespace {

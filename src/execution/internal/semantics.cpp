@@ -1,10 +1,10 @@
-#include "gpu_model/execution/internal/semantics.h"
+#include "execution/internal/semantics.h"
 
 #include <cstdint>
 #include <optional>
 #include <stdexcept>
 
-#include "gpu_model/execution/internal/semantic_handler.h"
+#include "execution/internal/semantic_handler.h"
 
 namespace gpu_model {
 

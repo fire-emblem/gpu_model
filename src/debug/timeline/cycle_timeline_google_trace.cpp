@@ -7,9 +7,9 @@
 #include <string>
 #include <string_view>
 
-#include "gpu_model/debug/trace/event_export.h"
+#include "debug/trace/event_export.h"
 #include "../trace_json_fields_internal.h"
-#include "gpu_model/execution/internal/tensor_op_utils.h"
+#include "execution/internal/tensor_op_utils.h"
 
 namespace gpu_model {
 

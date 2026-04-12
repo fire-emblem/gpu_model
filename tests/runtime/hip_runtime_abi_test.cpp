@@ -13,8 +13,8 @@
 #include <unistd.h>
 #include <vector>
 
-#include "gpu_model/program/object_reader.h"
-#include "gpu_model/runtime/hip_runtime.h"
+#include "program/program_object/object_reader.h"
+#include "runtime/hip_runtime.h"
 #include "tests/test_utils/hipcc_cache_test_utils.h"
 
 namespace gpu_model {

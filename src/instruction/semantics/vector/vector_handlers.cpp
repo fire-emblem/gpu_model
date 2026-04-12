@@ -1,5 +1,5 @@
-#include "gpu_model/instruction/semantics/internal/handler_support.h"
-#include "gpu_model/execution/internal/tensor_op_utils.h"
+#include "instruction/semantics/internal/handler_support.h"
+#include "execution/internal/tensor_op_utils.h"
 
 namespace gpu_model {
 namespace semantics {

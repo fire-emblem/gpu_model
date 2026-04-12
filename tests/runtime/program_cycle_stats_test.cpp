@@ -2,9 +2,9 @@
 
 #include <cstdint>
 
-#include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/exec_engine.h"
-#include "gpu_model/runtime/program_cycle_stats.h"
+#include "instruction/isa/instruction_builder.h"
+#include "runtime/exec_engine.h"
+#include "runtime/program_cycle_stats.h"
 
 namespace gpu_model {
 namespace {

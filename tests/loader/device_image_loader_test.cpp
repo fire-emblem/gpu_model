@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "gpu_model/loader/device_image_loader.h"
+#include "program/loader/device_image_loader.h"
 
 namespace gpu_model {
 namespace {

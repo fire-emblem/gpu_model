@@ -6,7 +6,7 @@
 #include <string>
 #include <unistd.h>
 
-#include "gpu_model/target/amdgpu_target_config.h"
+#include "gpu_arch/chip_config/amdgpu_target_config.h"
 
 namespace gpu_model::test_utils {
 

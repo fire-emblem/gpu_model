@@ -11,13 +11,13 @@
 #include <string_view>
 #include <vector>
 
-#include "gpu_model/arch/arch_registry.h"
-#include "gpu_model/debug/trace/event_factory.h"
-#include "gpu_model/debug/trace/sink.h"
-#include "gpu_model/execution/functional_exec_engine.h"
-#include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/isa/opcode.h"
-#include "gpu_model/runtime/mapper.h"
+#include "gpu_arch/chip_config/arch_registry.h"
+#include "debug/trace/event_factory.h"
+#include "debug/trace/sink.h"
+#include "execution/functional/functional_exec_engine.h"
+#include "instruction/isa/instruction_builder.h"
+#include "instruction/isa/opcode.h"
+#include "runtime/mapper.h"
 
 namespace gpu_model {
 namespace {

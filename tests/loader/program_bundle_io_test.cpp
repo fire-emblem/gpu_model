@@ -6,8 +6,8 @@
 #include <filesystem>
 #include <vector>
 
-#include "gpu_model/loader/program_bundle_io.h"
-#include "gpu_model/runtime/exec_engine.h"
+#include "program/loader/program_bundle_io.h"
+#include "runtime/exec_engine.h"
 
 namespace gpu_model {
 namespace {

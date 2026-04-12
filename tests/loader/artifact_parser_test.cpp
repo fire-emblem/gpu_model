@@ -3,7 +3,7 @@
 #include <cstring>
 #include <algorithm>
 
-#include "gpu_model/loader/artifact_parser.h"
+#include "program/loader/artifact_parser.h"
 
 namespace gpu_model {
 namespace {

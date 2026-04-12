@@ -5,7 +5,7 @@
 #include <cstring>
 #include <vector>
 
-#include "gpu_model/runtime/exec_engine.h"
+#include "runtime/exec_engine.h"
 
 namespace gpu_model {
 namespace {

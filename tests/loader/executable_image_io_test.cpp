@@ -6,10 +6,10 @@
 #include <filesystem>
 #include <vector>
 
-#include "gpu_model/debug/info/debug_info.h"
-#include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/loader/executable_image_io.h"
-#include "gpu_model/runtime/exec_engine.h"
+#include "debug/info/debug_info.h"
+#include "instruction/isa/instruction_builder.h"
+#include "program/loader/executable_image_io.h"
+#include "runtime/exec_engine.h"
 
 namespace gpu_model {
 namespace {

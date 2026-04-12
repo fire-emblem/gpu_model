@@ -5,10 +5,10 @@
 #include <fstream>
 #include <vector>
 
-#include "gpu_model/loader/executable_image_io.h"
-#include "gpu_model/loader/program_bundle_io.h"
-#include "gpu_model/program/object_reader.h"
-#include "gpu_model/runtime/model_runtime.h"
+#include "program/loader/executable_image_io.h"
+#include "program/loader/program_bundle_io.h"
+#include "program/program_object/object_reader.h"
+#include "runtime/model_runtime.h"
 #include "tests/test_utils/hipcc_cache_test_utils.h"
 
 namespace gpu_model {

@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "gpu_model/instruction/encoded/instruction_object.h"
+#include "instruction/decode/encoded/instruction_object.h"
 #include "tests/test_utils/llvm_mc_test_support.h"
 
 namespace gpu_model {

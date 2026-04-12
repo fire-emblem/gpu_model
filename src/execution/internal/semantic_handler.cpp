@@ -1,4 +1,4 @@
-#include "gpu_model/execution/internal/semantic_handler.h"
+#include "execution/internal/semantic_handler.h"
 
 #include <algorithm>
 #include <bit>

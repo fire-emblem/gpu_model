@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "gpu_model/execution/internal/issue_scheduler.h"
+#include "execution/internal/issue_scheduler.h"
 
 namespace gpu_model {
 namespace {

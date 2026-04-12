@@ -8,7 +8,7 @@
 ## 1. Target Directory Structure
 
 ```
-src/gpu_model/
+src/
 ├── utils/              # 纯基础设施（零业务依赖，只依赖标准库和第三方）
 │   ├── logging/        #   loguru 封装 + LOG 宏
 │   ├── config/         #   RuntimeConfig, 环境变量统一控制

@@ -1,8 +1,8 @@
-#include "gpu_model/debug/recorder/recorder.h"
+#include "debug/recorder/recorder.h"
 
 #include <algorithm>
 
-#include "gpu_model/debug/trace/event_export.h"
+#include "debug/trace/event_export.h"
 
 namespace gpu_model {
 

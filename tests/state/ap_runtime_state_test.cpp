@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "gpu_model/state/ap/ap_runtime_state.h"
+#include "state/ap/ap_runtime_state.h"
 
 namespace gpu_model {
 namespace {

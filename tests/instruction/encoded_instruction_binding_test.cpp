@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
-#include "gpu_model/instruction/encoded/decoded_instruction.h"
-#include "gpu_model/instruction/encoded/internal/encoded_instruction_binding.h"
+#include "instruction/decode/encoded/decoded_instruction.h"
+#include "instruction/decode/encoded/internal/encoded_instruction_binding.h"
 
 namespace gpu_model {
 namespace {

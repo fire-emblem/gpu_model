@@ -1,4 +1,4 @@
-#include "gpu_model/execution/internal/wave_state.h"
+#include "execution/internal/wave_state.h"
 
 #include <sstream>
 #include <string>

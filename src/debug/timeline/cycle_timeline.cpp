@@ -1,5 +1,5 @@
-#include "gpu_model/debug/timeline/cycle_timeline.h"
-#include "gpu_model/debug/trace/event_export.h"
+#include "debug/timeline/cycle_timeline.h"
+#include "debug/trace/event_export.h"
 #include "cycle_timeline_internal.h"
 
 #include <algorithm>
@@ -10,7 +10,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "gpu_model/execution/internal/tensor_op_utils.h"
+#include "execution/internal/tensor_op_utils.h"
 
 namespace gpu_model {
 

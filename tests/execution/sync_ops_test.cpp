@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "gpu_model/execution/sync_ops.h"
+#include "execution/internal/sync_ops.h"
 
 namespace gpu_model {
 namespace {

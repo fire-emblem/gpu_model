@@ -1,4 +1,4 @@
-#include "gpu_model/execution/internal/async_scoreboard.h"
+#include "execution/internal/async_scoreboard.h"
 
 namespace gpu_model {
 

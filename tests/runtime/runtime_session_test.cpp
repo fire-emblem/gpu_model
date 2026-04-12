@@ -6,8 +6,8 @@
 #include <stdexcept>
 #include <vector>
 
-#include "gpu_model/debug/trace/artifact_recorder.h"
-#include "gpu_model/runtime/runtime_session.h"
+#include "debug/trace/artifact_recorder.h"
+#include "runtime/runtime_session.h"
 
 namespace gpu_model {
 namespace {

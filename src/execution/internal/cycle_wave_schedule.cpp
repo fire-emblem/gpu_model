@@ -1,4 +1,4 @@
-#include "gpu_model/execution/internal/cycle_wave_schedule.h"
+#include "execution/internal/cycle_wave_schedule.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -11,10 +11,10 @@
 #include <tuple>
 #include <vector>
 
-#include "gpu_model/debug/trace/sink.h"  // TraceSink
-#include "gpu_model/state/wave/wave_runtime_state.h"  // WaveContext, WaveStatus
-#include "gpu_model/gpu_arch/wave/wave_def.h"  // kWaveSize
-#include "gpu_model/memory/memory_request.h"  // MemoryRequest
+#include "debug/trace/sink.h"  // TraceSink
+#include "state/wave/wave_runtime_state.h"  // WaveContext, WaveStatus
+#include "gpu_arch/wave/wave_def.h"  // kWaveSize
+#include "gpu_arch/memory/memory_request.h"  // MemoryRequest
 
 namespace gpu_model {
 namespace cycle_internal {

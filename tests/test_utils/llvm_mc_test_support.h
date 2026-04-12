@@ -3,9 +3,9 @@
 #include <filesystem>
 #include <string>
 
-#include "gpu_model/instruction/encoded/instruction_object.h"
-#include "gpu_model/program/program_object.h"
-#include "gpu_model/target/amdgpu_target_config.h"
+#include "instruction/decode/encoded/instruction_object.h"
+#include "program/program_object/program_object.h"
+#include "gpu_arch/chip_config/amdgpu_target_config.h"
 
 namespace gpu_model::test_utils {
 

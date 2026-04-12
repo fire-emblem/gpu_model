@@ -9,12 +9,12 @@
 #include <string>
 #include <vector>
 
-#include "gpu_model/debug/trace/artifact_recorder.h"
-#include "gpu_model/program/object_reader.h"
-#include "gpu_model/runtime/model_runtime.h"
+#include "debug/trace/artifact_recorder.h"
+#include "program/program_object/object_reader.h"
+#include "runtime/model_runtime.h"
 #include "tests/test_utils/hipcc_cache_test_utils.h"
-#include "gpu_model/runtime/exec_engine.h"
-#include "gpu_model/utils/logging/log_macros.h"
+#include "runtime/exec_engine.h"
+#include "utils/logging/log_macros.h"
 
 namespace gpu_model {
 namespace {

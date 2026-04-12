@@ -5,9 +5,9 @@
 #include <string>
 #include <vector>
 
-#include "gpu_model/debug/trace/artifact_recorder.h"
-#include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/exec_engine.h"
+#include "debug/trace/artifact_recorder.h"
+#include "instruction/isa/instruction_builder.h"
+#include "runtime/exec_engine.h"
 
 namespace {
 

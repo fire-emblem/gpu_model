@@ -8,9 +8,9 @@
 #include <string>
 #include <vector>
 
-#include "gpu_model/debug/trace/sink.h"
-#include "gpu_model/runtime/exec_engine.h"
-#include "gpu_model/runtime/hip_runtime.h"
+#include "debug/trace/sink.h"
+#include "runtime/exec_engine.h"
+#include "runtime/hip_runtime.h"
 #include "tests/test_utils/llvm_mc_test_support.h"
 
 namespace gpu_model {

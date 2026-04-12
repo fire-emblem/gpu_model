@@ -11,15 +11,15 @@
 #include <string>
 #include <vector>
 
-#include "gpu_model/arch/arch_registry.h"
-#include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/loader/executable_image_io.h"
-#include "gpu_model/loader/program_bundle_io.h"
-#include "gpu_model/program/object_reader.h"
-#include "gpu_model/program/program_object.h"
-#include "gpu_model/runtime/hip_runtime.h"
-#include "gpu_model/runtime/model_runtime.h"
-#include "gpu_model/target/amdgpu_target_config.h"
+#include "gpu_arch/chip_config/arch_registry.h"
+#include "instruction/isa/instruction_builder.h"
+#include "program/loader/executable_image_io.h"
+#include "program/loader/program_bundle_io.h"
+#include "program/program_object/object_reader.h"
+#include "program/program_object/program_object.h"
+#include "runtime/hip_runtime.h"
+#include "runtime/model_runtime.h"
+#include "gpu_arch/chip_config/amdgpu_target_config.h"
 #include "tests/test_utils/hipcc_cache_test_utils.h"
 
 namespace gpu_model {

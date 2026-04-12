@@ -1,4 +1,4 @@
-#include "gpu_model/debug/trace/sink.h"
+#include "debug/trace/sink.h"
 
 #include <stdexcept>
 

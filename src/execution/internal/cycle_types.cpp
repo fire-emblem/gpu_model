@@ -1,13 +1,13 @@
-#include "gpu_model/execution/internal/cycle_types.h"
+#include "execution/internal/cycle_types.h"
 
 #include <algorithm>
 #include <cstdint>
 #include <optional>
 
-#include "gpu_model/execution/cycle/cycle_exec_engine.h"  // CycleTimingConfig (full definition)
-#include "gpu_model/execution/internal/opcode_execution_info.h"  // GetOpcodeExecutionInfo
-#include "gpu_model/gpu_arch/chip_config/gpu_arch_spec.h"  // GpuArchSpec
-#include "gpu_model/gpu_arch/issue_config/issue_config.h"  // ArchitecturalIssuePolicyFromLimits
+#include "execution/cycle/cycle_exec_engine.h"  // CycleTimingConfig (full definition)
+#include "execution/internal/opcode_execution_info.h"  // GetOpcodeExecutionInfo
+#include "gpu_arch/chip_config/gpu_arch_spec.h"  // GpuArchSpec
+#include "gpu_arch/issue_config/issue_config.h"  // ArchitecturalIssuePolicyFromLimits
 
 namespace gpu_model {
 namespace cycle_internal {

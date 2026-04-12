@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "gpu_model/execution/internal/encoded_issue_candidate.h"
+#include "execution/internal/encoded_issue_candidate.h"
 
 namespace gpu_model {
 namespace {

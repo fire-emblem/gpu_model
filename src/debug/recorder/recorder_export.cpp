@@ -1,4 +1,4 @@
-#include "gpu_model/debug/recorder/export.h"
+#include "debug/recorder/export.h"
 
 #include <algorithm>
 #include <cstdio>

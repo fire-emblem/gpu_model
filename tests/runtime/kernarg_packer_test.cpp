@@ -4,8 +4,8 @@
 #include <array>
 #include <cstring>
 
-#include "gpu_model/memory/memory_pool.h"
-#include "gpu_model/runtime/kernarg_packer.h"
+#include "gpu_arch/memory/memory_pool.h"
+#include "runtime/kernarg_packer.h"
 
 namespace gpu_model {
 namespace {

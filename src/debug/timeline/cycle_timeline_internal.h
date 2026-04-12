@@ -8,10 +8,10 @@
 #include <unordered_map>
 #include <vector>
 
-#include "gpu_model/debug/recorder/recorder.h"
-#include "gpu_model/debug/trace/event.h"
-#include "gpu_model/debug/trace/event_export.h"
-#include "gpu_model/debug/timeline/cycle_timeline.h"
+#include "debug/recorder/recorder.h"
+#include "debug/trace/event.h"
+#include "debug/trace/event_export.h"
+#include "debug/timeline/cycle_timeline.h"
 
 namespace gpu_model {
 

@@ -1,4 +1,4 @@
-#include "gpu_model/debug/info/debug_info_io.h"
+#include "debug/info/debug_info_io.h"
 
 #include <algorithm>
 #include <fstream>

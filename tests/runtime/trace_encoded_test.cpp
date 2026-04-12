@@ -5,15 +5,15 @@
 #include <map>
 #include <string>
 
-#include "gpu_model/arch/arch_registry.h"
-#include "gpu_model/debug/timeline/cycle_timeline.h"
-#include "gpu_model/debug/trace/artifact_recorder.h"
-#include "gpu_model/debug/trace/event_factory.h"
-#include "gpu_model/debug/trace/event_view.h"
-#include "gpu_model/debug/trace/sink.h"
-#include "gpu_model/program/object_reader.h"
-#include "gpu_model/runtime/exec_engine.h"
-#include "gpu_model/target/amdgpu_target_config.h"
+#include "gpu_arch/chip_config/arch_registry.h"
+#include "debug/timeline/cycle_timeline.h"
+#include "debug/trace/artifact_recorder.h"
+#include "debug/trace/event_factory.h"
+#include "debug/trace/event_view.h"
+#include "debug/trace/sink.h"
+#include "program/program_object/object_reader.h"
+#include "runtime/exec_engine.h"
+#include "gpu_arch/chip_config/amdgpu_target_config.h"
 #include "tests/test_utils/llvm_mc_test_support.h"
 #include "tests/test_utils/trace_test_support.h"
 

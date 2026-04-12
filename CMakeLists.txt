@@ -64,93 +64,118 @@ target_link_libraries(gpu_model_loguru
 )
 
 add_library(gpu_model STATIC
-  src/arch/arch_registry.cpp
-  src/arch/mac500_spec.cpp
-  src/instruction/encoded/internal/generated_encoded_gcn_full_opcode_table.cpp
-  src/instruction/encoded/internal/generated_encoded_gcn_inst_db.cpp
-  src/instruction/encoded/internal/encoded_gcn_db_lookup.cpp
-  src/instruction/encoded/encoded_gcn_inst_format.cpp
-  src/instruction/encoded/internal/encoded_gcn_encoding_def.cpp
-  src/instruction/encoded/decoded_instruction.cpp
-  src/instruction/encoded/instruction_decoder.cpp
-  src/instruction/encoded/encoded_instruction_formatter.cpp
-  src/isa/instruction.cpp
-  src/isa/instruction_builder.cpp
-  src/isa/kernel_metadata.cpp
-  src/isa/kernel_program_builder.cpp
-  src/isa/opcode_descriptor.cpp
-  src/loader/asm_parser.cpp
-  src/loader/device_image_loader.cpp
-  src/loader/device_segment_image.cpp
-  src/loader/executable_image_io.cpp
-  src/loader/external_tool_executor.cpp
-  src/loader/gcn_text_parser.cpp
-  src/loader/artifact_parser.cpp
-  src/loader/temp_dir_manager.cpp
-  src/loader/program_bundle_io.cpp
-  src/program/encoded_program_object.cpp
-  src/program/object_reader.cpp
-  src/memory/memory_system.cpp
-  src/memory/cache_model.cpp
-  src/memory/shared_bank_model.cpp
-  src/execution/internal/opcode_execution_info.cpp
-  src/instruction/encoded/internal/encoded_instruction_descriptor.cpp
-  src/instruction/encoded/internal/encoded_instruction_binding.cpp
-  src/instruction/encoded/instruction_object.cpp
+  # gpu_arch/chip_config/
+  src/gpu_arch/chip_config/arch_registry.cpp
+  src/gpu_arch/chip_config/mac500_spec.cpp
+  # gpu_arch/issue_config/
+  src/gpu_arch/issue_config/issue_config.cpp
+  # instruction/isa/
+  src/instruction/isa/instruction.cpp
+  src/instruction/isa/instruction_builder.cpp
+  src/instruction/isa/kernel_metadata.cpp
+  src/instruction/isa/kernel_program_builder.cpp
+  src/instruction/isa/opcode_descriptor.cpp
+  # instruction/decode/encoded/
+  src/instruction/decode/encoded/internal/generated_encoded_gcn_full_opcode_table.cpp
+  src/instruction/decode/encoded/internal/generated_encoded_gcn_inst_db.cpp
+  src/instruction/decode/encoded/internal/encoded_gcn_db_lookup.cpp
+  src/instruction/decode/encoded/encoded_gcn_inst_format.cpp
+  src/instruction/decode/encoded/internal/encoded_gcn_encoding_def.cpp
+  src/instruction/decode/encoded/decoded_instruction.cpp
+  src/instruction/decode/encoded/instruction_decoder.cpp
+  src/instruction/decode/encoded/encoded_instruction_formatter.cpp
+  src/instruction/decode/encoded/internal/encoded_instruction_descriptor.cpp
+  src/instruction/decode/encoded/internal/encoded_instruction_binding.cpp
+  src/instruction/decode/encoded/instruction_object.cpp
+  # instruction/semantics/
   src/instruction/semantics/branch/branch_handlers.cpp
   src/instruction/semantics/memory/memory_handlers.cpp
   src/instruction/semantics/scalar/scalar_handlers.cpp
   src/instruction/semantics/vector/vector_handlers.cpp
-  src/execution/program_object_exec_engine.cpp
-  src/execution/encoded_semantic_handler.cpp
-  src/execution/memory_ops.cpp
-  src/execution/sync_ops.cpp
-  src/execution/plan_apply.cpp
+  # program/loader/
+  src/program/loader/asm_parser.cpp
+  src/program/loader/device_image_loader.cpp
+  src/program/loader/device_segment_image.cpp
+  src/program/loader/executable_image_io.cpp
+  src/program/loader/external_tool_executor.cpp
+  src/program/loader/gcn_text_parser.cpp
+  src/program/loader/artifact_parser.cpp
+  src/program/loader/temp_dir_manager.cpp
+  src/program/loader/program_bundle_io.cpp
+  # program/encoded/
+  src/program/encoded/encoded_program_object.cpp
+  # program/program_object/
+  src/program/program_object/object_reader.cpp
+  # execution/functional/
+  src/execution/functional/functional_exec_engine.cpp
+  # execution/cycle/
+  src/execution/cycle/cycle_exec_engine.cpp
+  # execution/encoded/
+  src/execution/encoded/program_object_exec_engine.cpp
+  src/execution/encoded/encoded_semantic_handler.cpp
+  # execution/internal/
+  src/execution/internal/opcode_execution_info.cpp
+  src/execution/internal/memory_ops.cpp
+  src/execution/internal/sync_ops.cpp
+  src/execution/internal/plan_apply.cpp
   src/execution/internal/semantic_handler.cpp
   src/execution/internal/wave_state.cpp
   src/execution/internal/semantics.cpp
-  src/execution/wave_context_builder.cpp
-  src/gpu_arch/issue_config/issue_config.cpp
+  src/execution/internal/wave_context_builder.cpp
   src/execution/internal/issue_scheduler.cpp
   src/execution/internal/issue_eligibility.cpp
   src/execution/internal/async_scoreboard.cpp
   src/execution/internal/cycle_types.cpp
   src/execution/internal/cycle_wave_schedule.cpp
   src/execution/internal/cycle_issue_schedule.cpp
-  src/execution/functional_exec_engine.cpp
   src/execution/internal/event_queue.cpp
   src/execution/internal/handlers/compute_functor_registry.cpp
-  src/execution/cycle_exec_engine.cpp
+  # runtime/hip_runtime/
+  src/runtime/hip_runtime/hip_runtime.cpp
+  # runtime/model_runtime/
+  src/runtime/model_runtime/model_runtime.cpp
+  src/runtime/model_runtime/module_registry.cpp
+  src/runtime/model_runtime/device_memory_manager.cpp
+  src/runtime/model_runtime/runtime_session.cpp
+  # runtime/exec_engine/
+  src/runtime/exec_engine/exec_engine.cpp
+  # runtime/config/
+  src/runtime/config/runtime_config.cpp
+  src/runtime/config/runtime_env_config.cpp
+  # runtime/
   src/runtime/mapper.cpp
   src/runtime/kernarg_packer.cpp
   src/runtime/program_cycle_tracker.cpp
-  src/runtime/exec_engine.cpp
-  src/runtime/hip_runtime.cpp
-  src/runtime/core/module_registry.cpp
-  src/runtime/core/model_runtime.cpp
-  src/runtime/core/device_memory_manager.cpp
-  src/runtime/core/runtime_session.cpp
-  src/runtime/config/runtime_config.cpp
-  src/runtime/logging/runtime_log_service.cpp
+  # utils/logging/
+  src/utils/logging/runtime_log_service.cpp
+  # utils/config/
+  src/utils/config/invocation.cpp
+  # memory/
+  src/memory/cache_model.cpp
+  src/memory/memory_system.cpp
+  src/memory/shared_bank_model.cpp
+  # debug/trace/
   src/debug/trace/instruction_trace.cpp
-  src/debug/recorder/recorder.cpp
-  src/debug/recorder/recorder_export.cpp
-  src/debug/recorder/trace_recorder_adapter.cpp
   src/debug/trace/trace_artifact_recorder.cpp
   src/debug/trace/trace_format.cpp
   src/debug/trace/trace_json_fields.cpp
-  src/debug/timeline/trace_perfetto_proto.cpp
   src/debug/trace/trace_event_export.cpp
   src/debug/trace/trace_event_view.cpp
+  src/debug/trace/trace_sink.cpp
+  # debug/recorder/
+  src/debug/recorder/recorder.cpp
+  src/debug/recorder/recorder_export.cpp
+  src/debug/recorder/trace_recorder_adapter.cpp
+  # debug/timeline/
+  src/debug/timeline/trace_perfetto_proto.cpp
   src/debug/timeline/cycle_timeline_layout.cpp
   src/debug/timeline/cycle_timeline_google_trace.cpp
   src/debug/timeline/cycle_timeline_perfetto.cpp
   src/debug/timeline/cycle_timeline.cpp
   src/debug/timeline/actual_timeline_builder.cpp
   src/debug/timeline/timeline_comparator.cpp
+  # debug/info/
   src/debug/info/debug_info_io.cpp
-  src/debug/trace/trace_sink.cpp
-  src/util/invocation.cpp
 )
 
 set_target_properties(gpu_model PROPERTIES POSITION_INDEPENDENT_CODE ON)
@@ -180,7 +205,7 @@ add_subdirectory(tests)
 
 if(EXISTS "/opt/rocm/include/hip/hip_runtime_api.h")
   add_library(gpu_model_hip_runtime_abi SHARED
-    src/runtime/hip_runtime_abi.cpp
+    src/runtime/hip_runtime/hip_runtime_abi.cpp
   )
   target_include_directories(gpu_model_hip_runtime_abi PRIVATE /opt/rocm/include)
   target_link_libraries(gpu_model_hip_runtime_abi PRIVATE gpu_model)

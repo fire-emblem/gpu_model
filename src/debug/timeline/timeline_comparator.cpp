@@ -1,4 +1,4 @@
-#include "gpu_model/debug/timeline/timeline_comparator.h"
+#include "debug/timeline/timeline_comparator.h"
 
 #include <algorithm>
 #include <sstream>

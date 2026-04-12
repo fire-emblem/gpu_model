@@ -1,4 +1,4 @@
-#include "gpu_model/instruction/semantics/internal/handler_support.h"
+#include "instruction/semantics/internal/handler_support.h"
 
 namespace gpu_model {
 namespace semantics {

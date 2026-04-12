@@ -1,9 +1,9 @@
 #include <gtest/gtest.h>
 
-#include "gpu_model/arch/arch_registry.h"
-#include "gpu_model/execution/internal/semantic_handler.h"
-#include "gpu_model/execution/internal/semantics.h"
-#include "gpu_model/isa/instruction_builder.h"
+#include "gpu_arch/chip_config/arch_registry.h"
+#include "execution/internal/semantic_handler.h"
+#include "execution/internal/semantics.h"
+#include "instruction/isa/instruction_builder.h"
 
 namespace gpu_model {
 namespace {

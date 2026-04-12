@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "gpu_model/execution/internal/barrier_resource_pool.h"
+#include "execution/internal/barrier_resource_pool.h"
 
 namespace gpu_model {
 namespace {

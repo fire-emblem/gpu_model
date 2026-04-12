@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "gpu_model/instruction/encoded/encoded_gcn_inst_format.h"
+#include "instruction/decode/encoded/encoded_gcn_inst_format.h"
 
 namespace gpu_model {
 namespace {

@@ -3,8 +3,8 @@
 #include <string>
 #include <string_view>
 
-#include "gpu_model/debug/recorder/recorder.h"
-#include "gpu_model/debug/trace/event.h"
+#include "debug/recorder/recorder.h"
+#include "debug/trace/event.h"
 
 namespace gpu_model {
 

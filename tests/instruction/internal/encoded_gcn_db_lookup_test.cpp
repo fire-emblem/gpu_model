@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "gpu_model/instruction/encoded/internal/encoded_gcn_db_lookup.h"
+#include "instruction/decode/encoded/internal/encoded_gcn_db_lookup.h"
 
 namespace gpu_model {
 namespace {

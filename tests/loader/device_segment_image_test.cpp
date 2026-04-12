@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
-#include "gpu_model/loader/device_segment_image.h"
-#include "gpu_model/program/program_object.h"
+#include "program/loader/device_segment_image.h"
+#include "program/program_object/program_object.h"
 
 namespace gpu_model {
 namespace {

@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "gpu_model/execution/internal/tensor_op_utils.h"
+#include "execution/internal/tensor_op_utils.h"
 
 namespace gpu_model {
 namespace {

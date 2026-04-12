@@ -4,8 +4,8 @@
 #include <cstdint>
 #include <ostream>
 
-#include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/runtime/exec_engine.h"
+#include "instruction/isa/instruction_builder.h"
+#include "runtime/exec_engine.h"
 #include "tests/runtime/test_matrix_profile.h"
 
 namespace gpu_model {

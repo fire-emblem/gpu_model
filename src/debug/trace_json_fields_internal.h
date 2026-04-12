@@ -4,7 +4,7 @@
 #include <string>
 #include <string_view>
 
-#include "gpu_model/debug/trace/event_export.h"
+#include "debug/trace/event_export.h"
 
 namespace gpu_model {
 

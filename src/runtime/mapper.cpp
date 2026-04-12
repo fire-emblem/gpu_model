@@ -1,9 +1,9 @@
-#include "gpu_model/runtime/mapper.h"
+#include "runtime/mapper.h"
 
 #include <algorithm>
 #include <stdexcept>
 
-#include "gpu_model/state/wave/wave_runtime_state.h"
+#include "state/wave/wave_runtime_state.h"
 
 namespace gpu_model {
 

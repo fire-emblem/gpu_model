@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "gpu_model/execution/wave_context_builder.h"
+#include "execution/internal/wave_context_builder.h"
 
 namespace gpu_model {
 namespace {

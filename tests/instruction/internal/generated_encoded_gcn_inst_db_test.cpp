@@ -3,8 +3,8 @@
 #include <algorithm>
 #include <string_view>
 
-#include "gpu_model/instruction/encoded/internal/encoded_gcn_db_lookup.h"
-#include "gpu_model/instruction/encoded/internal/generated_encoded_gcn_inst_db.h"
+#include "instruction/decode/encoded/internal/encoded_gcn_db_lookup.h"
+#include "instruction/decode/encoded/internal/generated_encoded_gcn_inst_db.h"
 
 namespace gpu_model {
 namespace {

@@ -3,15 +3,15 @@
 #include <type_traits>
 #include <utility>
 
-#include "gpu_model/execution/cycle_exec_engine.h"
-#include "gpu_model/execution/functional_exec_engine.h"
-#include "gpu_model/execution/memory_ops.h"
-#include "gpu_model/execution/plan_apply.h"
-#include "gpu_model/execution/sync_ops.h"
-#include "gpu_model/execution/wave_context_builder.h"
-#include "gpu_model/runtime/exec_engine.h"
-#include "gpu_model/state/ap/ap_runtime_state.h"
-#include "gpu_model/state/wave/wave_runtime_state.h"
+#include "execution/cycle/cycle_exec_engine.h"
+#include "execution/functional/functional_exec_engine.h"
+#include "execution/internal/memory_ops.h"
+#include "execution/internal/plan_apply.h"
+#include "execution/internal/sync_ops.h"
+#include "execution/internal/wave_context_builder.h"
+#include "runtime/exec_engine.h"
+#include "state/ap/ap_runtime_state.h"
+#include "state/wave/wave_runtime_state.h"
 
 namespace gpu_model {
 namespace {

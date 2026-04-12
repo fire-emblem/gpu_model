@@ -3,7 +3,7 @@
 #include <iomanip>
 #include <sstream>
 
-#include "gpu_model/debug/trace/event_export.h"
+#include "debug/trace/event_export.h"
 #include "../trace_json_fields_internal.h"
 
 namespace gpu_model {

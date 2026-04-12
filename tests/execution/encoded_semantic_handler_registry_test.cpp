@@ -2,8 +2,8 @@
 
 #include <string>
 
-#include "gpu_model/execution/encoded_semantic_handler.h"
-#include "gpu_model/instruction/encoded/decoded_instruction.h"
+#include "execution/encoded/encoded_semantic_handler.h"
+#include "instruction/decode/encoded/decoded_instruction.h"
 
 namespace gpu_model {
 namespace {

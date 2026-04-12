@@ -1,7 +1,7 @@
 #include <array>
 #include <gtest/gtest.h>
 
-#include "gpu_model/state/wave/wave_runtime_state.h"
+#include "state/wave/wave_runtime_state.h"
 
 namespace gpu_model {
 namespace {

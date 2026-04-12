@@ -5,11 +5,11 @@
 #include <string>
 #include <vector>
 
-#include "gpu_model/debug/recorder/export.h"
-#include "gpu_model/debug/recorder/recorder.h"
-#include "gpu_model/debug/trace/event_export.h"
-#include "gpu_model/debug/trace/event_factory.h"
-#include "gpu_model/debug/trace/event_view.h"
+#include "debug/recorder/export.h"
+#include "debug/recorder/recorder.h"
+#include "debug/trace/event_export.h"
+#include "debug/trace/event_factory.h"
+#include "debug/trace/event_view.h"
 #include "tests/test_utils/trace_test_support.h"
 
 namespace gpu_model {

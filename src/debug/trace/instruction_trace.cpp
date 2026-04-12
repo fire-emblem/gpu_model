@@ -1,13 +1,13 @@
-#include "gpu_model/debug/trace/instruction_trace.h"
+#include "debug/trace/instruction_trace.h"
 
 #include <algorithm>
 #include <iomanip>
 #include <sstream>
 #include <string_view>
 
-#include "gpu_model/instruction/isa/instruction.h"
-#include "gpu_model/instruction/isa/opcode.h"
-#include "gpu_model/instruction/isa/operand.h"
+#include "instruction/isa/instruction.h"
+#include "instruction/isa/opcode.h"
+#include "instruction/isa/operand.h"
 
 namespace gpu_model {
 

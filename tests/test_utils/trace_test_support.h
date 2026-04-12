@@ -10,13 +10,13 @@
 #include <string_view>
 #include <vector>
 
-#include "gpu_model/debug/recorder/recorder.h"
-#include "gpu_model/debug/timeline/cycle_timeline.h"
-#include "gpu_model/debug/trace/event_view.h"
-#include "gpu_model/debug/trace/sink.h"
-#include "gpu_model/isa/instruction_builder.h"
-#include "gpu_model/isa/kernel_metadata.h"
-#include "gpu_model/runtime/exec_engine.h"
+#include "debug/recorder/recorder.h"
+#include "debug/timeline/cycle_timeline.h"
+#include "debug/trace/event_view.h"
+#include "debug/trace/sink.h"
+#include "instruction/isa/instruction_builder.h"
+#include "instruction/isa/kernel_metadata.h"
+#include "runtime/exec_engine.h"
 
 namespace gpu_model::test {
 

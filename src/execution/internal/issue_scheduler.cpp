@@ -1,4 +1,4 @@
-#include "gpu_model/execution/internal/issue_scheduler.h"
+#include "execution/internal/issue_scheduler.h"
 
 #include <algorithm>
 #include <array>

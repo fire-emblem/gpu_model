@@ -4,10 +4,10 @@
 #include <limits>
 #include <string>
 
-#include "gpu_model/debug/timeline/cycle_timeline.h"
-#include "gpu_model/debug/trace/event_export.h"
-#include "gpu_model/debug/trace/event_factory.h"
-#include "gpu_model/debug/trace/event_view.h"
+#include "debug/timeline/cycle_timeline.h"
+#include "debug/trace/event_export.h"
+#include "debug/trace/event_factory.h"
+#include "debug/trace/event_view.h"
 #include "tests/test_utils/trace_test_support.h"
 
 namespace gpu_model {

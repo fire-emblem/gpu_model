@@ -5,8 +5,8 @@
 #include <sstream>
 #include <string>
 
-#include "gpu_model/debug/info/debug_info_io.h"
-#include "gpu_model/loader/asm_parser.h"
+#include "debug/info/debug_info_io.h"
+#include "program/loader/asm_parser.h"
 
 namespace gpu_model {
 namespace {

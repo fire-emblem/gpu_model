@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "gpu_model/gpu_arch/issue_config/issue_config.h"
+#include "gpu_arch/issue_config/issue_config.h"
 
 namespace gpu_model {
 namespace {

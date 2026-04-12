@@ -2,9 +2,9 @@
 
 #include <vector>
 
-#include "gpu_model/arch/arch_registry.h"
-#include "gpu_model/execution/internal/cycle_issue_policy.h"
-#include "gpu_model/execution/internal/issue_scheduler.h"
+#include "gpu_arch/chip_config/arch_registry.h"
+#include "execution/internal/cycle_issue_policy.h"
+#include "execution/internal/issue_scheduler.h"
 
 namespace gpu_model {
 namespace {

@@ -5,10 +5,10 @@
 #include <unordered_set>
 #include <vector>
 
-#include "gpu_model/debug/trace/event_export.h"
-#include "gpu_model/debug/trace/event_factory.h"
-#include "gpu_model/debug/trace/sink.h"
-#include "gpu_model/runtime/exec_engine.h"
+#include "debug/trace/event_export.h"
+#include "debug/trace/event_factory.h"
+#include "debug/trace/sink.h"
+#include "runtime/exec_engine.h"
 #include "tests/test_utils/llvm_mc_test_support.h"
 #include "tests/test_utils/trace_test_support.h"
 

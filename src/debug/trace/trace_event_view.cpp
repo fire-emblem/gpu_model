@@ -1,4 +1,4 @@
-#include "gpu_model/debug/trace/event_view.h"
+#include "debug/trace/event_view.h"
 
 #include <string_view>
 

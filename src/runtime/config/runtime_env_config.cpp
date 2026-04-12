@@ -1,4 +1,4 @@
-#include "gpu_model/runtime/runtime_env_config.h"
+#include "runtime/runtime_env_config.h"
 
 #include <cstdlib>
 #include <algorithm>

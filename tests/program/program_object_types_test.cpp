@@ -6,9 +6,9 @@
 #include <type_traits>
 #include <utility>
 
-#include "gpu_model/program/executable_kernel.h"
-#include "gpu_model/program/object_reader.h"
-#include "gpu_model/program/program_object.h"
+#include "program/executable/executable_kernel.h"
+#include "program/program_object/object_reader.h"
+#include "program/program_object/program_object.h"
 
 namespace gpu_model {
 namespace {

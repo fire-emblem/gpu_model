@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
-#include "gpu_model/arch/arch_registry.h"
-#include "gpu_model/runtime/mapper.h"
+#include "gpu_arch/chip_config/arch_registry.h"
+#include "runtime/mapper.h"
 
 namespace gpu_model {
 namespace {

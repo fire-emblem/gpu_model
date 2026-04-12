@@ -1,8 +1,8 @@
 #include <gtest/gtest.h>
 
-#include "gpu_model/instruction/encoded/internal/encoded_gcn_encoding_def.h"
-#include "gpu_model/instruction/encoded/encoded_instruction_formatter.h"
-#include "gpu_model/instruction/encoded/decoded_instruction.h"
+#include "instruction/decode/encoded/internal/encoded_gcn_encoding_def.h"
+#include "instruction/decode/encoded/encoded_instruction_formatter.h"
+#include "instruction/decode/encoded/decoded_instruction.h"
 
 namespace gpu_model {
 namespace {

@@ -1,6 +1,6 @@
-#include "gpu_model/gpu_arch/issue_config/issue_config.h"
+#include "gpu_arch/issue_config/issue_config.h"
 
-#include "gpu_model/execution/internal/opcode_execution_info.h"
+#include "execution/internal/opcode_execution_info.h"
 
 namespace gpu_model {
 

@@ -1,4 +1,4 @@
-#include "gpu_model/execution/internal/handlers/compute_functor_registry.h"
+#include "execution/internal/handlers/compute_functor_registry.h"
 
 namespace gpu_model {
 

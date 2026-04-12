@@ -1,0 +1,37 @@
+#pragma once
+
+#include <cstdint>
+#include <vector>
+
+#include "gpu_arch/chip_config/gpu_arch_spec.h"
+#include "runtime/launch_config.h"
+
+namespace gpu_model {
+
+struct WavePlacement {
+  uint32_t wave_id = 0;
+  uint32_t peu_id = 0;
+  uint32_t lane_count = 0;
+};
+
+struct BlockPlacement {
+  uint32_t block_id = 0;
+  uint32_t block_idx_x = 0;
+  uint32_t block_idx_y = 0;
+  uint32_t block_idx_z = 0;
+  uint32_t dpc_id = 0;
+  uint32_t ap_id = 0;
+  uint32_t global_ap_id = 0;
+  std::vector<WavePlacement> waves;
+};
+
+struct PlacementMap {
+  std::vector<BlockPlacement> blocks;
+};
+
+class Mapper {
+ public:
+  static PlacementMap Place(const GpuArchSpec& spec, const LaunchConfig& config);
+};
+
+}  // namespace gpu_model

@@ -4,9 +4,9 @@
 #include <span>
 #include <type_traits>
 
-#include "gpu_model/instruction/encoded/decoded_instruction.h"
-#include "gpu_model/instruction/encoded/instruction_decoder.h"
-#include "gpu_model/instruction/encoded/instruction_object.h"
+#include "instruction/decode/encoded/decoded_instruction.h"
+#include "instruction/decode/encoded/instruction_decoder.h"
+#include "instruction/decode/encoded/instruction_object.h"
 
 namespace gpu_model {
 namespace {

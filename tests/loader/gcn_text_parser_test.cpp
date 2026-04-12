@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "gpu_model/loader/gcn_text_parser.h"
+#include "program/loader/gcn_text_parser.h"
 
 namespace gpu_model {
 namespace {

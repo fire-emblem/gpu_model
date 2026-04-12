@@ -4,9 +4,9 @@
 #include <cstdint>
 #include <vector>
 
-#include "gpu_model/isa/opcode.h"
-#include "gpu_model/loader/asm_parser.h"
-#include "gpu_model/runtime/exec_engine.h"
+#include "instruction/isa/opcode.h"
+#include "program/loader/asm_parser.h"
+#include "runtime/exec_engine.h"
 
 namespace gpu_model {
 namespace {

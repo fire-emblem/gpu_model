@@ -1,4 +1,4 @@
-#include "gpu_model/debug/timeline/actual_timeline_snapshot.h"
+#include "debug/timeline/actual_timeline_snapshot.h"
 
 #include <string_view>
 

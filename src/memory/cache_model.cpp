@@ -1,4 +1,4 @@
-#include "gpu_model/memory/cache_model.h"
+#include "gpu_arch/memory/cache_model.h"
 
 #include <algorithm>
 #include <unordered_set>

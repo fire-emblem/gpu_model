@@ -1,4 +1,4 @@
-#include "gpu_model/debug/recorder/trace_adapter.h"
+#include "debug/recorder/trace_adapter.h"
 
 namespace gpu_model {
 
