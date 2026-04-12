@@ -43,12 +43,12 @@
   - 已完成: 所有历史 plans/specs 已归档到 docs/archive/
 - [x] 扩展 ProgramCycleStats 支持 gem5/Nsight Compute 风格的性能计数器
   - 已完成: 添加指令计数、内存操作计数、wave 统计、派生指标
-- **状态：** in_progress
+- **状态：** complete
 
 ### 阶段 5：交付与维护
-- [ ] 保持 `task_plan.md`、`docs/my_design.md`、`docs/runtime-layering.md`、`docs/module-development-status.md` 同步
-- [ ] 将新增实现结果及时回写到正式设计和状态文档
-- **状态：** pending
+- [x] 保持 `task_plan.md`、`docs/my_design.md`、`docs/runtime-layering.md`、`docs/module-development-status.md` 同步
+- [x] 将新增实现结果及时回写到正式设计和状态文档
+- **状态：** complete
 
 ### 阶段 6：全项目架构优化分析
 - [x] 恢复当前规划上下文并核对未同步工作树背景

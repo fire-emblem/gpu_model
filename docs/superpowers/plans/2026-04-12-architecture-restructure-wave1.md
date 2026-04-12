@@ -23,7 +23,7 @@
 
 ### P0 串行任务
 
-- [ ] **Task 0: 计划文档落盘并开始执行循环**
+- [x] **Task 0: 计划文档落盘并开始执行循环**
   - 文件：
     - Create: `docs/superpowers/plans/2026-04-12-architecture-restructure-wave1.md`
     - Modify: `task_plan.md`, `findings.md`, `progress.md`
