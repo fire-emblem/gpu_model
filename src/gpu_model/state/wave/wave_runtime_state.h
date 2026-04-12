@@ -6,32 +6,10 @@
 #include <cstdint>
 #include <vector>
 
+#include "gpu_model/gpu_arch/wave/wave_def.h"
 #include "gpu_model/state/register_file.h"
 
 namespace gpu_model {
-
-inline constexpr uint32_t kWaveSize = 64;
-
-enum class WaveStatus {
-  Active,
-  Exited,
-  Stalled,
-};
-
-enum class WaveRunState {
-  Runnable,
-  Waiting,
-  Completed,
-};
-
-enum class WaveWaitReason {
-  None,
-  BlockBarrier,
-  PendingGlobalMemory,
-  PendingSharedMemory,
-  PendingPrivateMemory,
-  PendingScalarBufferMemory,
-};
 
 struct WaveContext {
   uint32_t block_id = 0;
