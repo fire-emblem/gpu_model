@@ -1,16 +1,15 @@
 #pragma once
 
-#include <cstdlib>
 #include <cstdarg>
 #include <cstdint>
 #include <cstdio>
-#include <stdexcept>
-#include <utility>
+#include <cstdlib>
 
 #include <loguru.hpp>
 
 #include "gpu_model/execution/encoded_semantic_handler.h"
 #include "gpu_model/instruction/encoded/decoded_instruction.h"
+#include "gpu_model/instruction/operand/operand_accessors.h"
 #include "gpu_model/utils/logging/log_macros.h"
 #include "gpu_model/utils/math/bit_utils.h"
 
@@ -35,38 +34,6 @@ inline void EncodedDebugLog(const char* fmt, ...) {
   std::vsnprintf(buffer, sizeof(buffer), fmt, args);
   va_end(args);
   GPU_MODEL_LOG_INFO("encoded_exec", "%s", buffer);
-}
-
-// ============================================================================
-// Register Access Utilities (DecodedInstruction operand helpers)
-// ============================================================================
-
-inline uint32_t RequireScalarIndex(const DecodedInstructionOperand& operand) {
-  if (operand.kind != DecodedInstructionOperandKind::ScalarReg || operand.info.reg_count != 1) {
-    throw std::invalid_argument("expected scalar register operand");
-  }
-  return operand.info.reg_first;
-}
-
-inline uint32_t RequireVectorIndex(const DecodedInstructionOperand& operand) {
-  if (operand.kind != DecodedInstructionOperandKind::VectorReg || operand.info.reg_count != 1) {
-    throw std::invalid_argument("expected vector register operand");
-  }
-  return operand.info.reg_first;
-}
-
-inline uint32_t RequireAccumulatorIndex(const DecodedInstructionOperand& operand) {
-  if (operand.kind != DecodedInstructionOperandKind::AccumulatorReg || operand.info.reg_count != 1) {
-    throw std::invalid_argument("expected accumulator register operand");
-  }
-  return operand.info.reg_first;
-}
-
-inline std::pair<uint32_t, uint32_t> RequireScalarRange(const DecodedInstructionOperand& operand) {
-  if (operand.kind != DecodedInstructionOperandKind::ScalarRegRange || operand.info.reg_count == 0) {
-    throw std::invalid_argument("expected scalar register range operand");
-  }
-  return {operand.info.reg_first, operand.info.reg_first + operand.info.reg_count - 1};
 }
 
 // ============================================================================
