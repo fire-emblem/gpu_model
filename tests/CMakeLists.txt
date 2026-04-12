@@ -88,6 +88,7 @@ add_executable(gpu_model_tests
   loader/executable_image_io_test.cpp
   loader/program_bundle_io_test.cpp
   loader/program_object_launch_test.cpp
+  loader/artifact_parser_test.cpp
 
   # program/*
   program/program_source_reader_test.cpp
