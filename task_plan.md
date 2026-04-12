@@ -30,7 +30,8 @@
 - **状态：** complete
 
 ### 阶段 4：验证与资产整理
-- [ ] 建立轻量级 runtime / memory / ISA / semantic 测试矩阵
+- [x] 建立轻量级 runtime / memory / ISA / semantic 测试矩阵
+  - 已完成: docs/test-matrix.md 按分类整理测试文件、覆盖范围、优先级和运行命令
 - [x] 完成 `examples` 剩余分批全量检查
   - 已验证: 01-vecadd-basic, 02-fma-loop, 03-shared-reverse, 04-atomic-reduction, 05-softmax-reduction
   - 已验证: 06-mma-gemm, 07-vecadd-cycle-splitting, 08-conditional-multibarrier, 09-dynamic-shared-sum, 10-block-reduce-sum
@@ -94,7 +95,7 @@
 
 3. `Lightweight test matrix`
    - 目标：建立完备但轻量级的 cycle / semantic / observation 测试矩阵，并继续维持 representative kernels / examples 的 calibration baseline。
-   - 当前缺口：已有大量 focused test，但缺少”按 cycle accuracy 目标分层”的矩阵整理。
+   - 当前状态：**已完成** - docs/test-matrix.md 已建立测试矩阵文档。
 
 4. `Runtime API closure`
    - 目标：在不再作为默认最前置任务的前提下，按 cycle 主线需要补 runtime / memory API 框架。

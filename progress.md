@@ -847,3 +847,15 @@
   - `docs/superpowers/plans/2026-04-12-architecture-restructure-wave1.md`
   - `findings.md`
   - `progress.md`
+
+### 阶段 36：测试矩阵文档建立
+- **状态：** complete
+- **执行的操作：**
+  - 创建 docs/test-matrix.md，按 runtime/memory/ISA/semantic 分类整理测试
+  - 为每个测试文件标注覆盖范围和优先级（P0/P1）
+  - 提供各分类的运行命令和快速验证命令
+  - 统计：123 个测试套件，813 个测试用例
+- 创建/修改的文件：
+  - `docs/test-matrix.md`
+  - `task_plan.md`
+  - `progress.md`
