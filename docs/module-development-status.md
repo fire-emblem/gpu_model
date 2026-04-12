@@ -81,12 +81,21 @@
 
 ## 当前重构结论
 
-截至 `2026-04-01`：
+截至 `2026-04-12`：
 
 - `runtime/program` 主线重构已基本完成
 - `instruction/execution` 的公开命名、实现主路径、测试主路径已完成收口
 - `exec/*` 与 `decode/*` 旧顶层代码目录已迁空并删除
-- 全量 `gpu_model_tests` 当前结果为 `559 passed`
+- 全量 `gpu_model_tests` 当前结果为 `813 passed`
+- **架构重构 Phase 1-5 已完成**：
+  - Phase 1: `utils/` 基础设施层落地
+  - Phase 2: `gpu_arch/` 架构定义层收口（chip_config, issue_config, register, wave, ap）
+  - Phase 3: `state/` 层桥接（wave_runtime_state, ap_runtime_state）
+  - Phase 4: `instruction/semantics/` handler 拆分（2412→95 行精简）
+  - Phase 5: `execution/internal/cycle_*` 提取（cycle_exec_engine.cpp 2035→1075 行）
+- **分层违规修复状态**：
+  - V1/V3/V4: ✅ 已修复
+  - V2/V5: ⏳ 桥接（Phase 3 深拆延后）
 
 当前可以认为：
 

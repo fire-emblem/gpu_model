@@ -418,6 +418,20 @@ operand 只描述静态信息，不直接持有执行态寄存器值。
 - stall 原因必须可归类，timeline 必须能解释 bubble 来源。
 - 默认应保持 `default_issue_cycles = 4`，仅对少量真正影响分析结论的类别或指令做 override。
 
+### 6.4 Execution 内部分层
+
+`CycleExecEngine` 的实现已按职责拆分到独立编译单元，放入 `gpu_model::cycle_internal` namespace：
+
+- `cycle_types.h/cpp`：数据结构（ScheduledWave, ExecutableBlock, PeuSlot 等）+ cost model
+- `cycle_wave_schedule.h/cpp`：wave 调度 + block 管理
+- `cycle_issue_schedule.h/cpp`：issue 调度
+
+设计原则：
+
+- 提取是纯代码重组，无行为变更
+- 所有函数在 `.cpp` 中实现，头文件只声明
+- `Run()` 主循环留在 `cycle_exec_engine.cpp`，调用提取出的函数
+
 ## 7. 当前正式设计约束
 
 本节是从历史 plans/specs 中提炼出的当前稳定设计结论。后续实现与测试若和本节冲突，应优先修改实现或更新本节，而不是回退到历史文档解释当前行为。
