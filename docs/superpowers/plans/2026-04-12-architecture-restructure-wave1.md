@@ -140,3 +140,37 @@
 - 计划/发现/进度文件同步到最新状态
 - `gpu_arch_spec.h -> execution/internal/issue_model.h` 违规已经解除
 - `utils/`、`gpu_arch/` 与 `state/` 第一轮桥接稳定，后续 Phase 2/3 可继续推进
+
+## Wave 2 扩展 (2026-04-12)
+
+在 Wave 1 基础上继续 Phase 2 架构定义层：
+
+- [x] **Wave 2 Task 1: Move register_file.h → gpu_arch/register/**
+  - SGPRFile/VGPRFile/AGPRFile 迁移至 `gpu_arch/register/register_file.h`
+  - `state/register_file.h` 变为桥接头
+  - Commit: `6ab7a0d`
+
+- [x] **Wave 2 Task 2: Complete V4 — operand accessors → instruction/operand/**
+  - RequireScalarIndex/RequireVectorIndex/RequireAccumulatorIndex/RequireScalarRange 迁移至 `instruction/operand/operand_accessors.h`
+  - V4 违规完全关闭
+  - Commit: `ae82948`
+
+- [x] **Wave 2 Task 3: Extract Wave constants and enums → gpu_arch/wave/**
+  - kWaveSize/WaveStatus/WaveRunState/WaveWaitReason 迁移至 `gpu_arch/wave/wave_def.h`
+  - Commit: `c6bb84f`
+
+- [x] **Wave 2 Task 4: Extract BarrierState → gpu_arch/ap/**
+  - BarrierState 迁移至 `gpu_arch/ap/ap_def.h`
+  - PeuState 因依赖 WaveContext（gpu_arch -> state 违规）保留在 state/
+  - Commit: `cc5e607`
+
+## 当前 gpu_arch/ 目录结构
+
+```
+gpu_arch/
+├── ap/ap_def.h           # BarrierState
+├── chip_config/           # GpuArchSpec
+├── issue_config/          # issue policy types
+├── register/register_file.h  # SGPRFile, VGPRFile, AGPRFile
+└── wave/wave_def.h        # kWaveSize, WaveStatus, WaveRunState, WaveWaitReason
+```

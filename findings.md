@@ -171,6 +171,13 @@
     - `WaveContext` 中的 ID/寄存器定义仍未拆到 `gpu_arch/wave/`
     - `ApState` 与 `ExecutionBlockState` 仍是并置，不是同一 runtime type
   这些主题现在只保留为模块状态中的稳定 backlog，不再维持独立设计/计划文档。
+- Wave 2 已完成 Phase 2 架构定义层的进一步收口：
+  - `gpu_arch/register/register_file.h` 接收 SGPRFile/VGPRFile/AGPRFile，旧 `state/register_file.h` 退化为桥接头
+  - `instruction/operand/operand_accessors.h` 接收 Require\*Index 四个函数，V4 违规完全关闭
+  - `gpu_arch/wave/wave_def.h` 接收 kWaveSize/WaveStatus/WaveRunState/WaveWaitReason
+  - `gpu_arch/ap/ap_def.h` 接收 BarrierState
+  - PeuState 因包含 `vector<WaveContext>` 导致 `gpu_arch -> state` 依赖违规，本轮不迁移，留 Phase 3 WaveContext 拆分后再归位
+  - 当前 `gpu_arch/` 已有 5 个子目录：chip_config/, issue_config/, register/, wave/, ap/
 - 当时那一轮规划的最高优先级曾调整为：
   - runtime API closure
   - memory pool / `mmap`

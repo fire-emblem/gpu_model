@@ -780,3 +780,25 @@
   - `tests/cycle/waitcnt_barrier_switch_focused_test.cpp`
   - `progress.md`
   - `findings.md`
+
+### 阶段 33：Architecture Restructure Wave 2
+- **状态：** complete
+- 执行的操作：
+  - 在 Wave 1 基础上继续 Phase 2 架构定义层收口
+  - Task 1: 将 `SGPRFile/VGPRFile/AGPRFile` 迁移至 `gpu_arch/register/register_file.h`，旧 `state/register_file.h` 退化为桥接头
+  - Task 2: 将 `RequireScalarIndex/RequireVectorIndex/RequireAccumulatorIndex/RequireScalarRange` 迁移至 `instruction/operand/operand_accessors.h`，V4 违规完全关闭
+  - Task 3: 将 `kWaveSize/WaveStatus/WaveRunState/WaveWaitReason` 迁移至 `gpu_arch/wave/wave_def.h`
+  - Task 4: 将 `BarrierState` 迁移至 `gpu_arch/ap/ap_def.h`；`PeuState` 因依赖 WaveContext（会导致 `gpu_arch -> state` 违规）本轮不迁移
+  - 每个 Task 独立 commit + push + push gate 通过
+- 创建/修改的文件：
+  - `src/gpu_model/gpu_arch/register/register_file.h`
+  - `src/gpu_model/state/register_file.h`
+  - `src/gpu_model/instruction/operand/operand_accessors.h`
+  - `src/gpu_model/execution/internal/encoded_handler_utils.h`
+  - `src/gpu_model/gpu_arch/wave/wave_def.h`
+  - `src/gpu_model/state/wave/wave_runtime_state.h`
+  - `src/gpu_model/gpu_arch/ap/ap_def.h`
+  - `src/gpu_model/state/ap/ap_runtime_state.h`
+  - `docs/superpowers/plans/2026-04-12-architecture-restructure-wave1.md`
+  - `findings.md`
+  - `progress.md`
