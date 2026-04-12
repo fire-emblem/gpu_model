@@ -861,7 +861,7 @@
   - `progress.md`
 
 ### 阶段 37：Phase 3 Program/Loader 管线拆分启动
-- **状态：** in_progress
+- **状态：** complete
 - **执行的操作：**
   - 创建 Phase 3 实施计划：`docs/superpowers/plans/2026-04-12-architecture-restructure-phase3.md`
   - Task 1: 提取 ExternalToolExecutor 到独立模块 ✅
@@ -874,8 +874,13 @@
     - 新增 `gpu_model/loader/artifact_parser.h` 接口
     - 新增 `src/loader/artifact_parser.cpp` 实现
     - 将 `NoteKernelArgLayoutEntry`/`NoteKernelMetadata` 移至 `kernel_metadata.h`
-  - Task 4: ObjectReader façade 重构 (待完成)
-  - Task 5: 添加 focused tests (待完成)
+  - Task 4: ObjectReader façade 重构 ✅
+    - 重构 `encoded_program_object.cpp` 使用新提取模块
+    - 删除本地 `RunCommand`/`ParseSymbols`/`ParseKernelDescriptor` 等函数
+    - 文件从 856 行精简到 ~380 行
+  - Task 5: 添加 focused tests ✅
+    - 新增 `tests/loader/artifact_parser_test.cpp`
+    - 覆盖 SelectKernelSymbol、SelectDescriptorSymbol、ParseKernelDescriptor
 - 创建/修改的文件：
   - `docs/superpowers/plans/2026-04-12-architecture-restructure-phase3.md`
   - `src/gpu_model/loader/external_tool_executor.h`
@@ -886,4 +891,6 @@
   - `src/loader/artifact_parser.cpp`
   - `src/gpu_model/isa/kernel_metadata.h`
   - `src/program/encoded_program_object.cpp`
+  - `tests/loader/artifact_parser_test.cpp`
+  - `tests/CMakeLists.txt`
   - `CMakeLists.txt`
