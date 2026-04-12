@@ -1,4 +1,4 @@
-#include "gpu_model/execution/program_object_exec_engine.h"
+#include "gpu_model/execution/encoded/program_object_exec_engine.h"
 
 #include <algorithm>
 #include <array>
@@ -22,7 +22,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "gpu_model/execution/encoded_semantic_handler.h"
+#include "gpu_model/execution/encoded/encoded_semantic_handler.h"
 #include "gpu_model/execution/internal/async_scoreboard.h"
 #include "gpu_model/execution/internal/barrier_resource_pool.h"
 #include "gpu_model/execution/internal/cycle_issue_policy.h"

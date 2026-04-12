@@ -11,9 +11,9 @@
 
 #include "gpu_model/arch/arch_registry.h"
 #include "gpu_model/debug/trace/event_factory.h"
-#include "gpu_model/execution/cycle_exec_engine.h"
-#include "gpu_model/execution/functional_exec_engine.h"
-#include "gpu_model/execution/program_object_exec_engine.h"
+#include "gpu_model/execution/cycle/cycle_exec_engine.h"
+#include "gpu_model/execution/functional/functional_exec_engine.h"
+#include "gpu_model/execution/encoded/program_object_exec_engine.h"
 #include "gpu_model/execution/internal/cycle_issue_policy.h"
 #include "gpu_model/instruction/isa/kernel_metadata.h"
 #include "gpu_model/loader/device_image_loader.h"

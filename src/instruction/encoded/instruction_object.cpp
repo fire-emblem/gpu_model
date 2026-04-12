@@ -6,7 +6,7 @@
 
 #include "gpu_model/instruction/encoded/internal/encoded_gcn_encoding_def.h"
 #include "gpu_model/instruction/encoded/internal/encoded_instruction_binding.h"
-#include "gpu_model/execution/encoded_semantic_handler.h"
+#include "gpu_model/execution/encoded/encoded_semantic_handler.h"
 #include "gpu_model/execution/internal/encoded_handler_utils.h"
 #include "gpu_model/instruction/encoded/instruction_decoder.h"
 #include "gpu_model/utils/logging/log_macros.h"

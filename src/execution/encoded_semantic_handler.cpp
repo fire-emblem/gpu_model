@@ -1,4 +1,4 @@
-#include "gpu_model/execution/encoded_semantic_handler.h"
+#include "gpu_model/execution/encoded/encoded_semantic_handler.h"
 
 #include <stdexcept>
 #include <string>

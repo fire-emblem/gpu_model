@@ -1,4 +1,4 @@
-#include "gpu_model/execution/cycle_exec_engine.h"
+#include "gpu_model/execution/cycle/cycle_exec_engine.h"
 
 #include <algorithm>
 #include <array>

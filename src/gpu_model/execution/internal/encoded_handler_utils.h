@@ -7,7 +7,7 @@
 
 #include <loguru.hpp>
 
-#include "gpu_model/execution/encoded_semantic_handler.h"
+#include "gpu_model/execution/encoded/encoded_semantic_handler.h"
 #include "gpu_model/instruction/encoded/decoded_instruction.h"
 #include "gpu_model/instruction/operand/operand_accessors.h"
 #include "gpu_model/utils/logging/log_macros.h"
