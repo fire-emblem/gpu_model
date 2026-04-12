@@ -76,6 +76,13 @@
 - [x] 为 `state/` 层拆分准备最小兼容桥接策略
 - **状态：** complete
 
+### 阶段 9：架构重构 Phase 4-5 完成
+- [x] Phase 4: instruction/semantics 拆分（handler 提取到独立编译单元）
+- [x] Phase 5: execution 精简（cycle_exec_engine.cpp 2035→1075 行）
+- [x] V1/V3/V4 分层违规完全关闭
+- [x] V2/V5 桥接完成，深拆延后到 Phase 3
+- **状态：** complete
+
 ## 当前正式任务清单
 1. `Semantic calibration`
    - 目标：把 `cycle time` 与 `cycle model` 准确性提到第一优先级，让 `st / mt / cycle` 的结果、时间语义和 program-level 解释面保持一致。
