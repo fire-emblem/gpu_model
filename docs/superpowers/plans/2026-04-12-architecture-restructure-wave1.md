@@ -205,17 +205,28 @@ instruction/semantics/
 | V4 | encoded_handler_utils.h 混合多层 | ✅ 已修复 (Wave 2 Task 2) |
 | V5 | execution_state.h 与 ap_state.h 重叠 | ⏳ 桥接 (Phase 3 深拆) |
 
-## Phase 5 (Execution 精简) 范围评估
+## Phase 5 (Execution 精简) ✅ 已完成
 
-Phase 5 原计划：重命名三个 exec engine + 从 cycle_exec_engine.cpp 提取调度函数。
+Phase 5 从 cycle_exec_engine.cpp (2035→1075 行) 提取调度函数到独立编译单元。
 
-当前状态评估：
-- cycle_exec_engine.cpp: 2035 行（已部分提取 issue_scheduler/issue_eligibility/async_scoreboard）
-- program_object_exec_engine.cpp: 3153 行（encoded 二进制执行主路径）
-- functional_exec_engine.cpp: 1771 行
+- [x] **Wave 4 Task 1: Extract data structures + cost model → cycle_types.h/cpp**
+  - ScheduledWave, ExecutableBlock, ResidentIssueSlot, PeuSlot, ApResidentState, L1Key
+  - QuantizeIssueDuration, ClassifyCycleInstruction, CostForCycleStep, AccumulateProgramCycleStep
+  - IssueLimitsUnset, ResolveIssuePolicy, ModeledAsyncCompletionDelay
+  - Commit: `870020e`
 
-Phase 5 的调度函数提取是 code reorganization，不影响外部 API。当前可暂缓，
-优先保证已有重构稳定。
+- [x] **Wave 4 Task 2: Extract wave scheduling + block management → cycle_wave_schedule.h/cpp**
+  - MaterializeBlocks, BuildPeuSlots, AllWavesExited, ActiveAddresses
+  - ScheduleWaveLaunch/Generate/Dispatch, RegisterResidentWave, RemoveResidentWave
+  - RefillActiveWindow, FillDispatchWindow, ActivateBlock, AdmitResidentBlocks
+  - Commit: `870020e`
+
+- [x] **Wave 4 Task 3: Extract issue scheduling → cycle_issue_schedule.h/cpp**
+  - ResidentSlotReadyToIssue, BlockedResidentWave, PickFirstBlockedResidentWave
+  - PickFirstReadyUnselectedResidentWave, BuildResidentIssueCandidates
+  - Commit: `870020e`
+
+所有提取代码放入 `gpu_model::cycle_internal` namespace。无行为变更。
 
 ## 当前 gpu_arch/ 目录结构
 

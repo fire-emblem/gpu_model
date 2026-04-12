@@ -825,3 +825,25 @@
   - `docs/superpowers/plans/2026-04-12-architecture-restructure-wave1.md`
   - `findings.md`
   - `progress.md`
+
+### 阶段 35：Phase 5 Execution 层提取
+- **状态：** complete
+- 执行的操作：
+  - 从 cycle_exec_engine.cpp (2035→1075 行) 提取调度函数到独立编译单元
+  - 新增 cycle_types.h/cpp：数据结构 + cost model
+  - 新增 cycle_wave_schedule.h/cpp：wave 调度 + block 管理
+  - 新增 cycle_issue_schedule.h/cpp：issue 调度
+  - 所有提取代码放入 `gpu_model::cycle_internal` namespace
+  - 完成 release 编译与定向测试验证（44/44 cycle 测试通过，push gate 通过）
+- 创建/修改的文件：
+  - `src/gpu_model/execution/internal/cycle_types.h`
+  - `src/execution/internal/cycle_types.cpp`
+  - `src/gpu_model/execution/internal/cycle_wave_schedule.h`
+  - `src/execution/internal/cycle_wave_schedule.cpp`
+  - `src/gpu_model/execution/internal/cycle_issue_schedule.h`
+  - `src/execution/internal/cycle_issue_schedule.cpp`
+  - `src/execution/cycle_exec_engine.cpp`
+  - `CMakeLists.txt`
+  - `docs/superpowers/plans/2026-04-12-architecture-restructure-wave1.md`
+  - `findings.md`
+  - `progress.md`

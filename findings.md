@@ -188,6 +188,13 @@
   - 每个 handler 文件通过静态初始化器自注册到 HandlerRegistry，不依赖中心注册
   - `HandlerForSemanticFamily` 通过 accessor 函数委托到各编译单元
   - V1/V3/V4 分层违规已完全关闭；V2/V5 等待 Phase 3 深拆
+- Wave 4 已完成 Phase 5 execution 层提取：
+  - cycle_exec_engine.cpp 从 2035 行精简到 1075 行（47% 削减）
+  - 新增 cycle_types.h/cpp：数据结构（ScheduledWave/ExecutableBlock/PeuSlot/ApResidentState/L1Key）+ cost model
+  - 新增 cycle_wave_schedule.h/cpp：wave 调度（MaterializeBlocks/BuildPeuSlots/ScheduleWave*/ActivateBlock/Admit/RefillActiveWindow）
+  - 新增 cycle_issue_schedule.h/cpp：issue 调度（BuildResidentIssueCandidates/BlockedResidentWave/PickFirst*）
+  - 所有提取代码放入 `gpu_model::cycle_internal` namespace，无行为变更
+  - Run() 主循环留在 cycle_exec_engine.cpp，只调用提取出的函数
 - 当时那一轮规划的最高优先级曾调整为：
   - runtime API closure
   - memory pool / `mmap`
