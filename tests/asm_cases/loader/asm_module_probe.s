@@ -7,13 +7,13 @@
 asm_module_probe:
   s_load_dwordx2 s[0:1], s[0:1], 0x0
   s_waitcnt lgkmcnt(0)
-  v_mov_b32_e32 v1, s0
-  v_mov_b32_e32 v2, s1
-  v_add_f32_e32 v3, v1, v2
+  v_mov_b32_e32 v0, s0
+  v_mov_b32_e32 v1, s1
+  v_add_f32_e32 v2, v0, v1
   s_add_u32 s4, s0, s1
   s_cmp_lt_i32 s4, 16
   s_cbranch_scc0 .Lskip_store
-  flat_store_dword v[1:2], v3
+  flat_store_dword v[0:1], v2
 .Lskip_store:
   s_endpgm
 .Lfunc_end0:
@@ -25,6 +25,7 @@ asm_module_probe:
   .amdhsa_user_sgpr_kernarg_segment_ptr 1
   .amdhsa_next_free_vgpr .amdgcn.next_free_vgpr
   .amdhsa_next_free_sgpr .amdgcn.next_free_sgpr
+  .amdhsa_accum_offset 4
 .end_amdhsa_kernel
 
 .amdgpu_metadata

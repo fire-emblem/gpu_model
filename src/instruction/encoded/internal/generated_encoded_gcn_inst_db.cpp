@@ -374,7 +374,11 @@ const std::vector<GcnGeneratedOperandSpec>& GeneratedGcnOperandSpecs() {
   { "vdst", "vector_reg", "def", "vdst", 1, 1, "" },
   { "data", "vector_reg", "use", "data", 1, 1, "" },
   { "vdst", "vector_reg", "def", "vdst", 1, 1, "" },
-  { "data", "vector_reg", "use", "data", 1, 1, "" }
+  { "data", "vector_reg", "use", "data", 1, 1, "" },
+  { "sdst", "scalar_reg", "def", "sdst", 1, 1, "" },
+  { "simm16", "simm16", "use", "simm16", 1, 1, "" },
+  { "sdst", "scalar_reg", "def", "sdst", 1, 1, "" },
+  { "simm16", "simm16", "use", "simm16", 1, 1, "" }
   };
   return kOperandSpecs;
 }
@@ -577,6 +581,8 @@ const std::vector<GcnGeneratedInstDef>& GeneratedGcnInstDefs() {
   { 76, "gfx6_gfx8", EncodedGcnInstFormatClass::Vopc, 193, 4, "v_cmp_lt_i32_e32", "control", "vector_compare", "vector_alu", kGcnInstFlagNone, 17, 0, 244, 3 },
   { 77, "gfx6_gfx8", EncodedGcnInstFormatClass::Sop2, 13, 4, "s_and_b64", "compute", "scalar_alu", "scalar_alu_or_memory", kGcnInstFlagNone, 17, 0, 247, 3 },
   { 78, "gfx6_gfx8", EncodedGcnInstFormatClass::Sopk, 0, 4, "s_movk_i32", "compute", "scalar_alu", "scalar_alu_or_memory", kGcnInstFlagNone, 17, 0, 250, 2 },
+  { 107, "gfx6_gfx8", EncodedGcnInstFormatClass::Sopk, 14, 4, "s_addk_i32", "compute", "scalar_alu", "scalar_alu_or_memory", kGcnInstFlagNone, 17, 0, 437, 2 },
+  { 108, "gfx6_gfx8", EncodedGcnInstFormatClass::Sopk, 15, 4, "s_mulk_i32", "compute", "scalar_alu", "scalar_alu_or_memory", kGcnInstFlagNone, 17, 0, 439, 2 },
   { 79, "gfx6_gfx8", EncodedGcnInstFormatClass::Vop3a, 244, 8, "v_mad_u64_u32", "compute", "vector_alu", "vector_alu", kGcnInstFlagNone, 17, 0, 252, 5 },
   { 94, "gfx6_gfx8", EncodedGcnInstFormatClass::Vop3a, 514, 8, "v_or3_b32", "compute", "vector_alu", "vector_alu", kGcnInstFlagNone, 17, 0, 257, 4 },
   { 80, "gfx6_gfx8", EncodedGcnInstFormatClass::Vop1, 5, 4, "v_cvt_f32_i32_e32", "compute", "vector_alu", "vector_alu", kGcnInstFlagNone, 17, 0, 261, 2 },
@@ -688,6 +694,8 @@ const std::vector<EncodedGcnEncodingDef>& GeneratedGcnEncodingDefs() {
   EncodedGcnEncodingDef{ .id = 76, .format_class = EncodedGcnInstFormatClass::Vopc, .op = 193, .size_bytes = 4, .mnemonic = "v_cmp_lt_i32_e32" },
   EncodedGcnEncodingDef{ .id = 77, .format_class = EncodedGcnInstFormatClass::Sop2, .op = 13, .size_bytes = 4, .mnemonic = "s_and_b64" },
   EncodedGcnEncodingDef{ .id = 78, .format_class = EncodedGcnInstFormatClass::Sopk, .op = 0, .size_bytes = 4, .mnemonic = "s_movk_i32" },
+  EncodedGcnEncodingDef{ .id = 107, .format_class = EncodedGcnInstFormatClass::Sopk, .op = 14, .size_bytes = 4, .mnemonic = "s_addk_i32" },
+  EncodedGcnEncodingDef{ .id = 108, .format_class = EncodedGcnInstFormatClass::Sopk, .op = 15, .size_bytes = 4, .mnemonic = "s_mulk_i32" },
   EncodedGcnEncodingDef{ .id = 79, .format_class = EncodedGcnInstFormatClass::Vop3a, .op = 244, .size_bytes = 8, .mnemonic = "v_mad_u64_u32" },
   EncodedGcnEncodingDef{ .id = 94, .format_class = EncodedGcnInstFormatClass::Vop3a, .op = 514, .size_bytes = 8, .mnemonic = "v_or3_b32" },
   EncodedGcnEncodingDef{ .id = 80, .format_class = EncodedGcnInstFormatClass::Vop1, .op = 5, .size_bytes = 4, .mnemonic = "v_cvt_f32_i32_e32" },

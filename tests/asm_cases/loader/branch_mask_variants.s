@@ -28,6 +28,7 @@ asm_branch_mask_variants:
 .amdhsa_kernel asm_branch_mask_variants
   .amdhsa_next_free_vgpr .amdgcn.next_free_vgpr
   .amdhsa_next_free_sgpr .amdgcn.next_free_sgpr
+  .amdhsa_accum_offset 4
 .end_amdhsa_kernel
 
 .amdgpu_metadata

@@ -22,6 +22,7 @@ asm_smrd_scalar_memory_variants:
   .amdhsa_user_sgpr_kernarg_segment_ptr 1
   .amdhsa_next_free_vgpr .amdgcn.next_free_vgpr
   .amdhsa_next_free_sgpr .amdgcn.next_free_sgpr
+  .amdhsa_accum_offset 4
 .end_amdhsa_kernel
 
 .amdgpu_metadata

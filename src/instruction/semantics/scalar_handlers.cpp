@@ -258,6 +258,18 @@ class ScalarAluHandler final : public BaseHandler {
       const int32_t value =
           static_cast<int32_t>(ResolveScalarLike(instruction.operands.at(1), context));
       context.wave.sgpr.Write(sdst, static_cast<uint32_t>(value));
+    } else if (descriptor.op_type == GcnIsaOpType::Sopk &&
+               descriptor.opcode == static_cast<uint16_t>(GcnIsaSopkOpcode::S_ADDK_I32)) {
+      const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
+      const int32_t src = static_cast<int32_t>(context.wave.sgpr.Read(sdst));
+      const int32_t imm = static_cast<int32_t>(ResolveScalarLike(instruction.operands.at(1), context));
+      context.wave.sgpr.Write(sdst, static_cast<uint32_t>(src + imm));
+    } else if (descriptor.op_type == GcnIsaOpType::Sopk &&
+               descriptor.opcode == static_cast<uint16_t>(GcnIsaSopkOpcode::S_MULK_I32)) {
+      const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
+      const int32_t src = static_cast<int32_t>(context.wave.sgpr.Read(sdst));
+      const int32_t imm = static_cast<int32_t>(ResolveScalarLike(instruction.operands.at(1), context));
+      context.wave.sgpr.Write(sdst, static_cast<uint32_t>(src * imm));
     } else if (descriptor.op_type == GcnIsaOpType::Sop1 &&
                descriptor.opcode == static_cast<uint16_t>(GcnIsaSop1Opcode::S_BCNT1_I32_B64)) {
       const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
