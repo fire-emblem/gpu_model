@@ -178,6 +178,16 @@
   - `gpu_arch/ap/ap_def.h` 接收 BarrierState
   - PeuState 因包含 `vector<WaveContext>` 导致 `gpu_arch -> state` 依赖违规，本轮不迁移，留 Phase 3 WaveContext 拆分后再归位
   - 当前 `gpu_arch/` 已有 5 个子目录：chip_config/, issue_config/, register/, wave/, ap/
+- Wave 3 已完成 Phase 4 instruction/semantics 层拆分：
+  - `instruction/semantics/internal/handler_support.h` 承接 BaseHandler/VectorLaneHandler/HandlerRegistry 和所有共享工具函数
+  - `instruction/semantics/branch_handlers.cpp` 承接 BranchHandler + SpecialHandler
+  - `instruction/semantics/scalar_handlers.cpp` 承接 ScalarMemory/ScalarAlu/ScalarCompare/Mask 四个 handler（15 mnemonic 自注册）
+  - `instruction/semantics/memory_handlers.cpp` 承接 FlatMemory/BufferMemory/SharedMemory 三个 handler（11 mnemonic 自注册）
+  - `instruction/semantics/vector_handlers.cpp` 承接全部 VectorLaneHandler CRTP 模板 + MFMA + VectorCompare（63 mnemonic 自注册）
+  - `encoded_semantic_handler.cpp` 从 2412 行精简到 95 行，只剩 dispatch 逻辑
+  - 每个 handler 文件通过静态初始化器自注册到 HandlerRegistry，不依赖中心注册
+  - `HandlerForSemanticFamily` 通过 accessor 函数委托到各编译单元
+  - V1/V3/V4 分层违规已完全关闭；V2/V5 等待 Phase 3 深拆
 - 当时那一轮规划的最高优先级曾调整为：
   - runtime API closure
   - memory pool / `mmap`

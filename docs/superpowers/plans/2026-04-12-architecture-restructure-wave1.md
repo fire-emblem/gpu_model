@@ -164,6 +164,59 @@
   - PeuState 因依赖 WaveContext（gpu_arch -> state 违规）保留在 state/
   - Commit: `cc5e607`
 
+## Wave 3 扩展 (2026-04-12): Phase 4 instruction/semantics 拆分
+
+- [x] **Wave 3 Task 1: Extract handler base infrastructure → instruction/semantics/internal/**
+  - BaseHandler, VectorLaneHandler<Impl>, HandlerRegistry
+  - Utility functions: ResolveScalarLike, StoreScalarPair, ResolveVectorLane, etc.
+  - Atomic operand helpers: FlatAtomicOperands, SharedAtomicOperands, etc.
+  - Commit: `5481e39`
+
+- [x] **Wave 3 Task 2: Extract branch + special handlers → instruction/semantics/branch_handlers.cpp**
+  - BranchHandler, SpecialHandler in `gpu_model::semantics` namespace
+  - Accessor functions: GetBranchHandler(), GetSpecialHandler()
+  - Commit: `152a8fd`
+
+- [x] **Wave 3 Task 3: Extract all remaining handlers → instruction/semantics/**
+  - scalar_handlers.cpp: ScalarMemoryHandler, ScalarAluHandler, ScalarCompareHandler, MaskHandler (15 mnemonics)
+  - memory_handlers.cpp: FlatMemoryHandler, BufferMemoryHandler, SharedMemoryHandler (11 mnemonics)
+  - vector_handlers.cpp: all VectorLaneHandler CRTP templates, specialized handlers, MFMA, VectorCompare (63 mnemonics)
+  - encoded_semantic_handler.cpp: 2412 → 95 lines (dispatch-only)
+  - Commit: `44bce6f`
+
+### instruction/semantics/ 目录结构
+
+```
+instruction/semantics/
+├── internal/handler_support.h  # Shared base classes + utilities
+├── branch_handlers.cpp         # BranchHandler, SpecialHandler
+├── scalar_handlers.cpp         # ScalarMemory, ScalarAlu, ScalarCompare, Mask
+├── memory_handlers.cpp         # Flat, Buffer, Shared memory handlers
+└── vector_handlers.cpp         # All vector ALU + MFMA + VectorCompare
+```
+
+### 已修复的分层违规
+
+| 编号 | 违规 | 状态 |
+|------|------|------|
+| V1 | gpu_arch_spec.h -> execution/internal/issue_model.h | ✅ 已修复 (Wave 1 Task 2) |
+| V2 | state/peu_state.h -> execution/wave_context.h | ⏳ 桥接 (Phase 3 深拆) |
+| V3 | runtime/runtime_config.h -> execution 类型 | ✅ 已修复 (Wave 1 Task 1) |
+| V4 | encoded_handler_utils.h 混合多层 | ✅ 已修复 (Wave 2 Task 2) |
+| V5 | execution_state.h 与 ap_state.h 重叠 | ⏳ 桥接 (Phase 3 深拆) |
+
+## Phase 5 (Execution 精简) 范围评估
+
+Phase 5 原计划：重命名三个 exec engine + 从 cycle_exec_engine.cpp 提取调度函数。
+
+当前状态评估：
+- cycle_exec_engine.cpp: 2035 行（已部分提取 issue_scheduler/issue_eligibility/async_scoreboard）
+- program_object_exec_engine.cpp: 3153 行（encoded 二进制执行主路径）
+- functional_exec_engine.cpp: 1771 行
+
+Phase 5 的调度函数提取是 code reorganization，不影响外部 API。当前可暂缓，
+优先保证已有重构稳定。
+
 ## 当前 gpu_arch/ 目录结构
 
 ```

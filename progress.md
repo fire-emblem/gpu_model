@@ -802,3 +802,26 @@
   - `docs/superpowers/plans/2026-04-12-architecture-restructure-wave1.md`
   - `findings.md`
   - `progress.md`
+
+### 阶段 34：Phase 4 instruction/semantics 层拆分
+- **状态：** complete
+- **执行的操作：**
+  - 提取 handler 基础设施到 `instruction/semantics/internal/handler_support.h`
+  - 提取 BranchHandler + SpecialHandler 到 `instruction/semantics/branch_handlers.cpp`
+  - 提取 ScalarMemory/ScalarAlu/ScalarCompare/Mask 到 `instruction/semantics/scalar_handlers.cpp`
+  - 提取 FlatMemory/BufferMemory/SharedMemory 到 `instruction/semantics/memory_handlers.cpp`
+  - 提取全部 VectorLaneHandler CRTP 模板 + MFMA + VectorCompare 到 `instruction/semantics/vector_handlers.cpp`
+  - `encoded_semantic_handler.cpp` 从 2412 行精简到 95 行（仅 dispatch 逻辑）
+  - 每个 handler 文件通过静态初始化器自注册到 HandlerRegistry（共 89 个 mnemonic）
+  - 完成 release 编译与定向测试验证（81/81 handler 相关测试通过，push gate 通过）
+- 创建/修改的文件：
+  - `src/gpu_model/instruction/semantics/internal/handler_support.h`
+  - `src/instruction/semantics/branch_handlers.cpp`
+  - `src/instruction/semantics/scalar_handlers.cpp`
+  - `src/instruction/semantics/memory_handlers.cpp`
+  - `src/instruction/semantics/vector_handlers.cpp`
+  - `src/execution/encoded_semantic_handler.cpp`
+  - `CMakeLists.txt`
+  - `docs/superpowers/plans/2026-04-12-architecture-restructure-wave1.md`
+  - `findings.md`
+  - `progress.md`
