@@ -111,6 +111,9 @@ add_library(gpu_model STATIC
   src/execution/internal/issue_scheduler.cpp
   src/execution/internal/issue_eligibility.cpp
   src/execution/internal/async_scoreboard.cpp
+  src/execution/internal/cycle_types.cpp
+  src/execution/internal/cycle_wave_schedule.cpp
+  src/execution/internal/cycle_issue_schedule.cpp
   src/execution/functional_exec_engine.cpp
   src/execution/internal/event_queue.cpp
   src/execution/internal/handlers/compute_functor_registry.cpp
