@@ -323,7 +323,7 @@
   - `gpu_model/debug/trace/event_factory.h`
   - `gpu_model/execution/internal/issue_eligibility.h`
 - 同时 `FunctionalExecEngine`、`CycleExecEngine`、`ProgramObjectExecEngine` 仍各自保留大量状态机和辅助逻辑
-- 现有旧审查文档 [full_project_architecture_review.md](/data/gpu_model/docs/architecture/full_project_architecture_review.md) 也已指出三套执行引擎之间存在重复
+- 更早一轮旧审查也曾指出三套执行引擎之间存在重复
 
 这里的核心问题不是“有没有重复代码”，而是：
 
