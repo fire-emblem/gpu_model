@@ -7,10 +7,14 @@
 #include <vector>
 
 #include "gpu_model/gpu_arch/wave/wave_def.h"
-#include "gpu_model/state/register_file.h"
+#include "gpu_model/gpu_arch/register/register_file.h"
 
 namespace gpu_model {
 
+/// WaveContext — 完整的 wave 执行上下文
+///
+/// 包含 wave 的 ID、位置、寄存器文件、调度状态、执行掩码等。
+/// 当前保持单一结构体定义，后续可按需拆分为 WaveConfig + WaveRuntimeState。
 struct WaveContext {
   uint32_t block_id = 0;
   uint32_t block_idx_x = 0;
