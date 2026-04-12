@@ -257,7 +257,15 @@ instruction/
 ├── operand/                 # 操作数访问器
 │   └── operand_accessors.h
 └── semantics/               # 指令语义执行
-    └── internal/            # handler_support.h
+    ├── internal/            # handler_support.h
+    ├── branch/              # BranchHandler
+    │   └── branch_handlers.cpp
+    ├── memory/              # Flat, Buffer, Shared handlers
+    │   └── memory_handlers.cpp
+    ├── scalar/              # ScalarAlu, ScalarCompare, etc.
+    │   └── scalar_handlers.cpp
+    └── vector/              # Vector ALU + MFMA handlers
+        └── vector_handlers.cpp
 ```
 
 ## 当前 execution/ 目录结构
