@@ -10,6 +10,7 @@
 
 #include "gpu_model/execution/encoded_semantic_handler.h"
 #include "gpu_model/execution/internal/encoded_handler_utils.h"
+#include "gpu_model/execution/internal/float_utils.h"
 #include "gpu_model/instruction/encoded/internal/encoded_gcn_encoding_def.h"
 #include "gpu_model/instruction/encoded/internal/encoded_gcn_db_lookup.h"
 #include "gpu_model/instruction/operand/operand_accessors.h"

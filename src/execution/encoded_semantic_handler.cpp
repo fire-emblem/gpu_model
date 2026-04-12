@@ -23,6 +23,12 @@
 
 namespace gpu_model {
 
+// Forward declarations for handlers extracted to separate compilation units
+namespace semantics {
+const IEncodedSemanticHandler& GetBranchHandler();
+const IEncodedSemanticHandler& GetSpecialHandler();
+}  // namespace semantics
+
 namespace {
 
 using handler_support::BaseHandler;
@@ -1481,75 +1487,8 @@ class MaskHandler final : public BaseHandler {
   }
 };
 
-class BranchHandler final : public IEncodedSemanticHandler {
- public:
-  void Execute(const DecodedInstruction& instruction, EncodedWaveContext& context) const override {
-    // Emit trace callback for instruction start
-    if (context.on_execute) {
-      context.on_execute(instruction, context, "start");
-    }
-
-    switch (instruction.encoding_id) {
-      case 10: {  // s_cbranch_execz
-      if (context.wave.exec.none()) {
-        context.wave.pc =
-            BranchTarget(context.wave.pc, static_cast<int32_t>(instruction.operands.at(0).info.immediate));
-      } else {
-        context.wave.pc += instruction.size_bytes;
-      }
-      break;
-      }
-      case 22: {  // s_cbranch_scc1
-      if (context.wave.ScalarMaskBit0()) {
-        context.wave.pc =
-            BranchTarget(context.wave.pc, static_cast<int32_t>(instruction.operands.at(0).info.immediate));
-      } else {
-        context.wave.pc += instruction.size_bytes;
-      }
-      break;
-      }
-      case 26: {  // s_cbranch_scc0
-      if (!context.wave.ScalarMaskBit0()) {
-        context.wave.pc =
-            BranchTarget(context.wave.pc, static_cast<int32_t>(instruction.operands.at(0).info.immediate));
-      } else {
-        context.wave.pc += instruction.size_bytes;
-      }
-      break;
-      }
-      case 43: {  // s_cbranch_vccz
-      if (context.vcc == 0) {
-        context.wave.pc =
-            BranchTarget(context.wave.pc, static_cast<int32_t>(instruction.operands.at(0).info.immediate));
-      } else {
-        context.wave.pc += instruction.size_bytes;
-      }
-      break;
-      }
-      case 74: {  // s_cbranch_execnz
-      if (context.wave.exec.any()) {
-        context.wave.pc =
-            BranchTarget(context.wave.pc, static_cast<int32_t>(instruction.operands.at(0).info.immediate));
-      } else {
-        context.wave.pc += instruction.size_bytes;
-      }
-      break;
-      }
-      case 27: {  // s_branch
-      context.wave.pc =
-          BranchTarget(context.wave.pc, static_cast<int32_t>(instruction.operands.at(0).info.immediate));
-      break;
-      }
-      default:
-        ThrowUnsupportedInstruction("unsupported branch opcode: ", instruction);
-    }
-
-    // Emit trace callback for instruction end
-    if (context.on_execute) {
-      context.on_execute(instruction, context, "end");
-    }
-  }
-};
+// BranchHandler and SpecialHandler are now in src/instruction/semantics/branch_handlers.cpp
+// Accessed via semantics::GetBranchHandler() and semantics::GetSpecialHandler()
 
 class FlatMemoryHandler final : public BaseHandler {
  protected:
@@ -2199,44 +2138,7 @@ class SharedMemoryHandler final : public BaseHandler {
   }
 };
 
-class SpecialHandler final : public IEncodedSemanticHandler {
- public:
-  void Execute(const DecodedInstruction& instruction, EncodedWaveContext& context) const override {
-    // Emit trace callback for instruction start
-    if (context.on_execute) {
-      context.on_execute(instruction, context, "start");
-    }
-
-    switch (instruction.encoding_id) {
-      case 29: {  // s_barrier
-        ++context.stats.barriers;
-        sync_ops::MarkWaveAtBarrier(context.wave,
-                                    context.block.barrier_generation,
-                                    context.block.barrier_arrivals,
-                                    false);
-        // Do NOT advance PC here - ResumeBarrierReleasedWave handles it when barrier releases
-        break;
-      }
-      case 68:  // s_nop
-        context.wave.pc += instruction.size_bytes;
-        break;
-      case 12:  // s_waitcnt
-        context.wave.pc += instruction.size_bytes;
-        break;
-      case 1:  // s_endpgm - do NOT advance PC, execution terminates
-        context.wave.status = WaveStatus::Exited;
-        ++context.stats.wave_exits;
-        break;
-      default:
-        ThrowUnsupportedInstruction("unsupported special opcode: ", instruction);
-    }
-
-    // Emit trace callback for instruction end
-    if (context.on_execute) {
-      context.on_execute(instruction, context, "end");
-    }
-  }
-};
+// SpecialHandler is now in src/instruction/semantics/branch_handlers.cpp
 
 // HandlerRegistry is now provided by handler_support::HandlerRegistry
 // in gpu_model/instruction/semantics/internal/handler_support.h
@@ -2384,10 +2286,8 @@ const IEncodedSemanticHandler* HandlerForSemanticFamily(std::string_view semanti
   static const ScalarCompareHandler kScalarCompareHandler;
   static const VectorCompareHandler kVectorCompareHandler;
   static const MaskHandler kMaskHandler;
-  static const BranchHandler kBranchHandler;
   static const FlatMemoryHandler kFlatMemoryHandler;
   static const SharedMemoryHandler kSharedMemoryHandler;
-  static const SpecialHandler kSpecialHandler;
 
   if (semantic_family == "scalar_memory") {
     return &kScalarMemoryHandler;
@@ -2411,9 +2311,9 @@ const IEncodedSemanticHandler* HandlerForSemanticFamily(std::string_view semanti
   if (semantic_family == "branch_or_sync") {
     if (mnemonic == "s_barrier" || mnemonic == "s_waitcnt" || mnemonic == "s_endpgm" ||
         mnemonic == "s_nop") {
-      return &kSpecialHandler;
+      return &semantics::GetSpecialHandler();
     }
-    return &kBranchHandler;
+    return &semantics::GetBranchHandler();
   }
   return nullptr;
 }
