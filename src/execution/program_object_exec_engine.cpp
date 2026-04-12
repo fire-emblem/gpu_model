@@ -351,7 +351,9 @@ void InitializeWaveAbiState(WaveContext& wave,
       const uint32_t local_x = linear_local_id % config.block_dim_x;
       const uint32_t local_y = (linear_local_id / config.block_dim_x) % config.block_dim_y;
       const uint32_t local_z = linear_local_id / (config.block_dim_x * config.block_dim_y);
-      wave.vgpr.Write(0, lane, local_x);
+      // Use packed format for consistency with compiler expectations
+      const uint32_t packed_id = (local_x & 0x3ffu) | ((local_y & 0x3ffu) << 10u) | ((local_z & 0x3ffu) << 20u);
+      wave.vgpr.Write(0, lane, packed_id);
       wave.vgpr.Write(1, lane, local_y);
       wave.vgpr.Write(2, lane, local_z);
     }
@@ -414,7 +416,11 @@ void InitializeWaveAbiState(WaveContext& wave,
     const uint32_t local_x = linear_local_id % config.block_dim_x;
     const uint32_t local_y = (linear_local_id / config.block_dim_x) % config.block_dim_y;
     const uint32_t local_z = linear_local_id / (config.block_dim_x * config.block_dim_y);
-    wave.vgpr.Write(0, lane, local_x);
+    // AMDGPU packed workitem ID format (when enable_vgpr_workitem_id >= 1):
+    // Bits [9:0] = local_x, bits [19:10] = local_y, bits [29:20] = local_z
+    // The compiler uses v_bfe_u32 to extract each component.
+    const uint32_t packed_id = (local_x & 0x3ffu) | ((local_y & 0x3ffu) << 10u) | ((local_z & 0x3ffu) << 20u);
+    wave.vgpr.Write(0, lane, packed_id);
     if (descriptor.enable_vgpr_workitem_id >= 1) {
       wave.vgpr.Write(1, lane, local_y);
     }

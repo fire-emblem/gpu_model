@@ -1,7 +1,7 @@
 # GPU_MODEL_KERNEL: asm_hidden_args_3d
 # GPU_MODEL_EXPECT_MNEMONICS: s_load_dwordx2,s_load_dword,s_waitcnt,s_add_u32,v_mov_b32_e32,global_store_dword,s_endpgm
 
-.amdgcn_target "amdgcn-amd-amdhsa--gfx900"
+.amdgcn_target "amdgcn-amd-amdhsa--gfx90a"
 
 .text
 .globl asm_hidden_args_3d

@@ -311,6 +311,13 @@ class ScalarCompareHandler final : public BaseHandler {
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(1), context));
       context.wave.SetScalarMaskBit0(lhs == rhs);
     } else if (descriptor.op_type == GcnIsaOpType::Sopc &&
+               descriptor.opcode == static_cast<uint16_t>(GcnIsaSopcOpcode::S_CMP_LG_U32)) {
+      const uint32_t lhs =
+          static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(0), context));
+      const uint32_t rhs =
+          static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(1), context));
+      context.wave.SetScalarMaskBit0(lhs != rhs);
+    } else if (descriptor.op_type == GcnIsaOpType::Sopc &&
                descriptor.opcode == static_cast<uint16_t>(GcnIsaSopcOpcode::S_CMP_GT_U32)) {
       const uint32_t lhs =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(0), context));

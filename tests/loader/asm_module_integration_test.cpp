@@ -173,9 +173,9 @@ TEST(AsmModuleIntegrationTest, DecodesModuleFromLlvmMcAssembledAmdgpuAssembly) {
       [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "global_store_dword"; });
   ASSERT_NE(store_it, image.instructions().end());
   ASSERT_EQ(store_it->decoded_operands.size(), 4u);
-  EXPECT_EQ(store_it->decoded_operands[0].text, "v1");
+  EXPECT_EQ(store_it->decoded_operands[0].text, "v0");
   EXPECT_EQ(store_it->decoded_operands[1].text, "s[0:1]");
-  EXPECT_EQ(store_it->decoded_operands[2].text, "v3");
+  EXPECT_EQ(store_it->decoded_operands[2].text, "v2");
   EXPECT_EQ(store_it->decoded_operands[3].text, "off");
 }
 
@@ -259,7 +259,7 @@ TEST(AsmModuleIntegrationTest, DecodesFlatAndAtomicLlvmMcAssemblyModule) {
   ASSERT_NE(flat_load_it, image.instructions().end());
   ASSERT_EQ(flat_load_it->decoded_operands.size(), 4u);
   EXPECT_EQ(flat_load_it->decoded_operands[0].text, "v4");
-  EXPECT_EQ(flat_load_it->decoded_operands[1].text, "v1");
+  EXPECT_EQ(flat_load_it->decoded_operands[1].text, "v0");
   EXPECT_EQ(flat_load_it->decoded_operands[2].text, "s[0:1]");
   EXPECT_EQ(flat_load_it->decoded_operands[3].text, "off");
 
@@ -268,7 +268,7 @@ TEST(AsmModuleIntegrationTest, DecodesFlatAndAtomicLlvmMcAssemblyModule) {
       [](const EncodedGcnInstruction& inst) { return inst.mnemonic == "global_store_dword"; });
   ASSERT_NE(flat_store_it, image.instructions().end());
   ASSERT_EQ(flat_store_it->decoded_operands.size(), 4u);
-  EXPECT_EQ(flat_store_it->decoded_operands[0].text, "v1");
+  EXPECT_EQ(flat_store_it->decoded_operands[0].text, "v0");
   EXPECT_EQ(flat_store_it->decoded_operands[1].text, "s[0:1]");
   EXPECT_EQ(flat_store_it->decoded_operands[2].text, "v4");
   EXPECT_EQ(flat_store_it->decoded_operands[3].text, "off");

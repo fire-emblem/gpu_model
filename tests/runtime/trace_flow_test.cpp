@@ -167,12 +167,12 @@ test_utils::AssembledModule AssembleEncodedExplicitWaitcntModule(const std::stri
 encoded_cycle_explicit_waitcnt_kernel:
   s_load_dwordx2 s[2:3], s[0:1], 0x0
   s_waitcnt lgkmcnt(0)
-  v_mov_b32_e32 v1, s2
-  v_mov_b32_e32 v2, s3
-  global_load_dword v4, v[1:2], off
+  v_mov_b32_e32 v0, s2
+  v_mov_b32_e32 v1, s3
+  global_load_dword v3, v[0:1], off
   s_mov_b32 s4, 7
   s_waitcnt vmcnt(0)
-  v_add_u32_e32 v5, v4, v4
+  v_add_u32_e32 v4, v3, v3
   s_endpgm
 .Lfunc_end0:
   .size encoded_cycle_explicit_waitcnt_kernel, .Lfunc_end0-encoded_cycle_explicit_waitcnt_kernel
@@ -183,6 +183,7 @@ encoded_cycle_explicit_waitcnt_kernel:
   .amdhsa_user_sgpr_kernarg_segment_ptr 1
   .amdhsa_next_free_vgpr 6
   .amdhsa_next_free_sgpr 5
+  .amdhsa_accum_offset 4
 .end_amdhsa_kernel
 
 .amdgpu_metadata

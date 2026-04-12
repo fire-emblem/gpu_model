@@ -48,9 +48,9 @@ test_utils::AssembledModule AssembleEncodedExplicitWaitcntModule(const std::stri
 encoded_cycle_explicit_waitcnt_kernel:
   s_load_dwordx2 s[2:3], s[0:1], 0x0
   s_waitcnt lgkmcnt(0)
-  v_mov_b32_e32 v1, s2
-  v_mov_b32_e32 v2, s3
-  global_load_dword v4, v[1:2], off
+  v_mov_b32_e32 v0, s2
+  v_mov_b32_e32 v1, s3
+  global_load_dword v3, v[0:1], off
   s_mov_b32 s4, 7
   s_waitcnt vmcnt(0)
   v_add_u32_e32 v5, v4, v4
@@ -64,6 +64,7 @@ encoded_cycle_explicit_waitcnt_kernel:
   .amdhsa_user_sgpr_kernarg_segment_ptr 1
   .amdhsa_next_free_vgpr 6
   .amdhsa_next_free_sgpr 5
+  .amdhsa_accum_offset 4
 .end_amdhsa_kernel
 
 .amdgpu_metadata
@@ -701,13 +702,13 @@ TEST(TraceEncodedTest, PerfettoProtoShowsEncodedFunctionalLoadArriveInMultiThrea
 encoded_trace_waitcnt_kernel:
   s_load_dwordx2 s[2:3], s[0:1], 0x0
   s_waitcnt lgkmcnt(0)
-  v_mov_b32_e32 v1, s2
-  v_mov_b32_e32 v2, s3
-  global_load_dword v4, v[1:2], off
-  global_load_dword v5, v[1:2], off
+  v_mov_b32_e32 v0, s2
+  v_mov_b32_e32 v1, s3
+  global_load_dword v3, v[0:1], off
+  global_load_dword v4, v[2:3], off
   s_waitcnt vmcnt(0)
-  v_add_u32_e32 v6, v4, v5
-  global_store_dword v[1:2], v6, off
+  v_add_u32_e32 v5, v3, v4
+  global_store_dword v[0:1], v5, off
   s_endpgm
 .Lfunc_end0:
   .size encoded_trace_waitcnt_kernel, .Lfunc_end0-encoded_trace_waitcnt_kernel
@@ -718,6 +719,7 @@ encoded_trace_waitcnt_kernel:
   .amdhsa_user_sgpr_kernarg_segment_ptr 1
   .amdhsa_next_free_vgpr 7
   .amdhsa_next_free_sgpr 4
+  .amdhsa_accum_offset 4
 .end_amdhsa_kernel
 
 .amdgpu_metadata
@@ -901,9 +903,11 @@ TEST(TraceEncodedTest, FunctionalPreWaitArriveIsNotReboundToWaitResume) {
 encoded_functional_pre_wait_arrive_kernel:
   s_load_dwordx2 s[2:3], s[0:1], 0x0
   s_waitcnt lgkmcnt(0)
-  v_mov_b32_e32 v1, s2
-  v_mov_b32_e32 v2, s3
-  global_load_dword v4, v[1:2], off
+  v_mov_b32_e32 v0, s2
+  v_mov_b32_e32 v1, s3
+  v_mov_b32_e32 v2, s2
+  v_mov_b32_e32 v3, s3
+  global_load_dword v4, v[0:1], off
   s_mov_b32 s4, 1
   s_mov_b32 s5, 2
   s_mov_b32 s6, 3
@@ -916,7 +920,7 @@ encoded_functional_pre_wait_arrive_kernel:
   s_mov_b32 s13, 10
   s_mov_b32 s14, 11
   s_mov_b32 s15, 12
-  global_load_dword v5, v[1:2], off
+  global_load_dword v5, v[2:3], off
   s_waitcnt vmcnt(0)
   v_add_u32_e32 v6, v4, v5
   s_endpgm
@@ -929,6 +933,7 @@ encoded_functional_pre_wait_arrive_kernel:
   .amdhsa_user_sgpr_kernarg_segment_ptr 1
   .amdhsa_next_free_vgpr 7
   .amdhsa_next_free_sgpr 16
+  .amdhsa_accum_offset 4
 .end_amdhsa_kernel
 
 .amdgpu_metadata
@@ -1135,6 +1140,7 @@ encoded_instruction_slice_kernel:
 .amdhsa_kernel encoded_instruction_slice_kernel
   .amdhsa_next_free_vgpr 3
   .amdhsa_next_free_sgpr 0
+  .amdhsa_accum_offset 4
 .end_amdhsa_kernel
 
 .amdgpu_metadata
@@ -1206,6 +1212,7 @@ encoded_instruction_cycle_quanta_kernel:
 .amdhsa_kernel encoded_instruction_cycle_quanta_kernel
   .amdhsa_next_free_vgpr 3
   .amdhsa_next_free_sgpr 0
+  .amdhsa_accum_offset 4
 .end_amdhsa_kernel
 
 .amdgpu_metadata
@@ -1375,12 +1382,12 @@ TEST(TraceEncodedTest, PerfettoProtoShowsEncodedFunctionalWaitcntStallWhenLoadLa
 encoded_trace_waitcnt_stall_kernel:
   s_load_dwordx2 s[2:3], s[0:1], 0x0
   s_waitcnt lgkmcnt(0)
-  v_mov_b32_e32 v1, s2
-  v_mov_b32_e32 v2, s3
-  global_load_dword v4, v[1:2], off
+  v_mov_b32_e32 v0, s2
+  v_mov_b32_e32 v1, s3
+  global_load_dword v3, v[0:1], off
   s_waitcnt vmcnt(0)
-  v_add_u32_e32 v5, v4, v4
-  global_store_dword v[1:2], v5, off
+  v_add_u32_e32 v4, v3, v3
+  global_store_dword v[0:1], v4, off
   s_endpgm
 .Lfunc_end0:
   .size encoded_trace_waitcnt_stall_kernel, .Lfunc_end0-encoded_trace_waitcnt_stall_kernel
@@ -1391,6 +1398,7 @@ encoded_trace_waitcnt_stall_kernel:
   .amdhsa_user_sgpr_kernarg_segment_ptr 1
   .amdhsa_next_free_vgpr 6
   .amdhsa_next_free_sgpr 4
+  .amdhsa_accum_offset 4
 .end_amdhsa_kernel
 
 .amdgpu_metadata

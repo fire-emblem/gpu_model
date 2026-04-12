@@ -1,7 +1,7 @@
 # GPU_MODEL_KERNEL: asm_vop_compare_variants
 # GPU_MODEL_EXPECT_MNEMONICS: v_mov_b32_e32,v_cmp_eq_u32_e32,v_cmp_gt_i32_e32,v_cmp_gt_u32_e32,v_cmp_le_i32_e32,v_cmp_lt_i32_e32,v_cmp_ngt_f32_e32,v_cmp_nlt_f32_e32,v_cmp_gt_i32_e64,s_endpgm
 
-.amdgcn_target "amdgcn-amd-amdhsa--gfx900"
+.amdgcn_target "amdgcn-amd-amdhsa--gfx90a"
 
 .text
 .globl asm_vop_compare_variants

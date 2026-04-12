@@ -1,7 +1,7 @@
 # GPU_MODEL_KERNEL: asm_smrd_scalar_memory_variants
 # GPU_MODEL_EXPECT_MNEMONICS: s_load_dword,s_load_dwordx2,s_load_dwordx4,s_waitcnt,s_endpgm
 
-.amdgcn_target "amdgcn-amd-amdhsa--gfx900"
+.amdgcn_target "amdgcn-amd-amdhsa--gfx90a"
 
 .text
 .globl asm_smrd_scalar_memory_variants

@@ -1,7 +1,7 @@
 # GPU_MODEL_KERNEL: asm_sop_scalar_variants
 # GPU_MODEL_EXPECT_MNEMONICS: s_mov_b32,s_mov_b64,s_movk_i32,s_add_u32,s_addc_u32,s_cmp_lt_i32,s_cbranch_scc0,s_and_b64,s_or_b64,s_andn2_b64,s_bcnt1_i32_b64,s_nop,s_endpgm
 
-.amdgcn_target "amdgcn-amd-amdhsa--gfx900"
+.amdgcn_target "amdgcn-amd-amdhsa--gfx90a"
 
 .text
 .globl asm_sop_scalar_variants

@@ -31,26 +31,54 @@ class FlatMemoryHandler final : public BaseHandler {
                                  ? instruction.operands.back().info.immediate
                                  : 0;
       const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
-      const auto [addr, _] = RequireVectorRange(instruction.operands.at(1));
       request.dst = RegRef{.file = RegisterFile::Vector, .index = vdst};
-      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
-        if (!context.wave.exec.test(lane)) {
-          continue;
+      if (instruction.operands.at(1).kind == DecodedInstructionOperandKind::VectorRegRange) {
+        // Flat-style: address is in a vector register pair
+        const auto [addr, _] = RequireVectorRange(instruction.operands.at(1));
+        for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+          if (!context.wave.exec.test(lane)) {
+            continue;
+          }
+          const uint64_t lo = static_cast<uint32_t>(context.wave.vgpr.Read(addr, lane));
+          const uint64_t hi = static_cast<uint32_t>(context.wave.vgpr.Read(addr + 1, lane));
+          const uint64_t address = static_cast<uint64_t>(static_cast<int64_t>((hi << 32u) | lo) + offset);
+          const uint32_t value = context.memory.LoadGlobalValue<uint32_t>(address);
+          request.exec_snapshot.set(lane);
+          request.lanes[lane] = LaneAccess{
+              .active = true,
+              .addr = address,
+              .bytes = 4,
+              .value = value,
+              .has_read_value = true,
+              .read_value = value,
+          };
+          context.wave.vgpr.Write(vdst, lane, value);
         }
-        const uint64_t lo = static_cast<uint32_t>(context.wave.vgpr.Read(addr, lane));
-        const uint64_t hi = static_cast<uint32_t>(context.wave.vgpr.Read(addr + 1, lane));
-        const uint64_t address = static_cast<uint64_t>(static_cast<int64_t>((hi << 32u) | lo) + offset);
-        const uint32_t value = context.memory.LoadGlobalValue<uint32_t>(address);
-        request.exec_snapshot.set(lane);
-        request.lanes[lane] = LaneAccess{
-            .active = true,
-            .addr = address,
-            .bytes = 4,
-            .value = value,
-            .has_read_value = true,
-            .read_value = value,
-        };
-        context.wave.vgpr.Write(vdst, lane, value);
+      } else {
+        // Scalar-base: address = saddr + vaddr + offset
+        // Decoded operand order: [vdst, saddr, vaddr, offset]
+        const auto [saddr, _] = RequireScalarRange(instruction.operands.at(1));
+        const uint32_t vaddr = RequireVectorIndex(instruction.operands.at(2));
+        const uint64_t base = static_cast<uint64_t>(context.wave.sgpr.Read(saddr)) |
+                              (static_cast<uint64_t>(context.wave.sgpr.Read(saddr + 1)) << 32u);
+        for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+          if (!context.wave.exec.test(lane)) {
+            continue;
+          }
+          const int32_t voffset = static_cast<int32_t>(context.wave.vgpr.Read(vaddr, lane));
+          const uint64_t address = static_cast<uint64_t>(static_cast<int64_t>(base) + voffset + offset);
+          const uint32_t value = context.memory.LoadGlobalValue<uint32_t>(address);
+          request.exec_snapshot.set(lane);
+          request.lanes[lane] = LaneAccess{
+              .active = true,
+              .addr = address,
+              .bytes = 4,
+              .value = value,
+              .has_read_value = true,
+              .read_value = value,
+          };
+          context.wave.vgpr.Write(vdst, lane, value);
+        }
       }
       ++context.stats.global_loads;
     } else if (instruction.mnemonic == "global_store_dword") {
@@ -81,6 +109,10 @@ class FlatMemoryHandler final : public BaseHandler {
               address, static_cast<uint32_t>(context.wave.vgpr.Read(data, lane)));
         }
       } else {
+        // AMDGPU asm syntax: global_store_dword vaddr, saddr, vdata [offset]
+        // Decoded operand order: [vaddr, saddr, vdata, offset]
+        // For SADDR variant: vaddr=vreg, saddr=sreg_pair, vdata=vreg
+        // For flat variant: vaddr=vreg_pair (addr), vdata=vreg
         const uint32_t vaddr = RequireVectorIndex(instruction.operands.at(0));
         const auto [saddr, _] = RequireScalarRange(instruction.operands.at(1));
         const uint32_t data = RequireVectorIndex(instruction.operands.at(2));
@@ -90,19 +122,19 @@ class FlatMemoryHandler final : public BaseHandler {
           if (!context.wave.exec.test(lane)) {
             continue;
           }
-          const int32_t offset = static_cast<int32_t>(context.wave.vgpr.Read(vaddr, lane));
-          const uint64_t address = static_cast<uint64_t>(static_cast<int64_t>(base) + offset);
+          const int32_t voffset = static_cast<int32_t>(context.wave.vgpr.Read(vaddr, lane));
+          const uint64_t address = static_cast<uint64_t>(static_cast<int64_t>(base) + voffset + offset);
+          const uint32_t store_val = static_cast<uint32_t>(context.wave.vgpr.Read(data, lane));
           request.exec_snapshot.set(lane);
           request.lanes[lane] = LaneAccess{
               .active = true,
               .addr = address,
               .bytes = 4,
-              .value = static_cast<uint32_t>(context.wave.vgpr.Read(data, lane)),
+              .value = store_val,
               .has_write_value = true,
-              .write_value = static_cast<uint32_t>(context.wave.vgpr.Read(data, lane)),
+              .write_value = store_val,
           };
-          context.memory.StoreGlobalValue<uint32_t>(
-              address, static_cast<uint32_t>(context.wave.vgpr.Read(data, lane)));
+          context.memory.StoreGlobalValue<uint32_t>(address, store_val);
         }
       }
       ++context.stats.global_stores;

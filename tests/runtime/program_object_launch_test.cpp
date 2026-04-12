@@ -78,11 +78,11 @@ TEST(ProgramObjectLaunchTest, CycleLaunchWaitsForLoadArrivalBeforeDependentUse) 
 cycle_load_use_no_wait:
   s_load_dwordx2 s[2:3], s[0:1], 0x0
   s_waitcnt lgkmcnt(0)
-  v_mov_b32_e32 v1, s2
-  v_mov_b32_e32 v2, s3
-  global_load_dword v4, v[1:2], off
-  v_add_u32_e32 v5, v4, v4
-  global_store_dword v[1:2], v5, off
+  v_mov_b32_e32 v0, s2
+  v_mov_b32_e32 v1, s3
+  global_load_dword v3, v[0:1], off
+  v_add_u32_e32 v4, v3, v3
+  global_store_dword v[0:1], v4, off
   s_endpgm
 .Lfunc_end0:
   .size cycle_load_use_no_wait, .Lfunc_end0-cycle_load_use_no_wait
@@ -93,6 +93,7 @@ cycle_load_use_no_wait:
   .amdhsa_user_sgpr_kernarg_segment_ptr 1
   .amdhsa_next_free_vgpr 6
   .amdhsa_next_free_sgpr 4
+  .amdhsa_accum_offset 4
 .end_amdhsa_kernel
 
 .amdgpu_metadata

@@ -1,7 +1,7 @@
 # GPU_MODEL_KERNEL: asm_fallback_abi_kernarg
 # GPU_MODEL_EXPECT_MNEMONICS: s_load_dwordx2,v_mov_b32_e32,global_store_dword,s_endpgm
 
-.amdgcn_target "amdgcn-amd-amdhsa--gfx900"
+.amdgcn_target "amdgcn-amd-amdhsa--gfx90a"
 
 .text
 .globl asm_fallback_abi_kernarg

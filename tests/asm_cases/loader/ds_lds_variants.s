@@ -1,7 +1,7 @@
 # GPU_MODEL_KERNEL: asm_ds_lds_variants
 # GPU_MODEL_EXPECT_MNEMONICS: v_mov_b32_e32,ds_write_b32,ds_read_b32,s_barrier,s_endpgm
 
-.amdgcn_target "amdgcn-amd-amdhsa--gfx900"
+.amdgcn_target "amdgcn-amd-amdhsa--gfx90a"
 
 .text
 .globl asm_ds_lds_variants

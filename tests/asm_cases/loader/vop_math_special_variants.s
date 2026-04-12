@@ -1,7 +1,7 @@
 # GPU_MODEL_KERNEL: asm_vop_math_special_variants
 # GPU_MODEL_EXPECT_MNEMONICS: v_mov_b32_e32,v_rndne_f32_e32,v_exp_f32_e32,v_rcp_f32_e32,v_cvt_i32_f32_e32,v_ldexp_f32,v_div_fmas_f32,v_div_fixup_f32,v_div_scale_f32,s_endpgm
 
-.amdgcn_target "amdgcn-amd-amdhsa--gfx900"
+.amdgcn_target "amdgcn-amd-amdhsa--gfx90a"
 
 .text
 .globl asm_vop_math_special_variants

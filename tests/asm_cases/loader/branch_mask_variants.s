@@ -1,7 +1,7 @@
 # GPU_MODEL_KERNEL: asm_branch_mask_variants
 # GPU_MODEL_EXPECT_MNEMONICS: s_mov_b64,s_and_saveexec_b64,s_cmp_eq_u32,s_cbranch_scc1,s_branch,s_cbranch_execz,s_cbranch_execnz,s_cbranch_vccz,s_or_b64,s_endpgm
 
-.amdgcn_target "amdgcn-amd-amdhsa--gfx900"
+.amdgcn_target "amdgcn-amd-amdhsa--gfx90a"
 
 .text
 .globl asm_branch_mask_variants

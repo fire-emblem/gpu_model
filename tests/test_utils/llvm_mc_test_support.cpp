@@ -164,6 +164,7 @@ std::string WrapAmdgpuKernelAssembly(const std::string& kernel_name,
   }
   out << "  .amdhsa_next_free_vgpr " << next_free_vgpr << "\n";
   out << "  .amdhsa_next_free_sgpr " << next_free_sgpr << "\n";
+  out << "  .amdhsa_accum_offset 4\n";
   out << ".end_amdhsa_kernel\n\n";
   out << ".amdgpu_metadata\n";
   out << "---\n";

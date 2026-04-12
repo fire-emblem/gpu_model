@@ -411,6 +411,27 @@ class VLdexpF32Handler final : public VectorLaneHandler<VLdexpF32Handler> {
   }
 };
 
+// v_bfe_u32: dst = (src0 >> src1) & ((1 << src2) - 1)
+// Extracts src2 bits starting from bit src1 from src0
+class VBfeU32Handler final : public VectorLaneHandler<VBfeU32Handler> {
+ public:
+  void ExecuteLane(const DecodedInstruction& instruction,
+                   EncodedWaveContext& context, uint32_t lane) const {
+    const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
+    const uint32_t src0 = static_cast<uint32_t>(
+        ResolveVectorLane(instruction.operands.at(1), context, lane));
+    const uint32_t offset = static_cast<uint32_t>(
+        ResolveVectorLane(instruction.operands.at(2), context, lane)) & 31u;
+    const uint32_t width = static_cast<uint32_t>(
+        ResolveVectorLane(instruction.operands.at(3), context, lane)) & 31u;
+    uint32_t result = 0;
+    if (width > 0) {
+      result = (src0 >> offset) & ((1u << width) - 1u);
+    }
+    context.wave.vgpr.Write(vdst, lane, result);
+  }
+};
+
 class VReadlaneB32Handler final : public BaseHandler {
  protected:
   void ExecuteImpl(const DecodedInstruction& instruction,
@@ -1164,6 +1185,7 @@ static const VRcpIflagF32Handler kVRcpIflagF32Handler;
 static const VAshrrevI32Handler kVAshrrevI32Handler;
 static const VLshlAddU32Handler kVLshlAddU32Handler;
 static const VLdexpF32Handler kVLdexpF32Handler;
+static const VBfeU32Handler kVBfeU32Handler;
 static const VReadlaneB32Handler kVReadlaneB32Handler;
 static const VDivScaleF32Handler kVDivScaleF32Handler;
 static const VDivFmasF32Handler kVDivFmasF32Handler;
@@ -1236,6 +1258,7 @@ struct VectorHandlerRegistrar {
     registry.Register("v_ashrrev_i32_e32", &kVAshrrevI32Handler);
     registry.Register("v_lshl_add_u32", &kVLshlAddU32Handler);
     registry.Register("v_ldexp_f32", &kVLdexpF32Handler);
+    registry.Register("v_bfe_u32", &kVBfeU32Handler);
     registry.Register("v_readlane_b32", &kVReadlaneB32Handler);
     registry.Register("v_div_scale_f32", &kVDivScaleF32Handler);
     registry.Register("v_div_fmas_f32", &kVDivFmasF32Handler);
