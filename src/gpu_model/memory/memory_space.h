@@ -1,27 +1,5 @@
 #pragma once
 
-namespace gpu_model {
-
-enum class MemorySpace {
-  Global,
-  Constant,
-  Shared,
-  Private,
-};
-
-enum class AccessKind {
-  Load,
-  Store,
-  Atomic,
-  AsyncLoad,
-  AsyncStore,
-};
-
-enum class AtomicOp {
-  Add,
-  Max,
-  Min,
-  Exch,
-};
-
-}  // namespace gpu_model
+// Bridge header — canonical location is gpu_arch/memory/memory_space.h
+// This file will be removed after migration is complete.
+#include "gpu_model/gpu_arch/memory/memory_space.h"
