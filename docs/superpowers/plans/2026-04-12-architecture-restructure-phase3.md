@@ -1,5 +1,7 @@
 # Architecture Restructure Phase 3 — Program/Loader Pipeline Split
 
+## Status: ✅ 已完成
+
 ## Context
 
 Phase 1-2 已完成（utils/, gpu_arch/ 基础设施层落地）。Phase 4-5 已完成（instruction/semantics 拆分 + execution 精简）。

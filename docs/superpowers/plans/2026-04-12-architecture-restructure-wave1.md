@@ -200,10 +200,10 @@ instruction/semantics/
 | 编号 | 违规 | 状态 |
 |------|------|------|
 | V1 | gpu_arch_spec.h -> execution/internal/issue_model.h | ✅ 已修复 (Wave 1 Task 2) |
-| V2 | state/peu_state.h -> execution/wave_context.h | ⏳ 桥接 (Phase 3 深拆) |
+| V2 | state/peu_state.h -> execution/wave_context.h | ✅ 已修复 (消费者已更新) |
 | V3 | runtime/runtime_config.h -> execution 类型 | ✅ 已修复 (Wave 1 Task 1) |
 | V4 | encoded_handler_utils.h 混合多层 | ✅ 已修复 (Wave 2 Task 2) |
-| V5 | execution_state.h 与 ap_state.h 重叠 | ⏳ 桥接 (Phase 3 深拆) |
+| V5 | execution_state.h 与 ap_state.h 重叠 | ✅ 已修复 (execution_state.h 精简为工厂函数) |
 
 ## Phase 5 (Execution 精简) ✅ 已完成
 
@@ -238,3 +238,33 @@ gpu_arch/
 ├── register/register_file.h  # SGPRFile, VGPRFile, AGPRFile
 └── wave/wave_def.h        # kWaveSize, WaveStatus, WaveRunState, WaveWaitReason
 ```
+
+## Phase 3 (Program/Loader Pipeline Split) ✅ 已完成
+
+Phase 3 将 artifact ingestion 拆分为可测试、可替换的组件。
+
+- [x] **Task 1: Extract ExternalToolExecutor**
+  - 外部工具调用 (readelf, llvm-objdump) 提取到独立模块
+  - Commit: 前序已落地
+
+- [x] **Task 2: Extract TempDirManager**
+  - 临时目录管理提取到独立模块
+  - Commit: 前序已落地
+
+- [x] **Task 3: Extract ArtifactParser**
+  - 解析函数 (ParseSectionInfo, ParseSymbols, ParseKernelMetadataNotes) 提取到独立模块
+  - Commit: 前序已落地
+
+- [x] **Task 4: Make ObjectReader a Façade**
+  - ObjectReader 简化为真正的 façade
+  - encoded_program_object.cpp 从 856 行精简到 430 行
+
+- [x] **Task 5: Add Focused Tests**
+  - artifact_parser_test.cpp 已存在
+
+- [x] **V2 违规彻底修复**
+  - 更新 15 个消费侧文件使用新路径 state/wave/wave_runtime_state.h
+  - execution/wave_context.h 保留为桥接头
+  - Commit: `8002724`
+
+所有分层违规 (V1-V5) 已完全修复。架构重构计划完成。
