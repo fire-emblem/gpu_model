@@ -37,7 +37,7 @@
 #include "gpu_model/execution/plan_apply.h"
 #include "gpu_model/execution/sync_ops.h"
 #include "gpu_model/execution/wave_context_builder.h"
-#include "gpu_model/isa/opcode.h"
+#include "gpu_model/instruction/isa/opcode.h"
 #include "gpu_model/loader/device_image_loader.h"
 #include "gpu_model/runtime/program_cycle_tracker.h"
 

@@ -10,7 +10,7 @@
 #include <string_view>
 #include <vector>
 
-#include "gpu_model/isa/canonical_instruction_builder.h"
+#include "gpu_model/instruction/isa/canonical_instruction_builder.h"
 
 namespace gpu_model {
 

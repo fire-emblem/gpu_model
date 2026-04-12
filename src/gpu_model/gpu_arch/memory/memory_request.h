@@ -6,7 +6,7 @@
 #include <optional>
 
 #include "gpu_model/gpu_arch/memory/memory_space.h"
-#include "gpu_model/isa/operand.h"
+#include "gpu_model/instruction/isa/operand.h"
 
 namespace gpu_model {
 

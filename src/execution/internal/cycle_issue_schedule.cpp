@@ -3,7 +3,7 @@
 #include <string>
 
 #include "gpu_model/execution/internal/barrier_resource_pool.h"
-#include "gpu_model/isa/opcode.h"
+#include "gpu_model/instruction/isa/opcode.h"
 #include "gpu_model/program/executable_kernel.h"
 
 namespace gpu_model {

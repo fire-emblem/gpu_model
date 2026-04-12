@@ -19,7 +19,7 @@
 
 #include "gpu_model/instruction/encoded/internal/encoded_gcn_encoding_def.h"
 #include "gpu_model/instruction/encoded/instruction_object.h"
-#include "gpu_model/isa/kernel_metadata.h"
+#include "gpu_model/instruction/isa/kernel_metadata.h"
 #include "gpu_model/loader/artifact_parser.h"
 #include "gpu_model/loader/external_tool_executor.h"
 #include "gpu_model/loader/temp_dir_manager.h"

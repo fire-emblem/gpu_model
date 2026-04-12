@@ -10,8 +10,8 @@
 #include <utility>
 #include <vector>
 
-#include "gpu_model/isa/instruction.h"
-#include "gpu_model/isa/metadata.h"
+#include "gpu_model/instruction/isa/instruction.h"
+#include "gpu_model/instruction/isa/metadata.h"
 #include "gpu_model/program/program_object.h"
 
 namespace gpu_model {

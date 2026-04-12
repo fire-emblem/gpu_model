@@ -1,4 +1,4 @@
-#include "gpu_model/isa/instruction_builder.h"
+#include "gpu_model/instruction/isa/instruction_builder.h"
 
 namespace gpu_model {
 

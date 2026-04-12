@@ -10,7 +10,7 @@
 #include <vector>
 
 #include "gpu_model/debug/trace/sink.h"
-#include "gpu_model/isa/metadata.h"
+#include "gpu_model/instruction/isa/metadata.h"
 #include "gpu_model/loader/device_segment_image.h"
 #include "gpu_model/memory/memory_system.h"
 #include "gpu_model/memory/memory_pool.h"

@@ -5,7 +5,7 @@
 #include <optional>
 #include <string_view>
 
-#include "gpu_model/isa/opcode.h"
+#include "gpu_model/instruction/isa/opcode.h"
 
 namespace gpu_model {
 

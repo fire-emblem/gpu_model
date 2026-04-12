@@ -37,7 +37,7 @@
 #include "gpu_model/instruction/encoded/internal/encoded_instruction_descriptor.h"
 #include "gpu_model/execution/sync_ops.h"
 #include "gpu_model/execution/wave_context_builder.h"
-#include "gpu_model/isa/kernel_metadata.h"
+#include "gpu_model/instruction/isa/kernel_metadata.h"
 #include "gpu_model/loader/device_image_loader.h"
 #include "gpu_model/memory/cache_model.h"
 #include "gpu_model/memory/shared_bank_model.h"

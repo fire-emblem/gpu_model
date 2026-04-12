@@ -5,9 +5,9 @@
 #include <sstream>
 #include <string_view>
 
-#include "gpu_model/isa/instruction.h"
-#include "gpu_model/isa/opcode.h"
-#include "gpu_model/isa/operand.h"
+#include "gpu_model/instruction/isa/instruction.h"
+#include "gpu_model/instruction/isa/opcode.h"
+#include "gpu_model/instruction/isa/operand.h"
 
 namespace gpu_model {
 

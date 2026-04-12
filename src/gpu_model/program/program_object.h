@@ -10,7 +10,7 @@
 #include "gpu_model/instruction/encoded/decoded_instruction.h"
 #include "gpu_model/instruction/encoded/encoded_gcn_instruction.h"
 #include "gpu_model/instruction/encoded/instruction_object.h"
-#include "gpu_model/isa/metadata.h"
+#include "gpu_model/instruction/isa/metadata.h"
 
 namespace gpu_model {
 

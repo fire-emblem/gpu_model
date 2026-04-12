@@ -7,7 +7,7 @@
 #include <string_view>
 #include <vector>
 
-#include "gpu_model/isa/kernel_metadata.h"
+#include "gpu_model/instruction/isa/kernel_metadata.h"
 #include "gpu_model/program/program_object.h"
 
 namespace gpu_model {

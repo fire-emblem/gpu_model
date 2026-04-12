@@ -1,4 +1,4 @@
-#include "gpu_model/isa/opcode_descriptor.h"
+#include "gpu_model/instruction/isa/opcode_descriptor.h"
 
 #include <array>
 #include <stdexcept>

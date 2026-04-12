@@ -35,7 +35,7 @@
 #include "gpu_model/execution/wave_context_builder.h"
 #include "gpu_model/execution/wave_stats.h"
 #include "gpu_model/execution/internal/issue_eligibility.h"
-#include "gpu_model/isa/opcode.h"
+#include "gpu_model/instruction/isa/opcode.h"
 #include "gpu_model/loader/device_image_loader.h"
 #include "gpu_model/memory/cache_model.h"
 #include "gpu_model/memory/shared_bank_model.h"

@@ -1,4 +1,4 @@
-#include "gpu_model/isa/kernel_program_builder.h"
+#include "gpu_model/instruction/isa/kernel_program_builder.h"
 
 #include <stdexcept>
 #include <sstream>

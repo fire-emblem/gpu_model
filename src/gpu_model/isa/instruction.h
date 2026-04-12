@@ -1,31 +1,5 @@
 #pragma once
 
-#include <cstdint>
-#include <string>
-#include <vector>
-
-#include "gpu_model/isa/opcode.h"
-#include "gpu_model/isa/operand.h"
-
-namespace gpu_model {
-
-struct DebugLoc {
-  std::string file{};
-  uint32_t line = 0;
-  std::string label{};
-};
-
-struct Instruction {
-  Opcode opcode{};
-  uint32_t size_bytes = 4;
-  std::vector<Operand> operands{};
-  DebugLoc debug_loc{};
-
-  // Format complete assembly text: "v_add_f32 v0, v1, v2"
-  std::string Dump() const;
-
-  // Format operand name only: "v0", "s1", "0x100"
-  static std::string DumpOperand(const Operand& op);
-};
-
-}  // namespace gpu_model
+// Bridge header — canonical location is instruction/isa/instruction.h
+// This file will be removed after migration is complete.
+#include "gpu_model/instruction/isa/instruction.h"

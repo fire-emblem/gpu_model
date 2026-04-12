@@ -7,7 +7,7 @@
 #include <limits>
 
 #include "gpu_model/debug/trace/artifact_recorder.h"
-#include "gpu_model/isa/kernel_metadata.h"
+#include "gpu_model/instruction/isa/kernel_metadata.h"
 #include "gpu_model/loader/device_image_loader.h"
 #include "gpu_model/program/object_reader.h"
 

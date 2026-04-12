@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <vector>
 
-#include "gpu_model/isa/kernel_metadata.h"
+#include "gpu_model/instruction/isa/kernel_metadata.h"
 #include "gpu_model/runtime/kernel_arg_pack.h"
 #include "gpu_model/runtime/launch_config.h"
 

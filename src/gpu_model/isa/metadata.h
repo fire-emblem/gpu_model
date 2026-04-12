@@ -1,12 +1,5 @@
 #pragma once
 
-#include <string>
-#include <unordered_map>
-
-namespace gpu_model {
-
-struct MetadataBlob {
-  std::unordered_map<std::string, std::string> values;
-};
-
-}  // namespace gpu_model
+// Bridge header — canonical location is instruction/isa/metadata.h
+// This file will be removed after migration is complete.
+#include "gpu_model/instruction/isa/metadata.h"

@@ -1,4 +1,4 @@
-#include "gpu_model/isa/kernel_metadata.h"
+#include "gpu_model/instruction/isa/kernel_metadata.h"
 
 #include <algorithm>
 #include <cctype>

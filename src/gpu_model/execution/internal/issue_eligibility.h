@@ -5,7 +5,7 @@
 #include <string>
 
 #include "gpu_model/debug/trace/event.h"
-#include "gpu_model/isa/instruction.h"
+#include "gpu_model/instruction/isa/instruction.h"
 #include "gpu_model/state/wave/wave_runtime_state.h"
 
 namespace gpu_model {

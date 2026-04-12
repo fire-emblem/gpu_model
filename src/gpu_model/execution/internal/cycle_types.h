@@ -12,7 +12,7 @@
 #include "gpu_model/execution/internal/op_plan.h"  // OpPlan
 #include "gpu_model/state/wave/wave_runtime_state.h"  // WaveContext
 #include "gpu_model/gpu_arch/issue_config/issue_config.h"  // ArchitecturalIssuePolicy, ArchitecturalIssueLimits
-#include "gpu_model/isa/instruction.h"  // Instruction
+#include "gpu_model/instruction/isa/instruction.h"  // Instruction
 #include "gpu_model/runtime/program_cycle_stats.h"  // ProgramCycleStats, ProgramCycleStatsConfig
 #include "gpu_model/runtime/program_cycle_tracker.h"  // ExecutedStepClass
 

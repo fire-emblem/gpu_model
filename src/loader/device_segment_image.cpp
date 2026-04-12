@@ -1,6 +1,6 @@
 #include "gpu_model/loader/device_segment_image.h"
 
-#include "gpu_model/isa/kernel_metadata.h"
+#include "gpu_model/instruction/isa/kernel_metadata.h"
 
 namespace gpu_model {
 
