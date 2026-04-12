@@ -894,3 +894,30 @@
   - `tests/loader/artifact_parser_test.cpp`
   - `tests/CMakeLists.txt`
   - `CMakeLists.txt`
+
+### 阶段：2026-04-12 架构重构 Phase 4-5
+- **状态：** complete
+- 执行的操作：
+  - **Phase 4: Trace dependency decoupling**
+    - 创建 `MemoryArriveKind` 枚举（execution 层）
+    - 更新 `wave_state.h` 使用新枚举
+    - 添加 `ToTraceMemoryArriveKind()` 转换函数
+    - 更新 `functional_exec_engine.cpp` 和 `program_object_exec_engine.cpp`
+    - 解决 V4 层级违规：execution state 不再依赖 trace 层类型
+  - **Phase 5: Cycle engine extraction**（之前已完成）
+    - 提取 `cycle_types.h/cpp`
+    - 提取 `cycle_wave_schedule.h/cpp`
+    - 提取 `cycle_issue_schedule.h/cpp`
+    - `cycle_exec_engine.cpp` 从 2035 行减少到 1075 行
+- 创建/修改的文件：
+  - `src/gpu_model/execution/internal/memory_arrive_kind.h`（新增）
+  - `src/gpu_model/execution/internal/wave_state.h`
+  - `src/gpu_model/debug/trace/event_factory.h`
+  - `src/execution/functional_exec_engine.cpp`
+  - `src/execution/program_object_exec_engine.cpp`
+  - `src/gpu_model/execution/internal/cycle_types.h`
+  - `src/execution/internal/cycle_types.cpp`
+  - `src/gpu_model/execution/internal/cycle_wave_schedule.h`
+  - `src/execution/internal/cycle_wave_schedule.cpp`
+  - `src/gpu_model/execution/internal/cycle_issue_schedule.h`
+  - `src/execution/internal/cycle_issue_schedule.cpp`

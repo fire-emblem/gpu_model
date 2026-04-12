@@ -412,3 +412,28 @@
   - 通过资源、时序、issue policy、slot 约束来表达不同硬件行为
   - 不是通过宿主执行模式表达
 - 当前最新优先级已进一步切到 cycle-first 主线，而不是 runtime/ISA front-first 主线
+
+## 2026-04-12 架构重构 Phase 4-5 完成
+
+### Phase 4: Trace Dependency Decoupling
+- **问题**：`wave_state.h` 中的 `PendingMemoryOp` 使用 `TraceMemoryArriveKind`，导致 execution 层依赖 trace 层
+- **方案**：
+  - 创建 `execution/internal/memory_arrive_kind.h` 定义 `MemoryArriveKind` 枚举
+  - 在 `event_factory.h` 添加 `ToTraceMemoryArriveKind()` 转换函数
+  - execution 层内部使用 `MemoryArriveKind`，在 trace 边界转换为 trace 类型
+- **结果**：V4 层级违规解决，execution state 不再依赖 trace layer
+
+### Phase 5: Cycle Engine Extraction
+- **问题**：`cycle_exec_engine.cpp` 2035 行，Run() 方法 940 行，匿名命名空间阻止分离编译
+- **方案**：
+  - 提取 `cycle_types.h/cpp`：数据结构和 cost model
+  - 提取 `cycle_wave_schedule.h/cpp`：wave 调度和 block 管理
+  - 提取 `cycle_issue_schedule.h/cpp`：issue 调度
+  - 使用 `cycle_internal` 命名空间
+- **结果**：`cycle_exec_engine.cpp` 从 2035 行减少到 1075 行
+
+### 架构改进总结
+- V1/V3/V4 层级违规全部解决
+- V2/V5 延迟到后续 Phase 3 deep split
+- Execution 层与 trace 层解耦
+- Loader 模块化，可独立测试
