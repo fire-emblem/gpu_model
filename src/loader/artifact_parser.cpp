@@ -288,9 +288,9 @@ AmdgpuKernelDescriptor ArtifactParser::ParseKernelDescriptor(std::span<const std
   desc.private_segment_fixed_size = LoadU32(bytes, 4);
   desc.kernarg_size = LoadU32(bytes, 8);
   desc.kernel_code_entry_byte_offset = static_cast<int64_t>(LoadU64(bytes, 16));
-  desc.compute_pgm_rsrc3 = LoadU32(bytes, 40);
-  desc.compute_pgm_rsrc1 = LoadU32(bytes, 32);
-  desc.compute_pgm_rsrc2 = LoadU32(bytes, 36);
+  desc.compute_pgm_rsrc3 = LoadU32(bytes, 44);
+  desc.compute_pgm_rsrc1 = LoadU32(bytes, 48);
+  desc.compute_pgm_rsrc2 = LoadU32(bytes, 52);
   desc.setup_word = LoadU32(bytes, 56);
 
   // Derived fields from compute_pgm_rsrc3

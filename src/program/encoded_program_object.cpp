@@ -43,7 +43,8 @@ std::string Trim(std::string_view text) {
 
 bool IsAmdgpuElf(const std::filesystem::path& path) {
   const std::string header = ExternalToolExecutor::ReadElfHeader(path);
-  return header.find("AMDGPU") != std::string::npos;
+  // Match the exact string format from readelf -h output
+  return header.find("Machine:                           AMD GPU") != std::string::npos;
 }
 
 bool HasHipFatbin(const std::filesystem::path& path) {

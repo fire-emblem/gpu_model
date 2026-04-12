@@ -106,19 +106,14 @@ std::string ExternalToolExecutor::DisassembleHexByteStreamWithLlvmMc(
 
 bool ExternalToolExecutor::IsAmdgpuElf(const std::filesystem::path& path) {
   std::string header = ReadElfHeader(path);
-  return header.find("AMDGPU") != std::string::npos;
+  // Match the exact string format from readelf -h output
+  return header.find("Machine:                           AMD GPU") != std::string::npos;
 }
 
 bool ExternalToolExecutor::HasHipFatbin(const std::filesystem::path& path) {
-  std::ifstream file(path, std::ios::binary);
-  if (!file) {
-    return false;
-  }
-  std::array<char, 4> magic{};
-  file.read(magic.data(), magic.size());
-  // HIP fatbin magic: "HIPF" or "PCLF"
-  return (magic[0] == 'H' && magic[1] == 'I' && magic[2] == 'P' && magic[3] == 'F') ||
-         (magic[0] == 'P' && magic[1] == 'C' && magic[2] == 'L' && magic[3] == 'F');
+  // Check for .hip_fatbin section in ELF
+  std::string sections = ReadElfSectionTable(path);
+  return sections.find(".hip_fatbin") != std::string::npos;
 }
 
 bool ExternalToolExecutor::HasLlvmMc() {
