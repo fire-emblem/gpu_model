@@ -30,6 +30,7 @@
 #include "gpu_model/debug/trace/wave_launch_trace.h"
 #include "gpu_model/execution/internal/async_scoreboard.h"
 #include "gpu_model/execution/internal/issue_eligibility.h"
+#include "gpu_model/execution/internal/memory_arrive_kind.h"
 #include "gpu_model/execution/internal/opcode_execution_info.h"
 #include "gpu_model/execution/internal/wave_state.h"
 #include "gpu_model/execution/memory_ops.h"
@@ -126,7 +127,7 @@ class GlobalFunctionalWorkerPool {
 
 struct PendingMemoryOp {
   MemoryWaitDomain domain = MemoryWaitDomain::None;
-  TraceMemoryArriveKind arrive_kind = TraceMemoryArriveKind::Load;
+  MemoryArriveKind arrive_kind = MemoryArriveKind::Load;
   uint64_t ready_cycle = 0;
 };
 
@@ -437,7 +438,7 @@ ProgramCycleStats CollectProgramCycleStatsFromExecutedFlow(
 void RecordPendingMemoryOp(FunctionalWaveState& state,
                            WaveContext& wave,
                            MemoryWaitDomain domain,
-                           TraceMemoryArriveKind arrive_kind,
+                           MemoryArriveKind arrive_kind,
                            uint64_t ready_cycle) {
   if (domain == MemoryWaitDomain::None) {
     return;
@@ -450,19 +451,19 @@ void RecordPendingMemoryOp(FunctionalWaveState& state,
   });
 }
 
-TraceMemoryArriveKind TraceMemoryArriveKindForMemoryRequest(const MemoryRequest& request) {
+MemoryArriveKind MemoryArriveKindForMemoryRequest(const MemoryRequest& request) {
   switch (request.space) {
     case MemorySpace::Global:
-      return request.kind == AccessKind::Load ? TraceMemoryArriveKind::Load
-                                              : TraceMemoryArriveKind::Store;
+      return request.kind == AccessKind::Load ? MemoryArriveKind::Load
+                                              : MemoryArriveKind::Store;
     case MemorySpace::Shared:
-      return TraceMemoryArriveKind::Shared;
+      return MemoryArriveKind::Shared;
     case MemorySpace::Private:
-      return TraceMemoryArriveKind::Private;
+      return MemoryArriveKind::Private;
     case MemorySpace::Constant:
-      return TraceMemoryArriveKind::ScalarBuffer;
+      return MemoryArriveKind::ScalarBuffer;
   }
-  return TraceMemoryArriveKind::Load;
+  return MemoryArriveKind::Load;
 }
 
 struct FunctionalBlockBarrierState {
@@ -1295,7 +1296,7 @@ class FunctionalExecutionCoreImpl {
         TraceEvent event = MakeTraceMemoryArriveEvent(
             MakeTraceWaveView(block.waves[i]),
             op.ready_cycle,
-            op.arrive_kind,
+            ToTraceMemoryArriveKind(op.arrive_kind),
             TraceSlotModelKind::LogicalUnbounded);
         const AsyncArriveResult arrive_result = MakeAsyncArriveResult(
             block.waves[i], op.domain, block.wave_states[i].waiting_waitcnt_thresholds);
@@ -1305,7 +1306,7 @@ class FunctionalExecutionCoreImpl {
         TraceEventLocked(MakeTraceWaveArriveEvent(
             MakeTraceWaveView(block.waves[i]),
             op.ready_cycle,
-            op.arrive_kind,
+            ToTraceMemoryArriveKind(op.arrive_kind),
             TraceSlotModelKind::LogicalUnbounded,
             arrive_result.arrive_progress,
             std::numeric_limits<uint64_t>::max(),
@@ -1402,7 +1403,7 @@ class FunctionalExecutionCoreImpl {
         TraceEvent event = MakeTraceMemoryArriveEvent(
             MakeTraceWaveView(wave),
             op.ready_cycle,
-            op.arrive_kind,
+            ToTraceMemoryArriveKind(op.arrive_kind),
             TraceSlotModelKind::LogicalUnbounded);
         const AsyncArriveResult arrive_result =
             MakeAsyncArriveResult(wave, op.domain, wave_state.waiting_waitcnt_thresholds);
@@ -1412,7 +1413,7 @@ class FunctionalExecutionCoreImpl {
         TraceEventLocked(MakeTraceWaveArriveEvent(
             MakeTraceWaveView(wave),
             op.ready_cycle,
-            op.arrive_kind,
+            ToTraceMemoryArriveKind(op.arrive_kind),
             TraceSlotModelKind::LogicalUnbounded,
             arrive_result.arrive_progress,
             std::numeric_limits<uint64_t>::max(),
@@ -1470,7 +1471,7 @@ class FunctionalExecutionCoreImpl {
         RecordPendingMemoryOp(wave_state,
                               wave,
                               MemoryDomainForOpcode(instruction.opcode),
-                              TraceMemoryArriveKindForMemoryRequest(*plan.memory),
+                              MemoryArriveKindForMemoryRequest(*plan.memory),
                               commit_cycle + memory_completion_turns);
       }
       ++stats.memory_ops;

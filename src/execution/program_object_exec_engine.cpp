@@ -27,6 +27,7 @@
 #include "gpu_model/execution/internal/barrier_resource_pool.h"
 #include "gpu_model/execution/internal/cycle_issue_policy.h"
 #include "gpu_model/execution/internal/encoded_issue_candidate.h"
+#include "gpu_model/execution/internal/memory_arrive_kind.h"
 #include "gpu_model/execution/internal/tensor_op_utils.h"
 #include "gpu_model/execution/internal/issue_eligibility.h"
 #include "gpu_model/execution/internal/wave_state.h"
@@ -77,7 +78,7 @@ struct EncodedPendingMemoryOp {
   uint8_t turns_until_complete = kEncodedPendingMemoryCompletionTurns;
   uint64_t ready_cycle = 0;
   bool uses_ready_cycle = false;
-  std::optional<TraceMemoryArriveKind> arrive_kind;
+  std::optional<MemoryArriveKind> arrive_kind;
   uint64_t flow_id = 0;
 };
 
@@ -995,31 +996,31 @@ TraceStallReason TraceStallReasonForWaveWaitReason(WaveWaitReason reason) {
   return TraceStallReason::None;
 }
 
-TraceMemoryArriveKind TraceMemoryArriveKindForMemoryOp(
+MemoryArriveKind MemoryArriveKindForMemoryOp(
     MemoryWaitDomain domain,
     const std::optional<MemoryRequest>& request) {
   switch (domain) {
     case MemoryWaitDomain::Global:
       return request.has_value() && request->kind == AccessKind::Load
-                 ? TraceMemoryArriveKind::Load
-                 : TraceMemoryArriveKind::Store;
+                 ? MemoryArriveKind::Load
+                 : MemoryArriveKind::Store;
     case MemoryWaitDomain::Shared:
-      return TraceMemoryArriveKind::Shared;
+      return MemoryArriveKind::Shared;
     case MemoryWaitDomain::Private:
-      return TraceMemoryArriveKind::Private;
+      return MemoryArriveKind::Private;
     case MemoryWaitDomain::ScalarBuffer:
-      return TraceMemoryArriveKind::ScalarBuffer;
+      return MemoryArriveKind::ScalarBuffer;
     case MemoryWaitDomain::None:
-      return TraceMemoryArriveKind::Load;
+      return MemoryArriveKind::Load;
   }
-  return TraceMemoryArriveKind::Load;
+  return MemoryArriveKind::Load;
 }
 
 void RecordPendingMemoryOp(EncodedWaveState& state,
                            WaveContext& wave,
                            MemoryWaitDomain domain,
                            uint64_t ready_cycle,
-                           TraceMemoryArriveKind arrive_kind,
+                           MemoryArriveKind arrive_kind,
                            uint64_t flow_id = 0) {
   if (domain == MemoryWaitDomain::None) {
     return;
@@ -2420,7 +2421,7 @@ class EncodedExecutionCore {
           ObserveExecutionCycle(arrive_cycle);
           TraceEvent event = MakeTraceMemoryArriveEvent(MakeRawTraceWaveView(block.waves[i]),
                                                         arrive_cycle,
-                                                        *op.arrive_kind,
+                                                        ToTraceMemoryArriveKind(*op.arrive_kind),
                                                         TraceSlotModel());
           const AsyncArriveResult arrive_result = MakeAsyncArriveResult(
               block.waves[i].wave, op.domain, block.wave_states[i].waiting_waitcnt_thresholds);
@@ -2429,7 +2430,7 @@ class EncodedExecutionCore {
           TraceEventLocked(std::move(event));
           TraceEventLocked(MakeTraceWaveArriveEvent(MakeRawTraceWaveView(block.waves[i]),
                                                     arrive_cycle,
-                                                    *op.arrive_kind,
+                                                    ToTraceMemoryArriveKind(*op.arrive_kind),
                                                     TraceSlotModel(),
                                                     arrive_result.arrive_progress,
                                                     std::numeric_limits<uint64_t>::max(),
@@ -2522,7 +2523,7 @@ class EncodedExecutionCore {
           }
           TraceEvent event = MakeTraceMemoryArriveEvent(MakeRawTraceWaveView(block.waves[i]),
                                                         cycle,
-                                                        *op.arrive_kind,
+                                                        ToTraceMemoryArriveKind(*op.arrive_kind),
                                                         TraceSlotModel());
           event.flow_id = op.flow_id;
           event.flow_phase = TraceFlowPhase::Finish;
@@ -2534,7 +2535,7 @@ class EncodedExecutionCore {
           TraceEventLocked(std::move(event));
           TraceEventLocked(MakeTraceWaveArriveEvent(MakeRawTraceWaveView(block.waves[i]),
                                                     cycle,
-                                                    *op.arrive_kind,
+                                                    ToTraceMemoryArriveKind(*op.arrive_kind),
                                                     TraceSlotModel(),
                                                     arrive_result.arrive_progress,
                                                     std::numeric_limits<uint64_t>::max(),
@@ -2826,7 +2827,7 @@ class EncodedExecutionCore {
                               wave,
                               *maybe_domain,
                               ready_cycle,
-                              TraceMemoryArriveKindForMemoryOp(*maybe_domain,
+                              MemoryArriveKindForMemoryOp(*maybe_domain,
                                                                captured_memory_request));
       }
       if (wave.waiting_at_barrier) {
@@ -3002,7 +3003,7 @@ class EncodedExecutionCore {
                               wave,
                               *maybe_domain,
                               ready_cycle,
-                              TraceMemoryArriveKindForMemoryOp(*maybe_domain,
+                              MemoryArriveKindForMemoryOp(*maybe_domain,
                                                                captured_memory_request),
                               memory_flow_id);
       }

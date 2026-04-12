@@ -8,8 +8,8 @@
 #include <optional>
 #include <string>
 
-#include "gpu_model/debug/trace/event_factory.h"
 #include "gpu_model/execution/internal/issue_eligibility.h"
+#include "gpu_model/execution/internal/memory_arrive_kind.h"
 #include "gpu_model/execution/wave_context.h"
 
 namespace gpu_model {
@@ -43,7 +43,7 @@ struct PendingMemoryOp {
   uint8_t turns_until_complete = 0;
   uint64_t ready_cycle = 0;
   bool uses_ready_cycle = false;
-  std::optional<TraceMemoryArriveKind> arrive_kind;
+  std::optional<MemoryArriveKind> arrive_kind;
   uint64_t flow_id = 0;
 };
 

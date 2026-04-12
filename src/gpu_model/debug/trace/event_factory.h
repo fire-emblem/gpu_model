@@ -6,6 +6,7 @@
 #include <string_view>
 
 #include "gpu_model/debug/trace/event.h"
+#include "gpu_model/execution/internal/memory_arrive_kind.h"
 
 namespace gpu_model {
 
@@ -26,6 +27,24 @@ enum class TraceMemoryArriveKind {
   Private,
   ScalarBuffer,
 };
+
+/// Convert execution-layer MemoryArriveKind to trace-layer TraceMemoryArriveKind.
+/// This allows execution state to use MemoryArriveKind without depending on trace.
+inline TraceMemoryArriveKind ToTraceMemoryArriveKind(MemoryArriveKind kind) {
+  switch (kind) {
+    case MemoryArriveKind::Load:
+      return TraceMemoryArriveKind::Load;
+    case MemoryArriveKind::Store:
+      return TraceMemoryArriveKind::Store;
+    case MemoryArriveKind::Shared:
+      return TraceMemoryArriveKind::Shared;
+    case MemoryArriveKind::Private:
+      return TraceMemoryArriveKind::Private;
+    case MemoryArriveKind::ScalarBuffer:
+      return TraceMemoryArriveKind::ScalarBuffer;
+  }
+  return TraceMemoryArriveKind::Load;
+}
 
 inline constexpr std::string_view kTraceWaveStartMessage = "wave_start";
 inline constexpr std::string_view kTraceWaveEndMessage = "wave_end";
