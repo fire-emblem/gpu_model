@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "gpu_model/execution/wave_context.h"
+#include "gpu_model/state/wave/wave_runtime_state.h"
 #include "gpu_model/memory/memory_pool.h"
 #include "gpu_model/memory/memory_request.h"
 #include "gpu_model/memory/memory_system.h"

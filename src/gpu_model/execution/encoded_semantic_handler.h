@@ -12,7 +12,7 @@
 #include "gpu_model/memory/memory_request.h"
 #include "gpu_model/memory/memory_system.h"
 #include "gpu_model/runtime/launch_request.h"
-#include "gpu_model/execution/wave_context.h"
+#include "gpu_model/state/wave/wave_runtime_state.h"
 
 namespace gpu_model {
 

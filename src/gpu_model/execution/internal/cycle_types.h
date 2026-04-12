@@ -10,7 +10,7 @@
 #include "gpu_model/debug/trace/event_factory.h"  // TraceWaveView
 #include "gpu_model/execution/internal/cycle_issue_policy.h"  // CycleIssuePolicyForSpec
 #include "gpu_model/execution/internal/op_plan.h"  // OpPlan
-#include "gpu_model/execution/wave_context.h"  // WaveContext
+#include "gpu_model/state/wave/wave_runtime_state.h"  // WaveContext
 #include "gpu_model/gpu_arch/issue_config/issue_config.h"  // ArchitecturalIssuePolicy, ArchitecturalIssueLimits
 #include "gpu_model/isa/instruction.h"  // Instruction
 #include "gpu_model/runtime/program_cycle_stats.h"  // ProgramCycleStats, ProgramCycleStatsConfig

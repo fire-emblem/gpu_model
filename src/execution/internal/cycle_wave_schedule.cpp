@@ -12,7 +12,7 @@
 #include <vector>
 
 #include "gpu_model/debug/trace/sink.h"  // TraceSink
-#include "gpu_model/execution/wave_context.h"  // WaveContext, WaveStatus
+#include "gpu_model/state/wave/wave_runtime_state.h"  // WaveContext, WaveStatus
 #include "gpu_model/gpu_arch/wave/wave_def.h"  // kWaveSize
 #include "gpu_model/memory/memory_request.h"  // MemoryRequest
 

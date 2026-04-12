@@ -10,7 +10,7 @@
 
 #include "gpu_model/execution/internal/issue_eligibility.h"
 #include "gpu_model/execution/internal/memory_arrive_kind.h"
-#include "gpu_model/execution/wave_context.h"
+#include "gpu_model/state/wave/wave_runtime_state.h"
 
 namespace gpu_model {
 

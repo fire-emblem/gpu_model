@@ -3,7 +3,7 @@
 #include <string>
 
 #include "gpu_model/debug/trace/step_detail.h"
-#include "gpu_model/execution/wave_context.h"
+#include "gpu_model/state/wave/wave_runtime_state.h"
 #include "gpu_model/isa/instruction.h"
 
 namespace gpu_model {

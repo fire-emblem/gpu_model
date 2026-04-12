@@ -5,7 +5,7 @@
 #include "gpu_model/execution/internal/barrier_resource_pool.h"
 #include "gpu_model/execution/internal/encoded_issue_type.h"
 #include "gpu_model/execution/internal/issue_scheduler.h"
-#include "gpu_model/execution/wave_context.h"
+#include "gpu_model/state/wave/wave_runtime_state.h"
 
 namespace gpu_model {
 

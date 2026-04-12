@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <stdexcept>
 
-#include "gpu_model/execution/wave_context.h"
+#include "gpu_model/state/wave/wave_runtime_state.h"
 
 namespace gpu_model {
 
