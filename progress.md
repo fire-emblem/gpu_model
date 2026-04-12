@@ -870,12 +870,20 @@
   - Task 2: 提取 ScopedTempDir 到独立模块 ✅
     - 新增 `gpu_model/loader/temp_dir_manager.h` 接口
     - 新增 `src/loader/temp_dir_manager.cpp` 实现
-  - Task 3: 提取 ArtifactParser (待完成)
+  - Task 3: 提取 ArtifactParser 到独立模块 ✅
+    - 新增 `gpu_model/loader/artifact_parser.h` 接口
+    - 新增 `src/loader/artifact_parser.cpp` 实现
+    - 将 `NoteKernelArgLayoutEntry`/`NoteKernelMetadata` 移至 `kernel_metadata.h`
+  - Task 4: ObjectReader façade 重构 (待完成)
+  - Task 5: 添加 focused tests (待完成)
 - 创建/修改的文件：
   - `docs/superpowers/plans/2026-04-12-architecture-restructure-phase3.md`
   - `src/gpu_model/loader/external_tool_executor.h`
   - `src/loader/external_tool_executor.cpp`
   - `src/gpu_model/loader/temp_dir_manager.h`
   - `src/loader/temp_dir_manager.cpp`
+  - `src/gpu_model/loader/artifact_parser.h`
+  - `src/loader/artifact_parser.cpp`
+  - `src/gpu_model/isa/kernel_metadata.h`
   - `src/program/encoded_program_object.cpp`
   - `CMakeLists.txt`

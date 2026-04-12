@@ -288,9 +288,40 @@ AmdgpuKernelDescriptor ArtifactParser::ParseKernelDescriptor(std::span<const std
   desc.private_segment_fixed_size = LoadU32(bytes, 4);
   desc.kernarg_size = LoadU32(bytes, 8);
   desc.kernel_code_entry_byte_offset = static_cast<int64_t>(LoadU64(bytes, 16));
+  desc.compute_pgm_rsrc3 = LoadU32(bytes, 40);
   desc.compute_pgm_rsrc1 = LoadU32(bytes, 32);
   desc.compute_pgm_rsrc2 = LoadU32(bytes, 36);
-  desc.compute_pgm_rsrc3 = LoadU32(bytes, 40);
+  desc.setup_word = LoadU32(bytes, 56);
+
+  // Derived fields from compute_pgm_rsrc3
+  desc.accum_offset =
+      static_cast<uint16_t>(4u * (1u + (desc.compute_pgm_rsrc3 & 0x3fu)));
+
+  // Derived fields from compute_pgm_rsrc2
+  desc.enable_private_segment = (desc.compute_pgm_rsrc2 & 0x1u) != 0;
+  desc.user_sgpr_count = static_cast<uint8_t>((desc.compute_pgm_rsrc2 >> 1u) & 0x1fu);
+  desc.enable_sgpr_workgroup_id_x = ((desc.compute_pgm_rsrc2 >> 7u) & 0x1u) != 0;
+  desc.enable_sgpr_workgroup_id_y = ((desc.compute_pgm_rsrc2 >> 8u) & 0x1u) != 0;
+  desc.enable_sgpr_workgroup_id_z = ((desc.compute_pgm_rsrc2 >> 9u) & 0x1u) != 0;
+  desc.enable_sgpr_workgroup_info = ((desc.compute_pgm_rsrc2 >> 10u) & 0x1u) != 0;
+  desc.enable_vgpr_workitem_id =
+      static_cast<uint8_t>((desc.compute_pgm_rsrc2 >> 11u) & 0x3u);
+
+  // Derived fields from setup_word
+  desc.enable_sgpr_private_segment_buffer = (desc.setup_word & 0x1u) != 0;
+  desc.enable_sgpr_dispatch_ptr = ((desc.setup_word >> 1u) & 0x1u) != 0;
+  desc.enable_sgpr_queue_ptr = ((desc.setup_word >> 2u) & 0x1u) != 0;
+  desc.enable_sgpr_kernarg_segment_ptr = ((desc.setup_word >> 3u) & 0x1u) != 0;
+  desc.enable_sgpr_dispatch_id = ((desc.setup_word >> 4u) & 0x1u) != 0;
+  desc.enable_sgpr_flat_scratch_init = ((desc.setup_word >> 5u) & 0x1u) != 0;
+  desc.enable_sgpr_private_segment_size = ((desc.setup_word >> 6u) & 0x1u) != 0;
+  desc.enable_wavefront_size32 = ((desc.setup_word >> 10u) & 0x1u) != 0;
+  desc.uses_dynamic_stack = ((desc.setup_word >> 11u) & 0x1u) != 0;
+  desc.kernarg_preload_spec_length =
+      static_cast<uint8_t>((desc.setup_word >> 16u) & 0x7fu);
+  desc.kernarg_preload_spec_offset =
+      static_cast<uint16_t>((desc.setup_word >> 23u) & 0x1ffu);
+
   return desc;
 }
 
