@@ -4,14 +4,11 @@
 #include <cstdint>
 #include <vector>
 
+#include "gpu_model/gpu_arch/ap/ap_def.h"
 #include "gpu_model/state/peu_state.h"
 #include "gpu_model/state/wave/wave_runtime_state.h"
 
 namespace gpu_model {
-
-struct BarrierState {
-  bool armed = false;
-};
 
 struct ApState {
   uint32_t block_id = 0;
