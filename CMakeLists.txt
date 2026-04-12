@@ -95,6 +95,9 @@ add_library(gpu_model STATIC
   src/instruction/encoded/internal/encoded_instruction_binding.cpp
   src/instruction/encoded/instruction_object.cpp
   src/instruction/semantics/branch_handlers.cpp
+  src/instruction/semantics/memory_handlers.cpp
+  src/instruction/semantics/scalar_handlers.cpp
+  src/instruction/semantics/vector_handlers.cpp
   src/execution/program_object_exec_engine.cpp
   src/execution/encoded_semantic_handler.cpp
   src/execution/memory_ops.cpp
