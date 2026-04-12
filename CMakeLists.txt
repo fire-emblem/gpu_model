@@ -85,6 +85,7 @@ add_library(gpu_model STATIC
   src/loader/executable_image_io.cpp
   src/loader/external_tool_executor.cpp
   src/loader/gcn_text_parser.cpp
+  src/loader/artifact_parser.cpp
   src/loader/temp_dir_manager.cpp
   src/loader/program_bundle_io.cpp
   src/program/encoded_program_object.cpp

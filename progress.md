@@ -864,13 +864,18 @@
 - **状态：** in_progress
 - **执行的操作：**
   - 创建 Phase 3 实施计划：`docs/superpowers/plans/2026-04-12-architecture-restructure-phase3.md`
-  - Task 1: 提取 ExternalToolExecutor 到独立模块
+  - Task 1: 提取 ExternalToolExecutor 到独立模块 ✅
     - 新增 `gpu_model/loader/external_tool_executor.h` 接口
     - 新增 `src/loader/external_tool_executor.cpp` 实现
-    - 更新 `encoded_program_object.cpp` 引用新模块
+  - Task 2: 提取 ScopedTempDir 到独立模块 ✅
+    - 新增 `gpu_model/loader/temp_dir_manager.h` 接口
+    - 新增 `src/loader/temp_dir_manager.cpp` 实现
+  - Task 3: 提取 ArtifactParser (待完成)
 - 创建/修改的文件：
   - `docs/superpowers/plans/2026-04-12-architecture-restructure-phase3.md`
   - `src/gpu_model/loader/external_tool_executor.h`
   - `src/loader/external_tool_executor.cpp`
+  - `src/gpu_model/loader/temp_dir_manager.h`
+  - `src/loader/temp_dir_manager.cpp`
   - `src/program/encoded_program_object.cpp`
   - `CMakeLists.txt`

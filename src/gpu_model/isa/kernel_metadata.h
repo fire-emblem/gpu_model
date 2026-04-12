@@ -52,6 +52,31 @@ struct KernelHiddenArgLayoutEntry {
   uint32_t size = 0;
 };
 
+/// NoteKernelArgLayoutEntry — kernel argument layout from AMDGPU notes
+struct NoteKernelArgLayoutEntry {
+  KernelArgValueKind arg_kind = KernelArgValueKind::Unknown;
+  KernelHiddenArgKind hidden_kind = KernelHiddenArgKind::Unknown;
+  std::string kind_name;
+  uint32_t offset = 0;
+  uint32_t size = 0;
+};
+
+/// NoteKernelMetadata — kernel metadata from AMDGPU notes
+struct NoteKernelMetadata {
+  std::string name;
+  std::vector<NoteKernelArgLayoutEntry> args;
+  std::vector<NoteKernelArgLayoutEntry> hidden_args;
+  uint32_t group_segment_fixed_size = 0;
+  uint32_t kernarg_segment_size = 0;
+  uint32_t private_segment_fixed_size = 0;
+  uint32_t sgpr_count = 0;
+  uint32_t vgpr_count = 0;
+  uint32_t agpr_count = 0;
+  uint32_t wavefront_size = 0;
+  bool uniform_work_group_size = false;
+  std::string symbol;
+};
+
 struct KernelLaunchMetadata {
   std::optional<std::string> arch;
   std::optional<std::string> entry;
