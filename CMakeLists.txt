@@ -129,7 +129,7 @@ add_library(gpu_model STATIC
   src/execution/internal/cycle_wave_schedule.cpp
   src/execution/internal/cycle_issue_schedule.cpp
   src/execution/internal/event_queue.cpp
-  src/execution/internal/handlers/compute_functor_registry.cpp
+  src/execution/internal/compute_functor_registry.cpp
   # runtime/hip_runtime/
   src/runtime/hip_runtime/hip_runtime.cpp
   # runtime/model_runtime/
@@ -150,10 +150,10 @@ add_library(gpu_model STATIC
   src/utils/logging/runtime_log_service.cpp
   # utils/config/
   src/utils/config/invocation.cpp
-  # memory/
-  src/memory/cache_model.cpp
-  src/memory/memory_system.cpp
-  src/memory/shared_bank_model.cpp
+  # state/memory/
+  src/state/memory/cache_model.cpp
+  src/state/memory/memory_system.cpp
+  src/state/memory/shared_bank_model.cpp
   # debug/trace/
   src/debug/trace/instruction_trace.cpp
   src/debug/trace/trace_artifact_recorder.cpp
