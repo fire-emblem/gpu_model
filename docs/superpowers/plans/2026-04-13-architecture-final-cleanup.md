@@ -3,7 +3,7 @@
 > 目标：消除所有目录结构与设计文档 `docs/architecture-restructuring-plan.md` 的偏差。
 > 上一轮完成了主体分层迁移，本轮清理残留。
 
-## Status: IN PROGRESS
+## Status: COMPLETE
 
 ---
 
@@ -33,7 +33,7 @@
 - [x] 所有根目录原位置创建 bridge header
 - [x] CMakeLists.txt 路径更新
 - [x] 编译通过，push gate 通过
-- [ ] **提交**
+- [x] **提交** (1932fa0)
 
 ---
 
