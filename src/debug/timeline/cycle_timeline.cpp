@@ -10,7 +10,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "execution/internal/tensor_op_utils.h"
+#include "instruction/isa/tensor_isa_info.h"
 
 namespace gpu_model {
 

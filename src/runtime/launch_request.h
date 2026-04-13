@@ -9,6 +9,7 @@
 #include "runtime/mapper.h"
 #include "runtime/program_cycle_stats.h"
 #include "runtime/runtime_submission_context.h"
+#include "state/execution_stats.h"
 #include "utils/config/execution_mode.h"
 
 namespace gpu_model {
@@ -17,25 +18,6 @@ class ExecutableKernel;
 class ProgramObject;
 class TraceSink;
 struct DeviceLoadResult;
-
-struct ExecutionStats {
-  uint64_t wave_steps = 0;
-  uint64_t instructions_issued = 0;
-  uint64_t memory_ops = 0;
-  uint64_t global_loads = 0;
-  uint64_t global_stores = 0;
-  uint64_t shared_loads = 0;
-  uint64_t shared_stores = 0;
-  uint64_t private_loads = 0;
-  uint64_t private_stores = 0;
-  uint64_t constant_loads = 0;
-  uint64_t barriers = 0;
-  uint64_t wave_exits = 0;
-  uint64_t l1_hits = 0;
-  uint64_t l2_hits = 0;
-  uint64_t cache_misses = 0;
-  uint64_t shared_bank_conflict_penalty_cycles = 0;
-};
 
 struct LaunchRequest {
   std::string arch_name = "mac500";

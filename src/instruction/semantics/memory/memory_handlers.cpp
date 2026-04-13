@@ -35,7 +35,7 @@ class FlatMemoryHandler final : public BaseHandler {
       if (instruction.operands.at(1).kind == DecodedInstructionOperandKind::VectorRegRange) {
         // Flat-style: address is in a vector register pair
         const auto [addr, _] = RequireVectorRange(instruction.operands.at(1));
-        for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
           if (!context.wave.exec.test(lane)) {
             continue;
           }
@@ -61,7 +61,7 @@ class FlatMemoryHandler final : public BaseHandler {
         const uint32_t vaddr = RequireVectorIndex(instruction.operands.at(2));
         const uint64_t base = static_cast<uint64_t>(context.wave.sgpr.Read(saddr)) |
                               (static_cast<uint64_t>(context.wave.sgpr.Read(saddr + 1)) << 32u);
-        for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
           if (!context.wave.exec.test(lane)) {
             continue;
           }
@@ -89,7 +89,7 @@ class FlatMemoryHandler final : public BaseHandler {
       if (instruction.operands.at(0).kind == DecodedInstructionOperandKind::VectorRegRange) {
         const auto [addr, _] = RequireVectorRange(instruction.operands.at(0));
         const uint32_t data = RequireVectorIndex(instruction.operands.at(1));
-        for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
           if (!context.wave.exec.test(lane)) {
             continue;
           }
@@ -118,7 +118,7 @@ class FlatMemoryHandler final : public BaseHandler {
         const uint32_t data = RequireVectorIndex(instruction.operands.at(2));
         const uint64_t base = static_cast<uint64_t>(context.wave.sgpr.Read(saddr)) |
                               (static_cast<uint64_t>(context.wave.sgpr.Read(saddr + 1)) << 32u);
-        for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+        for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
           if (!context.wave.exec.test(lane)) {
             continue;
           }
@@ -146,7 +146,7 @@ class FlatMemoryHandler final : public BaseHandler {
         request.dst = RegRef{.file = RegisterFile::Vector,
                              .index = RequireVectorIndex(*operands.return_dest)};
       }
-      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+      for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
         if (!context.wave.exec.test(lane)) {
           continue;
         }
@@ -177,7 +177,7 @@ class FlatMemoryHandler final : public BaseHandler {
         request.dst = RegRef{.file = RegisterFile::Vector,
                              .index = RequireVectorIndex(*operands.return_dest)};
       }
-      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+      for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
         if (!context.wave.exec.test(lane)) {
           continue;
         }
@@ -208,7 +208,7 @@ class FlatMemoryHandler final : public BaseHandler {
         request.dst = RegRef{.file = RegisterFile::Vector,
                              .index = RequireVectorIndex(*operands.return_dest)};
       }
-      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+      for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
         if (!context.wave.exec.test(lane)) {
           continue;
         }
@@ -239,7 +239,7 @@ class FlatMemoryHandler final : public BaseHandler {
         request.dst = RegRef{.file = RegisterFile::Vector,
                              .index = RequireVectorIndex(*operands.return_dest)};
       }
-      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+      for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
         if (!context.wave.exec.test(lane)) {
           continue;
         }
@@ -291,7 +291,7 @@ class BufferMemoryHandler final : public BaseHandler {
       const uint64_t base = static_cast<uint64_t>(context.wave.sgpr.Read(sbase)) |
                             (static_cast<uint64_t>(context.wave.sgpr.Read(sbase + 1)) << 32u);
       request.dst = RegRef{.file = RegisterFile::Vector, .index = vdst};
-      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+      for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
         if (!context.wave.exec.test(lane)) {
           continue;
         }
@@ -320,7 +320,7 @@ class BufferMemoryHandler final : public BaseHandler {
       const uint64_t base = static_cast<uint64_t>(context.wave.sgpr.Read(sbase)) |
                             (static_cast<uint64_t>(context.wave.sgpr.Read(sbase + 1)) << 32u);
       request.dst = RegRef{.file = RegisterFile::Vector, .index = vdst};
-      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+      for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
         if (!context.wave.exec.test(lane)) {
           continue;
         }
@@ -349,7 +349,7 @@ class BufferMemoryHandler final : public BaseHandler {
       const uint64_t base = static_cast<uint64_t>(context.wave.sgpr.Read(sbase)) |
                             (static_cast<uint64_t>(context.wave.sgpr.Read(sbase + 1)) << 32u);
       request.dst = RegRef{.file = RegisterFile::Vector, .index = vdst};
-      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+      for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
         if (!context.wave.exec.test(lane)) {
           continue;
         }
@@ -392,7 +392,7 @@ class SharedMemoryHandler final : public BaseHandler {
       const uint32_t offset = instruction.operands.size() >= 3 && instruction.operands.back().info.has_immediate
                                   ? static_cast<uint32_t>(instruction.operands.back().info.immediate)
                                   : 0u;
-      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+      for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
         uint32_t byte_offset = static_cast<uint32_t>(context.wave.vgpr.Read(addr_vgpr, lane));
         if (!context.wave.exec.test(lane) || context.block.shared_memory.empty()) {
           continue;
@@ -429,7 +429,7 @@ class SharedMemoryHandler final : public BaseHandler {
                                   ? static_cast<uint32_t>(instruction.operands.back().info.immediate)
                                   : 0u;
       request.dst = RegRef{.file = RegisterFile::Vector, .index = vdst};
-      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+      for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
         uint32_t byte_offset = static_cast<uint32_t>(context.wave.vgpr.Read(addr_vgpr, lane));
         if (!context.wave.exec.test(lane) || context.block.shared_memory.empty()) {
           continue;
@@ -464,7 +464,7 @@ class SharedMemoryHandler final : public BaseHandler {
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(2), context));
       const uint32_t offset1 =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(3), context));
-      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+      for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
         const uint32_t base_byte_offset =
             static_cast<uint32_t>(context.wave.vgpr.Read(addr_vgpr, lane));
         if (!context.wave.exec.test(lane)) {
@@ -494,7 +494,7 @@ class SharedMemoryHandler final : public BaseHandler {
             .index = RequireVectorIndex(*operands.return_dest),
         };
       }
-      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+      for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
         uint32_t byte_offset = static_cast<uint32_t>(context.wave.vgpr.Read(addr_vgpr, lane));
         if (!context.wave.exec.test(lane) || context.block.shared_memory.empty()) {
           continue;
@@ -538,7 +538,7 @@ class SharedMemoryHandler final : public BaseHandler {
             .index = RequireVectorIndex(*operands.return_dest),
         };
       }
-      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+      for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
         uint32_t byte_offset = static_cast<uint32_t>(context.wave.vgpr.Read(addr_vgpr, lane));
         if (!context.wave.exec.test(lane) || context.block.shared_memory.empty()) {
           continue;
@@ -582,7 +582,7 @@ class SharedMemoryHandler final : public BaseHandler {
             .index = RequireVectorIndex(*operands.return_dest),
         };
       }
-      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+      for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
         uint32_t byte_offset = static_cast<uint32_t>(context.wave.vgpr.Read(addr_vgpr, lane));
         if (!context.wave.exec.test(lane) || context.block.shared_memory.empty()) {
           continue;
@@ -621,7 +621,7 @@ class SharedMemoryHandler final : public BaseHandler {
       const uint32_t addr_vgpr = RequireVectorIndex(instruction.operands.at(1));
       const uint32_t data_vgpr = RequireVectorIndex(instruction.operands.at(2));
       request.dst = RegRef{.file = RegisterFile::Vector, .index = vdst};
-      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+      for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
         uint32_t byte_offset = static_cast<uint32_t>(context.wave.vgpr.Read(addr_vgpr, lane));
         if (!context.wave.exec.test(lane) || context.block.shared_memory.empty()) {
           continue;
@@ -663,7 +663,7 @@ class SharedMemoryHandler final : public BaseHandler {
                                   ? static_cast<uint32_t>(instruction.operands.back().info.immediate)
                                   : 0u;
       request.dst = RegRef{.file = RegisterFile::Vector, .index = vdst};
-      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+      for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
         uint32_t byte_offset = static_cast<uint32_t>(context.wave.vgpr.Read(addr_vgpr, lane));
         if (!context.wave.exec.test(lane) || context.block.shared_memory.empty()) {
           continue;

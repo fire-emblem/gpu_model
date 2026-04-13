@@ -3,6 +3,7 @@
 #include <stdexcept>
 
 #include "execution/internal/issue_eligibility.h"
+#include "state/wave/barrier_state.h"
 
 namespace gpu_model::sync_ops {
 
@@ -63,21 +64,6 @@ bool ReleaseBarrierIfReadyImpl(size_t wave_count,
 }
 
 }  // namespace
-
-void MarkWaveAtBarrier(WaveContext& wave,
-                       uint64_t barrier_generation,
-                       uint32_t& barrier_arrivals,
-                       bool set_valid_entry_on_arrive) {
-  wave.status = WaveStatus::Stalled;
-  wave.waiting_at_barrier = true;
-  wave.barrier_generation = barrier_generation;
-  wave.run_state = WaveRunState::Waiting;
-  wave.wait_reason = WaveWaitReason::BlockBarrier;
-  if (set_valid_entry_on_arrive) {
-    wave.valid_entry = false;
-  }
-  ++barrier_arrivals;
-}
 
 bool ReleaseBarrierIfReady(std::vector<WaveContext>& waves,
                            uint64_t& barrier_generation,

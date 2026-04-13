@@ -1,4 +1,4 @@
-#include "execution/encoded/encoded_semantic_handler.h"
+#include "instruction/semantics/encoded_handler.h"
 
 #include <stdexcept>
 #include <string>

@@ -9,7 +9,7 @@
 
 #include "debug/trace/event_export.h"
 #include "../trace_json_fields_internal.h"
-#include "execution/internal/tensor_op_utils.h"
+#include "instruction/isa/tensor_isa_info.h"
 
 namespace gpu_model {
 

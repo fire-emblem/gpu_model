@@ -1,6 +1,6 @@
 #include "instruction/semantics/internal/handler_support.h"
-
-#include "execution/internal/sync_ops.h"
+#include "utils/math/bit_utils.h"
+#include "state/wave/barrier_state.h"
 
 namespace gpu_model {
 namespace semantics {
@@ -85,10 +85,10 @@ class SpecialHandler final : public IEncodedSemanticHandler {
     switch (instruction.encoding_id) {
       case 29: {  // s_barrier
         ++context.stats.barriers;
-        sync_ops::MarkWaveAtBarrier(context.wave,
-                                    context.block.barrier_generation,
-                                    context.block.barrier_arrivals,
-                                    false);
+        MarkWaveAtBarrier(context.wave,
+                          context.block.barrier_generation,
+                          context.block.barrier_arrivals,
+                          false);
         break;
       }
       case 68:  // s_nop

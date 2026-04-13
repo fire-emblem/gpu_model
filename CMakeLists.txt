@@ -75,6 +75,7 @@ add_library(gpu_model STATIC
   src/instruction/isa/kernel_metadata.cpp
   src/instruction/isa/kernel_program_builder.cpp
   src/instruction/isa/opcode_descriptor.cpp
+  src/instruction/isa/opcode_info.cpp
   # instruction/decode/encoded/
   src/instruction/decode/encoded/internal/generated_encoded_gcn_full_opcode_table.cpp
   src/instruction/decode/encoded/internal/generated_encoded_gcn_inst_db.cpp
@@ -88,6 +89,7 @@ add_library(gpu_model STATIC
   src/instruction/decode/encoded/internal/encoded_instruction_binding.cpp
   src/instruction/decode/encoded/instruction_object.cpp
   # instruction/semantics/
+  src/instruction/semantics/encoded_handler.cpp
   src/instruction/semantics/branch/branch_handlers.cpp
   src/instruction/semantics/memory/memory_handlers.cpp
   src/instruction/semantics/scalar/scalar_handlers.cpp
@@ -112,9 +114,7 @@ add_library(gpu_model STATIC
   src/execution/cycle/cycle_exec_engine.cpp
   # execution/encoded/
   src/execution/encoded/program_object_exec_engine.cpp
-  src/execution/encoded/encoded_semantic_handler.cpp
   # execution/internal/
-  src/execution/internal/opcode_execution_info.cpp
   src/execution/internal/memory_ops.cpp
   src/execution/internal/sync_ops.cpp
   src/execution/internal/plan_apply.cpp

@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "execution/internal/sync_ops.h"
+#include "state/wave/barrier_state.h"
 
 namespace gpu_model {
 namespace {
@@ -13,7 +14,7 @@ TEST(SyncOpsTest, MarksWaveAtBarrier) {
   wave.wait_reason = WaveWaitReason::None;
   uint32_t arrivals = 0;
 
-  sync_ops::MarkWaveAtBarrier(wave, 9, arrivals, true);
+  MarkWaveAtBarrier(wave, 9, arrivals, true);
 
   EXPECT_EQ(wave.status, WaveStatus::Stalled);
   EXPECT_TRUE(wave.waiting_at_barrier);
@@ -34,13 +35,13 @@ TEST(SyncOpsTest, ReleasesBarrierOnlyWhenAllActiveWavesWait) {
 
   uint64_t generation = 3;
   uint32_t arrivals = 0;
-  sync_ops::MarkWaveAtBarrier(waves[0], generation, arrivals, false);
+  MarkWaveAtBarrier(waves[0], generation, arrivals, false);
   waves[0].run_state = WaveRunState::Waiting;
   waves[0].wait_reason = WaveWaitReason::BlockBarrier;
   EXPECT_FALSE(sync_ops::ReleaseBarrierIfReady(
       waves, generation, arrivals, 1, true));
 
-  sync_ops::MarkWaveAtBarrier(waves[1], generation, arrivals, false);
+  MarkWaveAtBarrier(waves[1], generation, arrivals, false);
   waves[1].run_state = WaveRunState::Waiting;
   waves[1].wait_reason = WaveWaitReason::BlockBarrier;
   EXPECT_TRUE(sync_ops::ReleaseBarrierIfReady(
@@ -72,8 +73,8 @@ TEST(SyncOpsTest, ReleasesBarrierThroughWavePointers) {
 
   uint64_t generation = 7;
   uint32_t arrivals = 0;
-  sync_ops::MarkWaveAtBarrier(owned_waves[0], generation, arrivals, true);
-  sync_ops::MarkWaveAtBarrier(owned_waves[1], generation, arrivals, true);
+  MarkWaveAtBarrier(owned_waves[0], generation, arrivals, true);
+  MarkWaveAtBarrier(owned_waves[1], generation, arrivals, true);
   owned_waves[0].run_state = WaveRunState::Waiting;
   owned_waves[0].wait_reason = WaveWaitReason::BlockBarrier;
   owned_waves[1].run_state = WaveRunState::Waiting;
@@ -131,8 +132,8 @@ TEST(SyncOpsTest, BarrierReleaseResumesRunStateAndClearsBarrierWaitReason) {
 
   uint64_t generation = 2;
   uint32_t arrivals = 0;
-  sync_ops::MarkWaveAtBarrier(waves[0], generation, arrivals, false);
-  sync_ops::MarkWaveAtBarrier(waves[1], generation, arrivals, false);
+  MarkWaveAtBarrier(waves[0], generation, arrivals, false);
+  MarkWaveAtBarrier(waves[1], generation, arrivals, false);
   waves[0].run_state = WaveRunState::Waiting;
   waves[1].run_state = WaveRunState::Waiting;
   waves[0].wait_reason = WaveWaitReason::BlockBarrier;

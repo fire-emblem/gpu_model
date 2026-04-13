@@ -26,7 +26,7 @@ class ScalarMemoryHandler final : public BaseHandler {
       const uint32_t offset =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(2), context));
       const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
-      const uint64_t base = ResolveScalarPair(instruction.operands.at(1), context);
+      const uint64_t base = ResolveScalarPair(instruction.operands.at(1), context.wave, context.vcc);
       const uint32_t value = context.memory.LoadGlobalValue<uint32_t>(base + offset);
       request.lanes[0] = LaneAccess{
           .active = true,
@@ -42,7 +42,7 @@ class ScalarMemoryHandler final : public BaseHandler {
       const uint32_t offset =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(2), context));
       const auto [sdst, _] = RequireScalarRange(instruction.operands.at(0));
-      const uint64_t base = ResolveScalarPair(instruction.operands.at(1), context);
+      const uint64_t base = ResolveScalarPair(instruction.operands.at(1), context.wave, context.vcc);
       const uint64_t value = context.memory.LoadGlobalValue<uint64_t>(base + offset);
       request.lanes[0] = LaneAccess{
           .active = true,
@@ -59,7 +59,7 @@ class ScalarMemoryHandler final : public BaseHandler {
       const uint32_t offset =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(2), context));
       const auto [sdst, _] = RequireScalarRange(instruction.operands.at(0));
-      const uint64_t base = ResolveScalarPair(instruction.operands.at(1), context);
+      const uint64_t base = ResolveScalarPair(instruction.operands.at(1), context.wave, context.vcc);
       request.lanes[0] = LaneAccess{.active = true, .addr = base + offset, .bytes = 16, .value = 0};
       request.dst = RegRef{.file = RegisterFile::Scalar, .index = sdst};
       context.wave.sgpr.Write(sdst + 0, context.memory.LoadGlobalValue<uint32_t>(base + offset + 0));
@@ -86,13 +86,13 @@ class ScalarAluHandler final : public BaseHandler {
     if (descriptor.op_type == GcnIsaOpType::Sop2 &&
         descriptor.opcode == static_cast<uint16_t>(GcnIsaSop2Opcode::S_CSELECT_B64)) {
       const bool take_true = context.wave.ScalarMaskBit0();
-      const uint64_t value = take_true ? ResolveScalarPair(instruction.operands.at(1), context)
-                                       : ResolveScalarPair(instruction.operands.at(2), context);
+      const uint64_t value = take_true ? ResolveScalarPair(instruction.operands.at(1), context.wave, context.vcc)
+                                       : ResolveScalarPair(instruction.operands.at(2), context.wave, context.vcc);
       StoreScalarPair(instruction.operands.at(0), context, value);
     } else if (descriptor.op_type == GcnIsaOpType::Sop2 &&
                descriptor.opcode == static_cast<uint16_t>(GcnIsaSop2Opcode::S_ANDN2_B64)) {
-      const uint64_t lhs = ResolveScalarPair(instruction.operands.at(1), context);
-      const uint64_t rhs = ResolveScalarPair(instruction.operands.at(2), context);
+      const uint64_t lhs = ResolveScalarPair(instruction.operands.at(1), context.wave, context.vcc);
+      const uint64_t rhs = ResolveScalarPair(instruction.operands.at(2), context.wave, context.vcc);
       StoreScalarPair(instruction.operands.at(0), context, lhs & ~rhs);
     } else if (descriptor.op_type == GcnIsaOpType::Sop1 &&
                descriptor.opcode == static_cast<uint16_t>(GcnIsaSop1Opcode::S_MOV_B32)) {
@@ -102,7 +102,7 @@ class ScalarAluHandler final : public BaseHandler {
       context.wave.sgpr.Write(sdst, value);
     } else if (descriptor.op_type == GcnIsaOpType::Sop1 &&
                descriptor.opcode == static_cast<uint16_t>(GcnIsaSop1Opcode::S_MOV_B64)) {
-      const uint64_t value = ResolveScalarPair(instruction.operands.at(1), context);
+      const uint64_t value = ResolveScalarPair(instruction.operands.at(1), context.wave, context.vcc);
       StoreScalarPair(instruction.operands.at(0), context, value);
     } else if (descriptor.op_type == GcnIsaOpType::Sop1 &&
                descriptor.opcode == static_cast<uint16_t>(GcnIsaSop1Opcode::S_ABS_I32)) {
@@ -133,14 +133,14 @@ class ScalarAluHandler final : public BaseHandler {
     } else if (descriptor.op_type == GcnIsaOpType::Sop1 &&
                descriptor.opcode == static_cast<uint16_t>(GcnIsaSop1Opcode::S_FF1_I32_B64)) {
       const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
-      const uint64_t value = ResolveScalarPair(instruction.operands.at(1), context);
+      const uint64_t value = ResolveScalarPair(instruction.operands.at(1), context.wave, context.vcc);
       const int32_t result =
           value == 0 ? -1 : static_cast<int32_t>(std::countr_zero(value));
       context.wave.sgpr.Write(sdst, static_cast<uint32_t>(result));
     } else if (descriptor.op_type == GcnIsaOpType::Sop2 &&
                descriptor.opcode == static_cast<uint16_t>(GcnIsaSop2Opcode::S_OR_B64)) {
-      const uint64_t lhs = ResolveScalarPair(instruction.operands.at(1), context);
-      const uint64_t rhs = ResolveScalarPair(instruction.operands.at(2), context);
+      const uint64_t lhs = ResolveScalarPair(instruction.operands.at(1), context.wave, context.vcc);
+      const uint64_t rhs = ResolveScalarPair(instruction.operands.at(2), context.wave, context.vcc);
       const uint64_t value = lhs | rhs;
       StoreScalarPair(instruction.operands.at(0), context, value);
     } else if (descriptor.op_type == GcnIsaOpType::Sop2 &&
@@ -153,13 +153,13 @@ class ScalarAluHandler final : public BaseHandler {
       context.wave.sgpr.Write(sdst, lhs | rhs);
     } else if (descriptor.op_type == GcnIsaOpType::Sop2 &&
                descriptor.opcode == static_cast<uint16_t>(GcnIsaSop2Opcode::S_XOR_B64)) {
-      const uint64_t lhs = ResolveScalarPair(instruction.operands.at(1), context);
-      const uint64_t rhs = ResolveScalarPair(instruction.operands.at(2), context);
+      const uint64_t lhs = ResolveScalarPair(instruction.operands.at(1), context.wave, context.vcc);
+      const uint64_t rhs = ResolveScalarPair(instruction.operands.at(2), context.wave, context.vcc);
       StoreScalarPair(instruction.operands.at(0), context, lhs ^ rhs);
     } else if (descriptor.op_type == GcnIsaOpType::Sop2 &&
                descriptor.opcode == static_cast<uint16_t>(GcnIsaSop2Opcode::S_AND_B64)) {
-      const uint64_t lhs = ResolveScalarPair(instruction.operands.at(1), context);
-      const uint64_t rhs = ResolveScalarPair(instruction.operands.at(2), context);
+      const uint64_t lhs = ResolveScalarPair(instruction.operands.at(1), context.wave, context.vcc);
+      const uint64_t rhs = ResolveScalarPair(instruction.operands.at(2), context.wave, context.vcc);
       StoreScalarPair(instruction.operands.at(0), context, lhs & rhs);
     } else if (descriptor.op_type == GcnIsaOpType::Sop2 &&
                descriptor.opcode == static_cast<uint16_t>(GcnIsaSop2Opcode::S_AND_B32)) {
@@ -240,7 +240,7 @@ class ScalarAluHandler final : public BaseHandler {
       context.wave.sgpr.Write(sdst, static_cast<uint32_t>(lhs >> (rhs & 31u)));
     } else if (descriptor.op_type == GcnIsaOpType::Sop2 &&
                descriptor.opcode == static_cast<uint16_t>(GcnIsaSop2Opcode::S_LSHL_B64)) {
-      const uint64_t lhs = ResolveScalarPair(instruction.operands.at(1), context);
+      const uint64_t lhs = ResolveScalarPair(instruction.operands.at(1), context.wave, context.vcc);
       const uint32_t rhs =
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(2), context));
       StoreScalarPair(instruction.operands.at(0), context, lhs << (rhs & 63u));
@@ -273,7 +273,7 @@ class ScalarAluHandler final : public BaseHandler {
     } else if (descriptor.op_type == GcnIsaOpType::Sop1 &&
                descriptor.opcode == static_cast<uint16_t>(GcnIsaSop1Opcode::S_BCNT1_I32_B64)) {
       const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
-      const uint64_t value = ResolveScalarPair(instruction.operands.at(1), context);
+      const uint64_t value = ResolveScalarPair(instruction.operands.at(1), context.wave, context.vcc);
       context.wave.sgpr.Write(sdst, static_cast<uint32_t>(std::popcount(value)));
     } else {
       ThrowUnsupportedInstruction("unsupported scalar alu opcode: ", instruction);
@@ -333,8 +333,8 @@ class ScalarCompareHandler final : public BaseHandler {
       context.wave.SetScalarMaskBit0(lhs < rhs);
     } else if (descriptor.op_type == GcnIsaOpType::Sopc &&
                descriptor.opcode == static_cast<uint16_t>(GcnIsaSopcOpcode::S_CMP_LG_U64)) {
-      const uint64_t lhs = ResolveScalarPair(instruction.operands.at(0), context);
-      const uint64_t rhs = ResolveScalarPair(instruction.operands.at(1), context);
+      const uint64_t lhs = ResolveScalarPair(instruction.operands.at(0), context.wave, context.vcc);
+      const uint64_t rhs = ResolveScalarPair(instruction.operands.at(1), context.wave, context.vcc);
       context.wave.SetScalarMaskBit0(lhs != rhs);
     } else {
       ThrowUnsupportedInstruction("unsupported scalar compare opcode: ", instruction);
@@ -355,7 +355,7 @@ class MaskHandler final : public BaseHandler {
     }
     const auto [sdst, _] = RequireScalarRange(instruction.operands.at(0));
     const uint64_t exec_before = context.wave.exec.to_ullong();
-    const uint64_t mask = ResolveScalarPair(instruction.operands.at(1), context);
+    const uint64_t mask = ResolveScalarPair(instruction.operands.at(1), context.wave, context.vcc);
     context.wave.sgpr.Write(sdst, static_cast<uint32_t>(exec_before & 0xffffffffu));
     context.wave.sgpr.Write(sdst + 1, static_cast<uint32_t>(exec_before >> 32u));
     if (instruction.mnemonic == "s_and_saveexec_b64") {

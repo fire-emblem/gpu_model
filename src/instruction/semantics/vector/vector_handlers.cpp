@@ -1,5 +1,5 @@
 #include "instruction/semantics/internal/handler_support.h"
-#include "execution/internal/tensor_op_utils.h"
+#include "instruction/semantics/internal/tensor_result_writer.h"
 
 namespace gpu_model {
 namespace semantics {
@@ -564,7 +564,7 @@ class VCndmaskB32E64Handler final : public VectorLaneHandler<VCndmaskB32E64Handl
   void ExecuteLane(const DecodedInstruction& instruction,
                    EncodedWaveContext& context, uint32_t lane) const {
     const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
-    const uint64_t mask = ResolveScalarPair(instruction.operands.at(3), context);
+    const uint64_t mask = ResolveScalarPair(instruction.operands.at(3), context.wave, context.vcc);
     const uint32_t false_value = static_cast<uint32_t>(
         ResolveVectorLane(instruction.operands.at(1), context, lane));
     const uint32_t true_value = static_cast<uint32_t>(
@@ -592,7 +592,7 @@ class VAddCoU32E32Handler final : public BaseHandler {
                    EncodedWaveContext& context) const override {
     const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
     context.vcc = 0;
-    for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+    for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
       if (!context.wave.exec.test(lane)) continue;
       const uint64_t lhs = static_cast<uint32_t>(
           ResolveVectorLane(instruction.operands.at(2), context, lane));
@@ -615,7 +615,7 @@ class VAddcCoU32E32Handler final : public BaseHandler {
                    EncodedWaveContext& context) const override {
     const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
     uint64_t next_vcc = 0;
-    for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+    for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
       if (!context.wave.exec.test(lane)) continue;
       const uint64_t carry_in = (context.vcc >> lane) & 1ull;
       const uint64_t lhs = static_cast<uint32_t>(
@@ -640,7 +640,7 @@ class VAddCoU32E64Handler final : public BaseHandler {
                    EncodedWaveContext& context) const override {
     const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
     uint64_t carry_mask = 0;
-    for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+    for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
       if (!context.wave.exec.test(lane)) continue;
       const uint64_t lhs = static_cast<uint32_t>(
           ResolveVectorLane(instruction.operands.at(2), context, lane));
@@ -663,9 +663,9 @@ class VAddcCoU32E64Handler final : public BaseHandler {
   void ExecuteImpl(const DecodedInstruction& instruction,
                    EncodedWaveContext& context) const override {
     const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
-    const uint64_t carry_in_mask = ResolveScalarPair(instruction.operands.at(4), context);
+    const uint64_t carry_in_mask = ResolveScalarPair(instruction.operands.at(4), context.wave, context.vcc);
     uint64_t carry_out_mask = 0;
-    for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+    for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
       if (!context.wave.exec.test(lane)) continue;
       const uint64_t carry_in = (carry_in_mask >> lane) & 1ull;
       const uint64_t lhs = static_cast<uint32_t>(
@@ -694,7 +694,7 @@ class VLshlrevB64Handler final : public BaseHandler {
     const uint32_t src_pair = instruction.operands.at(2).kind == DecodedInstructionOperandKind::VectorRegRange
                                   ? RequireVectorRange(instruction.operands.at(2)).first
                                   : RequireVectorIndex(instruction.operands.at(2));
-    for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+    for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
       if (!context.wave.exec.test(lane)) continue;
       const uint64_t lo = static_cast<uint32_t>(context.wave.vgpr.Read(src_pair, lane));
       const uint64_t hi = static_cast<uint32_t>(context.wave.vgpr.Read(src_pair + 1, lane));
@@ -712,7 +712,7 @@ class VMadU64U32Handler final : public BaseHandler {
   void ExecuteImpl(const DecodedInstruction& instruction,
                    EncodedWaveContext& context) const override {
     const auto [vdst, _] = RequireVectorRange(instruction.operands.at(0));
-    for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+    for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
       if (!context.wave.exec.test(lane)) continue;
       const uint64_t mul_lhs = ResolveVectorLane(instruction.operands.at(2), context, lane);
       const uint64_t mul_rhs = ResolveVectorLane(instruction.operands.at(3), context, lane);
@@ -746,7 +746,7 @@ class VMfmaF32_16x16x4f32Handler final : public BaseHandler {
                               ? RequireVectorRange(instruction.operands.at(0)).first
                               : RequireVectorIndex(instruction.operands.at(0));
     const auto storage_policy = DefaultTensorResultStoragePolicy();
-    for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+    for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
       if (!context.wave.exec.test(lane)) continue;
       const float src0 = U32AsFloat(static_cast<uint32_t>(
           ResolveVectorLane(instruction.operands.at(1), context, lane)));
@@ -769,7 +769,7 @@ class VMfmaF32_32x32x2f32Handler final : public BaseHandler {
                               ? RequireVectorRange(instruction.operands.at(0)).first
                               : RequireVectorIndex(instruction.operands.at(0));
     const auto storage_policy = DefaultTensorResultStoragePolicy();
-    for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+    for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
       if (!context.wave.exec.test(lane)) continue;
       const float src0 = U32AsFloat(static_cast<uint32_t>(
           ResolveVectorLane(instruction.operands.at(1), context, lane)));
@@ -792,7 +792,7 @@ class VMfmaF32_16x16x4f16Handler final : public BaseHandler {
                               ? RequireVectorRange(instruction.operands.at(0)).first
                               : RequireVectorIndex(instruction.operands.at(0));
     const auto storage_policy = DefaultTensorResultStoragePolicy();
-    for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+    for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
       if (!context.wave.exec.test(lane)) continue;
       const uint32_t src0_bits = static_cast<uint32_t>(
           ResolveVectorLane(instruction.operands.at(1), context, lane));
@@ -819,7 +819,7 @@ class VMfmaI32_16x16x4i8Handler final : public BaseHandler {
                               ? RequireVectorRange(instruction.operands.at(0)).first
                               : RequireVectorIndex(instruction.operands.at(0));
     const auto storage_policy = DefaultTensorResultStoragePolicy();
-    for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+    for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
       if (!context.wave.exec.test(lane)) continue;
       const uint32_t src0_bits = static_cast<uint32_t>(
           ResolveVectorLane(instruction.operands.at(1), context, lane));
@@ -846,7 +846,7 @@ class VMfmaI32_16x16x16i8Handler final : public BaseHandler {
                               ? RequireVectorRange(instruction.operands.at(0)).first
                               : RequireVectorIndex(instruction.operands.at(0));
     const auto storage_policy = DefaultTensorResultStoragePolicy();
-    for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+    for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
       if (!context.wave.exec.test(lane)) continue;
       const uint32_t src0_bits = static_cast<uint32_t>(
           ResolveVectorLane(instruction.operands.at(1), context, lane));
@@ -873,7 +873,7 @@ class VMfmaF32_16x16x2bf16Handler final : public BaseHandler {
                               ? RequireVectorRange(instruction.operands.at(0)).first
                               : RequireVectorIndex(instruction.operands.at(0));
     const auto storage_policy = DefaultTensorResultStoragePolicy();
-    for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+    for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
       if (!context.wave.exec.test(lane)) continue;
       const uint32_t src0_bits = static_cast<uint32_t>(
           ResolveVectorLane(instruction.operands.at(1), context, lane));
@@ -900,7 +900,7 @@ class VectorCompareHandler final : public BaseHandler {
   void ExecuteImpl(const DecodedInstruction& instruction, EncodedWaveContext& context) const override {
     uint64_t mask = 0;
     if (instruction.mnemonic == "v_cmp_lt_u32_e32") {
-      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+      for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
         if (!context.wave.exec.test(lane)) {
           continue;
         }
@@ -916,7 +916,7 @@ class VectorCompareHandler final : public BaseHandler {
       return;
     }
     if (instruction.mnemonic == "v_cmp_gt_u32_e64") {
-      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+      for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
         if (!context.wave.exec.test(lane)) {
           continue;
         }
@@ -935,7 +935,7 @@ class VectorCompareHandler final : public BaseHandler {
       return;
     }
     if (instruction.mnemonic == "v_cmp_lt_u32_e64") {
-      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+      for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
         if (!context.wave.exec.test(lane)) {
           continue;
         }
@@ -954,7 +954,7 @@ class VectorCompareHandler final : public BaseHandler {
       return;
     }
     if (instruction.mnemonic == "v_cmp_le_u32_e64") {
-      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+      for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
         if (!context.wave.exec.test(lane)) {
           continue;
         }
@@ -973,7 +973,7 @@ class VectorCompareHandler final : public BaseHandler {
       return;
     }
     if (instruction.mnemonic == "v_cmp_eq_u32_e64") {
-      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+      for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
         if (!context.wave.exec.test(lane)) {
           continue;
         }
@@ -992,7 +992,7 @@ class VectorCompareHandler final : public BaseHandler {
       return;
     }
     if (instruction.mnemonic == "v_cmp_le_u32_e32") {
-      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+      for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
         if (!context.wave.exec.test(lane)) {
           continue;
         }
@@ -1010,7 +1010,7 @@ class VectorCompareHandler final : public BaseHandler {
     switch (instruction.encoding_id) {
       case 8:
       case 38: {  // v_cmp_gt_i32
-      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+      for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
         if (!context.wave.exec.test(lane)) {
           continue;
         }
@@ -1025,7 +1025,7 @@ class VectorCompareHandler final : public BaseHandler {
       break;
       }
       case 75: {  // v_cmp_le_i32_e32
-      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+      for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
         if (!context.wave.exec.test(lane)) {
           continue;
         }
@@ -1040,7 +1040,7 @@ class VectorCompareHandler final : public BaseHandler {
       break;
       }
       case 76: {  // v_cmp_lt_i32_e32
-      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+      for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
         if (!context.wave.exec.test(lane)) {
           continue;
         }
@@ -1057,7 +1057,7 @@ class VectorCompareHandler final : public BaseHandler {
       case 9:    // v_cmp_lt_u32_e32
       case 56:
       case 204: {  // v_cmp_gt_u32_e32 / v_cmp_lt_u32_e32 / v_cmp_gt_u32_e64
-      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+      for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
         if (!context.wave.exec.test(lane)) {
           continue;
         }
@@ -1075,7 +1075,7 @@ class VectorCompareHandler final : public BaseHandler {
       break;
       }
       case 66: {  // v_cmp_eq_u32_e32
-      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+      for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
         if (!context.wave.exec.test(lane)) {
           continue;
         }
@@ -1090,7 +1090,7 @@ class VectorCompareHandler final : public BaseHandler {
       break;
       }
       case 203: {  // v_cmp_le_u32_e32
-      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+      for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
         if (!context.wave.exec.test(lane)) {
           continue;
         }
@@ -1105,7 +1105,7 @@ class VectorCompareHandler final : public BaseHandler {
       break;
       }
       case 57: {  // v_cmp_ngt_f32_e32
-      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+      for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
         if (!context.wave.exec.test(lane)) {
           continue;
         }
@@ -1120,7 +1120,7 @@ class VectorCompareHandler final : public BaseHandler {
       break;
       }
       case 58: {  // v_cmp_nlt_f32_e32
-      for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+      for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
         if (!context.wave.exec.test(lane)) {
           continue;
         }

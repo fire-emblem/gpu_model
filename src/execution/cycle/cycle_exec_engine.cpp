@@ -32,6 +32,7 @@
 #include "execution/internal/memory_ops.h"
 #include "execution/internal/plan_apply.h"
 #include "execution/internal/sync_ops.h"
+#include "state/wave/barrier_state.h"
 #include "execution/internal/wave_context_builder.h"
 #include "execution/internal/wave_stats.h"
 #include "execution/internal/issue_eligibility.h"
@@ -849,10 +850,10 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                     candidate->wave.valid_entry = true;
                     return;
                   }
-                  sync_ops::MarkWaveAtBarrier(candidate->wave,
-                                              candidate->block->barrier_generation,
-                                              candidate->block->barrier_arrivals,
-                                              true);
+                  MarkWaveAtBarrier(candidate->wave,
+                                    candidate->block->barrier_generation,
+                                    candidate->block->barrier_arrivals,
+                                    true);
                   PeuSlot& peu_slot = slots.at(candidate->peu_slot_index);
                   DeactivateResidentSlot(ResidentSlotForWave(peu_slot, *candidate));
                   context.trace.OnEvent(MakeTraceBarrierArriveEvent(

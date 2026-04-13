@@ -10,11 +10,10 @@ namespace gpu_model {
 
 namespace sync_ops {
 
-void MarkWaveAtBarrier(WaveContext& wave,
-                       uint64_t barrier_generation,
-                       uint32_t& barrier_arrivals,
-                       bool set_valid_entry_on_arrive);
-
+/// Releases waves waiting at a barrier if all have arrived.
+/// Returns true if the barrier was released.
+/// These functions operate on execution-layer wave collections
+/// and may use ExecutableKernel for PC calculation.
 bool ReleaseBarrierIfReady(std::vector<WaveContext>& waves,
                            uint64_t& barrier_generation,
                            uint32_t& barrier_arrivals,

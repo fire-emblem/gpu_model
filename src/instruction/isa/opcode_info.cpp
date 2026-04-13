@@ -1,4 +1,4 @@
-#include "execution/internal/opcode_execution_info.h"
+#include "instruction/isa/opcode_info.h"
 
 namespace gpu_model {
 
@@ -21,6 +21,10 @@ OpcodeExecutionInfo MakeInfo(SemanticFamily family,
 }
 
 }  // namespace
+
+std::optional<ArchitecturalIssueType> ArchitecturalIssueTypeForOpcode(Opcode opcode) {
+  return GetOpcodeExecutionInfo(opcode).issue_type;
+}
 
 const OpcodeExecutionInfo& GetOpcodeExecutionInfo(Opcode opcode) {
   static const auto kBuiltin =

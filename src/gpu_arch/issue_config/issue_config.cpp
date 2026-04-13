@@ -1,12 +1,6 @@
 #include "gpu_arch/issue_config/issue_config.h"
 
-#include "execution/internal/opcode_execution_info.h"
-
 namespace gpu_model {
-
-std::optional<ArchitecturalIssueType> ArchitecturalIssueTypeForOpcode(Opcode opcode) {
-  return GetOpcodeExecutionInfo(opcode).issue_type;
-}
 
 std::string_view ToString(ArchitecturalIssueType type) {
   switch (type) {

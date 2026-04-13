@@ -31,4 +31,11 @@ inline void StoreU32(std::vector<std::byte>& bytes, size_t offset, uint32_t valu
   StoreU32(std::span<std::byte>(bytes.data(), bytes.size()), offset, value);
 }
 
+/// Calculate branch target address from PC and signed offset.
+/// This is a pure utility function for branch address calculation.
+inline uint64_t BranchTarget(uint64_t pc, int32_t simm16) {
+  const int64_t target = static_cast<int64_t>(pc) + 4 + static_cast<int64_t>(simm16) * 4;
+  return static_cast<uint64_t>(target);
+}
+
 }  // namespace gpu_model

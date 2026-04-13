@@ -8,12 +8,12 @@
 #include <string>
 #include <utility>
 
-#include "execution/encoded/encoded_semantic_handler.h"
-#include "execution/internal/encoded_handler_utils.h"
-#include "execution/internal/float_utils.h"
+#include "instruction/semantics/encoded_handler.h"
 #include "instruction/decode/encoded/internal/encoded_gcn_encoding_def.h"
 #include "instruction/decode/encoded/internal/encoded_gcn_db_lookup.h"
 #include "instruction/operand/operand_accessors.h"
+#include "gpu_arch/wave/wave_def.h"
+#include "state/wave/wave_utils.h"
 #include "utils/logging/log_macros.h"
 #include "utils/math/bit_utils.h"
 #include "utils/math/float_convert.h"
@@ -129,7 +129,7 @@ inline uint64_t ResolveVectorLane(const DecodedInstructionOperand& operand,
     return context.wave.sgpr.Read(RequireScalarIndex(operand));
   }
   if (operand.kind == DecodedInstructionOperandKind::ScalarRegRange) {
-    return ResolveScalarPair(operand, context);
+    return ResolveScalarPair(operand, context.wave, context.vcc);
   }
   if (operand.kind == DecodedInstructionOperandKind::SpecialReg) {
     switch (operand.info.special_reg) {
@@ -329,7 +329,7 @@ class VectorLaneHandler : public BaseHandler {
 
  private:
   void ForEachActiveLane(EncodedWaveContext& context, auto&& fn) const {
-    for (uint32_t lane = 0; lane < LaneCount(context); ++lane) {
+    for (uint32_t lane = 0; lane < LaneCount(context.wave.thread_count); ++lane) {
       if (context.wave.exec.test(lane)) {
         fn(lane);
       }

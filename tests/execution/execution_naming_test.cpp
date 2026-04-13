@@ -8,6 +8,7 @@
 #include "execution/internal/memory_ops.h"
 #include "execution/internal/plan_apply.h"
 #include "execution/internal/sync_ops.h"
+#include "state/wave/barrier_state.h"
 #include "execution/internal/wave_context_builder.h"
 #include "runtime/exec_engine.h"
 #include "state/ap/ap_runtime_state.h"
@@ -53,7 +54,7 @@ TEST(ExecutionNamingTest, ExecutionHeadersDeclarePrimaryUtilities) {
   static_assert(std::is_same_v<decltype(&memory_ops::LoadByteLaneValue), LoadByteLaneValueSignature>);
 
   using MarkWaveAtBarrierSignature = void (*)(WaveContext&, uint64_t, uint32_t&, bool);
-  static_assert(std::is_same_v<decltype(&sync_ops::MarkWaveAtBarrier), MarkWaveAtBarrierSignature>);
+  static_assert(std::is_same_v<decltype(&MarkWaveAtBarrier), MarkWaveAtBarrierSignature>);
 
   using ApplyExecutionPlanRegisterWritesSignature = void (*)(const OpPlan&, WaveContext&);
   static_assert(std::is_same_v<decltype(&ApplyExecutionPlanRegisterWrites),
