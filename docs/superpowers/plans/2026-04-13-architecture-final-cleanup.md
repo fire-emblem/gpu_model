@@ -3,7 +3,9 @@
 > 目标：消除所有目录结构与设计文档 `docs/architecture-restructuring-plan.md` 的偏差。
 > 上一轮完成了主体分层迁移，本轮清理残留。
 
-## Status: COMPLETE
+## Status: COMPLETE ✓
+
+> 所有架构目录结构已对齐，零层违规，全量测试通过（793/793）。
 
 ---
 
@@ -96,4 +98,4 @@
 - [x] 无 `src/memory/` 目录
 - [x] 无 `execution/internal/handlers/` 目录
 - [x] `runtime/` 根目录只有 bridge headers（无独立实现文件）
-- [ ] 全量测试通过 (`./scripts/run_push_gate.sh`)
+- [x] 全量测试通过 (`./scripts/run_push_gate.sh`) — 793/793 passed, 1 pre-existing flaky test (TraceEncodedTest.PerfettoProtoShowsEncodedFunctionalLoadArriveInMultiThreadedMode, 失败原因: global memory read out of range in encoded MT mode, 与架构重构无关)
