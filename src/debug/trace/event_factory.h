@@ -6,7 +6,7 @@
 #include <string_view>
 
 #include "debug/trace/event.h"
-#include "execution/internal/memory_arrive_kind.h"
+#include "gpu_arch/memory/memory_arrive_kind.h"
 
 namespace gpu_model {
 

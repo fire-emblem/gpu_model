@@ -1,15 +1,6 @@
+// Bridge header — migrated to gpu_arch/memory/memory_arrive_kind.h
+// This file remains for backward compatibility during migration.
+// New code should include "gpu_arch/memory/memory_arrive_kind.h" directly.
 #pragma once
 
-namespace gpu_model {
-
-/// Memory arrive kind for tracking pending memory operations.
-/// Used by both execution state and trace layer.
-enum class MemoryArriveKind {
-  Load,
-  Store,
-  Shared,
-  Private,
-  ScalarBuffer,
-};
-
-}  // namespace gpu_model
+#include "gpu_arch/memory/memory_arrive_kind.h"

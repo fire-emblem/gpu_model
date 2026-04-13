@@ -5,8 +5,7 @@
 
 #include "instruction/decode/encoded/internal/encoded_gcn_encoding_def.h"
 #include "instruction/decode/encoded/internal/encoded_instruction_descriptor.h"
-#include "execution/encoded/encoded_semantic_handler.h"
-#include "execution/internal/encoded_handler_utils.h"
+#include "instruction/semantics/encoded_handler.h"
 
 namespace gpu_model {
 

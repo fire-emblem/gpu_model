@@ -6,8 +6,7 @@
 
 #include "instruction/decode/encoded/internal/encoded_gcn_encoding_def.h"
 #include "instruction/decode/encoded/internal/encoded_instruction_binding.h"
-#include "execution/encoded/encoded_semantic_handler.h"
-#include "execution/internal/encoded_handler_utils.h"
+#include "instruction/semantics/encoded_handler.h"
 #include "instruction/decode/encoded/instruction_decoder.h"
 #include "utils/logging/log_macros.h"
 
