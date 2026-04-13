@@ -142,10 +142,11 @@ add_library(gpu_model STATIC
   # runtime/config/
   src/runtime/config/runtime_config.cpp
   src/runtime/config/runtime_env_config.cpp
-  # runtime/
-  src/runtime/mapper.cpp
-  src/runtime/kernarg_packer.cpp
-  src/runtime/program_cycle_tracker.cpp
+  # runtime/config/
+  src/runtime/config/kernarg_packer.cpp
+  # runtime/model_runtime/
+  src/runtime/model_runtime/mapper.cpp
+  src/runtime/model_runtime/program_cycle_tracker.cpp
   # utils/logging/
   src/utils/logging/runtime_log_service.cpp
   # utils/config/

@@ -1,16 +1,3 @@
-#pragma once
-
-#include <cstddef>
-#include <vector>
-
-#include "instruction/isa/kernel_metadata.h"
-#include "runtime/kernel_arg_pack.h"
-#include "runtime/launch_config.h"
-
-namespace gpu_model {
-
-std::vector<std::byte> BuildKernargImage(const KernelLaunchMetadata& metadata,
-                                         const KernelArgPack& args,
-                                         const LaunchConfig& config);
-
-}  // namespace gpu_model
+// Bridge header — canonical location is in subdirectory
+// This file is deprecated. Update your include path.
+#include "runtime/config/kernarg_packer.h"

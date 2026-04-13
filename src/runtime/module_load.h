@@ -1,26 +1,3 @@
-#pragma once
-
-#include <cstdint>
-#include <filesystem>
-#include <optional>
-#include <string>
-
-namespace gpu_model {
-
-enum class ModuleLoadFormat {
-  Auto,
-  AmdgpuObject,
-  ProgramBundle,
-  ExecutableImage,
-  ProgramFileStem,
-};
-
-struct ModuleLoadRequest {
-  std::string module_name;
-  std::filesystem::path path;
-  uint64_t context_id = 0;
-  ModuleLoadFormat format = ModuleLoadFormat::Auto;
-  std::optional<std::string> kernel_name = std::nullopt;
-};
-
-}  // namespace gpu_model
+// Bridge header — canonical location is in subdirectory
+// This file is deprecated. Update your include path.
+#include "runtime/model_runtime/module_load.h"
