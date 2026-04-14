@@ -19,29 +19,28 @@
 #include "debug/trace/event_factory.h"
 #include "debug/trace/instruction_trace.h"
 #include "debug/trace/wave_launch_trace.h"
-#include "execution/internal/barrier_resource_pool.h"
-#include "execution/internal/cycle_issue_policy.h"
-#include "execution/internal/cycle_types.h"
-#include "execution/internal/cycle_issue_schedule.h"
-#include "execution/internal/cycle_wave_schedule.h"
-#include "execution/internal/event_queue.h"
+#include "execution/internal/sync_ops/barrier_resource_pool.h"
+#include "execution/internal/cost_model/cycle_issue_policy.h"
+#include "execution/internal/cost_model/cycle_types.h"
+#include "execution/internal/issue_logic/cycle_issue_schedule.h"
+#include "execution/internal/wave_schedule/cycle_wave_schedule.h"
+#include "execution/internal/wave_schedule/event_queue.h"
 #include "gpu_arch/issue_config/issue_config.h"
-#include "execution/internal/issue_scheduler.h"
-#include "execution/internal/opcode_execution_info.h"
-#include "execution/internal/async_scoreboard.h"
-#include "execution/internal/memory_ops.h"
-#include "execution/internal/plan_apply.h"
-#include "execution/internal/sync_ops.h"
+#include "execution/internal/issue_logic/issue_scheduler.h"
+#include "instruction/isa/opcode_info.h"
+#include "execution/internal/commit_logic/async_scoreboard.h"
+#include "execution/internal/commit_logic/memory_ops.h"
+#include "execution/internal/commit_logic/plan_apply.h"
+#include "execution/internal/sync_ops/sync_ops.h"
 #include "state/wave/barrier_state.h"
-#include "execution/internal/wave_context_builder.h"
-#include "execution/internal/wave_stats.h"
-#include "execution/internal/issue_eligibility.h"
+#include "execution/internal/block_schedule/wave_context_builder.h"
+#include "execution/internal/issue_logic/issue_eligibility.h"
 #include "instruction/isa/opcode.h"
 #include "program/loader/device_image_loader.h"
 #include "gpu_arch/memory/cache_model.h"
 #include "gpu_arch/memory/shared_bank_model.h"
-#include "runtime/program_cycle_tracker.h"
-#include "runtime/program_cycle_stats.h"
+#include "runtime/model_runtime/program_cycle_tracker.h"
+#include "runtime/model_runtime/program_cycle_stats.h"
 
 namespace gpu_model {
 
@@ -1056,12 +1055,12 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
         issued_any = true;
       }
       // Update timing state:
-      // - selection_ready_cycle: when PEU can next select (currently tied to commit for backward compatibility)
+      // - selection_ready_cycle: when PEU can next select
       // - last_bundle_commit_cycle: when current bundle finishes committing
-      // Future: selection_ready_cycle could be decoupled from commit for finer-grained scheduling
+      // busy_until remains a mirrored alias until external callers finish moving to the split fields.
       slot.selection_ready_cycle = bundle_commit_cycle;
       slot.last_bundle_commit_cycle = bundle_commit_cycle;
-      slot.busy_until = bundle_commit_cycle;  // Keep for backward compatibility
+      slot.busy_until = bundle_commit_cycle;
       slot.last_wave_tag = bundle_last_wave_tag;
     }
 

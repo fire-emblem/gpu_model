@@ -22,20 +22,20 @@ add_executable(gpu_model_tests
   state/wave_runtime_state_test.cpp
 
   # instruction/execution migrated coverage
-  execution/internal/tensor_op_utils_test.cpp
+  instruction/tensor_result_writer_test.cpp
   execution/internal/issue_eligibility_test.cpp
   execution/internal/issue_scheduler_test.cpp
-  execution/internal/barrier_resource_pool_test.cpp
+  execution/sync_ops/barrier_resource_pool_test.cpp
   execution/internal/cycle_issue_policy_test.cpp
-  execution/internal/encoded_issue_type_test.cpp
-  execution/internal/encoded_issue_candidate_test.cpp
+  execution/issue_logic/encoded_issue_type_test.cpp
+  execution/issue_logic/encoded_issue_candidate_test.cpp
   instruction/instruction_array_parser_test.cpp
   instruction/encoded_instruction_binding_test.cpp
   instruction/encoded_instruction_descriptor_test.cpp
   instruction/instruction_object_execute_test.cpp
   execution/encoded_semantic_execute_test.cpp
   execution/encoded_semantic_handler_registry_test.cpp
-  execution/internal/handlers/semantic_handler_test.cpp
+  execution/plan/semantic_handler_test.cpp
   isa/opcode_descriptor_test.cpp
   functional/mapper_test.cpp
   functional/vecadd_functional_test.cpp

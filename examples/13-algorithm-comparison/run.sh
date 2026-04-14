@@ -38,9 +38,9 @@ for name in transpose_naive transpose_shared transpose_diagonal; do
     gpu_model_assert_mode_success "$mode_dir" "${name} validation ok"
   done
   if [[ " ${MODES[*]} " == *" cycle "* ]]; then
-    cycle_totals["$name"]="$(gpu_model_summary_field "$OUT_DIR/cycle/$name/launch_summary.txt" total_cycles)"
-    active_cycles["$name"]="$(gpu_model_summary_field "$OUT_DIR/cycle/$name/launch_summary.txt" active_cycles)"
-    ipc["$name"]="$(gpu_model_summary_field "$OUT_DIR/cycle/$name/launch_summary.txt" ipc)"
+    cycle_totals["$name"]="$(gpu_model_cycle_metric "$OUT_DIR/cycle/$name" total_cycles)"
+    active_cycles["$name"]="$(gpu_model_cycle_metric "$OUT_DIR/cycle/$name" active_cycles)"
+    ipc["$name"]="$(gpu_model_cycle_metric "$OUT_DIR/cycle/$name" ipc)"
   fi
 done
 

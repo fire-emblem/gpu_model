@@ -1,4 +1,4 @@
-#include "runtime/exec_engine.h"
+#include "runtime/exec_engine/exec_engine.h"
 
 #include <algorithm>
 #include <atomic>
@@ -14,7 +14,7 @@
 #include "execution/cycle/cycle_exec_engine.h"
 #include "execution/functional/functional_exec_engine.h"
 #include "execution/encoded/program_object_exec_engine.h"
-#include "execution/internal/cycle_issue_policy.h"
+#include "execution/internal/cost_model/cycle_issue_policy.h"
 #include "instruction/isa/kernel_metadata.h"
 #include "program/loader/device_image_loader.h"
 #include "program/loader/asm_parser.h"

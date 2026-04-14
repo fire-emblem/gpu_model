@@ -1,4 +1,4 @@
-#include "runtime/device_memory_manager.h"
+#include "runtime/model_runtime/device_memory_manager.h"
 
 #include <algorithm>
 #include <array>

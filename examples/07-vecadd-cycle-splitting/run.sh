@@ -22,7 +22,7 @@ for name in vecadd_direct vecadd_grid_stride vecadd_chunk2; do
     gpu_model_run_interposed_mode "$SO_PATH" "$OUT_DIR/${name}.out" "$mode_dir" "$mode"
     gpu_model_assert_mode_success "$mode_dir" "${name} validation ok"
   done
-  cycle_totals["$name"]="$(gpu_model_summary_field "$OUT_DIR/cycle/$name/launch_summary.txt" total_cycles)"
+  cycle_totals["$name"]="$(gpu_model_cycle_metric "$OUT_DIR/cycle/$name" total_cycles)"
 done
 
 for name in vecadd_direct vecadd_grid_stride vecadd_chunk2; do

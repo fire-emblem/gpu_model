@@ -1,4 +1,4 @@
-#include "runtime/module_registry.h"
+#include "runtime/model_runtime/module_registry.h"
 
 #include <algorithm>
 #include <array>

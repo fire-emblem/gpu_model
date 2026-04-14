@@ -8,7 +8,7 @@
 #include "debug/trace/event_export.h"
 #include "debug/trace/event_factory.h"
 #include "debug/trace/sink.h"
-#include "runtime/exec_engine.h"
+#include "runtime/exec_engine/exec_engine.h"
 #include "tests/test_utils/llvm_mc_test_support.h"
 #include "tests/test_utils/trace_test_support.h"
 

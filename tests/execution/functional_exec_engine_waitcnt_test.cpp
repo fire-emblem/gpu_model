@@ -17,7 +17,7 @@
 #include "execution/functional/functional_exec_engine.h"
 #include "instruction/isa/instruction_builder.h"
 #include "instruction/isa/opcode.h"
-#include "runtime/mapper.h"
+#include "runtime/model_runtime/mapper.h"
 
 namespace gpu_model {
 namespace {

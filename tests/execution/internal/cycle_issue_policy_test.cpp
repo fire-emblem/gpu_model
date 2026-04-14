@@ -3,8 +3,8 @@
 #include <vector>
 
 #include "gpu_arch/chip_config/arch_registry.h"
-#include "execution/internal/cycle_issue_policy.h"
-#include "execution/internal/issue_scheduler.h"
+#include "execution/internal/cost_model/cycle_issue_policy.h"
+#include "execution/internal/issue_logic/issue_scheduler.h"
 
 namespace gpu_model {
 namespace {

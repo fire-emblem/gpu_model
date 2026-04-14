@@ -4,8 +4,8 @@
 #include <vector>
 
 #include "instruction/isa/kernel_metadata.h"
-#include "runtime/kernel_arg_pack.h"
-#include "runtime/launch_config.h"
+#include "runtime/config/kernel_arg_pack.h"
+#include "runtime/config/launch_config.h"
 
 namespace gpu_model {
 

@@ -1,1800 +1,1800 @@
-    lane[0x22] = 0x5a2
-    lane[0x23] = 0x5a3
-    lane[0x24] = 0x5a4
-    lane[0x25] = 0x5a5
-    lane[0x26] = 0x5a6
-    lane[0x27] = 0x5a7
-    lane[0x28] = 0x5a8
-    lane[0x29] = 0x5a9
-    lane[0x2a] = 0x5aa
-    lane[0x2b] = 0x5ab
-    lane[0x2c] = 0x5ac
-    lane[0x2d] = 0x5ad
-    lane[0x2e] = 0x5ae
-    lane[0x2f] = 0x5af
-    lane[0x30] = 0x5b0
-    lane[0x31] = 0x5b1
-    lane[0x32] = 0x5b2
-    lane[0x33] = 0x5b3
-    lane[0x34] = 0x5b4
-    lane[0x35] = 0x5b5
-    lane[0x36] = 0x5b6
-    lane[0x37] = 0x5b7
-    lane[0x38] = 0x5b8
-    lane[0x39] = 0x5b9
-    lane[0x3a] = 0x5ba
-    lane[0x3b] = 0x5bb
-    lane[0x3c] = 0x5bc
-    lane[0x3d] = 0x5bd
-    lane[0x3e] = 0x5be
-    lane[0x3f] = 0x5bf
-
-pc=0x14 cycle=0x14 dpc=0x0 ap=0x0 peu=0x2 slot=0x5 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=Commit block=0x0 wave=0x16 canonical_name=commit presentation_name=commit display_name=commit category=instruction stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=commit
-pc=0x14 cycle=0x10 dpc=0x0 ap=0x0 peu=0x3 slot=0x5 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=IssueSelect block=0x0 wave=0x17 canonical_name=issue_select presentation_name=issue_select display_name=issue_select category=launch/wave stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=issue_select
-pc=0x14 cycle=0x10 dpc=0x0 ap=0x0 peu=0x3 slot=0x5 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=WaveStep block=0x0 wave=0x17 canonical_name=v_add_i32 presentation_name=v_add_i32 display_name=v_add_i32 category=instruction stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=pc=0x14 op=v_add_i32 exec_lanes=0x40
-  operands:
-  [0x00] v2:
-    lane[0x00] = 0x0
-    lane[0x01] = 0x0
-    lane[0x02] = 0x0
-    lane[0x03] = 0x0
-    lane[0x04] = 0x0
-    lane[0x05] = 0x0
-    lane[0x06] = 0x0
-    lane[0x07] = 0x0
-    lane[0x08] = 0x0
-    lane[0x09] = 0x0
-    lane[0x0a] = 0x0
-    lane[0x0b] = 0x0
-    lane[0x0c] = 0x0
-    lane[0x0d] = 0x0
-    lane[0x0e] = 0x0
-    lane[0x0f] = 0x0
-    lane[0x10] = 0x0
-    lane[0x11] = 0x0
-    lane[0x12] = 0x0
-    lane[0x13] = 0x0
-    lane[0x14] = 0x0
-    lane[0x15] = 0x0
-    lane[0x16] = 0x0
-    lane[0x17] = 0x0
-    lane[0x18] = 0x0
-    lane[0x19] = 0x0
-    lane[0x1a] = 0x0
-    lane[0x1b] = 0x0
-    lane[0x1c] = 0x0
-    lane[0x1d] = 0x0
-    lane[0x1e] = 0x0
-    lane[0x1f] = 0x0
-    lane[0x20] = 0x0
-    lane[0x21] = 0x0
-    lane[0x22] = 0x0
-    lane[0x23] = 0x0
-    lane[0x24] = 0x0
-    lane[0x25] = 0x0
-    lane[0x26] = 0x0
-    lane[0x27] = 0x0
-    lane[0x28] = 0x0
-    lane[0x29] = 0x0
-    lane[0x2a] = 0x0
-    lane[0x2b] = 0x0
-    lane[0x2c] = 0x0
-    lane[0x2d] = 0x0
-    lane[0x2e] = 0x0
-    lane[0x2f] = 0x0
-    lane[0x30] = 0x0
-    lane[0x31] = 0x0
-    lane[0x32] = 0x0
-    lane[0x33] = 0x0
-    lane[0x34] = 0x0
-    lane[0x35] = 0x0
-    lane[0x36] = 0x0
-    lane[0x37] = 0x0
-    lane[0x38] = 0x0
-    lane[0x39] = 0x0
-    lane[0x3a] = 0x0
-    lane[0x3b] = 0x0
-    lane[0x3c] = 0x0
-    lane[0x3d] = 0x0
-    lane[0x3e] = 0x0
-    lane[0x3f] = 0x0
-
-  [0x01] v1:
-    lane[0x00] = 0x5c1
-    lane[0x01] = 0x5c2
-    lane[0x02] = 0x5c3
-    lane[0x03] = 0x5c4
-    lane[0x04] = 0x5c5
-    lane[0x05] = 0x5c6
-    lane[0x06] = 0x5c7
-    lane[0x07] = 0x5c8
-    lane[0x08] = 0x5c9
-    lane[0x09] = 0x5ca
-    lane[0x0a] = 0x5cb
-    lane[0x0b] = 0x5cc
-    lane[0x0c] = 0x5cd
-    lane[0x0d] = 0x5ce
-    lane[0x0e] = 0x5cf
-    lane[0x0f] = 0x5d0
-    lane[0x10] = 0x5d1
-    lane[0x11] = 0x5d2
-    lane[0x12] = 0x5d3
-    lane[0x13] = 0x5d4
-    lane[0x14] = 0x5d5
-    lane[0x15] = 0x5d6
-    lane[0x16] = 0x5d7
-    lane[0x17] = 0x5d8
-    lane[0x18] = 0x5d9
-    lane[0x19] = 0x5da
-    lane[0x1a] = 0x5db
-    lane[0x1b] = 0x5dc
-    lane[0x1c] = 0x5dd
-    lane[0x1d] = 0x5de
-    lane[0x1e] = 0x5df
-    lane[0x1f] = 0x5e0
-    lane[0x20] = 0x5e1
-    lane[0x21] = 0x5e2
-    lane[0x22] = 0x5e3
-    lane[0x23] = 0x5e4
-    lane[0x24] = 0x5e5
-    lane[0x25] = 0x5e6
-    lane[0x26] = 0x5e7
-    lane[0x27] = 0x5e8
-    lane[0x28] = 0x5e9
-    lane[0x29] = 0x5ea
-    lane[0x2a] = 0x5eb
-    lane[0x2b] = 0x5ec
-    lane[0x2c] = 0x5ed
-    lane[0x2d] = 0x5ee
-    lane[0x2e] = 0x5ef
-    lane[0x2f] = 0x5f0
-    lane[0x30] = 0x5f1
-    lane[0x31] = 0x5f2
-    lane[0x32] = 0x5f3
-    lane[0x33] = 0x5f4
-    lane[0x34] = 0x5f5
-    lane[0x35] = 0x5f6
-    lane[0x36] = 0x5f7
-    lane[0x37] = 0x5f8
-    lane[0x38] = 0x5f9
-    lane[0x39] = 0x5fa
-    lane[0x3a] = 0x5fb
-    lane[0x3b] = 0x5fc
-    lane[0x3c] = 0x5fd
-    lane[0x3d] = 0x5fe
-    lane[0x3e] = 0x5ff
-    lane[0x3f] = 0x600
-
-  [0x02] v0:
-    lane[0x00] = 0x5c0
-    lane[0x01] = 0x5c1
-    lane[0x02] = 0x5c2
-    lane[0x03] = 0x5c3
-    lane[0x04] = 0x5c4
-    lane[0x05] = 0x5c5
-    lane[0x06] = 0x5c6
-    lane[0x07] = 0x5c7
-    lane[0x08] = 0x5c8
-    lane[0x09] = 0x5c9
-    lane[0x0a] = 0x5ca
-    lane[0x0b] = 0x5cb
-    lane[0x0c] = 0x5cc
-    lane[0x0d] = 0x5cd
-    lane[0x0e] = 0x5ce
-    lane[0x0f] = 0x5cf
-    lane[0x10] = 0x5d0
-    lane[0x11] = 0x5d1
-    lane[0x12] = 0x5d2
-    lane[0x13] = 0x5d3
-    lane[0x14] = 0x5d4
-    lane[0x15] = 0x5d5
-    lane[0x16] = 0x5d6
-    lane[0x17] = 0x5d7
-    lane[0x18] = 0x5d8
-    lane[0x19] = 0x5d9
-    lane[0x1a] = 0x5da
-    lane[0x1b] = 0x5db
-    lane[0x1c] = 0x5dc
-    lane[0x1d] = 0x5dd
-    lane[0x1e] = 0x5de
-    lane[0x1f] = 0x5df
-    lane[0x20] = 0x5e0
-    lane[0x21] = 0x5e1
-    lane[0x22] = 0x5e2
-    lane[0x23] = 0x5e3
-    lane[0x24] = 0x5e4
-    lane[0x25] = 0x5e5
-    lane[0x26] = 0x5e6
-    lane[0x27] = 0x5e7
-    lane[0x28] = 0x5e8
-    lane[0x29] = 0x5e9
-    lane[0x2a] = 0x5ea
-    lane[0x2b] = 0x5eb
-    lane[0x2c] = 0x5ec
-    lane[0x2d] = 0x5ed
-    lane[0x2e] = 0x5ee
-    lane[0x2f] = 0x5ef
-    lane[0x30] = 0x5f0
-    lane[0x31] = 0x5f1
-    lane[0x32] = 0x5f2
-    lane[0x33] = 0x5f3
-    lane[0x34] = 0x5f4
-    lane[0x35] = 0x5f5
-    lane[0x36] = 0x5f6
-    lane[0x37] = 0x5f7
-    lane[0x38] = 0x5f8
-    lane[0x39] = 0x5f9
-    lane[0x3a] = 0x5fa
-    lane[0x3b] = 0x5fb
-    lane[0x3c] = 0x5fc
-    lane[0x3d] = 0x5fd
-    lane[0x3e] = 0x5fe
-    lane[0x3f] = 0x5ff
-
-pc=0x14 cycle=0x14 dpc=0x0 ap=0x0 peu=0x3 slot=0x5 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=Commit block=0x0 wave=0x17 canonical_name=commit presentation_name=commit display_name=commit category=instruction stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=commit
-pc=0x14 cycle=0x10 dpc=0x0 ap=0x0 peu=0x0 slot=0x6 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=IssueSelect block=0x0 wave=0x18 canonical_name=issue_select presentation_name=issue_select display_name=issue_select category=launch/wave stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=issue_select
-pc=0x14 cycle=0x10 dpc=0x0 ap=0x0 peu=0x0 slot=0x6 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=WaveStep block=0x0 wave=0x18 canonical_name=v_add_i32 presentation_name=v_add_i32 display_name=v_add_i32 category=instruction stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=pc=0x14 op=v_add_i32 exec_lanes=0x40
-  operands:
-  [0x00] v2:
-    lane[0x00] = 0x0
-    lane[0x01] = 0x0
-    lane[0x02] = 0x0
-    lane[0x03] = 0x0
-    lane[0x04] = 0x0
-    lane[0x05] = 0x0
-    lane[0x06] = 0x0
-    lane[0x07] = 0x0
-    lane[0x08] = 0x0
-    lane[0x09] = 0x0
-    lane[0x0a] = 0x0
-    lane[0x0b] = 0x0
-    lane[0x0c] = 0x0
-    lane[0x0d] = 0x0
-    lane[0x0e] = 0x0
-    lane[0x0f] = 0x0
-    lane[0x10] = 0x0
-    lane[0x11] = 0x0
-    lane[0x12] = 0x0
-    lane[0x13] = 0x0
-    lane[0x14] = 0x0
-    lane[0x15] = 0x0
-    lane[0x16] = 0x0
-    lane[0x17] = 0x0
-    lane[0x18] = 0x0
-    lane[0x19] = 0x0
-    lane[0x1a] = 0x0
-    lane[0x1b] = 0x0
-    lane[0x1c] = 0x0
-    lane[0x1d] = 0x0
-    lane[0x1e] = 0x0
-    lane[0x1f] = 0x0
-    lane[0x20] = 0x0
-    lane[0x21] = 0x0
-    lane[0x22] = 0x0
-    lane[0x23] = 0x0
-    lane[0x24] = 0x0
-    lane[0x25] = 0x0
-    lane[0x26] = 0x0
-    lane[0x27] = 0x0
-    lane[0x28] = 0x0
-    lane[0x29] = 0x0
-    lane[0x2a] = 0x0
-    lane[0x2b] = 0x0
-    lane[0x2c] = 0x0
-    lane[0x2d] = 0x0
-    lane[0x2e] = 0x0
-    lane[0x2f] = 0x0
-    lane[0x30] = 0x0
-    lane[0x31] = 0x0
-    lane[0x32] = 0x0
-    lane[0x33] = 0x0
-    lane[0x34] = 0x0
-    lane[0x35] = 0x0
-    lane[0x36] = 0x0
-    lane[0x37] = 0x0
-    lane[0x38] = 0x0
-    lane[0x39] = 0x0
-    lane[0x3a] = 0x0
-    lane[0x3b] = 0x0
-    lane[0x3c] = 0x0
-    lane[0x3d] = 0x0
-    lane[0x3e] = 0x0
-    lane[0x3f] = 0x0
-
-  [0x01] v1:
-    lane[0x00] = 0x601
-    lane[0x01] = 0x602
-    lane[0x02] = 0x603
-    lane[0x03] = 0x604
-    lane[0x04] = 0x605
-    lane[0x05] = 0x606
-    lane[0x06] = 0x607
-    lane[0x07] = 0x608
-    lane[0x08] = 0x609
-    lane[0x09] = 0x60a
-    lane[0x0a] = 0x60b
-    lane[0x0b] = 0x60c
-    lane[0x0c] = 0x60d
-    lane[0x0d] = 0x60e
-    lane[0x0e] = 0x60f
-    lane[0x0f] = 0x610
-    lane[0x10] = 0x611
-    lane[0x11] = 0x612
-    lane[0x12] = 0x613
-    lane[0x13] = 0x614
-    lane[0x14] = 0x615
-    lane[0x15] = 0x616
-    lane[0x16] = 0x617
-    lane[0x17] = 0x618
-    lane[0x18] = 0x619
-    lane[0x19] = 0x61a
-    lane[0x1a] = 0x61b
-    lane[0x1b] = 0x61c
-    lane[0x1c] = 0x61d
-    lane[0x1d] = 0x61e
-    lane[0x1e] = 0x61f
-    lane[0x1f] = 0x620
-    lane[0x20] = 0x621
-    lane[0x21] = 0x622
-    lane[0x22] = 0x623
-    lane[0x23] = 0x624
-    lane[0x24] = 0x625
-    lane[0x25] = 0x626
-    lane[0x26] = 0x627
-    lane[0x27] = 0x628
-    lane[0x28] = 0x629
-    lane[0x29] = 0x62a
-    lane[0x2a] = 0x62b
-    lane[0x2b] = 0x62c
-    lane[0x2c] = 0x62d
-    lane[0x2d] = 0x62e
-    lane[0x2e] = 0x62f
-    lane[0x2f] = 0x630
-    lane[0x30] = 0x631
-    lane[0x31] = 0x632
-    lane[0x32] = 0x633
-    lane[0x33] = 0x634
-    lane[0x34] = 0x635
-    lane[0x35] = 0x636
-    lane[0x36] = 0x637
-    lane[0x37] = 0x638
-    lane[0x38] = 0x639
-    lane[0x39] = 0x63a
-    lane[0x3a] = 0x63b
-    lane[0x3b] = 0x63c
-    lane[0x3c] = 0x63d
-    lane[0x3d] = 0x63e
-    lane[0x3e] = 0x63f
-    lane[0x3f] = 0x640
-
-  [0x02] v0:
-    lane[0x00] = 0x600
-    lane[0x01] = 0x601
-    lane[0x02] = 0x602
-    lane[0x03] = 0x603
-    lane[0x04] = 0x604
-    lane[0x05] = 0x605
-    lane[0x06] = 0x606
-    lane[0x07] = 0x607
-    lane[0x08] = 0x608
-    lane[0x09] = 0x609
-    lane[0x0a] = 0x60a
-    lane[0x0b] = 0x60b
-    lane[0x0c] = 0x60c
-    lane[0x0d] = 0x60d
-    lane[0x0e] = 0x60e
-    lane[0x0f] = 0x60f
-    lane[0x10] = 0x610
-    lane[0x11] = 0x611
-    lane[0x12] = 0x612
-    lane[0x13] = 0x613
-    lane[0x14] = 0x614
-    lane[0x15] = 0x615
-    lane[0x16] = 0x616
-    lane[0x17] = 0x617
-    lane[0x18] = 0x618
-    lane[0x19] = 0x619
-    lane[0x1a] = 0x61a
-    lane[0x1b] = 0x61b
-    lane[0x1c] = 0x61c
-    lane[0x1d] = 0x61d
-    lane[0x1e] = 0x61e
-    lane[0x1f] = 0x61f
-    lane[0x20] = 0x620
-    lane[0x21] = 0x621
-    lane[0x22] = 0x622
-    lane[0x23] = 0x623
-    lane[0x24] = 0x624
-    lane[0x25] = 0x625
-    lane[0x26] = 0x626
-    lane[0x27] = 0x627
-    lane[0x28] = 0x628
-    lane[0x29] = 0x629
-    lane[0x2a] = 0x62a
-    lane[0x2b] = 0x62b
-    lane[0x2c] = 0x62c
-    lane[0x2d] = 0x62d
-    lane[0x2e] = 0x62e
-    lane[0x2f] = 0x62f
-    lane[0x30] = 0x630
-    lane[0x31] = 0x631
-    lane[0x32] = 0x632
-    lane[0x33] = 0x633
-    lane[0x34] = 0x634
-    lane[0x35] = 0x635
-    lane[0x36] = 0x636
-    lane[0x37] = 0x637
-    lane[0x38] = 0x638
-    lane[0x39] = 0x639
-    lane[0x3a] = 0x63a
-    lane[0x3b] = 0x63b
-    lane[0x3c] = 0x63c
-    lane[0x3d] = 0x63d
-    lane[0x3e] = 0x63e
-    lane[0x3f] = 0x63f
-
-pc=0x14 cycle=0x14 dpc=0x0 ap=0x0 peu=0x0 slot=0x6 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=Commit block=0x0 wave=0x18 canonical_name=commit presentation_name=commit display_name=commit category=instruction stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=commit
-pc=0x14 cycle=0x10 dpc=0x0 ap=0x0 peu=0x1 slot=0x6 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=IssueSelect block=0x0 wave=0x19 canonical_name=issue_select presentation_name=issue_select display_name=issue_select category=launch/wave stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=issue_select
-pc=0x14 cycle=0x10 dpc=0x0 ap=0x0 peu=0x1 slot=0x6 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=WaveStep block=0x0 wave=0x19 canonical_name=v_add_i32 presentation_name=v_add_i32 display_name=v_add_i32 category=instruction stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=pc=0x14 op=v_add_i32 exec_lanes=0x40
-  operands:
-  [0x00] v2:
-    lane[0x00] = 0x0
-    lane[0x01] = 0x0
-    lane[0x02] = 0x0
-    lane[0x03] = 0x0
-    lane[0x04] = 0x0
-    lane[0x05] = 0x0
-    lane[0x06] = 0x0
-    lane[0x07] = 0x0
-    lane[0x08] = 0x0
-    lane[0x09] = 0x0
-    lane[0x0a] = 0x0
-    lane[0x0b] = 0x0
-    lane[0x0c] = 0x0
-    lane[0x0d] = 0x0
-    lane[0x0e] = 0x0
-    lane[0x0f] = 0x0
-    lane[0x10] = 0x0
-    lane[0x11] = 0x0
-    lane[0x12] = 0x0
-    lane[0x13] = 0x0
-    lane[0x14] = 0x0
-    lane[0x15] = 0x0
-    lane[0x16] = 0x0
-    lane[0x17] = 0x0
-    lane[0x18] = 0x0
-    lane[0x19] = 0x0
-    lane[0x1a] = 0x0
-    lane[0x1b] = 0x0
-    lane[0x1c] = 0x0
-    lane[0x1d] = 0x0
-    lane[0x1e] = 0x0
-    lane[0x1f] = 0x0
-    lane[0x20] = 0x0
-    lane[0x21] = 0x0
-    lane[0x22] = 0x0
-    lane[0x23] = 0x0
-    lane[0x24] = 0x0
-    lane[0x25] = 0x0
-    lane[0x26] = 0x0
-    lane[0x27] = 0x0
-    lane[0x28] = 0x0
-    lane[0x29] = 0x0
-    lane[0x2a] = 0x0
-    lane[0x2b] = 0x0
-    lane[0x2c] = 0x0
-    lane[0x2d] = 0x0
-    lane[0x2e] = 0x0
-    lane[0x2f] = 0x0
-    lane[0x30] = 0x0
-    lane[0x31] = 0x0
-    lane[0x32] = 0x0
-    lane[0x33] = 0x0
-    lane[0x34] = 0x0
-    lane[0x35] = 0x0
-    lane[0x36] = 0x0
-    lane[0x37] = 0x0
-    lane[0x38] = 0x0
-    lane[0x39] = 0x0
-    lane[0x3a] = 0x0
-    lane[0x3b] = 0x0
-    lane[0x3c] = 0x0
-    lane[0x3d] = 0x0
-    lane[0x3e] = 0x0
-    lane[0x3f] = 0x0
-
-  [0x01] v1:
-    lane[0x00] = 0x641
-    lane[0x01] = 0x642
-    lane[0x02] = 0x643
-    lane[0x03] = 0x644
-    lane[0x04] = 0x645
-    lane[0x05] = 0x646
-    lane[0x06] = 0x647
-    lane[0x07] = 0x648
-    lane[0x08] = 0x649
-    lane[0x09] = 0x64a
-    lane[0x0a] = 0x64b
-    lane[0x0b] = 0x64c
-    lane[0x0c] = 0x64d
-    lane[0x0d] = 0x64e
-    lane[0x0e] = 0x64f
-    lane[0x0f] = 0x650
-    lane[0x10] = 0x651
-    lane[0x11] = 0x652
-    lane[0x12] = 0x653
-    lane[0x13] = 0x654
-    lane[0x14] = 0x655
-    lane[0x15] = 0x656
-    lane[0x16] = 0x657
-    lane[0x17] = 0x658
-    lane[0x18] = 0x659
-    lane[0x19] = 0x65a
-    lane[0x1a] = 0x65b
-    lane[0x1b] = 0x65c
-    lane[0x1c] = 0x65d
-    lane[0x1d] = 0x65e
-    lane[0x1e] = 0x65f
-    lane[0x1f] = 0x660
-    lane[0x20] = 0x661
-    lane[0x21] = 0x662
-    lane[0x22] = 0x663
-    lane[0x23] = 0x664
-    lane[0x24] = 0x665
-    lane[0x25] = 0x666
-    lane[0x26] = 0x667
-    lane[0x27] = 0x668
-    lane[0x28] = 0x669
-    lane[0x29] = 0x66a
-    lane[0x2a] = 0x66b
-    lane[0x2b] = 0x66c
-    lane[0x2c] = 0x66d
-    lane[0x2d] = 0x66e
-    lane[0x2e] = 0x66f
-    lane[0x2f] = 0x670
-    lane[0x30] = 0x671
-    lane[0x31] = 0x672
-    lane[0x32] = 0x673
-    lane[0x33] = 0x674
-    lane[0x34] = 0x675
-    lane[0x35] = 0x676
-    lane[0x36] = 0x677
-    lane[0x37] = 0x678
-    lane[0x38] = 0x679
-    lane[0x39] = 0x67a
-    lane[0x3a] = 0x67b
-    lane[0x3b] = 0x67c
-    lane[0x3c] = 0x67d
-    lane[0x3d] = 0x67e
-    lane[0x3e] = 0x67f
-    lane[0x3f] = 0x680
-
-  [0x02] v0:
-    lane[0x00] = 0x640
-    lane[0x01] = 0x641
-    lane[0x02] = 0x642
-    lane[0x03] = 0x643
-    lane[0x04] = 0x644
-    lane[0x05] = 0x645
-    lane[0x06] = 0x646
-    lane[0x07] = 0x647
-    lane[0x08] = 0x648
-    lane[0x09] = 0x649
-    lane[0x0a] = 0x64a
-    lane[0x0b] = 0x64b
-    lane[0x0c] = 0x64c
-    lane[0x0d] = 0x64d
-    lane[0x0e] = 0x64e
-    lane[0x0f] = 0x64f
-    lane[0x10] = 0x650
-    lane[0x11] = 0x651
-    lane[0x12] = 0x652
-    lane[0x13] = 0x653
-    lane[0x14] = 0x654
-    lane[0x15] = 0x655
-    lane[0x16] = 0x656
-    lane[0x17] = 0x657
-    lane[0x18] = 0x658
-    lane[0x19] = 0x659
-    lane[0x1a] = 0x65a
-    lane[0x1b] = 0x65b
-    lane[0x1c] = 0x65c
-    lane[0x1d] = 0x65d
-    lane[0x1e] = 0x65e
-    lane[0x1f] = 0x65f
-    lane[0x20] = 0x660
-    lane[0x21] = 0x661
-    lane[0x22] = 0x662
-    lane[0x23] = 0x663
-    lane[0x24] = 0x664
-    lane[0x25] = 0x665
-    lane[0x26] = 0x666
-    lane[0x27] = 0x667
-    lane[0x28] = 0x668
-    lane[0x29] = 0x669
-    lane[0x2a] = 0x66a
-    lane[0x2b] = 0x66b
-    lane[0x2c] = 0x66c
-    lane[0x2d] = 0x66d
-    lane[0x2e] = 0x66e
-    lane[0x2f] = 0x66f
-    lane[0x30] = 0x670
-    lane[0x31] = 0x671
-    lane[0x32] = 0x672
-    lane[0x33] = 0x673
-    lane[0x34] = 0x674
-    lane[0x35] = 0x675
-    lane[0x36] = 0x676
-    lane[0x37] = 0x677
-    lane[0x38] = 0x678
-    lane[0x39] = 0x679
-    lane[0x3a] = 0x67a
-    lane[0x3b] = 0x67b
-    lane[0x3c] = 0x67c
-    lane[0x3d] = 0x67d
-    lane[0x3e] = 0x67e
-    lane[0x3f] = 0x67f
-
-pc=0x14 cycle=0x14 dpc=0x0 ap=0x0 peu=0x1 slot=0x6 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=Commit block=0x0 wave=0x19 canonical_name=commit presentation_name=commit display_name=commit category=instruction stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=commit
-pc=0x14 cycle=0x10 dpc=0x0 ap=0x0 peu=0x2 slot=0x6 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=IssueSelect block=0x0 wave=0x1a canonical_name=issue_select presentation_name=issue_select display_name=issue_select category=launch/wave stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=issue_select
-pc=0x14 cycle=0x10 dpc=0x0 ap=0x0 peu=0x2 slot=0x6 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=WaveStep block=0x0 wave=0x1a canonical_name=v_add_i32 presentation_name=v_add_i32 display_name=v_add_i32 category=instruction stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=pc=0x14 op=v_add_i32 exec_lanes=0x40
-  operands:
-  [0x00] v2:
-    lane[0x00] = 0x0
-    lane[0x01] = 0x0
-    lane[0x02] = 0x0
-    lane[0x03] = 0x0
-    lane[0x04] = 0x0
-    lane[0x05] = 0x0
-    lane[0x06] = 0x0
-    lane[0x07] = 0x0
-    lane[0x08] = 0x0
-    lane[0x09] = 0x0
-    lane[0x0a] = 0x0
-    lane[0x0b] = 0x0
-    lane[0x0c] = 0x0
-    lane[0x0d] = 0x0
-    lane[0x0e] = 0x0
-    lane[0x0f] = 0x0
-    lane[0x10] = 0x0
-    lane[0x11] = 0x0
-    lane[0x12] = 0x0
-    lane[0x13] = 0x0
-    lane[0x14] = 0x0
-    lane[0x15] = 0x0
-    lane[0x16] = 0x0
-    lane[0x17] = 0x0
-    lane[0x18] = 0x0
-    lane[0x19] = 0x0
-    lane[0x1a] = 0x0
-    lane[0x1b] = 0x0
-    lane[0x1c] = 0x0
-    lane[0x1d] = 0x0
-    lane[0x1e] = 0x0
-    lane[0x1f] = 0x0
-    lane[0x20] = 0x0
-    lane[0x21] = 0x0
-    lane[0x22] = 0x0
-    lane[0x23] = 0x0
-    lane[0x24] = 0x0
-    lane[0x25] = 0x0
-    lane[0x26] = 0x0
-    lane[0x27] = 0x0
-    lane[0x28] = 0x0
-    lane[0x29] = 0x0
-    lane[0x2a] = 0x0
-    lane[0x2b] = 0x0
-    lane[0x2c] = 0x0
-    lane[0x2d] = 0x0
-    lane[0x2e] = 0x0
-    lane[0x2f] = 0x0
-    lane[0x30] = 0x0
-    lane[0x31] = 0x0
-    lane[0x32] = 0x0
-    lane[0x33] = 0x0
-    lane[0x34] = 0x0
-    lane[0x35] = 0x0
-    lane[0x36] = 0x0
-    lane[0x37] = 0x0
-    lane[0x38] = 0x0
-    lane[0x39] = 0x0
-    lane[0x3a] = 0x0
-    lane[0x3b] = 0x0
-    lane[0x3c] = 0x0
-    lane[0x3d] = 0x0
-    lane[0x3e] = 0x0
-    lane[0x3f] = 0x0
-
-  [0x01] v1:
-    lane[0x00] = 0x681
-    lane[0x01] = 0x682
-    lane[0x02] = 0x683
-    lane[0x03] = 0x684
-    lane[0x04] = 0x685
-    lane[0x05] = 0x686
-    lane[0x06] = 0x687
-    lane[0x07] = 0x688
-    lane[0x08] = 0x689
-    lane[0x09] = 0x68a
-    lane[0x0a] = 0x68b
-    lane[0x0b] = 0x68c
-    lane[0x0c] = 0x68d
-    lane[0x0d] = 0x68e
-    lane[0x0e] = 0x68f
-    lane[0x0f] = 0x690
-    lane[0x10] = 0x691
-    lane[0x11] = 0x692
-    lane[0x12] = 0x693
-    lane[0x13] = 0x694
-    lane[0x14] = 0x695
-    lane[0x15] = 0x696
-    lane[0x16] = 0x697
-    lane[0x17] = 0x698
-    lane[0x18] = 0x699
-    lane[0x19] = 0x69a
-    lane[0x1a] = 0x69b
-    lane[0x1b] = 0x69c
-    lane[0x1c] = 0x69d
-    lane[0x1d] = 0x69e
-    lane[0x1e] = 0x69f
-    lane[0x1f] = 0x6a0
-    lane[0x20] = 0x6a1
-    lane[0x21] = 0x6a2
-    lane[0x22] = 0x6a3
-    lane[0x23] = 0x6a4
-    lane[0x24] = 0x6a5
-    lane[0x25] = 0x6a6
-    lane[0x26] = 0x6a7
-    lane[0x27] = 0x6a8
-    lane[0x28] = 0x6a9
-    lane[0x29] = 0x6aa
-    lane[0x2a] = 0x6ab
-    lane[0x2b] = 0x6ac
-    lane[0x2c] = 0x6ad
-    lane[0x2d] = 0x6ae
-    lane[0x2e] = 0x6af
-    lane[0x2f] = 0x6b0
-    lane[0x30] = 0x6b1
-    lane[0x31] = 0x6b2
-    lane[0x32] = 0x6b3
-    lane[0x33] = 0x6b4
-    lane[0x34] = 0x6b5
-    lane[0x35] = 0x6b6
-    lane[0x36] = 0x6b7
-    lane[0x37] = 0x6b8
-    lane[0x38] = 0x6b9
-    lane[0x39] = 0x6ba
-    lane[0x3a] = 0x6bb
-    lane[0x3b] = 0x6bc
-    lane[0x3c] = 0x6bd
-    lane[0x3d] = 0x6be
-    lane[0x3e] = 0x6bf
-    lane[0x3f] = 0x6c0
-
-  [0x02] v0:
-    lane[0x00] = 0x680
-    lane[0x01] = 0x681
-    lane[0x02] = 0x682
-    lane[0x03] = 0x683
-    lane[0x04] = 0x684
-    lane[0x05] = 0x685
-    lane[0x06] = 0x686
-    lane[0x07] = 0x687
-    lane[0x08] = 0x688
-    lane[0x09] = 0x689
-    lane[0x0a] = 0x68a
-    lane[0x0b] = 0x68b
-    lane[0x0c] = 0x68c
-    lane[0x0d] = 0x68d
-    lane[0x0e] = 0x68e
-    lane[0x0f] = 0x68f
-    lane[0x10] = 0x690
-    lane[0x11] = 0x691
-    lane[0x12] = 0x692
-    lane[0x13] = 0x693
-    lane[0x14] = 0x694
-    lane[0x15] = 0x695
-    lane[0x16] = 0x696
-    lane[0x17] = 0x697
-    lane[0x18] = 0x698
-    lane[0x19] = 0x699
-    lane[0x1a] = 0x69a
-    lane[0x1b] = 0x69b
-    lane[0x1c] = 0x69c
-    lane[0x1d] = 0x69d
-    lane[0x1e] = 0x69e
-    lane[0x1f] = 0x69f
-    lane[0x20] = 0x6a0
-    lane[0x21] = 0x6a1
-    lane[0x22] = 0x6a2
-    lane[0x23] = 0x6a3
-    lane[0x24] = 0x6a4
-    lane[0x25] = 0x6a5
-    lane[0x26] = 0x6a6
-    lane[0x27] = 0x6a7
-    lane[0x28] = 0x6a8
-    lane[0x29] = 0x6a9
-    lane[0x2a] = 0x6aa
-    lane[0x2b] = 0x6ab
-    lane[0x2c] = 0x6ac
-    lane[0x2d] = 0x6ad
-    lane[0x2e] = 0x6ae
-    lane[0x2f] = 0x6af
-    lane[0x30] = 0x6b0
-    lane[0x31] = 0x6b1
-    lane[0x32] = 0x6b2
-    lane[0x33] = 0x6b3
-    lane[0x34] = 0x6b4
-    lane[0x35] = 0x6b5
-    lane[0x36] = 0x6b6
-    lane[0x37] = 0x6b7
-    lane[0x38] = 0x6b8
-    lane[0x39] = 0x6b9
-    lane[0x3a] = 0x6ba
-    lane[0x3b] = 0x6bb
-    lane[0x3c] = 0x6bc
-    lane[0x3d] = 0x6bd
-    lane[0x3e] = 0x6be
-    lane[0x3f] = 0x6bf
-
-pc=0x14 cycle=0x14 dpc=0x0 ap=0x0 peu=0x2 slot=0x6 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=Commit block=0x0 wave=0x1a canonical_name=commit presentation_name=commit display_name=commit category=instruction stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=commit
-pc=0x14 cycle=0x10 dpc=0x0 ap=0x0 peu=0x3 slot=0x6 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=IssueSelect block=0x0 wave=0x1b canonical_name=issue_select presentation_name=issue_select display_name=issue_select category=launch/wave stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=issue_select
-pc=0x14 cycle=0x10 dpc=0x0 ap=0x0 peu=0x3 slot=0x6 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=WaveStep block=0x0 wave=0x1b canonical_name=v_add_i32 presentation_name=v_add_i32 display_name=v_add_i32 category=instruction stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=pc=0x14 op=v_add_i32 exec_lanes=0x40
-  operands:
-  [0x00] v2:
-    lane[0x00] = 0x0
-    lane[0x01] = 0x0
-    lane[0x02] = 0x0
-    lane[0x03] = 0x0
-    lane[0x04] = 0x0
-    lane[0x05] = 0x0
-    lane[0x06] = 0x0
-    lane[0x07] = 0x0
-    lane[0x08] = 0x0
-    lane[0x09] = 0x0
-    lane[0x0a] = 0x0
-    lane[0x0b] = 0x0
-    lane[0x0c] = 0x0
-    lane[0x0d] = 0x0
-    lane[0x0e] = 0x0
-    lane[0x0f] = 0x0
-    lane[0x10] = 0x0
-    lane[0x11] = 0x0
-    lane[0x12] = 0x0
-    lane[0x13] = 0x0
-    lane[0x14] = 0x0
-    lane[0x15] = 0x0
-    lane[0x16] = 0x0
-    lane[0x17] = 0x0
-    lane[0x18] = 0x0
-    lane[0x19] = 0x0
-    lane[0x1a] = 0x0
-    lane[0x1b] = 0x0
-    lane[0x1c] = 0x0
-    lane[0x1d] = 0x0
-    lane[0x1e] = 0x0
-    lane[0x1f] = 0x0
-    lane[0x20] = 0x0
-    lane[0x21] = 0x0
-    lane[0x22] = 0x0
-    lane[0x23] = 0x0
-    lane[0x24] = 0x0
-    lane[0x25] = 0x0
-    lane[0x26] = 0x0
-    lane[0x27] = 0x0
-    lane[0x28] = 0x0
-    lane[0x29] = 0x0
-    lane[0x2a] = 0x0
-    lane[0x2b] = 0x0
-    lane[0x2c] = 0x0
-    lane[0x2d] = 0x0
-    lane[0x2e] = 0x0
-    lane[0x2f] = 0x0
-    lane[0x30] = 0x0
-    lane[0x31] = 0x0
-    lane[0x32] = 0x0
-    lane[0x33] = 0x0
-    lane[0x34] = 0x0
-    lane[0x35] = 0x0
-    lane[0x36] = 0x0
-    lane[0x37] = 0x0
-    lane[0x38] = 0x0
-    lane[0x39] = 0x0
-    lane[0x3a] = 0x0
-    lane[0x3b] = 0x0
-    lane[0x3c] = 0x0
-    lane[0x3d] = 0x0
-    lane[0x3e] = 0x0
-    lane[0x3f] = 0x0
-
-  [0x01] v1:
-    lane[0x00] = 0x6c1
-    lane[0x01] = 0x6c2
-    lane[0x02] = 0x6c3
-    lane[0x03] = 0x6c4
-    lane[0x04] = 0x6c5
-    lane[0x05] = 0x6c6
-    lane[0x06] = 0x6c7
-    lane[0x07] = 0x6c8
-    lane[0x08] = 0x6c9
-    lane[0x09] = 0x6ca
-    lane[0x0a] = 0x6cb
-    lane[0x0b] = 0x6cc
-    lane[0x0c] = 0x6cd
-    lane[0x0d] = 0x6ce
-    lane[0x0e] = 0x6cf
-    lane[0x0f] = 0x6d0
-    lane[0x10] = 0x6d1
-    lane[0x11] = 0x6d2
-    lane[0x12] = 0x6d3
-    lane[0x13] = 0x6d4
-    lane[0x14] = 0x6d5
-    lane[0x15] = 0x6d6
-    lane[0x16] = 0x6d7
-    lane[0x17] = 0x6d8
-    lane[0x18] = 0x6d9
-    lane[0x19] = 0x6da
-    lane[0x1a] = 0x6db
-    lane[0x1b] = 0x6dc
-    lane[0x1c] = 0x6dd
-    lane[0x1d] = 0x6de
-    lane[0x1e] = 0x6df
-    lane[0x1f] = 0x6e0
-    lane[0x20] = 0x6e1
-    lane[0x21] = 0x6e2
-    lane[0x22] = 0x6e3
-    lane[0x23] = 0x6e4
-    lane[0x24] = 0x6e5
-    lane[0x25] = 0x6e6
-    lane[0x26] = 0x6e7
-    lane[0x27] = 0x6e8
-    lane[0x28] = 0x6e9
-    lane[0x29] = 0x6ea
-    lane[0x2a] = 0x6eb
-    lane[0x2b] = 0x6ec
-    lane[0x2c] = 0x6ed
-    lane[0x2d] = 0x6ee
-    lane[0x2e] = 0x6ef
-    lane[0x2f] = 0x6f0
-    lane[0x30] = 0x6f1
-    lane[0x31] = 0x6f2
-    lane[0x32] = 0x6f3
-    lane[0x33] = 0x6f4
-    lane[0x34] = 0x6f5
-    lane[0x35] = 0x6f6
-    lane[0x36] = 0x6f7
-    lane[0x37] = 0x6f8
-    lane[0x38] = 0x6f9
-    lane[0x39] = 0x6fa
-    lane[0x3a] = 0x6fb
-    lane[0x3b] = 0x6fc
-    lane[0x3c] = 0x6fd
-    lane[0x3d] = 0x6fe
-    lane[0x3e] = 0x6ff
-    lane[0x3f] = 0x700
-
-  [0x02] v0:
-    lane[0x00] = 0x6c0
-    lane[0x01] = 0x6c1
-    lane[0x02] = 0x6c2
-    lane[0x03] = 0x6c3
-    lane[0x04] = 0x6c4
-    lane[0x05] = 0x6c5
-    lane[0x06] = 0x6c6
-    lane[0x07] = 0x6c7
-    lane[0x08] = 0x6c8
-    lane[0x09] = 0x6c9
-    lane[0x0a] = 0x6ca
-    lane[0x0b] = 0x6cb
-    lane[0x0c] = 0x6cc
-    lane[0x0d] = 0x6cd
-    lane[0x0e] = 0x6ce
-    lane[0x0f] = 0x6cf
-    lane[0x10] = 0x6d0
-    lane[0x11] = 0x6d1
-    lane[0x12] = 0x6d2
-    lane[0x13] = 0x6d3
-    lane[0x14] = 0x6d4
-    lane[0x15] = 0x6d5
-    lane[0x16] = 0x6d6
-    lane[0x17] = 0x6d7
-    lane[0x18] = 0x6d8
-    lane[0x19] = 0x6d9
-    lane[0x1a] = 0x6da
-    lane[0x1b] = 0x6db
-    lane[0x1c] = 0x6dc
-    lane[0x1d] = 0x6dd
-    lane[0x1e] = 0x6de
-    lane[0x1f] = 0x6df
-    lane[0x20] = 0x6e0
-    lane[0x21] = 0x6e1
-    lane[0x22] = 0x6e2
-    lane[0x23] = 0x6e3
-    lane[0x24] = 0x6e4
-    lane[0x25] = 0x6e5
-    lane[0x26] = 0x6e6
-    lane[0x27] = 0x6e7
-    lane[0x28] = 0x6e8
-    lane[0x29] = 0x6e9
-    lane[0x2a] = 0x6ea
-    lane[0x2b] = 0x6eb
-    lane[0x2c] = 0x6ec
-    lane[0x2d] = 0x6ed
-    lane[0x2e] = 0x6ee
-    lane[0x2f] = 0x6ef
-    lane[0x30] = 0x6f0
-    lane[0x31] = 0x6f1
-    lane[0x32] = 0x6f2
-    lane[0x33] = 0x6f3
-    lane[0x34] = 0x6f4
-    lane[0x35] = 0x6f5
-    lane[0x36] = 0x6f6
-    lane[0x37] = 0x6f7
-    lane[0x38] = 0x6f8
-    lane[0x39] = 0x6f9
-    lane[0x3a] = 0x6fa
-    lane[0x3b] = 0x6fb
-    lane[0x3c] = 0x6fc
-    lane[0x3d] = 0x6fd
-    lane[0x3e] = 0x6fe
-    lane[0x3f] = 0x6ff
-
-pc=0x14 cycle=0x14 dpc=0x0 ap=0x0 peu=0x3 slot=0x6 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=Commit block=0x0 wave=0x1b canonical_name=commit presentation_name=commit display_name=commit category=instruction stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=commit
-pc=0x14 cycle=0x10 dpc=0x0 ap=0x0 peu=0x0 slot=0x7 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=IssueSelect block=0x0 wave=0x1c canonical_name=issue_select presentation_name=issue_select display_name=issue_select category=launch/wave stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=issue_select
-pc=0x14 cycle=0x10 dpc=0x0 ap=0x0 peu=0x0 slot=0x7 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=WaveStep block=0x0 wave=0x1c canonical_name=v_add_i32 presentation_name=v_add_i32 display_name=v_add_i32 category=instruction stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=pc=0x14 op=v_add_i32 exec_lanes=0x40
-  operands:
-  [0x00] v2:
-    lane[0x00] = 0x0
-    lane[0x01] = 0x0
-    lane[0x02] = 0x0
-    lane[0x03] = 0x0
-    lane[0x04] = 0x0
-    lane[0x05] = 0x0
-    lane[0x06] = 0x0
-    lane[0x07] = 0x0
-    lane[0x08] = 0x0
-    lane[0x09] = 0x0
-    lane[0x0a] = 0x0
-    lane[0x0b] = 0x0
-    lane[0x0c] = 0x0
-    lane[0x0d] = 0x0
-    lane[0x0e] = 0x0
-    lane[0x0f] = 0x0
-    lane[0x10] = 0x0
-    lane[0x11] = 0x0
-    lane[0x12] = 0x0
-    lane[0x13] = 0x0
-    lane[0x14] = 0x0
-    lane[0x15] = 0x0
-    lane[0x16] = 0x0
-    lane[0x17] = 0x0
-    lane[0x18] = 0x0
-    lane[0x19] = 0x0
-    lane[0x1a] = 0x0
-    lane[0x1b] = 0x0
-    lane[0x1c] = 0x0
-    lane[0x1d] = 0x0
-    lane[0x1e] = 0x0
-    lane[0x1f] = 0x0
-    lane[0x20] = 0x0
-    lane[0x21] = 0x0
-    lane[0x22] = 0x0
-    lane[0x23] = 0x0
-    lane[0x24] = 0x0
-    lane[0x25] = 0x0
-    lane[0x26] = 0x0
-    lane[0x27] = 0x0
-    lane[0x28] = 0x0
-    lane[0x29] = 0x0
-    lane[0x2a] = 0x0
-    lane[0x2b] = 0x0
-    lane[0x2c] = 0x0
-    lane[0x2d] = 0x0
-    lane[0x2e] = 0x0
-    lane[0x2f] = 0x0
-    lane[0x30] = 0x0
-    lane[0x31] = 0x0
-    lane[0x32] = 0x0
-    lane[0x33] = 0x0
-    lane[0x34] = 0x0
-    lane[0x35] = 0x0
-    lane[0x36] = 0x0
-    lane[0x37] = 0x0
-    lane[0x38] = 0x0
-    lane[0x39] = 0x0
-    lane[0x3a] = 0x0
-    lane[0x3b] = 0x0
-    lane[0x3c] = 0x0
-    lane[0x3d] = 0x0
-    lane[0x3e] = 0x0
-    lane[0x3f] = 0x0
-
-  [0x01] v1:
-    lane[0x00] = 0x701
-    lane[0x01] = 0x702
-    lane[0x02] = 0x703
-    lane[0x03] = 0x704
-    lane[0x04] = 0x705
-    lane[0x05] = 0x706
-    lane[0x06] = 0x707
-    lane[0x07] = 0x708
-    lane[0x08] = 0x709
-    lane[0x09] = 0x70a
-    lane[0x0a] = 0x70b
-    lane[0x0b] = 0x70c
-    lane[0x0c] = 0x70d
-    lane[0x0d] = 0x70e
-    lane[0x0e] = 0x70f
-    lane[0x0f] = 0x710
-    lane[0x10] = 0x711
-    lane[0x11] = 0x712
-    lane[0x12] = 0x713
-    lane[0x13] = 0x714
-    lane[0x14] = 0x715
-    lane[0x15] = 0x716
-    lane[0x16] = 0x717
-    lane[0x17] = 0x718
-    lane[0x18] = 0x719
-    lane[0x19] = 0x71a
-    lane[0x1a] = 0x71b
-    lane[0x1b] = 0x71c
-    lane[0x1c] = 0x71d
-    lane[0x1d] = 0x71e
-    lane[0x1e] = 0x71f
-    lane[0x1f] = 0x720
-    lane[0x20] = 0x721
-    lane[0x21] = 0x722
-    lane[0x22] = 0x723
-    lane[0x23] = 0x724
-    lane[0x24] = 0x725
-    lane[0x25] = 0x726
-    lane[0x26] = 0x727
-    lane[0x27] = 0x728
-    lane[0x28] = 0x729
-    lane[0x29] = 0x72a
-    lane[0x2a] = 0x72b
-    lane[0x2b] = 0x72c
-    lane[0x2c] = 0x72d
-    lane[0x2d] = 0x72e
-    lane[0x2e] = 0x72f
-    lane[0x2f] = 0x730
-    lane[0x30] = 0x731
-    lane[0x31] = 0x732
-    lane[0x32] = 0x733
-    lane[0x33] = 0x734
-    lane[0x34] = 0x735
-    lane[0x35] = 0x736
-    lane[0x36] = 0x737
-    lane[0x37] = 0x738
-    lane[0x38] = 0x739
-    lane[0x39] = 0x73a
-    lane[0x3a] = 0x73b
-    lane[0x3b] = 0x73c
-    lane[0x3c] = 0x73d
-    lane[0x3d] = 0x73e
-    lane[0x3e] = 0x73f
-    lane[0x3f] = 0x740
-
-  [0x02] v0:
-    lane[0x00] = 0x700
-    lane[0x01] = 0x701
-    lane[0x02] = 0x702
-    lane[0x03] = 0x703
-    lane[0x04] = 0x704
-    lane[0x05] = 0x705
-    lane[0x06] = 0x706
-    lane[0x07] = 0x707
-    lane[0x08] = 0x708
-    lane[0x09] = 0x709
-    lane[0x0a] = 0x70a
-    lane[0x0b] = 0x70b
-    lane[0x0c] = 0x70c
-    lane[0x0d] = 0x70d
-    lane[0x0e] = 0x70e
-    lane[0x0f] = 0x70f
-    lane[0x10] = 0x710
-    lane[0x11] = 0x711
-    lane[0x12] = 0x712
-    lane[0x13] = 0x713
-    lane[0x14] = 0x714
-    lane[0x15] = 0x715
-    lane[0x16] = 0x716
-    lane[0x17] = 0x717
-    lane[0x18] = 0x718
-    lane[0x19] = 0x719
-    lane[0x1a] = 0x71a
-    lane[0x1b] = 0x71b
-    lane[0x1c] = 0x71c
-    lane[0x1d] = 0x71d
-    lane[0x1e] = 0x71e
-    lane[0x1f] = 0x71f
-    lane[0x20] = 0x720
-    lane[0x21] = 0x721
-    lane[0x22] = 0x722
-    lane[0x23] = 0x723
-    lane[0x24] = 0x724
-    lane[0x25] = 0x725
-    lane[0x26] = 0x726
-    lane[0x27] = 0x727
-    lane[0x28] = 0x728
-    lane[0x29] = 0x729
-    lane[0x2a] = 0x72a
-    lane[0x2b] = 0x72b
-    lane[0x2c] = 0x72c
-    lane[0x2d] = 0x72d
-    lane[0x2e] = 0x72e
-    lane[0x2f] = 0x72f
-    lane[0x30] = 0x730
-    lane[0x31] = 0x731
-    lane[0x32] = 0x732
-    lane[0x33] = 0x733
-    lane[0x34] = 0x734
-    lane[0x35] = 0x735
-    lane[0x36] = 0x736
-    lane[0x37] = 0x737
-    lane[0x38] = 0x738
-    lane[0x39] = 0x739
-    lane[0x3a] = 0x73a
-    lane[0x3b] = 0x73b
-    lane[0x3c] = 0x73c
-    lane[0x3d] = 0x73d
-    lane[0x3e] = 0x73e
-    lane[0x3f] = 0x73f
-
-pc=0x14 cycle=0x14 dpc=0x0 ap=0x0 peu=0x0 slot=0x7 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=Commit block=0x0 wave=0x1c canonical_name=commit presentation_name=commit display_name=commit category=instruction stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=commit
-pc=0x14 cycle=0x10 dpc=0x0 ap=0x0 peu=0x1 slot=0x7 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=IssueSelect block=0x0 wave=0x1d canonical_name=issue_select presentation_name=issue_select display_name=issue_select category=launch/wave stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=issue_select
-pc=0x14 cycle=0x10 dpc=0x0 ap=0x0 peu=0x1 slot=0x7 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=WaveStep block=0x0 wave=0x1d canonical_name=v_add_i32 presentation_name=v_add_i32 display_name=v_add_i32 category=instruction stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=pc=0x14 op=v_add_i32 exec_lanes=0x40
-  operands:
-  [0x00] v2:
-    lane[0x00] = 0x0
-    lane[0x01] = 0x0
-    lane[0x02] = 0x0
-    lane[0x03] = 0x0
-    lane[0x04] = 0x0
-    lane[0x05] = 0x0
-    lane[0x06] = 0x0
-    lane[0x07] = 0x0
-    lane[0x08] = 0x0
-    lane[0x09] = 0x0
-    lane[0x0a] = 0x0
-    lane[0x0b] = 0x0
-    lane[0x0c] = 0x0
-    lane[0x0d] = 0x0
-    lane[0x0e] = 0x0
-    lane[0x0f] = 0x0
-    lane[0x10] = 0x0
-    lane[0x11] = 0x0
-    lane[0x12] = 0x0
-    lane[0x13] = 0x0
-    lane[0x14] = 0x0
-    lane[0x15] = 0x0
-    lane[0x16] = 0x0
-    lane[0x17] = 0x0
-    lane[0x18] = 0x0
-    lane[0x19] = 0x0
-    lane[0x1a] = 0x0
-    lane[0x1b] = 0x0
-    lane[0x1c] = 0x0
-    lane[0x1d] = 0x0
-    lane[0x1e] = 0x0
-    lane[0x1f] = 0x0
-    lane[0x20] = 0x0
-    lane[0x21] = 0x0
-    lane[0x22] = 0x0
-    lane[0x23] = 0x0
-    lane[0x24] = 0x0
-    lane[0x25] = 0x0
-    lane[0x26] = 0x0
-    lane[0x27] = 0x0
-    lane[0x28] = 0x0
-    lane[0x29] = 0x0
-    lane[0x2a] = 0x0
-    lane[0x2b] = 0x0
-    lane[0x2c] = 0x0
-    lane[0x2d] = 0x0
-    lane[0x2e] = 0x0
-    lane[0x2f] = 0x0
-    lane[0x30] = 0x0
-    lane[0x31] = 0x0
-    lane[0x32] = 0x0
-    lane[0x33] = 0x0
-    lane[0x34] = 0x0
-    lane[0x35] = 0x0
-    lane[0x36] = 0x0
-    lane[0x37] = 0x0
-    lane[0x38] = 0x0
-    lane[0x39] = 0x0
-    lane[0x3a] = 0x0
-    lane[0x3b] = 0x0
-    lane[0x3c] = 0x0
-    lane[0x3d] = 0x0
-    lane[0x3e] = 0x0
-    lane[0x3f] = 0x0
-
-  [0x01] v1:
-    lane[0x00] = 0x741
-    lane[0x01] = 0x742
-    lane[0x02] = 0x743
-    lane[0x03] = 0x744
-    lane[0x04] = 0x745
-    lane[0x05] = 0x746
-    lane[0x06] = 0x747
-    lane[0x07] = 0x748
-    lane[0x08] = 0x749
-    lane[0x09] = 0x74a
-    lane[0x0a] = 0x74b
-    lane[0x0b] = 0x74c
-    lane[0x0c] = 0x74d
-    lane[0x0d] = 0x74e
-    lane[0x0e] = 0x74f
-    lane[0x0f] = 0x750
-    lane[0x10] = 0x751
-    lane[0x11] = 0x752
-    lane[0x12] = 0x753
-    lane[0x13] = 0x754
-    lane[0x14] = 0x755
-    lane[0x15] = 0x756
-    lane[0x16] = 0x757
-    lane[0x17] = 0x758
-    lane[0x18] = 0x759
-    lane[0x19] = 0x75a
-    lane[0x1a] = 0x75b
-    lane[0x1b] = 0x75c
-    lane[0x1c] = 0x75d
-    lane[0x1d] = 0x75e
-    lane[0x1e] = 0x75f
-    lane[0x1f] = 0x760
-    lane[0x20] = 0x761
-    lane[0x21] = 0x762
-    lane[0x22] = 0x763
-    lane[0x23] = 0x764
-    lane[0x24] = 0x765
-    lane[0x25] = 0x766
-    lane[0x26] = 0x767
-    lane[0x27] = 0x768
-    lane[0x28] = 0x769
-    lane[0x29] = 0x76a
-    lane[0x2a] = 0x76b
-    lane[0x2b] = 0x76c
-    lane[0x2c] = 0x76d
-    lane[0x2d] = 0x76e
-    lane[0x2e] = 0x76f
-    lane[0x2f] = 0x770
-    lane[0x30] = 0x771
-    lane[0x31] = 0x772
-    lane[0x32] = 0x773
-    lane[0x33] = 0x774
-    lane[0x34] = 0x775
-    lane[0x35] = 0x776
-    lane[0x36] = 0x777
-    lane[0x37] = 0x778
-    lane[0x38] = 0x779
-    lane[0x39] = 0x77a
-    lane[0x3a] = 0x77b
-    lane[0x3b] = 0x77c
-    lane[0x3c] = 0x77d
-    lane[0x3d] = 0x77e
-    lane[0x3e] = 0x77f
-    lane[0x3f] = 0x780
-
-  [0x02] v0:
-    lane[0x00] = 0x740
-    lane[0x01] = 0x741
-    lane[0x02] = 0x742
-    lane[0x03] = 0x743
-    lane[0x04] = 0x744
-    lane[0x05] = 0x745
-    lane[0x06] = 0x746
-    lane[0x07] = 0x747
-    lane[0x08] = 0x748
-    lane[0x09] = 0x749
-    lane[0x0a] = 0x74a
-    lane[0x0b] = 0x74b
-    lane[0x0c] = 0x74c
-    lane[0x0d] = 0x74d
-    lane[0x0e] = 0x74e
-    lane[0x0f] = 0x74f
-    lane[0x10] = 0x750
-    lane[0x11] = 0x751
-    lane[0x12] = 0x752
-    lane[0x13] = 0x753
-    lane[0x14] = 0x754
-    lane[0x15] = 0x755
-    lane[0x16] = 0x756
-    lane[0x17] = 0x757
-    lane[0x18] = 0x758
-    lane[0x19] = 0x759
-    lane[0x1a] = 0x75a
-    lane[0x1b] = 0x75b
-    lane[0x1c] = 0x75c
-    lane[0x1d] = 0x75d
-    lane[0x1e] = 0x75e
-    lane[0x1f] = 0x75f
-    lane[0x20] = 0x760
-    lane[0x21] = 0x761
-    lane[0x22] = 0x762
-    lane[0x23] = 0x763
-    lane[0x24] = 0x764
-    lane[0x25] = 0x765
-    lane[0x26] = 0x766
-    lane[0x27] = 0x767
-    lane[0x28] = 0x768
-    lane[0x29] = 0x769
-    lane[0x2a] = 0x76a
-    lane[0x2b] = 0x76b
-    lane[0x2c] = 0x76c
-    lane[0x2d] = 0x76d
-    lane[0x2e] = 0x76e
-    lane[0x2f] = 0x76f
-    lane[0x30] = 0x770
-    lane[0x31] = 0x771
-    lane[0x32] = 0x772
-    lane[0x33] = 0x773
-    lane[0x34] = 0x774
-    lane[0x35] = 0x775
-    lane[0x36] = 0x776
-    lane[0x37] = 0x777
-    lane[0x38] = 0x778
-    lane[0x39] = 0x779
-    lane[0x3a] = 0x77a
-    lane[0x3b] = 0x77b
-    lane[0x3c] = 0x77c
-    lane[0x3d] = 0x77d
-    lane[0x3e] = 0x77e
-    lane[0x3f] = 0x77f
-
-pc=0x14 cycle=0x14 dpc=0x0 ap=0x0 peu=0x1 slot=0x7 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=Commit block=0x0 wave=0x1d canonical_name=commit presentation_name=commit display_name=commit category=instruction stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=commit
-pc=0x14 cycle=0x10 dpc=0x0 ap=0x0 peu=0x2 slot=0x7 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=IssueSelect block=0x0 wave=0x1e canonical_name=issue_select presentation_name=issue_select display_name=issue_select category=launch/wave stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=issue_select
-pc=0x14 cycle=0x10 dpc=0x0 ap=0x0 peu=0x2 slot=0x7 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=WaveStep block=0x0 wave=0x1e canonical_name=v_add_i32 presentation_name=v_add_i32 display_name=v_add_i32 category=instruction stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=pc=0x14 op=v_add_i32 exec_lanes=0x40
-  operands:
-  [0x00] v2:
-    lane[0x00] = 0x0
-    lane[0x01] = 0x0
-    lane[0x02] = 0x0
-    lane[0x03] = 0x0
-    lane[0x04] = 0x0
-    lane[0x05] = 0x0
-    lane[0x06] = 0x0
-    lane[0x07] = 0x0
-    lane[0x08] = 0x0
-    lane[0x09] = 0x0
-    lane[0x0a] = 0x0
-    lane[0x0b] = 0x0
-    lane[0x0c] = 0x0
-    lane[0x0d] = 0x0
-    lane[0x0e] = 0x0
-    lane[0x0f] = 0x0
-    lane[0x10] = 0x0
-    lane[0x11] = 0x0
-    lane[0x12] = 0x0
-    lane[0x13] = 0x0
-    lane[0x14] = 0x0
-    lane[0x15] = 0x0
-    lane[0x16] = 0x0
-    lane[0x17] = 0x0
-    lane[0x18] = 0x0
-    lane[0x19] = 0x0
-    lane[0x1a] = 0x0
-    lane[0x1b] = 0x0
-    lane[0x1c] = 0x0
-    lane[0x1d] = 0x0
-    lane[0x1e] = 0x0
-    lane[0x1f] = 0x0
-    lane[0x20] = 0x0
-    lane[0x21] = 0x0
-    lane[0x22] = 0x0
-    lane[0x23] = 0x0
-    lane[0x24] = 0x0
-    lane[0x25] = 0x0
-    lane[0x26] = 0x0
-    lane[0x27] = 0x0
-    lane[0x28] = 0x0
-    lane[0x29] = 0x0
-    lane[0x2a] = 0x0
-    lane[0x2b] = 0x0
-    lane[0x2c] = 0x0
-    lane[0x2d] = 0x0
-    lane[0x2e] = 0x0
-    lane[0x2f] = 0x0
-    lane[0x30] = 0x0
-    lane[0x31] = 0x0
-    lane[0x32] = 0x0
-    lane[0x33] = 0x0
-    lane[0x34] = 0x0
-    lane[0x35] = 0x0
-    lane[0x36] = 0x0
-    lane[0x37] = 0x0
-    lane[0x38] = 0x0
-    lane[0x39] = 0x0
-    lane[0x3a] = 0x0
-    lane[0x3b] = 0x0
-    lane[0x3c] = 0x0
-    lane[0x3d] = 0x0
-    lane[0x3e] = 0x0
-    lane[0x3f] = 0x0
-
-  [0x01] v1:
-    lane[0x00] = 0x781
-    lane[0x01] = 0x782
-    lane[0x02] = 0x783
-    lane[0x03] = 0x784
-    lane[0x04] = 0x785
-    lane[0x05] = 0x786
-    lane[0x06] = 0x787
-    lane[0x07] = 0x788
-    lane[0x08] = 0x789
-    lane[0x09] = 0x78a
-    lane[0x0a] = 0x78b
-    lane[0x0b] = 0x78c
-    lane[0x0c] = 0x78d
-    lane[0x0d] = 0x78e
-    lane[0x0e] = 0x78f
-    lane[0x0f] = 0x790
-    lane[0x10] = 0x791
-    lane[0x11] = 0x792
-    lane[0x12] = 0x793
-    lane[0x13] = 0x794
-    lane[0x14] = 0x795
-    lane[0x15] = 0x796
-    lane[0x16] = 0x797
-    lane[0x17] = 0x798
-    lane[0x18] = 0x799
-    lane[0x19] = 0x79a
-    lane[0x1a] = 0x79b
-    lane[0x1b] = 0x79c
-    lane[0x1c] = 0x79d
-    lane[0x1d] = 0x79e
-    lane[0x1e] = 0x79f
-    lane[0x1f] = 0x7a0
-    lane[0x20] = 0x7a1
-    lane[0x21] = 0x7a2
-    lane[0x22] = 0x7a3
-    lane[0x23] = 0x7a4
-    lane[0x24] = 0x7a5
-    lane[0x25] = 0x7a6
-    lane[0x26] = 0x7a7
-    lane[0x27] = 0x7a8
-    lane[0x28] = 0x7a9
-    lane[0x29] = 0x7aa
-    lane[0x2a] = 0x7ab
-    lane[0x2b] = 0x7ac
-    lane[0x2c] = 0x7ad
-    lane[0x2d] = 0x7ae
-    lane[0x2e] = 0x7af
-    lane[0x2f] = 0x7b0
-    lane[0x30] = 0x7b1
-    lane[0x31] = 0x7b2
-    lane[0x32] = 0x7b3
-    lane[0x33] = 0x7b4
-    lane[0x34] = 0x7b5
-    lane[0x35] = 0x7b6
-    lane[0x36] = 0x7b7
-    lane[0x37] = 0x7b8
-    lane[0x38] = 0x7b9
-    lane[0x39] = 0x7ba
-    lane[0x3a] = 0x7bb
-    lane[0x3b] = 0x7bc
-    lane[0x3c] = 0x7bd
-    lane[0x3d] = 0x7be
-    lane[0x3e] = 0x7bf
-    lane[0x3f] = 0x7c0
-
-  [0x02] v0:
-    lane[0x00] = 0x780
-    lane[0x01] = 0x781
-    lane[0x02] = 0x782
-    lane[0x03] = 0x783
-    lane[0x04] = 0x784
-    lane[0x05] = 0x785
-    lane[0x06] = 0x786
-    lane[0x07] = 0x787
-    lane[0x08] = 0x788
-    lane[0x09] = 0x789
-    lane[0x0a] = 0x78a
-    lane[0x0b] = 0x78b
-    lane[0x0c] = 0x78c
-    lane[0x0d] = 0x78d
-    lane[0x0e] = 0x78e
-    lane[0x0f] = 0x78f
-    lane[0x10] = 0x790
-    lane[0x11] = 0x791
-    lane[0x12] = 0x792
-    lane[0x13] = 0x793
-    lane[0x14] = 0x794
-    lane[0x15] = 0x795
-    lane[0x16] = 0x796
-    lane[0x17] = 0x797
-    lane[0x18] = 0x798
-    lane[0x19] = 0x799
-    lane[0x1a] = 0x79a
-    lane[0x1b] = 0x79b
-    lane[0x1c] = 0x79c
-    lane[0x1d] = 0x79d
-    lane[0x1e] = 0x79e
-    lane[0x1f] = 0x79f
-    lane[0x20] = 0x7a0
-    lane[0x21] = 0x7a1
-    lane[0x22] = 0x7a2
-    lane[0x23] = 0x7a3
-    lane[0x24] = 0x7a4
-    lane[0x25] = 0x7a5
-    lane[0x26] = 0x7a6
-    lane[0x27] = 0x7a7
-    lane[0x28] = 0x7a8
-    lane[0x29] = 0x7a9
-    lane[0x2a] = 0x7aa
-    lane[0x2b] = 0x7ab
-    lane[0x2c] = 0x7ac
-    lane[0x2d] = 0x7ad
-    lane[0x2e] = 0x7ae
-    lane[0x2f] = 0x7af
-    lane[0x30] = 0x7b0
-    lane[0x31] = 0x7b1
-    lane[0x32] = 0x7b2
-    lane[0x33] = 0x7b3
-    lane[0x34] = 0x7b4
-    lane[0x35] = 0x7b5
-    lane[0x36] = 0x7b6
-    lane[0x37] = 0x7b7
-    lane[0x38] = 0x7b8
-    lane[0x39] = 0x7b9
-    lane[0x3a] = 0x7ba
-    lane[0x3b] = 0x7bb
-    lane[0x3c] = 0x7bc
-    lane[0x3d] = 0x7bd
-    lane[0x3e] = 0x7be
-    lane[0x3f] = 0x7bf
-
-pc=0x14 cycle=0x14 dpc=0x0 ap=0x0 peu=0x2 slot=0x7 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=Commit block=0x0 wave=0x1e canonical_name=commit presentation_name=commit display_name=commit category=instruction stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=commit
-pc=0x14 cycle=0x10 dpc=0x0 ap=0x0 peu=0x3 slot=0x7 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=IssueSelect block=0x0 wave=0x1f canonical_name=issue_select presentation_name=issue_select display_name=issue_select category=launch/wave stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=issue_select
-pc=0x14 cycle=0x10 dpc=0x0 ap=0x0 peu=0x3 slot=0x7 slot_model=logical_unbounded slot_model_kind=logical_unbounded kind=WaveStep block=0x0 wave=0x1f canonical_name=v_add_i32 presentation_name=v_add_i32 display_name=v_add_i32 category=instruction stall_reason= barrier_kind= arrive_kind= arrive_progress= lifecycle_stage= waitcnt_thresholds= waitcnt_pending_before= waitcnt_pending= waitcnt_pending_transition= waitcnt_blocked_domains= msg=pc=0x14 op=v_add_i32 exec_lanes=0x40
-  operands:
-  [0x00] v2:
-    lane[0x00] = 0x0
-    lane[0x01] = 0x0
-    lane[0x02] = 0x0
-    lane[0x03] = 0x0
-    lane[0x04] = 0x0
-    lane[0x05] = 0x0
-    lane[0x06] = 0x0
-    lane[0x07] = 0x0
-    lane[0x08] = 0x0
-    lane[0x09] = 0x0
-    lane[0x0a] = 0x0
-    lane[0x0b] = 0x0
-    lane[0x0c] = 0x0
-    lane[0x0d] = 0x0
-    lane[0x0e] = 0x0
-    lane[0x0f] = 0x0
-    lane[0x10] = 0x0
-    lane[0x11] = 0x0
-    lane[0x12] = 0x0
-    lane[0x13] = 0x0
-    lane[0x14] = 0x0
-    lane[0x15] = 0x0
-    lane[0x16] = 0x0
-    lane[0x17] = 0x0
-    lane[0x18] = 0x0
-    lane[0x19] = 0x0
-    lane[0x1a] = 0x0
-    lane[0x1b] = 0x0
-    lane[0x1c] = 0x0
-    lane[0x1d] = 0x0
-    lane[0x1e] = 0x0
-    lane[0x1f] = 0x0
-    lane[0x20] = 0x0
-    lane[0x21] = 0x0
-    lane[0x22] = 0x0
-    lane[0x23] = 0x0
-    lane[0x24] = 0x0
-    lane[0x25] = 0x0
-    lane[0x26] = 0x0
-    lane[0x27] = 0x0
-    lane[0x28] = 0x0
-    lane[0x29] = 0x0
-    lane[0x2a] = 0x0
-    lane[0x2b] = 0x0
-    lane[0x2c] = 0x0
-    lane[0x2d] = 0x0
-    lane[0x2e] = 0x0
-    lane[0x2f] = 0x0
-    lane[0x30] = 0x0
-    lane[0x31] = 0x0
-    lane[0x32] = 0x0
-    lane[0x33] = 0x0
-    lane[0x34] = 0x0
-    lane[0x35] = 0x0
-    lane[0x36] = 0x0
-    lane[0x37] = 0x0
-    lane[0x38] = 0x0
-    lane[0x39] = 0x0
-    lane[0x3a] = 0x0
-    lane[0x3b] = 0x0
-    lane[0x3c] = 0x0
-    lane[0x3d] = 0x0
-    lane[0x3e] = 0x0
-    lane[0x3f] = 0x0
-
-  [0x01] v1:
-    lane[0x00] = 0x7c1
-    lane[0x01] = 0x7c2
-    lane[0x02] = 0x7c3
-    lane[0x03] = 0x7c4
-    lane[0x04] = 0x7c5
-    lane[0x05] = 0x7c6
-    lane[0x06] = 0x7c7
-    lane[0x07] = 0x7c8
-    lane[0x08] = 0x7c9
-    lane[0x09] = 0x7ca
-    lane[0x0a] = 0x7cb
-    lane[0x0b] = 0x7cc
-    lane[0x0c] = 0x7cd
-    lane[0x0d] = 0x7ce
-    lane[0x0e] = 0x7cf
-    lane[0x0f] = 0x7d0
-    lane[0x10] = 0x7d1
-    lane[0x11] = 0x7d2
-    lane[0x12] = 0x7d3
-    lane[0x13] = 0x7d4
-    lane[0x14] = 0x7d5
-    lane[0x15] = 0x7d6
-    lane[0x16] = 0x7d7
-    lane[0x17] = 0x7d8
-    lane[0x18] = 0x7d9
-    lane[0x19] = 0x7da
-    lane[0x1a] = 0x7db
-    lane[0x1b] = 0x7dc
-    lane[0x1c] = 0x7dd
-    lane[0x1d] = 0x7de
-    lane[0x1e] = 0x7df
-    lane[0x1f] = 0x7e0
-    lane[0x20] = 0x7e1
-    lane[0x21] = 0x7e2
-    lane[0x22] = 0x7e3
-    lane[0x23] = 0x7e4
-    lane[0x24] = 0x7e5
-    lane[0x25] = 0x7e6
-    lane[0x26] = 0x7e7
-    lane[0x27] = 0x7e8
-    lane[0x28] = 0x7e9
-    lane[0x29] = 0x7ea
-    lane[0x2a] = 0x7eb
-    lane[0x2b] = 0x7ec
-    lane[0x2c] = 0x7ed
-    lane[0x2d] = 0x7ee
-    lane[0x2e] = 0x7ef
-    lane[0x2f] = 0x7f0
-    lane[0x30] = 0x7f1
-    lane[0x31] = 0x7f2
-    lane[0x32] = 0x7f3
-    lane[0x33] = 0x7f4
-    lane[0x34] = 0x7f5
-    lane[0x35] = 0x7f6
-    lane[0x36] = 0x7f7
-    lane[0x37] = 0x7f8
-    lane[0x38] = 0x7f9
-    lane[0x39] = 0x7fa
-    lane[0x3a] = 0x7fb
-    lane[0x3b] = 0x7fc
-    lane[0x3c] = 0x7fd
-    lane[0x3d] = 0x7fe
-    lane[0x3e] = 0x7ff
-    lane[0x3f] = 0x800
-
-  [0x02] v0:
-    lane[0x00] = 0x7c0
-    lane[0x01] = 0x7c1
-    lane[0x02] = 0x7c2
-    lane[0x03] = 0x7c3
-    lane[0x04] = 0x7c4
-    lane[0x05] = 0x7c5
-    lane[0x06] = 0x7c6
-    lane[0x07] = 0x7c7
-    lane[0x08] = 0x7c8
-    lane[0x09] = 0x7c9
-    lane[0x0a] = 0x7ca
-    lane[0x0b] = 0x7cb
-    lane[0x0c] = 0x7cc
-    lane[0x0d] = 0x7cd
-    lane[0x0e] = 0x7ce
-    lane[0x0f] = 0x7cf
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001d]             lane   40  0x6050
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001d]             lane   44  0x6084
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001d]             lane   48  0x60b8
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001d]             lane   52  0x60ec
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001d]             lane   56  0x6120
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001d]             lane   60  0x6154
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001d]   W:
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001d]     v8[step=4]:
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001d]             lane    0  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001d]             lane    4  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001d]             lane    8  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001d]             lane   12  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001d]             lane   16  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001d]             lane   20  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001d]             lane   24  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001d]             lane   28  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001d]             lane   32  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001d]             lane   36  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001d]             lane   40  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001d]             lane   44  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001d]             lane   48  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001d]             lane   52  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001d]             lane   56  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001d]             lane   60  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001d] mask: exec_before=0xffffffffffffffff exec_after=0xffffffffffffffff
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e] [event:v_add_i32] v_add_i32 v8, v7, v6
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e] rw:
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]   R:
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]     v7[step=4]:
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane    0  0x9d8d
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane    4  0x9de1
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane    8  0x9e35
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane   12  0x9e89
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane   16  0x9edd
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane   20  0x9f31
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane   24  0x9f85
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane   28  0x9fd9
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane   32  0xa02d
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane   36  0xa081
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane   40  0xa0d5
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane   44  0xa129
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane   48  0xa17d
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane   52  0xa1d1
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane   56  0xa225
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane   60  0xa279
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]     v6[step=4]:
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane    0  0x6188
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane    4  0x61bc
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane    8  0x61f0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane   12  0x6224
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane   16  0x6258
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane   20  0x628c
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane   24  0x62c0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane   28  0x62f4
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane   32  0x6328
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane   36  0x635c
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane   40  0x6390
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane   44  0x63c4
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane   48  0x63f8
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane   52  0x642c
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane   56  0x6460
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane   60  0x6494
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]   W:
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]     v8[step=4]:
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane    0  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane    4  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane    8  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane   12  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane   16  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane   20  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane   24  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane   28  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane   32  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane   36  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane   40  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane   44  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane   48  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane   52  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane   56  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e]             lane   60  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001e] mask: exec_before=0xffffffffffffffff exec_after=0xffffffffffffffff
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f] [event:v_add_i32] v_add_i32 v8, v7, v6
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f] rw:
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]   R:
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]     v7[step=4]:
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane    0  0xa2cd
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane    4  0xa321
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane    8  0xa375
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane   12  0xa3c9
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane   16  0xa41d
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane   20  0xa471
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane   24  0xa4c5
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane   28  0xa519
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane   32  0xa56d
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane   36  0xa5c1
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane   40  0xa615
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane   44  0xa669
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane   48  0xa6bd
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane   52  0xa711
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane   56  0xa765
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane   60  0xa7b9
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]     v6[step=4]:
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane    0  0x64c8
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane    4  0x64fc
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane    8  0x6530
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane   12  0x6564
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane   16  0x6598
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane   20  0x65cc
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane   24  0x6600
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane   28  0x6634
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane   32  0x6668
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane   36  0x669c
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane   40  0x66d0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane   44  0x6704
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane   48  0x6738
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane   52  0x676c
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane   56  0x67a0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane   60  0x67d4
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]   W:
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]     v8[step=4]:
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane    0  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane    4  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane    8  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane   12  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane   16  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane   20  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane   24  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane   28  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane   32  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane   36  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane   40  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane   44  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane   48  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane   52  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane   56  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f]             lane   60  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x0000001f] mask: exec_before=0xffffffffffffffff exec_after=0xffffffffffffffff
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020] [event:v_add_i32] v_add_i32 v8, v7, v6
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020] rw:
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]   R:
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]     v7[step=4]:
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane    0  0xa80d
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane    4  0xa861
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane    8  0xa8b5
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane   12  0xa909
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane   16  0xa95d
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane   20  0xa9b1
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane   24  0xaa05
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane   28  0xaa59
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane   32  0xaaad
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane   36  0xab01
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane   40  0xab55
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane   44  0xaba9
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane   48  0xabfd
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane   52  0xac51
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane   56  0xaca5
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane   60  0xacf9
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]     v6[step=4]:
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane    0  0x6808
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane    4  0x683c
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane    8  0x6870
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane   12  0x68a4
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane   16  0x68d8
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane   20  0x690c
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane   24  0x6940
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane   28  0x6974
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane   32  0x69a8
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane   36  0x69dc
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane   40  0x6a10
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane   44  0x6a44
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane   48  0x6a78
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane   52  0x6aac
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane   56  0x6ae0
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane   60  0x6b14
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]   W:
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]     v8[step=4]:
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane    0  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane    4  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane    8  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane   12  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane   16  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane   20  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane   24  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane   28  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane   32  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane   36  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane   40  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane   44  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane   48  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane   52  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane   56  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020]             lane   60  0x0
+[cycle:000040] [pc:0x0000002c] [wave:0x00000020] mask: exec_before=0xffffffffffffffff exec_after=0xffffffffffffffff
+[cycle:000044] [pc:0x00000030] [wave:0x00000000] [event:v_add_i32] v_add_i32 v9, v8, v7
+[cycle:000044] [pc:0x00000030] [wave:0x00000000] rw:
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]   R:
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]     v8[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane    0  0x15
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane    4  0x9d
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane    8  0x125
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane   12  0x1ad
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane   16  0x235
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane   20  0x2bd
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane   24  0x345
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane   28  0x3cd
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane   32  0x455
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane   36  0x4dd
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane   40  0x565
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane   44  0x5ed
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane   48  0x675
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane   52  0x6fd
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane   56  0x785
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane   60  0x80d
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]     v7[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane    0  0xd
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane    4  0x61
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane    8  0xb5
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane   12  0x109
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane   16  0x15d
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane   20  0x1b1
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane   24  0x205
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane   28  0x259
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane   32  0x2ad
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane   36  0x301
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane   40  0x355
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane   44  0x3a9
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane   48  0x3fd
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane   52  0x451
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane   56  0x4a5
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane   60  0x4f9
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]   W:
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]     v9[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane    0  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane    4  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane    8  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane   12  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane   16  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane   20  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane   24  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane   28  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane   32  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane   36  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane   40  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane   44  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane   48  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane   52  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane   56  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000000]             lane   60  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000000] mask: exec_before=0xffffffffffffffff exec_after=0xffffffffffffffff
+[cycle:000044] [pc:0x00000030] [wave:0x00000001] [event:v_add_i32] v_add_i32 v9, v8, v7
+[cycle:000044] [pc:0x00000030] [wave:0x00000001] rw:
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]   R:
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]     v8[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane    0  0x895
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane    4  0x91d
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane    8  0x9a5
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane   12  0xa2d
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane   16  0xab5
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane   20  0xb3d
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane   24  0xbc5
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane   28  0xc4d
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane   32  0xcd5
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane   36  0xd5d
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane   40  0xde5
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane   44  0xe6d
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane   48  0xef5
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane   52  0xf7d
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane   56  0x1005
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane   60  0x108d
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]     v7[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane    0  0x54d
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane    4  0x5a1
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane    8  0x5f5
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane   12  0x649
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane   16  0x69d
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane   20  0x6f1
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane   24  0x745
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane   28  0x799
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane   32  0x7ed
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane   36  0x841
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane   40  0x895
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane   44  0x8e9
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane   48  0x93d
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane   52  0x991
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane   56  0x9e5
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane   60  0xa39
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]   W:
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]     v9[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane    0  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane    4  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane    8  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane   12  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane   16  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane   20  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane   24  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane   28  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane   32  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane   36  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane   40  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane   44  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane   48  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane   52  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane   56  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000001]             lane   60  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000001] mask: exec_before=0xffffffffffffffff exec_after=0xffffffffffffffff
+[cycle:000044] [pc:0x00000030] [wave:0x00000002] [event:v_add_i32] v_add_i32 v9, v8, v7
+[cycle:000044] [pc:0x00000030] [wave:0x00000002] rw:
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]   R:
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]     v8[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane    0  0x1115
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane    4  0x119d
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane    8  0x1225
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane   12  0x12ad
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane   16  0x1335
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane   20  0x13bd
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane   24  0x1445
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane   28  0x14cd
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane   32  0x1555
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane   36  0x15dd
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane   40  0x1665
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane   44  0x16ed
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane   48  0x1775
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane   52  0x17fd
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane   56  0x1885
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane   60  0x190d
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]     v7[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane    0  0xa8d
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane    4  0xae1
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane    8  0xb35
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane   12  0xb89
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane   16  0xbdd
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane   20  0xc31
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane   24  0xc85
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane   28  0xcd9
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane   32  0xd2d
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane   36  0xd81
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane   40  0xdd5
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane   44  0xe29
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane   48  0xe7d
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane   52  0xed1
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane   56  0xf25
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane   60  0xf79
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]   W:
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]     v9[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane    0  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane    4  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane    8  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane   12  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane   16  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane   20  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane   24  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane   28  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane   32  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane   36  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane   40  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane   44  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane   48  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane   52  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane   56  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000002]             lane   60  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000002] mask: exec_before=0xffffffffffffffff exec_after=0xffffffffffffffff
+[cycle:000044] [pc:0x00000030] [wave:0x00000003] [event:v_add_i32] v_add_i32 v9, v8, v7
+[cycle:000044] [pc:0x00000030] [wave:0x00000003] rw:
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]   R:
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]     v8[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane    0  0x1995
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane    4  0x1a1d
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane    8  0x1aa5
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane   12  0x1b2d
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane   16  0x1bb5
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane   20  0x1c3d
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane   24  0x1cc5
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane   28  0x1d4d
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane   32  0x1dd5
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane   36  0x1e5d
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane   40  0x1ee5
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane   44  0x1f6d
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane   48  0x1ff5
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane   52  0x207d
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane   56  0x2105
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane   60  0x218d
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]     v7[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane    0  0xfcd
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane    4  0x1021
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane    8  0x1075
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane   12  0x10c9
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane   16  0x111d
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane   20  0x1171
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane   24  0x11c5
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane   28  0x1219
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane   32  0x126d
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane   36  0x12c1
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane   40  0x1315
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane   44  0x1369
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane   48  0x13bd
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane   52  0x1411
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane   56  0x1465
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane   60  0x14b9
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]   W:
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]     v9[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane    0  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane    4  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane    8  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane   12  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane   16  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane   20  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane   24  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane   28  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane   32  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane   36  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane   40  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane   44  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane   48  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane   52  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane   56  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000003]             lane   60  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000003] mask: exec_before=0xffffffffffffffff exec_after=0xffffffffffffffff
+[cycle:000044] [pc:0x00000030] [wave:0x00000004] [event:v_add_i32] v_add_i32 v9, v8, v7
+[cycle:000044] [pc:0x00000030] [wave:0x00000004] rw:
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]   R:
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]     v8[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane    0  0x2215
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane    4  0x229d
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane    8  0x2325
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane   12  0x23ad
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane   16  0x2435
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane   20  0x24bd
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane   24  0x2545
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane   28  0x25cd
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane   32  0x2655
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane   36  0x26dd
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane   40  0x2765
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane   44  0x27ed
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane   48  0x2875
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane   52  0x28fd
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane   56  0x2985
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane   60  0x2a0d
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]     v7[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane    0  0x150d
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane    4  0x1561
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane    8  0x15b5
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane   12  0x1609
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane   16  0x165d
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane   20  0x16b1
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane   24  0x1705
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane   28  0x1759
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane   32  0x17ad
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane   36  0x1801
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane   40  0x1855
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane   44  0x18a9
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane   48  0x18fd
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane   52  0x1951
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane   56  0x19a5
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane   60  0x19f9
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]   W:
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]     v9[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane    0  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane    4  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane    8  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane   12  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane   16  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane   20  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane   24  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane   28  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane   32  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane   36  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane   40  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane   44  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane   48  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane   52  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane   56  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000004]             lane   60  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000004] mask: exec_before=0xffffffffffffffff exec_after=0xffffffffffffffff
+[cycle:000044] [pc:0x00000030] [wave:0x00000005] [event:v_add_i32] v_add_i32 v9, v8, v7
+[cycle:000044] [pc:0x00000030] [wave:0x00000005] rw:
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]   R:
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]     v8[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane    0  0x2a95
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane    4  0x2b1d
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane    8  0x2ba5
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane   12  0x2c2d
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane   16  0x2cb5
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane   20  0x2d3d
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane   24  0x2dc5
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane   28  0x2e4d
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane   32  0x2ed5
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane   36  0x2f5d
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane   40  0x2fe5
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane   44  0x306d
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane   48  0x30f5
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane   52  0x317d
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane   56  0x3205
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane   60  0x328d
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]     v7[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane    0  0x1a4d
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane    4  0x1aa1
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane    8  0x1af5
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane   12  0x1b49
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane   16  0x1b9d
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane   20  0x1bf1
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane   24  0x1c45
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane   28  0x1c99
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane   32  0x1ced
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane   36  0x1d41
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane   40  0x1d95
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane   44  0x1de9
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane   48  0x1e3d
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane   52  0x1e91
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane   56  0x1ee5
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane   60  0x1f39
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]   W:
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]     v9[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane    0  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane    4  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane    8  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane   12  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane   16  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane   20  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane   24  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane   28  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane   32  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane   36  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane   40  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane   44  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane   48  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane   52  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane   56  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000005]             lane   60  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000005] mask: exec_before=0xffffffffffffffff exec_after=0xffffffffffffffff
+[cycle:000044] [pc:0x00000030] [wave:0x00000006] [event:v_add_i32] v_add_i32 v9, v8, v7
+[cycle:000044] [pc:0x00000030] [wave:0x00000006] rw:
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]   R:
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]     v8[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane    0  0x3315
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane    4  0x339d
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane    8  0x3425
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane   12  0x34ad
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane   16  0x3535
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane   20  0x35bd
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane   24  0x3645
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane   28  0x36cd
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane   32  0x3755
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane   36  0x37dd
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane   40  0x3865
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane   44  0x38ed
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane   48  0x3975
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane   52  0x39fd
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane   56  0x3a85
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane   60  0x3b0d
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]     v7[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane    0  0x1f8d
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane    4  0x1fe1
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane    8  0x2035
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane   12  0x2089
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane   16  0x20dd
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane   20  0x2131
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane   24  0x2185
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane   28  0x21d9
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane   32  0x222d
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane   36  0x2281
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane   40  0x22d5
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane   44  0x2329
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane   48  0x237d
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane   52  0x23d1
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane   56  0x2425
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane   60  0x2479
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]   W:
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]     v9[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane    0  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane    4  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane    8  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane   12  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane   16  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane   20  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane   24  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane   28  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane   32  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane   36  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane   40  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane   44  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane   48  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane   52  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane   56  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000006]             lane   60  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000006] mask: exec_before=0xffffffffffffffff exec_after=0xffffffffffffffff
+[cycle:000044] [pc:0x00000030] [wave:0x00000007] [event:v_add_i32] v_add_i32 v9, v8, v7
+[cycle:000044] [pc:0x00000030] [wave:0x00000007] rw:
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]   R:
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]     v8[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane    0  0x3b95
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane    4  0x3c1d
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane    8  0x3ca5
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane   12  0x3d2d
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane   16  0x3db5
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane   20  0x3e3d
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane   24  0x3ec5
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane   28  0x3f4d
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane   32  0x3fd5
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane   36  0x405d
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane   40  0x40e5
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane   44  0x416d
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane   48  0x41f5
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane   52  0x427d
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane   56  0x4305
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane   60  0x438d
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]     v7[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane    0  0x24cd
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane    4  0x2521
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane    8  0x2575
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane   12  0x25c9
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane   16  0x261d
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane   20  0x2671
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane   24  0x26c5
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane   28  0x2719
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane   32  0x276d
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane   36  0x27c1
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane   40  0x2815
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane   44  0x2869
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane   48  0x28bd
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane   52  0x2911
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane   56  0x2965
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane   60  0x29b9
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]   W:
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]     v9[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane    0  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane    4  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane    8  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane   12  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane   16  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane   20  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane   24  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane   28  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane   32  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane   36  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane   40  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane   44  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane   48  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane   52  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane   56  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000007]             lane   60  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000007] mask: exec_before=0xffffffffffffffff exec_after=0xffffffffffffffff
+[cycle:000044] [pc:0x00000030] [wave:0x00000008] [event:v_add_i32] v_add_i32 v9, v8, v7
+[cycle:000044] [pc:0x00000030] [wave:0x00000008] rw:
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]   R:
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]     v8[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane    0  0x4415
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane    4  0x449d
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane    8  0x4525
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane   12  0x45ad
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane   16  0x4635
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane   20  0x46bd
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane   24  0x4745
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane   28  0x47cd
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane   32  0x4855
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane   36  0x48dd
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane   40  0x4965
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane   44  0x49ed
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane   48  0x4a75
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane   52  0x4afd
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane   56  0x4b85
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane   60  0x4c0d
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]     v7[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane    0  0x2a0d
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane    4  0x2a61
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane    8  0x2ab5
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane   12  0x2b09
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane   16  0x2b5d
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane   20  0x2bb1
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane   24  0x2c05
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane   28  0x2c59
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane   32  0x2cad
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane   36  0x2d01
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane   40  0x2d55
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane   44  0x2da9
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane   48  0x2dfd
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane   52  0x2e51
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane   56  0x2ea5
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane   60  0x2ef9
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]   W:
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]     v9[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane    0  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane    4  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane    8  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane   12  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane   16  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane   20  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane   24  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane   28  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane   32  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane   36  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane   40  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane   44  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane   48  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane   52  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane   56  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000008]             lane   60  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000008] mask: exec_before=0xffffffffffffffff exec_after=0xffffffffffffffff
+[cycle:000044] [pc:0x00000030] [wave:0x00000009] [event:v_add_i32] v_add_i32 v9, v8, v7
+[cycle:000044] [pc:0x00000030] [wave:0x00000009] rw:
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]   R:
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]     v8[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane    0  0x4c95
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane    4  0x4d1d
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane    8  0x4da5
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane   12  0x4e2d
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane   16  0x4eb5
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane   20  0x4f3d
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane   24  0x4fc5
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane   28  0x504d
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane   32  0x50d5
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane   36  0x515d
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane   40  0x51e5
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane   44  0x526d
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane   48  0x52f5
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane   52  0x537d
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane   56  0x5405
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane   60  0x548d
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]     v7[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane    0  0x2f4d
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane    4  0x2fa1
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane    8  0x2ff5
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane   12  0x3049
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane   16  0x309d
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane   20  0x30f1
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane   24  0x3145
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane   28  0x3199
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane   32  0x31ed
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane   36  0x3241
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane   40  0x3295
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane   44  0x32e9
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane   48  0x333d
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane   52  0x3391
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane   56  0x33e5
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane   60  0x3439
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]   W:
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]     v9[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane    0  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane    4  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane    8  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane   12  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane   16  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane   20  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane   24  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane   28  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane   32  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane   36  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane   40  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane   44  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane   48  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane   52  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane   56  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000009]             lane   60  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000009] mask: exec_before=0xffffffffffffffff exec_after=0xffffffffffffffff
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a] [event:v_add_i32] v_add_i32 v9, v8, v7
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a] rw:
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]   R:
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]     v8[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane    0  0x5515
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane    4  0x559d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane    8  0x5625
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane   12  0x56ad
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane   16  0x5735
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane   20  0x57bd
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane   24  0x5845
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane   28  0x58cd
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane   32  0x5955
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane   36  0x59dd
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane   40  0x5a65
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane   44  0x5aed
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane   48  0x5b75
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane   52  0x5bfd
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane   56  0x5c85
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane   60  0x5d0d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]     v7[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane    0  0x348d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane    4  0x34e1
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane    8  0x3535
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane   12  0x3589
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane   16  0x35dd
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane   20  0x3631
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane   24  0x3685
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane   28  0x36d9
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane   32  0x372d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane   36  0x3781
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane   40  0x37d5
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane   44  0x3829
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane   48  0x387d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane   52  0x38d1
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane   56  0x3925
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane   60  0x3979
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]   W:
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]     v9[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane    0  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane    4  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane    8  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane   12  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane   16  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane   20  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane   24  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane   28  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane   32  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane   36  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane   40  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane   44  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane   48  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane   52  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane   56  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a]             lane   60  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000a] mask: exec_before=0xffffffffffffffff exec_after=0xffffffffffffffff
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b] [event:v_add_i32] v_add_i32 v9, v8, v7
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b] rw:
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]   R:
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]     v8[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane    0  0x5d95
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane    4  0x5e1d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane    8  0x5ea5
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane   12  0x5f2d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane   16  0x5fb5
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane   20  0x603d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane   24  0x60c5
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane   28  0x614d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane   32  0x61d5
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane   36  0x625d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane   40  0x62e5
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane   44  0x636d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane   48  0x63f5
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane   52  0x647d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane   56  0x6505
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane   60  0x658d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]     v7[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane    0  0x39cd
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane    4  0x3a21
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane    8  0x3a75
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane   12  0x3ac9
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane   16  0x3b1d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane   20  0x3b71
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane   24  0x3bc5
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane   28  0x3c19
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane   32  0x3c6d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane   36  0x3cc1
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane   40  0x3d15
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane   44  0x3d69
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane   48  0x3dbd
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane   52  0x3e11
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane   56  0x3e65
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane   60  0x3eb9
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]   W:
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]     v9[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane    0  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane    4  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane    8  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane   12  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane   16  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane   20  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane   24  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane   28  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane   32  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane   36  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane   40  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane   44  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane   48  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane   52  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane   56  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b]             lane   60  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000b] mask: exec_before=0xffffffffffffffff exec_after=0xffffffffffffffff
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c] [event:v_add_i32] v_add_i32 v9, v8, v7
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c] rw:
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]   R:
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]     v8[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane    0  0x6615
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane    4  0x669d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane    8  0x6725
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane   12  0x67ad
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane   16  0x6835
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane   20  0x68bd
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane   24  0x6945
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane   28  0x69cd
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane   32  0x6a55
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane   36  0x6add
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane   40  0x6b65
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane   44  0x6bed
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane   48  0x6c75
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane   52  0x6cfd
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane   56  0x6d85
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane   60  0x6e0d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]     v7[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane    0  0x3f0d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane    4  0x3f61
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane    8  0x3fb5
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane   12  0x4009
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane   16  0x405d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane   20  0x40b1
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane   24  0x4105
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane   28  0x4159
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane   32  0x41ad
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane   36  0x4201
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane   40  0x4255
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane   44  0x42a9
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane   48  0x42fd
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane   52  0x4351
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane   56  0x43a5
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane   60  0x43f9
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]   W:
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]     v9[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane    0  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane    4  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane    8  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane   12  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane   16  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane   20  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane   24  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane   28  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane   32  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane   36  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane   40  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane   44  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane   48  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane   52  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane   56  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c]             lane   60  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000c] mask: exec_before=0xffffffffffffffff exec_after=0xffffffffffffffff
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d] [event:v_add_i32] v_add_i32 v9, v8, v7
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d] rw:
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]   R:
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]     v8[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane    0  0x6e95
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane    4  0x6f1d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane    8  0x6fa5
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane   12  0x702d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane   16  0x70b5
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane   20  0x713d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane   24  0x71c5
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane   28  0x724d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane   32  0x72d5
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane   36  0x735d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane   40  0x73e5
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane   44  0x746d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane   48  0x74f5
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane   52  0x757d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane   56  0x7605
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane   60  0x768d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]     v7[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane    0  0x444d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane    4  0x44a1
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane    8  0x44f5
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane   12  0x4549
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane   16  0x459d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane   20  0x45f1
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane   24  0x4645
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane   28  0x4699
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane   32  0x46ed
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane   36  0x4741
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane   40  0x4795
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane   44  0x47e9
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane   48  0x483d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane   52  0x4891
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane   56  0x48e5
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane   60  0x4939
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]   W:
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]     v9[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane    0  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane    4  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane    8  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane   12  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane   16  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane   20  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane   24  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane   28  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane   32  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane   36  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane   40  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane   44  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane   48  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane   52  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane   56  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d]             lane   60  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000d] mask: exec_before=0xffffffffffffffff exec_after=0xffffffffffffffff
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e] [event:v_add_i32] v_add_i32 v9, v8, v7
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e] rw:
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]   R:
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]     v8[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane    0  0x7715
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane    4  0x779d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane    8  0x7825
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane   12  0x78ad
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane   16  0x7935
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane   20  0x79bd
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane   24  0x7a45
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane   28  0x7acd
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane   32  0x7b55
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane   36  0x7bdd
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane   40  0x7c65
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane   44  0x7ced
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane   48  0x7d75
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane   52  0x7dfd
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane   56  0x7e85
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane   60  0x7f0d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]     v7[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane    0  0x498d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane    4  0x49e1
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane    8  0x4a35
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane   12  0x4a89
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane   16  0x4add
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane   20  0x4b31
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane   24  0x4b85
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane   28  0x4bd9
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane   32  0x4c2d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane   36  0x4c81
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane   40  0x4cd5
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane   44  0x4d29
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane   48  0x4d7d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane   52  0x4dd1
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane   56  0x4e25
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane   60  0x4e79
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]   W:
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]     v9[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane    0  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane    4  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane    8  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane   12  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane   16  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane   20  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane   24  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane   28  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane   32  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane   36  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane   40  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane   44  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane   48  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane   52  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane   56  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e]             lane   60  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000e] mask: exec_before=0xffffffffffffffff exec_after=0xffffffffffffffff
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f] [event:v_add_i32] v_add_i32 v9, v8, v7
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f] rw:
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]   R:
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]     v8[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane    0  0x7f95
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane    4  0x801d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane    8  0x80a5
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane   12  0x812d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane   16  0x81b5
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane   20  0x823d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane   24  0x82c5
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane   28  0x834d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane   32  0x83d5
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane   36  0x845d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane   40  0x84e5
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane   44  0x856d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane   48  0x85f5
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane   52  0x867d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane   56  0x8705
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane   60  0x878d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]     v7[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane    0  0x4ecd
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane    4  0x4f21
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane    8  0x4f75
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane   12  0x4fc9
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane   16  0x501d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane   20  0x5071
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane   24  0x50c5
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane   28  0x5119
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane   32  0x516d
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane   36  0x51c1
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane   40  0x5215
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane   44  0x5269
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane   48  0x52bd
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane   52  0x5311
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane   56  0x5365
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane   60  0x53b9
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]   W:
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]     v9[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane    0  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane    4  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane    8  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane   12  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane   16  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane   20  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane   24  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane   28  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane   32  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane   36  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane   40  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane   44  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane   48  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane   52  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane   56  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f]             lane   60  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000000f] mask: exec_before=0xffffffffffffffff exec_after=0xffffffffffffffff
+[cycle:000044] [pc:0x00000030] [wave:0x00000010] [event:v_add_i32] v_add_i32 v9, v8, v7
+[cycle:000044] [pc:0x00000030] [wave:0x00000010] rw:
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]   R:
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]     v8[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane    0  0x8815
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane    4  0x889d
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane    8  0x8925
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane   12  0x89ad
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane   16  0x8a35
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane   20  0x8abd
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane   24  0x8b45
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane   28  0x8bcd
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane   32  0x8c55
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane   36  0x8cdd
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane   40  0x8d65
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane   44  0x8ded
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane   48  0x8e75
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane   52  0x8efd
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane   56  0x8f85
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane   60  0x900d
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]     v7[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane    0  0x540d
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane    4  0x5461
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane    8  0x54b5
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane   12  0x5509
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane   16  0x555d
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane   20  0x55b1
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane   24  0x5605
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane   28  0x5659
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane   32  0x56ad
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane   36  0x5701
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane   40  0x5755
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane   44  0x57a9
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane   48  0x57fd
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane   52  0x5851
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane   56  0x58a5
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane   60  0x58f9
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]   W:
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]     v9[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane    0  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane    4  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane    8  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane   12  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane   16  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane   20  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane   24  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane   28  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane   32  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane   36  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane   40  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane   44  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane   48  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane   52  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane   56  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000010]             lane   60  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000010] mask: exec_before=0xffffffffffffffff exec_after=0xffffffffffffffff
+[cycle:000044] [pc:0x00000030] [wave:0x00000011] [event:v_add_i32] v_add_i32 v9, v8, v7
+[cycle:000044] [pc:0x00000030] [wave:0x00000011] rw:
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]   R:
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]     v8[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane    0  0x9095
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane    4  0x911d
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane    8  0x91a5
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane   12  0x922d
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane   16  0x92b5
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane   20  0x933d
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane   24  0x93c5
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane   28  0x944d
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane   32  0x94d5
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane   36  0x955d
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane   40  0x95e5
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane   44  0x966d
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane   48  0x96f5
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane   52  0x977d
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane   56  0x9805
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane   60  0x988d
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]     v7[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane    0  0x594d
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane    4  0x59a1
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane    8  0x59f5
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane   12  0x5a49
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane   16  0x5a9d
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane   20  0x5af1
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane   24  0x5b45
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane   28  0x5b99
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane   32  0x5bed
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane   36  0x5c41
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane   40  0x5c95
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane   44  0x5ce9
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane   48  0x5d3d
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane   52  0x5d91
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane   56  0x5de5
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane   60  0x5e39
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]   W:
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]     v9[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane    0  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane    4  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane    8  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane   12  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane   16  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane   20  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane   24  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane   28  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane   32  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane   36  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane   40  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane   44  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane   48  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane   52  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane   56  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000011]             lane   60  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000011] mask: exec_before=0xffffffffffffffff exec_after=0xffffffffffffffff
+[cycle:000044] [pc:0x00000030] [wave:0x00000012] [event:v_add_i32] v_add_i32 v9, v8, v7
+[cycle:000044] [pc:0x00000030] [wave:0x00000012] rw:
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]   R:
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]     v8[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane    0  0x9915
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane    4  0x999d
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane    8  0x9a25
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane   12  0x9aad
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane   16  0x9b35
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane   20  0x9bbd
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane   24  0x9c45
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane   28  0x9ccd
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane   32  0x9d55
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane   36  0x9ddd
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane   40  0x9e65
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane   44  0x9eed
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane   48  0x9f75
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane   52  0x9ffd
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane   56  0xa085
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane   60  0xa10d
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]     v7[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane    0  0x5e8d
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane    4  0x5ee1
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane    8  0x5f35
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane   12  0x5f89
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane   16  0x5fdd
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane   20  0x6031
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane   24  0x6085
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane   28  0x60d9
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane   32  0x612d
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane   36  0x6181
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane   40  0x61d5
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane   44  0x6229
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane   48  0x627d
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane   52  0x62d1
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane   56  0x6325
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane   60  0x6379
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]   W:
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]     v9[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane    0  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane    4  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane    8  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane   12  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane   16  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane   20  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane   24  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane   28  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane   32  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane   36  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane   40  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane   44  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane   48  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane   52  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane   56  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000012]             lane   60  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000012] mask: exec_before=0xffffffffffffffff exec_after=0xffffffffffffffff
+[cycle:000044] [pc:0x00000030] [wave:0x00000013] [event:v_add_i32] v_add_i32 v9, v8, v7
+[cycle:000044] [pc:0x00000030] [wave:0x00000013] rw:
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]   R:
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]     v8[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane    0  0xa195
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane    4  0xa21d
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane    8  0xa2a5
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane   12  0xa32d
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane   16  0xa3b5
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane   20  0xa43d
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane   24  0xa4c5
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane   28  0xa54d
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane   32  0xa5d5
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane   36  0xa65d
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane   40  0xa6e5
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane   44  0xa76d
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane   48  0xa7f5
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane   52  0xa87d
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane   56  0xa905
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane   60  0xa98d
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]     v7[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane    0  0x63cd
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane    4  0x6421
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane    8  0x6475
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane   12  0x64c9
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane   16  0x651d
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane   20  0x6571
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane   24  0x65c5
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane   28  0x6619
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane   32  0x666d
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane   36  0x66c1
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane   40  0x6715
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane   44  0x6769
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane   48  0x67bd
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane   52  0x6811
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane   56  0x6865
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane   60  0x68b9
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]   W:
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]     v9[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane    0  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane    4  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane    8  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane   12  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane   16  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane   20  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane   24  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane   28  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane   32  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane   36  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane   40  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane   44  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane   48  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane   52  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane   56  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000013]             lane   60  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000013] mask: exec_before=0xffffffffffffffff exec_after=0xffffffffffffffff
+[cycle:000044] [pc:0x00000030] [wave:0x00000014] [event:v_add_i32] v_add_i32 v9, v8, v7
+[cycle:000044] [pc:0x00000030] [wave:0x00000014] rw:
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]   R:
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]     v8[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane    0  0xaa15
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane    4  0xaa9d
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane    8  0xab25
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane   12  0xabad
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane   16  0xac35
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane   20  0xacbd
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane   24  0xad45
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane   28  0xadcd
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane   32  0xae55
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane   36  0xaedd
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane   40  0xaf65
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane   44  0xafed
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane   48  0xb075
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane   52  0xb0fd
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane   56  0xb185
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane   60  0xb20d
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]     v7[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane    0  0x690d
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane    4  0x6961
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane    8  0x69b5
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane   12  0x6a09
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane   16  0x6a5d
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane   20  0x6ab1
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane   24  0x6b05
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane   28  0x6b59
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane   32  0x6bad
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane   36  0x6c01
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane   40  0x6c55
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane   44  0x6ca9
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane   48  0x6cfd
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane   52  0x6d51
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane   56  0x6da5
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane   60  0x6df9
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]   W:
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]     v9[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane    0  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane    4  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane    8  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane   12  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane   16  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane   20  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane   24  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane   28  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane   32  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane   36  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane   40  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane   44  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane   48  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane   52  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane   56  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000014]             lane   60  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000014] mask: exec_before=0xffffffffffffffff exec_after=0xffffffffffffffff
+[cycle:000044] [pc:0x00000030] [wave:0x00000015] [event:v_add_i32] v_add_i32 v9, v8, v7
+[cycle:000044] [pc:0x00000030] [wave:0x00000015] rw:
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]   R:
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]     v8[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane    0  0xb295
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane    4  0xb31d
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane    8  0xb3a5
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane   12  0xb42d
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane   16  0xb4b5
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane   20  0xb53d
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane   24  0xb5c5
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane   28  0xb64d
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane   32  0xb6d5
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane   36  0xb75d
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane   40  0xb7e5
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane   44  0xb86d
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane   48  0xb8f5
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane   52  0xb97d
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane   56  0xba05
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane   60  0xba8d
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]     v7[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane    0  0x6e4d
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane    4  0x6ea1
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane    8  0x6ef5
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane   12  0x6f49
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane   16  0x6f9d
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane   20  0x6ff1
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane   24  0x7045
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane   28  0x7099
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane   32  0x70ed
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane   36  0x7141
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane   40  0x7195
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane   44  0x71e9
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane   48  0x723d
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane   52  0x7291
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane   56  0x72e5
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane   60  0x7339
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]   W:
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]     v9[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane    0  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane    4  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane    8  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane   12  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane   16  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane   20  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane   24  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane   28  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane   32  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane   36  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane   40  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane   44  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane   48  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane   52  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane   56  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000015]             lane   60  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000015] mask: exec_before=0xffffffffffffffff exec_after=0xffffffffffffffff
+[cycle:000044] [pc:0x00000030] [wave:0x00000016] [event:v_add_i32] v_add_i32 v9, v8, v7
+[cycle:000044] [pc:0x00000030] [wave:0x00000016] rw:
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]   R:
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]     v8[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane    0  0xbb15
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane    4  0xbb9d
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane    8  0xbc25
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane   12  0xbcad
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane   16  0xbd35
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane   20  0xbdbd
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane   24  0xbe45
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane   28  0xbecd
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane   32  0xbf55
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane   36  0xbfdd
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane   40  0xc065
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane   44  0xc0ed
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane   48  0xc175
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane   52  0xc1fd
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane   56  0xc285
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane   60  0xc30d
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]     v7[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane    0  0x738d
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane    4  0x73e1
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane    8  0x7435
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane   12  0x7489
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane   16  0x74dd
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane   20  0x7531
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane   24  0x7585
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane   28  0x75d9
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane   32  0x762d
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane   36  0x7681
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane   40  0x76d5
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane   44  0x7729
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane   48  0x777d
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane   52  0x77d1
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane   56  0x7825
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane   60  0x7879
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]   W:
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]     v9[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane    0  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane    4  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane    8  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane   12  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane   16  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane   20  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane   24  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane   28  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane   32  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane   36  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane   40  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane   44  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane   48  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane   52  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane   56  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000016]             lane   60  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000016] mask: exec_before=0xffffffffffffffff exec_after=0xffffffffffffffff
+[cycle:000044] [pc:0x00000030] [wave:0x00000017] [event:v_add_i32] v_add_i32 v9, v8, v7
+[cycle:000044] [pc:0x00000030] [wave:0x00000017] rw:
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]   R:
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]     v8[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane    0  0xc395
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane    4  0xc41d
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane    8  0xc4a5
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane   12  0xc52d
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane   16  0xc5b5
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane   20  0xc63d
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane   24  0xc6c5
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane   28  0xc74d
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane   32  0xc7d5
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane   36  0xc85d
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane   40  0xc8e5
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane   44  0xc96d
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane   48  0xc9f5
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane   52  0xca7d
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane   56  0xcb05
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane   60  0xcb8d
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]     v7[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane    0  0x78cd
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane    4  0x7921
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane    8  0x7975
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane   12  0x79c9
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane   16  0x7a1d
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane   20  0x7a71
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane   24  0x7ac5
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane   28  0x7b19
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane   32  0x7b6d
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane   36  0x7bc1
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane   40  0x7c15
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane   44  0x7c69
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane   48  0x7cbd
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane   52  0x7d11
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane   56  0x7d65
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane   60  0x7db9
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]   W:
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]     v9[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane    0  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane    4  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane    8  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane   12  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane   16  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane   20  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane   24  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane   28  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane   32  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane   36  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane   40  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane   44  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane   48  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane   52  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane   56  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000017]             lane   60  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000017] mask: exec_before=0xffffffffffffffff exec_after=0xffffffffffffffff
+[cycle:000044] [pc:0x00000030] [wave:0x00000018] [event:v_add_i32] v_add_i32 v9, v8, v7
+[cycle:000044] [pc:0x00000030] [wave:0x00000018] rw:
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]   R:
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]     v8[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane    0  0xcc15
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane    4  0xcc9d
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane    8  0xcd25
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane   12  0xcdad
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane   16  0xce35
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane   20  0xcebd
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane   24  0xcf45
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane   28  0xcfcd
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane   32  0xd055
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane   36  0xd0dd
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane   40  0xd165
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane   44  0xd1ed
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane   48  0xd275
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane   52  0xd2fd
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane   56  0xd385
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane   60  0xd40d
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]     v7[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane    0  0x7e0d
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane    4  0x7e61
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane    8  0x7eb5
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane   12  0x7f09
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane   16  0x7f5d
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane   20  0x7fb1
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane   24  0x8005
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane   28  0x8059
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane   32  0x80ad
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane   36  0x8101
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane   40  0x8155
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane   44  0x81a9
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane   48  0x81fd
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane   52  0x8251
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane   56  0x82a5
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane   60  0x82f9
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]   W:
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]     v9[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane    0  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane    4  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane    8  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane   12  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane   16  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane   20  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane   24  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane   28  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane   32  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane   36  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane   40  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane   44  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane   48  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane   52  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane   56  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000018]             lane   60  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000018] mask: exec_before=0xffffffffffffffff exec_after=0xffffffffffffffff
+[cycle:000044] [pc:0x00000030] [wave:0x00000019] [event:v_add_i32] v_add_i32 v9, v8, v7
+[cycle:000044] [pc:0x00000030] [wave:0x00000019] rw:
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]   R:
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]     v8[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane    0  0xd495
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane    4  0xd51d
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane    8  0xd5a5
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane   12  0xd62d
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane   16  0xd6b5
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane   20  0xd73d
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane   24  0xd7c5
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane   28  0xd84d
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane   32  0xd8d5
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane   36  0xd95d
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane   40  0xd9e5
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane   44  0xda6d
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane   48  0xdaf5
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane   52  0xdb7d
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane   56  0xdc05
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane   60  0xdc8d
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]     v7[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane    0  0x834d
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane    4  0x83a1
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane    8  0x83f5
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane   12  0x8449
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane   16  0x849d
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane   20  0x84f1
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane   24  0x8545
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane   28  0x8599
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane   32  0x85ed
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane   36  0x8641
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane   40  0x8695
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane   44  0x86e9
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane   48  0x873d
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane   52  0x8791
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane   56  0x87e5
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane   60  0x8839
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]   W:
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]     v9[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane    0  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane    4  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane    8  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane   12  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane   16  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane   20  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane   24  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane   28  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane   32  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane   36  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane   40  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane   44  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane   48  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane   52  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane   56  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000019]             lane   60  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x00000019] mask: exec_before=0xffffffffffffffff exec_after=0xffffffffffffffff
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a] [event:v_add_i32] v_add_i32 v9, v8, v7
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a] rw:
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]   R:
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]     v8[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane    0  0xdd15
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane    4  0xdd9d
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane    8  0xde25
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane   12  0xdead
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane   16  0xdf35
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane   20  0xdfbd
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane   24  0xe045
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane   28  0xe0cd
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane   32  0xe155
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane   36  0xe1dd
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane   40  0xe265
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane   44  0xe2ed
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane   48  0xe375
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane   52  0xe3fd
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane   56  0xe485
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane   60  0xe50d
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]     v7[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane    0  0x888d
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane    4  0x88e1
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane    8  0x8935
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane   12  0x8989
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane   16  0x89dd
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane   20  0x8a31
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane   24  0x8a85
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane   28  0x8ad9
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane   32  0x8b2d
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane   36  0x8b81
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane   40  0x8bd5
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane   44  0x8c29
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane   48  0x8c7d
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane   52  0x8cd1
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane   56  0x8d25
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane   60  0x8d79
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]   W:
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]     v9[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane    0  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane    4  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane    8  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane   12  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane   16  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane   20  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane   24  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane   28  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane   32  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane   36  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane   40  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane   44  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane   48  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane   52  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane   56  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a]             lane   60  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000001a] mask: exec_before=0xffffffffffffffff exec_after=0xffffffffffffffff
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b] [event:v_add_i32] v_add_i32 v9, v8, v7
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b] rw:
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]   R:
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]     v8[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane    0  0xe595
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane    4  0xe61d
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane    8  0xe6a5
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane   12  0xe72d
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane   16  0xe7b5
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane   20  0xe83d
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane   24  0xe8c5
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane   28  0xe94d
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane   32  0xe9d5
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane   36  0xea5d
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane   40  0xeae5
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane   44  0xeb6d
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane   48  0xebf5
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane   52  0xec7d
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane   56  0xed05
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane   60  0xed8d
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]     v7[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane    0  0x8dcd
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane    4  0x8e21
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane    8  0x8e75
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane   12  0x8ec9
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane   16  0x8f1d
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane   20  0x8f71
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane   24  0x8fc5
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane   28  0x9019
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane   32  0x906d
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane   36  0x90c1
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane   40  0x9115
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane   44  0x9169
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane   48  0x91bd
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane   52  0x9211
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane   56  0x9265
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane   60  0x92b9
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]   W:
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]     v9[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane    0  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane    4  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane    8  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane   12  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane   16  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane   20  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane   24  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane   28  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane   32  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane   36  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane   40  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane   44  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane   48  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane   52  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane   56  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b]             lane   60  0x0
+[cycle:000044] [pc:0x00000030] [wave:0x0000001b] mask: exec_before=0xffffffffffffffff exec_after=0xffffffffffffffff
+[cycle:000044] [pc:0x00000030] [wave:0x0000001c] [event:v_add_i32] v_add_i32 v9, v8, v7
+[cycle:000044] [pc:0x00000030] [wave:0x0000001c] rw:
+[cycle:000044] [pc:0x00000030] [wave:0x0000001c]   R:
+[cycle:000044] [pc:0x00000030] [wave:0x0000001c]     v8[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x0000001c]             lane    0  0xee15
+[cycle:000044] [pc:0x00000030] [wave:0x0000001c]             lane    4  0xee9d
+[cycle:000044] [pc:0x00000030] [wave:0x0000001c]             lane    8  0xef25
+[cycle:000044] [pc:0x00000030] [wave:0x0000001c]             lane   12  0xefad
+[cycle:000044] [pc:0x00000030] [wave:0x0000001c]             lane   16  0xf035
+[cycle:000044] [pc:0x00000030] [wave:0x0000001c]             lane   20  0xf0bd
+[cycle:000044] [pc:0x00000030] [wave:0x0000001c]             lane   24  0xf145
+[cycle:000044] [pc:0x00000030] [wave:0x0000001c]             lane   28  0xf1cd
+[cycle:000044] [pc:0x00000030] [wave:0x0000001c]             lane   32  0xf255
+[cycle:000044] [pc:0x00000030] [wave:0x0000001c]             lane   36  0xf2dd
+[cycle:000044] [pc:0x00000030] [wave:0x0000001c]             lane   40  0xf365
+[cycle:000044] [pc:0x00000030] [wave:0x0000001c]             lane   44  0xf3ed
+[cycle:000044] [pc:0x00000030] [wave:0x0000001c]             lane   48  0xf475
+[cycle:000044] [pc:0x00000030] [wave:0x0000001c]             lane   52  0xf4fd
+[cycle:000044] [pc:0x00000030] [wave:0x0000001c]             lane   56  0xf585
+[cycle:000044] [pc:0x00000030] [wave:0x0000001c]             lane   60  0xf60d
+[cycle:000044] [pc:0x00000030] [wave:0x0000001c]     v7[step=4]:
+[cycle:000044] [pc:0x00000030] [wave:0x0000001c]             lane    0  0x930d
+[cycle:000044] [pc:0x00000030] [wave:0x0000001c]             lane    4  0x9361
+[cycle:000044] [pc:0x00000030] [wave:0x0000001c]             lane    8  0x93b5
+[cycle:000044] [pc:0x00000030] [wave:0x0000001c]             lane   12  0x9409
+[cycle:000044] [pc:0x00000030] [wave:0x0000001c]             lane   16  0x945d
+[cycle:000044] [pc:0x00000030] [wave:0x0000001c]             lane   20  0x94b1
+[cycle:000044] [pc:0x00000030] [wave:0x0000001c]             lane   24  0x9505
+[cycle:000044] [pc:0x00000030] [wave:0x0000001c]             lane   28  0x9559
+[cycle:000044] [pc:0x00000030] [wave:0x0000001c]             lane   32  0x95ad
+[cycle:000044] [pc:0x00000030] [wave:0x0000001c]             lane   36  0x9601
+[cycle:000044] [pc:0x00000030] [wave:0x0000001c]             lane   40  0x9655
+[cycle:000044] [pc:0x00000030] [wave:0x0000001c]             lane   44  0x96a9
+[cycle:000044] [pc:0x00000030] [wave:0x0000001c]             lane   48  0x96fd
+[cycle:000044] [pc:0x00000030] [wave:0x0000001c]             lane   52  0x9751
+[cycle:000044] [pc:0x00000030] [wave:0x0000001c]             lane   56  0x97a5
+[cycle:000044] [pc:0x00000030] [wave:0x0000001c]             lane   60  0x97f9
+[cycle:000044] [pc:0x00000030] [wave:0x0000001c]   W:
+[cycle:000044] [pc:0x00000030] [wave:0x0000001c]     v9[step=4]:

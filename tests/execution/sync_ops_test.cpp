@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "execution/internal/sync_ops.h"
+#include "execution/internal/sync_ops/sync_ops.h"
 #include "state/wave/barrier_state.h"
 
 namespace gpu_model {

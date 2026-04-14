@@ -29,7 +29,6 @@ src/
 │   ├── hip_runtime/    #   HIP C ABI 入口、LD_PRELOAD interposition
 │   ├── model_runtime/  #   ModelRuntime 核心实现
 │   ├── exec_engine/    #   ExecEngine 执行控制器
-│   ├── kernel_stub/    #   kernel stub 函数
 │   └── config/         #   运行时配置类型（LaunchConfig, KernelArgPack 等）
 │
 ├── program/            # 内核程序对象
@@ -75,7 +74,6 @@ src/
     ├── trace/          #   事件模型层（定义"什么是可观察的"）
     ├── recorder/       #   事实容器层（持有事件流 + 快照，提供序列化）
     ├── timeline/       #   可视化渲染层（从 Recorder 渲染 timeline）
-    ├── replay/         #   回放层（未来扩展）
     └── info/           #   调试信息 I/O
 ```
 
@@ -191,7 +189,6 @@ Layer 5 (观察，只消费不参与业务):
 | `debug/trace/` | 事件定义、快照、工厂函数 | 不变 |
 | `debug/recorder/` | Recorder 容器 + 序列化 | 不变 |
 | `debug/timeline/` | 可视化渲染 | 不变 |
-| `debug/replay/` | 回放（placeholder） | 不变 |
 | `debug/info/` | 调试信息 I/O | 不变 |
 
 ---

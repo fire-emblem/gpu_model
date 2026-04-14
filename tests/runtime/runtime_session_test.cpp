@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "debug/trace/artifact_recorder.h"
-#include "runtime/runtime_session.h"
+#include "runtime/model_runtime/runtime_session.h"
 
 namespace gpu_model {
 namespace {

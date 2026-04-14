@@ -5,7 +5,7 @@
 #include <cstring>
 
 #include "gpu_arch/memory/memory_pool.h"
-#include "runtime/kernarg_packer.h"
+#include "runtime/config/kernarg_packer.h"
 
 namespace gpu_model {
 namespace {

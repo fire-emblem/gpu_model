@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "execution/internal/plan_apply.h"
+#include "execution/internal/commit_logic/plan_apply.h"
 
 namespace gpu_model {
 namespace {

@@ -8,7 +8,6 @@
 
 #include "debug/recorder/export.h"
 #include "debug/recorder/recorder.h"
-#include "debug/replay/replayer.h"
 #include "debug/timeline/cycle_timeline.h"
 #include "debug/trace/artifact_recorder.h"
 #include "debug/trace/event.h"

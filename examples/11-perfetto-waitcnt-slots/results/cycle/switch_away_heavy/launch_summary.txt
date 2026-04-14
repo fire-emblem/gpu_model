@@ -1,1 +1,1 @@
-launch_index=0 kernel=switch_away_heavy execution_mode=cycle functional_mode=st ok=1 submit_cycle=0 begin_cycle=0 end_cycle=196 total_cycles=196 program_total_cycles=na
+launch_index=0 kernel=switch_away_heavy execution_mode=cycle functional_mode=st ok=1 submit_cycle=0 begin_cycle=0 end_cycle=544 total_cycles=544 program_total_cycles=544

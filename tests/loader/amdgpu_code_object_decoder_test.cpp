@@ -7,7 +7,7 @@
 #include <fstream>
 
 #include "program/program_object/object_reader.h"
-#include "gpu_arch/chip_config/amdgpu_target_config.h"
+#include "program/loader/amdgpu_target_config.h"
 #include "tests/test_utils/hipcc_cache_test_utils.h"
 
 namespace gpu_model {

@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-#include "gpu_arch/chip_config/gpu_arch_spec.h"
+#include "gpu_arch/device/gpu_arch_spec.h"
 #include "gpu_arch/memory/memory_request.h"
 
 namespace gpu_model {

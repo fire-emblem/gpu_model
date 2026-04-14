@@ -1,4 +1,4 @@
-#include "runtime/model_runtime.h"
+#include "runtime/model_runtime/model_runtime.h"
 
 #include <algorithm>
 #include <cstring>
@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "gpu_arch/chip_config/arch_registry.h"
-#include "runtime/exec_engine.h"
+#include "runtime/exec_engine/exec_engine.h"
 
 namespace gpu_model {
 

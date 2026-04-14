@@ -12,8 +12,8 @@
 #include <vector>
 
 #include "program/program_object/object_reader.h"
-#include "runtime/hip_runtime.h"
-#include "runtime/model_runtime.h"
+#include "runtime/hip_runtime/hip_runtime.h"
+#include "runtime/model_runtime/model_runtime.h"
 #include "tests/test_utils/hipcc_cache_test_utils.h"
 #include "test_matrix_profile.h"
 

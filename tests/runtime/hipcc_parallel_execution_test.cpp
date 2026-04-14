@@ -11,9 +11,9 @@
 
 #include "debug/trace/artifact_recorder.h"
 #include "program/program_object/object_reader.h"
-#include "runtime/model_runtime.h"
+#include "runtime/model_runtime/model_runtime.h"
 #include "tests/test_utils/hipcc_cache_test_utils.h"
-#include "runtime/exec_engine.h"
+#include "runtime/exec_engine/exec_engine.h"
 #include "utils/logging/log_macros.h"
 
 namespace gpu_model {

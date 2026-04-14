@@ -19,8 +19,8 @@
 #include <loguru.hpp>
 
 #include "debug/trace/artifact_recorder.h"
-#include "runtime/hip_runtime.h"
-#include "runtime/runtime_session.h"
+#include "runtime/hip_runtime/hip_runtime.h"
+#include "runtime/model_runtime/runtime_session.h"
 #include "utils/logging/log_macros.h"
 
 using gpu_model::LaunchConfig;

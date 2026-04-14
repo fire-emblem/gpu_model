@@ -5,7 +5,7 @@
 #include <string>
 
 #include "instruction/isa/instruction_builder.h"
-#include "runtime/exec_engine.h"
+#include "runtime/exec_engine/exec_engine.h"
 #include "tests/runtime/test_matrix_profile.h"
 
 namespace gpu_model {

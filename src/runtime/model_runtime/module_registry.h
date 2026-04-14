@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "program/program_object/program_object.h"
-#include "runtime/module_load.h"
+#include "runtime/model_runtime/module_load.h"
 
 namespace gpu_model {
 

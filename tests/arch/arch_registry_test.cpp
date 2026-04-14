@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "gpu_arch/chip_config/arch_registry.h"
-#include "gpu_arch/chip_config/gpu_arch_spec.h"
+#include "gpu_arch/device/gpu_arch_spec.h"
 
 namespace gpu_model {
 namespace {
@@ -39,7 +39,7 @@ TEST(ArchRegistryTest, Mac500FieldsMatchDesign) {
   EXPECT_EQ(spec->default_issue_cycles, 4u);
 }
 
-TEST(ArchRegistryTest, LegacyGpuArchSpecHeaderRemainsAvailableAsBridge) {
+TEST(ArchRegistryTest, GpuArchSpecProvidesAggregateHelpers) {
   GpuArchSpec spec;
   spec.dpc_count = 2;
   spec.ap_per_dpc = 3;

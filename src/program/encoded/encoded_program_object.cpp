@@ -23,7 +23,7 @@
 #include "program/loader/artifact_parser.h"
 #include "program/loader/external_tool_executor.h"
 #include "program/loader/temp_dir_manager.h"
-#include "gpu_arch/chip_config/amdgpu_target_config.h"
+#include "program/loader/amdgpu_target_config.h"
 
 namespace gpu_model {
 

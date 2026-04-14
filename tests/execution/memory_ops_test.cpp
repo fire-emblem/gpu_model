@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "execution/internal/memory_ops.h"
+#include "execution/internal/commit_logic/memory_ops.h"
 
 namespace gpu_model {
 namespace {

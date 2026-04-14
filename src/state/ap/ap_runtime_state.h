@@ -5,7 +5,7 @@
 #include <vector>
 
 #include "gpu_arch/ap/ap_def.h"
-#include "state/peu_state.h"
+#include "state/peu/peu_runtime_state.h"
 #include "state/wave/wave_runtime_state.h"
 
 namespace gpu_model {

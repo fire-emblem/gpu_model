@@ -30,10 +30,27 @@ gpu_model_require_cmd() {
 gpu_model_compile_hip_source() {
   local root="$1"
   shift
+  local -a compile_args=("$@")
+  local has_explicit_arch=0
+  local default_arch="${GPU_MODEL_HIP_OFFLOAD_ARCH:-gfx90a}"
+
+  for arg in "${compile_args[@]}"; do
+    case "$arg" in
+      --offload-arch=*|--offload-arch|--amdgpu-target=*|--amdgpu-target)
+        has_explicit_arch=1
+        break
+        ;;
+    esac
+  done
+
+  if [[ "$has_explicit_arch" -eq 0 ]]; then
+    compile_args=(--offload-arch="$default_arch" "${compile_args[@]}")
+  fi
+
   if [[ "${GPU_MODEL_USE_HIPCC_CACHE:-1}" != "0" ]]; then
-    "$root/tools/hipcc_cache.sh" "$@"
+    "$root/tools/hipcc_cache.sh" "${compile_args[@]}"
   else
-    hipcc "$@"
+    hipcc "${compile_args[@]}"
   fi
 }
 
@@ -178,4 +195,68 @@ gpu_model_summary_field() {
       }
     }
   ' "$summary_path"
+}
+
+gpu_model_trace_summary_field() {
+  local trace_path="$1"
+  local key="$2"
+  awk -v key="$key" '
+    $0 == "[SUMMARY]" {
+      in_summary = 1
+      next
+    }
+    /^\[/ {
+      if (in_summary) {
+        exit
+      }
+    }
+    in_summary {
+      split($0, kv, "=")
+      if (kv[1] == key) {
+        print kv[2]
+        exit
+      }
+    }
+  ' "$trace_path"
+}
+
+gpu_model_cycle_metric() {
+  local mode_dir="$1"
+  local metric="$2"
+  local launch_summary="$mode_dir/launch_summary.txt"
+  local trace_path="$mode_dir/trace.txt"
+  local value=""
+
+  case "$metric" in
+    total_cycles)
+      if [[ -f "$launch_summary" ]]; then
+        value="$(gpu_model_summary_field "$launch_summary" total_cycles)"
+      fi
+      if [[ -z "$value" && -f "$trace_path" ]]; then
+        value="$(gpu_model_trace_summary_field "$trace_path" gpu_tot_sim_cycle)"
+      fi
+      ;;
+    active_cycles)
+      if [[ -f "$launch_summary" ]]; then
+        value="$(gpu_model_summary_field "$launch_summary" active_cycles)"
+      fi
+      if [[ -z "$value" ]]; then
+        value="$(gpu_model_cycle_metric "$mode_dir" total_cycles)"
+      fi
+      ;;
+    ipc)
+      if [[ -f "$launch_summary" ]]; then
+        value="$(gpu_model_summary_field "$launch_summary" ipc)"
+      fi
+      if [[ -z "$value" && -f "$trace_path" ]]; then
+        value="$(gpu_model_trace_summary_field "$trace_path" gpu_tot_ipc)"
+      fi
+      ;;
+    *)
+      echo "unsupported cycle metric: $metric" >&2
+      return 1
+      ;;
+  esac
+
+  echo "$value"
 }

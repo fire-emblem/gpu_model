@@ -28,25 +28,25 @@
 #include "debug/trace/event_factory.h"
 #include "debug/trace/instruction_trace.h"
 #include "debug/trace/wave_launch_trace.h"
-#include "execution/internal/async_scoreboard.h"
-#include "execution/internal/issue_eligibility.h"
-#include "execution/internal/memory_arrive_kind.h"
-#include "execution/internal/opcode_execution_info.h"
-#include "execution/internal/wave_state.h"
-#include "execution/internal/memory_ops.h"
-#include "execution/internal/plan_apply.h"
-#include "execution/internal/sync_ops.h"
-#include "execution/internal/wave_context_builder.h"
+#include "execution/internal/commit_logic/async_scoreboard.h"
+#include "execution/internal/issue_logic/issue_eligibility.h"
+#include "gpu_arch/memory/memory_arrive_kind.h"
+#include "instruction/isa/opcode_info.h"
+#include "state/wave/wave_stats.h"
+#include "state/wave/wave_timing.h"
+#include "execution/internal/commit_logic/memory_ops.h"
+#include "execution/internal/commit_logic/plan_apply.h"
+#include "execution/internal/sync_ops/sync_ops.h"
+#include "execution/internal/block_schedule/wave_context_builder.h"
 #include "instruction/isa/opcode.h"
 #include "program/loader/device_image_loader.h"
-#include "runtime/program_cycle_tracker.h"
+#include "runtime/model_runtime/program_cycle_tracker.h"
 
 namespace gpu_model {
 
 namespace {
 
-// Note: kIssueQuantumCycles, QuantizeToNextIssueQuantum, QuantizeIssueDuration
-// are now in wave_state.h
+// Shared issue-quantum helpers live in state/wave/wave_timing.h.
 
 uint32_t DefaultFunctionalParallelWorkerCount() {
   const uint32_t cpu_count = std::max(1u, std::thread::hardware_concurrency());
@@ -159,7 +159,7 @@ struct FunctionalWaveState {
   uint64_t next_issue_cycle = 0;
 };
 
-// Note: WaveStatsSnapshot is now in wave_state.h
+// Wave stats snapshots are owned by state/wave/wave_stats.h.
 
 void MarkWaveWaiting(WaveContext& wave, WaveWaitReason reason) {
   if (wave.run_state == WaveRunState::Completed) {

@@ -46,6 +46,7 @@ include(FetchContent)
 FetchContent_Declare(
   googletest
   URL https://github.com/google/googletest/archive/refs/tags/v1.15.2.zip
+  URL_HASH SHA256=f179ec217f9b3b3f3c6e8b02d3e7eda997b49e4ce26d6b235c9053bec9c0bf9f
 )
 FetchContent_MakeAvailable(googletest)
 
@@ -115,21 +116,20 @@ add_library(gpu_model STATIC
   # execution/encoded/
   src/execution/encoded/program_object_exec_engine.cpp
   # execution/internal/
-  src/execution/internal/memory_ops.cpp
-  src/execution/internal/sync_ops.cpp
-  src/execution/internal/plan_apply.cpp
-  src/execution/internal/semantic_handler.cpp
-  src/execution/internal/wave_state.cpp
-  src/execution/internal/semantics.cpp
-  src/execution/internal/wave_context_builder.cpp
-  src/execution/internal/issue_scheduler.cpp
-  src/execution/internal/issue_eligibility.cpp
-  src/execution/internal/async_scoreboard.cpp
-  src/execution/internal/cycle_types.cpp
-  src/execution/internal/cycle_wave_schedule.cpp
-  src/execution/internal/cycle_issue_schedule.cpp
-  src/execution/internal/event_queue.cpp
-  src/execution/internal/compute_functor_registry.cpp
+  src/execution/internal/commit_logic/memory_ops.cpp
+  src/execution/internal/sync_ops/sync_ops.cpp
+  src/execution/internal/commit_logic/plan_apply.cpp
+  src/execution/internal/plan/semantic_handler.cpp
+  src/execution/internal/plan/semantics.cpp
+  src/execution/internal/block_schedule/wave_context_builder.cpp
+  src/execution/internal/issue_logic/issue_scheduler.cpp
+  src/execution/internal/issue_logic/issue_eligibility.cpp
+  src/execution/internal/commit_logic/async_scoreboard.cpp
+  src/execution/internal/cost_model/cycle_types.cpp
+  src/execution/internal/wave_schedule/cycle_wave_schedule.cpp
+  src/execution/internal/issue_logic/cycle_issue_schedule.cpp
+  src/execution/internal/wave_schedule/event_queue.cpp
+  src/execution/internal/cost_model/compute_functor_registry.cpp
   # runtime/hip_runtime/
   src/runtime/hip_runtime/hip_runtime.cpp
   # runtime/model_runtime/
@@ -152,6 +152,7 @@ add_library(gpu_model STATIC
   # utils/config/
   src/utils/config/invocation.cpp
   # state/memory/
+  src/state/wave/wave_stats.cpp
   src/state/memory/cache_model.cpp
   src/state/memory/memory_system.cpp
   src/state/memory/shared_bank_model.cpp

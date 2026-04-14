@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <unordered_map>
 
-#include "runtime/program_cycle_stats.h"
+#include "runtime/model_runtime/program_cycle_stats.h"
 
 namespace gpu_model {
 

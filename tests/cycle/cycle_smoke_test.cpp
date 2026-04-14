@@ -8,7 +8,7 @@
 #include "gpu_arch/chip_config/arch_registry.h"
 #include "debug/trace/sink.h"
 #include "instruction/isa/instruction_builder.h"
-#include "runtime/exec_engine.h"
+#include "runtime/exec_engine/exec_engine.h"
 
 namespace gpu_model {
 namespace {

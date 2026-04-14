@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-#include "execution/encoded/encoded_semantic_handler.h"
+#include "instruction/semantics/encoded_handler.h"
 #include "instruction/decode/encoded/internal/encoded_gcn_db_lookup.h"
 
 namespace gpu_model {

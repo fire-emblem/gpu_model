@@ -5,12 +5,12 @@
 
 #include "execution/cycle/cycle_exec_engine.h"
 #include "execution/functional/functional_exec_engine.h"
-#include "execution/internal/memory_ops.h"
-#include "execution/internal/plan_apply.h"
-#include "execution/internal/sync_ops.h"
+#include "execution/internal/commit_logic/memory_ops.h"
+#include "execution/internal/commit_logic/plan_apply.h"
+#include "execution/internal/sync_ops/sync_ops.h"
 #include "state/wave/barrier_state.h"
-#include "execution/internal/wave_context_builder.h"
-#include "runtime/exec_engine.h"
+#include "execution/internal/block_schedule/wave_context_builder.h"
+#include "runtime/exec_engine/exec_engine.h"
 #include "state/ap/ap_runtime_state.h"
 #include "state/wave/wave_runtime_state.h"
 

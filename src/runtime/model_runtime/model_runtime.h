@@ -8,10 +8,10 @@
 #include <vector>
 
 #include "program/loader/device_image_loader.h"
-#include "runtime/device_properties.h"
-#include "runtime/exec_engine.h"
-#include "runtime/launch_request.h"
-#include "runtime/module_registry.h"
+#include "runtime/model_runtime/device_properties.h"
+#include "runtime/exec_engine/exec_engine.h"
+#include "runtime/config/launch_request.h"
+#include "runtime/model_runtime/module_registry.h"
 
 namespace gpu_model {
 

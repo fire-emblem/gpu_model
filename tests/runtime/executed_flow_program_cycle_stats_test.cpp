@@ -9,8 +9,8 @@
 
 #include "gpu_arch/chip_config/arch_registry.h"
 #include "instruction/isa/instruction_builder.h"
-#include "runtime/program_cycle_tracker.h"
-#include "runtime/exec_engine.h"
+#include "runtime/model_runtime/program_cycle_tracker.h"
+#include "runtime/exec_engine/exec_engine.h"
 
 namespace gpu_model {
 namespace {

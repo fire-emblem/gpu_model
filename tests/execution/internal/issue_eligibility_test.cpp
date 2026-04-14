@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "execution/internal/issue_eligibility.h"
+#include "execution/internal/issue_logic/issue_eligibility.h"
 
 namespace gpu_model {
 namespace {

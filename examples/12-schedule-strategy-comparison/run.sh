@@ -36,9 +36,9 @@ for name in vecadd_low_parallelism vecadd_moderate_parallelism vecadd_optimal_pa
     gpu_model_run_interposed_mode "$SO_PATH" "$OUT_DIR/${name}.out" "$mode_dir" "$mode"
     gpu_model_assert_mode_success "$mode_dir" "${name} validation ok"
   done
-  cycle_totals["$name"]="$(gpu_model_summary_field "$OUT_DIR/cycle/$name/launch_summary.txt" total_cycles)"
-  active_cycles["$name"]="$(gpu_model_summary_field "$OUT_DIR/cycle/$name/launch_summary.txt" active_cycles)"
-  ipc["$name"]="$(gpu_model_summary_field "$OUT_DIR/cycle/$name/launch_summary.txt" ipc)"
+  cycle_totals["$name"]="$(gpu_model_cycle_metric "$OUT_DIR/cycle/$name" total_cycles)"
+  active_cycles["$name"]="$(gpu_model_cycle_metric "$OUT_DIR/cycle/$name" active_cycles)"
+  ipc["$name"]="$(gpu_model_cycle_metric "$OUT_DIR/cycle/$name" ipc)"
 done
 
 # Validate all cycle values are positive integers

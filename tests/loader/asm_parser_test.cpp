@@ -6,7 +6,7 @@
 
 #include "instruction/isa/opcode.h"
 #include "program/loader/asm_parser.h"
-#include "runtime/exec_engine.h"
+#include "runtime/exec_engine/exec_engine.h"
 
 namespace gpu_model {
 namespace {

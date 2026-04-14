@@ -10,7 +10,7 @@
 
 #include "instruction/decode/encoded/instruction_object.h"
 #include "program/program_object/object_reader.h"
-#include "gpu_arch/chip_config/amdgpu_target_config.h"
+#include "program/loader/amdgpu_target_config.h"
 
 namespace gpu_model::test_utils {
 

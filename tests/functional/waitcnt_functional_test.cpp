@@ -15,7 +15,7 @@
 #include "debug/trace/sink.h"
 #include "instruction/isa/instruction_builder.h"
 #include "instruction/isa/opcode.h"
-#include "runtime/exec_engine.h"
+#include "runtime/exec_engine/exec_engine.h"
 
 namespace gpu_model {
 namespace {

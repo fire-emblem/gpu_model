@@ -22,28 +22,29 @@
 #include <unordered_map>
 #include <vector>
 
-#include "execution/encoded/encoded_semantic_handler.h"
-#include "execution/internal/async_scoreboard.h"
-#include "execution/internal/barrier_resource_pool.h"
-#include "execution/internal/cycle_issue_policy.h"
-#include "execution/internal/encoded_issue_candidate.h"
-#include "execution/internal/memory_arrive_kind.h"
-#include "execution/internal/tensor_op_utils.h"
-#include "execution/internal/issue_eligibility.h"
-#include "execution/internal/wave_state.h"
+#include "instruction/semantics/encoded_handler.h"
+#include "execution/internal/commit_logic/async_scoreboard.h"
+#include "execution/internal/sync_ops/barrier_resource_pool.h"
+#include "execution/internal/cost_model/cycle_issue_policy.h"
+#include "execution/internal/issue_logic/encoded_issue_candidate.h"
+#include "gpu_arch/memory/memory_arrive_kind.h"
+#include "instruction/isa/tensor_isa_info.h"
+#include "instruction/semantics/internal/tensor_result_writer.h"
+#include "execution/internal/issue_logic/issue_eligibility.h"
+#include "state/wave/wave_timing.h"
 #include "debug/trace/document.h"
 #include "debug/trace/event_factory.h"
 #include "debug/trace/wave_launch_trace.h"
 #include "instruction/decode/encoded/internal/encoded_instruction_descriptor.h"
-#include "execution/internal/sync_ops.h"
-#include "execution/internal/wave_context_builder.h"
+#include "execution/internal/sync_ops/sync_ops.h"
+#include "execution/internal/block_schedule/wave_context_builder.h"
 #include "instruction/isa/kernel_metadata.h"
 #include "program/loader/device_image_loader.h"
 #include "gpu_arch/memory/cache_model.h"
 #include "gpu_arch/memory/shared_bank_model.h"
-#include "runtime/kernarg_packer.h"
-#include "runtime/mapper.h"
-#include "runtime/program_cycle_tracker.h"
+#include "runtime/config/kernarg_packer.h"
+#include "runtime/model_runtime/mapper.h"
+#include "runtime/model_runtime/program_cycle_tracker.h"
 #include "utils/logging/log_macros.h"
 
 namespace gpu_model {
@@ -52,7 +53,7 @@ namespace {
 
 constexpr uint8_t kEncodedPendingMemoryCompletionTurns = 5;
 constexpr uint32_t kInvalidTraceSlotId = std::numeric_limits<uint32_t>::max();
-// Note: kIssueQuantumCycles is now in wave_state.h
+// Shared issue-quantum helpers live in state/wave/wave_timing.h.
 
 struct RawWave {
   size_t block_index = 0;

@@ -65,7 +65,7 @@ const IEncodedSemanticHandler& EncodedSemanticHandlerRegistry::Get(std::string_v
   if (const auto* handler = HandlerRegistry::Instance().Find(mnemonic)) {
     return *handler;
   }
-  // Fallback: semantic family lookup (for backward compatibility during migration)
+  // Secondary lookup via generated semantic-family metadata for mnemonics without direct registry entries.
   if (const auto* def = FindGeneratedGcnInstDefByMnemonic(mnemonic); def != nullptr) {
     if (const auto* handler = HandlerForSemanticFamily(def->semantic_family, def->mnemonic)) {
       return *handler;

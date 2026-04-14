@@ -2,7 +2,7 @@
 
 #include <string>
 
-#include "execution/encoded/encoded_semantic_handler.h"
+#include "instruction/semantics/encoded_handler.h"
 #include "instruction/decode/encoded/decoded_instruction.h"
 
 namespace gpu_model {
