@@ -14,7 +14,7 @@ namespace gpu_model {
 
 class DeviceMemoryManager {
  public:
-  struct CompatibilityWindow {
+  struct AbiWindow {
     struct FreeRange {
       size_t offset = 0;
       size_t size = 0;
@@ -28,7 +28,7 @@ class DeviceMemoryManager {
     std::vector<FreeRange> free_ranges;
   };
 
-  struct CompatibilityAllocation {
+  struct AbiAllocation {
     uint64_t model_addr = 0;
     size_t bytes = 0;
     MemoryPoolKind pool = MemoryPoolKind::Global;
@@ -51,36 +51,36 @@ class DeviceMemoryManager {
 
   bool HasAllocation(const void* ptr) const;
   bool IsDevicePointer(const void* ptr) const;
-  bool IsPointerInCompatibilityWindow(const void* ptr) const;
-  std::optional<MemoryPoolKind> ClassifyCompatibilityPointer(const void* ptr) const;
-  const CompatibilityWindow* GetCompatibilityWindow(MemoryPoolKind pool) const;
-  CompatibilityAllocation* FindAllocation(const void* ptr);
-  const CompatibilityAllocation* FindAllocation(const void* ptr) const;
+  bool IsPointerInAbiWindow(const void* ptr) const;
+  std::optional<MemoryPoolKind> ClassifyAbiPointer(const void* ptr) const;
+  const AbiWindow* GetAbiWindow(MemoryPoolKind pool) const;
+  AbiAllocation* FindAllocation(const void* ptr);
+  const AbiAllocation* FindAllocation(const void* ptr) const;
   uint64_t ResolveDeviceAddress(const void* ptr) const;
 
   void SyncManagedHostToDevice();
   void SyncManagedDeviceToHost();
 
  private:
-  static constexpr size_t kCompatibilityWindowCount = 2;
-  static constexpr size_t kCompatibilityWindowSize = 1ull << 30;
-  static std::array<CompatibilityWindow, kCompatibilityWindowCount> BuildDefaultWindows();
+  static constexpr size_t kAbiWindowCount = 2;
+  static constexpr size_t kAbiWindowSize = 1ull << 30;
+  static std::array<AbiWindow, kAbiWindowCount> BuildDefaultAbiWindows();
   static size_t PageAlignedBytes(size_t bytes);
-  static std::byte* ReserveCompatibilityWindow(uintptr_t base, size_t bytes);
-  static void ReleaseCompatibilityWindow(uintptr_t base, size_t bytes);
-  static std::byte* CommitCompatibilitySpan(uintptr_t base, size_t bytes, int protection);
-  static void UnmapCompatibilitySpan(std::byte* addr, size_t mapped_bytes);
+  static std::byte* ReserveAbiWindow(uintptr_t base, size_t bytes);
+  static void ReleaseAbiWindow(uintptr_t base, size_t bytes);
+  static std::byte* CommitAbiSpan(uintptr_t base, size_t bytes, int protection);
+  static void UnmapAbiSpan(std::byte* addr, size_t mapped_bytes);
 
-  CompatibilityWindow* MutableWindow(MemoryPoolKind pool);
-  const CompatibilityWindow* FindWindowForPointer(const void* ptr) const;
-  static std::optional<size_t> TryReuseFreeRange(CompatibilityWindow& window, size_t bytes);
-  static void ReleaseRange(CompatibilityWindow& window, size_t offset, size_t size);
-  CompatibilityAllocation& PutAllocation(uintptr_t key, CompatibilityAllocation allocation);
+  AbiWindow* MutableWindow(MemoryPoolKind pool);
+  const AbiWindow* FindWindowForPointer(const void* ptr) const;
+  static std::optional<size_t> TryReuseFreeRange(AbiWindow& window, size_t bytes);
+  static void ReleaseRange(AbiWindow& window, size_t offset, size_t size);
+  AbiAllocation& PutAllocation(uintptr_t key, AbiAllocation allocation);
   void EraseAllocation(const void* ptr);
 
   MemorySystem* memory_ = nullptr;
-  std::array<CompatibilityWindow, kCompatibilityWindowCount> windows_{};
-  std::unordered_map<uintptr_t, CompatibilityAllocation> allocations_;
+  std::array<AbiWindow, kAbiWindowCount> windows_{};
+  std::unordered_map<uintptr_t, AbiAllocation> allocations_;
 };
 
 }  // namespace gpu_model

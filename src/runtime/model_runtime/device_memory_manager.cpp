@@ -12,22 +12,22 @@ namespace gpu_model {
 
 namespace {
 
-constexpr uintptr_t kGlobalCompatWindowBase = 0x0000600000000000ull;
-constexpr uintptr_t kManagedCompatWindowBase = 0x0000610000000000ull;
+constexpr uintptr_t kGlobalAbiWindowBase = 0x0000600000000000ull;
+constexpr uintptr_t kManagedAbiWindowBase = 0x0000610000000000ull;
 
 }  // namespace
 
 DeviceMemoryManager::DeviceMemoryManager(MemorySystem* memory)
-    : memory_(memory), windows_(BuildDefaultWindows()) {
+    : memory_(memory), windows_(BuildDefaultAbiWindows()) {
   for (const auto& window : windows_) {
-    ReserveCompatibilityWindow(window.base, window.size);
+    ReserveAbiWindow(window.base, window.size);
   }
 }
 
 DeviceMemoryManager::~DeviceMemoryManager() {
   Reset();
   for (const auto& window : windows_) {
-    ReleaseCompatibilityWindow(window.base, window.size);
+    ReleaseAbiWindow(window.base, window.size);
   }
 }
 
@@ -38,9 +38,9 @@ void DeviceMemoryManager::BindMemory(MemorySystem* memory) {
 void DeviceMemoryManager::Reset() {
   for (auto& [key, allocation] : allocations_) {
     (void)key;
-    CommitCompatibilitySpan(reinterpret_cast<uintptr_t>(allocation.mapped_addr),
-                            allocation.mapped_bytes,
-                            PROT_NONE);
+    CommitAbiSpan(reinterpret_cast<uintptr_t>(allocation.mapped_addr),
+                  allocation.mapped_bytes,
+                  PROT_NONE);
   }
   allocations_.clear();
   for (auto& window : windows_) {
@@ -53,7 +53,7 @@ void DeviceMemoryManager::Reset() {
 void* DeviceMemoryManager::AllocateGlobal(size_t bytes, uint64_t model_addr) {
   auto* window = MutableWindow(MemoryPoolKind::Global);
   if (window == nullptr) {
-    throw std::runtime_error("missing global compatibility window");
+    throw std::runtime_error("missing global ABI window");
   }
   const size_t mapped_bytes = PageAlignedBytes(std::max<size_t>(bytes, 1u));
   const auto reused_offset = TryReuseFreeRange(*window, mapped_bytes);
@@ -62,14 +62,14 @@ void* DeviceMemoryManager::AllocateGlobal(size_t bytes, uint64_t model_addr) {
     offset = *reused_offset;
   } else {
     if (window->next_offset + mapped_bytes > window->size) {
-      throw std::runtime_error("global compatibility window exhausted");
+      throw std::runtime_error("global ABI window exhausted");
     }
     offset = window->next_offset;
     window->next_offset += mapped_bytes;
   }
   const uintptr_t addr = window->base + offset;
-  auto* mapped_addr = CommitCompatibilitySpan(addr, mapped_bytes, PROT_NONE);
-  CompatibilityAllocation allocation;
+  auto* mapped_addr = CommitAbiSpan(addr, mapped_bytes, PROT_NONE);
+  AbiAllocation allocation;
   allocation.model_addr = model_addr;
   allocation.bytes = bytes;
   allocation.pool = MemoryPoolKind::Global;
@@ -83,7 +83,7 @@ void* DeviceMemoryManager::AllocateGlobal(size_t bytes, uint64_t model_addr) {
 void* DeviceMemoryManager::AllocateManaged(size_t bytes, uint64_t model_addr) {
   auto* window = MutableWindow(MemoryPoolKind::Managed);
   if (window == nullptr) {
-    throw std::runtime_error("missing managed compatibility window");
+    throw std::runtime_error("missing managed ABI window");
   }
   const size_t mapped_bytes = PageAlignedBytes(std::max<size_t>(bytes, 1u));
   const auto reused_offset = TryReuseFreeRange(*window, mapped_bytes);
@@ -92,15 +92,15 @@ void* DeviceMemoryManager::AllocateManaged(size_t bytes, uint64_t model_addr) {
     offset = *reused_offset;
   } else {
     if (window->next_offset + mapped_bytes > window->size) {
-      throw std::runtime_error("managed compatibility window exhausted");
+      throw std::runtime_error("managed ABI window exhausted");
     }
     offset = window->next_offset;
     window->next_offset += mapped_bytes;
   }
   const uintptr_t addr = window->base + offset;
-  auto* mapped_addr = CommitCompatibilitySpan(addr, mapped_bytes, PROT_READ | PROT_WRITE);
+  auto* mapped_addr = CommitAbiSpan(addr, mapped_bytes, PROT_READ | PROT_WRITE);
   std::memset(mapped_addr, 0, bytes);
-  CompatibilityAllocation allocation{
+  AbiAllocation allocation{
       .model_addr = model_addr,
       .bytes = bytes,
       .pool = MemoryPoolKind::Managed,
@@ -122,10 +122,10 @@ bool DeviceMemoryManager::Free(void* device_ptr) {
   }
   auto* window = MutableWindow(allocation->pool);
   if (window == nullptr) {
-    throw std::runtime_error("missing compatibility window for allocation");
+    throw std::runtime_error("missing ABI window for allocation");
   }
   const size_t offset = reinterpret_cast<uintptr_t>(allocation->mapped_addr) - window->base;
-  UnmapCompatibilitySpan(allocation->mapped_addr, allocation->mapped_bytes);
+  UnmapAbiSpan(allocation->mapped_addr, allocation->mapped_bytes);
   if (window->committed_bytes >= allocation->mapped_bytes) {
     window->committed_bytes -= allocation->mapped_bytes;
   } else {
@@ -144,12 +144,11 @@ bool DeviceMemoryManager::IsDevicePointer(const void* ptr) const {
   return FindAllocation(ptr) != nullptr;
 }
 
-bool DeviceMemoryManager::IsPointerInCompatibilityWindow(const void* ptr) const {
+bool DeviceMemoryManager::IsPointerInAbiWindow(const void* ptr) const {
   return FindWindowForPointer(ptr) != nullptr;
 }
 
-std::optional<MemoryPoolKind> DeviceMemoryManager::ClassifyCompatibilityPointer(
-    const void* ptr) const {
+std::optional<MemoryPoolKind> DeviceMemoryManager::ClassifyAbiPointer(const void* ptr) const {
   const auto* window = FindWindowForPointer(ptr);
   if (window == nullptr) {
     return std::nullopt;
@@ -157,7 +156,7 @@ std::optional<MemoryPoolKind> DeviceMemoryManager::ClassifyCompatibilityPointer(
   return window->pool;
 }
 
-const DeviceMemoryManager::CompatibilityWindow* DeviceMemoryManager::GetCompatibilityWindow(
+const DeviceMemoryManager::AbiWindow* DeviceMemoryManager::GetAbiWindow(
     MemoryPoolKind pool) const {
   for (const auto& window : windows_) {
     if (window.pool == pool) {
@@ -167,7 +166,7 @@ const DeviceMemoryManager::CompatibilityWindow* DeviceMemoryManager::GetCompatib
   return nullptr;
 }
 
-DeviceMemoryManager::CompatibilityAllocation* DeviceMemoryManager::FindAllocation(const void* ptr) {
+DeviceMemoryManager::AbiAllocation* DeviceMemoryManager::FindAllocation(const void* ptr) {
   const uintptr_t key = reinterpret_cast<uintptr_t>(ptr);
   if (const auto it = allocations_.find(key); it != allocations_.end()) {
     return &it->second;
@@ -182,7 +181,7 @@ DeviceMemoryManager::CompatibilityAllocation* DeviceMemoryManager::FindAllocatio
   return nullptr;
 }
 
-const DeviceMemoryManager::CompatibilityAllocation* DeviceMemoryManager::FindAllocation(
+const DeviceMemoryManager::AbiAllocation* DeviceMemoryManager::FindAllocation(
     const void* ptr) const {
   const uintptr_t key = reinterpret_cast<uintptr_t>(ptr);
   if (const auto it = allocations_.find(key); it != allocations_.end()) {
@@ -201,7 +200,7 @@ const DeviceMemoryManager::CompatibilityAllocation* DeviceMemoryManager::FindAll
 uint64_t DeviceMemoryManager::ResolveDeviceAddress(const void* ptr) const {
   const auto* allocation = FindAllocation(ptr);
   if (allocation == nullptr) {
-    throw std::invalid_argument("unknown compatibility device pointer");
+    throw std::invalid_argument("unknown ABI device pointer");
   }
   const uintptr_t offset =
       reinterpret_cast<uintptr_t>(ptr) - reinterpret_cast<uintptr_t>(allocation->mapped_addr);
@@ -242,24 +241,23 @@ size_t DeviceMemoryManager::PageAlignedBytes(size_t bytes) {
   return ((bytes + alignment - 1) / alignment) * alignment;
 }
 
-std::array<DeviceMemoryManager::CompatibilityWindow,
-           DeviceMemoryManager::kCompatibilityWindowCount>
-DeviceMemoryManager::BuildDefaultWindows() {
+std::array<DeviceMemoryManager::AbiWindow, DeviceMemoryManager::kAbiWindowCount>
+DeviceMemoryManager::BuildDefaultAbiWindows() {
   return {{{.pool = MemoryPoolKind::Global,
-            .base = kGlobalCompatWindowBase,
-            .size = kCompatibilityWindowSize,
+            .base = kGlobalAbiWindowBase,
+            .size = kAbiWindowSize,
             .next_offset = 0,
             .committed_bytes = 0,
             .free_ranges = {}},
            {.pool = MemoryPoolKind::Managed,
-            .base = kManagedCompatWindowBase,
-            .size = kCompatibilityWindowSize,
+            .base = kManagedAbiWindowBase,
+            .size = kAbiWindowSize,
             .next_offset = 0,
             .committed_bytes = 0,
             .free_ranges = {}}}};
 }
 
-std::byte* DeviceMemoryManager::ReserveCompatibilityWindow(uintptr_t base, size_t bytes) {
+std::byte* DeviceMemoryManager::ReserveAbiWindow(uintptr_t base, size_t bytes) {
   void* addr = ::mmap(reinterpret_cast<void*>(base),
                       bytes,
                       PROT_NONE,
@@ -267,18 +265,16 @@ std::byte* DeviceMemoryManager::ReserveCompatibilityWindow(uintptr_t base, size_
                       -1,
                       0);
   if (addr == MAP_FAILED) {
-    throw std::runtime_error("failed to reserve compatibility window");
+    throw std::runtime_error("failed to reserve ABI window");
   }
   return reinterpret_cast<std::byte*>(addr);
 }
 
-void DeviceMemoryManager::ReleaseCompatibilityWindow(uintptr_t base, size_t bytes) {
+void DeviceMemoryManager::ReleaseAbiWindow(uintptr_t base, size_t bytes) {
   ::munmap(reinterpret_cast<void*>(base), bytes);
 }
 
-std::byte* DeviceMemoryManager::CommitCompatibilitySpan(uintptr_t base,
-                                                        size_t bytes,
-                                                        int protection) {
+std::byte* DeviceMemoryManager::CommitAbiSpan(uintptr_t base, size_t bytes, int protection) {
   void* addr = ::mmap(reinterpret_cast<void*>(base),
                       bytes,
                       protection,
@@ -286,21 +282,20 @@ std::byte* DeviceMemoryManager::CommitCompatibilitySpan(uintptr_t base,
                       -1,
                       0);
   if (addr == MAP_FAILED) {
-    throw std::runtime_error("mmap failed for compatibility allocation");
+    throw std::runtime_error("mmap failed for ABI allocation");
   }
   return reinterpret_cast<std::byte*>(addr);
 }
 
-void DeviceMemoryManager::UnmapCompatibilitySpan(std::byte* addr, size_t mapped_bytes) {
+void DeviceMemoryManager::UnmapAbiSpan(std::byte* addr, size_t mapped_bytes) {
   if (addr == nullptr || mapped_bytes == 0) {
     return;
   }
   ::munmap(addr, mapped_bytes);
 }
 
-DeviceMemoryManager::CompatibilityAllocation& DeviceMemoryManager::PutAllocation(
-    uintptr_t key,
-    CompatibilityAllocation allocation) {
+DeviceMemoryManager::AbiAllocation& DeviceMemoryManager::PutAllocation(uintptr_t key,
+                                                                       AbiAllocation allocation) {
   allocations_[key] = std::move(allocation);
   return allocations_.at(key);
 }
@@ -309,7 +304,7 @@ void DeviceMemoryManager::EraseAllocation(const void* ptr) {
   allocations_.erase(reinterpret_cast<uintptr_t>(ptr));
 }
 
-DeviceMemoryManager::CompatibilityWindow* DeviceMemoryManager::MutableWindow(MemoryPoolKind pool) {
+DeviceMemoryManager::AbiWindow* DeviceMemoryManager::MutableWindow(MemoryPoolKind pool) {
   for (auto& window : windows_) {
     if (window.pool == pool) {
       return &window;
@@ -318,7 +313,7 @@ DeviceMemoryManager::CompatibilityWindow* DeviceMemoryManager::MutableWindow(Mem
   return nullptr;
 }
 
-const DeviceMemoryManager::CompatibilityWindow* DeviceMemoryManager::FindWindowForPointer(
+const DeviceMemoryManager::AbiWindow* DeviceMemoryManager::FindWindowForPointer(
     const void* ptr) const {
   const auto addr = reinterpret_cast<uintptr_t>(ptr);
   for (const auto& window : windows_) {
@@ -329,8 +324,7 @@ const DeviceMemoryManager::CompatibilityWindow* DeviceMemoryManager::FindWindowF
   return nullptr;
 }
 
-std::optional<size_t> DeviceMemoryManager::TryReuseFreeRange(CompatibilityWindow& window,
-                                                             size_t bytes) {
+std::optional<size_t> DeviceMemoryManager::TryReuseFreeRange(AbiWindow& window, size_t bytes) {
   for (size_t i = 0; i < window.free_ranges.size(); ++i) {
     auto& range = window.free_ranges[i];
     if (range.size < bytes) {
@@ -348,13 +342,13 @@ std::optional<size_t> DeviceMemoryManager::TryReuseFreeRange(CompatibilityWindow
   return std::nullopt;
 }
 
-void DeviceMemoryManager::ReleaseRange(CompatibilityWindow& window, size_t offset, size_t size) {
+void DeviceMemoryManager::ReleaseRange(AbiWindow& window, size_t offset, size_t size) {
   window.free_ranges.push_back({.offset = offset, .size = size});
   std::sort(window.free_ranges.begin(), window.free_ranges.end(), [](const auto& lhs, const auto& rhs) {
     return lhs.offset < rhs.offset;
   });
 
-  std::vector<CompatibilityWindow::FreeRange> merged;
+  std::vector<AbiWindow::FreeRange> merged;
   merged.reserve(window.free_ranges.size());
   for (const auto& range : window.free_ranges) {
     if (!merged.empty() && merged.back().offset + merged.back().size == range.offset) {

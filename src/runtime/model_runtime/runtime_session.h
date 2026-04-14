@@ -37,7 +37,7 @@ struct HipRuntimeAbiArgDesc {
 
 class RuntimeSession {
  public:
-  struct CompatibilityEvent {
+  struct AbiEvent {
     bool recorded = false;
     std::optional<uintptr_t> stream_id;
   };
@@ -50,7 +50,7 @@ class RuntimeSession {
   ModelRuntime& model_runtime();
   const ModelRuntime& model_runtime() const;
 
-  void ResetCompatibilityState();
+  void ResetAbiState();
   void BindDeviceMemoryManager();
   void RegisterKernelSymbol(const void* host_function, std::string kernel_name);
   std::optional<std::string> ResolveKernelSymbol(const void* host_function) const;
@@ -72,10 +72,10 @@ class RuntimeSession {
   bool HasEvent(uintptr_t event_id) const;
   bool DestroyEvent(uintptr_t event_id);
   bool RecordEvent(uintptr_t event_id, std::optional<uintptr_t> stream_id);
-  bool HasCompatibilityAllocation(const void* ptr) const;
+  bool HasAbiAllocation(const void* ptr) const;
   bool IsDevicePointer(const void* ptr) const;
-  DeviceMemoryManager::CompatibilityAllocation* FindCompatibilityAllocation(const void* ptr);
-  const DeviceMemoryManager::CompatibilityAllocation* FindCompatibilityAllocation(const void* ptr) const;
+  DeviceMemoryManager::AbiAllocation* FindAbiAllocation(const void* ptr);
+  const DeviceMemoryManager::AbiAllocation* FindAbiAllocation(const void* ptr) const;
   void PushLaunchConfig(LaunchConfig config);
   std::optional<LaunchConfig> PopLaunchConfig();
   void* AllocateDevice(size_t bytes);
@@ -90,8 +90,8 @@ class RuntimeSession {
   void MemsetDeviceD32(void* device_ptr, uint32_t value, size_t count);
   void SyncManagedHostToDevice();
   void SyncManagedDeviceToHost();
-  std::vector<HipRuntimeAbiArgDesc> ParseCompatibilityArgLayout(const MetadataBlob& metadata) const;
-  KernelArgPack PackCompatibilityArgs(const MetadataBlob& metadata, void** args) const;
+  std::vector<HipRuntimeAbiArgDesc> ParseAbiArgLayout(const MetadataBlob& metadata) const;
+  KernelArgPack PackAbiArgs(const MetadataBlob& metadata, void** args) const;
   ProgramObject LoadExecutableImage(const std::filesystem::path& executable_path,
                                     const void* host_function) const;
   LaunchResult LaunchExecutableKernel(const std::filesystem::path& executable_path,
@@ -115,7 +115,7 @@ class RuntimeSession {
   ModelRuntime model_runtime_;
   DeviceMemoryManager device_memory_manager_;
   std::unordered_map<const void*, std::string> kernel_symbols_;
-  std::unordered_map<uintptr_t, CompatibilityEvent> compatibility_events_;
+  std::unordered_map<uintptr_t, AbiEvent> abi_events_;
   std::unique_ptr<TraceArtifactRecorder> trace_artifact_recorder_;
   std::string trace_artifacts_dir_;
   uintptr_t next_event_id_ = 1;

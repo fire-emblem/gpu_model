@@ -693,7 +693,7 @@ TEST_P(HipFeatureRuntimeAbiTest, ExecutesFeatureKernelThroughRegisteredHostFunct
 
   const HipFeatureCase& c = GetParam();
   HipRuntime state;
-  state.ResetCompatibilityState();
+  state.ResetAbiState();
 
   static int host_saxpy = 0;
   static int host_grid_stride = 0;

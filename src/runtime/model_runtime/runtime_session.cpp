@@ -34,9 +34,9 @@ const ModelRuntime& RuntimeSession::model_runtime() const {
   return model_runtime_;
 }
 
-void RuntimeSession::ResetCompatibilityState() {
+void RuntimeSession::ResetAbiState() {
   kernel_symbols_.clear();
-  compatibility_events_.clear();
+  abi_events_.clear();
   device_memory_manager_.Reset();
   trace_artifact_recorder_.reset();
   trace_artifacts_dir_.clear();
@@ -137,21 +137,21 @@ void RuntimeSession::StreamSynchronize(RuntimeSubmissionContext submission_conte
 
 uintptr_t RuntimeSession::CreateEvent() {
   const uintptr_t event_id = next_event_id_++;
-  compatibility_events_.emplace(event_id, CompatibilityEvent{});
+  abi_events_.emplace(event_id, AbiEvent{});
   return event_id;
 }
 
 bool RuntimeSession::HasEvent(uintptr_t event_id) const {
-  return compatibility_events_.find(event_id) != compatibility_events_.end();
+  return abi_events_.find(event_id) != abi_events_.end();
 }
 
 bool RuntimeSession::DestroyEvent(uintptr_t event_id) {
-  return compatibility_events_.erase(event_id) != 0;
+  return abi_events_.erase(event_id) != 0;
 }
 
 bool RuntimeSession::RecordEvent(uintptr_t event_id, std::optional<uintptr_t> stream_id) {
-  const auto it = compatibility_events_.find(event_id);
-  if (it == compatibility_events_.end()) {
+  const auto it = abi_events_.find(event_id);
+  if (it == abi_events_.end()) {
     return false;
   }
   it->second.recorded = true;
@@ -159,7 +159,7 @@ bool RuntimeSession::RecordEvent(uintptr_t event_id, std::optional<uintptr_t> st
   return true;
 }
 
-bool RuntimeSession::HasCompatibilityAllocation(const void* ptr) const {
+bool RuntimeSession::HasAbiAllocation(const void* ptr) const {
   return device_memory_manager_.HasAllocation(ptr);
 }
 
@@ -167,12 +167,11 @@ bool RuntimeSession::IsDevicePointer(const void* ptr) const {
   return device_memory_manager_.IsDevicePointer(ptr);
 }
 
-DeviceMemoryManager::CompatibilityAllocation* RuntimeSession::FindCompatibilityAllocation(
-    const void* ptr) {
+DeviceMemoryManager::AbiAllocation* RuntimeSession::FindAbiAllocation(const void* ptr) {
   return device_memory_manager_.FindAllocation(ptr);
 }
 
-const DeviceMemoryManager::CompatibilityAllocation* RuntimeSession::FindCompatibilityAllocation(
+const DeviceMemoryManager::AbiAllocation* RuntimeSession::FindAbiAllocation(
     const void* ptr) const {
   return device_memory_manager_.FindAllocation(ptr);
 }
@@ -198,7 +197,7 @@ void* RuntimeSession::AllocateManaged(size_t bytes) {
 }
 
 bool RuntimeSession::FreeDevice(void* device_ptr) {
-  const auto* allocation = FindCompatibilityAllocation(device_ptr);
+  const auto* allocation = FindAbiAllocation(device_ptr);
   if (allocation == nullptr || allocation->mapped_addr != device_ptr) {
     return false;
   }
@@ -213,9 +212,9 @@ uint64_t RuntimeSession::ResolveDeviceAddress(const void* ptr) const {
 void RuntimeSession::MemcpyHostToDevice(void* dst_device_ptr,
                                         const void* src_host_ptr,
                                         size_t bytes) {
-  auto* allocation = FindCompatibilityAllocation(dst_device_ptr);
+  auto* allocation = FindAbiAllocation(dst_device_ptr);
   if (allocation == nullptr) {
-    throw std::invalid_argument("unknown interposed device pointer");
+    throw std::invalid_argument("unknown ABI device pointer");
   }
   const uint64_t model_addr = ResolveDeviceAddress(dst_device_ptr);
   const size_t offset = reinterpret_cast<const std::byte*>(dst_device_ptr) - allocation->mapped_addr;
@@ -237,7 +236,7 @@ void RuntimeSession::MemcpyDeviceToHost(void* dst_host_ptr,
 void RuntimeSession::MemcpyDeviceToDevice(void* dst_device_ptr,
                                           const void* src_device_ptr,
                                           size_t bytes) {
-  if (const auto* src_allocation = FindCompatibilityAllocation(src_device_ptr);
+  if (const auto* src_allocation = FindAbiAllocation(src_device_ptr);
       src_allocation != nullptr && src_allocation->pool == MemoryPoolKind::Managed &&
       src_allocation->mapped_addr != nullptr) {
     const size_t src_offset =
@@ -248,7 +247,7 @@ void RuntimeSession::MemcpyDeviceToDevice(void* dst_device_ptr,
   }
   model_runtime_.MemcpyDeviceToDevice(ResolveDeviceAddress(dst_device_ptr),
                                       ResolveDeviceAddress(src_device_ptr), bytes);
-  if (auto* dst_allocation = FindCompatibilityAllocation(dst_device_ptr);
+  if (auto* dst_allocation = FindAbiAllocation(dst_device_ptr);
       dst_allocation != nullptr && dst_allocation->pool == MemoryPoolKind::Managed &&
       dst_allocation->mapped_addr != nullptr) {
     const size_t dst_offset =
@@ -260,9 +259,9 @@ void RuntimeSession::MemcpyDeviceToDevice(void* dst_device_ptr,
 }
 
 void RuntimeSession::MemsetDevice(void* device_ptr, uint8_t value, size_t bytes) {
-  auto* allocation = FindCompatibilityAllocation(device_ptr);
+  auto* allocation = FindAbiAllocation(device_ptr);
   if (allocation == nullptr) {
-    throw std::invalid_argument("unknown interposed device pointer");
+    throw std::invalid_argument("unknown ABI device pointer");
   }
   const uint64_t model_addr = ResolveDeviceAddress(device_ptr);
   const size_t offset = reinterpret_cast<const std::byte*>(device_ptr) - allocation->mapped_addr;
@@ -273,9 +272,9 @@ void RuntimeSession::MemsetDevice(void* device_ptr, uint8_t value, size_t bytes)
 }
 
 void RuntimeSession::MemsetDeviceD16(void* device_ptr, uint16_t value, size_t count) {
-  auto* allocation = FindCompatibilityAllocation(device_ptr);
+  auto* allocation = FindAbiAllocation(device_ptr);
   if (allocation == nullptr) {
-    throw std::invalid_argument("unknown interposed device pointer");
+    throw std::invalid_argument("unknown ABI device pointer");
   }
   const uint64_t model_addr = ResolveDeviceAddress(device_ptr);
   const size_t offset = reinterpret_cast<const std::byte*>(device_ptr) - allocation->mapped_addr;
@@ -289,9 +288,9 @@ void RuntimeSession::MemsetDeviceD16(void* device_ptr, uint16_t value, size_t co
 }
 
 void RuntimeSession::MemsetDeviceD32(void* device_ptr, uint32_t value, size_t count) {
-  auto* allocation = FindCompatibilityAllocation(device_ptr);
+  auto* allocation = FindAbiAllocation(device_ptr);
   if (allocation == nullptr) {
-    throw std::invalid_argument("unknown interposed device pointer");
+    throw std::invalid_argument("unknown ABI device pointer");
   }
   const uint64_t model_addr = ResolveDeviceAddress(device_ptr);
   const size_t offset = reinterpret_cast<const std::byte*>(device_ptr) - allocation->mapped_addr;
@@ -312,7 +311,7 @@ void RuntimeSession::SyncManagedDeviceToHost() {
   device_memory_manager_.SyncManagedDeviceToHost();
 }
 
-std::vector<HipRuntimeAbiArgDesc> RuntimeSession::ParseCompatibilityArgLayout(
+std::vector<HipRuntimeAbiArgDesc> RuntimeSession::ParseAbiArgLayout(
     const MetadataBlob& metadata) const {
   std::vector<HipRuntimeAbiArgDesc> args;
   const auto parsed = ParseKernelLaunchMetadata(metadata);
@@ -326,9 +325,9 @@ std::vector<HipRuntimeAbiArgDesc> RuntimeSession::ParseCompatibilityArgLayout(
   return args;
 }
 
-KernelArgPack RuntimeSession::PackCompatibilityArgs(const MetadataBlob& metadata, void** args) const {
+KernelArgPack RuntimeSession::PackAbiArgs(const MetadataBlob& metadata, void** args) const {
   KernelArgPack packed;
-  auto layout = ParseCompatibilityArgLayout(metadata);
+  auto layout = ParseAbiArgLayout(metadata);
   if (layout.empty()) {
     throw std::invalid_argument("missing kernel argument layout metadata");
   }
@@ -391,7 +390,7 @@ LaunchResult RuntimeSession::LaunchExecutableKernel(const std::filesystem::path&
   request.device_load = &device_load;
   request.submission_context = submission_context;
   request.config = std::move(config);
-  request.args = PackCompatibilityArgs(image.metadata(), args);
+  request.args = PackAbiArgs(image.metadata(), args);
   request.mode = mode;
   request.trace = trace;
   request.launch_index = launch_index_++;

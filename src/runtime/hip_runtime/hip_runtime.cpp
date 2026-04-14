@@ -67,9 +67,9 @@ std::optional<int> HipRuntime::GetDeviceAttribute(RuntimeDeviceAttribute attribu
   return model_runtime_.GetDeviceAttribute(attribute, device_id);
 }
 
-void HipRuntime::ResetCompatibilityState() {
+void HipRuntime::ResetAbiState() {
   // Clear allocations first while the old MemorySystem is still valid.
-  GetRuntimeSession().ResetCompatibilityState();
+  GetRuntimeSession().ResetAbiState();
   // Reset the runtime, which destroys and recreates the ExecEngine/MemorySystem.
   GetRuntimeSession().model_runtime().Reset();
   // Update DeviceMemoryManager's memory pointer to the new MemorySystem.
@@ -314,11 +314,11 @@ LaunchResult HipRuntime::LaunchRegisteredKernel(const std::string& module_name,
                                                submission_context);
 }
 
-MemorySystem& HipRuntime::compatibility_memory() {
+MemorySystem& HipRuntime::abi_memory() {
   return GetRuntimeSession().memory();
 }
 
-const MemorySystem& HipRuntime::compatibility_memory() const {
+const MemorySystem& HipRuntime::abi_memory() const {
   return GetRuntimeSession().memory();
 }
 

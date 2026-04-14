@@ -39,7 +39,7 @@ TEST(RuntimeSessionTest, SupportsSynchronousMemoryApiMatrixWithoutKernelLaunch) 
   EXPECT_EQ(copied, input);
 
   session.MemcpyDeviceToDevice(managed_dst, global_src, count * sizeof(uint32_t));
-  const auto* managed_allocation = session.FindCompatibilityAllocation(managed_dst);
+  const auto* managed_allocation = session.FindAbiAllocation(managed_dst);
   ASSERT_NE(managed_allocation, nullptr);
   ASSERT_NE(managed_allocation->mapped_addr, nullptr);
   auto* managed_words = reinterpret_cast<const uint32_t*>(managed_allocation->mapped_addr);
@@ -76,7 +76,7 @@ TEST(RuntimeSessionTest, SupportsSynchronousMemoryApiMatrixWithoutKernelLaunch) 
   uint32_t patched_word = 0;
   session.MemcpyDeviceToHost(&patched_word, managed_dst_offset, sizeof(patched_word));
   EXPECT_EQ(patched_word, patch_value);
-  managed_allocation = session.FindCompatibilityAllocation(managed_dst);
+  managed_allocation = session.FindAbiAllocation(managed_dst);
   ASSERT_NE(managed_allocation, nullptr);
   managed_words = reinterpret_cast<const uint32_t*>(managed_allocation->mapped_addr);
   EXPECT_EQ(managed_words[0], input[0]);
@@ -124,18 +124,18 @@ TEST(RuntimeSessionTest, RejectsUnknownPointersAcrossMemcpyAndMemsetApis) {
                std::invalid_argument);
 }
 
-TEST(RuntimeSessionTest, ReleasedPointersLoseCompatibilityMapping) {
+TEST(RuntimeSessionTest, ReleasedPointersLoseAbiAllocationMapping) {
   RuntimeSession session;
 
   void* ptr = session.AllocateDevice(64);
   ASSERT_NE(ptr, nullptr);
-  ASSERT_TRUE(session.HasCompatibilityAllocation(ptr));
+  ASSERT_TRUE(session.HasAbiAllocation(ptr));
   ASSERT_TRUE(session.IsDevicePointer(ptr));
   ASSERT_TRUE(session.FreeDevice(ptr));
 
-  EXPECT_FALSE(session.HasCompatibilityAllocation(ptr));
+  EXPECT_FALSE(session.HasAbiAllocation(ptr));
   EXPECT_FALSE(session.IsDevicePointer(ptr));
-  EXPECT_EQ(session.FindCompatibilityAllocation(ptr), nullptr);
+  EXPECT_EQ(session.FindAbiAllocation(ptr), nullptr);
   EXPECT_FALSE(session.FreeDevice(ptr));
   EXPECT_THROW(session.ResolveDeviceAddress(ptr), std::invalid_argument);
 }
@@ -150,7 +150,7 @@ TEST(RuntimeSessionTest, RejectsInteriorFreeWithoutInvalidatingBaseAllocation) {
 
   EXPECT_FALSE(session.FreeDevice(interior));
   EXPECT_TRUE(session.IsDevicePointer(ptr));
-  EXPECT_EQ(session.FindCompatibilityAllocation(ptr), session.FindCompatibilityAllocation(interior));
+  EXPECT_EQ(session.FindAbiAllocation(ptr), session.FindAbiAllocation(interior));
   EXPECT_NO_THROW(static_cast<void>(session.ResolveDeviceAddress(ptr)));
   EXPECT_TRUE(session.FreeDevice(ptr));
   EXPECT_FALSE(session.IsDevicePointer(ptr));

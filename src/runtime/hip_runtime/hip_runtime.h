@@ -32,7 +32,7 @@ class HipRuntime {
   RuntimeDeviceProperties GetDeviceProperties(int device_id = 0) const;
   std::optional<int> GetDeviceAttribute(RuntimeDeviceAttribute attribute,
                                         int device_id = 0) const;
-  void ResetCompatibilityState();
+  void ResetAbiState();
   void RegisterFunction(const void* host_function, std::string kernel_name);
   std::optional<std::string> ResolveKernelName(const void* host_function) const;
   void* AllocateDevice(size_t bytes);
@@ -124,8 +124,8 @@ class HipRuntime {
                                       TraceSink* trace = nullptr,
                                       RuntimeSubmissionContext submission_context = {});
 
-  MemorySystem& compatibility_memory();
-  const MemorySystem& compatibility_memory() const;
+  MemorySystem& abi_memory();
+  const MemorySystem& abi_memory() const;
   MemorySystem& memory() { return runtime().memory(); }
   const MemorySystem& memory() const { return runtime().memory(); }
   ExecEngine& runtime() { return model_runtime_.runtime(); }

@@ -138,7 +138,7 @@ TEST(HipRuntimeAbiTest, LaunchesHipVecAddExecutableThroughRegisteredHostFunction
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   HipRuntime state;
-  state.ResetCompatibilityState();
+  state.ResetAbiState();
   static int host_symbol = 0;
   state.RegisterFunction(&host_symbol, "vecadd");
 
@@ -193,7 +193,7 @@ TEST(HipRuntimeAbiTest, LaunchesHipVecAddExecutableInCycleModeThroughRegisteredH
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   HipRuntime state;
-  state.ResetCompatibilityState();
+  state.ResetAbiState();
   static int host_symbol = 0;
   state.RegisterFunction(&host_symbol, "vecadd_cycle");
 
@@ -260,7 +260,7 @@ TEST(HipRuntimeAbiTest, BuildsExecutableLoadPlanThroughRegisteredHostFunction) {
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   HipRuntime state;
-  state.ResetCompatibilityState();
+  state.ResetAbiState();
   static int host_symbol = 0;
   state.RegisterFunction(&host_symbol, "shared_reverse");
 
@@ -306,7 +306,7 @@ TEST(HipRuntimeAbiTest, LaunchesHipFmaLoopExecutableThroughRegisteredHostFunctio
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   HipRuntime state;
-  state.ResetCompatibilityState();
+  state.ResetAbiState();
   static int host_symbol = 0;
   state.RegisterFunction(&host_symbol, "fma_loop");
 
@@ -371,7 +371,7 @@ TEST(HipRuntimeAbiTest, LaunchesHipBiasChainExecutableThroughRegisteredHostFunct
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   HipRuntime state;
-  state.ResetCompatibilityState();
+  state.ResetAbiState();
   static int host_symbol = 0;
   state.RegisterFunction(&host_symbol, "bias_chain");
 
@@ -440,7 +440,7 @@ TEST(HipRuntimeAbiTest, LaunchesHipByValueAggregateExecutableThroughRegisteredHo
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   HipRuntime state;
-  state.ResetCompatibilityState();
+  state.ResetAbiState();
   static int host_symbol = 0;
   state.RegisterFunction(&host_symbol, "by_value_aggregate");
 
@@ -493,7 +493,7 @@ TEST(HipRuntimeAbiTest, LaunchesHipThreeDimensionalHiddenArgsExecutableThroughRe
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   HipRuntime state;
-  state.ResetCompatibilityState();
+  state.ResetAbiState();
   static int host_symbol = 0;
   state.RegisterFunction(&host_symbol, "three_dimensional_hidden_args");
 
@@ -547,7 +547,7 @@ TEST(HipRuntimeAbiTest, LaunchesHipThreeDimensionalBuiltinIdsExecutableThroughRe
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   HipRuntime state;
-  state.ResetCompatibilityState();
+  state.ResetAbiState();
   static int host_symbol = 0;
   state.RegisterFunction(&host_symbol, "three_dimensional_builtin_ids");
 
@@ -603,7 +603,7 @@ TEST(HipRuntimeAbiTest, LaunchesHipVecAddExecutableThroughRegisteredHostFunction
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   HipRuntime state;
-  state.ResetCompatibilityState();
+  state.ResetAbiState();
   static int host_symbol = 0;
   state.RegisterFunction(&host_symbol, "vecadd");
 
@@ -659,7 +659,7 @@ TEST(HipRuntimeAbiTest, LaunchesHipVecAddExecutableThroughManagedAllocations) {
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   HipRuntime state;
-  state.ResetCompatibilityState();
+  state.ResetAbiState();
   static int host_symbol = 0;
   state.RegisterFunction(&host_symbol, "vecadd");
 
@@ -673,7 +673,7 @@ TEST(HipRuntimeAbiTest, LaunchesHipVecAddExecutableThroughManagedAllocations) {
   void* a_dev = state.AllocateManaged(n * sizeof(float));
   void* b_dev = state.AllocateManaged(n * sizeof(float));
   void* c_dev = state.AllocateManaged(n * sizeof(float));
-  EXPECT_EQ(state.compatibility_memory().pool_memory_size(MemoryPoolKind::Managed),
+  EXPECT_EQ(state.abi_memory().pool_memory_size(MemoryPoolKind::Managed),
             3u * n * sizeof(float));
   state.MemcpyHostToDevice(a_dev, a.data(), n * sizeof(float));
   state.MemcpyHostToDevice(b_dev, b.data(), n * sizeof(float));
@@ -1533,7 +1533,7 @@ TEST(HipRuntimeAbiTest, LaunchesHipSharedReverseExecutableThroughRegisteredHostF
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   HipRuntime state;
-  state.ResetCompatibilityState();
+  state.ResetAbiState();
   static int host_symbol = 0;
   state.RegisterFunction(&host_symbol, "shared_reverse");
 
@@ -1599,7 +1599,7 @@ TEST(HipRuntimeAbiTest, LaunchesHipDynamicSharedExecutableThroughRegisteredHostF
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   HipRuntime state;
-  state.ResetCompatibilityState();
+  state.ResetAbiState();
   static int host_symbol = 0;
   state.RegisterFunction(&host_symbol, "dynamic_shared_sum");
 
@@ -1650,7 +1650,7 @@ TEST(HipRuntimeAbiTest, LaunchesHipAtomicCountExecutableThroughRegisteredHostFun
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   HipRuntime state;
-  state.ResetCompatibilityState();
+  state.ResetAbiState();
   static int host_symbol = 0;
   state.RegisterFunction(&host_symbol, "atomic_count");
 
@@ -1729,7 +1729,7 @@ TEST(HipRuntimeAbiTest, LaunchesHipSoftmaxExecutableThroughRegisteredHostFunctio
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   HipRuntime state;
-  state.ResetCompatibilityState();
+  state.ResetAbiState();
   static int host_symbol = 0;
   state.RegisterFunction(&host_symbol, "softmax_row");
 
@@ -1792,7 +1792,7 @@ TEST(HipRuntimeAbiTest, LaunchesHipBlockReduceExecutableThroughRegisteredHostFun
   ASSERT_EQ(std::system(command.c_str()), 0);
 
   HipRuntime state;
-  state.ResetCompatibilityState();
+  state.ResetAbiState();
   static int host_symbol = 0;
   state.RegisterFunction(&host_symbol, "block_reduce_sum");
 
@@ -1854,7 +1854,7 @@ TEST(HipRuntimeAbiTest, LaunchesHipMfmaExecutableThroughRegisteredHostFunction) 
   }
 
   HipRuntime state;
-  state.ResetCompatibilityState();
+  state.ResetAbiState();
   static int host_symbol = 0;
   state.RegisterFunction(&host_symbol, "mfma_probe");
 
@@ -1906,7 +1906,7 @@ TEST(HipRuntimeAbiTest, BuildsExecutableLoadPlanForHipMfmaWithTypedTensorAbi) {
   }
 
   HipRuntime state;
-  state.ResetCompatibilityState();
+  state.ResetAbiState();
   static int host_symbol = 0;
   state.RegisterFunction(&host_symbol, "mfma_plan_probe");
 

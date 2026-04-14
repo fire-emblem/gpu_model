@@ -949,7 +949,7 @@ TEST_P(HipCtsRuntimeAbiTest, ExecutesHipOutThroughRegisteredHostFunctionAndValid
 
   const HipCtsCase& c = GetParam();
   HipRuntime state;
-  state.ResetCompatibilityState();
+  state.ResetAbiState();
   static int host_vecadd = 0;
   static int host_fma = 0;
   static int host_bias = 0;
