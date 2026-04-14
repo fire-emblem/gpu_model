@@ -913,6 +913,20 @@
   - `src/runtime/model_runtime/model_runtime.cpp`
   - `task_plan.md`
   - `findings.md`
+
+### 阶段 43：ObjectReader code object materializer 拆分
+- **状态：** in_progress
+- 执行的操作：
+  - 新增 `code_object_materializer.h/.cpp`
+  - 从 `encoded_program_object.cpp` 提取 device code object materialize 逻辑
+  - 从 `encoded_program_object.cpp` 提取 note -> metadata 构造逻辑
+  - 保持 `ObjectReader` 公开接口不变，仅减少 façade 实现中的职责交叉
+- 创建/修改的文件：
+  - `src/program/loader/code_object_materializer.h`
+  - `src/program/loader/code_object_materializer.cpp`
+  - `src/program/encoded/encoded_program_object.cpp`
+  - `CMakeLists.txt`
+  - `findings.md`
   - `src/execution/cycle_exec_engine.cpp`
   - `CMakeLists.txt`
   - `docs/superpowers/plans/2026-04-12-architecture-restructure-wave1.md`

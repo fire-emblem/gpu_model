@@ -255,6 +255,17 @@
 - ABI/host-visible allocation 的 owner 继续明确落在 `DeviceMemoryManager`
 - 结果：`ModelRuntime / DeviceMemoryManager / MemorySystem` 三者中，`ModelRuntime` 不再重复保存一份
   allocation ownership 映射
+
+## 2026-04-14 ObjectReader 管线收口补充
+
+- 新增 `src/program/loader/code_object_materializer.h/.cpp`
+- 从 `src/program/encoded/encoded_program_object.cpp` 提取：
+  - `MaterializeDeviceCodeObject`
+  - `BuildMetadataFromNotes`
+- 结果：
+  - host executable / fatbin 到 device code object 的材化职责不再内嵌在 `ObjectReader` façade 实现体里
+  - note -> metadata 的构造职责也从 `encoded_program_object.cpp` 下沉到独立 loader 模块
+  - `encoded_program_object.cpp` 仍保留 decode / descriptor bind / llvm-mc disassembly 相关逻辑，后续可继续拆
   - 仍需补齐的开发项
   - 仍需补齐的测试项
   - Gate A/B/C/D 分阶段门槛

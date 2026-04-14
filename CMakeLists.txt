@@ -103,6 +103,7 @@ add_library(gpu_model STATIC
   src/program/loader/external_tool_executor.cpp
   src/program/loader/gcn_text_parser.cpp
   src/program/loader/artifact_parser.cpp
+  src/program/loader/code_object_materializer.cpp
   src/program/loader/temp_dir_manager.cpp
   src/program/loader/program_bundle_io.cpp
   # program/encoded/
