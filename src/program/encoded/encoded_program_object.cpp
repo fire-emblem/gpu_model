@@ -21,6 +21,7 @@
 #include "instruction/decode/encoded/instruction_object.h"
 #include "instruction/isa/kernel_metadata.h"
 #include "program/loader/artifact_parser.h"
+#include "program/loader/code_object_binding.h"
 #include "program/loader/code_object_materializer.h"
 #include "program/loader/elf_section_loader.h"
 #include "program/loader/external_tool_executor.h"
@@ -200,41 +201,19 @@ ProgramObject ObjectReader::LoadProgramObject(const std::filesystem::path& path,
       BuildMetadataFromNotes(device_path, code_object.kernel_name(), materialized.metadata));
   ValidateProjectAmdgpuTarget(device_path, code_object.metadata());
 
-  const auto descriptor_symbol_name_it = code_object.metadata().values.find("descriptor_symbol");
-  if (descriptor_symbol_name_it != code_object.metadata().values.end() &&
+  if (const auto descriptor_symbol_name_it = code_object.metadata().values.find("descriptor_symbol");
+      descriptor_symbol_name_it != code_object.metadata().values.end() &&
       !descriptor_symbol_name_it->second.empty()) {
-    const auto descriptor_symbol = ArtifactParser::SelectDescriptorSymbol(
-        symbols, descriptor_symbol_name_it->second);
     const auto rodata = LoadElfSection(device_path, ".rodata", temp_dir);
-    const uint64_t descriptor_offset = descriptor_symbol.value - rodata.info.addr;
-    if (descriptor_offset + descriptor_symbol.size > rodata.bytes.size()) {
-      throw std::runtime_error("kernel descriptor range exceeds dumped .rodata bytes");
-    }
-    std::span<const std::byte> descriptor_bytes{
-        rodata.bytes.data() + static_cast<size_t>(descriptor_offset),
-        static_cast<size_t>(descriptor_symbol.size),
-    };
-    auto kernel_descriptor = ArtifactParser::ParseKernelDescriptor(descriptor_bytes);
-    const auto agpr_count_it = code_object.metadata().values.find("agpr_count");
-    if (agpr_count_it != code_object.metadata().values.end()) {
-      kernel_descriptor.agpr_count = static_cast<uint16_t>(std::stoul(agpr_count_it->second));
-    }
-    code_object.set_kernel_descriptor(std::move(kernel_descriptor));
+    code_object.set_kernel_descriptor(
+        BuildKernelDescriptor(code_object.metadata(), symbols, rodata));
   }
 
   const auto text = LoadElfSection(device_path, ".text", temp_dir);
-  const auto symbol_info = selected_symbol;
-
-  const uint64_t kernel_offset = symbol_info.value - text.info.addr;
-  if (kernel_offset + symbol_info.size > text.bytes.size()) {
-    throw std::runtime_error("kernel symbol range exceeds dumped .text bytes");
-  }
-
-  const auto code_begin = static_cast<size_t>(kernel_offset);
-  const auto code_size = static_cast<size_t>(symbol_info.size);
-  std::span<const std::byte> kernel_text{text.bytes.data() + code_begin, code_size};
+  const auto bound_code = BindKernelCodeSlice(selected_symbol, text);
+  const auto kernel_text = bound_code.code_bytes;
   ParsedInstructionArray parsed;
-  parsed.raw_instructions = InstructionArrayParser::ParseRaw(kernel_text, symbol_info.value);
+  parsed.raw_instructions = InstructionArrayParser::ParseRaw(kernel_text, bound_code.entry_pc);
   parsed.decoded_instructions = InstructionArrayParser::Decode(parsed.raw_instructions);
   const auto llvm_mc_disassembly = DisassembleCodeSegmentWithLlvmMc(kernel_text, temp_dir);
   BindLlvmMcDisassembly(parsed, llvm_mc_disassembly);
