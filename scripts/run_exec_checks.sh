@@ -10,13 +10,13 @@ BUILD_DIR="$(gpu_model_detect_build_dir "$ROOT")"
 JOBS="${JOBS:-8}"
 
 echo "[exec-check] build targets"
-cmake --build "$BUILD_DIR" --target gpu_model_tests gpu_model_hip_runtime_abi -j "$JOBS"
+cmake --build "$BUILD_DIR" --target gpu_model_tests gpu_model_hip_ld_preload -j "$JOBS"
 
 echo "[exec-check] hip command line hip runtime abi usage"
-"$ROOT/examples/01-vecadd-basic/run.sh" 2>&1 | tee "$OUT_DIR/hip_command_line_hip_runtime_abi.log"
+"$ROOT/examples/01-vecadd-basic/run.sh" 2>&1 | tee "$OUT_DIR/hip_command_line_hip_ld_preload.log"
 
 echo "[exec-check] validate combined outputs"
-grep -q "vecadd validation ok" "$OUT_DIR/hip_command_line_hip_runtime_abi.log"
+grep -q "vecadd validation ok" "$OUT_DIR/hip_command_line_hip_ld_preload.log"
 
 cat <<'EOF' | tee "$OUT_DIR/summary.txt"
 [exec-check] ok

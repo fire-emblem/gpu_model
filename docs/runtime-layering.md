@@ -15,7 +15,7 @@ runtime 侧主线按两层来理解：
 
 当前包括：
 
-- `src/runtime/hip_runtime/hip_runtime_abi.cpp`
+- `src/runtime/hip_runtime/hip_ld_preload.cpp`
 - `src/runtime/hip_runtime/hip_runtime.cpp`
 
 职责：
@@ -30,8 +30,8 @@ runtime 侧主线按两层来理解：
 
 - 这层不应该拥有独立的 kernel 执行逻辑
 - 这层不应该重复实现 program load / launch / memory 语义
-- `src/runtime/hip_runtime/hip_runtime_abi.cpp` 只是 `HipRuntime` 的 C ABI / LD_PRELOAD 入口实现载体
-- `gpu_model_hip_runtime_abi` target / `libgpu_model_hip_runtime_abi.so` 是兼容入口动态库，不代表独立模块层
+- `src/runtime/hip_runtime/hip_ld_preload.cpp` 只是 `HipRuntime` 的 C ABI / LD_PRELOAD 入口实现载体
+- `gpu_model_hip_ld_preload` target / `libgpu_model_hip_ld_preload.so` 是兼容入口动态库，不代表独立模块层
 
 ## Layer 2: ModelRuntime
 
@@ -195,9 +195,9 @@ runtime 侧主线按两层来理解：
 
 当前已完成的语义清理：
 
-- `src/runtime/hip_runtime/hip_runtime_abi.cpp` 取代了历史 `hip_interposer.cpp` 主入口文件名
-- `gpu_model_hip_runtime_abi` / `libgpu_model_hip_runtime_abi.so` 取代了历史 target / 库名
-- `tests/runtime/hip_runtime_abi_test.cpp` 取代了历史 `hip_interposer_state_test.cpp`
+- `src/runtime/hip_runtime/hip_ld_preload.cpp` 取代了历史 `hip_interposer.cpp` 主入口文件名
+- `gpu_model_hip_ld_preload` / `libgpu_model_hip_ld_preload.so` 取代了历史 target / 库名
+- `tests/runtime/hip_ld_preload_test.cpp` 取代了历史 `hip_interposer_state_test.cpp`
 - `RuntimeSession` 内部的 `interposer_*` 分配/事件/参数布局命名已改为 compatibility / runtime-abi 语义
 - `src/*` 已取代历史 `include/gpu_model/*` 头文件根
 

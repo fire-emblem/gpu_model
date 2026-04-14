@@ -6,7 +6,7 @@
 
 | 测试文件 | 覆盖范围 | 优先级 |
 |----------|----------|--------|
-| `runtime/hip_runtime_abi_test.cpp` | HIP C ABI 入口、LD_PRELOAD | P0 |
+| `runtime/hip_ld_preload_test.cpp` | HIP C ABI 入口、LD_PRELOAD | P0 |
 | `runtime/hip_cts_test.cpp` | HIP 兼容性测试套件 | P0 |
 | `runtime/hip_feature_cts_test.cpp` | HIP 特性测试 | P0 |
 | `runtime/exec_engine.cpp` | ExecEngine 入口 | P0 |
@@ -18,7 +18,7 @@
 
 **运行命令：**
 ```bash
-./build-ninja/tests/gpu_model_tests --gtest_filter='HipRuntimeAbiTest.*:HipRuntimeTest.*:ExecEngineTest.*'
+./build-ninja/tests/gpu_model_tests --gtest_filter='HipLdPreloadTest.*:HipRuntimeTest.*:ExecEngineTest.*'
 ```
 
 ## 2. Memory 测试
@@ -110,7 +110,7 @@
 
 ### Runtime 完整验证
 ```bash
-./build-ninja/tests/gpu_model_tests --gtest_filter='HipRuntimeAbiTest.*:HipRuntimeTest.*:TraceTest.*:ExecutedFlowProgramCycleStatsTest.*'
+./build-ninja/tests/gpu_model_tests --gtest_filter='HipLdPreloadTest.*:HipRuntimeTest.*:TraceTest.*:ExecutedFlowProgramCycleStatsTest.*'
 ```
 
 ## 6. 测试统计

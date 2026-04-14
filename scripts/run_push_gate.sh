@@ -55,7 +55,7 @@ run_release_tests() {
   configure_build "$RELEASE_BUILD_DIR" -DCMAKE_BUILD_TYPE=Release -DGPU_MODEL_ENABLE_ASAN=OFF \
     2>&1 | tee "$GATE_LOG_DIR/release.configure.log"
   echo "[push-gate] build release targets"
-  cmake --build "$RELEASE_BUILD_DIR" --target gpu_model_tests gpu_model_hip_runtime_abi gpu_model_perfetto_waitcnt_slots_demo -j "$JOBS" \
+  cmake --build "$RELEASE_BUILD_DIR" --target gpu_model_tests gpu_model_hip_ld_preload gpu_model_perfetto_waitcnt_slots_demo -j "$JOBS" \
     2>&1 | tee "$GATE_LOG_DIR/release.build.log"
   echo "[push-gate] run release gpu_model_tests"
   "$RELEASE_BUILD_DIR/tests/gpu_model_tests" \
@@ -70,7 +70,7 @@ run_debug_asan_tests() {
   configure_build "$DEBUG_BUILD_DIR" -DCMAKE_BUILD_TYPE=Debug -DGPU_MODEL_ENABLE_ASAN=ON \
     2>&1 | tee "$GATE_LOG_DIR/debug_asan.configure.log"
   echo "[push-gate] build debug+asan targets"
-  cmake --build "$DEBUG_BUILD_DIR" --target gpu_model_tests gpu_model_hip_runtime_abi gpu_model_perfetto_waitcnt_slots_demo -j "$JOBS" \
+  cmake --build "$DEBUG_BUILD_DIR" --target gpu_model_tests gpu_model_hip_ld_preload gpu_model_perfetto_waitcnt_slots_demo -j "$JOBS" \
     2>&1 | tee "$GATE_LOG_DIR/debug_asan.build.log"
   echo "[push-gate] run debug+asan gpu_model_tests filter=$DEBUG_ASAN_GTEST_FILTER"
   "$DEBUG_BUILD_DIR/tests/gpu_model_tests" \
@@ -86,7 +86,7 @@ run_all_examples() {
   configure_build "$EXAMPLES_BUILD_DIR" -DCMAKE_BUILD_TYPE=Release -DGPU_MODEL_ENABLE_ASAN=OFF \
     2>&1 | tee "$GATE_LOG_DIR/examples.configure.log"
   echo "[push-gate] build examples release targets"
-  cmake --build "$EXAMPLES_BUILD_DIR" --target gpu_model_tests gpu_model_hip_runtime_abi gpu_model_perfetto_waitcnt_slots_demo -j "$JOBS" \
+  cmake --build "$EXAMPLES_BUILD_DIR" --target gpu_model_tests gpu_model_hip_ld_preload gpu_model_perfetto_waitcnt_slots_demo -j "$JOBS" \
     2>&1 | tee "$GATE_LOG_DIR/examples.build.log"
   echo "[push-gate] run all examples on examples release build"
   echo "[push-gate] note: non-comparison examples default to mt; comparison examples keep explicit multi-mode coverage"

@@ -115,7 +115,7 @@
 
 8. `HipRuntime compatibility naming cleanup`
    - 目标：从语义上移除”interposer 是独立模块”的历史遗留。
-   - 当前缺口：仍残留在文件名、测试名、CMake target、日志模块名中。
+   - 当前状态：**已完成当前批次收口** - `hip_ld_preload` 已取代旧的 ABI-era target / test / log naming；后续若再出现历史命名，按同样规则继续收口。
 
 9. `Architecture boundary cleanup`
    - 目标：把“正式设计已经确定的边界”真正落实到代码结构、公共头、状态所有权和构建边界中。

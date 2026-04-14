@@ -224,7 +224,7 @@
 
 - [runtime_config.h](/data/gpu_model/src/gpu_model/runtime/runtime_config.h#L61) 使用 `RuntimeConfigManager::Instance()`
 - [runtime_session.h](/data/gpu_model/src/gpu_model/runtime/runtime_session.h#L126) 暴露 `GetRuntimeSession()`
-- [hip_runtime_abi.cpp](/data/gpu_model/src/runtime/hip_runtime_abi.cpp) 通过静态 `HipApi()` 驱动整个 ABI 路径
+- [hip_ld_preload.cpp](/data/gpu_model/src/runtime/hip_runtime/hip_ld_preload.cpp) 通过静态 `HipApi()` 驱动整个 ABI 路径
 
 这种设计对 ABI bridge 是方便的，但如果进入核心运行时主线，就会带来典型问题：
 
@@ -240,7 +240,7 @@
 
 更具体地说：
 
-- `hip_runtime_abi.cpp` 可以继续通过静态 `HipRuntime`
+- `hip_ld_preload.cpp` 可以继续通过静态 `HipRuntime`
 - 但 `HipRuntime -> RuntimeSession -> ModelRuntime -> ExecEngine` 内部应逐步改成可显式构造、可注入、可复用的对象图
 
 ## 5. P1：中优先级但值得系统处理的问题

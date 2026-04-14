@@ -84,7 +84,7 @@
     - Modify: `tests/execution/execution_naming_test.cpp`
   - 验证：
     - `cmake --build build-gate-release --target gpu_model_tests -j8`
-    - `./build-gate-release/tests/gpu_model_tests --gtest_filter='ArchRegistryTest.*:ExecutionNamingTest.*:CycleSmokeTest.*:HipRuntimeAbiTest.RunsHipHostExecutableThroughLdPreloadHipRuntimeAbi'`
+    - `./build-gate-release/tests/gpu_model_tests --gtest_filter='ArchRegistryTest.*:ExecutionNamingTest.*:CycleSmokeTest.*:HipLdPreloadTest.RunsHipHostExecutableThroughLdPreloadHipLdPreload'`
 
 ### P1 后续任务
 

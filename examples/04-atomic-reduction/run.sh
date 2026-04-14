@@ -10,9 +10,9 @@ OUT_DIR="$(gpu_model_detect_results_dir "$ROOT" "$CASE_DIR")"
 mkdir -p "$OUT_DIR"
 
 gpu_model_require_cmd hipcc
-gpu_model_ensure_targets "$BUILD_DIR" gpu_model_hip_runtime_abi
+gpu_model_ensure_targets "$BUILD_DIR" gpu_model_hip_ld_preload
 
-SO_PATH="$BUILD_DIR/libgpu_model_hip_runtime_abi.so"
+SO_PATH="$BUILD_DIR/libgpu_model_hip_ld_preload.so"
 SRC="$CASE_DIR/atomic_reduction.hip"
 EXE="$OUT_DIR/atomic_reduction.out"
 

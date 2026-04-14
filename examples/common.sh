@@ -138,7 +138,7 @@ gpu_model_run_interposed_mode() {
     "GPU_MODEL_FUNCTIONAL_MODE=$functional_mode"
     "GPU_MODEL_DISABLE_TRACE=0"
     "GPU_MODEL_TRACE_DIR=$mode_dir"
-    "GPU_MODEL_LOG_MODULES=hip_runtime_abi"
+    "GPU_MODEL_LOG_MODULES=hip_ld_preload"
     "GPU_MODEL_LOG_LEVEL=info"
     "LD_PRELOAD=$preload_value"
   )

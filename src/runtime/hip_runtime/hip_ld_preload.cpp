@@ -31,7 +31,7 @@ namespace {
 gpu_model::HipRuntime& HipApi();
 
 bool DebugEnabled() {
-  return gpu_model::logging::ShouldLog("hip_runtime_abi", loguru::Verbosity_INFO);
+  return gpu_model::logging::ShouldLog("hip_ld_preload", loguru::Verbosity_INFO);
 }
 
 [[maybe_unused]] const char* ToFunctionalModeName(gpu_model::FunctionalExecutionMode mode) {
@@ -75,7 +75,7 @@ void DebugLog(const char* fmt, ...) {
   va_start(args, fmt);
   std::vsnprintf(buffer.data(), buffer.size(), fmt, args);
   va_end(args);
-  GPU_MODEL_LOG_INFO("hip_runtime_abi", "%s", buffer.data());
+  GPU_MODEL_LOG_INFO("hip_ld_preload", "%s", buffer.data());
 }
 
 hipError_t Remember(hipError_t error) {

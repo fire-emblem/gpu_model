@@ -217,11 +217,21 @@
   - `include -> src` 合并目前并未完成，仓库里 `include/` 目录仍然存在
 - 当前代码基线更新后：
   - `include/gpu_model/* -> src/gpu_model/*` 物理合并已完成
-  - `gpu_model_hip_runtime_abi` / `libgpu_model_hip_runtime_abi.so` 已取代历史 `gpu_model_hip_interposer`
-  - `HipRuntimeAbiTest.*` 已取代历史 `HipInterposerStateTest.*`
+  - `gpu_model_hip_ld_preload` / `libgpu_model_hip_ld_preload.so` 已取代历史 `gpu_model_hip_interposer`
+  - `HipLdPreloadTest.*` 已取代历史 `HipInterposerStateTest.*`
   - 相关目标最小编译已通过，且命名相关 focused tests 已通过
 - 当前又进一步补充了：
   - 面向终极目标的四层达成条件
+
+## 2026-04-14 HipRuntime 命名收口补充
+
+- `gpu_model_hip_ld_preload` / `libgpu_model_hip_ld_preload.so` 已取代此前过渡的 ABI-era 目标/库命名
+- `tests/runtime/hip_ld_preload_test.cpp` 与 `HipLdPreloadTest.*`
+  已取代此前过渡的 ABI-era 测试命名
+- `src/runtime/hip_runtime/hip_ld_preload.cpp` 与 `cmake/hip_ld_preload.version`
+  已取代此前过渡的 ABI-era 文件命名
+- `hip_ld_preload` 已取代此前过渡的 ABI-era 日志模块名
+- 这一步把 `HipRuntime compatibility naming cleanup` 从“并行待办”推进到“当前批次已完成”
   - 仍需补齐的开发项
   - 仍需补齐的测试项
   - Gate A/B/C/D 分阶段门槛

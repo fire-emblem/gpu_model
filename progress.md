@@ -577,10 +577,10 @@
 - **状态：** in_progress
 - 执行的操作：
   - 完成 `include/gpu_model/* -> src/gpu_model/*` 物理合并
-  - 将 `src/runtime/hip_interposer.cpp` 重命名为 `src/runtime/hip_runtime_abi.cpp`
+  - 将 `src/runtime/hip_interposer.cpp` 重命名为当时的 ABI-era LD_PRELOAD 入口文件
   - 删除未使用的 `hip_api_interposer` 空壳文件
-  - 将 CMake target / 共享库名 / 测试文件名 / 测试 suite 名 / 日志模块名收口为 `hip_runtime_abi`
-  - 跑通 `gpu_model_tests` 与 `gpu_model_hip_runtime_abi` 最小编译
+  - 将 CMake target / 共享库名 / 测试文件名 / 测试 suite 名 / 日志模块名先收口为当时的 ABI-era LD_PRELOAD 命名
+  - 跑通 `gpu_model_tests` 与当时的 LD_PRELOAD 目标最小编译
   - 跑通命名与 `LD_PRELOAD` 入口相关 focused tests
 - 创建/修改的文件：
   - `CMakeLists.txt`
@@ -591,11 +591,11 @@
   - `scripts/run_real_hip_kernel_regression.sh`
   - `scripts/run_shared_heavy_regression.sh`
   - `scripts/run_exec_checks.sh`
-  - `src/runtime/hip_runtime_abi.cpp`
+  - ABI-era LD_PRELOAD 入口文件（后续已继续收口为 `src/runtime/hip_runtime/hip_ld_preload.cpp`）
   - `src/runtime/core/runtime_session.cpp`
   - `src/runtime/hip_runtime.cpp`
   - `src/runtime/logging/runtime_log_service.cpp`
-  - `tests/runtime/hip_runtime_abi_test.cpp`
+  - ABI-era LD_PRELOAD 测试文件（后续已继续收口为 `tests/runtime/hip_ld_preload_test.cpp`）
   - `tests/runtime/hip_cts_test.cpp`
   - `tests/runtime/hip_feature_cts_test.cpp`
   - `tests/runtime/logging_runtime_test.cpp`
@@ -636,7 +636,7 @@
   - `src/gpu_model/runtime/runtime_session.h`
   - `src/runtime/core/runtime_session.cpp`
   - `src/runtime/hip_runtime.cpp`
-  - `tests/runtime/hip_runtime_abi_test.cpp`
+  - ABI-era LD_PRELOAD 测试文件（后续已继续收口为 `tests/runtime/hip_ld_preload_test.cpp`）
   - `CMakeLists.txt`
   - `progress.md`
 
@@ -842,6 +842,34 @@
   - `src/execution/internal/cycle_wave_schedule.cpp`
   - `src/gpu_model/execution/internal/cycle_issue_schedule.h`
   - `src/execution/internal/cycle_issue_schedule.cpp`
+
+### 阶段 40：HipRuntime LD_PRELOAD 命名收口
+- **状态：** in_progress
+- 执行的操作：
+  - 将此前 ABI-era LD_PRELOAD 命名进一步收口为 `hip_ld_preload`
+  - 重命名源码入口文件：`src/runtime/hip_runtime/hip_ld_preload.cpp`
+  - 重命名版本脚本：`cmake/hip_ld_preload.version`
+  - 重命名 CMake target / 共享库名：`gpu_model_hip_ld_preload` / `libgpu_model_hip_ld_preload.so`
+  - 重命名测试文件与 suite：`tests/runtime/hip_ld_preload_test.cpp` / `HipLdPreloadTest.*`
+  - 重命名日志模块：`hip_ld_preload`
+  - 同步 push gate / regression scripts / test matrix / runtime docs
+- 创建/修改的文件：
+  - `CMakeLists.txt`
+  - `cmake/hip_ld_preload.version`
+  - `tests/CMakeLists.txt`
+  - `tests/runtime/hip_ld_preload_test.cpp`
+  - `src/runtime/hip_runtime/hip_ld_preload.cpp`
+  - `scripts/run_push_gate.sh`
+  - `scripts/run_push_gate_light.sh`
+  - `scripts/run_abi_regression.sh`
+  - `scripts/run_real_hip_kernel_regression.sh`
+  - `scripts/run_shared_heavy_regression.sh`
+  - `scripts/run_exec_checks.sh`
+  - `docs/runtime-layering.md`
+  - `docs/module-development-status.md`
+  - `docs/test-matrix.md`
+  - `task_plan.md`
+  - `findings.md`
   - `src/execution/cycle_exec_engine.cpp`
   - `CMakeLists.txt`
   - `docs/superpowers/plans/2026-04-12-architecture-restructure-wave1.md`

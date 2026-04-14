@@ -9,16 +9,16 @@ OUT_DIR="$BUILD_DIR/abi-regression"
 mkdir -p "$OUT_DIR"
 
 gpu_model_require_cmd hipcc
-gpu_model_ensure_targets "$BUILD_DIR" gpu_model_tests gpu_model_hip_runtime_abi
+gpu_model_ensure_targets "$BUILD_DIR" gpu_model_tests gpu_model_hip_ld_preload
 
 TEST_BIN="$BUILD_DIR/tests/gpu_model_tests"
 
 FOCUSED_FILTER='AmdgpuCodeObjectDecoderTest.DecodesHipByValueAggregateExecutable:'
 FOCUSED_FILTER+='AmdgpuCodeObjectDecoderTest.DecodesHipThreeDimensionalHiddenArgsExecutable:'
 FOCUSED_FILTER+='AmdgpuCodeObjectDecoderTest.DecodesHipThreeDimensionalBuiltinIdsExecutable:'
-FOCUSED_FILTER+='HipRuntimeAbiTest.LaunchesHipByValueAggregateExecutableThroughRegisteredHostFunction:'
-FOCUSED_FILTER+='HipRuntimeAbiTest.LaunchesHipThreeDimensionalHiddenArgsExecutableThroughRegisteredHostFunction:'
-FOCUSED_FILTER+='HipRuntimeAbiTest.LaunchesHipThreeDimensionalBuiltinIdsExecutableThroughRegisteredHostFunction:'
+FOCUSED_FILTER+='HipLdPreloadTest.LaunchesHipByValueAggregateExecutableThroughRegisteredHostFunction:'
+FOCUSED_FILTER+='HipLdPreloadTest.LaunchesHipThreeDimensionalHiddenArgsExecutableThroughRegisteredHostFunction:'
+FOCUSED_FILTER+='HipLdPreloadTest.LaunchesHipThreeDimensionalBuiltinIdsExecutableThroughRegisteredHostFunction:'
 FOCUSED_FILTER+='HipRuntimeTest.LaunchesHipMixedArgsAggregateExecutableInRawGcnPath:'
 FOCUSED_FILTER+='HipRuntimeTest.LaunchesHipThreeDimensionalHiddenArgsExecutableInRawGcnPath:'
 FOCUSED_FILTER+='HipRuntimeTest.LaunchesHipThreeDimensionalBuiltinIdsExecutableInRawGcnPath:'

@@ -115,7 +115,7 @@ src/
 - `ExecEngine`: Execution controller
 
 Key files:
-- `src/runtime/hip_runtime_abi.cpp` - C ABI / LD_PRELOAD entry
+- `src/runtime/hip_runtime/hip_ld_preload.cpp` - C ABI / LD_PRELOAD entry
 - `src/runtime/hip_runtime.cpp` - HIP compatibility
 - `src/runtime/exec_engine.cpp` - Execution engine
 

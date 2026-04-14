@@ -109,7 +109,7 @@ add_executable(gpu_model_tests
   runtime/program_cycle_stats_test.cpp
   runtime/device_memory_manager_test.cpp
   runtime/runtime_session_test.cpp
-  runtime/hip_runtime_abi_test.cpp
+  runtime/hip_ld_preload_test.cpp
   runtime/hip_cts_test.cpp
   runtime/hip_feature_cts_test.cpp
   runtime/trace_event_test.cpp

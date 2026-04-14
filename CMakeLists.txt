@@ -206,16 +206,16 @@ gpu_model_enable_warnings(gpu_model_perfetto_waitcnt_slots_demo)
 add_subdirectory(tests)
 
 if(EXISTS "/opt/rocm/include/hip/hip_runtime_api.h")
-  add_library(gpu_model_hip_runtime_abi SHARED
-    src/runtime/hip_runtime/hip_runtime_abi.cpp
+  add_library(gpu_model_hip_ld_preload SHARED
+    src/runtime/hip_runtime/hip_ld_preload.cpp
   )
-  target_include_directories(gpu_model_hip_runtime_abi PRIVATE /opt/rocm/include)
-  target_link_libraries(gpu_model_hip_runtime_abi PRIVATE gpu_model)
-  target_compile_definitions(gpu_model_hip_runtime_abi PRIVATE _GNU_SOURCE __HIP_PLATFORM_AMD__)
-  target_link_options(gpu_model_hip_runtime_abi PRIVATE
-    "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/cmake/hip_runtime_abi.version")
-  gpu_model_enable_warnings(gpu_model_hip_runtime_abi)
+  target_include_directories(gpu_model_hip_ld_preload PRIVATE /opt/rocm/include)
+  target_link_libraries(gpu_model_hip_ld_preload PRIVATE gpu_model)
+  target_compile_definitions(gpu_model_hip_ld_preload PRIVATE _GNU_SOURCE __HIP_PLATFORM_AMD__)
+  target_link_options(gpu_model_hip_ld_preload PRIVATE
+    "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/cmake/hip_ld_preload.version")
+  gpu_model_enable_warnings(gpu_model_hip_ld_preload)
   if(TARGET gpu_model_tests)
-    add_dependencies(gpu_model_tests gpu_model_hip_runtime_abi)
+    add_dependencies(gpu_model_tests gpu_model_hip_ld_preload)
   endif()
 endif()
