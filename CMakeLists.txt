@@ -105,6 +105,7 @@ add_library(gpu_model STATIC
   src/program/loader/amdgpu_target_config.cpp
   src/program/loader/artifact_parser.cpp
   src/program/loader/code_object_binding.cpp
+  src/program/loader/code_object_builder.cpp
   src/program/loader/code_object_disassembly.cpp
   src/program/loader/code_object_materializer.cpp
   src/program/loader/elf_section_loader.cpp
