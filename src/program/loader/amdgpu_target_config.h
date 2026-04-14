@@ -1,8 +1,11 @@
 #pragma once
 
 #include <cctype>
+#include <filesystem>
 #include <string>
 #include <string_view>
+
+#include "instruction/isa/metadata.h"
 
 namespace gpu_model {
 
@@ -50,5 +53,11 @@ inline std::string ProjectAmdgpuTargetErrorMessage(std::string_view actual) {
   message += std::string(kProjectAmdgpuMcpu);
   return message;
 }
+
+std::string ResolveArtifactAmdgpuMcpu(const MetadataBlob& metadata,
+                                      const std::filesystem::path& path);
+
+void ValidateProjectAmdgpuTarget(const std::filesystem::path& path,
+                                 const MetadataBlob& metadata);
 
 }  // namespace gpu_model

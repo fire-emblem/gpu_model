@@ -1,11 +1,8 @@
 #include "program/program_object/object_reader.h"
 
-#include <cctype>
 #include <filesystem>
-#include <sstream>
 #include <stdexcept>
 #include <string>
-#include <string_view>
 
 #include "instruction/decode/encoded/internal/encoded_gcn_encoding_def.h"
 #include "program/loader/artifact_parser.h"
@@ -18,67 +15,6 @@
 #include "program/loader/amdgpu_target_config.h"
 
 namespace gpu_model {
-
-namespace {
-
-std::string Trim(std::string_view text) {
-  size_t begin = 0;
-  size_t end = text.size();
-  while (begin < end && std::isspace(static_cast<unsigned char>(text[begin])) != 0) {
-    ++begin;
-  }
-  while (end > begin && std::isspace(static_cast<unsigned char>(text[end - 1])) != 0) {
-    --end;
-  }
-  return std::string(text.substr(begin, end - begin));
-}
-
-std::string McpuFromMetadata(const MetadataBlob& metadata) {
-  const auto it = metadata.values.find("amdhsa_target");
-  if (it == metadata.values.end() || it->second.empty()) {
-    return {};
-  }
-  return NormalizeAmdgpuMcpu(it->second);
-}
-
-std::string McpuFromFileHeaders(const std::filesystem::path& path) {
-  static constexpr std::string_view kPrefix = "EF_AMDGPU_MACH_AMDGCN_";
-  const std::string headers = ExternalToolExecutor::ReadAmdgpuFileHeaders(path);
-  std::istringstream input(headers);
-  std::string line;
-  while (std::getline(input, line)) {
-    const std::string trimmed = Trim(line);
-    const size_t pos = trimmed.find(kPrefix);
-    if (pos == std::string::npos) {
-      continue;
-    }
-    return NormalizeAmdgpuMcpu(trimmed.substr(pos + kPrefix.size()));
-  }
-  return {};
-}
-
-std::string ResolveArtifactAmdgpuMcpu(const MetadataBlob& metadata,
-                                      const std::filesystem::path& path) {
-  if (std::string mcpu = McpuFromMetadata(metadata); !mcpu.empty()) {
-    return mcpu;
-  }
-  if (std::string mcpu = McpuFromFileHeaders(path); !mcpu.empty()) {
-    return mcpu;
-  }
-  return {};
-}
-
-void ValidateProjectAmdgpuTarget(const std::filesystem::path& path,
-                                 const MetadataBlob& metadata) {
-  const std::string actual = ResolveArtifactAmdgpuMcpu(metadata, path);
-  if (!actual.empty() && IsProjectAmdgpuMcpu(actual)) {
-    return;
-  }
-  throw std::runtime_error(ProjectAmdgpuTargetErrorMessage(actual.empty() ? "<unknown>" : actual) +
-                           " [artifact=" + path.string() + "]");
-}
-
-}  // namespace
 
 ProgramObject ObjectReader::LoadProgramObject(const std::filesystem::path& path,
                                               std::optional<std::string> kernel_name) const {

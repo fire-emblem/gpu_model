@@ -102,6 +102,7 @@ add_library(gpu_model STATIC
   src/program/loader/executable_image_io.cpp
   src/program/loader/external_tool_executor.cpp
   src/program/loader/gcn_text_parser.cpp
+  src/program/loader/amdgpu_target_config.cpp
   src/program/loader/artifact_parser.cpp
   src/program/loader/code_object_binding.cpp
   src/program/loader/code_object_disassembly.cpp
