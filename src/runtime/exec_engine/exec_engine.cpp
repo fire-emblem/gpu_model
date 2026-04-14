@@ -17,7 +17,7 @@
 #include "execution/internal/cost_model/cycle_issue_policy.h"
 #include "instruction/isa/kernel_metadata.h"
 #include "program/loader/device_image_loader.h"
-#include "program/loader/asm_parser.h"
+#include "runtime/exec_engine/launch_request_validator.h"
 #include "utils/config/runtime_config.h"
 #include "utils/logging/log_macros.h"
 #include "utils/config/invocation.h"
@@ -184,123 +184,28 @@ void ExecEngine::SetCycleIssuePolicy(const ArchitecturalIssuePolicy& policy) {
 LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
   LaunchResult result;
 
-  std::string arch_name = request.arch_name;
-  if (arch_name.empty() && request.program_object != nullptr) {
-    const auto it = request.program_object->metadata().values.find("arch");
-    if (it != request.program_object->metadata().values.end()) {
-      arch_name = it->second;
-    }
-  }
-  if (arch_name.empty()) {
-    arch_name = "mac500";
-  }
-
-  const auto spec = ArchRegistry::Get(arch_name);
-  if (!spec) {
-    result.error_message = "unknown architecture: " + arch_name;
+  auto validated = ValidateAndPrepareLaunch(request, result.error_message);
+  if (!validated.has_value()) {
     return result;
   }
-
-  ExecutableKernel parsed_kernel;
-  const ExecutableKernel* kernel = request.kernel;
-  const ProgramObject* program_object = request.program_object;
-  const bool use_program_object_payload =
-      program_object != nullptr && program_object->has_encoded_payload();
-  if (!use_program_object_payload && kernel == nullptr && program_object != nullptr) {
-    parsed_kernel = AsmParser{}.Parse(*request.program_object);
-    kernel = &parsed_kernel;
-  }
-  if (kernel == nullptr && !use_program_object_payload) {
-    result.error_message = "launch request missing kernel or program object";
-    return result;
-  }
-  if (request.config.grid_dim_x == 0 || request.config.grid_dim_y == 0 ||
-      request.config.grid_dim_z == 0 || request.config.block_dim_x == 0 ||
-      request.config.block_dim_y == 0 || request.config.block_dim_z == 0) {
-    result.error_message = "grid and block dimensions must be non-zero";
-    return result;
-  }
-
-  // Initialize with request config; may be adjusted for static shared memory
-  LaunchConfig adjusted_config = request.config;
+  const auto& prepared = *validated;
+  const auto* spec = prepared.spec;
+  const auto* program_object = prepared.program_object;
+  const bool use_program_object_payload = prepared.use_program_object_payload;
+  const ExecutableKernel* kernel = use_program_object_payload ? nullptr : &prepared.kernel_ref();
+  LaunchConfig adjusted_config = prepared.adjusted_config;
 
   GPU_MODEL_LOG_INFO("runtime",
                      "launch begin mode=%s program_payload=%d arch=%s grid=(%u,%u,%u) block=(%u,%u,%u)",
                      request.mode == ExecutionMode::Cycle ? "cycle" : "functional",
                      use_program_object_payload ? 1 : 0,
-                     arch_name.c_str(),
+                     prepared.arch_name.c_str(),
                      request.config.grid_dim_x,
                      request.config.grid_dim_y,
                      request.config.grid_dim_z,
                      request.config.block_dim_x,
                      request.config.block_dim_y,
                      request.config.block_dim_z);
-
-  const MetadataBlob& launch_metadata_source =
-      use_program_object_payload ? program_object->metadata()
-                                 : (request.program_object != nullptr && kernel == nullptr
-                                        ? request.program_object->metadata()
-                                        : kernel->metadata());
-
-  try {
-    const auto launch_metadata = ParseKernelLaunchMetadata(launch_metadata_source);
-    if (launch_metadata.arch.has_value() && *launch_metadata.arch != spec->name) {
-      result.error_message =
-          "kernel metadata arch does not match selected architecture";
-      return result;
-    }
-    const std::string kernel_name =
-        use_program_object_payload ? program_object->kernel_name() : kernel->name();
-    if (launch_metadata.entry.has_value() && *launch_metadata.entry != kernel_name) {
-      result.error_message = "kernel metadata entry does not match kernel name";
-      return result;
-    }
-    if (!launch_metadata.module_kernels.empty()) {
-      const bool found = std::find(launch_metadata.module_kernels.begin(),
-                                   launch_metadata.module_kernels.end(),
-                                   kernel_name) != launch_metadata.module_kernels.end();
-      if (!found) {
-        result.error_message = "kernel name is not present in module_kernels metadata";
-        return result;
-      }
-    }
-    if (launch_metadata.arg_count.has_value() &&
-        request.args.size() != *launch_metadata.arg_count) {
-      result.error_message = "kernel argument count does not match metadata";
-      return result;
-    }
-    const uint32_t statically_loaded_shared_bytes =
-        request.device_load != nullptr ? request.device_load->required_shared_bytes : 0u;
-    const uint32_t available_shared_bytes =
-        std::max({request.config.shared_memory_bytes,
-                  launch_metadata.group_segment_fixed_size.value_or(0u),
-                  statically_loaded_shared_bytes});
-    if (launch_metadata.required_shared_bytes.has_value() &&
-        available_shared_bytes < *launch_metadata.required_shared_bytes) {
-      result.error_message = "shared memory launch size is smaller than metadata requirement";
-      return result;
-    }
-    // Adjust config with proper shared memory size that includes static shared memory
-    adjusted_config.shared_memory_bytes = available_shared_bytes;
-    GPU_MODEL_LOG_INFO("runtime", "shared memory: launch=%u group_segment=%u static_load=%u available=%u",
-                       request.config.shared_memory_bytes,
-                       launch_metadata.group_segment_fixed_size.value_or(0u),
-                       statically_loaded_shared_bytes,
-                       available_shared_bytes);
-    if (launch_metadata.block_dim_multiple.has_value() &&
-        request.config.block_dim_x % *launch_metadata.block_dim_multiple != 0) {
-      result.error_message = "block_dim_x does not satisfy metadata multiple requirement";
-      return result;
-    }
-    if (launch_metadata.max_block_dim.has_value() &&
-        request.config.block_dim_x > *launch_metadata.max_block_dim) {
-      result.error_message = "block_dim_x exceeds metadata maximum";
-      return result;
-    }
-  } catch (const std::exception& ex) {
-    result.error_message = std::string("failed to parse kernel metadata: ") + ex.what();
-    return result;
-  }
 
   auto& trace = ResolveTraceSink(request.trace);
   try {
@@ -346,7 +251,7 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
     }
     std::ostringstream launch_message;
     launch_message << "kernel="
-                   << (use_program_object_payload ? program_object->kernel_name() : kernel->name())
+                   << prepared.kernel_name()
                    << " arch=" << spec->name;
     if (use_program_object_payload &&
         (program_object->kernel_descriptor().agpr_count != 0 ||
