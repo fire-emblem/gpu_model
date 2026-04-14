@@ -1,10 +1,13 @@
 #include <gtest/gtest.h>
 
+#include <cstdlib>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <initializer_list>
 #include <algorithm>
+#include <optional>
+#include <string>
 #include <vector>
 
 #include "gpu_arch/chip_config/arch_registry.h"
@@ -14,6 +17,30 @@
 
 namespace gpu_model {
 namespace {
+
+class ScopedEnvSet {
+ public:
+  ScopedEnvSet(const char* name, std::string value) : name_(name) {
+    if (const char* current = std::getenv(name_); current != nullptr) {
+      had_value_ = true;
+      value_before_ = current;
+    }
+    ::setenv(name_, value.c_str(), 1);
+  }
+
+  ~ScopedEnvSet() {
+    if (had_value_) {
+      ::setenv(name_, value_before_.c_str(), 1);
+    } else {
+      ::unsetenv(name_);
+    }
+  }
+
+ private:
+  const char* name_;
+  bool had_value_ = false;
+  std::string value_before_;
+};
 
 ConstSegment MakeConstSegment(std::initializer_list<int32_t> values) {
   ConstSegment segment;
@@ -28,6 +55,12 @@ LaunchResult LaunchProgramCycleStatsKernel(const ExecutableKernel& kernel,
                                            uint32_t grid_dim_x = 1,
                                            uint32_t shared_memory_bytes = 0,
                                            uint32_t worker_threads = 2) {
+  std::optional<ScopedEnvSet> scoped_workers;
+  if (mode == FunctionalExecutionMode::MultiThreaded) {
+    scoped_workers.emplace("GPU_MODEL_FUNCTIONAL_WORKERS",
+                           std::to_string(worker_threads));
+  }
+
   ExecEngine runtime;
   // Set warp_switch_cycles=0 to isolate timing behavior without switch penalty
   runtime.SetLaunchTimingProfile(

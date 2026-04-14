@@ -30,10 +30,27 @@ gpu_model_require_cmd() {
 gpu_model_compile_hip_source() {
   local root="$1"
   shift
+  local -a compile_args=("$@")
+  local has_explicit_arch=0
+  local default_arch="${GPU_MODEL_HIP_OFFLOAD_ARCH:-gfx90a}"
+
+  for arg in "${compile_args[@]}"; do
+    case "$arg" in
+      --offload-arch=*|--offload-arch|--amdgpu-target=*|--amdgpu-target)
+        has_explicit_arch=1
+        break
+        ;;
+    esac
+  done
+
+  if [[ "$has_explicit_arch" -eq 0 ]]; then
+    compile_args=(--offload-arch="$default_arch" "${compile_args[@]}")
+  fi
+
   if [[ "${GPU_MODEL_USE_HIPCC_CACHE:-1}" != "0" ]]; then
-    "$root/tools/hipcc_cache.sh" "$@"
+    "$root/tools/hipcc_cache.sh" "${compile_args[@]}"
   else
-    hipcc "$@"
+    hipcc "${compile_args[@]}"
   fi
 }
 

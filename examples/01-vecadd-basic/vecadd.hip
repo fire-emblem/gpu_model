@@ -14,7 +14,7 @@ void vecAdd(const float* A, const float* B, float* C, int N)
 
 int main()
 {
-    int N = 1 << 20; // 元素个数（1048576）
+    int N = 1 << 12; // 元素个数（4096），保持 gate 友好的非压力规模
     size_t bytes = N * sizeof(float);
 
     // 分配主机内存
@@ -58,7 +58,7 @@ int main()
         }
     }
 
-    if(correct) std::cout << "Vector addition successful!" << std::endl;
+    if(correct) std::cout << "vecadd validation ok" << std::endl;
     else std::cout << "Vector addition failed!" << std::endl;
 
     // 清理内存

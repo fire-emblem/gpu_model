@@ -12,7 +12,7 @@
 #include "debug/trace/event_view.h"
 #include "debug/trace/sink.h"
 #include "program/program_object/object_reader.h"
-#include "runtime/exec_engine.h"
+#include "runtime/exec_engine/exec_engine.h"
 #include "gpu_arch/chip_config/amdgpu_target_config.h"
 #include "tests/test_utils/llvm_mc_test_support.h"
 #include "tests/test_utils/trace_test_support.h"
@@ -704,11 +704,13 @@ encoded_trace_waitcnt_kernel:
   s_waitcnt lgkmcnt(0)
   v_mov_b32_e32 v0, s2
   v_mov_b32_e32 v1, s3
-  global_load_dword v3, v[0:1], off
-  global_load_dword v4, v[2:3], off
+  v_mov_b32_e32 v2, s2
+  v_mov_b32_e32 v3, s3
+  global_load_dword v4, v[0:1], off
+  global_load_dword v5, v[2:3], off
   s_waitcnt vmcnt(0)
-  v_add_u32_e32 v5, v3, v4
-  global_store_dword v[0:1], v5, off
+  v_add_u32_e32 v6, v4, v5
+  global_store_dword v[0:1], v6, off
   s_endpgm
 .Lfunc_end0:
   .size encoded_trace_waitcnt_kernel, .Lfunc_end0-encoded_trace_waitcnt_kernel

@@ -48,7 +48,8 @@ split_large_trace_txt() {
 gpu_model_ensure_targets "$BUILD_DIR" gpu_model_perfetto_waitcnt_slots_demo
 rm -rf "$OUT_DIR"
 mkdir -p "$OUT_DIR"
-"$BUILD_DIR/gpu_model_perfetto_waitcnt_slots_demo" "$OUT_DIR" | tee "$OUT_DIR/summary.txt"
+GPU_MODEL_FUNCTIONAL_WORKERS="${GPU_MODEL_FUNCTIONAL_WORKERS:-4}" \
+  "$BUILD_DIR/gpu_model_perfetto_waitcnt_slots_demo" "$OUT_DIR" | tee "$OUT_DIR/summary.txt"
 
 [[ -f "$OUT_DIR/guide.txt" ]]
 
