@@ -23,7 +23,7 @@ struct RuntimeConfig {
   bool encoded_exec_debug = false;
 
   bool full_test_matrix = false;
-  bool phase1_compat_gate = false;
+  bool compatibility_profile_gate = false;
 };
 
 class RuntimeConfigManager {

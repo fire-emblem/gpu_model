@@ -18,7 +18,7 @@ inline bool FullTestMatrixEnabled() {
          profile == "1" || profile == "true" || profile == "TRUE";
 }
 
-inline bool Phase1CompatibilityAliasGateEnabled() {
+inline bool CompatibilityProfileGateEnabled() {
   const char* value = std::getenv("GPU_MODEL_TEST_PROFILE");
   if (value == nullptr || *value == '\0') {
     return false;

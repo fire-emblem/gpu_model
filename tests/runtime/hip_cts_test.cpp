@@ -505,7 +505,7 @@ std::vector<HipCtsCase> MakeModelRuntimeCasesQuick() {
 }
 
 std::vector<HipCtsCase> MakeModelRuntimeCases() {
-  if (test::Phase1CompatibilityAliasGateEnabled()) {
+  if (test::CompatibilityProfileGateEnabled()) {
     return {};
   }
   return test::FullTestMatrixEnabled() ? MakeModelRuntimeCasesFull() : MakeModelRuntimeCasesQuick();
@@ -647,7 +647,7 @@ std::vector<HipCtsCase> MakeHipRuntimeAbiCasesQuick() {
 }
 
 std::vector<HipCtsCase> MakeHipRuntimeAbiCases() {
-  if (test::Phase1CompatibilityAliasGateEnabled()) {
+  if (test::CompatibilityProfileGateEnabled()) {
     return {};
   }
   return test::FullTestMatrixEnabled() ? MakeHipRuntimeAbiCasesFull() : MakeHipRuntimeAbiCasesQuick();

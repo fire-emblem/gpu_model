@@ -214,7 +214,8 @@ void RuntimeConfigManager::ReloadFromEnv() {
   if (test_profile_env != nullptr && test_profile_env[0] != '\0') {
     const std::string test_profile = ToLower(test_profile_env);
     config_.full_test_matrix = (test_profile == "full" || test_profile == "all" || test_profile == "1" || test_profile == "true");
-    config_.phase1_compat_gate = (test_profile == "phase1-compat" || test_profile == "compat");
+    config_.compatibility_profile_gate =
+        (test_profile == "phase1-compat" || test_profile == "compat");
   }
 
   // Print config on first load
@@ -245,6 +246,8 @@ void RuntimeConfigManager::PrintConfig() const {
   }
   fprintf(stderr, "[RuntimeConfig] encoded_exec_debug: %s\n", config_.encoded_exec_debug ? "true" : "false");
   fprintf(stderr, "[RuntimeConfig] full_test_matrix: %s\n", config_.full_test_matrix ? "true" : "false");
+  fprintf(stderr, "[RuntimeConfig] compatibility_profile_gate: %s\n",
+          config_.compatibility_profile_gate ? "true" : "false");
   fprintf(stderr, "[RuntimeConfig] =====================\n");
 }
 

@@ -358,7 +358,7 @@ std::vector<HipFeatureCase> MakeModelRuntimeFeatureCasesQuick() {
 }
 
 std::vector<HipFeatureCase> MakeModelRuntimeFeatureCases() {
-  if (test::Phase1CompatibilityAliasGateEnabled()) {
+  if (test::CompatibilityProfileGateEnabled()) {
     return {};
   }
   return test::FullTestMatrixEnabled() ? MakeModelRuntimeFeatureCasesFull()
@@ -539,7 +539,7 @@ std::vector<HipFeatureCase> MakeHipRuntimeAbiFeatureCasesQuick() {
 }
 
 std::vector<HipFeatureCase> MakeHipRuntimeAbiFeatureCases() {
-  if (test::Phase1CompatibilityAliasGateEnabled()) {
+  if (test::CompatibilityProfileGateEnabled()) {
     return {};
   }
   return test::FullTestMatrixEnabled() ? MakeHipRuntimeAbiFeatureCasesFull()
