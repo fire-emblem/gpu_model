@@ -4,7 +4,6 @@
 #include <cstdint>
 #include <optional>
 #include <span>
-#include <unordered_map>
 #include <vector>
 
 #include "program/loader/device_image_loader.h"
@@ -92,7 +91,6 @@ class ModelRuntime {
   ExecEngine* runtime_engine_ = &owned_runtime_;
   bool owns_runtime_ = true;
   int current_device_ = 0;
-  std::unordered_map<uint64_t, size_t> allocations_;
   RuntimeModuleRegistry module_registry_;
   std::optional<DeviceLoadResult> last_load_result_;
 };

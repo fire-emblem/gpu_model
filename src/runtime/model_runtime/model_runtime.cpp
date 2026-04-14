@@ -42,19 +42,15 @@ ModelRuntime::ModelRuntime(ExecEngine* runtime)
       owns_runtime_(runtime == nullptr) {}
 
 uint64_t ModelRuntime::Malloc(size_t bytes) {
-  const uint64_t addr = runtime_engine_->memory().AllocateGlobal(bytes);
-  allocations_.emplace(addr, bytes);
-  return addr;
+  return runtime_engine_->memory().AllocateGlobal(bytes);
 }
 
 uint64_t ModelRuntime::MallocManaged(size_t bytes) {
-  const uint64_t addr = runtime_engine_->memory().Allocate(MemoryPoolKind::Managed, bytes);
-  allocations_.emplace(addr, bytes);
-  return addr;
+  return runtime_engine_->memory().Allocate(MemoryPoolKind::Managed, bytes);
 }
 
 void ModelRuntime::Free(uint64_t addr) {
-  allocations_.erase(addr);
+  (void)addr;
 }
 
 MemorySystem& ModelRuntime::memory() {
@@ -108,7 +104,6 @@ void ModelRuntime::Reset() {
     runtime_engine_->ResetDeviceCycle();
   }
   current_device_ = 0;
-  allocations_.clear();
   module_registry_.Reset();
   last_load_result_.reset();
 }

@@ -899,6 +899,20 @@
   - `tests/runtime/executed_flow_program_cycle_stats_test.cpp`
   - `task_plan.md`
   - `findings.md`
+
+### 阶段 42：ModelRuntime allocation ownership 收口
+- **状态：** in_progress
+- 执行的操作：
+  - 删除 `ModelRuntime::allocations_`
+  - `ModelRuntime::{Malloc,MallocManaged}` 直接返回 `MemorySystem` 分配的地址
+  - `ModelRuntime::Free` 去掉对伪 allocation table 的维护
+  - `ModelRuntime::Reset` 不再清理本地 allocation 映射
+  - 将 allocation ownership 重叠从 `ModelRuntime` 侧移除
+- 创建/修改的文件：
+  - `src/runtime/model_runtime/model_runtime.h`
+  - `src/runtime/model_runtime/model_runtime.cpp`
+  - `task_plan.md`
+  - `findings.md`
   - `src/execution/cycle_exec_engine.cpp`
   - `CMakeLists.txt`
   - `docs/superpowers/plans/2026-04-12-architecture-restructure-wave1.md`

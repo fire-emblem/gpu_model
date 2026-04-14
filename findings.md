@@ -246,6 +246,15 @@
 - 结果：
   - public header 对 `execution/internal/*` 的直接依赖已清零
   - 与此相关的传递 include 依赖已显式化到测试侧
+
+## 2026-04-14 ModelRuntime allocation ownership 收口
+
+- `ModelRuntime::allocations_` 已删除
+- `ModelRuntime::{Malloc,MallocManaged}` 现在只返回 `MemorySystem` 分配出的 model address
+- `ModelRuntime::Free` 不再伪持有 allocation table
+- ABI/host-visible allocation 的 owner 继续明确落在 `DeviceMemoryManager`
+- 结果：`ModelRuntime / DeviceMemoryManager / MemorySystem` 三者中，`ModelRuntime` 不再重复保存一份
+  allocation ownership 映射
   - 仍需补齐的开发项
   - 仍需补齐的测试项
   - Gate A/B/C/D 分阶段门槛
