@@ -6,7 +6,7 @@ namespace gpu_model {
 
 const std::vector<GcnGeneratedProfileDef>& GeneratedGcnProfileDefs() {
   static const std::vector<GcnGeneratedProfileDef> kProfileDefs = {
-  { "gfx6_gfx8", "GCN gfx6-gfx8", 64, false, "legacy" },
+  { "gfx6_gfx8", "GCN gfx6-gfx8", 64, false, "gfx6_gfx8" },
   { "gfx9_cdna", "gfx9+/CDNA", 64, true, "gfx9" }
   };
   return kProfileDefs;

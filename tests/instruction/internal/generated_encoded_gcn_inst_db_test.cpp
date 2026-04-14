@@ -21,6 +21,7 @@ TEST(GeneratedGcnInstDbTest, ExposesProfileAndSemanticMetadata) {
   ASSERT_GE(profiles.size(), 2u);
   EXPECT_STREQ(profiles.front().id, "gfx6_gfx8");
   EXPECT_EQ(profiles.front().wave_size, 64u);
+  EXPECT_STREQ(profiles.front().waitcnt_layout, "gfx6_gfx8");
 
   const auto semantic_families = GeneratedGcnSemanticFamilyDefs();
   ASSERT_FALSE(semantic_families.empty());

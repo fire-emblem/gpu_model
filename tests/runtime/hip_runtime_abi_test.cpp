@@ -1374,7 +1374,7 @@ int main() {
   std::filesystem::remove_all(temp_dir);
 }
 
-TEST(HipRuntimeAbiTest, RunsHipHostExecutableWithMemcpyAsyncCompatibilityThroughLdPreloadHipRuntimeAbi) {
+TEST(HipRuntimeAbiTest, RunsHipHostExecutableWithMemcpyAsyncThroughLdPreloadHipRuntimeAbi) {
   if (!HasHipHostToolchain()) {
     GTEST_SKIP() << "required HIP/LLVM tools not available";
   }
@@ -1421,7 +1421,7 @@ int main() {
 
   if (hipFree(ptr) != hipSuccess) return 21;
   if (hipStreamDestroy(stream) != hipSuccess) return 22;
-  std::puts("ld_preload memcpy async compatibility ok");
+  std::puts("ld_preload memcpy async abi ok");
   return 0;
 }
 )";
@@ -1441,7 +1441,7 @@ int main() {
   std::ifstream in(stdout_path);
   ASSERT_TRUE(static_cast<bool>(in));
   const std::string output((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-  EXPECT_NE(output.find("ld_preload memcpy async compatibility ok"), std::string::npos);
+  EXPECT_NE(output.find("ld_preload memcpy async abi ok"), std::string::npos);
 
   std::filesystem::remove_all(temp_dir);
 }
