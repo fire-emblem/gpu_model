@@ -19,6 +19,7 @@
 #include "debug/trace/event_factory.h"
 #include "debug/trace/instruction_trace.h"
 #include "debug/trace/wave_launch_trace.h"
+#include "execution/internal/plan/semantics.h"
 #include "execution/internal/sync_ops/barrier_resource_pool.h"
 #include "execution/internal/cost_model/cycle_issue_policy.h"
 #include "execution/internal/cost_model/cycle_types.h"
@@ -43,6 +44,11 @@
 #include "runtime/model_runtime/program_cycle_stats.h"
 
 namespace gpu_model {
+
+CycleExecEngine::CycleExecEngine(CycleTimingConfig timing_config)
+    : timing_config_(timing_config), semantics_(std::make_unique<Semantics>()) {}
+
+CycleExecEngine::~CycleExecEngine() = default;
 
 using namespace cycle_internal;
 
@@ -316,7 +322,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
           ++context.stats->wave_steps;
           ++context.stats->instructions_issued;
         }
-        const OpPlan plan = semantics_.BuildPlan(instruction, wave, context);
+  const OpPlan plan = semantics_->BuildPlan(instruction, wave, context);
         if (program_cycle_stats_.has_value()) {
           // Track total instructions
           program_cycle_stats_->instructions_executed += 1;

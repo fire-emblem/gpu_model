@@ -18,7 +18,7 @@
 
 namespace gpu_model {
 
-struct CycleTimingConfig;  // forward-declared; defined in cycle_exec_engine.h
+struct CycleTimingConfig;  // forward-declared; defined in execution/cycle/cycle_timing_config.h
 
 namespace cycle_internal {
 
@@ -137,7 +137,7 @@ void AccumulateProgramCycleStep(ProgramCycleStats& stats,
 
 bool IssueLimitsUnset(const ArchitecturalIssueLimits& limits);
 
-// CycleTimingConfig is forward-declared above; full definition in cycle_exec_engine.h
+// CycleTimingConfig is forward-declared above; full definition in execution/cycle/cycle_timing_config.h
 ArchitecturalIssuePolicy ResolveIssuePolicy(const CycleTimingConfig& timing_config,
                                             const GpuArchSpec& spec);
 

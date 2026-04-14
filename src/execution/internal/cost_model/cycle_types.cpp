@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <optional>
 
-#include "execution/cycle/cycle_exec_engine.h"  // CycleTimingConfig (full definition)
+#include "execution/cycle/cycle_timing_config.h"  // CycleTimingConfig
 #include "instruction/isa/opcode_info.h"  // GetOpcodeExecutionInfo
 #include "gpu_arch/device/gpu_arch_spec.h"  // GpuArchSpec
 #include "gpu_arch/issue_config/issue_config.h"  // ArchitecturalIssuePolicyFromLimits

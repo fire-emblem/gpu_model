@@ -870,6 +870,35 @@
   - `docs/test-matrix.md`
   - `task_plan.md`
   - `findings.md`
+
+### 阶段 41：公共执行头边界收口
+- **状态：** in_progress
+- 执行的操作：
+  - 新增稳定公共头：`execution_context.h`、`execution_engine.h`、`cycle_timing_config.h`
+  - `functional_exec_engine.h` 改依赖 `execution/execution_context.h`
+  - `cycle_exec_engine.h` 改依赖 `execution/execution_engine.h` 与 `execution/cycle/cycle_timing_config.h`
+  - `program_object_exec_engine.h` 改直接依赖 `cycle_timing_config.h`
+  - `exec_engine.h` 去掉对 `cycle_exec_engine.h` 的直接 include
+  - `cycle_types.cpp` 改依赖新的公共 timing 头
+  - 为被去掉的传递 include 补测试侧显式 include
+- 创建/修改的文件：
+  - `src/execution/execution_context.h`
+  - `src/execution/execution_engine.h`
+  - `src/execution/cycle/cycle_timing_config.h`
+  - `src/execution/functional/functional_exec_engine.h`
+  - `src/execution/functional/functional_exec_engine.cpp`
+  - `src/execution/cycle/cycle_exec_engine.h`
+  - `src/execution/cycle/cycle_exec_engine.cpp`
+  - `src/execution/encoded/program_object_exec_engine.h`
+  - `src/runtime/exec_engine/exec_engine.h`
+  - `src/execution/internal/plan/semantics.h`
+  - `src/execution/internal/plan/execution_engine.h`
+  - `src/execution/internal/cost_model/cycle_types.h`
+  - `src/execution/internal/cost_model/cycle_types.cpp`
+  - `tests/loader/program_object_launch_test.cpp`
+  - `tests/runtime/executed_flow_program_cycle_stats_test.cpp`
+  - `task_plan.md`
+  - `findings.md`
   - `src/execution/cycle_exec_engine.cpp`
   - `CMakeLists.txt`
   - `docs/superpowers/plans/2026-04-12-architecture-restructure-wave1.md`

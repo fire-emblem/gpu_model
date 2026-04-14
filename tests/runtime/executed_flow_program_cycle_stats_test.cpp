@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "gpu_arch/chip_config/arch_registry.h"
+#include "gpu_arch/wave/wave_def.h"
 #include "instruction/isa/instruction_builder.h"
 #include "runtime/model_runtime/program_cycle_tracker.h"
 #include "runtime/exec_engine/exec_engine.h"

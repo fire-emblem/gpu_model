@@ -232,6 +232,20 @@
   已取代此前过渡的 ABI-era 文件命名
 - `hip_ld_preload` 已取代此前过渡的 ABI-era 日志模块名
 - 这一步把 `HipRuntime compatibility naming cleanup` 从“并行待办”推进到“当前批次已完成”
+
+## 2026-04-14 公共执行头边界收口补充
+
+- 新增稳定公共头：
+  - `src/execution/execution_context.h`
+  - `src/execution/execution_engine.h`
+  - `src/execution/cycle/cycle_timing_config.h`
+- `functional_exec_engine.h` 不再直接 include `execution/internal/plan/semantics.h`
+- `cycle_exec_engine.h` 不再直接 include `execution/internal/plan/execution_engine.h`
+- `program_object_exec_engine.h` 不再通过 `cycle_exec_engine.h` 间接拿 `CycleTimingConfig`
+- `exec_engine.h` 不再直接 include `cycle_exec_engine.h`
+- 结果：
+  - public header 对 `execution/internal/*` 的直接依赖已清零
+  - 与此相关的传递 include 依赖已显式化到测试侧
   - 仍需补齐的开发项
   - 仍需补齐的测试项
   - Gate A/B/C/D 分阶段门槛

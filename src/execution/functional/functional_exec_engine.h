@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <optional>
 
-#include "execution/internal/plan/semantics.h"
+#include "execution/execution_context.h"
 #include "runtime/model_runtime/program_cycle_stats.h"
 
 namespace gpu_model {

@@ -120,7 +120,6 @@
 9. `Architecture boundary cleanup`
    - 目标：把“正式设计已经确定的边界”真正落实到代码结构、公共头、状态所有权和构建边界中。
    - 当前缺口：
-     - 公共头仍直接依赖 `internal/*`
      - `ExecEngine / ModelRuntime / RuntimeSession` 仍偏总控类
      - `MemorySystem / DeviceMemoryManager / ModelRuntime` 仍有所有权重叠
      - `ObjectReader / encoded_program_object.cpp` 仍把外部工具调用、解析、组装耦在一起

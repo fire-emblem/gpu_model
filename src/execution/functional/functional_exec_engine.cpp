@@ -28,6 +28,7 @@
 #include "debug/trace/event_factory.h"
 #include "debug/trace/instruction_trace.h"
 #include "debug/trace/wave_launch_trace.h"
+#include "execution/internal/plan/semantics.h"
 #include "execution/internal/commit_logic/async_scoreboard.h"
 #include "execution/internal/issue_logic/issue_eligibility.h"
 #include "gpu_arch/memory/memory_arrive_kind.h"
