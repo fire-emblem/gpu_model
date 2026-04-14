@@ -27,7 +27,7 @@
 #include "execution/internal/event_queue.h"
 #include "gpu_arch/issue_config/issue_config.h"
 #include "execution/internal/issue_scheduler.h"
-#include "execution/internal/opcode_execution_info.h"
+#include "instruction/isa/opcode_info.h"
 #include "execution/internal/async_scoreboard.h"
 #include "execution/internal/memory_ops.h"
 #include "execution/internal/plan_apply.h"

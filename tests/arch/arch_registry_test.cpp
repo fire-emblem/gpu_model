@@ -39,7 +39,7 @@ TEST(ArchRegistryTest, Mac500FieldsMatchDesign) {
   EXPECT_EQ(spec->default_issue_cycles, 4u);
 }
 
-TEST(ArchRegistryTest, LegacyGpuArchSpecHeaderRemainsAvailableAsBridge) {
+TEST(ArchRegistryTest, GpuArchSpecHeaderExposesCanonicalArchitectureType) {
   GpuArchSpec spec;
   spec.dpc_count = 2;
   spec.ap_per_dpc = 3;

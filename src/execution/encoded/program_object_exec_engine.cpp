@@ -27,7 +27,7 @@
 #include "execution/internal/barrier_resource_pool.h"
 #include "execution/internal/cycle_issue_policy.h"
 #include "execution/internal/encoded_issue_candidate.h"
-#include "execution/internal/memory_arrive_kind.h"
+#include "gpu_arch/memory/memory_arrive_kind.h"
 #include "execution/internal/tensor_op_utils.h"
 #include "execution/internal/issue_eligibility.h"
 #include "execution/internal/wave_state.h"

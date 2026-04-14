@@ -1,6 +1,6 @@
 #pragma once
 
-#include "execution/internal/opcode_execution_info.h"
+#include "instruction/isa/opcode_info.h"
 #include "execution/internal/semantics.h"
 
 namespace gpu_model {

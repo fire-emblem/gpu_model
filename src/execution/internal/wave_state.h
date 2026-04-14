@@ -9,7 +9,7 @@
 #include <string>
 
 #include "execution/internal/issue_eligibility.h"
-#include "execution/internal/memory_arrive_kind.h"
+#include "gpu_arch/memory/memory_arrive_kind.h"
 #include "state/wave/wave_runtime_state.h"
 
 namespace gpu_model {
