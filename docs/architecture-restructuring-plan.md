@@ -331,7 +331,6 @@ MaterializeBlocks → BuildPeuSlots → AdmitResidentBlocks
 | `trace/` | 定义"什么是可观察的" — 事件类型、快照类型、工厂函数 | 纯定义，不持有状态 | ~2500 |
 | `recorder/` | "收集和持久化" — Recorder 持有事实，Serializer 输出 | 消费 trace/ 的类型 | ~600 |
 | `timeline/` | "渲染和比较" — 从 Recorder 渲染可视化输出 | 纯渲染，只读 Recorder | ~1300 |
-| `replay/` | "回放" — 未来扩展 | placeholder | ~10 |
 | `info/` | "调试信息 I/O" | 独立于 trace 管线 | ~85 |
 
 层间依赖（单向）：

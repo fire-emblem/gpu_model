@@ -41,7 +41,7 @@ struct ProgramCycleStats {
   uint64_t private_loads = 0;
   uint64_t private_stores = 0;
 
-  // === Cycle Breakdown (legacy compatibility) ===
+  // === Cycle Breakdown ===
   uint64_t total_issued_work_cycles = 0;
   uint64_t scalar_alu_cycles = 0;
   uint64_t vector_alu_cycles = 0;

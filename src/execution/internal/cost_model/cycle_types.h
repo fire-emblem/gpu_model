@@ -83,7 +83,7 @@ struct PeuSlot {
   uint64_t selection_ready_cycle = 0;
   // Commit timing: when current bundle finishes committing
   uint64_t last_bundle_commit_cycle = 0;
-  // Canonical compatibility alias used while callers finish switching to the split timing fields.
+  // Coarse occupied-until marker used alongside the split timing fields.
   uint64_t busy_until = 0;
   uint64_t last_wave_tag = std::numeric_limits<uint64_t>::max();
   std::optional<TraceWaveView> last_wave_trace;
