@@ -102,7 +102,7 @@ policy 不应承担：
 
 当前仓库已经有：
 
-- [`src/gpu_model/execution/internal/issue_model.h`](../src/gpu_model/execution/internal/issue_model.h)
+- [`src/gpu_arch/issue_config/issue_config.h`](../src/gpu_arch/issue_config/issue_config.h)
 - [`src/execution/internal/issue_scheduler.cpp`](../src/execution/internal/issue_scheduler.cpp)
 
 已经支持：

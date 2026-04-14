@@ -157,8 +157,8 @@
 
 当前统一抽象在：
 
-- [`src/gpu_model/execution/internal/issue_model.h`](../src/gpu_model/execution/internal/issue_model.h)
-- [`src/execution/internal/issue_model.cpp`](../src/execution/internal/issue_model.cpp)
+- [`src/gpu_arch/issue_config/issue_config.h`](../src/gpu_arch/issue_config/issue_config.h)
+- [`src/gpu_arch/issue_config/issue_config.cpp`](../src/gpu_arch/issue_config/issue_config.cpp)
 
 核心对象：
 
