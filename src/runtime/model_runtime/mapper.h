@@ -4,7 +4,7 @@
 #include <vector>
 
 #include "gpu_arch/chip_config/gpu_arch_spec.h"
-#include "runtime/launch_config.h"
+#include "runtime/config/launch_config.h"
 
 namespace gpu_model {
 

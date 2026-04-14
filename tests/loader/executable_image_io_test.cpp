@@ -9,7 +9,7 @@
 #include "debug/info/debug_info.h"
 #include "instruction/isa/instruction_builder.h"
 #include "program/loader/executable_image_io.h"
-#include "runtime/exec_engine.h"
+#include "runtime/exec_engine/exec_engine.h"
 
 namespace gpu_model {
 namespace {

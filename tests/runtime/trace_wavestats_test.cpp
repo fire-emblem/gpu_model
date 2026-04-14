@@ -8,7 +8,7 @@
 #include "debug/trace/event_view.h"
 #include "debug/trace/sink.h"
 #include "instruction/isa/instruction_builder.h"
-#include "runtime/exec_engine.h"
+#include "runtime/exec_engine/exec_engine.h"
 #include "tests/test_utils/trace_test_support.h"
 
 namespace gpu_model {

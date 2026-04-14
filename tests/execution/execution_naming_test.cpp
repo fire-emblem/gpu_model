@@ -10,7 +10,7 @@
 #include "execution/internal/sync_ops.h"
 #include "state/wave/barrier_state.h"
 #include "execution/internal/wave_context_builder.h"
-#include "runtime/exec_engine.h"
+#include "runtime/exec_engine/exec_engine.h"
 #include "state/ap/ap_runtime_state.h"
 #include "state/wave/wave_runtime_state.h"
 

@@ -4,7 +4,7 @@
 #include <optional>
 
 #include "execution/internal/semantics.h"
-#include "runtime/program_cycle_stats.h"
+#include "runtime/model_runtime/program_cycle_stats.h"
 
 namespace gpu_model {
 

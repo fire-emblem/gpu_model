@@ -6,7 +6,7 @@
 #include "debug/trace/sink.h"
 #include "execution/cycle/cycle_exec_engine.h"
 #include "gpu_arch/memory/memory_system.h"
-#include "runtime/launch_request.h"
+#include "runtime/config/launch_request.h"
 #include "utils/config/execution_mode.h"
 
 namespace gpu_model {

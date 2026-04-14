@@ -39,7 +39,7 @@
 #include "execution/internal/wave_context_builder.h"
 #include "instruction/isa/opcode.h"
 #include "program/loader/device_image_loader.h"
-#include "runtime/program_cycle_tracker.h"
+#include "runtime/model_runtime/program_cycle_tracker.h"
 
 namespace gpu_model {
 

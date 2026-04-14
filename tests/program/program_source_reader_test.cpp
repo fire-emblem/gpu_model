@@ -8,7 +8,7 @@
 
 #include "program/program_object/program_object.h"
 #include "program/program_object/object_reader.h"
-#include "runtime/exec_engine.h"
+#include "runtime/exec_engine/exec_engine.h"
 
 namespace gpu_model {
 namespace {

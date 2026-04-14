@@ -7,10 +7,10 @@
 #include "debug/trace/sink.h"
 #include "gpu_arch/memory/memory_system.h"
 #include "program/program_object/program_object.h"
-#include "runtime/kernel_arg_pack.h"
-#include "runtime/launch_config.h"
-#include "runtime/launch_request.h"
-#include "runtime/mapper.h"
+#include "runtime/config/kernel_arg_pack.h"
+#include "runtime/config/launch_config.h"
+#include "runtime/config/launch_request.h"
+#include "runtime/model_runtime/mapper.h"
 #include "utils/config/execution_mode.h"
 
 namespace gpu_model {

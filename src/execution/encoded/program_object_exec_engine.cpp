@@ -41,9 +41,9 @@
 #include "program/loader/device_image_loader.h"
 #include "gpu_arch/memory/cache_model.h"
 #include "gpu_arch/memory/shared_bank_model.h"
-#include "runtime/kernarg_packer.h"
-#include "runtime/mapper.h"
-#include "runtime/program_cycle_tracker.h"
+#include "runtime/config/kernarg_packer.h"
+#include "runtime/model_runtime/mapper.h"
+#include "runtime/model_runtime/program_cycle_tracker.h"
 #include "utils/logging/log_macros.h"
 
 namespace gpu_model {

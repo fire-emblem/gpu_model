@@ -15,11 +15,11 @@
 #include "gpu_arch/memory/memory_system.h"
 #include "gpu_arch/memory/memory_pool.h"
 #include "program/program_object/program_object.h"
-#include "runtime/device_memory_manager.h"
-#include "runtime/kernel_arg_pack.h"
-#include "runtime/launch_config.h"
-#include "runtime/model_runtime.h"
-#include "runtime/runtime_submission_context.h"
+#include "runtime/model_runtime/device_memory_manager.h"
+#include "runtime/config/kernel_arg_pack.h"
+#include "runtime/config/launch_config.h"
+#include "runtime/model_runtime/model_runtime.h"
+#include "runtime/model_runtime/runtime_submission_context.h"
 
 namespace gpu_model {
 

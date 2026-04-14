@@ -1,4 +1,4 @@
-#include "runtime/kernarg_packer.h"
+#include "runtime/config/kernarg_packer.h"
 
 #include <cstring>
 #include <stdexcept>

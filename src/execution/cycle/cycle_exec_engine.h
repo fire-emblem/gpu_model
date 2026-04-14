@@ -4,7 +4,7 @@
 
 #include "gpu_arch/chip_config/gpu_arch_spec.h"
 #include "execution/internal/execution_engine.h"
-#include "runtime/program_cycle_stats.h"
+#include "runtime/model_runtime/program_cycle_stats.h"
 
 namespace gpu_model {
 

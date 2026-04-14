@@ -7,7 +7,7 @@
 #include "execution/wave_context.h"
 #include "instruction/decode/encoded/instruction_object.h"
 #include "gpu_arch/memory/memory_system.h"
-#include "runtime/launch_request.h"
+#include "runtime/config/launch_request.h"
 
 namespace gpu_model {
 namespace {
