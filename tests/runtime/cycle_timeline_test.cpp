@@ -698,7 +698,7 @@ TEST(CycleTimelineTest, GoogleTraceKeepsRuntimeBlockEventsOffSlotTracks) {
   EXPECT_EQ(trace.find("\"args\":{\"name\":\"WAVE_SLOT_"), std::string::npos);
 }
 
-TEST(CycleTimelineTest, GoogleTracePrefersTypedSchemaFieldsWhenLegacyStringsAreEmpty) {
+TEST(CycleTimelineTest, GoogleTracePrefersTypedSchemaFieldsWhenCompatibilityStringsAreEmpty) {
   const TraceWaveView wave = MakeWaveView(/*slot_id=*/2, /*pc=*/0x80, /*wave_id=*/3);
   std::vector<TraceEvent> events{
       MakeTraceWaveStepEvent(
@@ -887,7 +887,7 @@ TEST(CycleTimelineTest, GoogleTraceRuntimeArgsSharePresentationFields) {
   EXPECT_EQ(trace.find("\"args\":{\"name\":\"WAVE_SLOT_"), std::string::npos);
 }
 
-TEST(CycleTimelineTest, TimelineCanRenderCanonicalNamesWithoutLegacyMessages) {
+TEST(CycleTimelineTest, TimelineCanRenderCanonicalNamesWithoutCompatibilityMessages) {
   const TraceWaveView wave = MakeWaveView(/*slot_id=*/0);
   TraceEvent barrier_arrive =
       MakeTraceBarrierArriveEvent(wave, 1, TraceSlotModelKind::ResidentFixed);

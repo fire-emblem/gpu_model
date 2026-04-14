@@ -30,7 +30,6 @@ using test::CountOccurrences;
 using test::FindFirst;
 using test::HasJsonField;
 using test::HasEventArg;
-using test::ExpectContainsLegacyStallMessage;
 using test::ExpectContainsTypedSlotFields;
 using test::ExpectContainsTypedSlotFieldsJson;
 using test::ExpectContainsTypedStallReasonFields;

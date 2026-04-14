@@ -31,7 +31,7 @@ struct TraceEventView {
   std::string display_name;
   std::string category;
   std::string compatibility_message;
-  bool used_legacy_fallback = false;
+  bool used_compatibility_fallback = false;
 };
 
 TraceEventView MakeTraceEventView(const TraceEvent& event);

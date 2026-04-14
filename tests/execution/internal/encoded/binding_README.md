@@ -11,5 +11,5 @@
 关注点：
 
 - concrete object 是否绑定正确
-- placeholder / unknown fallback 是否正确
+- unsupported / unknown 指令对象是否按约定落到兜底绑定
 - binding 不应依赖 parser/object 层间接验证

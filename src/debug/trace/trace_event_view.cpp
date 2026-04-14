@@ -6,7 +6,7 @@ namespace gpu_model {
 
 namespace {
 
-TraceBarrierKind LegacyBarrierKindFromEvent(const TraceEvent& event) {
+TraceBarrierKind BarrierKindFromCompatibilityMessage(const TraceEvent& event) {
   if (event.kind != TraceEventKind::Barrier) {
     return TraceBarrierKind::None;
   }
@@ -22,7 +22,7 @@ TraceBarrierKind LegacyBarrierKindFromEvent(const TraceEvent& event) {
   return TraceBarrierKind::None;
 }
 
-TraceArriveKind LegacyArriveKindFromEvent(const TraceEvent& event) {
+TraceArriveKind ArriveKindFromCompatibilityMessage(const TraceEvent& event) {
   if (event.kind != TraceEventKind::Arrive) {
     return TraceArriveKind::None;
   }
@@ -44,7 +44,7 @@ TraceArriveKind LegacyArriveKindFromEvent(const TraceEvent& event) {
   return TraceArriveKind::None;
 }
 
-TraceLifecycleStage LegacyLifecycleStageFromEvent(const TraceEvent& event) {
+TraceLifecycleStage LifecycleStageFromCompatibilityFields(const TraceEvent& event) {
   if (event.kind == TraceEventKind::WaveLaunch) {
     return TraceLifecycleStage::Launch;
   }
@@ -55,7 +55,7 @@ TraceLifecycleStage LegacyLifecycleStageFromEvent(const TraceEvent& event) {
   return TraceLifecycleStage::None;
 }
 
-std::string LegacyDisplayName(const TraceEvent& event) {
+std::string DisplayNameFromCompatibilityFields(const TraceEvent& event) {
   if (event.kind == TraceEventKind::WaveStep) {
     constexpr std::string_view kOpPrefix = "op=";
     const std::string_view message = event.message;
@@ -344,21 +344,23 @@ TraceEventView MakeTraceEventView(const TraceEvent& event) {
       .display_name = event.display_name,
       .category = {},
       .compatibility_message = event.message,
-      .used_legacy_fallback = false,
+      .used_compatibility_fallback = false,
   };
 
   if (view.barrier_kind == TraceBarrierKind::None) {
-    view.barrier_kind = LegacyBarrierKindFromEvent(event);
-    view.used_legacy_fallback = view.used_legacy_fallback || view.barrier_kind != TraceBarrierKind::None;
+    view.barrier_kind = BarrierKindFromCompatibilityMessage(event);
+    view.used_compatibility_fallback =
+        view.used_compatibility_fallback || view.barrier_kind != TraceBarrierKind::None;
   }
   if (view.arrive_kind == TraceArriveKind::None) {
-    view.arrive_kind = LegacyArriveKindFromEvent(event);
-    view.used_legacy_fallback = view.used_legacy_fallback || view.arrive_kind != TraceArriveKind::None;
+    view.arrive_kind = ArriveKindFromCompatibilityMessage(event);
+    view.used_compatibility_fallback =
+        view.used_compatibility_fallback || view.arrive_kind != TraceArriveKind::None;
   }
   if (view.lifecycle_stage == TraceLifecycleStage::None) {
-    view.lifecycle_stage = LegacyLifecycleStageFromEvent(event);
-    view.used_legacy_fallback =
-        view.used_legacy_fallback || view.lifecycle_stage != TraceLifecycleStage::None;
+    view.lifecycle_stage = LifecycleStageFromCompatibilityFields(event);
+    view.used_compatibility_fallback =
+        view.used_compatibility_fallback || view.lifecycle_stage != TraceLifecycleStage::None;
   }
 
   if (!event.semantic_canonical_name.empty()) {
@@ -387,8 +389,9 @@ TraceEventView MakeTraceEventView(const TraceEvent& event) {
   } else if (!event.display_name.empty()) {
     view.canonical_name = event.display_name;
   } else {
-    view.canonical_name = LegacyDisplayName(event);
-    view.used_legacy_fallback = view.used_legacy_fallback || !view.canonical_name.empty();
+    view.canonical_name = DisplayNameFromCompatibilityFields(event);
+    view.used_compatibility_fallback =
+        view.used_compatibility_fallback || !view.canonical_name.empty();
   }
 
   if (view.display_name.empty()) {
@@ -402,9 +405,10 @@ TraceEventView MakeTraceEventView(const TraceEvent& event) {
     } else if (event.kind == TraceEventKind::Stall && !view.canonical_name.empty()) {
       view.display_name = view.canonical_name;
     } else {
-      view.display_name = LegacyDisplayName(event);
+      view.display_name = DisplayNameFromCompatibilityFields(event);
     }
-    view.used_legacy_fallback = view.used_legacy_fallback || !view.display_name.empty();
+    view.used_compatibility_fallback =
+        view.used_compatibility_fallback || !view.display_name.empty();
   }
 
   if (!event.semantic_presentation_name.empty()) {
@@ -420,7 +424,7 @@ TraceEventView MakeTraceEventView(const TraceEvent& event) {
                                      view.canonical_name);
   }
   if (HasSemanticOverrides(event)) {
-    view.used_legacy_fallback = false;
+    view.used_compatibility_fallback = false;
   }
 
   return view;

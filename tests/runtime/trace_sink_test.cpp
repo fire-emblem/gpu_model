@@ -21,7 +21,6 @@ using test::ExpectContainsTypedSlotFields;
 using test::ExpectContainsTypedSlotFieldsJson;
 using test::ExpectContainsTypedStallReasonFields;
 using test::ExpectContainsTypedStallReasonFieldsJson;
-using test::ExpectContainsLegacyStallMessage;
 
 // =============================================================================
 // FileTraceSink Tests
@@ -104,7 +103,7 @@ TEST(TraceSinkTest, WritesWaveStatsEventsToTraceSinks) {
   std::filesystem::remove(json_path);
 }
 
-TEST(TraceSinkTest, PrefersTypedSchemaFieldsWhenLegacyStringsAreEmpty) {
+TEST(TraceSinkTest, PrefersTypedSchemaFieldsWhenCompatibilityStringsAreEmpty) {
   const std::filesystem::path text_path =
       std::filesystem::temp_directory_path() / "gpu_model_typed_trace.txt";
   const std::filesystem::path json_path =

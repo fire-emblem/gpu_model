@@ -225,7 +225,7 @@ TEST(TraceEventTest, BlockedStallFactoryUsesProducerSemanticOverridesForIssueGro
   EXPECT_EQ(view.canonical_name, "stall_issue_group_conflict");
   EXPECT_EQ(view.presentation_name, "stall_issue_group_conflict");
   EXPECT_EQ(view.category, "stall/issue_group_conflict");
-  EXPECT_FALSE(view.used_legacy_fallback);
+  EXPECT_FALSE(view.used_compatibility_fallback);
 }
 
 // =============================================================================
@@ -372,7 +372,7 @@ TEST(TraceEventTest, SemanticFactoriesPopulateTypedArriveAndDisplayFields) {
 // TraceEventView Tests
 // =============================================================================
 
-TEST(TraceEventTest, TraceEventViewPrefersTypedSemanticFieldsOverLegacyMessage) {
+TEST(TraceEventTest, TraceEventViewPrefersTypedSemanticFieldsOverCompatibilityMessage) {
   TraceEvent event{
       .kind = TraceEventKind::Barrier,
       .cycle = 7,
@@ -394,7 +394,7 @@ TEST(TraceEventTest, TraceEventViewPrefersTypedSemanticFieldsOverLegacyMessage) 
   EXPECT_EQ(view.display_name, "release");
   EXPECT_EQ(view.category, "sync/barrier");
   EXPECT_EQ(view.barrier_kind, TraceBarrierKind::Release);
-  EXPECT_FALSE(view.used_legacy_fallback);
+  EXPECT_FALSE(view.used_compatibility_fallback);
 }
 
 TEST(TraceEventTest, TraceEventViewPrefersProducerSemanticOverridesForStall) {
@@ -420,7 +420,7 @@ TEST(TraceEventTest, TraceEventViewPrefersProducerSemanticOverridesForStall) {
   EXPECT_EQ(view.canonical_name, "stall_waitcnt_global");
   EXPECT_EQ(view.presentation_name, "stall_waitcnt_global");
   EXPECT_EQ(view.category, "stall/waitcnt_global");
-  EXPECT_FALSE(view.used_legacy_fallback);
+  EXPECT_FALSE(view.used_compatibility_fallback);
 }
 
 TEST(TraceEventTest, EventFactoryPopulatesProducerSemanticOverridesForWaitAndSwitchMarkers) {
@@ -455,7 +455,7 @@ TEST(TraceEventTest, EventFactoryPopulatesProducerSemanticOverridesForWaitAndSwi
   EXPECT_EQ(switch_away.semantic_category, "wave/switch_away");
 }
 
-TEST(TraceEventTest, TraceEventViewCanNormalizeLegacyMessageOnlyRecords) {
+TEST(TraceEventTest, TraceEventViewCanNormalizeCompatibilityMessageOnlyRecords) {
   TraceEvent event{
       .kind = TraceEventKind::Stall,
       .cycle = 8,
@@ -476,7 +476,7 @@ TEST(TraceEventTest, TraceEventViewCanNormalizeLegacyMessageOnlyRecords) {
   EXPECT_EQ(view.display_name, "stall_waitcnt_global");
   EXPECT_EQ(view.category, "stall/waitcnt_global");
   EXPECT_EQ(view.stall_reason, TraceStallReason::WaitCntGlobal);
-  EXPECT_TRUE(view.used_legacy_fallback);
+  EXPECT_TRUE(view.used_compatibility_fallback);
 }
 
 TEST(TraceEventTest, TraceEventViewProvidesPresentationNamesForSwitchAwayRendering) {
@@ -812,10 +812,10 @@ TEST(TraceEventTest, TypedTraceSemanticsRemainValidWhenCompatibilityMessageIsEmp
 }
 
 // =============================================================================
-// Semantic Factories - Legacy Compatibility
+// Semantic Factories - Compatibility Message Encoding
 // =============================================================================
 
-TEST(TraceEventTest, SemanticFactoriesPreserveLegacyMessageCompatibility) {
+TEST(TraceEventTest, SemanticFactoriesPreserveCompatibilityMessageEncoding) {
   const TraceWaveView wave{
       .dpc_id = 0,
       .ap_id = 0,

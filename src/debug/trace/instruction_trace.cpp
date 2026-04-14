@@ -148,10 +148,10 @@ TraceWaveStepDetail BuildWaveStepDetail(const Instruction& instruction, const Wa
   detail.exec_before = exec_out.str();
   detail.exec_after = exec_out.str();  // May be updated by instruction
 
-  // Memory summary (placeholder for now)
+  // The detail schema reserves a compact memory summary even when a step does not touch memory.
   detail.mem_summary = "none";
 
-  // State summary (placeholder for waitcnt state)
+  // Waitcnt/state summary is emitted when the producer attaches structured state details.
   detail.state_summary = "";
 
   return detail;

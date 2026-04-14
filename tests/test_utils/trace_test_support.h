@@ -179,10 +179,6 @@ inline bool HasEventArg(std::string_view text, std::string_view key) {
 // Expectation Helpers
 // =============================================================================
 
-inline void ExpectContainsLegacyStallMessage(std::string_view text, std::string_view needle) {
-  EXPECT_NE(text.find(needle), std::string::npos);
-}
-
 inline void ExpectContainsTypedSlotFields(std::string_view text, std::string_view slot_model) {
   // New format doesn't include slot_model in event lines
   // Just check that the event line exists
