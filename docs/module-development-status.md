@@ -81,7 +81,7 @@
 
 ## 当前重构结论
 
-截至 `2026-04-12`：
+截至 `2026-04-14`：
 
 - `runtime/program` 主线重构已基本完成
 - `instruction/execution` 的公开命名、实现主路径、测试主路径已完成收口
@@ -95,7 +95,10 @@
   - Phase 5: `execution/internal/cycle_*` 提取（cycle_exec_engine.cpp 2035→1075 行）
 - **分层违规修复状态**：
   - V1/V3/V4: ✅ 已修复
-  - V2/V5: ⏳ 桥接（Phase 3 深拆延后）
+  - V2/V5: ✅ 旧桥接残留已清理；更深的状态模型纯化转入后续架构优化议题，不再作为本轮终态收尾阻塞项
+- **最终态收尾**：
+  - `src/` 活跃结构中的剩余 trivial bridge headers 已删除
+  - `./scripts/run_push_gate.sh` 已在 final sweep 后重新通过
 
 当前可以认为：
 

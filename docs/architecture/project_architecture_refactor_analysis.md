@@ -1,5 +1,10 @@
 # GPU Model 全项目架构优化与重构分析
 
+> 注：本文是架构分析快照与分阶段建议文档，不是当前代码事实的唯一规范源。
+> 若其中的具体文件路径、已完成度判断或待办项与当前代码或主文档冲突，请以
+> `task_plan.md`、`docs/architecture-restructuring-plan.md`、`docs/runtime-layering.md`
+> 和当前代码为准。
+
 ## 1. 目的与边界
 
 本文面向当前整个 `gpu_model` 仓库，分析：

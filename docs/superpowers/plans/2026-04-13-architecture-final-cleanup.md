@@ -5,7 +5,7 @@
 
 ## Status: COMPLETE ✓
 
-> 所有架构目录结构已对齐，零层违规，全量测试通过（793/793）。
+> 所有架构目录结构已对齐；后续 final sweep 已删除剩余 trivial bridge headers，并按严格终态规则拒绝保留 reserved / placeholder 目录。
 
 ---
 
@@ -23,7 +23,7 @@
 - [x] 删除 `src/memory/` 空目录
 - [x] `execution/internal/handlers/` 扁平化到 `execution/internal/` 根
 
-### 未提交 — runtime/ 根目录文件归入子目录
+### Commit 1932fa0 — runtime/ 根目录文件归入子目录
 - [x] `launch_config.h`, `kernel_arg_pack.h`, `kernarg_packer.*`, `launch_request.h` → `runtime/config/`
 - [x] `runtime_env_config.h` → `runtime/config/`
 - [x] `module_load.h`, `module_registry.h`, `runtime_session.h`, `runtime_submission_context.h` → `runtime/model_runtime/`
@@ -39,35 +39,22 @@
 
 ---
 
-## 待完成
+## Final Sweep（2026-04-14）
 
-### Task A: 清理 bridge header (可选，低优先级)
-当前 bridge headers 列表：
-- `src/state/ap_state.h` → `state/ap/ap_runtime_state.h`
-- `src/state/peu_state.h` → `state/peu/peu_runtime_state.h`
-- `src/state/register_file.h` → `gpu_arch/register/register_file.h`
-- `src/execution/internal/memory_arrive_kind.h` → `gpu_arch/memory/memory_arrive_kind.h`
-- `src/execution/internal/opcode_execution_info.h` → `instruction/isa/opcode_info.h`
-- `src/execution/encoded/encoded_semantic_handler.h` → `instruction/semantics/encoded_handler.h`
-- `src/execution/internal/tensor_op_utils.h` → `instruction/semantics/internal/tensor_result_writer.h`
-- `src/runtime/*.h` (14 个 bridge headers)
+- [x] 删除剩余 trivial bridge headers：
+  - `src/runtime/runtime_config.h`
+  - `src/state/ap_state.h`
+  - `src/state/register_file.h`
+  - `src/execution/functional/functional_execution_mode.h`
+- [x] 复核 `src/` 下不再保留仅用于迁移的根级转发头
+- [x] 复核最终态不接受 `runtime/kernel_stub/` 这类预留目录
+- [x] 复核当前活动计划文档不再宣称“保留 bridge headers 也算合规”
 
-**策略**：保留 bridge headers 不删除——它们零成本，且允许渐进式更新消费者。
-当所有消费者都直接 include 新路径时，再批量删除。
+结论：
 
-### Task B: 消除 state/ 残留文件 (可选)
-- `src/state/execution_stats.h` — 检查是否需要 bridge 或是否直接在正确位置
-
-### Task C: 确认设计偏差是否可接受
-设计文档 `runtime/` 子目录规划为 5 个：`hip_runtime/`, `model_runtime/`, `exec_engine/`, `kernel_stub/`, `config/`
-当前实际：
-- `runtime/config/` ✅
-- `runtime/exec_engine/` ✅
-- `runtime/hip_runtime/` ✅
-- `runtime/model_runtime/` ✅
-- `runtime/kernel_stub/` ❌ 不存在 — 设计中的 kernel stub 功能尚未拆出
-
-**结论**：`kernel_stub/` 是预留目录，当前没有对应文件，不影响结构一致性。
+- bridge headers 只允许作为阶段性迁移手段，不属于最终态；
+- `runtime/kernel_stub/` 这类 reserved 目录不再视为“未来可补”的合法终态节点；
+- `src/state/execution_stats.h` 等当前保留头必须是实义拥有头，而不是转发头。
 
 ---
 
@@ -77,25 +64,26 @@
 |---------|------|------|
 | `utils/{logging,config,math}/` | ✅ 完成 | |
 | `gpu_arch/{chip_config,register,wave,peu,ap,dpc,device,memory,issue_config}/` | ✅ 完成 | |
-| `state/{wave,peu,ap,dpc,device,register,memory}/` | ✅ 完成 | |
+| `state/{wave,peu,ap,dpc,device,memory}/` | ✅ 完成 | `state/register/` 当前未形成独立实义接口，不计入本轮终态证明 |
 | `instruction/{isa,decode,semantics,operand}/` | ✅ 完成 | 含 semantics 子目录 |
 | `execution/{functional,cycle,encoded,internal}/` | ✅ 完成 | |
-| `runtime/{hip_runtime,model_runtime,exec_engine,config}/` | ✅ 完成 | bridge headers 待清理 |
-| `debug/{trace,recorder,timeline,replay,info}/` | ✅ 完成 | |
+| `runtime/{hip_runtime,model_runtime,exec_engine,config}/` | ✅ 完成 | 无根级 bridge header 残留 |
+| `debug/{trace,recorder,timeline,info}/` | ✅ 完成 | 本轮终态不保留 `debug/replay/` |
 | `program/{program_object,executable,encoded,loader}/` | ✅ 完成 | |
 | ~~`src/memory/`~~ | ✅ 已删除 | |
 | ~~`execution/internal/handlers/`~~ | ✅ 已删除 | |
-| `runtime/kernel_stub/` | ⬜ 预留 | 无对应文件，不影响 |
+| ~~`runtime/kernel_stub/`~~ | ✅ 不保留 | reserved/placeholder 目录不属于最终态 |
 
-**所有设计目标目录结构已对齐。** 残留的 bridge headers 是迁移辅助，不影响架构合规性。
+**当前活跃终态目录结构已按严格规则对齐。** 迁移辅助 bridge headers 不再保留于 `src/`
+活跃结构中；未落地的 placeholder / reserved 目录也不再被当作“已完成结构”的一部分。
 
 ---
 
 ## 验证 Checklist
 
-- [x] `cmake --build build-ninja` 通过
-- [x] `./scripts/run_push_gate_light.sh` 通过
+- [x] `rg -n '#include "(state/ap_state|state/register_file|runtime/runtime_config|execution/functional/functional_execution_mode)\.h"' src tests` 无结果
 - [x] 无 `src/memory/` 目录
 - [x] 无 `execution/internal/handlers/` 目录
-- [x] `runtime/` 根目录只有 bridge headers（无独立实现文件）
-- [x] 全量测试通过 (`./scripts/run_push_gate.sh`) — 793/793 passed, 1 pre-existing flaky test (TraceEncodedTest.PerfettoProtoShowsEncodedFunctionalLoadArriveInMultiThreadedMode, 失败原因: global memory read out of range in encoded MT mode, 与架构重构无关)
+- [x] 无 `runtime/kernel_stub/` 目录
+- [x] 结构化残留搜索与 placeholder gate 复核通过
+- [x] `./scripts/run_push_gate.sh`（本轮 final sweep 后重新验证；`debug+asan tests passed / release tests passed / all examples passed`）

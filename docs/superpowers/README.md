@@ -23,6 +23,10 @@
   - `2026-04-02-hip-128-block-conditional-multibarrier-validation*`
 - 更早或更外围的文档，默认优先按“历史实施记录 / archive”理解
 - Phase 1 compatibility-wrapper 与 phase2 legacy-cleanup 阶段的高误导文档已开始直接清理；与当前主线明显脱节、只保留过渡包装层、旧公开名或已完成 cleanup 语义的文件不再继续保留
+- `2026-04-12-architecture-restructure-wave1.md`
+- `2026-04-12-architecture-restructure-phase3.md`
+- `2026-04-13-architecture-final-cleanup.md`
+  - 都应按“已完成的实施记录”阅读，不再代表当前允许保留 bridge header / reserved directory 的规范立场
 
 阅读规则：
 

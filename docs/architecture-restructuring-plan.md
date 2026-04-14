@@ -1,6 +1,6 @@
 # Architecture Restructuring Plan
 
-> 目标：将当前 `src/gpu_model/` 扁平混合结构重构为清晰的分层架构。
+> 目标：将当前 `src/` 目录收口为清晰、稳定、可验证的分层架构。
 > 目录结构决定架构设计。
 
 ---
@@ -17,7 +17,7 @@ src/
 ├── gpu_arch/           # GPU 硬件架构规范与结构定义（纯定义，无执行逻辑）
 │   ├── chip_config/    #   GpuArchSpec（DPC/AP/PEU 数量，share mem size 等）
 │   ├── register/       #   寄存器文件定义：SGPRFile, VGPRFile, AGPRFile
-│   ├── wave/           #   Wave 结构定义（WaveContext 结构体，不含运行时状态）
+│   ├── wave/           #   Wave 常量、枚举等轻量定义
 │   ├── peu/            #   PEU 结构定义
 │   ├── ap/             #   AP 结构定义
 │   ├── dpc/            #   DPC 结构定义
@@ -39,14 +39,13 @@ src/
 ├── instruction/        # 指令：ISA 定义、解码、执行方法
 │   ├── isa/            #   GCN ISA opcode 枚举、指令分类
 │   ├── decode/         #   二进制 → 指令对象解析
-│   │   ├── encoded/    #     编码指令解码（EncodedGcnEncodingDef, MatchRecord）
-│   │   └── binding/    #     指令绑定逻辑
+│   │   └── encoded/    #     编码指令解码（EncodedGcnEncodingDef, MatchRecord）
 │   ├── semantics/      #   指令语义执行（handler 分派）
 │   │   ├── scalar/     #     标量 ALU/compare/memory handler
 │   │   ├── vector/     #     向量 ALU handler（VAdd, VSub, VMul 等）
 │   │   ├── memory/     #     内存 handler（Global, Shared, Buffer, Flat）
 │   │   ├── branch/     #     分支 handler
-│   │   └── matrix/     #     MFMA handler
+│   │   └── internal/   #     handler 支撑件；MFMA 当前归入 vector 语义层
 │   └── operand/        #   操作数访问器（RequireScalarIndex 等）
 │
 ├── execution/          # 程序执行方法和运行模式
@@ -62,12 +61,11 @@ src/
 │       └── sync_ops/        # barrier 操作
 │
 ├── state/              # 运行时状态（各层级的运行时实例）
-│   ├── wave/           #   Wave 运行时状态（PC, exec mask, status, pending ops）
+│   ├── wave/           #   Wave 运行时状态（当前由 WaveContext 持有完整运行时结构）
 │   ├── peu/            #   PEU 运行时状态（wave 列表、slot 状态）
-│   ├── ap/             #   AP 运行时状态（shared memory 实例, barrier 实例）
+│   ├── ap/             #   AP 运行时状态（ApState / ExecutionBlockState）
 │   ├── dpc/            #   DPC 运行时状态
 │   ├── device/         #   Device 运行时状态
-│   ├── register/       #   寄存器运行时（SGPRFile 实例化接口、VGPRFile 同理）
 │   └── memory/         #   内存运行时（MemorySystem, MemoryPool 实例）
 │
 └── debug/              # trace/log 生成
@@ -137,9 +135,9 @@ Layer 5 (观察，只消费不参与业务):
 |------|------|------|
 | `gpu_arch/chip_config/` | `arch/gpu_arch_spec.h` | 移动 |
 | `gpu_arch/register/` | `state/register_file.h` | 移动 |
-| `gpu_arch/wave/` | `execution/wave_context.h` (结构体定义部分) | 拆分 |
+| `gpu_arch/wave/` | `execution/wave_context.h` 中的常量/枚举 | 已收口为轻量定义 |
 | `gpu_arch/peu/` | `state/peu_state.h` (纯定义部分) | 拆分 |
-| `gpu_arch/ap/` | `state/ap_state.h` (纯定义部分) | 拆分 |
+| `gpu_arch/ap/` | `state/ap_state.h` 中的 barrier 等纯定义 | 拆分 |
 | `gpu_arch/dpc/` | 新建，从 ap/ 和 chip_config/ 推导 | 新增 |
 | `gpu_arch/device/` | 新建，从 chip_config/ 推导 | 新增 |
 | `gpu_arch/memory/` | `memory/` 下定义性头文件 | 移动 |
@@ -149,10 +147,9 @@ Layer 5 (观察，只消费不参与业务):
 
 | 文件 | 来源 | 操作 |
 |------|------|------|
-| `state/wave/` | `execution/wave_context.h` (运行时状态部分：PC, status, pending ops) | 拆分 |
+| `state/wave/` | `execution/wave_context.h` | 已收口为运行时主定义 |
 | `state/peu/` | `state/peu_state.h` (运行时部分) + `execution/internal/` slot 状态 | 合并 |
-| `state/ap/` | `state/ap_state.h` + `execution/internal/execution_state.h` | 合并（消除重叠） |
-| `state/register/` | SGPRFile/VGPRFile/AGPRFile 的运行时实例化接口 | 从 gpu_arch/register 派生 |
+| `state/ap/` | `state/ap_state.h` + `execution/internal/execution_state.h` | 同层共置，保留 `ApState` / `ExecutionBlockState` |
 | `state/memory/` | `memory/memory_system.h`, `memory/memory_pool.h` 实例化 | 移动 |
 
 ### instruction/ (从 instruction/ + execution/ 重组)
@@ -165,7 +162,7 @@ Layer 5 (观察，只消费不参与业务):
 | `instruction/semantics/vector/` | 同上 VAddU32Handler 等 | 提取 |
 | `instruction/semantics/memory/` | 同上 FlatMemoryHandler, SharedMemoryHandler 等 | 提取 |
 | `instruction/semantics/branch/` | 同上 BranchHandler | 提取 |
-| `instruction/semantics/matrix/` | 同上 VMfma*Handler | 提取 |
+| `instruction/semantics/vector/` | 同上 VMfma*Handler | 并入 vector 语义层 |
 | `instruction/operand/` | `execution/internal/encoded_handler_utils.h` 中 Require*Index 等 | 提取 |
 
 ### execution/ (精简，只保留调度和模式)
@@ -197,23 +194,27 @@ Layer 5 (观察，只消费不参与业务):
 
 ### 4.1 WaveContext 拆分
 
-当前 `execution/wave_context.h` 混合了结构定义和运行时状态。拆分为：
+当前实现没有再保留 `execution/wave_context.h`。最终选择是把 `WaveContext` 保持为单一运行时结构，直接放在：
 
 ```
-gpu_arch/wave/wave_context.h      — 结构定义（ID 字段, 寄存器文件类型声明）
-                                     无依赖 execution/
-state/wave/wave_runtime_state.h   — 运行时状态（PC 值, status, pending ops, wait reasons）
-                                     依赖 gpu_arch/wave/
+state/wave/wave_runtime_state.h   — WaveContext 运行时主定义
+                                     依赖 gpu_arch/wave/ 与 gpu_arch/register/
 ```
+
+`gpu_arch/wave/` 当前只保留 `wave_def.h` 这类轻量结构常量/枚举，不再额外维护
+一个独立的 `gpu_arch/wave/wave_context.h`。
 
 ### 4.2 ExecutionBlockState 与 ApState 合并
 
-当前 `execution/internal/execution_state.h` 的 `ExecutionBlockState` 与 `state/ap_state.h` 的 `ApState` 重叠（都有 shared_memory, waves, barrier）。合并到：
+当前 `execution/internal/execution_state.h` 的 `ExecutionBlockState` 与 `state/ap_state.h` 的 `ApState`
+已收口到同一个头文件：
 
 ```
-state/ap/ap_runtime_state.h  — 合并后的 AP 运行时状态
+state/ap/ap_runtime_state.h  — 当前共置 `ApState` 与 `ExecutionBlockState`
 gpu_arch/ap/ap_def.h         — 纯结构定义
 ```
+
+当前状态是“同层共置并消除旧桥接头”，而不是把两者压扁成单一结构体。
 
 ### 4.3 Three Execution Models
 
@@ -226,7 +227,8 @@ gpu_arch/ap/ap_def.h         — 纯结构定义
 | EncodedExecutor | 二进制 code object | 解码 → handler 分派，可选 cycle timing |
 
 共享部分下沉：
-- `WaveContext` 结构 → `gpu_arch/wave/`
+- `WaveContext` 运行时主结构 → `state/wave/`
+- `gpu_arch/wave/` 仅保留轻量常量/枚举定义
 - `Semantics` 语义执行 → `instruction/semantics/`
 - `ExecutionBlockState` → `state/ap/`
 
@@ -245,7 +247,8 @@ gpu_arch/ap/ap_def.h         — 纯结构定义
 
 ### 4.5 RuntimeConfig 依赖切断
 
-`runtime/runtime_config.h` 当前依赖 `execution/functional_execution_mode.h` 和 `runtime/exec_engine.h`。解决：
+历史上的 `runtime/runtime_config.h` 依赖 `execution/functional_execution_mode.h` 和
+`runtime/exec_engine.h`。当前已改为：
 
 - `ExecutionMode` 枚举移到 `utils/config/` 或 `gpu_arch/chip_config/`
 - `FunctionalExecutionMode` 枚举移到 `utils/config/`
@@ -282,7 +285,7 @@ MaterializeBlocks → BuildPeuSlots → AdmitResidentBlocks
 | 编号 | 当前违规 | 修复方式 |
 |------|----------|----------|
 | V1 | `gpu_arch_spec.h` include `execution/internal/issue_model.h` | issue_model 移入 gpu_arch/issue_config/ |
-| V2 | `state/peu_state.h` include `execution/wave_context.h` | WaveContext 拆分，peu 只依赖 gpu_arch/wave/ |
+| V2 | `state/peu_state.h` include `execution/wave_context.h` | wave 运行时定义迁到 `state/wave/`，`peu` 只依赖 `state/wave/wave_runtime_state.h` |
 | V3 | `runtime/runtime_config.h` include execution 类型 | ExecutionMode 枚举下沉到 utils/config/ |
 | V4 | `encoded_handler_utils.h` 混合多层内容 | 按 4.7 拆分 |
 | V5 | `execution_state.h` 与 `ap_state.h` 重叠 | 合并到 state/ap/ |
@@ -300,13 +303,13 @@ MaterializeBlocks → BuildPeuSlots → AdmitResidentBlocks
 ### Phase 2: 架构定义层 (低风险)
 - 创建 `gpu_arch/` 目录结构
 - 移动 chip_config, register, issue_config
-- 拆分 WaveContext 结构定义部分
+- 收口 wave 常量/枚举等轻量定义到 `gpu_arch/wave/`
 - 全量编译 + 测试通过
 
 ### Phase 3: 状态层 (中风险)
 - 创建 `state/` 目录结构
-- 合并 ExecutionBlockState 和 ApState
-- 拆分 WaveContext 运行时状态部分
+- 将 `WaveContext` 运行时主结构收口到 `state/wave/`
+- 将 `ApState` / `ExecutionBlockState` 共置到 `state/ap/`
 - 全量编译 + 测试通过
 
 ### Phase 4: 指令层重组 (中风险)

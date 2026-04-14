@@ -11,13 +11,19 @@
 - [README.md](/data/gpu_model/README.md)
 - [task_plan.md](/data/gpu_model/task_plan.md)
 - [my_design.md](/data/gpu_model/docs/my_design.md)
-- [architecture/project_architecture_refactor_analysis.md](/data/gpu_model/docs/architecture/project_architecture_refactor_analysis.md)
-- [architecture/src_quality_priority_analysis.md](/data/gpu_model/docs/architecture/src_quality_priority_analysis.md)
+- [architecture-restructuring-plan.md](/data/gpu_model/docs/architecture-restructuring-plan.md)
 - [cycle-issue-eligibility-policy.md](/data/gpu_model/docs/cycle-issue-eligibility-policy.md)
 - [cycle-issue-design-gap-analysis.md](/data/gpu_model/docs/cycle-issue-design-gap-analysis.md)
 - [runtime-layering.md](/data/gpu_model/docs/runtime-layering.md)
 - [module-development-status.md](/data/gpu_model/docs/module-development-status.md)
 - [memory-hierarchy-interface-reservation.md](/data/gpu_model/docs/memory-hierarchy-interface-reservation.md)
+
+### 当前分析参考
+
+下面这些文档仍有现实参考价值，但应按“分析快照 / 背景材料”理解，而不是直接当作当前代码事实：
+
+- [architecture/project_architecture_refactor_analysis.md](/data/gpu_model/docs/architecture/project_architecture_refactor_analysis.md)
+- [architecture/src_quality_priority_analysis.md](/data/gpu_model/docs/architecture/src_quality_priority_analysis.md)
 
 补充说明：
 
@@ -30,9 +36,11 @@
 - [cycle-issue-design-gap-analysis.md](/data/gpu_model/docs/cycle-issue-design-gap-analysis.md)
   - 记录当前 `cycle_exec_engine` 在 wave issue 选择上的主要差距、建议调整方向和实际约束例子
 - [architecture/project_architecture_refactor_analysis.md](/data/gpu_model/docs/architecture/project_architecture_refactor_analysis.md)
-  - 记录全项目层面的架构债、重构优先级、推荐目标形态和各阶段完成判定
+  - 记录全项目层面的架构债与阶段性重构建议
+  - 但默认按分析快照理解；若与当前代码或主文档冲突，以当前代码和主文档为准
 - [architecture/src_quality_priority_analysis.md](/data/gpu_model/docs/architecture/src_quality_priority_analysis.md)
-  - 记录当前 `src-only` 质量扫描下的关键问题、优先级排序和建议处理顺序
+  - 记录某次 `src-only` 质量扫描下的关键问题、优先级排序和建议处理顺序
+  - 不应被误读为“当前所有质量问题的实时清单”
 
 正式阅读顺序：
 
@@ -40,18 +48,21 @@
    - 看当前还要做什么
 2. [my_design.md](/data/gpu_model/docs/my_design.md)
    - 看当前正式设计约束和模块语义
-3. [architecture/project_architecture_refactor_analysis.md](/data/gpu_model/docs/architecture/project_architecture_refactor_analysis.md)
-   - 看全项目架构债的优先级、分阶段重构顺序和完成判定
-4. [architecture/src_quality_priority_analysis.md](/data/gpu_model/docs/architecture/src_quality_priority_analysis.md)
-   - 看当前 `src-only` 质量问题的优先级、风险和建议处理顺序
-5. [cycle-issue-eligibility-policy.md](/data/gpu_model/docs/cycle-issue-eligibility-policy.md)
+3. [architecture-restructuring-plan.md](/data/gpu_model/docs/architecture-restructuring-plan.md)
+   - 看当前架构重构终态目录、分层边界与已选择的结构收口口径
+4. [cycle-issue-eligibility-policy.md](/data/gpu_model/docs/cycle-issue-eligibility-policy.md)
    - 看 `cycle issue` 的正式语义边界与参考口径
-6. [cycle-issue-design-gap-analysis.md](/data/gpu_model/docs/cycle-issue-design-gap-analysis.md)
+5. [cycle-issue-design-gap-analysis.md](/data/gpu_model/docs/cycle-issue-design-gap-analysis.md)
    - 看当前 `cycle issue` 设计目标与现有代码框架之间的差距
-7. [runtime-layering.md](/data/gpu_model/docs/runtime-layering.md)
+6. [runtime-layering.md](/data/gpu_model/docs/runtime-layering.md)
    - 看 runtime 正式分层
-8. [module-development-status.md](/data/gpu_model/docs/module-development-status.md)
+7. [module-development-status.md](/data/gpu_model/docs/module-development-status.md)
    - 看模块完成度、缺口和推进顺序
+
+如需进一步看背景分析，再读：
+
+8. [architecture/project_architecture_refactor_analysis.md](/data/gpu_model/docs/architecture/project_architecture_refactor_analysis.md)
+9. [architecture/src_quality_priority_analysis.md](/data/gpu_model/docs/architecture/src_quality_priority_analysis.md)
 
 ## 2. 历史计划 / 实施存档
 
