@@ -104,6 +104,7 @@ add_library(gpu_model STATIC
   src/program/loader/gcn_text_parser.cpp
   src/program/loader/artifact_parser.cpp
   src/program/loader/code_object_binding.cpp
+  src/program/loader/code_object_disassembly.cpp
   src/program/loader/code_object_materializer.cpp
   src/program/loader/elf_section_loader.cpp
   src/program/loader/temp_dir_manager.cpp

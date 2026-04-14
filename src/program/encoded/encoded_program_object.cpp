@@ -1,27 +1,16 @@
 #include "program/program_object/object_reader.h"
 
-#include <array>
 #include <cctype>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
 #include <filesystem>
-#include <fstream>
-#include <iomanip>
 #include <sstream>
-#include <span>
 #include <stdexcept>
 #include <string>
 #include <string_view>
-#include <system_error>
-#include <unordered_map>
-#include <vector>
 
 #include "instruction/decode/encoded/internal/encoded_gcn_encoding_def.h"
-#include "instruction/decode/encoded/instruction_object.h"
-#include "instruction/isa/kernel_metadata.h"
 #include "program/loader/artifact_parser.h"
 #include "program/loader/code_object_binding.h"
+#include "program/loader/code_object_disassembly.h"
 #include "program/loader/code_object_materializer.h"
 #include "program/loader/elf_section_loader.h"
 #include "program/loader/external_tool_executor.h"
@@ -42,11 +31,6 @@ std::string Trim(std::string_view text) {
     --end;
   }
   return std::string(text.substr(begin, end - begin));
-}
-
-bool HasLlvmMc() {
-  static const bool available = ExternalToolExecutor::HasLlvmMc();
-  return available;
 }
 
 std::string McpuFromMetadata(const MetadataBlob& metadata) {
@@ -92,97 +76,6 @@ void ValidateProjectAmdgpuTarget(const std::filesystem::path& path,
   }
   throw std::runtime_error(ProjectAmdgpuTargetErrorMessage(actual.empty() ? "<unknown>" : actual) +
                            " [artifact=" + path.string() + "]");
-}
-
-std::string FormatHexByteStream(std::span<const std::byte> bytes) {
-  std::ostringstream out;
-  out << std::hex << std::setfill('0');
-  for (size_t i = 0; i < bytes.size(); ++i) {
-    if (i != 0) {
-      out << ' ';
-    }
-    out << "0x" << std::setw(2) << std::to_integer<unsigned int>(bytes[i]);
-  }
-  return out.str();
-}
-
-struct LlvmMcInstructionLine {
-  std::string op;
-  std::string text;
-};
-
-std::vector<LlvmMcInstructionLine> DisassembleCodeSegmentWithLlvmMc(
-    std::span<const std::byte> code_bytes,
-    const ScopedTempDir& temp_dir) {
-  std::vector<LlvmMcInstructionLine> lines;
-  if (code_bytes.empty() || !HasLlvmMc()) {
-    return lines;
-  }
-
-  const auto input_path = temp_dir.path() / "kernel_disasm_input.txt";
-  {
-    std::ofstream out(input_path);
-    if (!out) {
-      throw std::runtime_error("failed to create llvm-mc disassembly input");
-    }
-    out << FormatHexByteStream(code_bytes) << '\n';
-  }
-
-  const std::string output = ExternalToolExecutor::DisassembleHexByteStreamWithLlvmMc(input_path);
-  std::istringstream input(output);
-  std::string line;
-  while (std::getline(input, line)) {
-    const std::string trimmed = Trim(line);
-    if (trimmed.empty() || trimmed == ".text") {
-      continue;
-    }
-    const size_t split = trimmed.find_first_of(" \t");
-    lines.push_back(LlvmMcInstructionLine{
-        .op = split == std::string::npos ? trimmed : trimmed.substr(0, split),
-        .text = trimmed,
-    });
-  }
-  return lines;
-}
-
-std::string ExtractAsmOperands(const LlvmMcInstructionLine& line) {
-  const size_t split = line.text.find_first_of(" \t");
-  if (split == std::string::npos) {
-    return {};
-  }
-  return Trim(std::string_view(line.text).substr(split + 1));
-}
-
-void BindLlvmMcDisassembly(ParsedInstructionArray& parsed,
-                           const std::vector<LlvmMcInstructionLine>& disassembly) {
-  if (disassembly.empty()) {
-    return;
-  }
-  if (disassembly.size() != parsed.raw_instructions.size() ||
-      disassembly.size() != parsed.decoded_instructions.size()) {
-    throw std::runtime_error("llvm-mc disassembly count does not match decoded instruction count");
-  }
-
-  for (size_t i = 0; i < disassembly.size(); ++i) {
-    parsed.raw_instructions[i].asm_op = disassembly[i].op;
-    parsed.raw_instructions[i].asm_text = disassembly[i].text;
-    if (parsed.raw_instructions[i].operands.empty()) {
-      parsed.raw_instructions[i].operands = ExtractAsmOperands(disassembly[i]);
-    }
-    parsed.decoded_instructions[i].asm_op = disassembly[i].op;
-    parsed.decoded_instructions[i].asm_text = disassembly[i].text;
-  }
-}
-
-std::string JoinLlvmMcAssemblyText(const std::vector<LlvmMcInstructionLine>& disassembly) {
-  std::ostringstream out;
-  for (size_t i = 0; i < disassembly.size(); ++i) {
-    if (i != 0) {
-      out << '\n';
-    }
-    out << disassembly[i].text;
-  }
-  return out.str();
 }
 
 }  // namespace
@@ -233,20 +126,7 @@ ProgramObject ObjectReader::LoadProgramObject(const std::filesystem::path& path,
   code_object.set_instruction_objects(std::move(parsed.instruction_objects));
   code_object.set_code_bytes(std::vector<std::byte>(kernel_text.begin(), kernel_text.end()));
 
-  auto instructions = code_object.instructions();
-  for (auto& instruction : instructions) {
-    if (instruction.operands.empty() && !instruction.decoded_operands.empty()) {
-      std::ostringstream operand_text;
-      for (size_t i = 0; i < instruction.decoded_operands.size(); ++i) {
-        if (i != 0) {
-          operand_text << ", ";
-        }
-        operand_text << instruction.decoded_operands[i].text;
-      }
-      instruction.operands = operand_text.str();
-    }
-  }
-  code_object.set_instructions(std::move(instructions));
+  FillMissingOperandTextFromDecodedOperands(code_object);
 
   if (code_object.instructions().empty()) {
     throw std::runtime_error("failed to decode AMDGPU kernel instructions: " +
