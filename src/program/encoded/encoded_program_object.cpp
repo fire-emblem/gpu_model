@@ -22,6 +22,7 @@
 #include "instruction/isa/kernel_metadata.h"
 #include "program/loader/artifact_parser.h"
 #include "program/loader/code_object_materializer.h"
+#include "program/loader/elf_section_loader.h"
 #include "program/loader/external_tool_executor.h"
 #include "program/loader/temp_dir_manager.h"
 #include "program/loader/amdgpu_target_config.h"
@@ -40,21 +41,6 @@ std::string Trim(std::string_view text) {
     --end;
   }
   return std::string(text.substr(begin, end - begin));
-}
-
-std::vector<std::byte> ReadBinaryFile(const std::filesystem::path& path) {
-  std::ifstream input(path, std::ios::binary);
-  if (!input) {
-    throw std::runtime_error("failed to open binary file: " + path.string());
-  }
-  input.seekg(0, std::ios::end);
-  const std::streamsize size = input.tellg();
-  input.seekg(0, std::ios::beg);
-  std::vector<std::byte> bytes(static_cast<size_t>(size));
-  if (size > 0) {
-    input.read(reinterpret_cast<char*>(bytes.data()), size);
-  }
-  return bytes;
 }
 
 bool HasLlvmMc() {
@@ -219,17 +205,13 @@ ProgramObject ObjectReader::LoadProgramObject(const std::filesystem::path& path,
       !descriptor_symbol_name_it->second.empty()) {
     const auto descriptor_symbol = ArtifactParser::SelectDescriptorSymbol(
         symbols, descriptor_symbol_name_it->second);
-    const auto rodata_dump_path = temp_dir.path() / "rodata.bin";
-    ExternalToolExecutor::DumpElfSection(device_path, ".rodata", rodata_dump_path);
-    const auto rodata_bytes = ReadBinaryFile(rodata_dump_path);
-    const auto rodata_info = ArtifactParser::ParseSectionInfo(
-        ExternalToolExecutor::ReadElfSectionTable(device_path), ".rodata");
-    const uint64_t descriptor_offset = descriptor_symbol.value - rodata_info.addr;
-    if (descriptor_offset + descriptor_symbol.size > rodata_bytes.size()) {
+    const auto rodata = LoadElfSection(device_path, ".rodata", temp_dir);
+    const uint64_t descriptor_offset = descriptor_symbol.value - rodata.info.addr;
+    if (descriptor_offset + descriptor_symbol.size > rodata.bytes.size()) {
       throw std::runtime_error("kernel descriptor range exceeds dumped .rodata bytes");
     }
     std::span<const std::byte> descriptor_bytes{
-        rodata_bytes.data() + static_cast<size_t>(descriptor_offset),
+        rodata.bytes.data() + static_cast<size_t>(descriptor_offset),
         static_cast<size_t>(descriptor_symbol.size),
     };
     auto kernel_descriptor = ArtifactParser::ParseKernelDescriptor(descriptor_bytes);
@@ -240,21 +222,17 @@ ProgramObject ObjectReader::LoadProgramObject(const std::filesystem::path& path,
     code_object.set_kernel_descriptor(std::move(kernel_descriptor));
   }
 
-  const auto text_dump_path = temp_dir.path() / "text.bin";
-  ExternalToolExecutor::DumpElfSection(device_path, ".text", text_dump_path);
-  const auto text_bytes = ReadBinaryFile(text_dump_path);
-  const auto section_info = ArtifactParser::ParseSectionInfo(
-      ExternalToolExecutor::ReadElfSectionTable(device_path), ".text");
+  const auto text = LoadElfSection(device_path, ".text", temp_dir);
   const auto symbol_info = selected_symbol;
 
-  const uint64_t kernel_offset = symbol_info.value - section_info.addr;
-  if (kernel_offset + symbol_info.size > text_bytes.size()) {
+  const uint64_t kernel_offset = symbol_info.value - text.info.addr;
+  if (kernel_offset + symbol_info.size > text.bytes.size()) {
     throw std::runtime_error("kernel symbol range exceeds dumped .text bytes");
   }
 
   const auto code_begin = static_cast<size_t>(kernel_offset);
   const auto code_size = static_cast<size_t>(symbol_info.size);
-  std::span<const std::byte> kernel_text{text_bytes.data() + code_begin, code_size};
+  std::span<const std::byte> kernel_text{text.bytes.data() + code_begin, code_size};
   ParsedInstructionArray parsed;
   parsed.raw_instructions = InstructionArrayParser::ParseRaw(kernel_text, symbol_info.value);
   parsed.decoded_instructions = InstructionArrayParser::Decode(parsed.raw_instructions);
