@@ -10,8 +10,8 @@ namespace gpu_model {
 struct EncodedInstructionDescriptor {
   const GcnIsaOpcodeDescriptor* opcode_descriptor = nullptr;
   EncodedInstructionCategory category = EncodedInstructionCategory::Unknown;
-  std::string_view placeholder_op_type_name = "unknown";
-  std::string_view placeholder_class_name = "unknown_placeholder";
+  std::string_view fallback_op_type_name = "unknown";
+  std::string_view fallback_class_name = "unknown_unsupported";
 
   bool known() const { return opcode_descriptor != nullptr; }
 };

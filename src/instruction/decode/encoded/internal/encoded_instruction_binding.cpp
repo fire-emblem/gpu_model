@@ -24,7 +24,7 @@ std::string InstructionDebugContext(const DecodedInstruction& instruction) {
   return message;
 }
 
-// Unsupported handler for unknown/placeholder instructions
+// Unsupported handler for decoded instructions that do not have a semantic model yet.
 class UnsupportedInstructionHandler final : public IEncodedSemanticHandler {
  public:
   void Execute(const DecodedInstruction& instruction, EncodedWaveContext&) const override {
@@ -61,8 +61,8 @@ InstructionObjectPtr BindEncodedInstructionObject(DecodedInstruction instruction
   const std::string op_type_name(ToString(instruction.format_class));
 
   if (match == nullptr || !match->known()) {
-    // Unknown instruction - create placeholder
-    const std::string class_name = op_type_name + "_placeholder";
+    // Unknown instruction - create unsupported object shell so decode/binding stay total.
+    const std::string class_name = op_type_name + "_unsupported";
     return std::make_unique<EncodedInstructionObject>(
         std::move(instruction), kUnsupportedHandler, op_type_name, class_name);
   }

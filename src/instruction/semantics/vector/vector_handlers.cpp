@@ -574,7 +574,7 @@ class VCndmaskB32E64Handler final : public VectorLaneHandler<VCndmaskB32E64Handl
   }
 };
 
-// v_pk_mov_b32: no-op placeholder for pack-move
+// v_pk_mov_b32: temporary no-op handler for pack-move until explicit operand modeling lands
 class VPkMovB32Handler final : public BaseHandler {
  protected:
   void ExecuteImpl(const DecodedInstruction& /*instruction*/,

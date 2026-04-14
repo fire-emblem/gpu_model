@@ -16,7 +16,7 @@ DecodedInstruction MakeDecoded(std::vector<uint32_t> words,
   return instruction;
 }
 
-TEST(InstructionArrayParserTest, CreatesConcreteAndPlaceholderInstructionObjects) {
+TEST(InstructionArrayParserTest, CreatesConcreteAndUnsupportedInstructionObjects) {
   std::vector<DecodedInstruction> decoded;
   decoded.push_back(MakeDecoded({0xc0020002u, 0x0000002cu}, EncodedGcnInstFormatClass::Smrd, "s_load_dword"));
   decoded.push_back(MakeDecoded({0x68000006u}, EncodedGcnInstFormatClass::Vop2, "v_add_u32_e32"));
@@ -36,10 +36,10 @@ TEST(InstructionArrayParserTest, CreatesConcreteAndPlaceholderInstructionObjects
   EXPECT_EQ(objects[2]->class_name(), "global_load_dword");
   EXPECT_EQ(objects[2]->op_type_name(), "flat");
 
-  EXPECT_EQ(objects[3]->class_name(), "mimg_placeholder");
+  EXPECT_EQ(objects[3]->class_name(), "mimg_unsupported");
   EXPECT_EQ(objects[3]->op_type_name(), "mimg");
 
-  EXPECT_EQ(objects[4]->class_name(), "exp_placeholder");
+  EXPECT_EQ(objects[4]->class_name(), "exp_unsupported");
   EXPECT_EQ(objects[4]->op_type_name(), "exp");
 }
 

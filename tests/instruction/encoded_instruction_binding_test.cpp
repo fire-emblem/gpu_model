@@ -42,20 +42,20 @@ TEST(EncodedInstructionBindingTest, BindsRepresentativeConcreteObjects) {
   }
 }
 
-TEST(EncodedInstructionBindingTest, BindsPlaceholderForRecognizedButUnsupportedFamilies) {
+TEST(EncodedInstructionBindingTest, BindsUnsupportedObjectForRecognizedButUnsupportedFamilies) {
   auto object = BindEncodedInstructionObject(
       MakeDecoded({0xf8000000u, 0x00000000u}, EncodedGcnInstFormatClass::Exp, "exp"));
   ASSERT_NE(object, nullptr);
   EXPECT_EQ(object->op_type_name(), "exp");
-  EXPECT_EQ(object->class_name(), "exp_placeholder");
+  EXPECT_EQ(object->class_name(), "exp_unsupported");
 }
 
-TEST(EncodedInstructionBindingTest, BindsUnknownPlaceholderForUnrecognizedWords) {
+TEST(EncodedInstructionBindingTest, BindsUnknownUnsupportedObjectForUnrecognizedWords) {
   auto object = BindEncodedInstructionObject(
       MakeDecoded({0xffffffffu}, EncodedGcnInstFormatClass::Unknown, "unknown"));
   ASSERT_NE(object, nullptr);
   EXPECT_EQ(object->op_type_name(), "unknown");
-  EXPECT_EQ(object->class_name(), "unknown_placeholder");
+  EXPECT_EQ(object->class_name(), "unknown_unsupported");
 }
 
 }  // namespace

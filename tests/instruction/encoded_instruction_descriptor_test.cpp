@@ -22,8 +22,8 @@ TEST(EncodedInstructionDescriptorTest, DescribesRepresentativeKnownInstructionFa
         MakeDecoded({0xc0020002u, 0x0000002cu}, EncodedGcnInstFormatClass::Smrd, "s_load_dword"));
     ASSERT_TRUE(desc.known());
     EXPECT_EQ(desc.category, EncodedInstructionCategory::ScalarMemory);
-    EXPECT_EQ(desc.placeholder_op_type_name, "scalar_memory");
-    EXPECT_EQ(desc.placeholder_class_name, "scalar_memory_placeholder");
+    EXPECT_EQ(desc.fallback_op_type_name, "scalar_memory");
+    EXPECT_EQ(desc.fallback_class_name, "scalar_memory_unsupported");
   }
 
   {
@@ -31,8 +31,8 @@ TEST(EncodedInstructionDescriptorTest, DescribesRepresentativeKnownInstructionFa
         MakeDecoded({0xbf880019u}, EncodedGcnInstFormatClass::Sopp, "s_cbranch_execz"));
     ASSERT_TRUE(desc.known());
     EXPECT_EQ(desc.category, EncodedInstructionCategory::Scalar);
-    EXPECT_EQ(desc.placeholder_op_type_name, "sopp");
-    EXPECT_EQ(desc.placeholder_class_name, "sopp_placeholder");
+    EXPECT_EQ(desc.fallback_op_type_name, "sopp");
+    EXPECT_EQ(desc.fallback_class_name, "sopp_unsupported");
   }
 
   {
@@ -40,8 +40,8 @@ TEST(EncodedInstructionDescriptorTest, DescribesRepresentativeKnownInstructionFa
         MakeDecoded({0x68000006u}, EncodedGcnInstFormatClass::Vop2, "v_add_u32_e32"));
     ASSERT_TRUE(desc.known());
     EXPECT_EQ(desc.category, EncodedInstructionCategory::Vector);
-    EXPECT_EQ(desc.placeholder_op_type_name, "vop2");
-    EXPECT_EQ(desc.placeholder_class_name, "vop2_placeholder");
+    EXPECT_EQ(desc.fallback_op_type_name, "vop2");
+    EXPECT_EQ(desc.fallback_class_name, "vop2_unsupported");
   }
 
   {
@@ -49,8 +49,8 @@ TEST(EncodedInstructionDescriptorTest, DescribesRepresentativeKnownInstructionFa
         MakeDecoded({0xdc508000u, 0x067f0004u}, EncodedGcnInstFormatClass::Flat, "global_load_dword"));
     ASSERT_TRUE(desc.known());
     EXPECT_EQ(desc.category, EncodedInstructionCategory::Memory);
-    EXPECT_EQ(desc.placeholder_op_type_name, "flat");
-    EXPECT_EQ(desc.placeholder_class_name, "flat_placeholder");
+    EXPECT_EQ(desc.fallback_op_type_name, "flat");
+    EXPECT_EQ(desc.fallback_class_name, "flat_unsupported");
   }
 }
 
@@ -59,8 +59,8 @@ TEST(EncodedInstructionDescriptorTest, ReturnsUnknownDescriptorForUnrecognizedWo
       DescribeEncodedInstruction(MakeDecoded({0xffffffffu}, EncodedGcnInstFormatClass::Unknown, "unknown"));
   EXPECT_FALSE(desc.known());
   EXPECT_EQ(desc.category, EncodedInstructionCategory::Unknown);
-  EXPECT_EQ(desc.placeholder_op_type_name, "unknown");
-  EXPECT_EQ(desc.placeholder_class_name, "unknown_placeholder");
+  EXPECT_EQ(desc.fallback_op_type_name, "unknown");
+  EXPECT_EQ(desc.fallback_class_name, "unknown_unsupported");
 }
 
 }  // namespace
