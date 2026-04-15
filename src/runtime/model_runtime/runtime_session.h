@@ -15,6 +15,7 @@
 #include "gpu_arch/memory/memory_pool.h"
 #include "program/program_object/program_object.h"
 #include "runtime/model_runtime/device_memory_manager.h"
+#include "runtime/model_runtime/runtime_launch_config_state.h"
 #include "runtime/model_runtime/runtime_stream_event_state.h"
 #include "runtime/model_runtime/runtime_trace_state.h"
 #include "runtime/config/kernel_arg_pack.h"
@@ -110,9 +111,9 @@ class RuntimeSession {
   ModelRuntime model_runtime_;
   DeviceMemoryManager device_memory_manager_;
   std::unordered_map<const void*, std::string> kernel_symbols_;
+  RuntimeLaunchConfigState launch_config_state_;
   RuntimeStreamEventState stream_event_state_;
   RuntimeTraceState trace_state_;
-  std::optional<LaunchConfig> pending_launch_config_;
 };
 
 RuntimeSession& GetRuntimeSession();

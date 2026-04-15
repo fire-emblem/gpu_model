@@ -233,6 +233,55 @@ TEST(RuntimeSessionTest, EnablesTraceRecorderOnlyWhenEnvExplicitlyRequestsIt) {
   EXPECT_EQ(session.ResolveTraceArtifactRecorderFromEnv(), nullptr);
 }
 
+TEST(RuntimeSessionTest, PushesAndPopsPendingLaunchConfigThroughDedicatedState) {
+  RuntimeSession session;
+  const LaunchConfig first{
+      .grid_dim_x = 2,
+      .grid_dim_y = 3,
+      .block_dim_x = 64,
+      .shared_memory_bytes = 128,
+  };
+  const LaunchConfig second{
+      .grid_dim_x = 7,
+      .block_dim_x = 256,
+      .shared_memory_bytes = 64,
+  };
+
+  EXPECT_FALSE(session.PopLaunchConfig().has_value());
+
+  session.PushLaunchConfig(first);
+  auto popped = session.PopLaunchConfig();
+  ASSERT_TRUE(popped.has_value());
+  EXPECT_EQ(popped->grid_dim_x, first.grid_dim_x);
+  EXPECT_EQ(popped->grid_dim_y, first.grid_dim_y);
+  EXPECT_EQ(popped->block_dim_x, first.block_dim_x);
+  EXPECT_EQ(popped->shared_memory_bytes, first.shared_memory_bytes);
+  EXPECT_FALSE(session.PopLaunchConfig().has_value());
+
+  session.PushLaunchConfig(first);
+  session.PushLaunchConfig(second);
+  popped = session.PopLaunchConfig();
+  ASSERT_TRUE(popped.has_value());
+  EXPECT_EQ(popped->grid_dim_x, second.grid_dim_x);
+  EXPECT_EQ(popped->block_dim_x, second.block_dim_x);
+  EXPECT_EQ(popped->shared_memory_bytes, second.shared_memory_bytes);
+}
+
+TEST(RuntimeSessionTest, ResetClearsPendingLaunchConfigWithoutTouchingOtherHelpers) {
+  ScopedEnvUnset unset_disable_trace("GPU_MODEL_DISABLE_TRACE");
+  ScopedEnvUnset unset_trace_dir("GPU_MODEL_TRACE_DIR");
+  RuntimeSession session;
+
+  session.PushLaunchConfig(LaunchConfig{.grid_dim_x = 4, .block_dim_x = 128});
+  EXPECT_EQ(session.NextLaunchIndex(), 0u);
+  EXPECT_EQ(session.NextLaunchIndex(), 1u);
+
+  session.ResetAbiState();
+
+  EXPECT_FALSE(session.PopLaunchConfig().has_value());
+  EXPECT_EQ(session.NextLaunchIndex(), 0u);
+}
+
 TEST(DeviceMemoryManagerTest, ReleasedPointersLoseAllocationAndResolvedAddress) {
   MemorySystem memory;
   DeviceMemoryManager manager(&memory);

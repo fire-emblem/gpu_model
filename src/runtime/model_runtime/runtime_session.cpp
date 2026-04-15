@@ -33,10 +33,10 @@ const ModelRuntime& RuntimeSession::model_runtime() const {
 
 void RuntimeSession::ResetAbiState() {
   kernel_symbols_.clear();
+  launch_config_state_.Reset();
   stream_event_state_.Reset();
   device_memory_manager_.Reset();
   trace_state_.Reset();
-  pending_launch_config_.reset();
 }
 
 void RuntimeSession::BindDeviceMemoryManager() {
@@ -152,13 +152,11 @@ const DeviceMemoryManager::AbiAllocation* RuntimeSession::FindAbiAllocation(
 }
 
 void RuntimeSession::PushLaunchConfig(LaunchConfig config) {
-  pending_launch_config_ = config;
+  launch_config_state_.Push(config);
 }
 
 std::optional<LaunchConfig> RuntimeSession::PopLaunchConfig() {
-  auto config = pending_launch_config_;
-  pending_launch_config_.reset();
-  return config;
+  return launch_config_state_.Pop();
 }
 
 void* RuntimeSession::AllocateDevice(size_t bytes) {
