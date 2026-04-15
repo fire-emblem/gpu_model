@@ -514,9 +514,10 @@ TEST(HipRuntimeTest, LaunchKernelCanReadMaterializedDataPool) {
   std::memcpy(data_segment.bytes.data(), table.data(), data_segment.bytes.size());
   ProgramObject image("data_holder", "s_endpgm\n", MetadataBlob{}, {}, std::move(data_segment));
 
-  HipRuntime hooks;
+  ExecEngine engine;
+  HipRuntime hooks(&engine);
   const auto loaded = DeviceImageLoader{}.Materialize(BuildDeviceLoadPlan(image),
-                                                      hooks.runtime().memory());
+                                                      engine.memory());
   const auto* data_segment_image = loaded.FindByKind(DeviceSegmentKind::RawData);
   ASSERT_NE(data_segment_image, nullptr);
 
@@ -1055,7 +1056,8 @@ TEST(HipRuntimeTest, LaunchProgramObjectPopulatesLastLoadResult) {
       test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  HipRuntime hooks;
+  ExecEngine engine;
+  HipRuntime hooks(&engine);
   constexpr uint32_t n = 128;
   const uint64_t in_addr = hooks.Malloc(n * sizeof(int32_t));
   const uint64_t out_addr = hooks.Malloc(n * sizeof(int32_t));
@@ -1085,13 +1087,13 @@ TEST(HipRuntimeTest, LaunchProgramObjectPopulatesLastLoadResult) {
   EXPECT_EQ(hooks.last_load_result()->segments[1].allocation.pool, MemoryPoolKind::Kernarg);
   const uint64_t runtime_kernarg_base =
       hooks.last_load_result()->segments[1].allocation.range.base;
-  EXPECT_EQ(hooks.runtime().memory().LoadValue<uint64_t>(MemoryPoolKind::Kernarg,
+  EXPECT_EQ(engine.memory().LoadValue<uint64_t>(MemoryPoolKind::Kernarg,
                                                          runtime_kernarg_base + 0),
             in_addr);
-  EXPECT_EQ(hooks.runtime().memory().LoadValue<uint64_t>(MemoryPoolKind::Kernarg,
+  EXPECT_EQ(engine.memory().LoadValue<uint64_t>(MemoryPoolKind::Kernarg,
                                                          runtime_kernarg_base + 8),
             out_addr);
-  EXPECT_EQ(hooks.runtime().memory().LoadValue<uint32_t>(MemoryPoolKind::Kernarg,
+  EXPECT_EQ(engine.memory().LoadValue<uint32_t>(MemoryPoolKind::Kernarg,
                                                          runtime_kernarg_base + 16),
             n);
 
@@ -1197,9 +1199,10 @@ TEST(HipRuntimeTest, EncodedCycleLaunchReportsCacheAndSharedBankStats) {
   std::vector<int32_t> in(n, 1);
   std::vector<int32_t> out(n, 0);
 
-  HipRuntime hooks;
-  hooks.runtime().SetGlobalMemoryLatencyProfile(/*dram=*/40, /*l2=*/20, /*l1=*/8);
-  hooks.runtime().SetSharedBankConflictModel(/*bank_count=*/32, /*bank_width_bytes=*/4);
+  ExecEngine engine;
+  HipRuntime hooks(&engine);
+  engine.SetGlobalMemoryLatencyProfile(/*dram=*/40, /*l2=*/20, /*l1=*/8);
+  engine.SetSharedBankConflictModel(/*bank_count=*/32, /*bank_width_bytes=*/4);
 
   const uint64_t in_addr = hooks.Malloc(n * sizeof(int32_t));
   const uint64_t out_addr = hooks.Malloc(n * sizeof(int32_t));
@@ -1379,13 +1382,14 @@ TEST(HipRuntimeTest, EncodedCycleDelaysBackfillByBlockLaunchTiming) {
       test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  HipRuntime hooks;
-  hooks.runtime().SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
-                                         /*kernel_launch_cycles=*/0,
-                                         /*block_launch_cycles=*/7,
-                                         /*wave_launch_cycles=*/0,
-                                         /*warp_switch_cycles=*/1,
-                                         /*arg_load_cycles=*/4);
+  ExecEngine engine;
+  HipRuntime hooks(&engine);
+  engine.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
+                                /*kernel_launch_cycles=*/0,
+                                /*block_launch_cycles=*/7,
+                                /*wave_launch_cycles=*/0,
+                                /*warp_switch_cycles=*/1,
+                                /*arg_load_cycles=*/4);
   CollectingTraceSink trace;
   const auto result = hooks.LaunchProgramObject(
       ObjectReader{}.LoadProgramObject(exe_path, "resident_probe"),
@@ -1431,13 +1435,14 @@ TEST(HipRuntimeTest, EncodedCycleEmitsWarpSwitchStallBetweenTwoWaves) {
       test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  HipRuntime hooks;
-  hooks.runtime().SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
-                                         /*kernel_launch_cycles=*/0,
-                                         /*block_launch_cycles=*/0,
-                                         /*wave_launch_cycles=*/0,
-                                         /*warp_switch_cycles=*/5,
-                                         /*arg_load_cycles=*/4);
+  ExecEngine engine;
+  HipRuntime hooks(&engine);
+  engine.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
+                                /*kernel_launch_cycles=*/0,
+                                /*block_launch_cycles=*/0,
+                                /*wave_launch_cycles=*/0,
+                                /*warp_switch_cycles=*/5,
+                                /*arg_load_cycles=*/4);
   std::vector<int32_t> out(320, 0);
   const uint64_t out_addr = hooks.Malloc(out.size() * sizeof(int32_t));
   hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(out));

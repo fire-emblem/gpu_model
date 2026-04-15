@@ -35,12 +35,12 @@ class HipRuntime {
 
   template <typename T>
   void MemcpyHtoD(uint64_t dst_addr, std::span<const T> values) {
-    runtime().memory().WriteGlobal(dst_addr, std::as_bytes(values));
+    model_runtime_.runtime().memory().WriteGlobal(dst_addr, std::as_bytes(values));
   }
 
   template <typename T>
   void MemcpyDtoH(uint64_t src_addr, std::span<T> values) const {
-    runtime().memory().ReadGlobal(src_addr, std::as_writable_bytes(values));
+    model_runtime_.runtime().memory().ReadGlobal(src_addr, std::as_writable_bytes(values));
   }
 
   LaunchResult LaunchKernel(const ExecutableKernel& kernel,
@@ -79,9 +79,6 @@ class HipRuntime {
                                       std::string arch_name = "",
                                       TraceSink* trace = nullptr,
                                       RuntimeSubmissionContext submission_context = {});
-
-  ExecEngine& runtime() { return model_runtime_.runtime(); }
-  const ExecEngine& runtime() const { return model_runtime_.runtime(); }
 
  private:
   ModelRuntime model_runtime_;
