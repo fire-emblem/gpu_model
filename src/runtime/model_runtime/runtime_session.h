@@ -16,6 +16,7 @@
 #include "gpu_arch/memory/memory_pool.h"
 #include "program/program_object/program_object.h"
 #include "runtime/model_runtime/device_memory_manager.h"
+#include "runtime/model_runtime/runtime_stream_event_state.h"
 #include "runtime/config/kernel_arg_pack.h"
 #include "runtime/config/launch_config.h"
 #include "runtime/model_runtime/model_runtime.h"
@@ -37,11 +38,6 @@ struct HipRuntimeAbiArgDesc {
 
 class RuntimeSession {
  public:
-  struct AbiEvent {
-    bool recorded = false;
-    std::optional<uintptr_t> stream_id;
-  };
-
   RuntimeSession();
 
   MemorySystem& memory();
@@ -111,14 +107,12 @@ class RuntimeSession {
 
  private:
   thread_local static int last_error_;
-  thread_local static std::optional<uintptr_t> active_stream_id_;
   ModelRuntime model_runtime_;
   DeviceMemoryManager device_memory_manager_;
   std::unordered_map<const void*, std::string> kernel_symbols_;
-  std::unordered_map<uintptr_t, AbiEvent> abi_events_;
+  RuntimeStreamEventState stream_event_state_;
   std::unique_ptr<TraceArtifactRecorder> trace_artifact_recorder_;
   std::string trace_artifacts_dir_;
-  uintptr_t next_event_id_ = 1;
   uint64_t launch_index_ = 0;
   std::optional<LaunchConfig> pending_launch_config_;
 };

@@ -14,7 +14,6 @@
 namespace gpu_model {
 
 thread_local int RuntimeSession::last_error_ = 0;
-thread_local std::optional<uintptr_t> RuntimeSession::active_stream_id_;
 
 RuntimeSession::RuntimeSession() : device_memory_manager_(&model_runtime_.memory()) {}
 
@@ -36,11 +35,10 @@ const ModelRuntime& RuntimeSession::model_runtime() const {
 
 void RuntimeSession::ResetAbiState() {
   kernel_symbols_.clear();
-  abi_events_.clear();
+  stream_event_state_.Reset();
   device_memory_manager_.Reset();
   trace_artifact_recorder_.reset();
   trace_artifacts_dir_.clear();
-  next_event_id_ = 1;
   launch_index_ = 0;
   pending_launch_config_.reset();
 }
@@ -97,30 +95,19 @@ int RuntimeSession::ConsumeLastError() {
 }
 
 std::optional<uintptr_t> RuntimeSession::active_stream_id() const {
-  return active_stream_id_;
+  return stream_event_state_.active_stream_id();
 }
 
 bool RuntimeSession::IsValidStream(std::optional<uintptr_t> stream_id) const {
-  if (!stream_id.has_value()) {
-    return true;
-  }
-  return active_stream_id_.has_value() && *stream_id == *active_stream_id_;
+  return stream_event_state_.IsValidStream(stream_id);
 }
 
 std::optional<uintptr_t> RuntimeSession::CreateStream() {
-  if (active_stream_id_.has_value()) {
-    return std::nullopt;
-  }
-  active_stream_id_ = static_cast<uintptr_t>(std::numeric_limits<uint32_t>::max());
-  return active_stream_id_;
+  return stream_event_state_.CreateStream();
 }
 
 bool RuntimeSession::DestroyStream(uintptr_t stream_id) {
-  if (!active_stream_id_.has_value() || *active_stream_id_ != stream_id) {
-    return false;
-  }
-  active_stream_id_.reset();
-  return true;
+  return stream_event_state_.DestroyStream(stream_id);
 }
 
 void RuntimeSession::DeviceSynchronize() {
@@ -136,27 +123,19 @@ void RuntimeSession::StreamSynchronize(RuntimeSubmissionContext submission_conte
 }
 
 uintptr_t RuntimeSession::CreateEvent() {
-  const uintptr_t event_id = next_event_id_++;
-  abi_events_.emplace(event_id, AbiEvent{});
-  return event_id;
+  return stream_event_state_.CreateEvent();
 }
 
 bool RuntimeSession::HasEvent(uintptr_t event_id) const {
-  return abi_events_.find(event_id) != abi_events_.end();
+  return stream_event_state_.HasEvent(event_id);
 }
 
 bool RuntimeSession::DestroyEvent(uintptr_t event_id) {
-  return abi_events_.erase(event_id) != 0;
+  return stream_event_state_.DestroyEvent(event_id);
 }
 
 bool RuntimeSession::RecordEvent(uintptr_t event_id, std::optional<uintptr_t> stream_id) {
-  const auto it = abi_events_.find(event_id);
-  if (it == abi_events_.end()) {
-    return false;
-  }
-  it->second.recorded = true;
-  it->second.stream_id = stream_id;
-  return true;
+  return stream_event_state_.RecordEvent(event_id, stream_id);
 }
 
 bool RuntimeSession::HasAbiAllocation(const void* ptr) const {
