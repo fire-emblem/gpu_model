@@ -182,19 +182,6 @@ void RuntimeSession::SyncManagedDeviceToHost() {
   ::gpu_model::SyncManagedDeviceToHost(device_memory_manager_);
 }
 
-std::vector<HipRuntimeAbiArgDesc> RuntimeSession::ParseAbiArgLayout(
-    const MetadataBlob& metadata) const {
-  return ParseHipRuntimeAbiArgLayout(metadata);
-}
-
-KernelArgPack RuntimeSession::PackAbiArgs(const MetadataBlob& metadata, void** args) const {
-  const size_t arg_count = args == nullptr ? 0u : ParseAbiArgLayout(metadata).size();
-  return PackHipRuntimeAbiArgs(
-      metadata,
-      std::span<void* const>(args, arg_count),
-      [this](const void* ptr) { return ResolveDeviceAddress(ptr); });
-}
-
 ProgramObject RuntimeSession::LoadExecutableImage(const std::filesystem::path& executable_path,
                                                   const void* host_function) const {
   return LoadRegisteredExecutableImage(
@@ -227,7 +214,12 @@ LaunchResult RuntimeSession::LaunchExecutableKernel(const std::filesystem::path&
         model_runtime_.memory(),
         [this](const void* symbol) { return ResolveKernelSymbol(symbol); },
         [this](const MetadataBlob& metadata, void** raw_args) {
-          return PackAbiArgs(metadata, raw_args);
+          const size_t arg_count =
+              raw_args == nullptr ? 0u : ParseHipRuntimeAbiArgLayout(metadata).size();
+          return PackHipRuntimeAbiArgs(
+              metadata,
+              std::span<void* const>(raw_args, arg_count),
+              [this](const void* ptr) { return ResolveDeviceAddress(ptr); });
         });
     SyncManagedHostToDevice();
     auto result = model_runtime_.runtime().Launch(prepared.request);

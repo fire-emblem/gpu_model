@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+#include "runtime/model_runtime/runtime_abi_arg_packer.h"
 #include "runtime/model_runtime/runtime_trace_state.h"
 #include "runtime/model_runtime/runtime_session.h"
 
@@ -346,7 +347,7 @@ TEST(RuntimeSessionTest, ParsesAndPacksAbiArgsThroughDedicatedPacker) {
                             {"arg_layout", "global_buffer:8,by_value:4,by_value:8,by_value:16:12"},
                         }};
 
-  const auto layout = session.ParseAbiArgLayout(metadata);
+  const auto layout = ParseHipRuntimeAbiArgLayout(metadata);
   ASSERT_EQ(layout.size(), 4u);
   EXPECT_EQ(layout[0].kind, HipRuntimeAbiArgKind::GlobalBuffer);
   EXPECT_EQ(layout[0].size, 8u);
@@ -365,7 +366,10 @@ TEST(RuntimeSessionTest, ParsesAndPacksAbiArgsThroughDedicatedPacker) {
   } aggregate{7u, 8u, 9u};
 
   void* arg_ptrs[] = {&device_ptr, &scalar32, &scalar64, &aggregate};
-  const auto packed = session.PackAbiArgs(metadata, arg_ptrs);
+  const auto packed = PackHipRuntimeAbiArgs(
+      metadata,
+      std::span<void* const>(arg_ptrs, std::size(arg_ptrs)),
+      [&session](const void* ptr) { return session.ResolveDeviceAddress(ptr); });
   ASSERT_EQ(packed.size(), 4u);
 
   uint64_t packed_device_addr = 0;
@@ -394,9 +398,17 @@ TEST(RuntimeSessionTest, PackAbiArgsRejectsMissingPointers) {
                             {"arg_layout", "by_value:4"},
                         }};
 
-  EXPECT_THROW(session.PackAbiArgs(metadata, nullptr), std::invalid_argument);
+  EXPECT_THROW(PackHipRuntimeAbiArgs(
+                   metadata,
+                   std::span<void* const>(),
+                   [&session](const void* ptr) { return session.ResolveDeviceAddress(ptr); }),
+               std::invalid_argument);
   void* null_args[] = {nullptr};
-  EXPECT_THROW(session.PackAbiArgs(metadata, null_args), std::invalid_argument);
+  EXPECT_THROW(PackHipRuntimeAbiArgs(
+                   metadata,
+                   std::span<void* const>(null_args, std::size(null_args)),
+                   [&session](const void* ptr) { return session.ResolveDeviceAddress(ptr); }),
+               std::invalid_argument);
 }
 
 TEST(RuntimeSessionTest, CurrentExecutablePathResolvesExistingBinary) {

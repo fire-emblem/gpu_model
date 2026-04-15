@@ -75,8 +75,6 @@ class RuntimeSession {
   void MemsetDeviceD32(void* device_ptr, uint32_t value, size_t count);
   void SyncManagedHostToDevice();
   void SyncManagedDeviceToHost();
-  std::vector<HipRuntimeAbiArgDesc> ParseAbiArgLayout(const MetadataBlob& metadata) const;
-  KernelArgPack PackAbiArgs(const MetadataBlob& metadata, void** args) const;
   ProgramObject LoadExecutableImage(const std::filesystem::path& executable_path,
                                     const void* host_function) const;
   LaunchResult LaunchExecutableKernel(const std::filesystem::path& executable_path,
