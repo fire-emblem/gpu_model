@@ -235,12 +235,4 @@ LaunchResult HipRuntime::LaunchRegisteredKernel(const std::string& module_name,
                                                submission_context);
 }
 
-MemorySystem& HipRuntime::abi_memory() {
-  return GetRuntimeSession().memory();
-}
-
-const MemorySystem& HipRuntime::abi_memory() const {
-  return GetRuntimeSession().memory();
-}
-
 }  // namespace gpu_model

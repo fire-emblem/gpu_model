@@ -104,8 +104,6 @@ class HipRuntime {
                                       TraceSink* trace = nullptr,
                                       RuntimeSubmissionContext submission_context = {});
 
-  MemorySystem& abi_memory();
-  const MemorySystem& abi_memory() const;
   MemorySystem& memory() { return runtime().memory(); }
   const MemorySystem& memory() const { return runtime().memory(); }
   ExecEngine& runtime() { return model_runtime_.runtime(); }

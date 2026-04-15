@@ -15,6 +15,7 @@
 
 #include "program/program_object/object_reader.h"
 #include "runtime/hip_runtime/hip_runtime.h"
+#include "runtime/model_runtime/runtime_session.h"
 #include "tests/test_utils/hipcc_cache_test_utils.h"
 
 namespace gpu_model {
@@ -673,7 +674,7 @@ TEST(HipLdPreloadTest, LaunchesHipVecAddExecutableThroughManagedAllocations) {
   void* a_dev = state.AllocateManaged(n * sizeof(float));
   void* b_dev = state.AllocateManaged(n * sizeof(float));
   void* c_dev = state.AllocateManaged(n * sizeof(float));
-  EXPECT_EQ(state.abi_memory().pool_memory_size(MemoryPoolKind::Managed),
+  EXPECT_EQ(GetRuntimeSession().memory().pool_memory_size(MemoryPoolKind::Managed),
             3u * n * sizeof(float));
   state.MemcpyHostToDevice(a_dev, a.data(), n * sizeof(float));
   state.MemcpyHostToDevice(b_dev, b.data(), n * sizeof(float));
