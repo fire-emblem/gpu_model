@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+#include "runtime/model_runtime/runtime_trace_state.h"
 #include "runtime/model_runtime/runtime_session.h"
 
 namespace gpu_model {
@@ -204,33 +205,33 @@ TEST(RuntimeSessionTest, RejectsInteriorFreeWithoutInvalidatingBaseAllocation) {
   EXPECT_FALSE(session.IsDevicePointer(ptr));
 }
 
-TEST(RuntimeSessionTest, TracksLaunchIndexAndTraceRecorderStateIndependently) {
+TEST(RuntimeTraceStateTest, TracksLaunchIndexAndTraceRecorderStateIndependently) {
   ScopedEnvUnset unset_disable_trace("GPU_MODEL_DISABLE_TRACE");
   ScopedEnvUnset unset_trace_dir("GPU_MODEL_TRACE_DIR");
-  RuntimeSession session;
+  RuntimeTraceState state;
 
-  EXPECT_EQ(session.NextLaunchIndex(), 0u);
-  EXPECT_EQ(session.NextLaunchIndex(), 1u);
-  EXPECT_EQ(session.ResolveTraceArtifactRecorderFromEnv(), nullptr);
-  EXPECT_EQ(session.NextLaunchIndex(), 2u);
+  EXPECT_EQ(state.NextLaunchIndex(), 0u);
+  EXPECT_EQ(state.NextLaunchIndex(), 1u);
+  EXPECT_EQ(state.ResolveTraceArtifactRecorderFromEnv(), nullptr);
+  EXPECT_EQ(state.NextLaunchIndex(), 2u);
 
-  session.ResetAbiState();
-  EXPECT_EQ(session.NextLaunchIndex(), 0u);
+  state.Reset();
+  EXPECT_EQ(state.NextLaunchIndex(), 0u);
 }
 
-TEST(RuntimeSessionTest, EnablesTraceRecorderOnlyWhenEnvExplicitlyRequestsIt) {
+TEST(RuntimeTraceStateTest, EnablesTraceRecorderOnlyWhenEnvExplicitlyRequestsIt) {
   ScopedEnvSet enable_trace("GPU_MODEL_DISABLE_TRACE", "0");
   const auto trace_dir =
       std::filesystem::temp_directory_path() / "gpu_model_runtime_session_trace_state_test";
   ScopedEnvSet set_trace_dir("GPU_MODEL_TRACE_DIR", trace_dir.string());
-  RuntimeSession session;
+  RuntimeTraceState state;
 
-  auto* trace = session.ResolveTraceArtifactRecorderFromEnv();
+  auto* trace = state.ResolveTraceArtifactRecorderFromEnv();
   ASSERT_NE(trace, nullptr);
-  EXPECT_EQ(trace, session.ResolveTraceArtifactRecorderFromEnv());
+  EXPECT_EQ(trace, state.ResolveTraceArtifactRecorderFromEnv());
 
   ScopedEnvSet disable_trace("GPU_MODEL_DISABLE_TRACE", "1");
-  EXPECT_EQ(session.ResolveTraceArtifactRecorderFromEnv(), nullptr);
+  EXPECT_EQ(state.ResolveTraceArtifactRecorderFromEnv(), nullptr);
 }
 
 TEST(RuntimeSessionTest, PushesAndPopsPendingLaunchConfigThroughDedicatedState) {
@@ -273,13 +274,10 @@ TEST(RuntimeSessionTest, ResetClearsPendingLaunchConfigWithoutTouchingOtherHelpe
   RuntimeSession session;
 
   session.PushLaunchConfig(LaunchConfig{.grid_dim_x = 4, .block_dim_x = 128});
-  EXPECT_EQ(session.NextLaunchIndex(), 0u);
-  EXPECT_EQ(session.NextLaunchIndex(), 1u);
 
   session.ResetAbiState();
 
   EXPECT_FALSE(session.PopLaunchConfig().has_value());
-  EXPECT_EQ(session.NextLaunchIndex(), 0u);
 }
 
 TEST(RuntimeSessionTest, RegistersAndResolvesKernelSymbolsThroughDedicatedState) {

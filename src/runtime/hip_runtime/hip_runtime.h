@@ -69,8 +69,6 @@ class HipRuntime {
   bool HasEvent(uintptr_t event_id) const;
   bool DestroyEvent(uintptr_t event_id);
   bool RecordEvent(uintptr_t event_id, std::optional<uintptr_t> stream_id);
-  uint64_t NextLaunchIndex();
-  FunctionalExecutionMode functional_execution_mode() const;
 
   template <typename T>
   void MemcpyHtoD(uint64_t dst_addr, std::span<const T> values) {

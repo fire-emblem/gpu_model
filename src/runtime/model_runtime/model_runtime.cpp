@@ -93,10 +93,6 @@ const ExecEngine& ModelRuntime::runtime() const {
   return *runtime_engine_;
 }
 
-LaunchResult ModelRuntime::Launch(const LaunchRequest& request) {
-  return runtime().Launch(request);
-}
-
 RuntimeDeviceProperties ModelRuntime::GetDeviceProperties(int device_id) const {
   if (device_id != 0) {
     throw std::out_of_range("invalid device id");

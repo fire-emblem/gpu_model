@@ -223,14 +223,14 @@ LaunchResult RuntimeSession::LaunchExecutableKernel(const std::filesystem::path&
         trace,
         submission_context,
         trace_state_.NextLaunchIndex(),
-        functional_execution_mode(),
+        model_runtime_.runtime().functional_execution_config().mode,
         model_runtime_.memory(),
         [this](const void* symbol) { return ResolveKernelSymbol(symbol); },
         [this](const MetadataBlob& metadata, void** raw_args) {
           return PackAbiArgs(metadata, raw_args);
         });
     SyncManagedHostToDevice();
-    auto result = model_runtime_.Launch(prepared.request);
+    auto result = model_runtime_.runtime().Launch(prepared.request);
     SyncManagedDeviceToHost();
     return result;
   } catch (const std::invalid_argument&) {
@@ -239,10 +239,6 @@ LaunchResult RuntimeSession::LaunchExecutableKernel(const std::filesystem::path&
     result.error_message = "unregistered HIP host function";
     return result;
   }
-}
-
-FunctionalExecutionMode RuntimeSession::functional_execution_mode() const {
-  return model_runtime_.runtime().functional_execution_config().mode;
 }
 
 DeviceLoadPlan RuntimeSession::BuildExecutableLoadPlan(const std::filesystem::path& executable_path,
@@ -259,10 +255,6 @@ DeviceLoadPlan RuntimeSession::BuildExecutableLoadPlan(const std::filesystem::pa
 
 TraceArtifactRecorder* RuntimeSession::ResolveTraceArtifactRecorderFromEnv() {
   return trace_state_.ResolveTraceArtifactRecorderFromEnv();
-}
-
-uint64_t RuntimeSession::NextLaunchIndex() {
-  return trace_state_.NextLaunchIndex();
 }
 
 std::filesystem::path RuntimeSession::CurrentExecutablePath() {

@@ -83,7 +83,6 @@ class ModelRuntime {
 
   ExecEngine& runtime();
   const ExecEngine& runtime() const;
-  LaunchResult Launch(const LaunchRequest& request);
 
  private:
   ExecEngine owned_runtime_;

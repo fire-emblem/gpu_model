@@ -87,11 +87,9 @@ class RuntimeSession {
                                       const std::string& arch_name = "mac500",
                                       TraceSink* trace = nullptr,
                                       RuntimeSubmissionContext submission_context = {});
-  FunctionalExecutionMode functional_execution_mode() const;
   DeviceLoadPlan BuildExecutableLoadPlan(const std::filesystem::path& executable_path,
                                          const void* host_function) const;
   TraceArtifactRecorder* ResolveTraceArtifactRecorderFromEnv();
-  uint64_t NextLaunchIndex();
   static std::filesystem::path CurrentExecutablePath();
 
  private:

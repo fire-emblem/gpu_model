@@ -202,14 +202,6 @@ bool HipRuntime::RecordEvent(uintptr_t event_id, std::optional<uintptr_t> stream
   return GetRuntimeSession().RecordEvent(event_id, stream_id);
 }
 
-uint64_t HipRuntime::NextLaunchIndex() {
-  return GetRuntimeSession().NextLaunchIndex();
-}
-
-FunctionalExecutionMode HipRuntime::functional_execution_mode() const {
-  return GetRuntimeSession().functional_execution_mode();
-}
-
 LaunchResult HipRuntime::LaunchKernel(const ExecutableKernel& kernel,
                                       LaunchConfig config,
                                       KernelArgPack args,
