@@ -74,10 +74,6 @@ void HipRuntime::ResetAbiState() {
   GetRuntimeSession().BindDeviceMemoryManager();
 }
 
-void HipRuntime::RegisterFunction(const void* host_function, std::string kernel_name) {
-  GetRuntimeSession().RegisterKernelSymbol(host_function, std::move(kernel_name));
-}
-
 void* HipRuntime::AllocateDevice(size_t bytes) {
   return GetRuntimeSession().AllocateDevice(bytes);
 }
@@ -124,19 +120,6 @@ void HipRuntime::MemsetDeviceD16(void* device_ptr, uint16_t value, size_t count)
 
 void HipRuntime::MemsetDeviceD32(void* device_ptr, uint32_t value, size_t count) {
   GetRuntimeSession().MemsetDeviceD32(device_ptr, value, count);
-}
-
-LaunchResult HipRuntime::LaunchExecutableKernel(const std::filesystem::path& executable_path,
-                                                const void* host_function,
-                                                LaunchConfig config,
-                                                void** args,
-                                                ExecutionMode mode,
-                                                const std::string& arch_name,
-                                                TraceSink* trace,
-                                                RuntimeSubmissionContext submission_context) {
-  return GetRuntimeSession().LaunchExecutableKernel(executable_path, host_function, std::move(config),
-                                                    args, mode, arch_name, trace,
-                                                    submission_context);
 }
 
 LaunchResult HipRuntime::LaunchKernel(const ExecutableKernel& kernel,

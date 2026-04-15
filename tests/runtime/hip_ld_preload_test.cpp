@@ -141,7 +141,7 @@ TEST(HipLdPreloadTest, LaunchesHipVecAddExecutableThroughRegisteredHostFunction)
   HipRuntime state;
   state.ResetAbiState();
   static int host_symbol = 0;
-  state.RegisterFunction(&host_symbol, "vecadd");
+  GetRuntimeSession().RegisterKernelSymbol(&host_symbol, "vecadd");
 
   constexpr uint32_t n = 129;
   std::vector<float> a(n), b(n), c(n, -1.0f);
@@ -158,7 +158,7 @@ TEST(HipLdPreloadTest, LaunchesHipVecAddExecutableThroughRegisteredHostFunction)
   state.MemcpyHostToDevice(c_dev, c.data(), n * sizeof(float));
 
   void* args[] = {&a_dev, &b_dev, &c_dev, const_cast<uint32_t*>(&n)};
-  const auto result = state.LaunchExecutableKernel(
+  const auto result = GetRuntimeSession().LaunchExecutableKernel(
       exe_path, &host_symbol, LaunchConfig{.grid_dim_x = 3, .block_dim_x = 64}, args);
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -196,7 +196,7 @@ TEST(HipLdPreloadTest, LaunchesHipVecAddExecutableInCycleModeThroughRegisteredHo
   HipRuntime state;
   state.ResetAbiState();
   static int host_symbol = 0;
-  state.RegisterFunction(&host_symbol, "vecadd_cycle");
+  GetRuntimeSession().RegisterKernelSymbol(&host_symbol, "vecadd_cycle");
 
   constexpr uint32_t n = 129;
   std::vector<float> a(n), b(n), c(n, -1.0f);
@@ -213,7 +213,7 @@ TEST(HipLdPreloadTest, LaunchesHipVecAddExecutableInCycleModeThroughRegisteredHo
   state.MemcpyHostToDevice(c_dev, c.data(), n * sizeof(float));
 
   void* args[] = {&a_dev, &b_dev, &c_dev, const_cast<uint32_t*>(&n)};
-  const auto result = state.LaunchExecutableKernel(
+  const auto result = GetRuntimeSession().LaunchExecutableKernel(
       exe_path,
       &host_symbol,
       LaunchConfig{.grid_dim_x = 3, .block_dim_x = 64},
@@ -263,7 +263,7 @@ TEST(HipLdPreloadTest, BuildsExecutableLoadPlanThroughRegisteredHostFunction) {
   HipRuntime state;
   state.ResetAbiState();
   static int host_symbol = 0;
-  state.RegisterFunction(&host_symbol, "shared_reverse");
+  GetRuntimeSession().RegisterKernelSymbol(&host_symbol, "shared_reverse");
 
   const auto plan = GetRuntimeSession().BuildExecutableLoadPlan(exe_path, &host_symbol);
   ASSERT_EQ(plan.segments.size(), 2u);
@@ -309,7 +309,7 @@ TEST(HipLdPreloadTest, LaunchesHipFmaLoopExecutableThroughRegisteredHostFunction
   HipRuntime state;
   state.ResetAbiState();
   static int host_symbol = 0;
-  state.RegisterFunction(&host_symbol, "fma_loop");
+  GetRuntimeSession().RegisterKernelSymbol(&host_symbol, "fma_loop");
 
   constexpr uint32_t n = 257;
   constexpr uint32_t iters = 7;
@@ -334,7 +334,7 @@ TEST(HipLdPreloadTest, LaunchesHipFmaLoopExecutableThroughRegisteredHostFunction
   uint32_t n_arg = n;
   uint32_t iters_arg = iters;
   void* args[] = {&a_dev, &b_dev, &c_dev, &n_arg, &iters_arg};
-  const auto result = state.LaunchExecutableKernel(
+  const auto result = GetRuntimeSession().LaunchExecutableKernel(
       exe_path, &host_symbol, LaunchConfig{.grid_dim_x = 3, .block_dim_x = 128}, args);
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -374,7 +374,7 @@ TEST(HipLdPreloadTest, LaunchesHipBiasChainExecutableThroughRegisteredHostFuncti
   HipRuntime state;
   state.ResetAbiState();
   static int host_symbol = 0;
-  state.RegisterFunction(&host_symbol, "bias_chain");
+  GetRuntimeSession().RegisterKernelSymbol(&host_symbol, "bias_chain");
 
   constexpr uint32_t n = 129;
   constexpr float b0 = 1.5f;
@@ -399,7 +399,7 @@ TEST(HipLdPreloadTest, LaunchesHipBiasChainExecutableThroughRegisteredHostFuncti
   float b2_arg = b2;
   uint32_t n_arg = n;
   void* args[] = {&a_dev, &b_dev, &c_dev, &n_arg, &b0_arg, &b1_arg, &b2_arg};
-  const auto result = state.LaunchExecutableKernel(
+  const auto result = GetRuntimeSession().LaunchExecutableKernel(
       exe_path, &host_symbol, LaunchConfig{.grid_dim_x = 3, .block_dim_x = 64}, args);
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -443,7 +443,7 @@ TEST(HipLdPreloadTest, LaunchesHipByValueAggregateExecutableThroughRegisteredHos
   HipRuntime state;
   state.ResetAbiState();
   static int host_symbol = 0;
-  state.RegisterFunction(&host_symbol, "by_value_aggregate");
+  GetRuntimeSession().RegisterKernelSymbol(&host_symbol, "by_value_aggregate");
 
   const auto image = ObjectReader{}.LoadProgramObject(exe_path, "by_value_aggregate");
   ASSERT_TRUE(image.metadata().values.contains("arg_layout"));
@@ -460,7 +460,7 @@ TEST(HipLdPreloadTest, LaunchesHipByValueAggregateExecutableThroughRegisteredHos
   } payload{5, 9, 17};
 
   void* args[] = {&out_dev, &payload};
-  const auto result = state.LaunchExecutableKernel(
+  const auto result = GetRuntimeSession().LaunchExecutableKernel(
       exe_path, &host_symbol, LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64}, args);
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -496,14 +496,14 @@ TEST(HipLdPreloadTest, LaunchesHipThreeDimensionalHiddenArgsExecutableThroughReg
   HipRuntime state;
   state.ResetAbiState();
   static int host_symbol = 0;
-  state.RegisterFunction(&host_symbol, "three_dimensional_hidden_args");
+  GetRuntimeSession().RegisterKernelSymbol(&host_symbol, "three_dimensional_hidden_args");
 
   void* out_dev = state.AllocateDevice(sizeof(int32_t));
   int32_t zero = 0;
   state.MemcpyHostToDevice(out_dev, &zero, sizeof(zero));
 
   void* args[] = {&out_dev};
-  const auto result = state.LaunchExecutableKernel(
+  const auto result = GetRuntimeSession().LaunchExecutableKernel(
       exe_path,
       &host_symbol,
       LaunchConfig{
@@ -550,7 +550,7 @@ TEST(HipLdPreloadTest, LaunchesHipThreeDimensionalBuiltinIdsExecutableThroughReg
   HipRuntime state;
   state.ResetAbiState();
   static int host_symbol = 0;
-  state.RegisterFunction(&host_symbol, "three_dimensional_builtin_ids");
+  GetRuntimeSession().RegisterKernelSymbol(&host_symbol, "three_dimensional_builtin_ids");
 
   constexpr uint32_t depth = 64;
   std::vector<int32_t> out(depth, -1);
@@ -558,7 +558,7 @@ TEST(HipLdPreloadTest, LaunchesHipThreeDimensionalBuiltinIdsExecutableThroughReg
   state.MemcpyHostToDevice(out_dev, out.data(), depth * sizeof(int32_t));
 
   void* args[] = {&out_dev};
-  const auto result = state.LaunchExecutableKernel(
+  const auto result = GetRuntimeSession().LaunchExecutableKernel(
       exe_path,
       &host_symbol,
       LaunchConfig{
@@ -606,7 +606,7 @@ TEST(HipLdPreloadTest, LaunchesHipVecAddExecutableThroughRegisteredHostFunctionA
   HipRuntime state;
   state.ResetAbiState();
   static int host_symbol = 0;
-  state.RegisterFunction(&host_symbol, "vecadd");
+  GetRuntimeSession().RegisterKernelSymbol(&host_symbol, "vecadd");
 
   constexpr uint32_t n = 30u * 1024u;
   std::vector<float> a(n), b(n), c(n, -1.0f);
@@ -624,7 +624,7 @@ TEST(HipLdPreloadTest, LaunchesHipVecAddExecutableThroughRegisteredHostFunctionA
 
   uint32_t n_arg = n;
   void* args[] = {&a_dev, &b_dev, &c_dev, &n_arg};
-  const auto result = state.LaunchExecutableKernel(
+  const auto result = GetRuntimeSession().LaunchExecutableKernel(
       exe_path, &host_symbol, LaunchConfig{.grid_dim_x = 30, .block_dim_x = 1024}, args);
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -662,7 +662,7 @@ TEST(HipLdPreloadTest, LaunchesHipVecAddExecutableThroughManagedAllocations) {
   HipRuntime state;
   state.ResetAbiState();
   static int host_symbol = 0;
-  state.RegisterFunction(&host_symbol, "vecadd");
+  GetRuntimeSession().RegisterKernelSymbol(&host_symbol, "vecadd");
 
   constexpr uint32_t n = 257;
   std::vector<float> a(n), b(n), c(n, -1.0f);
@@ -682,7 +682,7 @@ TEST(HipLdPreloadTest, LaunchesHipVecAddExecutableThroughManagedAllocations) {
 
   uint32_t n_arg = n;
   void* args[] = {&a_dev, &b_dev, &c_dev, &n_arg};
-  const auto result = state.LaunchExecutableKernel(
+  const auto result = GetRuntimeSession().LaunchExecutableKernel(
       exe_path, &host_symbol, LaunchConfig{.grid_dim_x = 3, .block_dim_x = 128}, args);
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -1536,7 +1536,7 @@ TEST(HipLdPreloadTest, LaunchesHipSharedReverseExecutableThroughRegisteredHostFu
   HipRuntime state;
   state.ResetAbiState();
   static int host_symbol = 0;
-  state.RegisterFunction(&host_symbol, "shared_reverse");
+  GetRuntimeSession().RegisterKernelSymbol(&host_symbol, "shared_reverse");
 
   constexpr uint32_t n = 128;
   std::vector<int32_t> in(n), out(n, -1), expect(n, -1);
@@ -1557,7 +1557,7 @@ TEST(HipLdPreloadTest, LaunchesHipSharedReverseExecutableThroughRegisteredHostFu
 
   uint32_t n_arg = n;
   void* args[] = {&in_dev, &out_dev, &n_arg};
-  const auto result = state.LaunchExecutableKernel(
+  const auto result = GetRuntimeSession().LaunchExecutableKernel(
       exe_path, &host_symbol, LaunchConfig{.grid_dim_x = 2, .block_dim_x = 64}, args);
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -1602,7 +1602,7 @@ TEST(HipLdPreloadTest, LaunchesHipDynamicSharedExecutableThroughRegisteredHostFu
   HipRuntime state;
   state.ResetAbiState();
   static int host_symbol = 0;
-  state.RegisterFunction(&host_symbol, "dynamic_shared_sum");
+  GetRuntimeSession().RegisterKernelSymbol(&host_symbol, "dynamic_shared_sum");
 
   int32_t output = 0;
   void* out_dev = state.AllocateDevice(sizeof(int32_t));
@@ -1610,7 +1610,7 @@ TEST(HipLdPreloadTest, LaunchesHipDynamicSharedExecutableThroughRegisteredHostFu
 
   void* args[] = {&out_dev};
   constexpr uint32_t block_dim = 64;
-  const auto result = state.LaunchExecutableKernel(
+  const auto result = GetRuntimeSession().LaunchExecutableKernel(
       exe_path,
       &host_symbol,
       LaunchConfig{
@@ -1653,7 +1653,7 @@ TEST(HipLdPreloadTest, LaunchesHipAtomicCountExecutableThroughRegisteredHostFunc
   HipRuntime state;
   state.ResetAbiState();
   static int host_symbol = 0;
-  state.RegisterFunction(&host_symbol, "atomic_count");
+  GetRuntimeSession().RegisterKernelSymbol(&host_symbol, "atomic_count");
 
   struct AtomicCase {
     const char* name = nullptr;
@@ -1674,7 +1674,7 @@ TEST(HipLdPreloadTest, LaunchesHipAtomicCountExecutableThroughRegisteredHostFunc
     state.MemcpyHostToDevice(out_dev, &zero, sizeof(zero));
     uint32_t n_arg = test_case.n;
     void* args[] = {&out_dev, &n_arg};
-    const auto result = state.LaunchExecutableKernel(
+    const auto result = GetRuntimeSession().LaunchExecutableKernel(
         exe_path, &host_symbol,
         LaunchConfig{.grid_dim_x = test_case.grid_dim_x, .block_dim_x = test_case.block_dim_x},
         args);
@@ -1732,7 +1732,7 @@ TEST(HipLdPreloadTest, LaunchesHipSoftmaxExecutableThroughRegisteredHostFunction
   HipRuntime state;
   state.ResetAbiState();
   static int host_symbol = 0;
-  state.RegisterFunction(&host_symbol, "softmax_row");
+  GetRuntimeSession().RegisterKernelSymbol(&host_symbol, "softmax_row");
 
   constexpr uint32_t n = 64;
   std::vector<float> input(n, 1.0f), output(n, 0.0f);
@@ -1743,7 +1743,7 @@ TEST(HipLdPreloadTest, LaunchesHipSoftmaxExecutableThroughRegisteredHostFunction
 
   uint32_t n_arg = n;
   void* args[] = {&in_dev, &out_dev, &n_arg};
-  const auto result = state.LaunchExecutableKernel(
+  const auto result = GetRuntimeSession().LaunchExecutableKernel(
       exe_path, &host_symbol, LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64}, args);
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -1795,7 +1795,7 @@ TEST(HipLdPreloadTest, LaunchesHipBlockReduceExecutableThroughRegisteredHostFunc
   HipRuntime state;
   state.ResetAbiState();
   static int host_symbol = 0;
-  state.RegisterFunction(&host_symbol, "block_reduce_sum");
+  GetRuntimeSession().RegisterKernelSymbol(&host_symbol, "block_reduce_sum");
 
   constexpr uint32_t n = 1024;
   constexpr uint32_t grid_dim = 4;
@@ -1810,7 +1810,7 @@ TEST(HipLdPreloadTest, LaunchesHipBlockReduceExecutableThroughRegisteredHostFunc
 
   uint32_t n_arg = n;
   void* args[] = {&in_dev, &out_dev, &n_arg};
-  const auto result = state.LaunchExecutableKernel(
+  const auto result = GetRuntimeSession().LaunchExecutableKernel(
       exe_path, &host_symbol, LaunchConfig{.grid_dim_x = grid_dim, .block_dim_x = block_dim}, args);
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -1857,14 +1857,14 @@ TEST(HipLdPreloadTest, LaunchesHipMfmaExecutableThroughRegisteredHostFunction) {
   HipRuntime state;
   state.ResetAbiState();
   static int host_symbol = 0;
-  state.RegisterFunction(&host_symbol, "mfma_probe");
+  GetRuntimeSession().RegisterKernelSymbol(&host_symbol, "mfma_probe");
 
   float output = 0.0f;
   void* out_dev = state.AllocateDevice(sizeof(float));
   state.MemcpyHostToDevice(out_dev, &output, sizeof(float));
 
   void* args[] = {&out_dev};
-  const auto result = state.LaunchExecutableKernel(
+  const auto result = GetRuntimeSession().LaunchExecutableKernel(
       exe_path, &host_symbol, LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64}, args);
   ASSERT_TRUE(result.ok) << result.error_message;
 
@@ -1909,7 +1909,7 @@ TEST(HipLdPreloadTest, BuildsExecutableLoadPlanForHipMfmaWithTypedTensorAbi) {
   HipRuntime state;
   state.ResetAbiState();
   static int host_symbol = 0;
-  state.RegisterFunction(&host_symbol, "mfma_plan_probe");
+  GetRuntimeSession().RegisterKernelSymbol(&host_symbol, "mfma_plan_probe");
 
   const auto plan = GetRuntimeSession().BuildExecutableLoadPlan(exe_path, &host_symbol);
   EXPECT_FALSE(plan.segments.empty());

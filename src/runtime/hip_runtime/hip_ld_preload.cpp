@@ -123,7 +123,8 @@ void __hipUnregisterFatBinary(void**) {}
 
 void __hipRegisterFunction(void**, const void* hostFunction, char*, const char* deviceName, int,
                            void*, void*, dim3*, dim3*, int*) {
-  HipApi().RegisterFunction(hostFunction, deviceName != nullptr ? deviceName : "");
+  gpu_model::GetRuntimeSession().RegisterKernelSymbol(hostFunction,
+                                                      deviceName != nullptr ? deviceName : "");
   DebugLog("__hipRegisterFunction host=%p device=%s", hostFunction,
            deviceName != nullptr ? deviceName : "<null>");
 }
@@ -584,7 +585,7 @@ hipError_t hipLaunchKernel(const void* function_address,
   };
   const auto execution_mode = ResolveExecutionModeFromEnv();
   auto* trace = ResolveTraceArtifactRecorder();
-  const auto result = HipApi().LaunchExecutableKernel(
+  const auto result = gpu_model::GetRuntimeSession().LaunchExecutableKernel(
       gpu_model::RuntimeSession::CurrentExecutablePath(),
       function_address,
       config,

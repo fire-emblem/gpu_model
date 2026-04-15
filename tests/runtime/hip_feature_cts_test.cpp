@@ -14,6 +14,7 @@
 #include "program/program_object/object_reader.h"
 #include "runtime/hip_runtime/hip_runtime.h"
 #include "runtime/model_runtime/model_runtime.h"
+#include "runtime/model_runtime/runtime_session.h"
 #include "tests/test_utils/hipcc_cache_test_utils.h"
 #include "test_matrix_profile.h"
 
@@ -722,7 +723,7 @@ TEST_P(HipFeatureLdPreloadTest, ExecutesFeatureKernelThroughRegisteredHostFuncti
       host_symbol = &host_dynamic_shared;
       break;
   }
-  state.RegisterFunction(host_symbol, KernelName(c.kernel));
+  GetRuntimeSession().RegisterKernelSymbol(host_symbol, KernelName(c.kernel));
 
   switch (c.kernel) {
     case FeatureKernelKind::SaxpyAffine:
@@ -751,18 +752,18 @@ TEST_P(HipFeatureLdPreloadTest, ExecutesFeatureKernelThroughRegisteredHostFuncti
       void* args[5] = {&in_dev, &out_dev, &f0, &f1, &n_arg};
       if (c.kernel == FeatureKernelKind::ClampRelu) {
         void* clamp_args[] = {&in_dev, &out_dev, &f0, &n_arg};
-        const auto result = state.LaunchExecutableKernel(
+        const auto result = GetRuntimeSession().LaunchExecutableKernel(
             FeatureArtifact().exe_path, host_symbol,
             LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x}, clamp_args);
         ASSERT_TRUE(result.ok) << result.error_message;
       } else if (c.kernel == FeatureKernelKind::Stencil1D) {
         void* stencil_args[] = {&in_dev, &out_dev, &n_arg};
-        const auto result = state.LaunchExecutableKernel(
+        const auto result = GetRuntimeSession().LaunchExecutableKernel(
             FeatureArtifact().exe_path, host_symbol,
             LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x}, stencil_args);
         ASSERT_TRUE(result.ok) << result.error_message;
       } else {
-        const auto result = state.LaunchExecutableKernel(
+        const auto result = GetRuntimeSession().LaunchExecutableKernel(
             FeatureArtifact().exe_path, host_symbol,
             LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x}, args);
         ASSERT_TRUE(result.ok) << result.error_message;
@@ -785,7 +786,7 @@ TEST_P(HipFeatureLdPreloadTest, ExecutesFeatureKernelThroughRegisteredHostFuncti
 
       uint32_t n_arg = c.n;
       void* args[] = {&in_dev, &out_dev, &n_arg};
-      const auto result = state.LaunchExecutableKernel(
+      const auto result = GetRuntimeSession().LaunchExecutableKernel(
           FeatureArtifact().exe_path, host_symbol,
           LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x}, args);
       ASSERT_TRUE(result.ok) << result.error_message;
@@ -802,7 +803,7 @@ TEST_P(HipFeatureLdPreloadTest, ExecutesFeatureKernelThroughRegisteredHostFuncti
       state.MemcpyHostToDevice(out_dev, out.data(), c.grid_x * sizeof(int32_t));
 
       void* args[] = {&out_dev};
-      const auto result = state.LaunchExecutableKernel(
+      const auto result = GetRuntimeSession().LaunchExecutableKernel(
           FeatureArtifact().exe_path,
           host_symbol,
           LaunchConfig{

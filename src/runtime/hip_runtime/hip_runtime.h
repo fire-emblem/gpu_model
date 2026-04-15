@@ -32,7 +32,6 @@ class HipRuntime {
   std::optional<int> GetDeviceAttribute(RuntimeDeviceAttribute attribute,
                                         int device_id = 0) const;
   void ResetAbiState();
-  void RegisterFunction(const void* host_function, std::string kernel_name);
   void* AllocateDevice(size_t bytes);
   void* AllocateManaged(size_t bytes);
   bool FreeDevice(void* device_ptr);
@@ -44,14 +43,6 @@ class HipRuntime {
   void MemsetDevice(void* device_ptr, uint8_t value, size_t bytes);
   void MemsetDeviceD16(void* device_ptr, uint16_t value, size_t count);
   void MemsetDeviceD32(void* device_ptr, uint32_t value, size_t count);
-  LaunchResult LaunchExecutableKernel(const std::filesystem::path& executable_path,
-                                      const void* host_function,
-                                      LaunchConfig config,
-                                      void** args,
-                                      ExecutionMode mode = ExecutionMode::Functional,
-                                      const std::string& arch_name = "mac500",
-                                      TraceSink* trace = nullptr,
-                                      RuntimeSubmissionContext submission_context = {});
 
   template <typename T>
   void MemcpyHtoD(uint64_t dst_addr, std::span<const T> values) {

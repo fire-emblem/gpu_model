@@ -13,6 +13,7 @@
 #include "program/program_object/object_reader.h"
 #include "runtime/hip_runtime/hip_runtime.h"
 #include "runtime/model_runtime/model_runtime.h"
+#include "runtime/model_runtime/runtime_session.h"
 #include "tests/test_utils/hipcc_cache_test_utils.h"
 #include "test_matrix_profile.h"
 
@@ -993,7 +994,7 @@ TEST_P(HipCtsLdPreloadTest, ExecutesHipOutThroughRegisteredHostFunctionAndValida
       host_symbol = &host_mfma;
       break;
   }
-  state.RegisterFunction(host_symbol, KernelName(c.kernel));
+  GetRuntimeSession().RegisterKernelSymbol(host_symbol, KernelName(c.kernel));
 
   switch (c.kernel) {
     case KernelKind::VecAdd: {
@@ -1008,7 +1009,7 @@ TEST_P(HipCtsLdPreloadTest, ExecutesHipOutThroughRegisteredHostFunctionAndValida
       state.MemcpyHostToDevice(out_dev, out.data(), c.n * sizeof(float));
       uint32_t n_arg = c.n;
       void* args[] = {&a_dev, &b_dev, &out_dev, &n_arg};
-      const auto result = state.LaunchExecutableKernel(
+      const auto result = GetRuntimeSession().LaunchExecutableKernel(
           ArtifactPath(c.artifact), host_symbol,
           LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x}, args);
       ASSERT_TRUE(result.ok) << result.error_message;
@@ -1029,7 +1030,7 @@ TEST_P(HipCtsLdPreloadTest, ExecutesHipOutThroughRegisteredHostFunctionAndValida
       uint32_t n_arg = c.n;
       uint32_t iters_arg = c.iters;
       void* args[] = {&a_dev, &b_dev, &out_dev, &n_arg, &iters_arg};
-      const auto result = state.LaunchExecutableKernel(
+      const auto result = GetRuntimeSession().LaunchExecutableKernel(
           ArtifactPath(c.artifact), host_symbol,
           LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x}, args);
       ASSERT_TRUE(result.ok) << result.error_message;
@@ -1050,7 +1051,7 @@ TEST_P(HipCtsLdPreloadTest, ExecutesHipOutThroughRegisteredHostFunctionAndValida
       uint32_t n_arg = c.n;
       float b0 = c.f0, b1 = c.f1, b2 = c.f2;
       void* args[] = {&a_dev, &b_dev, &out_dev, &n_arg, &b0, &b1, &b2};
-      const auto result = state.LaunchExecutableKernel(
+      const auto result = GetRuntimeSession().LaunchExecutableKernel(
           ArtifactPath(c.artifact), host_symbol,
           LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x}, args);
       ASSERT_TRUE(result.ok) << result.error_message;
@@ -1069,7 +1070,7 @@ TEST_P(HipCtsLdPreloadTest, ExecutesHipOutThroughRegisteredHostFunctionAndValida
         int32_t z;
       } payload{5, 9, 17};
       void* args[] = {&out_dev, &payload};
-      const auto result = state.LaunchExecutableKernel(
+      const auto result = GetRuntimeSession().LaunchExecutableKernel(
           ArtifactPath(c.artifact),
           host_symbol,
           LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
@@ -1086,7 +1087,7 @@ TEST_P(HipCtsLdPreloadTest, ExecutesHipOutThroughRegisteredHostFunctionAndValida
       state.MemcpyHostToDevice(out_dev, &out, sizeof(out));
       uint32_t n_arg = c.n;
       void* args[] = {&out_dev, &n_arg};
-      const auto result = state.LaunchExecutableKernel(
+      const auto result = GetRuntimeSession().LaunchExecutableKernel(
           ArtifactPath(c.artifact),
           host_symbol,
           LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x},
@@ -1112,7 +1113,7 @@ TEST_P(HipCtsLdPreloadTest, ExecutesHipOutThroughRegisteredHostFunctionAndValida
       state.MemcpyHostToDevice(out_dev, out.data(), c.n * sizeof(int32_t));
       uint32_t n_arg = c.n;
       void* args[] = {&in_dev, &out_dev, &n_arg};
-      const auto result = state.LaunchExecutableKernel(
+      const auto result = GetRuntimeSession().LaunchExecutableKernel(
           ArtifactPath(c.artifact), host_symbol,
           LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x}, args);
       ASSERT_TRUE(result.ok) << result.error_message;
@@ -1126,7 +1127,7 @@ TEST_P(HipCtsLdPreloadTest, ExecutesHipOutThroughRegisteredHostFunctionAndValida
       void* out_dev = state.AllocateDevice(c.grid_x * sizeof(int32_t));
       state.MemcpyHostToDevice(out_dev, out.data(), c.grid_x * sizeof(int32_t));
       void* args[] = {&out_dev};
-      const auto result = state.LaunchExecutableKernel(
+      const auto result = GetRuntimeSession().LaunchExecutableKernel(
           ArtifactPath(c.artifact),
           host_symbol,
           LaunchConfig{
@@ -1150,7 +1151,7 @@ TEST_P(HipCtsLdPreloadTest, ExecutesHipOutThroughRegisteredHostFunctionAndValida
       state.MemcpyHostToDevice(out_dev, out.data(), c.grid_x * sizeof(float));
       uint32_t n_arg = c.n;
       void* args[] = {&in_dev, &out_dev, &n_arg};
-      const auto result = state.LaunchExecutableKernel(
+      const auto result = GetRuntimeSession().LaunchExecutableKernel(
           ArtifactPath(c.artifact),
           host_symbol,
           LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x},
@@ -1170,7 +1171,7 @@ TEST_P(HipCtsLdPreloadTest, ExecutesHipOutThroughRegisteredHostFunctionAndValida
       state.MemcpyHostToDevice(out_dev, out.data(), c.n * sizeof(float));
       uint32_t n_arg = c.n;
       void* args[] = {&in_dev, &out_dev, &n_arg};
-      const auto result = state.LaunchExecutableKernel(
+      const auto result = GetRuntimeSession().LaunchExecutableKernel(
           ArtifactPath(c.artifact), host_symbol,
           LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x}, args);
       ASSERT_TRUE(result.ok) << result.error_message;
@@ -1183,7 +1184,7 @@ TEST_P(HipCtsLdPreloadTest, ExecutesHipOutThroughRegisteredHostFunctionAndValida
       void* out_dev = state.AllocateDevice(sizeof(float));
       state.MemcpyHostToDevice(out_dev, &out, sizeof(float));
       void* args[] = {&out_dev};
-      const auto result = state.LaunchExecutableKernel(
+      const auto result = GetRuntimeSession().LaunchExecutableKernel(
           ArtifactPath(c.artifact), host_symbol,
           LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64}, args);
       ASSERT_TRUE(result.ok) << result.error_message;
