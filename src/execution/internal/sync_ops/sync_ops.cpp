@@ -3,7 +3,7 @@
 #include <stdexcept>
 
 #include "execution/internal/issue_logic/issue_eligibility.h"
-#include "state/wave/barrier_state.h"
+#include "state/wave/barrier_wait_ops.h"
 
 namespace gpu_model::sync_ops {
 

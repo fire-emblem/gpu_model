@@ -1,6 +1,6 @@
 #include "instruction/semantics/internal/handler_support.h"
 #include "utils/math/bit_utils.h"
-#include "state/wave/barrier_state.h"
+#include "state/wave/barrier_wait_ops.h"
 
 namespace gpu_model {
 namespace semantics {
