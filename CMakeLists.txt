@@ -160,6 +160,7 @@ add_library(gpu_model STATIC
   src/runtime/exec_engine/launch_request_validator.cpp
   src/runtime/exec_engine/launch_trace_emitter.cpp
   src/runtime/exec_engine/launch_dispatcher.cpp
+  src/runtime/exec_engine/runtime_startup_config.cpp
   src/runtime/exec_engine/trace_sink_resolver.cpp
   src/runtime/exec_engine/exec_engine.cpp
   # runtime/config/

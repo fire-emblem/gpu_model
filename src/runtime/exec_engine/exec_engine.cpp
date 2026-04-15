@@ -17,6 +17,7 @@
 #include "runtime/exec_engine/launch_dispatcher.h"
 #include "runtime/exec_engine/launch_trace_emitter.h"
 #include "runtime/exec_engine/launch_request_validator.h"
+#include "runtime/exec_engine/runtime_startup_config.h"
 #include "runtime/exec_engine/trace_sink_resolver.h"
 #include "utils/config/runtime_config.h"
 #include "utils/logging/log_macros.h"
@@ -79,30 +80,15 @@ class ExecEngineImpl {
   std::atomic<uint64_t> next_trace_flow_id_{1};
 };
 
-namespace {
-
-const char* ToEnvModeName(FunctionalExecutionMode mode) {
-  switch (mode) {
-    case FunctionalExecutionMode::SingleThreaded:
-      return "st";
-    case FunctionalExecutionMode::MultiThreaded:
-      return "mt";
-  }
-  return "unknown";
-}
-
-}  // namespace
-
 ExecEngineImpl::ExecEngineImpl(TraceSink* default_trace) : default_trace_(default_trace) {
   logging::EnsureInitialized();
-  const auto& config = GetRuntimeConfig();
-  disable_trace_ = config.disable_trace;
-  if (config.functional.mode != FunctionalExecutionMode::SingleThreaded ||
-      config.functional.worker_threads > 0) {
-    functional_execution_config_ = config.functional;
+  const auto startup = ResolveExecEngineStartupConfig(GetRuntimeConfig());
+  disable_trace_ = startup.disable_trace;
+  functional_execution_config_ = startup.functional;
+  if (startup.should_log_functional_config) {
     GPU_MODEL_LOG_INFO("runtime",
                        "functional_mode=%s workers=%u",
-                       ToEnvModeName(functional_execution_config_.mode),
+                       ToExecEngineFunctionalModeName(functional_execution_config_.mode),
                        functional_execution_config_.worker_threads);
   }
 }
