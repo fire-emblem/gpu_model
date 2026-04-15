@@ -156,6 +156,7 @@ add_library(gpu_model STATIC
   src/runtime/model_runtime/runtime_session.cpp
   # runtime/exec_engine/
   src/runtime/exec_engine/cycle_timing_config_resolver.cpp
+  src/runtime/exec_engine/cycle_launch_state.cpp
   src/runtime/exec_engine/launch_request_validator.cpp
   src/runtime/exec_engine/launch_trace_emitter.cpp
   src/runtime/exec_engine/launch_dispatcher.cpp

@@ -12,6 +12,7 @@
 #include "gpu_arch/chip_config/arch_registry.h"
 #include "execution/cycle/cycle_exec_engine.h"
 #include "program/loader/device_image_loader.h"
+#include "runtime/exec_engine/cycle_launch_state.h"
 #include "runtime/exec_engine/cycle_timing_config_resolver.h"
 #include "runtime/exec_engine/launch_dispatcher.h"
 #include "runtime/exec_engine/launch_trace_emitter.h"
@@ -58,8 +59,8 @@ class ExecEngineImpl {
   const FunctionalExecutionConfig& functional_execution_config() const {
     return functional_execution_config_;
   }
-  uint64_t device_cycle() const { return device_cycle_; }
-  void ResetDeviceCycle() { device_cycle_ = 0; has_cycle_launch_history_ = false; }
+  uint64_t device_cycle() const { return cycle_launch_state_.device_cycle; }
+  void ResetDeviceCycle() { ResetCycleLaunchState(cycle_launch_state_); }
 
   LaunchResult Launch(const LaunchRequest& request);
 
@@ -73,8 +74,7 @@ class ExecEngineImpl {
   CycleTimingConfigOverrides cycle_timing_overrides_;
   FunctionalExecutionConfig functional_execution_config_{};
   bool disable_trace_ = false;
-  uint64_t device_cycle_ = 0;
-  bool has_cycle_launch_history_ = false;
+  CycleLaunchState cycle_launch_state_{};
   // Must remain monotonic across launches on a long-lived ExecEngine/recorder.
   std::atomic<uint64_t> next_trace_flow_id_{1};
 };
@@ -188,12 +188,7 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
 
   auto& trace = ResolveTraceSink(request.trace);
   try {
-    if (request.mode == ExecutionMode::Cycle) {
-      result.submit_cycle =
-          has_cycle_launch_history_ ? device_cycle_ + spec->launch_timing.kernel_launch_gap_cycles
-                                    : 0;
-      result.begin_cycle = result.submit_cycle + spec->launch_timing.kernel_launch_cycles;
-    }
+    PrepareCycleLaunchResult(request, *spec, cycle_launch_state_, result);
     result.placement = Mapper::Place(*spec, request.config);
     EmitLaunchTracePreamble(trace,
                             request,
@@ -214,10 +209,7 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
                         result)) {
       return result;
     }
-    if (request.mode == ExecutionMode::Cycle) {
-      device_cycle_ = result.end_cycle;
-      has_cycle_launch_history_ = true;
-    }
+    CommitCycleLaunchResult(request, result, cycle_launch_state_);
 
     if (!use_program_object_payload || result.error_message.empty()) {
       result.ok = true;
