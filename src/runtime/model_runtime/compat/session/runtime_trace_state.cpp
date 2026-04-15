@@ -1,4 +1,4 @@
-#include "runtime/model_runtime/compat/runtime_trace_state.h"
+#include "runtime/model_runtime/compat/session/runtime_trace_state.h"
 
 #include <cstdlib>
 #include <string_view>

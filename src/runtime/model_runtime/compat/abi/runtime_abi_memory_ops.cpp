@@ -1,4 +1,4 @@
-#include "runtime/model_runtime/compat/runtime_abi_memory_ops.h"
+#include "runtime/model_runtime/compat/abi/runtime_abi_memory_ops.h"
 
 #include <cstring>
 #include <stdexcept>

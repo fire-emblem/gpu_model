@@ -1,6 +1,6 @@
 #pragma once
 
-#include "runtime/model_runtime/compat/runtime_submission_context.h"
+#include "runtime/model_runtime/compat/session/runtime_submission_context.h"
 
 namespace gpu_model {
 

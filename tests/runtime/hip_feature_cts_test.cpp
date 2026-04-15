@@ -14,7 +14,7 @@
 #include "program/program_object/object_reader.h"
 #include "runtime/hip_runtime/hip_runtime.h"
 #include "runtime/model_runtime/core/model_runtime.h"
-#include "runtime/model_runtime/compat/runtime_session.h"
+#include "runtime/model_runtime/compat/session/runtime_session.h"
 #include "tests/test_utils/hipcc_cache_test_utils.h"
 #include "test_matrix_profile.h"
 

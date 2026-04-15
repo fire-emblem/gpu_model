@@ -1,6 +1,6 @@
-#include "runtime/model_runtime/compat/runtime_abi_allocation_ops.h"
+#include "runtime/model_runtime/compat/abi/runtime_abi_allocation_ops.h"
 
-#include "runtime/model_runtime/compat/device_memory_manager.h"
+#include "runtime/model_runtime/compat/abi/device_memory_manager.h"
 #include "runtime/model_runtime/core/model_runtime.h"
 
 namespace gpu_model {

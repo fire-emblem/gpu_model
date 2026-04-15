@@ -141,25 +141,25 @@ add_library(gpu_model STATIC
   # runtime/model_runtime/
   src/runtime/model_runtime/core/model_runtime.cpp
   src/runtime/model_runtime/module/module_registry.cpp
-  src/runtime/model_runtime/compat/device_memory_manager.cpp
-  src/runtime/model_runtime/compat/runtime_abi_arg_packer.cpp
-  src/runtime/model_runtime/compat/runtime_abi_allocation_ops.cpp
-  src/runtime/model_runtime/compat/runtime_abi_memory_ops.cpp
-  src/runtime/model_runtime/compat/runtime_last_error_state.cpp
-  src/runtime/model_runtime/compat/runtime_kernel_symbol_state.cpp
-  src/runtime/model_runtime/compat/runtime_launch_config_state.cpp
+  src/runtime/model_runtime/compat/abi/device_memory_manager.cpp
+  src/runtime/model_runtime/compat/abi/runtime_abi_arg_packer.cpp
+  src/runtime/model_runtime/compat/abi/runtime_abi_allocation_ops.cpp
+  src/runtime/model_runtime/compat/abi/runtime_abi_memory_ops.cpp
+  src/runtime/model_runtime/compat/session/runtime_last_error_state.cpp
+  src/runtime/model_runtime/compat/session/runtime_kernel_symbol_state.cpp
+  src/runtime/model_runtime/compat/session/runtime_launch_config_state.cpp
   src/runtime/model_runtime/core/model_runtime_device_info.cpp
   src/runtime/model_runtime/core/model_runtime_device_state.cpp
   src/runtime/model_runtime/core/model_runtime_launch_helper.cpp
   src/runtime/model_runtime/core/model_runtime_memory_ops.cpp
   src/runtime/model_runtime/core/model_runtime_reset_helper.cpp
   src/runtime/model_runtime/core/model_runtime_registered_kernel_helper.cpp
-  src/runtime/model_runtime/compat/runtime_executable_launch_helper.cpp
-  src/runtime/model_runtime/compat/runtime_process_path.cpp
-  src/runtime/model_runtime/compat/runtime_submission_sync.cpp
-  src/runtime/model_runtime/compat/runtime_stream_event_state.cpp
-  src/runtime/model_runtime/compat/runtime_trace_state.cpp
-  src/runtime/model_runtime/compat/runtime_session.cpp
+  src/runtime/model_runtime/compat/launch/runtime_executable_launch_helper.cpp
+  src/runtime/model_runtime/compat/launch/runtime_process_path.cpp
+  src/runtime/model_runtime/compat/session/runtime_submission_sync.cpp
+  src/runtime/model_runtime/compat/session/runtime_stream_event_state.cpp
+  src/runtime/model_runtime/compat/session/runtime_trace_state.cpp
+  src/runtime/model_runtime/compat/session/runtime_session.cpp
   # runtime/exec_engine/
   src/runtime/exec_engine/cycle_timing_config_resolver.cpp
   src/runtime/exec_engine/cycle_launch_state.cpp

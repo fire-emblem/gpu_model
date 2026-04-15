@@ -1,15 +1,15 @@
-#include "runtime/model_runtime/compat/runtime_session.h"
+#include "runtime/model_runtime/compat/session/runtime_session.h"
 
 #include <cstring>
 #include <limits>
 #include <stdexcept>
 
 #include "instruction/isa/kernel_metadata.h"
-#include "runtime/model_runtime/compat/runtime_abi_allocation_ops.h"
-#include "runtime/model_runtime/compat/runtime_abi_memory_ops.h"
-#include "runtime/model_runtime/compat/runtime_executable_launch_helper.h"
-#include "runtime/model_runtime/compat/runtime_process_path.h"
-#include "runtime/model_runtime/compat/runtime_submission_sync.h"
+#include "runtime/model_runtime/compat/abi/runtime_abi_allocation_ops.h"
+#include "runtime/model_runtime/compat/abi/runtime_abi_memory_ops.h"
+#include "runtime/model_runtime/compat/launch/runtime_executable_launch_helper.h"
+#include "runtime/model_runtime/compat/launch/runtime_process_path.h"
+#include "runtime/model_runtime/compat/session/runtime_submission_sync.h"
 
 namespace gpu_model {
 

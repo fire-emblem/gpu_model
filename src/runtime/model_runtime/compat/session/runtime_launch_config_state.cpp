@@ -1,4 +1,4 @@
-#include "runtime/model_runtime/compat/runtime_launch_config_state.h"
+#include "runtime/model_runtime/compat/session/runtime_launch_config_state.h"
 
 namespace gpu_model {
 
