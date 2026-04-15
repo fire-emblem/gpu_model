@@ -150,6 +150,7 @@ add_library(gpu_model STATIC
   src/runtime/model_runtime/runtime_launch_config_state.cpp
   src/runtime/model_runtime/model_runtime_device_info.cpp
   src/runtime/model_runtime/model_runtime_launch_helper.cpp
+  src/runtime/model_runtime/model_runtime_memory_ops.cpp
   src/runtime/model_runtime/runtime_executable_launch_helper.cpp
   src/runtime/model_runtime/runtime_process_path.cpp
   src/runtime/model_runtime/runtime_submission_sync.cpp

@@ -3,12 +3,12 @@
 #include <cstring>
 #include <stdexcept>
 #include <utility>
-#include <vector>
 
 #include "gpu_arch/chip_config/arch_registry.h"
 #include "runtime/exec_engine/exec_engine.h"
 #include "runtime/model_runtime/model_runtime_device_info.h"
 #include "runtime/model_runtime/model_runtime_launch_helper.h"
+#include "runtime/model_runtime/model_runtime_memory_ops.h"
 
 namespace gpu_model {
 
@@ -45,30 +45,19 @@ void ModelRuntime::StreamSynchronize(RuntimeSubmissionContext submission_context
 }
 
 void ModelRuntime::MemcpyDeviceToDevice(uint64_t dst_addr, uint64_t src_addr, size_t bytes) {
-  std::vector<std::byte> buffer(bytes);
-  runtime_engine_->memory().ReadGlobal(src_addr, std::span<std::byte>(buffer));
-  runtime_engine_->memory().WriteGlobal(dst_addr, std::span<const std::byte>(buffer));
+  RuntimeMemcpyDeviceToDevice(runtime_engine_->memory(), dst_addr, src_addr, bytes);
 }
 
 void ModelRuntime::MemsetD8(uint64_t addr, uint8_t value, size_t bytes) {
-  std::vector<std::byte> buffer(bytes, static_cast<std::byte>(value));
-  runtime_engine_->memory().WriteGlobal(addr, std::span<const std::byte>(buffer));
+  RuntimeMemsetD8(runtime_engine_->memory(), addr, value, bytes);
 }
 
 void ModelRuntime::MemsetD16(uint64_t addr, uint16_t value, size_t count) {
-  std::vector<std::byte> buffer(count * sizeof(uint16_t));
-  for (size_t i = 0; i < count; ++i) {
-    std::memcpy(buffer.data() + i * sizeof(uint16_t), &value, sizeof(uint16_t));
-  }
-  runtime_engine_->memory().WriteGlobal(addr, std::span<const std::byte>(buffer));
+  RuntimeMemsetD16(runtime_engine_->memory(), addr, value, count);
 }
 
 void ModelRuntime::MemsetD32(uint64_t addr, uint32_t value, size_t count) {
-  std::vector<std::byte> buffer(count * sizeof(uint32_t));
-  for (size_t i = 0; i < count; ++i) {
-    std::memcpy(buffer.data() + i * sizeof(uint32_t), &value, sizeof(uint32_t));
-  }
-  runtime_engine_->memory().WriteGlobal(addr, std::span<const std::byte>(buffer));
+  RuntimeMemsetD32(runtime_engine_->memory(), addr, value, count);
 }
 
 void ModelRuntime::Reset() {
