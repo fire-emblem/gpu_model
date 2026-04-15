@@ -79,7 +79,7 @@ void DebugLog(const char* fmt, ...) {
 }
 
 hipError_t Remember(hipError_t error) {
-  HipApi().SetLastError(static_cast<int>(error));
+  gpu_model::GetRuntimeSession().SetLastError(static_cast<int>(error));
   return error;
 }
 
@@ -88,13 +88,13 @@ bool IsValidStream(hipStream_t stream) {
   if (stream != nullptr) {
     stream_id = reinterpret_cast<uintptr_t>(stream);
   }
-  return HipApi().IsValidStream(stream_id);
+  return gpu_model::GetRuntimeSession().IsValidStream(stream_id);
 }
 
 gpu_model::RuntimeSubmissionContext CurrentSubmissionContext() {
   gpu_model::RuntimeSubmissionContext submission_context;
   submission_context.device_id = HipApi().GetDevice();
-  if (const auto stream_id = HipApi().active_stream_id();
+  if (const auto stream_id = gpu_model::GetRuntimeSession().active_stream_id();
       stream_id.has_value()) {
     submission_context.stream_id = *stream_id;
   }
@@ -460,18 +460,18 @@ hipError_t hipDeviceGetAttribute(int* value, hipDeviceAttribute_t attr, int devi
 }
 
 hipError_t hipGetLastError() {
-  return static_cast<hipError_t>(HipApi().ConsumeLastError());
+  return static_cast<hipError_t>(gpu_model::GetRuntimeSession().ConsumeLastError());
 }
 
 hipError_t hipPeekAtLastError() {
-  return static_cast<hipError_t>(HipApi().PeekLastError());
+  return static_cast<hipError_t>(gpu_model::GetRuntimeSession().PeekLastError());
 }
 
 hipError_t hipStreamCreate(hipStream_t* stream) {
   if (stream == nullptr) {
     return Remember(hipErrorInvalidValue);
   }
-  const auto stream_id = HipApi().CreateStream();
+  const auto stream_id = gpu_model::GetRuntimeSession().CreateStream();
   if (!stream_id.has_value()) {
     return Remember(hipErrorInvalidValue);
   }
@@ -481,7 +481,7 @@ hipError_t hipStreamCreate(hipStream_t* stream) {
 
 hipError_t hipStreamDestroy(hipStream_t stream) {
   if (stream == nullptr ||
-      !HipApi().DestroyStream(reinterpret_cast<uintptr_t>(stream))) {
+      !gpu_model::GetRuntimeSession().DestroyStream(reinterpret_cast<uintptr_t>(stream))) {
     return Remember(hipErrorInvalidHandle);
   }
   return Remember(hipSuccess);
@@ -499,7 +499,7 @@ hipError_t hipStreamWaitEvent(hipStream_t stream, hipEvent_t event, unsigned int
   if (!IsValidStream(stream)) {
     return Remember(hipErrorInvalidHandle);
   }
-  if (!HipApi().HasEvent(reinterpret_cast<uintptr_t>(event))) {
+  if (!gpu_model::GetRuntimeSession().HasEvent(reinterpret_cast<uintptr_t>(event))) {
     return Remember(hipErrorInvalidHandle);
   }
   return Remember(hipSuccess);
@@ -509,7 +509,7 @@ hipError_t hipEventCreate(hipEvent_t* event) {
   if (event == nullptr) {
     return Remember(hipErrorInvalidValue);
   }
-  *event = reinterpret_cast<hipEvent_t>(HipApi().CreateEvent());
+  *event = reinterpret_cast<hipEvent_t>(gpu_model::GetRuntimeSession().CreateEvent());
   return Remember(hipSuccess);
 }
 
@@ -518,7 +518,7 @@ hipError_t hipEventCreateWithFlags(hipEvent_t* event, unsigned) {
 }
 
 hipError_t hipEventDestroy(hipEvent_t event) {
-  if (!HipApi().DestroyEvent(reinterpret_cast<uintptr_t>(event))) {
+  if (!gpu_model::GetRuntimeSession().DestroyEvent(reinterpret_cast<uintptr_t>(event))) {
     return Remember(hipErrorInvalidHandle);
   }
   return Remember(hipSuccess);
@@ -532,7 +532,7 @@ hipError_t hipEventRecord(hipEvent_t event, hipStream_t stream) {
   if (stream != nullptr) {
     stream_id = reinterpret_cast<uintptr_t>(stream);
   }
-  if (!HipApi().RecordEvent(reinterpret_cast<uintptr_t>(event), stream_id)) {
+  if (!gpu_model::GetRuntimeSession().RecordEvent(reinterpret_cast<uintptr_t>(event), stream_id)) {
     return Remember(hipErrorInvalidHandle);
   }
   return Remember(hipSuccess);
@@ -543,7 +543,7 @@ hipError_t hipEventRecordWithFlags(hipEvent_t event, hipStream_t stream, unsigne
 }
 
 hipError_t hipEventSynchronize(hipEvent_t event) {
-  if (!HipApi().HasEvent(reinterpret_cast<uintptr_t>(event))) {
+  if (!gpu_model::GetRuntimeSession().HasEvent(reinterpret_cast<uintptr_t>(event))) {
     return Remember(hipErrorInvalidHandle);
   }
   return Remember(hipSuccess);
@@ -553,8 +553,8 @@ hipError_t hipEventElapsedTime(float* ms, hipEvent_t start, hipEvent_t stop) {
   if (ms == nullptr) {
     return Remember(hipErrorInvalidValue);
   }
-  if (!HipApi().HasEvent(reinterpret_cast<uintptr_t>(start)) ||
-      !HipApi().HasEvent(reinterpret_cast<uintptr_t>(stop))) {
+  if (!gpu_model::GetRuntimeSession().HasEvent(reinterpret_cast<uintptr_t>(start)) ||
+      !gpu_model::GetRuntimeSession().HasEvent(reinterpret_cast<uintptr_t>(stop))) {
     return Remember(hipErrorInvalidHandle);
   }
   *ms = 0.0f;

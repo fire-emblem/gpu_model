@@ -58,17 +58,6 @@ class HipRuntime {
                                       RuntimeSubmissionContext submission_context = {});
   DeviceLoadPlan BuildExecutableLoadPlan(const std::filesystem::path& executable_path,
                                          const void* host_function) const;
-  void SetLastError(int error);
-  int PeekLastError() const;
-  int ConsumeLastError();
-  std::optional<uintptr_t> active_stream_id() const;
-  bool IsValidStream(std::optional<uintptr_t> stream_id) const;
-  std::optional<uintptr_t> CreateStream();
-  bool DestroyStream(uintptr_t stream_id);
-  uintptr_t CreateEvent();
-  bool HasEvent(uintptr_t event_id) const;
-  bool DestroyEvent(uintptr_t event_id);
-  bool RecordEvent(uintptr_t event_id, std::optional<uintptr_t> stream_id);
 
   template <typename T>
   void MemcpyHtoD(uint64_t dst_addr, std::span<const T> values) {

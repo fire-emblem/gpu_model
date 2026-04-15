@@ -158,50 +158,6 @@ DeviceLoadPlan HipRuntime::BuildExecutableLoadPlan(const std::filesystem::path& 
   return GetRuntimeSession().BuildExecutableLoadPlan(executable_path, host_function);
 }
 
-void HipRuntime::SetLastError(int error) {
-  GetRuntimeSession().SetLastError(error);
-}
-
-int HipRuntime::PeekLastError() const {
-  return GetRuntimeSession().PeekLastError();
-}
-
-int HipRuntime::ConsumeLastError() {
-  return GetRuntimeSession().ConsumeLastError();
-}
-
-std::optional<uintptr_t> HipRuntime::active_stream_id() const {
-  return GetRuntimeSession().active_stream_id();
-}
-
-bool HipRuntime::IsValidStream(std::optional<uintptr_t> stream_id) const {
-  return GetRuntimeSession().IsValidStream(stream_id);
-}
-
-std::optional<uintptr_t> HipRuntime::CreateStream() {
-  return GetRuntimeSession().CreateStream();
-}
-
-bool HipRuntime::DestroyStream(uintptr_t stream_id) {
-  return GetRuntimeSession().DestroyStream(stream_id);
-}
-
-uintptr_t HipRuntime::CreateEvent() {
-  return GetRuntimeSession().CreateEvent();
-}
-
-bool HipRuntime::HasEvent(uintptr_t event_id) const {
-  return GetRuntimeSession().HasEvent(event_id);
-}
-
-bool HipRuntime::DestroyEvent(uintptr_t event_id) {
-  return GetRuntimeSession().DestroyEvent(event_id);
-}
-
-bool HipRuntime::RecordEvent(uintptr_t event_id, std::optional<uintptr_t> stream_id) {
-  return GetRuntimeSession().RecordEvent(event_id, stream_id);
-}
-
 LaunchResult HipRuntime::LaunchKernel(const ExecutableKernel& kernel,
                                       LaunchConfig config,
                                       KernelArgPack args,
