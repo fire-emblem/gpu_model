@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+#include "gpu_arch/dpc/dpc_def.h"
+
 namespace gpu_model {
 
 /// DeviceDef — Device 纯定义

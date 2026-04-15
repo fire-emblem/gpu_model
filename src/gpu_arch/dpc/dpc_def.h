@@ -10,7 +10,7 @@ namespace gpu_model {
 /// 纯定义，不含运行时状态。
 
 /// DPC 常量定义（默认值）
-inline constexpr uint32_t kDefaultApPerDpc = 2;
+inline constexpr uint32_t kDefaultApPerDpc = 13;
 
 struct DpcConfig {
   uint32_t dpc_id = 0;

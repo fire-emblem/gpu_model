@@ -10,7 +10,7 @@ namespace gpu_model {
 /// 运行时状态见 state/peu/peu_runtime_state.h
 
 /// PEU 常量定义
-inline constexpr uint32_t kDefaultResidentWaveSlotsPerPeu = 10;
+inline constexpr uint32_t kDefaultResidentWaveSlotsPerPeu = 8;
 
 /// PEU 发射端口类型（架构定义）
 enum class PeuIssuePort {
