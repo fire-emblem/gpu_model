@@ -20,7 +20,6 @@ class HipRuntime {
   uint64_t MallocManaged(size_t bytes);
   void Free(uint64_t addr);
   void DeviceSynchronize() const;
-  void ContextSynchronize(uint64_t context_id = 0) const;
   void StreamSynchronize(RuntimeSubmissionContext submission_context = {}) const;
   void MemcpyDeviceToDevice(uint64_t dst_addr, uint64_t src_addr, size_t bytes);
   void MemsetD8(uint64_t addr, uint8_t value, size_t bytes);
@@ -34,7 +33,6 @@ class HipRuntime {
                                         int device_id = 0) const;
   void ResetAbiState();
   void RegisterFunction(const void* host_function, std::string kernel_name);
-  std::optional<std::string> ResolveKernelName(const void* host_function) const;
   void* AllocateDevice(size_t bytes);
   void* AllocateManaged(size_t bytes);
   bool FreeDevice(void* device_ptr);

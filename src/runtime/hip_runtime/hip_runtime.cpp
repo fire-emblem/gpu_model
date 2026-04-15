@@ -24,8 +24,6 @@ void HipRuntime::DeviceSynchronize() const {
   GetRuntimeSession().DeviceSynchronize();
 }
 
-void HipRuntime::ContextSynchronize(uint64_t) const {}
-
 void HipRuntime::StreamSynchronize(RuntimeSubmissionContext submission_context) const {
   GetRuntimeSession().StreamSynchronize(submission_context);
 }
@@ -78,10 +76,6 @@ void HipRuntime::ResetAbiState() {
 
 void HipRuntime::RegisterFunction(const void* host_function, std::string kernel_name) {
   GetRuntimeSession().RegisterKernelSymbol(host_function, std::move(kernel_name));
-}
-
-std::optional<std::string> HipRuntime::ResolveKernelName(const void* host_function) const {
-  return GetRuntimeSession().ResolveKernelSymbol(host_function);
 }
 
 void* HipRuntime::AllocateDevice(size_t bytes) {
