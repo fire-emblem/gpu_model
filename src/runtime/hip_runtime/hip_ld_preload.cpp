@@ -272,7 +272,7 @@ hipError_t hipMemsetD32(hipDeviceptr_t dest, int value, size_t count) {
 
 hipError_t hipDeviceSynchronize() {
   HipApi().DeviceSynchronize();
-  HipApi().SyncManagedDeviceToHost();
+  gpu_model::GetRuntimeSession().SyncManagedDeviceToHost();
   DebugLog("hipDeviceSynchronize");
   return Remember(hipSuccess);
 }

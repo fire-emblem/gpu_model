@@ -126,14 +126,6 @@ void HipRuntime::MemsetDeviceD32(void* device_ptr, uint32_t value, size_t count)
   GetRuntimeSession().MemsetDeviceD32(device_ptr, value, count);
 }
 
-void HipRuntime::SyncManagedHostToDevice() {
-  GetRuntimeSession().SyncManagedHostToDevice();
-}
-
-void HipRuntime::SyncManagedDeviceToHost() {
-  GetRuntimeSession().SyncManagedDeviceToHost();
-}
-
 LaunchResult HipRuntime::LaunchExecutableKernel(const std::filesystem::path& executable_path,
                                                 const void* host_function,
                                                 LaunchConfig config,

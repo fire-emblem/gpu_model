@@ -44,8 +44,6 @@ class HipRuntime {
   void MemsetDevice(void* device_ptr, uint8_t value, size_t bytes);
   void MemsetDeviceD16(void* device_ptr, uint16_t value, size_t count);
   void MemsetDeviceD32(void* device_ptr, uint32_t value, size_t count);
-  void SyncManagedHostToDevice();
-  void SyncManagedDeviceToHost();
   LaunchResult LaunchExecutableKernel(const std::filesystem::path& executable_path,
                                       const void* host_function,
                                       LaunchConfig config,
