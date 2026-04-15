@@ -16,6 +16,7 @@
 #include "runtime/exec_engine/launch_dispatcher.h"
 #include "runtime/exec_engine/launch_trace_emitter.h"
 #include "runtime/exec_engine/launch_request_validator.h"
+#include "runtime/exec_engine/trace_sink_resolver.h"
 #include "utils/config/runtime_config.h"
 #include "utils/logging/log_macros.h"
 
@@ -236,19 +237,7 @@ CycleTimingConfig ExecEngineImpl::ResolveCycleTimingConfig(const GpuArchSpec& sp
 }
 
 TraceSink& ExecEngineImpl::ResolveTraceSink(TraceSink* request_trace) {
-  // If a TraceSink is explicitly passed in request, always use it
-  if (request_trace != nullptr) {
-    return *request_trace;
-  }
-  // If a TraceSink was passed to constructor, always use it
-  if (default_trace_ != nullptr) {
-    return *default_trace_;
-  }
-  // Otherwise, check if trace is disabled
-  if (disable_trace_) {
-    return null_trace_sink_;
-  }
-  return null_trace_sink_;
+  return ResolveExecEngineTraceSink(request_trace, default_trace_, disable_trace_, null_trace_sink_);
 }
 
 ExecEngine::ExecEngine(TraceSink* default_trace)
