@@ -74,54 +74,6 @@ void HipRuntime::ResetAbiState() {
   GetRuntimeSession().BindDeviceMemoryManager();
 }
 
-void* HipRuntime::AllocateDevice(size_t bytes) {
-  return GetRuntimeSession().AllocateDevice(bytes);
-}
-
-void* HipRuntime::AllocateManaged(size_t bytes) {
-  return GetRuntimeSession().AllocateManaged(bytes);
-}
-
-bool HipRuntime::FreeDevice(void* device_ptr) {
-  return GetRuntimeSession().FreeDevice(device_ptr);
-}
-
-bool HipRuntime::IsDevicePointer(const void* ptr) const {
-  return GetRuntimeSession().IsDevicePointer(ptr);
-}
-
-uint64_t HipRuntime::ResolveDeviceAddress(const void* ptr) const {
-  return GetRuntimeSession().ResolveDeviceAddress(ptr);
-}
-
-void HipRuntime::MemcpyHostToDevice(void* dst_device_ptr, const void* src_host_ptr, size_t bytes) {
-  GetRuntimeSession().MemcpyHostToDevice(dst_device_ptr, src_host_ptr, bytes);
-}
-
-void HipRuntime::MemcpyDeviceToHost(void* dst_host_ptr,
-                                    const void* src_device_ptr,
-                                    size_t bytes) const {
-  GetRuntimeSession().MemcpyDeviceToHost(dst_host_ptr, src_device_ptr, bytes);
-}
-
-void HipRuntime::MemcpyDeviceToDevice(void* dst_device_ptr,
-                                      const void* src_device_ptr,
-                                      size_t bytes) {
-  GetRuntimeSession().MemcpyDeviceToDevice(dst_device_ptr, src_device_ptr, bytes);
-}
-
-void HipRuntime::MemsetDevice(void* device_ptr, uint8_t value, size_t bytes) {
-  GetRuntimeSession().MemsetDevice(device_ptr, value, bytes);
-}
-
-void HipRuntime::MemsetDeviceD16(void* device_ptr, uint16_t value, size_t count) {
-  GetRuntimeSession().MemsetDeviceD16(device_ptr, value, count);
-}
-
-void HipRuntime::MemsetDeviceD32(void* device_ptr, uint32_t value, size_t count) {
-  GetRuntimeSession().MemsetDeviceD32(device_ptr, value, count);
-}
-
 LaunchResult HipRuntime::LaunchKernel(const ExecutableKernel& kernel,
                                       LaunchConfig config,
                                       KernelArgPack args,

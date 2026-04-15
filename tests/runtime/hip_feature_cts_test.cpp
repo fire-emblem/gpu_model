@@ -741,10 +741,10 @@ TEST_P(HipFeatureLdPreloadTest, ExecutesFeatureKernelThroughRegisteredHostFuncti
         expected = ExpectedStencil1D(c.n, c.pattern);
       }
 
-      void* in_dev = state.AllocateDevice(c.n * sizeof(float));
-      void* out_dev = state.AllocateDevice(c.n * sizeof(float));
-      state.MemcpyHostToDevice(in_dev, in.data(), c.n * sizeof(float));
-      state.MemcpyHostToDevice(out_dev, out.data(), c.n * sizeof(float));
+      void* in_dev = GetRuntimeSession().AllocateDevice(c.n * sizeof(float));
+      void* out_dev = GetRuntimeSession().AllocateDevice(c.n * sizeof(float));
+      GetRuntimeSession().MemcpyHostToDevice(in_dev, in.data(), c.n * sizeof(float));
+      GetRuntimeSession().MemcpyHostToDevice(out_dev, out.data(), c.n * sizeof(float));
 
       uint32_t n_arg = c.n;
       float f0 = c.f0;
@@ -769,7 +769,7 @@ TEST_P(HipFeatureLdPreloadTest, ExecutesFeatureKernelThroughRegisteredHostFuncti
         ASSERT_TRUE(result.ok) << result.error_message;
       }
 
-      state.MemcpyDeviceToHost(out.data(), out_dev, c.n * sizeof(float));
+      GetRuntimeSession().MemcpyDeviceToHost(out.data(), out_dev, c.n * sizeof(float));
       ExpectNearVector(out, expected, 1.0e-4f);
       return;
     }
@@ -779,10 +779,10 @@ TEST_P(HipFeatureLdPreloadTest, ExecutesFeatureKernelThroughRegisteredHostFuncti
       std::vector<float> out(c.grid_x, -1.0f);
       const auto expected = ExpectedBlockReduceSum(c.n, c.pattern, c.grid_x, c.block_x);
 
-      void* in_dev = state.AllocateDevice(c.n * sizeof(float));
-      void* out_dev = state.AllocateDevice(c.grid_x * sizeof(float));
-      state.MemcpyHostToDevice(in_dev, in.data(), c.n * sizeof(float));
-      state.MemcpyHostToDevice(out_dev, out.data(), c.grid_x * sizeof(float));
+      void* in_dev = GetRuntimeSession().AllocateDevice(c.n * sizeof(float));
+      void* out_dev = GetRuntimeSession().AllocateDevice(c.grid_x * sizeof(float));
+      GetRuntimeSession().MemcpyHostToDevice(in_dev, in.data(), c.n * sizeof(float));
+      GetRuntimeSession().MemcpyHostToDevice(out_dev, out.data(), c.grid_x * sizeof(float));
 
       uint32_t n_arg = c.n;
       void* args[] = {&in_dev, &out_dev, &n_arg};
@@ -791,7 +791,7 @@ TEST_P(HipFeatureLdPreloadTest, ExecutesFeatureKernelThroughRegisteredHostFuncti
           LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x}, args);
       ASSERT_TRUE(result.ok) << result.error_message;
 
-      state.MemcpyDeviceToHost(out.data(), out_dev, c.grid_x * sizeof(float));
+      GetRuntimeSession().MemcpyDeviceToHost(out.data(), out_dev, c.grid_x * sizeof(float));
       ExpectNearVector(out, expected, 1.0e-2f);
       return;
     }
@@ -799,8 +799,8 @@ TEST_P(HipFeatureLdPreloadTest, ExecutesFeatureKernelThroughRegisteredHostFuncti
       std::vector<int32_t> out(c.grid_x, 0);
       const auto expected = ExpectedDynamicSharedSum(c.grid_x, c.block_x);
 
-      void* out_dev = state.AllocateDevice(c.grid_x * sizeof(int32_t));
-      state.MemcpyHostToDevice(out_dev, out.data(), c.grid_x * sizeof(int32_t));
+      void* out_dev = GetRuntimeSession().AllocateDevice(c.grid_x * sizeof(int32_t));
+      GetRuntimeSession().MemcpyHostToDevice(out_dev, out.data(), c.grid_x * sizeof(int32_t));
 
       void* args[] = {&out_dev};
       const auto result = GetRuntimeSession().LaunchExecutableKernel(
@@ -814,7 +814,7 @@ TEST_P(HipFeatureLdPreloadTest, ExecutesFeatureKernelThroughRegisteredHostFuncti
           args);
       ASSERT_TRUE(result.ok) << result.error_message;
 
-      state.MemcpyDeviceToHost(out.data(), out_dev, c.grid_x * sizeof(int32_t));
+      GetRuntimeSession().MemcpyDeviceToHost(out.data(), out_dev, c.grid_x * sizeof(int32_t));
       EXPECT_EQ(out, expected);
       return;
     }

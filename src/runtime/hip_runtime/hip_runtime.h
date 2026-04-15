@@ -32,17 +32,6 @@ class HipRuntime {
   std::optional<int> GetDeviceAttribute(RuntimeDeviceAttribute attribute,
                                         int device_id = 0) const;
   void ResetAbiState();
-  void* AllocateDevice(size_t bytes);
-  void* AllocateManaged(size_t bytes);
-  bool FreeDevice(void* device_ptr);
-  bool IsDevicePointer(const void* ptr) const;
-  uint64_t ResolveDeviceAddress(const void* ptr) const;
-  void MemcpyHostToDevice(void* dst_device_ptr, const void* src_host_ptr, size_t bytes);
-  void MemcpyDeviceToHost(void* dst_host_ptr, const void* src_device_ptr, size_t bytes) const;
-  void MemcpyDeviceToDevice(void* dst_device_ptr, const void* src_device_ptr, size_t bytes);
-  void MemsetDevice(void* device_ptr, uint8_t value, size_t bytes);
-  void MemsetDeviceD16(void* device_ptr, uint16_t value, size_t count);
-  void MemsetDeviceD32(void* device_ptr, uint32_t value, size_t count);
 
   template <typename T>
   void MemcpyHtoD(uint64_t dst_addr, std::span<const T> values) {

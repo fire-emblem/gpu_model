@@ -150,19 +150,19 @@ TEST(HipLdPreloadTest, LaunchesHipVecAddExecutableThroughRegisteredHostFunction)
     b[i] = static_cast<float>(50 + i) * 0.25f;
   }
 
-  void* a_dev = state.AllocateDevice(n * sizeof(float));
-  void* b_dev = state.AllocateDevice(n * sizeof(float));
-  void* c_dev = state.AllocateDevice(n * sizeof(float));
-  state.MemcpyHostToDevice(a_dev, a.data(), n * sizeof(float));
-  state.MemcpyHostToDevice(b_dev, b.data(), n * sizeof(float));
-  state.MemcpyHostToDevice(c_dev, c.data(), n * sizeof(float));
+  void* a_dev = GetRuntimeSession().AllocateDevice(n * sizeof(float));
+  void* b_dev = GetRuntimeSession().AllocateDevice(n * sizeof(float));
+  void* c_dev = GetRuntimeSession().AllocateDevice(n * sizeof(float));
+  GetRuntimeSession().MemcpyHostToDevice(a_dev, a.data(), n * sizeof(float));
+  GetRuntimeSession().MemcpyHostToDevice(b_dev, b.data(), n * sizeof(float));
+  GetRuntimeSession().MemcpyHostToDevice(c_dev, c.data(), n * sizeof(float));
 
   void* args[] = {&a_dev, &b_dev, &c_dev, const_cast<uint32_t*>(&n)};
   const auto result = GetRuntimeSession().LaunchExecutableKernel(
       exe_path, &host_symbol, LaunchConfig{.grid_dim_x = 3, .block_dim_x = 64}, args);
   ASSERT_TRUE(result.ok) << result.error_message;
 
-  state.MemcpyDeviceToHost(c.data(), c_dev, n * sizeof(float));
+  GetRuntimeSession().MemcpyDeviceToHost(c.data(), c_dev, n * sizeof(float));
   for (uint32_t i = 0; i < n; ++i) {
     EXPECT_FLOAT_EQ(c[i], a[i] + b[i]);
   }
@@ -205,12 +205,12 @@ TEST(HipLdPreloadTest, LaunchesHipVecAddExecutableInCycleModeThroughRegisteredHo
     b[i] = static_cast<float>(50 + i) * 0.25f;
   }
 
-  void* a_dev = state.AllocateDevice(n * sizeof(float));
-  void* b_dev = state.AllocateDevice(n * sizeof(float));
-  void* c_dev = state.AllocateDevice(n * sizeof(float));
-  state.MemcpyHostToDevice(a_dev, a.data(), n * sizeof(float));
-  state.MemcpyHostToDevice(b_dev, b.data(), n * sizeof(float));
-  state.MemcpyHostToDevice(c_dev, c.data(), n * sizeof(float));
+  void* a_dev = GetRuntimeSession().AllocateDevice(n * sizeof(float));
+  void* b_dev = GetRuntimeSession().AllocateDevice(n * sizeof(float));
+  void* c_dev = GetRuntimeSession().AllocateDevice(n * sizeof(float));
+  GetRuntimeSession().MemcpyHostToDevice(a_dev, a.data(), n * sizeof(float));
+  GetRuntimeSession().MemcpyHostToDevice(b_dev, b.data(), n * sizeof(float));
+  GetRuntimeSession().MemcpyHostToDevice(c_dev, c.data(), n * sizeof(float));
 
   void* args[] = {&a_dev, &b_dev, &c_dev, const_cast<uint32_t*>(&n)};
   const auto result = GetRuntimeSession().LaunchExecutableKernel(
@@ -225,7 +225,7 @@ TEST(HipLdPreloadTest, LaunchesHipVecAddExecutableInCycleModeThroughRegisteredHo
   EXPECT_EQ(result.total_cycles, result.program_cycle_stats->total_cycles);
   EXPECT_GT(result.program_cycle_stats->total_issued_work_cycles, 0u);
 
-  state.MemcpyDeviceToHost(c.data(), c_dev, n * sizeof(float));
+  GetRuntimeSession().MemcpyDeviceToHost(c.data(), c_dev, n * sizeof(float));
   for (uint32_t i = 0; i < n; ++i) {
     EXPECT_FLOAT_EQ(c[i], a[i] + b[i]);
   }
@@ -324,12 +324,12 @@ TEST(HipLdPreloadTest, LaunchesHipFmaLoopExecutableThroughRegisteredHostFunction
     expect[i] = acc;
   }
 
-  void* a_dev = state.AllocateDevice(n * sizeof(float));
-  void* b_dev = state.AllocateDevice(n * sizeof(float));
-  void* c_dev = state.AllocateDevice(n * sizeof(float));
-  state.MemcpyHostToDevice(a_dev, a.data(), n * sizeof(float));
-  state.MemcpyHostToDevice(b_dev, b.data(), n * sizeof(float));
-  state.MemcpyHostToDevice(c_dev, c.data(), n * sizeof(float));
+  void* a_dev = GetRuntimeSession().AllocateDevice(n * sizeof(float));
+  void* b_dev = GetRuntimeSession().AllocateDevice(n * sizeof(float));
+  void* c_dev = GetRuntimeSession().AllocateDevice(n * sizeof(float));
+  GetRuntimeSession().MemcpyHostToDevice(a_dev, a.data(), n * sizeof(float));
+  GetRuntimeSession().MemcpyHostToDevice(b_dev, b.data(), n * sizeof(float));
+  GetRuntimeSession().MemcpyHostToDevice(c_dev, c.data(), n * sizeof(float));
 
   uint32_t n_arg = n;
   uint32_t iters_arg = iters;
@@ -338,7 +338,7 @@ TEST(HipLdPreloadTest, LaunchesHipFmaLoopExecutableThroughRegisteredHostFunction
       exe_path, &host_symbol, LaunchConfig{.grid_dim_x = 3, .block_dim_x = 128}, args);
   ASSERT_TRUE(result.ok) << result.error_message;
 
-  state.MemcpyDeviceToHost(c.data(), c_dev, n * sizeof(float));
+  GetRuntimeSession().MemcpyDeviceToHost(c.data(), c_dev, n * sizeof(float));
   for (uint32_t i = 0; i < n; ++i) {
     EXPECT_FLOAT_EQ(c[i], expect[i]);
   }
@@ -387,12 +387,12 @@ TEST(HipLdPreloadTest, LaunchesHipBiasChainExecutableThroughRegisteredHostFuncti
     expect[i] = a[i] + b[i] + b0 + b1 + b2;
   }
 
-  void* a_dev = state.AllocateDevice(n * sizeof(float));
-  void* b_dev = state.AllocateDevice(n * sizeof(float));
-  void* c_dev = state.AllocateDevice(n * sizeof(float));
-  state.MemcpyHostToDevice(a_dev, a.data(), n * sizeof(float));
-  state.MemcpyHostToDevice(b_dev, b.data(), n * sizeof(float));
-  state.MemcpyHostToDevice(c_dev, c.data(), n * sizeof(float));
+  void* a_dev = GetRuntimeSession().AllocateDevice(n * sizeof(float));
+  void* b_dev = GetRuntimeSession().AllocateDevice(n * sizeof(float));
+  void* c_dev = GetRuntimeSession().AllocateDevice(n * sizeof(float));
+  GetRuntimeSession().MemcpyHostToDevice(a_dev, a.data(), n * sizeof(float));
+  GetRuntimeSession().MemcpyHostToDevice(b_dev, b.data(), n * sizeof(float));
+  GetRuntimeSession().MemcpyHostToDevice(c_dev, c.data(), n * sizeof(float));
 
   float b0_arg = b0;
   float b1_arg = b1;
@@ -403,7 +403,7 @@ TEST(HipLdPreloadTest, LaunchesHipBiasChainExecutableThroughRegisteredHostFuncti
       exe_path, &host_symbol, LaunchConfig{.grid_dim_x = 3, .block_dim_x = 64}, args);
   ASSERT_TRUE(result.ok) << result.error_message;
 
-  state.MemcpyDeviceToHost(c.data(), c_dev, n * sizeof(float));
+  GetRuntimeSession().MemcpyDeviceToHost(c.data(), c_dev, n * sizeof(float));
   for (uint32_t i = 0; i < n; ++i) {
     EXPECT_FLOAT_EQ(c[i], expect[i]);
   }
@@ -449,9 +449,9 @@ TEST(HipLdPreloadTest, LaunchesHipByValueAggregateExecutableThroughRegisteredHos
   ASSERT_TRUE(image.metadata().values.contains("arg_layout"));
   EXPECT_NE(image.metadata().values.at("arg_layout").find("by_value:"), std::string::npos);
 
-  void* out_dev = state.AllocateDevice(sizeof(int32_t));
+  void* out_dev = GetRuntimeSession().AllocateDevice(sizeof(int32_t));
   int32_t zero = 0;
-  state.MemcpyHostToDevice(out_dev, &zero, sizeof(zero));
+  GetRuntimeSession().MemcpyHostToDevice(out_dev, &zero, sizeof(zero));
 
   struct Payload {
     int32_t x;
@@ -465,7 +465,7 @@ TEST(HipLdPreloadTest, LaunchesHipByValueAggregateExecutableThroughRegisteredHos
   ASSERT_TRUE(result.ok) << result.error_message;
 
   int32_t output = 0;
-  state.MemcpyDeviceToHost(&output, out_dev, sizeof(output));
+  GetRuntimeSession().MemcpyDeviceToHost(&output, out_dev, sizeof(output));
   EXPECT_EQ(output, payload.x + payload.y + payload.z);
 
   std::filesystem::remove_all(temp_dir);
@@ -498,9 +498,9 @@ TEST(HipLdPreloadTest, LaunchesHipThreeDimensionalHiddenArgsExecutableThroughReg
   static int host_symbol = 0;
   GetRuntimeSession().RegisterKernelSymbol(&host_symbol, "three_dimensional_hidden_args");
 
-  void* out_dev = state.AllocateDevice(sizeof(int32_t));
+  void* out_dev = GetRuntimeSession().AllocateDevice(sizeof(int32_t));
   int32_t zero = 0;
-  state.MemcpyHostToDevice(out_dev, &zero, sizeof(zero));
+  GetRuntimeSession().MemcpyHostToDevice(out_dev, &zero, sizeof(zero));
 
   void* args[] = {&out_dev};
   const auto result = GetRuntimeSession().LaunchExecutableKernel(
@@ -518,7 +518,7 @@ TEST(HipLdPreloadTest, LaunchesHipThreeDimensionalHiddenArgsExecutableThroughReg
   ASSERT_TRUE(result.ok) << result.error_message;
 
   int32_t output = 0;
-  state.MemcpyDeviceToHost(&output, out_dev, sizeof(output));
+  GetRuntimeSession().MemcpyDeviceToHost(&output, out_dev, sizeof(output));
   EXPECT_EQ(output, 4 + 32);
 
   std::filesystem::remove_all(temp_dir);
@@ -554,8 +554,8 @@ TEST(HipLdPreloadTest, LaunchesHipThreeDimensionalBuiltinIdsExecutableThroughReg
 
   constexpr uint32_t depth = 64;
   std::vector<int32_t> out(depth, -1);
-  void* out_dev = state.AllocateDevice(depth * sizeof(int32_t));
-  state.MemcpyHostToDevice(out_dev, out.data(), depth * sizeof(int32_t));
+  void* out_dev = GetRuntimeSession().AllocateDevice(depth * sizeof(int32_t));
+  GetRuntimeSession().MemcpyHostToDevice(out_dev, out.data(), depth * sizeof(int32_t));
 
   void* args[] = {&out_dev};
   const auto result = GetRuntimeSession().LaunchExecutableKernel(
@@ -572,7 +572,7 @@ TEST(HipLdPreloadTest, LaunchesHipThreeDimensionalBuiltinIdsExecutableThroughReg
       args);
   ASSERT_TRUE(result.ok) << result.error_message;
 
-  state.MemcpyDeviceToHost(out.data(), out_dev, depth * sizeof(int32_t));
+  GetRuntimeSession().MemcpyDeviceToHost(out.data(), out_dev, depth * sizeof(int32_t));
   for (uint32_t i = 0; i < depth; ++i) {
     EXPECT_EQ(out[i], static_cast<int32_t>(i));
   }
@@ -615,12 +615,12 @@ TEST(HipLdPreloadTest, LaunchesHipVecAddExecutableThroughRegisteredHostFunctionA
     b[i] = static_cast<float>(100 + i) * 0.25f;
   }
 
-  void* a_dev = state.AllocateDevice(n * sizeof(float));
-  void* b_dev = state.AllocateDevice(n * sizeof(float));
-  void* c_dev = state.AllocateDevice(n * sizeof(float));
-  state.MemcpyHostToDevice(a_dev, a.data(), n * sizeof(float));
-  state.MemcpyHostToDevice(b_dev, b.data(), n * sizeof(float));
-  state.MemcpyHostToDevice(c_dev, c.data(), n * sizeof(float));
+  void* a_dev = GetRuntimeSession().AllocateDevice(n * sizeof(float));
+  void* b_dev = GetRuntimeSession().AllocateDevice(n * sizeof(float));
+  void* c_dev = GetRuntimeSession().AllocateDevice(n * sizeof(float));
+  GetRuntimeSession().MemcpyHostToDevice(a_dev, a.data(), n * sizeof(float));
+  GetRuntimeSession().MemcpyHostToDevice(b_dev, b.data(), n * sizeof(float));
+  GetRuntimeSession().MemcpyHostToDevice(c_dev, c.data(), n * sizeof(float));
 
   uint32_t n_arg = n;
   void* args[] = {&a_dev, &b_dev, &c_dev, &n_arg};
@@ -628,7 +628,7 @@ TEST(HipLdPreloadTest, LaunchesHipVecAddExecutableThroughRegisteredHostFunctionA
       exe_path, &host_symbol, LaunchConfig{.grid_dim_x = 30, .block_dim_x = 1024}, args);
   ASSERT_TRUE(result.ok) << result.error_message;
 
-  state.MemcpyDeviceToHost(c.data(), c_dev, n * sizeof(float));
+  GetRuntimeSession().MemcpyDeviceToHost(c.data(), c_dev, n * sizeof(float));
   for (uint32_t i = 0; i < n; ++i) {
     EXPECT_FLOAT_EQ(c[i], a[i] + b[i]);
   }
@@ -671,14 +671,14 @@ TEST(HipLdPreloadTest, LaunchesHipVecAddExecutableThroughManagedAllocations) {
     b[i] = 0.25f * static_cast<float>(100 + i);
   }
 
-  void* a_dev = state.AllocateManaged(n * sizeof(float));
-  void* b_dev = state.AllocateManaged(n * sizeof(float));
-  void* c_dev = state.AllocateManaged(n * sizeof(float));
+  void* a_dev = GetRuntimeSession().AllocateManaged(n * sizeof(float));
+  void* b_dev = GetRuntimeSession().AllocateManaged(n * sizeof(float));
+  void* c_dev = GetRuntimeSession().AllocateManaged(n * sizeof(float));
   EXPECT_EQ(GetRuntimeSession().memory().pool_memory_size(MemoryPoolKind::Managed),
             3u * n * sizeof(float));
-  state.MemcpyHostToDevice(a_dev, a.data(), n * sizeof(float));
-  state.MemcpyHostToDevice(b_dev, b.data(), n * sizeof(float));
-  state.MemcpyHostToDevice(c_dev, c.data(), n * sizeof(float));
+  GetRuntimeSession().MemcpyHostToDevice(a_dev, a.data(), n * sizeof(float));
+  GetRuntimeSession().MemcpyHostToDevice(b_dev, b.data(), n * sizeof(float));
+  GetRuntimeSession().MemcpyHostToDevice(c_dev, c.data(), n * sizeof(float));
 
   uint32_t n_arg = n;
   void* args[] = {&a_dev, &b_dev, &c_dev, &n_arg};
@@ -686,7 +686,7 @@ TEST(HipLdPreloadTest, LaunchesHipVecAddExecutableThroughManagedAllocations) {
       exe_path, &host_symbol, LaunchConfig{.grid_dim_x = 3, .block_dim_x = 128}, args);
   ASSERT_TRUE(result.ok) << result.error_message;
 
-  state.MemcpyDeviceToHost(c.data(), c_dev, n * sizeof(float));
+  GetRuntimeSession().MemcpyDeviceToHost(c.data(), c_dev, n * sizeof(float));
   for (uint32_t i = 0; i < n; ++i) {
     EXPECT_FLOAT_EQ(c[i], a[i] + b[i]);
   }
@@ -1550,10 +1550,10 @@ TEST(HipLdPreloadTest, LaunchesHipSharedReverseExecutableThroughRegisteredHostFu
     }
   }
 
-  void* in_dev = state.AllocateDevice(n * sizeof(int32_t));
-  void* out_dev = state.AllocateDevice(n * sizeof(int32_t));
-  state.MemcpyHostToDevice(in_dev, in.data(), n * sizeof(int32_t));
-  state.MemcpyHostToDevice(out_dev, out.data(), n * sizeof(int32_t));
+  void* in_dev = GetRuntimeSession().AllocateDevice(n * sizeof(int32_t));
+  void* out_dev = GetRuntimeSession().AllocateDevice(n * sizeof(int32_t));
+  GetRuntimeSession().MemcpyHostToDevice(in_dev, in.data(), n * sizeof(int32_t));
+  GetRuntimeSession().MemcpyHostToDevice(out_dev, out.data(), n * sizeof(int32_t));
 
   uint32_t n_arg = n;
   void* args[] = {&in_dev, &out_dev, &n_arg};
@@ -1561,7 +1561,7 @@ TEST(HipLdPreloadTest, LaunchesHipSharedReverseExecutableThroughRegisteredHostFu
       exe_path, &host_symbol, LaunchConfig{.grid_dim_x = 2, .block_dim_x = 64}, args);
   ASSERT_TRUE(result.ok) << result.error_message;
 
-  state.MemcpyDeviceToHost(out.data(), out_dev, n * sizeof(int32_t));
+  GetRuntimeSession().MemcpyDeviceToHost(out.data(), out_dev, n * sizeof(int32_t));
   for (uint32_t i = 0; i < n; ++i) {
     EXPECT_EQ(out[i], expect[i]);
   }
@@ -1605,8 +1605,8 @@ TEST(HipLdPreloadTest, LaunchesHipDynamicSharedExecutableThroughRegisteredHostFu
   GetRuntimeSession().RegisterKernelSymbol(&host_symbol, "dynamic_shared_sum");
 
   int32_t output = 0;
-  void* out_dev = state.AllocateDevice(sizeof(int32_t));
-  state.MemcpyHostToDevice(out_dev, &output, sizeof(output));
+  void* out_dev = GetRuntimeSession().AllocateDevice(sizeof(int32_t));
+  GetRuntimeSession().MemcpyHostToDevice(out_dev, &output, sizeof(output));
 
   void* args[] = {&out_dev};
   constexpr uint32_t block_dim = 64;
@@ -1621,7 +1621,7 @@ TEST(HipLdPreloadTest, LaunchesHipDynamicSharedExecutableThroughRegisteredHostFu
       args);
   ASSERT_TRUE(result.ok) << result.error_message;
 
-  state.MemcpyDeviceToHost(&output, out_dev, sizeof(output));
+  GetRuntimeSession().MemcpyDeviceToHost(&output, out_dev, sizeof(output));
   EXPECT_EQ(output, static_cast<int32_t>(block_dim * (block_dim + 1) / 2));
 
   std::filesystem::remove_all(temp_dir);
@@ -1670,8 +1670,8 @@ TEST(HipLdPreloadTest, LaunchesHipAtomicCountExecutableThroughRegisteredHostFunc
   for (const auto& test_case : cases) {
     SCOPED_TRACE(test_case.name);
     int32_t zero = 0;
-    void* out_dev = state.AllocateDevice(sizeof(int32_t));
-    state.MemcpyHostToDevice(out_dev, &zero, sizeof(zero));
+    void* out_dev = GetRuntimeSession().AllocateDevice(sizeof(int32_t));
+    GetRuntimeSession().MemcpyHostToDevice(out_dev, &zero, sizeof(zero));
     uint32_t n_arg = test_case.n;
     void* args[] = {&out_dev, &n_arg};
     const auto result = GetRuntimeSession().LaunchExecutableKernel(
@@ -1681,7 +1681,7 @@ TEST(HipLdPreloadTest, LaunchesHipAtomicCountExecutableThroughRegisteredHostFunc
     ASSERT_TRUE(result.ok) << result.error_message;
 
     int32_t value = -1;
-    state.MemcpyDeviceToHost(&value, out_dev, sizeof(value));
+    GetRuntimeSession().MemcpyDeviceToHost(&value, out_dev, sizeof(value));
     EXPECT_EQ(value, static_cast<int32_t>(test_case.n));
   }
 
@@ -1736,10 +1736,10 @@ TEST(HipLdPreloadTest, LaunchesHipSoftmaxExecutableThroughRegisteredHostFunction
 
   constexpr uint32_t n = 64;
   std::vector<float> input(n, 1.0f), output(n, 0.0f);
-  void* in_dev = state.AllocateDevice(n * sizeof(float));
-  void* out_dev = state.AllocateDevice(n * sizeof(float));
-  state.MemcpyHostToDevice(in_dev, input.data(), n * sizeof(float));
-  state.MemcpyHostToDevice(out_dev, output.data(), n * sizeof(float));
+  void* in_dev = GetRuntimeSession().AllocateDevice(n * sizeof(float));
+  void* out_dev = GetRuntimeSession().AllocateDevice(n * sizeof(float));
+  GetRuntimeSession().MemcpyHostToDevice(in_dev, input.data(), n * sizeof(float));
+  GetRuntimeSession().MemcpyHostToDevice(out_dev, output.data(), n * sizeof(float));
 
   uint32_t n_arg = n;
   void* args[] = {&in_dev, &out_dev, &n_arg};
@@ -1747,7 +1747,7 @@ TEST(HipLdPreloadTest, LaunchesHipSoftmaxExecutableThroughRegisteredHostFunction
       exe_path, &host_symbol, LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64}, args);
   ASSERT_TRUE(result.ok) << result.error_message;
 
-  state.MemcpyDeviceToHost(output.data(), out_dev, n * sizeof(float));
+  GetRuntimeSession().MemcpyDeviceToHost(output.data(), out_dev, n * sizeof(float));
   constexpr float expected = 1.0f / 64.0f;
   for (uint32_t i = 0; i < n; ++i) {
     EXPECT_NEAR(output[i], expected, 1.0e-4f);
@@ -1803,10 +1803,10 @@ TEST(HipLdPreloadTest, LaunchesHipBlockReduceExecutableThroughRegisteredHostFunc
   std::vector<float> input(n, 1.0f);
   std::vector<float> output(grid_dim, -1.0f);
   std::vector<float> expect(grid_dim, static_cast<float>(n / grid_dim));
-  void* in_dev = state.AllocateDevice(n * sizeof(float));
-  void* out_dev = state.AllocateDevice(grid_dim * sizeof(float));
-  state.MemcpyHostToDevice(in_dev, input.data(), n * sizeof(float));
-  state.MemcpyHostToDevice(out_dev, output.data(), grid_dim * sizeof(float));
+  void* in_dev = GetRuntimeSession().AllocateDevice(n * sizeof(float));
+  void* out_dev = GetRuntimeSession().AllocateDevice(grid_dim * sizeof(float));
+  GetRuntimeSession().MemcpyHostToDevice(in_dev, input.data(), n * sizeof(float));
+  GetRuntimeSession().MemcpyHostToDevice(out_dev, output.data(), grid_dim * sizeof(float));
 
   uint32_t n_arg = n;
   void* args[] = {&in_dev, &out_dev, &n_arg};
@@ -1814,7 +1814,7 @@ TEST(HipLdPreloadTest, LaunchesHipBlockReduceExecutableThroughRegisteredHostFunc
       exe_path, &host_symbol, LaunchConfig{.grid_dim_x = grid_dim, .block_dim_x = block_dim}, args);
   ASSERT_TRUE(result.ok) << result.error_message;
 
-  state.MemcpyDeviceToHost(output.data(), out_dev, grid_dim * sizeof(float));
+  GetRuntimeSession().MemcpyDeviceToHost(output.data(), out_dev, grid_dim * sizeof(float));
   for (uint32_t i = 0; i < grid_dim; ++i) {
     EXPECT_NEAR(output[i], expect[i], 1.0e-4f);
   }
@@ -1860,15 +1860,15 @@ TEST(HipLdPreloadTest, LaunchesHipMfmaExecutableThroughRegisteredHostFunction) {
   GetRuntimeSession().RegisterKernelSymbol(&host_symbol, "mfma_probe");
 
   float output = 0.0f;
-  void* out_dev = state.AllocateDevice(sizeof(float));
-  state.MemcpyHostToDevice(out_dev, &output, sizeof(float));
+  void* out_dev = GetRuntimeSession().AllocateDevice(sizeof(float));
+  GetRuntimeSession().MemcpyHostToDevice(out_dev, &output, sizeof(float));
 
   void* args[] = {&out_dev};
   const auto result = GetRuntimeSession().LaunchExecutableKernel(
       exe_path, &host_symbol, LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64}, args);
   ASSERT_TRUE(result.ok) << result.error_message;
 
-  state.MemcpyDeviceToHost(&output, out_dev, sizeof(float));
+  GetRuntimeSession().MemcpyDeviceToHost(&output, out_dev, sizeof(float));
   EXPECT_NEAR(output, 4.0f, 1.0e-5f);
 
   std::filesystem::remove_all(temp_dir);

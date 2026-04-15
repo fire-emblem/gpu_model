@@ -175,7 +175,7 @@ hipError_t hipMalloc(void** devPtr, size_t size) {
   if (devPtr == nullptr) {
     return Remember(hipErrorInvalidValue);
   }
-  *devPtr = HipApi().AllocateDevice(size);
+  *devPtr = gpu_model::GetRuntimeSession().AllocateDevice(size);
   DebugLog("hipMalloc size=%zu -> %p", size, *devPtr);
   return Remember(hipSuccess);
 }
@@ -184,13 +184,13 @@ hipError_t hipMallocManaged(void** devPtr, size_t size, unsigned int flags) {
   if (devPtr == nullptr) {
     return Remember(hipErrorInvalidValue);
   }
-  *devPtr = HipApi().AllocateManaged(size);
+  *devPtr = gpu_model::GetRuntimeSession().AllocateManaged(size);
   DebugLog("hipMallocManaged size=%zu flags=%u -> %p", size, flags, *devPtr);
   return Remember(hipSuccess);
 }
 
 hipError_t hipFree(void* ptr) {
-  return Remember(HipApi().FreeDevice(ptr) ? hipSuccess : hipErrorInvalidValue);
+  return Remember(gpu_model::GetRuntimeSession().FreeDevice(ptr) ? hipSuccess : hipErrorInvalidValue);
 }
 
 hipError_t hipMemcpy(void* dst, const void* src, size_t sizeBytes, hipMemcpyKind kind) {
@@ -198,13 +198,13 @@ hipError_t hipMemcpy(void* dst, const void* src, size_t sizeBytes, hipMemcpyKind
   try {
     switch (kind) {
       case hipMemcpyHostToDevice:
-        HipApi().MemcpyHostToDevice(dst, src, sizeBytes);
+        gpu_model::GetRuntimeSession().MemcpyHostToDevice(dst, src, sizeBytes);
         return Remember(hipSuccess);
       case hipMemcpyDeviceToHost:
-        HipApi().MemcpyDeviceToHost(dst, src, sizeBytes);
+        gpu_model::GetRuntimeSession().MemcpyDeviceToHost(dst, src, sizeBytes);
         return Remember(hipSuccess);
       case hipMemcpyDeviceToDevice:
-        HipApi().MemcpyDeviceToDevice(dst, src, sizeBytes);
+        gpu_model::GetRuntimeSession().MemcpyDeviceToDevice(dst, src, sizeBytes);
         return Remember(hipSuccess);
       default:
         return Remember(hipErrorInvalidValue);
@@ -226,10 +226,10 @@ hipError_t hipMemcpyAsync(void* dst,
 }
 
 hipError_t hipMemset(void* dst, int value, size_t sizeBytes) {
-  if (!HipApi().IsDevicePointer(dst)) {
+  if (!gpu_model::GetRuntimeSession().IsDevicePointer(dst)) {
     return Remember(hipErrorInvalidValue);
   }
-  HipApi().MemsetDevice(dst, static_cast<uint8_t>(value), sizeBytes);
+  gpu_model::GetRuntimeSession().MemsetDevice(dst, static_cast<uint8_t>(value), sizeBytes);
   DebugLog("hipMemset dst=%p value=%d bytes=%zu", dst, value, sizeBytes);
   return Remember(hipSuccess);
 }
@@ -243,30 +243,30 @@ hipError_t hipMemsetAsync(void* dst, int value, size_t sizeBytes, hipStream_t st
 
 hipError_t hipMemsetD8(hipDeviceptr_t dest, unsigned char value, size_t count) {
   void* ptr = reinterpret_cast<void*>(dest);
-  if (!HipApi().IsDevicePointer(ptr)) {
+  if (!gpu_model::GetRuntimeSession().IsDevicePointer(ptr)) {
     return Remember(hipErrorInvalidValue);
   }
-  HipApi().MemsetDevice(ptr, value, count);
+  gpu_model::GetRuntimeSession().MemsetDevice(ptr, value, count);
   DebugLog("hipMemsetD8 dst=%p value=%u count=%zu", ptr, static_cast<unsigned>(value), count);
   return Remember(hipSuccess);
 }
 
 hipError_t hipMemsetD16(hipDeviceptr_t dest, unsigned short value, size_t count) {
   void* ptr = reinterpret_cast<void*>(dest);
-  if (!HipApi().IsDevicePointer(ptr)) {
+  if (!gpu_model::GetRuntimeSession().IsDevicePointer(ptr)) {
     return Remember(hipErrorInvalidValue);
   }
-  HipApi().MemsetDeviceD16(ptr, static_cast<uint16_t>(value), count);
+  gpu_model::GetRuntimeSession().MemsetDeviceD16(ptr, static_cast<uint16_t>(value), count);
   DebugLog("hipMemsetD16 dst=%p value=%u count=%zu", ptr, static_cast<unsigned>(value), count);
   return Remember(hipSuccess);
 }
 
 hipError_t hipMemsetD32(hipDeviceptr_t dest, int value, size_t count) {
   void* ptr = reinterpret_cast<void*>(dest);
-  if (!HipApi().IsDevicePointer(ptr)) {
+  if (!gpu_model::GetRuntimeSession().IsDevicePointer(ptr)) {
     return Remember(hipErrorInvalidValue);
   }
-  HipApi().MemsetDeviceD32(ptr, static_cast<uint32_t>(value), count);
+  gpu_model::GetRuntimeSession().MemsetDeviceD32(ptr, static_cast<uint32_t>(value), count);
   DebugLog("hipMemsetD32 dst=%p value=%d count=%zu", ptr, value, count);
   return Remember(hipSuccess);
 }

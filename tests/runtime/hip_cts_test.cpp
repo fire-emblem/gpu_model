@@ -1001,19 +1001,19 @@ TEST_P(HipCtsLdPreloadTest, ExecutesHipOutThroughRegisteredHostFunctionAndValida
       std::vector<float> a(c.n), b(c.n), out(c.n, -1.0f);
       FillFloatPattern(a, b, c.pattern);
       const auto expected = ExpectedVecAdd(c.n, c.pattern);
-      void* a_dev = state.AllocateDevice(c.n * sizeof(float));
-      void* b_dev = state.AllocateDevice(c.n * sizeof(float));
-      void* out_dev = state.AllocateDevice(c.n * sizeof(float));
-      state.MemcpyHostToDevice(a_dev, a.data(), c.n * sizeof(float));
-      state.MemcpyHostToDevice(b_dev, b.data(), c.n * sizeof(float));
-      state.MemcpyHostToDevice(out_dev, out.data(), c.n * sizeof(float));
+      void* a_dev = GetRuntimeSession().AllocateDevice(c.n * sizeof(float));
+      void* b_dev = GetRuntimeSession().AllocateDevice(c.n * sizeof(float));
+      void* out_dev = GetRuntimeSession().AllocateDevice(c.n * sizeof(float));
+      GetRuntimeSession().MemcpyHostToDevice(a_dev, a.data(), c.n * sizeof(float));
+      GetRuntimeSession().MemcpyHostToDevice(b_dev, b.data(), c.n * sizeof(float));
+      GetRuntimeSession().MemcpyHostToDevice(out_dev, out.data(), c.n * sizeof(float));
       uint32_t n_arg = c.n;
       void* args[] = {&a_dev, &b_dev, &out_dev, &n_arg};
       const auto result = GetRuntimeSession().LaunchExecutableKernel(
           ArtifactPath(c.artifact), host_symbol,
           LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x}, args);
       ASSERT_TRUE(result.ok) << result.error_message;
-      state.MemcpyDeviceToHost(out.data(), out_dev, c.n * sizeof(float));
+      GetRuntimeSession().MemcpyDeviceToHost(out.data(), out_dev, c.n * sizeof(float));
       ExpectNearVector(out, expected);
       return;
     }
@@ -1021,12 +1021,12 @@ TEST_P(HipCtsLdPreloadTest, ExecutesHipOutThroughRegisteredHostFunctionAndValida
       std::vector<float> a(c.n), b(c.n), out(c.n, -1.0f);
       FillFloatPattern(a, b, c.pattern);
       const auto expected = ExpectedFma(c.n, c.iters, c.pattern);
-      void* a_dev = state.AllocateDevice(c.n * sizeof(float));
-      void* b_dev = state.AllocateDevice(c.n * sizeof(float));
-      void* out_dev = state.AllocateDevice(c.n * sizeof(float));
-      state.MemcpyHostToDevice(a_dev, a.data(), c.n * sizeof(float));
-      state.MemcpyHostToDevice(b_dev, b.data(), c.n * sizeof(float));
-      state.MemcpyHostToDevice(out_dev, out.data(), c.n * sizeof(float));
+      void* a_dev = GetRuntimeSession().AllocateDevice(c.n * sizeof(float));
+      void* b_dev = GetRuntimeSession().AllocateDevice(c.n * sizeof(float));
+      void* out_dev = GetRuntimeSession().AllocateDevice(c.n * sizeof(float));
+      GetRuntimeSession().MemcpyHostToDevice(a_dev, a.data(), c.n * sizeof(float));
+      GetRuntimeSession().MemcpyHostToDevice(b_dev, b.data(), c.n * sizeof(float));
+      GetRuntimeSession().MemcpyHostToDevice(out_dev, out.data(), c.n * sizeof(float));
       uint32_t n_arg = c.n;
       uint32_t iters_arg = c.iters;
       void* args[] = {&a_dev, &b_dev, &out_dev, &n_arg, &iters_arg};
@@ -1034,7 +1034,7 @@ TEST_P(HipCtsLdPreloadTest, ExecutesHipOutThroughRegisteredHostFunctionAndValida
           ArtifactPath(c.artifact), host_symbol,
           LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x}, args);
       ASSERT_TRUE(result.ok) << result.error_message;
-      state.MemcpyDeviceToHost(out.data(), out_dev, c.n * sizeof(float));
+      GetRuntimeSession().MemcpyDeviceToHost(out.data(), out_dev, c.n * sizeof(float));
       ExpectNearVector(out, expected, 1.0e-3f);
       return;
     }
@@ -1042,12 +1042,12 @@ TEST_P(HipCtsLdPreloadTest, ExecutesHipOutThroughRegisteredHostFunctionAndValida
       std::vector<float> a(c.n), b(c.n), out(c.n, -1.0f);
       FillFloatPattern(a, b, c.pattern);
       const auto expected = ExpectedBias(c.n, c.pattern, c.f0, c.f1, c.f2);
-      void* a_dev = state.AllocateDevice(c.n * sizeof(float));
-      void* b_dev = state.AllocateDevice(c.n * sizeof(float));
-      void* out_dev = state.AllocateDevice(c.n * sizeof(float));
-      state.MemcpyHostToDevice(a_dev, a.data(), c.n * sizeof(float));
-      state.MemcpyHostToDevice(b_dev, b.data(), c.n * sizeof(float));
-      state.MemcpyHostToDevice(out_dev, out.data(), c.n * sizeof(float));
+      void* a_dev = GetRuntimeSession().AllocateDevice(c.n * sizeof(float));
+      void* b_dev = GetRuntimeSession().AllocateDevice(c.n * sizeof(float));
+      void* out_dev = GetRuntimeSession().AllocateDevice(c.n * sizeof(float));
+      GetRuntimeSession().MemcpyHostToDevice(a_dev, a.data(), c.n * sizeof(float));
+      GetRuntimeSession().MemcpyHostToDevice(b_dev, b.data(), c.n * sizeof(float));
+      GetRuntimeSession().MemcpyHostToDevice(out_dev, out.data(), c.n * sizeof(float));
       uint32_t n_arg = c.n;
       float b0 = c.f0, b1 = c.f1, b2 = c.f2;
       void* args[] = {&a_dev, &b_dev, &out_dev, &n_arg, &b0, &b1, &b2};
@@ -1055,15 +1055,15 @@ TEST_P(HipCtsLdPreloadTest, ExecutesHipOutThroughRegisteredHostFunctionAndValida
           ArtifactPath(c.artifact), host_symbol,
           LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x}, args);
       ASSERT_TRUE(result.ok) << result.error_message;
-      state.MemcpyDeviceToHost(out.data(), out_dev, c.n * sizeof(float));
+      GetRuntimeSession().MemcpyDeviceToHost(out.data(), out_dev, c.n * sizeof(float));
       ExpectNearVector(out, expected, 1.0e-4f);
       return;
     }
     case KernelKind::ByValueAggregate: {
       int32_t out = 0;
       const int32_t expected = ExpectedByValueAggregate();
-      void* out_dev = state.AllocateDevice(sizeof(int32_t));
-      state.MemcpyHostToDevice(out_dev, &out, sizeof(out));
+      void* out_dev = GetRuntimeSession().AllocateDevice(sizeof(int32_t));
+      GetRuntimeSession().MemcpyHostToDevice(out_dev, &out, sizeof(out));
       struct PayloadHost {
         int32_t x;
         int32_t y;
@@ -1076,15 +1076,15 @@ TEST_P(HipCtsLdPreloadTest, ExecutesHipOutThroughRegisteredHostFunctionAndValida
           LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64},
           args);
       ASSERT_TRUE(result.ok) << result.error_message;
-      state.MemcpyDeviceToHost(&out, out_dev, sizeof(out));
+      GetRuntimeSession().MemcpyDeviceToHost(&out, out_dev, sizeof(out));
       EXPECT_EQ(out, expected);
       return;
     }
     case KernelKind::AtomicCount: {
       int32_t out = 0;
       const int32_t expected = ExpectedAtomicCount(c.n);
-      void* out_dev = state.AllocateDevice(sizeof(int32_t));
-      state.MemcpyHostToDevice(out_dev, &out, sizeof(out));
+      void* out_dev = GetRuntimeSession().AllocateDevice(sizeof(int32_t));
+      GetRuntimeSession().MemcpyHostToDevice(out_dev, &out, sizeof(out));
       uint32_t n_arg = c.n;
       void* args[] = {&out_dev, &n_arg};
       const auto result = GetRuntimeSession().LaunchExecutableKernel(
@@ -1093,7 +1093,7 @@ TEST_P(HipCtsLdPreloadTest, ExecutesHipOutThroughRegisteredHostFunctionAndValida
           LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x},
           args);
       ASSERT_TRUE(result.ok) << result.error_message;
-      state.MemcpyDeviceToHost(&out, out_dev, sizeof(out));
+      GetRuntimeSession().MemcpyDeviceToHost(&out, out_dev, sizeof(out));
       EXPECT_EQ(out, expected);
       return;
     }
@@ -1107,25 +1107,25 @@ TEST_P(HipCtsLdPreloadTest, ExecutesHipOutThroughRegisteredHostFunctionAndValida
           input[base + lane] = expected[base + (63u - lane)];
         }
       }
-      void* in_dev = state.AllocateDevice(c.n * sizeof(int32_t));
-      void* out_dev = state.AllocateDevice(c.n * sizeof(int32_t));
-      state.MemcpyHostToDevice(in_dev, input.data(), c.n * sizeof(int32_t));
-      state.MemcpyHostToDevice(out_dev, out.data(), c.n * sizeof(int32_t));
+      void* in_dev = GetRuntimeSession().AllocateDevice(c.n * sizeof(int32_t));
+      void* out_dev = GetRuntimeSession().AllocateDevice(c.n * sizeof(int32_t));
+      GetRuntimeSession().MemcpyHostToDevice(in_dev, input.data(), c.n * sizeof(int32_t));
+      GetRuntimeSession().MemcpyHostToDevice(out_dev, out.data(), c.n * sizeof(int32_t));
       uint32_t n_arg = c.n;
       void* args[] = {&in_dev, &out_dev, &n_arg};
       const auto result = GetRuntimeSession().LaunchExecutableKernel(
           ArtifactPath(c.artifact), host_symbol,
           LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x}, args);
       ASSERT_TRUE(result.ok) << result.error_message;
-      state.MemcpyDeviceToHost(out.data(), out_dev, c.n * sizeof(int32_t));
+      GetRuntimeSession().MemcpyDeviceToHost(out.data(), out_dev, c.n * sizeof(int32_t));
       EXPECT_EQ(out, expected);
       return;
     }
     case KernelKind::DynamicSharedSum: {
       std::vector<int32_t> out(c.grid_x, 0);
       const auto expected = ExpectedDynamicSharedSum(c.grid_x, c.block_x);
-      void* out_dev = state.AllocateDevice(c.grid_x * sizeof(int32_t));
-      state.MemcpyHostToDevice(out_dev, out.data(), c.grid_x * sizeof(int32_t));
+      void* out_dev = GetRuntimeSession().AllocateDevice(c.grid_x * sizeof(int32_t));
+      GetRuntimeSession().MemcpyHostToDevice(out_dev, out.data(), c.grid_x * sizeof(int32_t));
       void* args[] = {&out_dev};
       const auto result = GetRuntimeSession().LaunchExecutableKernel(
           ArtifactPath(c.artifact),
@@ -1137,7 +1137,7 @@ TEST_P(HipCtsLdPreloadTest, ExecutesHipOutThroughRegisteredHostFunctionAndValida
           },
           args);
       ASSERT_TRUE(result.ok) << result.error_message;
-      state.MemcpyDeviceToHost(out.data(), out_dev, c.grid_x * sizeof(int32_t));
+      GetRuntimeSession().MemcpyDeviceToHost(out.data(), out_dev, c.grid_x * sizeof(int32_t));
       EXPECT_EQ(out, expected);
       return;
     }
@@ -1145,10 +1145,10 @@ TEST_P(HipCtsLdPreloadTest, ExecutesHipOutThroughRegisteredHostFunctionAndValida
       std::vector<float> in(c.n), out(c.grid_x, -1.0f);
       FillFloatPattern(in, in, c.pattern);
       const auto expected = ExpectedBlockReduceSum(c.n, c.pattern, c.grid_x, c.block_x);
-      void* in_dev = state.AllocateDevice(c.n * sizeof(float));
-      void* out_dev = state.AllocateDevice(c.grid_x * sizeof(float));
-      state.MemcpyHostToDevice(in_dev, in.data(), c.n * sizeof(float));
-      state.MemcpyHostToDevice(out_dev, out.data(), c.grid_x * sizeof(float));
+      void* in_dev = GetRuntimeSession().AllocateDevice(c.n * sizeof(float));
+      void* out_dev = GetRuntimeSession().AllocateDevice(c.grid_x * sizeof(float));
+      GetRuntimeSession().MemcpyHostToDevice(in_dev, in.data(), c.n * sizeof(float));
+      GetRuntimeSession().MemcpyHostToDevice(out_dev, out.data(), c.grid_x * sizeof(float));
       uint32_t n_arg = c.n;
       void* args[] = {&in_dev, &out_dev, &n_arg};
       const auto result = GetRuntimeSession().LaunchExecutableKernel(
@@ -1157,7 +1157,7 @@ TEST_P(HipCtsLdPreloadTest, ExecutesHipOutThroughRegisteredHostFunctionAndValida
           LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x},
           args);
       ASSERT_TRUE(result.ok) << result.error_message;
-      state.MemcpyDeviceToHost(out.data(), out_dev, c.grid_x * sizeof(float));
+      GetRuntimeSession().MemcpyDeviceToHost(out.data(), out_dev, c.grid_x * sizeof(float));
       ExpectNearVector(out, expected, 1.0e-2f);
       return;
     }
@@ -1165,30 +1165,30 @@ TEST_P(HipCtsLdPreloadTest, ExecutesHipOutThroughRegisteredHostFunctionAndValida
       std::vector<float> input(c.n, static_cast<float>(c.pattern + 1u));
       std::vector<float> out(c.n, 0.0f);
       const auto expected = ExpectedSoftmax(c.n);
-      void* in_dev = state.AllocateDevice(c.n * sizeof(float));
-      void* out_dev = state.AllocateDevice(c.n * sizeof(float));
-      state.MemcpyHostToDevice(in_dev, input.data(), c.n * sizeof(float));
-      state.MemcpyHostToDevice(out_dev, out.data(), c.n * sizeof(float));
+      void* in_dev = GetRuntimeSession().AllocateDevice(c.n * sizeof(float));
+      void* out_dev = GetRuntimeSession().AllocateDevice(c.n * sizeof(float));
+      GetRuntimeSession().MemcpyHostToDevice(in_dev, input.data(), c.n * sizeof(float));
+      GetRuntimeSession().MemcpyHostToDevice(out_dev, out.data(), c.n * sizeof(float));
       uint32_t n_arg = c.n;
       void* args[] = {&in_dev, &out_dev, &n_arg};
       const auto result = GetRuntimeSession().LaunchExecutableKernel(
           ArtifactPath(c.artifact), host_symbol,
           LaunchConfig{.grid_dim_x = c.grid_x, .block_dim_x = c.block_x}, args);
       ASSERT_TRUE(result.ok) << result.error_message;
-      state.MemcpyDeviceToHost(out.data(), out_dev, c.n * sizeof(float));
+      GetRuntimeSession().MemcpyDeviceToHost(out.data(), out_dev, c.n * sizeof(float));
       ExpectNearVector(out, expected, 1.0e-4f);
       return;
     }
     case KernelKind::Mfma: {
       float out = 0.0f;
-      void* out_dev = state.AllocateDevice(sizeof(float));
-      state.MemcpyHostToDevice(out_dev, &out, sizeof(float));
+      void* out_dev = GetRuntimeSession().AllocateDevice(sizeof(float));
+      GetRuntimeSession().MemcpyHostToDevice(out_dev, &out, sizeof(float));
       void* args[] = {&out_dev};
       const auto result = GetRuntimeSession().LaunchExecutableKernel(
           ArtifactPath(c.artifact), host_symbol,
           LaunchConfig{.grid_dim_x = 1, .block_dim_x = 64}, args);
       ASSERT_TRUE(result.ok) << result.error_message;
-      state.MemcpyDeviceToHost(&out, out_dev, sizeof(float));
+      GetRuntimeSession().MemcpyDeviceToHost(&out, out_dev, sizeof(float));
       EXPECT_NEAR(out, 4.0f, 1.0e-5f);
       return;
     }
