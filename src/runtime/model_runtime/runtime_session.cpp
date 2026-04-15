@@ -6,8 +6,7 @@
 #include <stdexcept>
 
 #include "instruction/isa/kernel_metadata.h"
-#include "program/loader/device_image_loader.h"
-#include "program/program_object/object_reader.h"
+#include "runtime/model_runtime/runtime_executable_launch_helper.h"
 
 namespace gpu_model {
 
@@ -291,11 +290,10 @@ KernelArgPack RuntimeSession::PackAbiArgs(const MetadataBlob& metadata, void** a
 
 ProgramObject RuntimeSession::LoadExecutableImage(const std::filesystem::path& executable_path,
                                                   const void* host_function) const {
-  const auto kernel_name = ResolveKernelSymbol(host_function);
-  if (!kernel_name.has_value()) {
-    throw std::invalid_argument("unregistered HIP host function");
-  }
-  return ObjectReader{}.LoadProgramObject(executable_path, *kernel_name);
+  return LoadRegisteredExecutableImage(
+      executable_path,
+      host_function,
+      [this](const void* symbol) { return ResolveKernelSymbol(symbol); });
 }
 
 LaunchResult RuntimeSession::LaunchExecutableKernel(const std::filesystem::path& executable_path,
@@ -308,33 +306,32 @@ LaunchResult RuntimeSession::LaunchExecutableKernel(const std::filesystem::path&
                                                     RuntimeSubmissionContext submission_context) {
   ProgramObject image;
   try {
-    image = LoadExecutableImage(executable_path, host_function);
+    auto prepared = PrepareRegisteredExecutableLaunch(
+        executable_path,
+        host_function,
+        std::move(config),
+        args,
+        mode,
+        arch_name,
+        trace,
+        submission_context,
+        trace_state_.NextLaunchIndex(),
+        functional_execution_mode(),
+        model_runtime_.memory(),
+        [this](const void* symbol) { return ResolveKernelSymbol(symbol); },
+        [this](const MetadataBlob& metadata, void** raw_args) {
+          return PackAbiArgs(metadata, raw_args);
+        });
+    SyncManagedHostToDevice();
+    auto result = model_runtime_.Launch(prepared.request);
+    SyncManagedDeviceToHost();
+    return result;
   } catch (const std::invalid_argument&) {
     LaunchResult result;
     result.ok = false;
     result.error_message = "unregistered HIP host function";
     return result;
   }
-  SyncManagedHostToDevice();
-  auto device_load = DeviceImageLoader{}.Materialize(BuildDeviceLoadPlan(image), model_runtime_.memory());
-  LaunchRequest request;
-  request.arch_name = arch_name;
-  request.program_object = &image;
-  request.device_load = &device_load;
-  request.submission_context = submission_context;
-  request.config = std::move(config);
-  request.args = PackAbiArgs(image.metadata(), args);
-  request.mode = mode;
-  request.trace = trace;
-  request.launch_index = trace_state_.NextLaunchIndex();
-  if (mode == ExecutionMode::Functional) {
-    request.functional_mode = functional_execution_mode() == FunctionalExecutionMode::SingleThreaded
-                                  ? "st"
-                                  : "mt";
-  }
-  auto result = model_runtime_.Launch(request);
-  SyncManagedDeviceToHost();
-  return result;
 }
 
 FunctionalExecutionMode RuntimeSession::functional_execution_mode() const {
@@ -344,8 +341,10 @@ FunctionalExecutionMode RuntimeSession::functional_execution_mode() const {
 DeviceLoadPlan RuntimeSession::BuildExecutableLoadPlan(const std::filesystem::path& executable_path,
                                                        const void* host_function) const {
   try {
-    const auto image = LoadExecutableImage(executable_path, host_function);
-    return BuildDeviceLoadPlan(image);
+    return BuildRegisteredExecutableLoadPlan(
+        executable_path,
+        host_function,
+        [this](const void* symbol) { return ResolveKernelSymbol(symbol); });
   } catch (const std::invalid_argument&) {
     throw std::invalid_argument("unregistered HIP host function");
   }
