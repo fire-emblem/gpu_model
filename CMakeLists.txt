@@ -142,6 +142,7 @@ add_library(gpu_model STATIC
   src/runtime/model_runtime/model_runtime.cpp
   src/runtime/model_runtime/module_registry.cpp
   src/runtime/model_runtime/device_memory_manager.cpp
+  src/runtime/model_runtime/runtime_kernel_symbol_state.cpp
   src/runtime/model_runtime/runtime_launch_config_state.cpp
   src/runtime/model_runtime/runtime_stream_event_state.cpp
   src/runtime/model_runtime/runtime_trace_state.cpp

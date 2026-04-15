@@ -32,7 +32,7 @@ const ModelRuntime& RuntimeSession::model_runtime() const {
 }
 
 void RuntimeSession::ResetAbiState() {
-  kernel_symbols_.clear();
+  kernel_symbol_state_.Reset();
   launch_config_state_.Reset();
   stream_event_state_.Reset();
   device_memory_manager_.Reset();
@@ -44,15 +44,11 @@ void RuntimeSession::BindDeviceMemoryManager() {
 }
 
 void RuntimeSession::RegisterKernelSymbol(const void* host_function, std::string kernel_name) {
-  kernel_symbols_[host_function] = std::move(kernel_name);
+  kernel_symbol_state_.Register(host_function, std::move(kernel_name));
 }
 
 std::optional<std::string> RuntimeSession::ResolveKernelSymbol(const void* host_function) const {
-  const auto it = kernel_symbols_.find(host_function);
-  if (it == kernel_symbols_.end()) {
-    return std::nullopt;
-  }
-  return it->second;
+  return kernel_symbol_state_.Resolve(host_function);
 }
 
 int RuntimeSession::GetDeviceCount() const {

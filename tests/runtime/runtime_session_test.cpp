@@ -282,6 +282,41 @@ TEST(RuntimeSessionTest, ResetClearsPendingLaunchConfigWithoutTouchingOtherHelpe
   EXPECT_EQ(session.NextLaunchIndex(), 0u);
 }
 
+TEST(RuntimeSessionTest, RegistersAndResolvesKernelSymbolsThroughDedicatedState) {
+  RuntimeSession session;
+  int host_symbol_a = 1;
+  int host_symbol_b = 2;
+
+  EXPECT_FALSE(session.ResolveKernelSymbol(&host_symbol_a).has_value());
+
+  session.RegisterKernelSymbol(&host_symbol_a, "kernel_a");
+  session.RegisterKernelSymbol(&host_symbol_b, "kernel_b");
+
+  auto kernel_a = session.ResolveKernelSymbol(&host_symbol_a);
+  auto kernel_b = session.ResolveKernelSymbol(&host_symbol_b);
+  ASSERT_TRUE(kernel_a.has_value());
+  ASSERT_TRUE(kernel_b.has_value());
+  EXPECT_EQ(*kernel_a, "kernel_a");
+  EXPECT_EQ(*kernel_b, "kernel_b");
+
+  session.RegisterKernelSymbol(&host_symbol_a, "kernel_a_v2");
+  kernel_a = session.ResolveKernelSymbol(&host_symbol_a);
+  ASSERT_TRUE(kernel_a.has_value());
+  EXPECT_EQ(*kernel_a, "kernel_a_v2");
+}
+
+TEST(RuntimeSessionTest, ResetClearsRegisteredKernelSymbols) {
+  RuntimeSession session;
+  int host_symbol = 7;
+
+  session.RegisterKernelSymbol(&host_symbol, "kernel_before_reset");
+  ASSERT_TRUE(session.ResolveKernelSymbol(&host_symbol).has_value());
+
+  session.ResetAbiState();
+
+  EXPECT_FALSE(session.ResolveKernelSymbol(&host_symbol).has_value());
+}
+
 TEST(DeviceMemoryManagerTest, ReleasedPointersLoseAllocationAndResolvedAddress) {
   MemorySystem memory;
   DeviceMemoryManager manager(&memory);
