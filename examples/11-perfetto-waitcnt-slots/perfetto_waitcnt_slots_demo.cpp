@@ -91,6 +91,14 @@ std::string FunctionalModeName(gm::FunctionalExecutionMode mode) {
   return "unknown";
 }
 
+gm::FunctionalExecutionConfig DemoFunctionalConfig(gm::FunctionalExecutionMode mode) {
+  gm::FunctionalExecutionConfig config{.mode = mode};
+  if (mode == gm::FunctionalExecutionMode::MultiThreaded) {
+    config.worker_threads = 4;
+  }
+  return config;
+}
+
 void ConfigureTimelineGapRuntime(gm::ExecEngine& runtime,
                                  gm::ExecutionMode execution_mode) {
   runtime.SetFixedGlobalMemoryLatency(execution_mode == gm::ExecutionMode::Cycle ? 40 : 20);
@@ -208,7 +216,7 @@ void RunTimelineGapCase(const std::filesystem::path& out_dir,
                         gm::FunctionalExecutionMode functional_mode) {
   gm::TraceArtifactRecorder trace(out_dir);
   gm::ExecEngine runtime(&trace);
-  runtime.SetFunctionalExecutionMode(functional_mode);
+  runtime.SetFunctionalExecutionConfig(DemoFunctionalConfig(functional_mode));
   ConfigureTimelineGapRuntime(runtime, execution_mode);
 
   const auto kernel = BuildTimelineWaitcntBubbleKernel();
@@ -244,7 +252,7 @@ void RunSamePeuSlotsCase(const std::filesystem::path& out_dir,
 
   gm::TraceArtifactRecorder trace(out_dir);
   gm::ExecEngine runtime(&trace);
-  runtime.SetFunctionalExecutionMode(functional_mode);
+  runtime.SetFunctionalExecutionConfig(DemoFunctionalConfig(functional_mode));
   ConfigureSamePeuSlotsRuntime(runtime, execution_mode);
 
   const auto kernel = execution_mode == gm::ExecutionMode::Functional
@@ -335,7 +343,7 @@ void RunSwitchAwayHeavyCase(const std::filesystem::path& out_dir,
 
   gm::TraceArtifactRecorder trace(out_dir);
   gm::ExecEngine runtime(&trace);
-  runtime.SetFunctionalExecutionMode(functional_mode);
+  runtime.SetFunctionalExecutionConfig(DemoFunctionalConfig(functional_mode));
   ConfigureSwitchAwayHeavyRuntime(runtime, execution_mode);
 
   const auto kernel = BuildSwitchAwayHeavyKernel();
