@@ -4,7 +4,7 @@
 #include <vector>
 
 #include "program/loader/device_segment_image.h"
-#include "gpu_arch/memory/memory_system.h"
+#include "state/memory/memory_system.h"
 
 namespace gpu_model {
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <sstream>
 #include <cstdint>
 #include <string>
 
@@ -14,6 +15,15 @@ struct WaveStatsSnapshot {
   uint32_t end = 0;
 };
 
-std::string FormatWaveStatsMessage(const WaveStatsSnapshot& stats);
+inline std::string FormatWaveStatsMessage(const WaveStatsSnapshot& stats) {
+  std::ostringstream oss;
+  oss << "launch=" << stats.launch;
+  oss << " init=" << stats.init;
+  oss << " active=" << stats.active;
+  oss << " runnable=" << stats.runnable;
+  oss << " waiting=" << stats.waiting;
+  oss << " end=" << stats.end;
+  return oss.str();
+}
 
 }  // namespace gpu_model

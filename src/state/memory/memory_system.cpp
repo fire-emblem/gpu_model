@@ -1,4 +1,4 @@
-#include "gpu_arch/memory/memory_system.h"
+#include "state/memory/memory_system.h"
 
 #include <algorithm>
 #include <stdexcept>

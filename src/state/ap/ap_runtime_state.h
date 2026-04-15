@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "gpu_arch/ap/ap_def.h"
+#include "state/ap/barrier_state.h"
 #include "state/peu/peu_runtime_state.h"
 #include "state/wave/wave_runtime_state.h"
 

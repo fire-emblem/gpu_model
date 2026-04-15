@@ -5,7 +5,7 @@
 #include "debug/trace/sink.h"
 #include "execution/cycle/cycle_timing_config.h"
 #include "gpu_arch/device/gpu_arch_spec.h"
-#include "gpu_arch/memory/memory_system.h"
+#include "state/memory/memory_system.h"
 #include "program/program_object/program_object.h"
 #include "runtime/config/kernel_arg_pack.h"
 #include "runtime/config/launch_config.h"

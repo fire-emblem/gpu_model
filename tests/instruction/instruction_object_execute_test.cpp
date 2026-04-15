@@ -5,7 +5,7 @@
 #include "instruction/decode/encoded/internal/encoded_gcn_encoding_def.h"
 #include "instruction/semantics/encoded_handler.h"
 #include "instruction/decode/encoded/instruction_object.h"
-#include "gpu_arch/memory/memory_system.h"
+#include "state/memory/memory_system.h"
 #include "runtime/config/launch_request.h"
 #include "state/wave/wave_runtime_state.h"
 

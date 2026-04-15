@@ -8,7 +8,7 @@
 #include <unordered_map>
 
 #include "gpu_arch/memory/memory_pool.h"
-#include "gpu_arch/memory/memory_system.h"
+#include "state/memory/memory_system.h"
 
 namespace gpu_model {
 

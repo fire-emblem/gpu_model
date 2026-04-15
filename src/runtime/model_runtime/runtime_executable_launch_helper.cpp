@@ -2,7 +2,7 @@
 
 #include <stdexcept>
 
-#include "gpu_arch/memory/memory_system.h"
+#include "state/memory/memory_system.h"
 #include "program/loader/device_image_loader.h"
 #include "program/loader/device_segment_image.h"
 #include "program/program_object/object_reader.h"

@@ -10,7 +10,7 @@
 #include "instruction/decode/encoded/decoded_instruction.h"
 #include "instruction/decode/encoded/instruction_object.h"
 #include "gpu_arch/memory/memory_request.h"
-#include "gpu_arch/memory/memory_system.h"
+#include "state/memory/memory_system.h"
 #include "state/wave/wave_runtime_state.h"
 #include "state/execution_stats.h"
 

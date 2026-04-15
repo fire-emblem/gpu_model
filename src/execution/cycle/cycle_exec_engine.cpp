@@ -38,8 +38,8 @@
 #include "execution/internal/issue_logic/issue_eligibility.h"
 #include "instruction/isa/opcode.h"
 #include "program/loader/device_image_loader.h"
-#include "gpu_arch/memory/cache_model.h"
-#include "gpu_arch/memory/shared_bank_model.h"
+#include "state/memory/cache_model.h"
+#include "state/memory/shared_bank_model.h"
 #include "runtime/model_runtime/program_cycle_tracker.h"
 #include "runtime/model_runtime/program_cycle_stats.h"
 

@@ -182,7 +182,6 @@ add_library(gpu_model STATIC
   # utils/config/
   src/utils/config/invocation.cpp
   # state/memory/
-  src/state/wave/wave_stats.cpp
   src/state/memory/cache_model.cpp
   src/state/memory/memory_system.cpp
   src/state/memory/shared_bank_model.cpp

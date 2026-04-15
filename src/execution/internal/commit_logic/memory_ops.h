@@ -8,7 +8,7 @@
 #include "state/wave/wave_runtime_state.h"
 #include "gpu_arch/memory/memory_pool.h"
 #include "gpu_arch/memory/memory_request.h"
-#include "gpu_arch/memory/memory_system.h"
+#include "state/memory/memory_system.h"
 
 namespace gpu_model {
 

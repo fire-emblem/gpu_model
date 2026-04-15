@@ -11,7 +11,7 @@
 #include "debug/trace/sink.h"
 #include "instruction/isa/metadata.h"
 #include "program/loader/device_segment_image.h"
-#include "gpu_arch/memory/memory_system.h"
+#include "state/memory/memory_system.h"
 #include "gpu_arch/memory/memory_pool.h"
 #include "program/program_object/program_object.h"
 #include "runtime/model_runtime/runtime_abi_arg_packer.h"

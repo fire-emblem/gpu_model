@@ -3,7 +3,7 @@
 #include <cstring>
 #include <vector>
 
-#include "gpu_arch/memory/memory_system.h"
+#include "state/memory/memory_system.h"
 
 namespace gpu_model {
 

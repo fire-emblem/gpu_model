@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "gpu_arch/wave/wave_def.h"
-#include "gpu_arch/register/register_file.h"
+#include "state/register/register_file.h"
 
 namespace gpu_model {
 

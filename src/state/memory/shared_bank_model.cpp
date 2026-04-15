@@ -1,4 +1,4 @@
-#include "gpu_arch/memory/shared_bank_model.h"
+#include "state/memory/shared_bank_model.h"
 
 #include <algorithm>
 #include <vector>
