@@ -10,17 +10,16 @@
 #include <thread>
 
 #include "gpu_arch/chip_config/arch_registry.h"
-#include "debug/trace/event_factory.h"
 #include "execution/cycle/cycle_exec_engine.h"
 #include "execution/functional/functional_exec_engine.h"
 #include "execution/encoded/program_object_exec_engine.h"
 #include "execution/internal/cost_model/cycle_issue_policy.h"
 #include "instruction/isa/kernel_metadata.h"
 #include "program/loader/device_image_loader.h"
+#include "runtime/exec_engine/launch_trace_emitter.h"
 #include "runtime/exec_engine/launch_request_validator.h"
 #include "utils/config/runtime_config.h"
 #include "utils/logging/log_macros.h"
-#include "utils/config/invocation.h"
 
 namespace gpu_model {
 
@@ -209,70 +208,21 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
 
   auto& trace = ResolveTraceSink(request.trace);
   try {
-    // Emit run snapshot
-    TraceRunSnapshot run_snapshot{
-        .invocation = CaptureInvocationLine(),
-        .execution_model = request.mode == ExecutionMode::Cycle ? "cycle" : "functional",
-        .functional_mode = request.functional_mode,
-        .trace_time_basis = "modeled_cycle",
-        .trace_cycle_is_physical_time = false,
-    };
-    trace.OnRunSnapshot(run_snapshot);
-
-    // Emit model config snapshot
-    TraceModelConfigSnapshot model_config_snapshot{
-        .num_dpcs = spec->dpc_count,
-        .num_aps_per_dpc = spec->ap_per_dpc,
-        .num_peus_per_ap = spec->peu_per_ap,
-        .num_slots_per_peu = spec->cycle_resources.resident_wave_slots_per_peu,
-        .slot_model = "resident_fixed",
-    };
-    trace.OnModelConfigSnapshot(model_config_snapshot);
-
-    // Emit kernel snapshot
-    TraceKernelSnapshot kernel_snapshot{
-        .kernel_name = use_program_object_payload ? program_object->kernel_name() : kernel->name(),
-        .kernel_launch_uid = 0,
-        .launch_index = request.launch_index,
-        .grid_dim_x = request.config.grid_dim_x,
-        .grid_dim_y = request.config.grid_dim_y,
-        .grid_dim_z = request.config.grid_dim_z,
-        .block_dim_x = request.config.block_dim_x,
-        .block_dim_y = request.config.block_dim_y,
-        .block_dim_z = request.config.block_dim_z,
-    };
-    trace.OnKernelSnapshot(kernel_snapshot);
-
     if (request.mode == ExecutionMode::Cycle) {
       result.submit_cycle =
           has_cycle_launch_history_ ? device_cycle_ + spec->launch_timing.kernel_launch_gap_cycles
                                     : 0;
       result.begin_cycle = result.submit_cycle + spec->launch_timing.kernel_launch_cycles;
     }
-    std::ostringstream launch_message;
-    launch_message << "kernel="
-                   << prepared.kernel_name()
-                   << " arch=" << spec->name;
-    if (use_program_object_payload &&
-        (program_object->kernel_descriptor().agpr_count != 0 ||
-         program_object->kernel_descriptor().accum_offset != 0)) {
-      launch_message << " agpr_count=" << program_object->kernel_descriptor().agpr_count
-                     << " accum_offset=" << program_object->kernel_descriptor().accum_offset;
-    }
-    trace.OnEvent(MakeTraceRuntimeLaunchEvent(result.submit_cycle, launch_message.str()));
-
     result.placement = Mapper::Place(*spec, request.config);
-    for (const auto& block : result.placement.blocks) {
-      std::ostringstream message;
-      message << "block=" << block.block_id << " block_xyz=(" << block.block_idx_x << ","
-              << block.block_idx_y << "," << block.block_idx_z << ") dpc=" << block.dpc_id << " ap=" << block.ap_id
-              << " waves=" << block.waves.size();
-      trace.OnEvent(MakeTraceBlockPlacedEvent(block.dpc_id,
-                                              block.ap_id,
-                                              block.block_id,
-                                              result.submit_cycle,
-                                              message.str()));
-    }
+    EmitLaunchTracePreamble(trace,
+                            request,
+                            *spec,
+                            prepared.kernel_name(),
+                            use_program_object_payload,
+                            result.submit_cycle,
+                            program_object,
+                            result.placement);
     if (request.mode == ExecutionMode::Functional) {
         if (use_program_object_payload) {
           const auto raw_result =
@@ -373,53 +323,7 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
       result.ok = true;
     }
 
-    // Emit summary snapshot
-    const auto& pcs = result.program_cycle_stats;
-    TraceSummarySnapshot summary_snapshot{
-        .kernel_status = result.ok ? "PASS" : "FAIL",
-        .launch_index = request.launch_index,
-        .submit_cycle = result.submit_cycle,
-        .begin_cycle = result.begin_cycle,
-        .end_cycle = result.end_cycle,
-        .gpu_tot_sim_cycle = result.total_cycles,
-        .gpu_tot_sim_insn = pcs.has_value() ? pcs->instructions_executed : 0,
-        .gpu_tot_ipc = pcs.has_value() && result.total_cycles > 0
-                           ? static_cast<double>(pcs->instructions_executed) /
-                                 static_cast<double>(result.total_cycles)
-                           : 0.0,
-        .gpu_tot_wave_exits = pcs.has_value() ? pcs->waves_completed : 0,
-        .stall_waitcnt_global = pcs.has_value() ? pcs->stall_waitcnt : 0,
-        .stall_waitcnt_shared = 0,
-        .stall_waitcnt_private = 0,
-        .stall_warp_switch = pcs.has_value() ? pcs->stall_switch_away : 0,
-        .stall_barrier_slot = pcs.has_value() ? pcs->stall_barrier : 0,
-        .stall_other = pcs.has_value()
-                           ? pcs->stall_resource + pcs->stall_dependency
-                           : 0,
-        .scalar_alu_insts = pcs.has_value() ? pcs->scalar_alu_insts : 0,
-        .scalar_mem_insts = pcs.has_value() ? pcs->scalar_mem_insts : 0,
-        .vector_alu_insts = pcs.has_value() ? pcs->vector_alu_insts : 0,
-        .vector_mem_insts = pcs.has_value() ? pcs->vector_mem_insts : 0,
-        .branch_insts = pcs.has_value() ? pcs->branch_insts : 0,
-        .sync_insts = pcs.has_value() ? pcs->sync_insts : 0,
-        .tensor_insts = pcs.has_value() ? pcs->tensor_insts : 0,
-        .other_insts = pcs.has_value() ? pcs->other_insts : 0,
-        .global_loads = pcs.has_value() ? pcs->global_loads : 0,
-        .global_stores = pcs.has_value() ? pcs->global_stores : 0,
-        .shared_loads = pcs.has_value() ? pcs->shared_loads : 0,
-        .shared_stores = pcs.has_value() ? pcs->shared_stores : 0,
-        .private_loads = pcs.has_value() ? pcs->private_loads : 0,
-        .private_stores = pcs.has_value() ? pcs->private_stores : 0,
-        .scalar_loads = pcs.has_value() ? pcs->scalar_loads : 0,
-        .scalar_stores = pcs.has_value() ? pcs->scalar_stores : 0,
-        .waves_launched = pcs.has_value() ? pcs->waves_launched : 0,
-        .waves_completed = pcs.has_value() ? pcs->waves_completed : 0,
-        .max_concurrent_waves = pcs.has_value() ? pcs->max_concurrent_waves : 0,
-        .active_utilization_pct = pcs.has_value() && pcs->total_cycles > 0
-                                      ? pcs->ActiveUtilization() * 100.0
-                                      : 0.0,
-    };
-    trace.OnSummarySnapshot(summary_snapshot);
+    EmitLaunchTraceSummary(trace, request, result);
   } catch (const std::exception& ex) {
     result.error_message = ex.what();
     result.ok = false;
