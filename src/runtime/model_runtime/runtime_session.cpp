@@ -9,6 +9,7 @@
 #include "runtime/model_runtime/runtime_abi_memory_ops.h"
 #include "runtime/model_runtime/runtime_executable_launch_helper.h"
 #include "runtime/model_runtime/runtime_process_path.h"
+#include "runtime/model_runtime/runtime_submission_sync.h"
 
 namespace gpu_model {
 
@@ -100,15 +101,11 @@ bool RuntimeSession::DestroyStream(uintptr_t stream_id) {
 }
 
 void RuntimeSession::DeviceSynchronize() {
-  SyncManagedHostToDevice();
-  model_runtime_.DeviceSynchronize();
-  SyncManagedDeviceToHost();
+  DeviceSynchronizeWithManagedSync(model_runtime_, device_memory_manager_);
 }
 
 void RuntimeSession::StreamSynchronize(RuntimeSubmissionContext submission_context) {
-  SyncManagedHostToDevice();
-  model_runtime_.StreamSynchronize(submission_context);
-  SyncManagedDeviceToHost();
+  StreamSynchronizeWithManagedSync(model_runtime_, device_memory_manager_, submission_context);
 }
 
 uintptr_t RuntimeSession::CreateEvent() {
@@ -199,11 +196,11 @@ void RuntimeSession::MemsetDeviceD32(void* device_ptr, uint32_t value, size_t co
 }
 
 void RuntimeSession::SyncManagedHostToDevice() {
-  device_memory_manager_.SyncManagedHostToDevice();
+  ::gpu_model::SyncManagedHostToDevice(device_memory_manager_);
 }
 
 void RuntimeSession::SyncManagedDeviceToHost() {
-  device_memory_manager_.SyncManagedDeviceToHost();
+  ::gpu_model::SyncManagedDeviceToHost(device_memory_manager_);
 }
 
 std::vector<HipRuntimeAbiArgDesc> RuntimeSession::ParseAbiArgLayout(
