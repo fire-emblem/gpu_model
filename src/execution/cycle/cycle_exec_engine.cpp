@@ -40,8 +40,8 @@
 #include "program/loader/device_image_loader.h"
 #include "state/memory/cache_model.h"
 #include "state/memory/shared_bank_model.h"
-#include "runtime/model_runtime/program_cycle_tracker.h"
-#include "runtime/model_runtime/program_cycle_stats.h"
+#include "runtime/model_runtime/stats/program_cycle_tracker.h"
+#include "runtime/model_runtime/stats/program_cycle_stats.h"
 
 namespace gpu_model {
 

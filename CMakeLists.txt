@@ -139,27 +139,27 @@ add_library(gpu_model STATIC
   # runtime/hip_runtime/
   src/runtime/hip_runtime/hip_runtime.cpp
   # runtime/model_runtime/
-  src/runtime/model_runtime/model_runtime.cpp
-  src/runtime/model_runtime/module_registry.cpp
-  src/runtime/model_runtime/device_memory_manager.cpp
-  src/runtime/model_runtime/runtime_abi_arg_packer.cpp
-  src/runtime/model_runtime/runtime_abi_allocation_ops.cpp
-  src/runtime/model_runtime/runtime_abi_memory_ops.cpp
-  src/runtime/model_runtime/runtime_last_error_state.cpp
-  src/runtime/model_runtime/runtime_kernel_symbol_state.cpp
-  src/runtime/model_runtime/runtime_launch_config_state.cpp
-  src/runtime/model_runtime/model_runtime_device_info.cpp
-  src/runtime/model_runtime/model_runtime_device_state.cpp
-  src/runtime/model_runtime/model_runtime_launch_helper.cpp
-  src/runtime/model_runtime/model_runtime_memory_ops.cpp
-  src/runtime/model_runtime/model_runtime_reset_helper.cpp
-  src/runtime/model_runtime/model_runtime_registered_kernel_helper.cpp
-  src/runtime/model_runtime/runtime_executable_launch_helper.cpp
-  src/runtime/model_runtime/runtime_process_path.cpp
-  src/runtime/model_runtime/runtime_submission_sync.cpp
-  src/runtime/model_runtime/runtime_stream_event_state.cpp
-  src/runtime/model_runtime/runtime_trace_state.cpp
-  src/runtime/model_runtime/runtime_session.cpp
+  src/runtime/model_runtime/core/model_runtime.cpp
+  src/runtime/model_runtime/module/module_registry.cpp
+  src/runtime/model_runtime/compat/device_memory_manager.cpp
+  src/runtime/model_runtime/compat/runtime_abi_arg_packer.cpp
+  src/runtime/model_runtime/compat/runtime_abi_allocation_ops.cpp
+  src/runtime/model_runtime/compat/runtime_abi_memory_ops.cpp
+  src/runtime/model_runtime/compat/runtime_last_error_state.cpp
+  src/runtime/model_runtime/compat/runtime_kernel_symbol_state.cpp
+  src/runtime/model_runtime/compat/runtime_launch_config_state.cpp
+  src/runtime/model_runtime/core/model_runtime_device_info.cpp
+  src/runtime/model_runtime/core/model_runtime_device_state.cpp
+  src/runtime/model_runtime/core/model_runtime_launch_helper.cpp
+  src/runtime/model_runtime/core/model_runtime_memory_ops.cpp
+  src/runtime/model_runtime/core/model_runtime_reset_helper.cpp
+  src/runtime/model_runtime/core/model_runtime_registered_kernel_helper.cpp
+  src/runtime/model_runtime/compat/runtime_executable_launch_helper.cpp
+  src/runtime/model_runtime/compat/runtime_process_path.cpp
+  src/runtime/model_runtime/compat/runtime_submission_sync.cpp
+  src/runtime/model_runtime/compat/runtime_stream_event_state.cpp
+  src/runtime/model_runtime/compat/runtime_trace_state.cpp
+  src/runtime/model_runtime/compat/runtime_session.cpp
   # runtime/exec_engine/
   src/runtime/exec_engine/cycle_timing_config_resolver.cpp
   src/runtime/exec_engine/cycle_launch_state.cpp
@@ -175,8 +175,8 @@ add_library(gpu_model STATIC
   # runtime/config/
   src/runtime/config/kernarg_packer.cpp
   # runtime/model_runtime/
-  src/runtime/model_runtime/mapper.cpp
-  src/runtime/model_runtime/program_cycle_tracker.cpp
+  src/runtime/model_runtime/core/mapper.cpp
+  src/runtime/model_runtime/stats/program_cycle_tracker.cpp
   # utils/logging/
   src/utils/logging/runtime_log_service.cpp
   # utils/config/

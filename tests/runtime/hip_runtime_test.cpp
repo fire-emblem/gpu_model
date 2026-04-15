@@ -18,7 +18,7 @@
 #include "program/program_object/object_reader.h"
 #include "program/program_object/program_object.h"
 #include "runtime/hip_runtime/hip_runtime.h"
-#include "runtime/model_runtime/model_runtime.h"
+#include "runtime/model_runtime/core/model_runtime.h"
 #include "program/loader/amdgpu_target_config.h"
 #include "tests/test_utils/hipcc_cache_test_utils.h"
 

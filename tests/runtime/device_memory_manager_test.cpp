@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "state/memory/memory_system.h"
-#include "runtime/model_runtime/device_memory_manager.h"
+#include "runtime/model_runtime/compat/device_memory_manager.h"
 
 namespace gpu_model {
 namespace {

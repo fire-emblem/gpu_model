@@ -15,7 +15,7 @@
 #include "execution/internal/block_schedule/wave_context_builder.h"  // BuildWaveContextBlocks
 #include "gpu_arch/device/gpu_arch_spec.h"  // GpuArchSpec
 #include "runtime/config/launch_config.h"  // LaunchConfig
-#include "runtime/model_runtime/mapper.h"  // PlacementMap
+#include "runtime/model_runtime/core/mapper.h"  // PlacementMap
 
 namespace gpu_model {
 class TraceSink;

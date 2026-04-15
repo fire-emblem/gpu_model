@@ -1,6 +1,6 @@
 #pragma once
 
-#include "runtime/model_runtime/mapper.h"
+#include "runtime/model_runtime/core/mapper.h"
 #include "state/ap/ap_runtime_state.h"
 
 namespace gpu_model {

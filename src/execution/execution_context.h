@@ -10,7 +10,7 @@
 #include "runtime/config/kernel_arg_pack.h"
 #include "runtime/config/launch_config.h"
 #include "runtime/config/launch_request.h"
-#include "runtime/model_runtime/mapper.h"
+#include "runtime/model_runtime/core/mapper.h"
 #include "state/wave/wave_runtime_state.h"
 
 namespace gpu_model {

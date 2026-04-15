@@ -39,8 +39,8 @@ runtime 侧主线按两层来理解：
 
 当前包括：
 
-- `src/runtime/model_runtime/model_runtime.h`
-- `src/runtime/model_runtime/module_load.h`
+- `src/runtime/model_runtime/core/model_runtime.h`
+- `src/runtime/model_runtime/module/module_load.h`
 - `src/runtime/exec_engine/exec_engine.cpp`
 - `src/runtime/model_runtime/*`
 

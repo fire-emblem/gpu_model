@@ -909,8 +909,8 @@
   - `ModelRuntime::Reset` 不再清理本地 allocation 映射
   - 将 allocation ownership 重叠从 `ModelRuntime` 侧移除
 - 创建/修改的文件：
-  - `src/runtime/model_runtime/model_runtime.h`
-  - `src/runtime/model_runtime/model_runtime.cpp`
+  - `src/runtime/model_runtime/core/model_runtime.h`
+  - `src/runtime/model_runtime/core/model_runtime.cpp`
   - `task_plan.md`
   - `findings.md`
 

@@ -9,9 +9,9 @@
 #include <string>
 #include <vector>
 
-#include "runtime/model_runtime/runtime_abi_arg_packer.h"
-#include "runtime/model_runtime/runtime_trace_state.h"
-#include "runtime/model_runtime/runtime_session.h"
+#include "runtime/model_runtime/compat/runtime_abi_arg_packer.h"
+#include "runtime/model_runtime/compat/runtime_trace_state.h"
+#include "runtime/model_runtime/compat/runtime_session.h"
 
 namespace gpu_model {
 namespace {

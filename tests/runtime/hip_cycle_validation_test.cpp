@@ -12,7 +12,7 @@
 
 #include "debug/trace/sink.h"
 #include "program/program_object/object_reader.h"
-#include "runtime/model_runtime/model_runtime.h"
+#include "runtime/model_runtime/core/model_runtime.h"
 #include "tests/test_utils/hipcc_cache_test_utils.h"
 
 namespace gpu_model {

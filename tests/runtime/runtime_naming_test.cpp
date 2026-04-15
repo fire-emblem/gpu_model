@@ -6,7 +6,7 @@
 #include "program/program_object/program_object.h"
 #include "runtime/exec_engine/exec_engine.h"
 #include "runtime/hip_runtime/hip_runtime.h"
-#include "runtime/model_runtime/model_runtime.h"
+#include "runtime/model_runtime/core/model_runtime.h"
 
 namespace gpu_model {
 namespace {
