@@ -5,6 +5,7 @@
 #include <stdexcept>
 
 #include "instruction/isa/kernel_metadata.h"
+#include "runtime/model_runtime/runtime_abi_allocation_ops.h"
 #include "runtime/model_runtime/runtime_abi_memory_ops.h"
 #include "runtime/model_runtime/runtime_executable_launch_helper.h"
 #include "runtime/model_runtime/runtime_process_path.h"
@@ -152,22 +153,15 @@ std::optional<LaunchConfig> RuntimeSession::PopLaunchConfig() {
 }
 
 void* RuntimeSession::AllocateDevice(size_t bytes) {
-  const uint64_t model_addr = model_runtime_.Malloc(bytes);
-  return device_memory_manager_.AllocateGlobal(bytes, model_addr);
+  return AbiAllocateDevice(model_runtime_, device_memory_manager_, bytes);
 }
 
 void* RuntimeSession::AllocateManaged(size_t bytes) {
-  const uint64_t model_addr = model_runtime_.MallocManaged(bytes);
-  return device_memory_manager_.AllocateManaged(bytes, model_addr);
+  return AbiAllocateManaged(model_runtime_, device_memory_manager_, bytes);
 }
 
 bool RuntimeSession::FreeDevice(void* device_ptr) {
-  const auto* allocation = FindAbiAllocation(device_ptr);
-  if (allocation == nullptr || allocation->mapped_addr != device_ptr) {
-    return false;
-  }
-  model_runtime_.Free(allocation->model_addr);
-  return device_memory_manager_.Free(device_ptr);
+  return AbiFreeDevice(model_runtime_, device_memory_manager_, device_ptr);
 }
 
 uint64_t RuntimeSession::ResolveDeviceAddress(const void* ptr) const {
