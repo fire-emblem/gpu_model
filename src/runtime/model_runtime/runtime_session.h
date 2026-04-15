@@ -2,9 +2,8 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <memory>
-#include <optional>
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -17,6 +16,7 @@
 #include "program/program_object/program_object.h"
 #include "runtime/model_runtime/device_memory_manager.h"
 #include "runtime/model_runtime/runtime_stream_event_state.h"
+#include "runtime/model_runtime/runtime_trace_state.h"
 #include "runtime/config/kernel_arg_pack.h"
 #include "runtime/config/launch_config.h"
 #include "runtime/model_runtime/model_runtime.h"
@@ -111,9 +111,7 @@ class RuntimeSession {
   DeviceMemoryManager device_memory_manager_;
   std::unordered_map<const void*, std::string> kernel_symbols_;
   RuntimeStreamEventState stream_event_state_;
-  std::unique_ptr<TraceArtifactRecorder> trace_artifact_recorder_;
-  std::string trace_artifacts_dir_;
-  uint64_t launch_index_ = 0;
+  RuntimeTraceState trace_state_;
   std::optional<LaunchConfig> pending_launch_config_;
 };
 

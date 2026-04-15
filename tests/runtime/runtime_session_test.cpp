@@ -1,16 +1,64 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <cstdlib>
 #include <cstdint>
+#include <filesystem>
 #include <span>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
-#include "debug/trace/artifact_recorder.h"
 #include "runtime/model_runtime/runtime_session.h"
 
 namespace gpu_model {
 namespace {
+
+class ScopedEnvUnset {
+ public:
+  explicit ScopedEnvUnset(const char* name) : name_(name) {
+    if (const char* current = std::getenv(name_); current != nullptr) {
+      had_value_ = true;
+      value_ = current;
+      ::unsetenv(name_);
+    }
+  }
+
+  ~ScopedEnvUnset() {
+    if (had_value_) {
+      ::setenv(name_, value_.c_str(), 1);
+    }
+  }
+
+ private:
+  const char* name_;
+  bool had_value_ = false;
+  std::string value_;
+};
+
+class ScopedEnvSet {
+ public:
+  ScopedEnvSet(const char* name, std::string value) : name_(name) {
+    if (const char* current = std::getenv(name_); current != nullptr) {
+      had_value_ = true;
+      value_before_ = current;
+    }
+    ::setenv(name_, value.c_str(), 1);
+  }
+
+  ~ScopedEnvSet() {
+    if (had_value_) {
+      ::setenv(name_, value_before_.c_str(), 1);
+    } else {
+      ::unsetenv(name_);
+    }
+  }
+
+ private:
+  const char* name_;
+  bool had_value_ = false;
+  std::string value_before_;
+};
 
 TEST(RuntimeSessionTest, SupportsSynchronousMemoryApiMatrixWithoutKernelLaunch) {
   RuntimeSession session;
@@ -154,6 +202,35 @@ TEST(RuntimeSessionTest, RejectsInteriorFreeWithoutInvalidatingBaseAllocation) {
   EXPECT_NO_THROW(static_cast<void>(session.ResolveDeviceAddress(ptr)));
   EXPECT_TRUE(session.FreeDevice(ptr));
   EXPECT_FALSE(session.IsDevicePointer(ptr));
+}
+
+TEST(RuntimeSessionTest, TracksLaunchIndexAndTraceRecorderStateIndependently) {
+  ScopedEnvUnset unset_disable_trace("GPU_MODEL_DISABLE_TRACE");
+  ScopedEnvUnset unset_trace_dir("GPU_MODEL_TRACE_DIR");
+  RuntimeSession session;
+
+  EXPECT_EQ(session.NextLaunchIndex(), 0u);
+  EXPECT_EQ(session.NextLaunchIndex(), 1u);
+  EXPECT_EQ(session.ResolveTraceArtifactRecorderFromEnv(), nullptr);
+  EXPECT_EQ(session.NextLaunchIndex(), 2u);
+
+  session.ResetAbiState();
+  EXPECT_EQ(session.NextLaunchIndex(), 0u);
+}
+
+TEST(RuntimeSessionTest, EnablesTraceRecorderOnlyWhenEnvExplicitlyRequestsIt) {
+  ScopedEnvSet enable_trace("GPU_MODEL_DISABLE_TRACE", "0");
+  const auto trace_dir =
+      std::filesystem::temp_directory_path() / "gpu_model_runtime_session_trace_state_test";
+  ScopedEnvSet set_trace_dir("GPU_MODEL_TRACE_DIR", trace_dir.string());
+  RuntimeSession session;
+
+  auto* trace = session.ResolveTraceArtifactRecorderFromEnv();
+  ASSERT_NE(trace, nullptr);
+  EXPECT_EQ(trace, session.ResolveTraceArtifactRecorderFromEnv());
+
+  ScopedEnvSet disable_trace("GPU_MODEL_DISABLE_TRACE", "1");
+  EXPECT_EQ(session.ResolveTraceArtifactRecorderFromEnv(), nullptr);
 }
 
 TEST(DeviceMemoryManagerTest, ReleasedPointersLoseAllocationAndResolvedAddress) {

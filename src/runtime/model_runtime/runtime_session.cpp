@@ -1,12 +1,10 @@
 #include "runtime/model_runtime/runtime_session.h"
 
 #include <cstring>
-#include <stdexcept>
 #include <array>
-#include <cstdlib>
 #include <limits>
+#include <stdexcept>
 
-#include "debug/trace/artifact_recorder.h"
 #include "instruction/isa/kernel_metadata.h"
 #include "program/loader/device_image_loader.h"
 #include "program/program_object/object_reader.h"
@@ -37,9 +35,7 @@ void RuntimeSession::ResetAbiState() {
   kernel_symbols_.clear();
   stream_event_state_.Reset();
   device_memory_manager_.Reset();
-  trace_artifact_recorder_.reset();
-  trace_artifacts_dir_.clear();
-  launch_index_ = 0;
+  trace_state_.Reset();
   pending_launch_config_.reset();
 }
 
@@ -372,7 +368,7 @@ LaunchResult RuntimeSession::LaunchExecutableKernel(const std::filesystem::path&
   request.args = PackAbiArgs(image.metadata(), args);
   request.mode = mode;
   request.trace = trace;
-  request.launch_index = launch_index_++;
+  request.launch_index = trace_state_.NextLaunchIndex();
   if (mode == ExecutionMode::Functional) {
     request.functional_mode = functional_execution_mode() == FunctionalExecutionMode::SingleThreaded
                                   ? "st"
@@ -398,37 +394,11 @@ DeviceLoadPlan RuntimeSession::BuildExecutableLoadPlan(const std::filesystem::pa
 }
 
 TraceArtifactRecorder* RuntimeSession::ResolveTraceArtifactRecorderFromEnv() {
-  const char* disable_trace = std::getenv("GPU_MODEL_DISABLE_TRACE");
-  // Default is disabled. "0" explicitly enables trace.
-  if (disable_trace == nullptr || disable_trace[0] == '\0') {
-    // Default: trace disabled
-    trace_artifact_recorder_.reset();
-    trace_artifacts_dir_.clear();
-    return nullptr;
-  }
-  if (std::string_view(disable_trace) != "0") {
-    // Explicitly disabled
-    trace_artifact_recorder_.reset();
-    trace_artifacts_dir_.clear();
-    return nullptr;
-  }
-  // Explicitly enabled (GPU_MODEL_DISABLE_TRACE=0)
-  const char* env = std::getenv("GPU_MODEL_TRACE_DIR");
-  if (env == nullptr || env[0] == '\0') {
-    trace_artifact_recorder_.reset();
-    trace_artifacts_dir_.clear();
-    return nullptr;
-  }
-
-  if (!trace_artifact_recorder_ || trace_artifacts_dir_ != env) {
-    trace_artifacts_dir_ = env;
-    trace_artifact_recorder_ = std::make_unique<TraceArtifactRecorder>(trace_artifacts_dir_);
-  }
-  return trace_artifact_recorder_.get();
+  return trace_state_.ResolveTraceArtifactRecorderFromEnv();
 }
 
 uint64_t RuntimeSession::NextLaunchIndex() {
-  return launch_index_++;
+  return trace_state_.NextLaunchIndex();
 }
 
 std::filesystem::path RuntimeSession::CurrentExecutablePath() {
