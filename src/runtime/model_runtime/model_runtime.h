@@ -8,6 +8,7 @@
 
 #include "program/loader/device_image_loader.h"
 #include "runtime/model_runtime/device_properties.h"
+#include "runtime/model_runtime/model_runtime_device_state.h"
 #include "runtime/exec_engine/exec_engine.h"
 #include "runtime/config/launch_request.h"
 #include "runtime/model_runtime/module_registry.h"
@@ -88,7 +89,7 @@ class ModelRuntime {
   ExecEngine owned_runtime_;
   ExecEngine* runtime_engine_ = &owned_runtime_;
   bool owns_runtime_ = true;
-  int current_device_ = 0;
+  ModelRuntimeDeviceState device_state_;
   RuntimeModuleRegistry module_registry_;
   std::optional<DeviceLoadResult> last_load_result_;
 };

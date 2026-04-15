@@ -67,25 +67,21 @@ void ModelRuntime::Reset() {
   } else {
     runtime_engine_->ResetDeviceCycle();
   }
-  current_device_ = 0;
+  device_state_.Reset();
   module_registry_.Reset();
   last_load_result_.reset();
 }
 
 int ModelRuntime::GetDeviceCount() const {
-  return 1;
+  return device_state_.GetDeviceCount();
 }
 
 int ModelRuntime::GetDevice() const {
-  return current_device_;
+  return device_state_.GetDevice();
 }
 
 bool ModelRuntime::SetDevice(int device_id) {
-  if (device_id != 0) {
-    return false;
-  }
-  current_device_ = device_id;
-  return true;
+  return device_state_.SetDevice(device_id);
 }
 
 ExecEngine& ModelRuntime::runtime() {
