@@ -147,11 +147,6 @@ LaunchResult HipRuntime::LaunchExecutableKernel(const std::filesystem::path& exe
                                                     submission_context);
 }
 
-DeviceLoadPlan HipRuntime::BuildExecutableLoadPlan(const std::filesystem::path& executable_path,
-                                                   const void* host_function) const {
-  return GetRuntimeSession().BuildExecutableLoadPlan(executable_path, host_function);
-}
-
 LaunchResult HipRuntime::LaunchKernel(const ExecutableKernel& kernel,
                                       LaunchConfig config,
                                       KernelArgPack args,

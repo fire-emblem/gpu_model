@@ -54,8 +54,6 @@ class HipRuntime {
                                       const std::string& arch_name = "mac500",
                                       TraceSink* trace = nullptr,
                                       RuntimeSubmissionContext submission_context = {});
-  DeviceLoadPlan BuildExecutableLoadPlan(const std::filesystem::path& executable_path,
-                                         const void* host_function) const;
 
   template <typename T>
   void MemcpyHtoD(uint64_t dst_addr, std::span<const T> values) {

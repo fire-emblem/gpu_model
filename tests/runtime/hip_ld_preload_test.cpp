@@ -265,7 +265,7 @@ TEST(HipLdPreloadTest, BuildsExecutableLoadPlanThroughRegisteredHostFunction) {
   static int host_symbol = 0;
   state.RegisterFunction(&host_symbol, "shared_reverse");
 
-  const auto plan = state.BuildExecutableLoadPlan(exe_path, &host_symbol);
+  const auto plan = GetRuntimeSession().BuildExecutableLoadPlan(exe_path, &host_symbol);
   ASSERT_EQ(plan.segments.size(), 2u);
   EXPECT_EQ(plan.segments[0].pool, MemoryPoolKind::Code);
   EXPECT_EQ(plan.segments[1].pool, MemoryPoolKind::Kernarg);
@@ -1911,7 +1911,7 @@ TEST(HipLdPreloadTest, BuildsExecutableLoadPlanForHipMfmaWithTypedTensorAbi) {
   static int host_symbol = 0;
   state.RegisterFunction(&host_symbol, "mfma_plan_probe");
 
-  const auto plan = state.BuildExecutableLoadPlan(exe_path, &host_symbol);
+  const auto plan = GetRuntimeSession().BuildExecutableLoadPlan(exe_path, &host_symbol);
   EXPECT_FALSE(plan.segments.empty());
   const auto image = ObjectReader{}.LoadProgramObject(exe_path, "mfma_plan_probe");
   EXPECT_GE(image.kernel_descriptor().accum_offset, 4u);
