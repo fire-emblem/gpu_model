@@ -5,6 +5,7 @@
 #include <stdexcept>
 
 #include "instruction/isa/kernel_metadata.h"
+#include "runtime/model_runtime/runtime_abi_memory_ops.h"
 #include "runtime/model_runtime/runtime_executable_launch_helper.h"
 #include "runtime/model_runtime/runtime_process_path.h"
 
@@ -176,95 +177,31 @@ uint64_t RuntimeSession::ResolveDeviceAddress(const void* ptr) const {
 void RuntimeSession::MemcpyHostToDevice(void* dst_device_ptr,
                                         const void* src_host_ptr,
                                         size_t bytes) {
-  auto* allocation = FindAbiAllocation(dst_device_ptr);
-  if (allocation == nullptr) {
-    throw std::invalid_argument("unknown ABI device pointer");
-  }
-  const uint64_t model_addr = ResolveDeviceAddress(dst_device_ptr);
-  const size_t offset = reinterpret_cast<const std::byte*>(dst_device_ptr) - allocation->mapped_addr;
-  model_runtime_.memory().WriteGlobal(
-      model_addr, std::span<const std::byte>(reinterpret_cast<const std::byte*>(src_host_ptr), bytes));
-  if (allocation->pool == MemoryPoolKind::Managed && allocation->mapped_addr != nullptr) {
-    std::memcpy(allocation->mapped_addr + offset, src_host_ptr, bytes);
-  }
+  AbiMemcpyHostToDevice(model_runtime_, device_memory_manager_, dst_device_ptr, src_host_ptr, bytes);
 }
 
 void RuntimeSession::MemcpyDeviceToHost(void* dst_host_ptr,
                                         const void* src_device_ptr,
                                         size_t bytes) const {
-  const uint64_t model_addr = ResolveDeviceAddress(src_device_ptr);
-  model_runtime_.memory().ReadGlobal(
-      model_addr, std::span<std::byte>(reinterpret_cast<std::byte*>(dst_host_ptr), bytes));
+  AbiMemcpyDeviceToHost(model_runtime_, device_memory_manager_, dst_host_ptr, src_device_ptr, bytes);
 }
 
 void RuntimeSession::MemcpyDeviceToDevice(void* dst_device_ptr,
                                           const void* src_device_ptr,
                                           size_t bytes) {
-  if (const auto* src_allocation = FindAbiAllocation(src_device_ptr);
-      src_allocation != nullptr && src_allocation->pool == MemoryPoolKind::Managed &&
-      src_allocation->mapped_addr != nullptr) {
-    const size_t src_offset =
-        reinterpret_cast<const std::byte*>(src_device_ptr) - src_allocation->mapped_addr;
-    model_runtime_.memory().WriteGlobal(
-        src_allocation->model_addr + src_offset,
-        std::span<const std::byte>(src_allocation->mapped_addr + src_offset, bytes));
-  }
-  model_runtime_.MemcpyDeviceToDevice(ResolveDeviceAddress(dst_device_ptr),
-                                      ResolveDeviceAddress(src_device_ptr), bytes);
-  if (auto* dst_allocation = FindAbiAllocation(dst_device_ptr);
-      dst_allocation != nullptr && dst_allocation->pool == MemoryPoolKind::Managed &&
-      dst_allocation->mapped_addr != nullptr) {
-    const size_t dst_offset =
-        reinterpret_cast<const std::byte*>(dst_device_ptr) - dst_allocation->mapped_addr;
-    model_runtime_.memory().ReadGlobal(
-        dst_allocation->model_addr + dst_offset,
-        std::span<std::byte>(dst_allocation->mapped_addr + dst_offset, bytes));
-  }
+  AbiMemcpyDeviceToDevice(model_runtime_, device_memory_manager_, dst_device_ptr, src_device_ptr, bytes);
 }
 
 void RuntimeSession::MemsetDevice(void* device_ptr, uint8_t value, size_t bytes) {
-  auto* allocation = FindAbiAllocation(device_ptr);
-  if (allocation == nullptr) {
-    throw std::invalid_argument("unknown ABI device pointer");
-  }
-  const uint64_t model_addr = ResolveDeviceAddress(device_ptr);
-  const size_t offset = reinterpret_cast<const std::byte*>(device_ptr) - allocation->mapped_addr;
-  model_runtime_.MemsetD8(model_addr, value, bytes);
-  if (allocation->pool == MemoryPoolKind::Managed && allocation->mapped_addr != nullptr) {
-    std::memset(allocation->mapped_addr + offset, value, bytes);
-  }
+  AbiMemsetDevice(model_runtime_, device_memory_manager_, device_ptr, value, bytes);
 }
 
 void RuntimeSession::MemsetDeviceD16(void* device_ptr, uint16_t value, size_t count) {
-  auto* allocation = FindAbiAllocation(device_ptr);
-  if (allocation == nullptr) {
-    throw std::invalid_argument("unknown ABI device pointer");
-  }
-  const uint64_t model_addr = ResolveDeviceAddress(device_ptr);
-  const size_t offset = reinterpret_cast<const std::byte*>(device_ptr) - allocation->mapped_addr;
-  model_runtime_.MemsetD16(model_addr, value, count);
-  if (allocation->pool == MemoryPoolKind::Managed && allocation->mapped_addr != nullptr) {
-    for (size_t i = 0; i < count; ++i) {
-      std::memcpy(allocation->mapped_addr + offset + i * sizeof(uint16_t), &value,
-                  sizeof(uint16_t));
-    }
-  }
+  AbiMemsetDeviceD16(model_runtime_, device_memory_manager_, device_ptr, value, count);
 }
 
 void RuntimeSession::MemsetDeviceD32(void* device_ptr, uint32_t value, size_t count) {
-  auto* allocation = FindAbiAllocation(device_ptr);
-  if (allocation == nullptr) {
-    throw std::invalid_argument("unknown ABI device pointer");
-  }
-  const uint64_t model_addr = ResolveDeviceAddress(device_ptr);
-  const size_t offset = reinterpret_cast<const std::byte*>(device_ptr) - allocation->mapped_addr;
-  model_runtime_.MemsetD32(model_addr, value, count);
-  if (allocation->pool == MemoryPoolKind::Managed && allocation->mapped_addr != nullptr) {
-    for (size_t i = 0; i < count; ++i) {
-      std::memcpy(allocation->mapped_addr + offset + i * sizeof(uint32_t), &value,
-                  sizeof(uint32_t));
-    }
-  }
+  AbiMemsetDeviceD32(model_runtime_, device_memory_manager_, device_ptr, value, count);
 }
 
 void RuntimeSession::SyncManagedHostToDevice() {
