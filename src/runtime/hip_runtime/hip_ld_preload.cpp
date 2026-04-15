@@ -58,7 +58,7 @@ gpu_model::ExecutionMode ResolveExecutionModeFromEnv() {
 }
 
 TraceArtifactRecorder* ResolveTraceArtifactRecorder() {
-  return HipApi().ResolveTraceArtifactRecorderFromEnv();
+  return gpu_model::GetRuntimeSession().ResolveTraceArtifactRecorderFromEnv();
 }
 
 gpu_model::HipRuntime& HipApi() {
@@ -142,7 +142,7 @@ hipError_t __hipPushCallConfiguration(dim3 gridDim, dim3 blockDim, size_t shared
       .block_dim_z = blockDim.z,
       .shared_memory_bytes = static_cast<uint32_t>(sharedMemBytes),
   };
-  HipApi().PushLaunchConfiguration(config, sharedMemBytes);
+  gpu_model::GetRuntimeSession().PushLaunchConfig(config);
   DebugLog("__hipPushCallConfiguration grid=(%u,%u,%u) block=(%u,%u,%u) shared=%zu", gridDim.x,
            gridDim.y, gridDim.z, blockDim.x, blockDim.y, blockDim.z, sharedMemBytes);
   return Remember(hipSuccess);
@@ -150,7 +150,7 @@ hipError_t __hipPushCallConfiguration(dim3 gridDim, dim3 blockDim, size_t shared
 
 hipError_t __hipPopCallConfiguration(dim3* gridDim, dim3* blockDim, size_t* sharedMemBytes,
                                      hipStream_t* stream) {
-  const auto config = HipApi().PopLaunchConfiguration();
+  const auto config = gpu_model::GetRuntimeSession().PopLaunchConfig();
   if (!config.has_value()) {
     return hipErrorInvalidValue;
   }
@@ -491,7 +491,7 @@ hipError_t hipStreamSynchronize(hipStream_t stream) {
   if (!IsValidStream(stream)) {
     return Remember(hipErrorInvalidHandle);
   }
-  HipApi().StreamSynchronizeCompatibility(SubmissionContextForStream(stream));
+  gpu_model::GetRuntimeSession().StreamSynchronize(SubmissionContextForStream(stream));
   return Remember(hipSuccess);
 }
 
@@ -585,7 +585,7 @@ hipError_t hipLaunchKernel(const void* function_address,
   const auto execution_mode = ResolveExecutionModeFromEnv();
   auto* trace = ResolveTraceArtifactRecorder();
   const auto result = HipApi().LaunchExecutableKernel(
-      gpu_model::HipRuntime::CurrentExecutablePath(),
+      gpu_model::RuntimeSession::CurrentExecutablePath(),
       function_address,
       config,
       args,

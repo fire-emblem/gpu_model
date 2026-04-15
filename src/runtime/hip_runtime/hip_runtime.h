@@ -58,9 +58,6 @@ class HipRuntime {
                                       RuntimeSubmissionContext submission_context = {});
   DeviceLoadPlan BuildExecutableLoadPlan(const std::filesystem::path& executable_path,
                                          const void* host_function) const;
-  void PushLaunchConfiguration(LaunchConfig config, uint64_t shared_memory_bytes);
-  std::optional<LaunchConfig> PopLaunchConfiguration();
-  static std::filesystem::path CurrentExecutablePath();
   void SetLastError(int error);
   int PeekLastError() const;
   int ConsumeLastError();
@@ -68,12 +65,10 @@ class HipRuntime {
   bool IsValidStream(std::optional<uintptr_t> stream_id) const;
   std::optional<uintptr_t> CreateStream();
   bool DestroyStream(uintptr_t stream_id);
-  void StreamSynchronizeCompatibility(RuntimeSubmissionContext submission_context);
   uintptr_t CreateEvent();
   bool HasEvent(uintptr_t event_id) const;
   bool DestroyEvent(uintptr_t event_id);
   bool RecordEvent(uintptr_t event_id, std::optional<uintptr_t> stream_id);
-  TraceArtifactRecorder* ResolveTraceArtifactRecorderFromEnv();
   uint64_t NextLaunchIndex();
   FunctionalExecutionMode functional_execution_mode() const;
 

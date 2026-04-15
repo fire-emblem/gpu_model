@@ -158,19 +158,6 @@ DeviceLoadPlan HipRuntime::BuildExecutableLoadPlan(const std::filesystem::path& 
   return GetRuntimeSession().BuildExecutableLoadPlan(executable_path, host_function);
 }
 
-void HipRuntime::PushLaunchConfiguration(LaunchConfig config, uint64_t shared_memory_bytes) {
-  config.shared_memory_bytes = static_cast<uint32_t>(shared_memory_bytes);
-  GetRuntimeSession().PushLaunchConfig(config);
-}
-
-std::optional<LaunchConfig> HipRuntime::PopLaunchConfiguration() {
-  return GetRuntimeSession().PopLaunchConfig();
-}
-
-std::filesystem::path HipRuntime::CurrentExecutablePath() {
-  return GetRuntimeSession().CurrentExecutablePath();
-}
-
 void HipRuntime::SetLastError(int error) {
   GetRuntimeSession().SetLastError(error);
 }
@@ -199,10 +186,6 @@ bool HipRuntime::DestroyStream(uintptr_t stream_id) {
   return GetRuntimeSession().DestroyStream(stream_id);
 }
 
-void HipRuntime::StreamSynchronizeCompatibility(RuntimeSubmissionContext submission_context) {
-  GetRuntimeSession().StreamSynchronize(submission_context);
-}
-
 uintptr_t HipRuntime::CreateEvent() {
   return GetRuntimeSession().CreateEvent();
 }
@@ -217,10 +200,6 @@ bool HipRuntime::DestroyEvent(uintptr_t event_id) {
 
 bool HipRuntime::RecordEvent(uintptr_t event_id, std::optional<uintptr_t> stream_id) {
   return GetRuntimeSession().RecordEvent(event_id, stream_id);
-}
-
-TraceArtifactRecorder* HipRuntime::ResolveTraceArtifactRecorderFromEnv() {
-  return GetRuntimeSession().ResolveTraceArtifactRecorderFromEnv();
 }
 
 uint64_t HipRuntime::NextLaunchIndex() {
