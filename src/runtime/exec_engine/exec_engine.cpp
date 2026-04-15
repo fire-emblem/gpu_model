@@ -11,8 +11,8 @@
 
 #include "gpu_arch/chip_config/arch_registry.h"
 #include "execution/cycle/cycle_exec_engine.h"
-#include "execution/internal/cost_model/cycle_issue_policy.h"
 #include "program/loader/device_image_loader.h"
+#include "runtime/exec_engine/cycle_timing_config_resolver.h"
 #include "runtime/exec_engine/launch_dispatcher.h"
 #include "runtime/exec_engine/launch_trace_emitter.h"
 #include "runtime/exec_engine/launch_request_validator.h"
@@ -43,10 +43,10 @@ class ExecEngineImpl {
   void SetIssueCycleClassOverrides(const IssueCycleClassOverridesSpec& overrides);
   void SetIssueCycleOpOverrides(const IssueCycleOpOverridesSpec& overrides);
   void SetCycleIssueLimits(const ArchitecturalIssueLimits& limits) {
-    issue_limits_override_ = limits;
+    cycle_timing_overrides_.issue_limits = limits;
   }
   void SetCycleIssuePolicy(const ArchitecturalIssuePolicy& policy) {
-    issue_policy_override_ = policy;
+    cycle_timing_overrides_.issue_policy = policy;
   }
   void SetFunctionalExecutionConfig(FunctionalExecutionConfig config) {
     functional_execution_config_ = config;
@@ -69,24 +69,7 @@ class ExecEngineImpl {
   MemorySystem memory_;
   NullTraceSink null_trace_sink_;
   TraceSink* default_trace_ = nullptr;
-  std::optional<uint64_t> flat_global_latency_override_;
-  std::optional<uint64_t> dram_latency_override_;
-  std::optional<uint64_t> l2_hit_latency_override_;
-  std::optional<uint64_t> l1_hit_latency_override_;
-  std::optional<uint32_t> shared_bank_count_override_;
-  std::optional<uint32_t> shared_bank_width_override_;
-  std::optional<uint64_t> kernel_launch_gap_cycles_override_;
-  std::optional<uint64_t> kernel_launch_cycles_override_;
-  std::optional<uint64_t> block_launch_cycles_override_;
-  std::optional<uint64_t> wave_generation_cycles_override_;
-  std::optional<uint64_t> wave_dispatch_cycles_override_;
-  std::optional<uint64_t> wave_launch_cycles_override_;
-  std::optional<uint64_t> warp_switch_cycles_override_;
-  std::optional<uint64_t> arg_load_cycles_override_;
-  std::optional<IssueCycleClassOverridesSpec> issue_cycle_class_overrides_;
-  std::optional<IssueCycleOpOverridesSpec> issue_cycle_op_overrides_;
-  std::optional<ArchitecturalIssueLimits> issue_limits_override_;
-  std::optional<ArchitecturalIssuePolicy> issue_policy_override_;
+  CycleTimingConfigOverrides cycle_timing_overrides_;
   FunctionalExecutionConfig functional_execution_config_{};
   bool disable_trace_ = false;
   uint64_t device_cycle_ = 0;
@@ -124,24 +107,24 @@ ExecEngineImpl::ExecEngineImpl(TraceSink* default_trace) : default_trace_(defaul
 }
 
 void ExecEngineImpl::SetFixedGlobalMemoryLatency(uint64_t latency) {
-  flat_global_latency_override_ = latency;
-  dram_latency_override_.reset();
-  l2_hit_latency_override_.reset();
-  l1_hit_latency_override_.reset();
+  cycle_timing_overrides_.flat_global_latency = latency;
+  cycle_timing_overrides_.dram_latency.reset();
+  cycle_timing_overrides_.l2_hit_latency.reset();
+  cycle_timing_overrides_.l1_hit_latency.reset();
 }
 
 void ExecEngineImpl::SetGlobalMemoryLatencyProfile(uint64_t dram_latency,
                                                    uint64_t l2_hit_latency,
                                                    uint64_t l1_hit_latency) {
-  flat_global_latency_override_.reset();
-  dram_latency_override_ = dram_latency;
-  l2_hit_latency_override_ = l2_hit_latency;
-  l1_hit_latency_override_ = l1_hit_latency;
+  cycle_timing_overrides_.flat_global_latency.reset();
+  cycle_timing_overrides_.dram_latency = dram_latency;
+  cycle_timing_overrides_.l2_hit_latency = l2_hit_latency;
+  cycle_timing_overrides_.l1_hit_latency = l1_hit_latency;
 }
 
 void ExecEngineImpl::SetSharedBankConflictModel(uint32_t bank_count, uint32_t bank_width_bytes) {
-  shared_bank_count_override_ = bank_count;
-  shared_bank_width_override_ = bank_width_bytes;
+  cycle_timing_overrides_.shared_bank_count = bank_count;
+  cycle_timing_overrides_.shared_bank_width_bytes = bank_width_bytes;
 }
 
 void ExecEngineImpl::SetLaunchTimingProfile(uint64_t kernel_launch_gap_cycles,
@@ -152,22 +135,22 @@ void ExecEngineImpl::SetLaunchTimingProfile(uint64_t kernel_launch_gap_cycles,
                                             uint64_t wave_launch_cycles,
                                             uint64_t warp_switch_cycles,
                                             uint64_t arg_load_cycles) {
-  kernel_launch_gap_cycles_override_ = kernel_launch_gap_cycles;
-  kernel_launch_cycles_override_ = kernel_launch_cycles;
-  block_launch_cycles_override_ = block_launch_cycles;
-  wave_generation_cycles_override_ = wave_generation_cycles;
-  wave_dispatch_cycles_override_ = wave_dispatch_cycles;
-  wave_launch_cycles_override_ = wave_launch_cycles;
-  warp_switch_cycles_override_ = warp_switch_cycles;
-  arg_load_cycles_override_ = arg_load_cycles;
+  cycle_timing_overrides_.kernel_launch_gap_cycles = kernel_launch_gap_cycles;
+  cycle_timing_overrides_.kernel_launch_cycles = kernel_launch_cycles;
+  cycle_timing_overrides_.block_launch_cycles = block_launch_cycles;
+  cycle_timing_overrides_.wave_generation_cycles = wave_generation_cycles;
+  cycle_timing_overrides_.wave_dispatch_cycles = wave_dispatch_cycles;
+  cycle_timing_overrides_.wave_launch_cycles = wave_launch_cycles;
+  cycle_timing_overrides_.warp_switch_cycles = warp_switch_cycles;
+  cycle_timing_overrides_.arg_load_cycles = arg_load_cycles;
 }
 
 void ExecEngineImpl::SetIssueCycleClassOverrides(const IssueCycleClassOverridesSpec& overrides) {
-  issue_cycle_class_overrides_ = overrides;
+  cycle_timing_overrides_.issue_cycle_class_overrides = overrides;
 }
 
 void ExecEngineImpl::SetIssueCycleOpOverrides(const IssueCycleOpOverridesSpec& overrides) {
-  issue_cycle_op_overrides_ = overrides;
+  cycle_timing_overrides_.issue_cycle_op_overrides = overrides;
 }
 
 void ExecEngine::SetCycleIssueLimits(const ArchitecturalIssueLimits& limits) {
@@ -249,87 +232,7 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
 }
 
 CycleTimingConfig ExecEngineImpl::ResolveCycleTimingConfig(const GpuArchSpec& spec) const {
-  CycleTimingConfig config;
-  config.cache_model = spec.cache_model;
-  config.shared_bank_model = spec.shared_bank_model;
-  config.launch_timing = spec.launch_timing;
-  config.issue_cycle_class_overrides = spec.issue_cycle_class_overrides;
-  config.issue_cycle_op_overrides = spec.issue_cycle_op_overrides;
-  config.issue_limits = CycleIssueLimitsForSpec(spec);
-  config.issue_policy = CycleIssuePolicyForSpec(spec);
-  config.eligible_wave_selection_policy = CycleEligibleWaveSelectionPolicyForSpec(spec);
-  const bool has_issue_policy_override = issue_policy_override_.has_value();
-
-  if (flat_global_latency_override_.has_value()) {
-    config.cache_model.enabled = false;
-    config.cache_model.dram_latency = *flat_global_latency_override_;
-    config.cache_model.l2_hit_latency = *flat_global_latency_override_;
-    config.cache_model.l1_hit_latency = *flat_global_latency_override_;
-  } else {
-    if (dram_latency_override_.has_value()) {
-      config.cache_model.dram_latency = *dram_latency_override_;
-    }
-    if (l2_hit_latency_override_.has_value()) {
-      config.cache_model.l2_hit_latency = *l2_hit_latency_override_;
-    }
-    if (l1_hit_latency_override_.has_value()) {
-      config.cache_model.l1_hit_latency = *l1_hit_latency_override_;
-    }
-  }
-
-  if (shared_bank_count_override_.has_value()) {
-    config.shared_bank_model.enabled = true;
-    config.shared_bank_model.bank_count = *shared_bank_count_override_;
-  }
-  if (shared_bank_width_override_.has_value()) {
-    config.shared_bank_model.enabled = true;
-    config.shared_bank_model.bank_width_bytes = *shared_bank_width_override_;
-  }
-
-  if (kernel_launch_gap_cycles_override_.has_value()) {
-    config.launch_timing.kernel_launch_gap_cycles = *kernel_launch_gap_cycles_override_;
-  }
-  if (kernel_launch_cycles_override_.has_value()) {
-    config.launch_timing.kernel_launch_cycles = *kernel_launch_cycles_override_;
-  }
-  if (block_launch_cycles_override_.has_value()) {
-    config.launch_timing.block_launch_cycles = *block_launch_cycles_override_;
-  }
-  if (wave_generation_cycles_override_.has_value()) {
-    config.launch_timing.wave_generation_cycles = *wave_generation_cycles_override_;
-  }
-  if (wave_dispatch_cycles_override_.has_value()) {
-    config.launch_timing.wave_dispatch_cycles = *wave_dispatch_cycles_override_;
-  }
-  if (wave_launch_cycles_override_.has_value()) {
-    config.launch_timing.wave_launch_cycles = *wave_launch_cycles_override_;
-  }
-  if (warp_switch_cycles_override_.has_value()) {
-    config.launch_timing.warp_switch_cycles = *warp_switch_cycles_override_;
-  }
-  if (arg_load_cycles_override_.has_value()) {
-    config.launch_timing.arg_load_cycles = *arg_load_cycles_override_;
-  }
-  if (issue_cycle_class_overrides_.has_value()) {
-    config.issue_cycle_class_overrides = *issue_cycle_class_overrides_;
-  }
-  if (issue_cycle_op_overrides_.has_value()) {
-    config.issue_cycle_op_overrides = *issue_cycle_op_overrides_;
-  }
-  if (has_issue_policy_override) {
-    config.issue_policy = *issue_policy_override_;
-    config.issue_limits = issue_policy_override_->type_limits;
-  }
-  if (issue_limits_override_.has_value()) {
-    config.issue_limits = *issue_limits_override_;
-  }
-  if (issue_limits_override_.has_value() && !has_issue_policy_override) {
-    config.issue_policy = CycleIssuePolicyWithLimits(*config.issue_policy, config.issue_limits);
-  } else if (config.issue_policy.has_value()) {
-    config.issue_policy->type_limits = config.issue_limits;
-  }
-
-  return config;
+  return ResolveCycleTimingConfigWithOverrides(spec, cycle_timing_overrides_);
 }
 
 TraceSink& ExecEngineImpl::ResolveTraceSink(TraceSink* request_trace) {
