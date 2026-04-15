@@ -342,6 +342,65 @@ TEST(RuntimeSessionTest, ResetAbiStateDoesNotClearLastErrorChannel) {
   EXPECT_EQ(session.PeekLastError(), 0);
 }
 
+TEST(RuntimeSessionTest, ParsesAndPacksAbiArgsThroughDedicatedPacker) {
+  RuntimeSession session;
+  MetadataBlob metadata{.values = {
+                            {"arg_layout", "global_buffer:8,by_value:4,by_value:8,by_value:16:12"},
+                        }};
+
+  const auto layout = session.ParseAbiArgLayout(metadata);
+  ASSERT_EQ(layout.size(), 4u);
+  EXPECT_EQ(layout[0].kind, HipRuntimeAbiArgKind::GlobalBuffer);
+  EXPECT_EQ(layout[0].size, 8u);
+  EXPECT_EQ(layout[1].kind, HipRuntimeAbiArgKind::ByValue);
+  EXPECT_EQ(layout[1].size, 4u);
+  EXPECT_EQ(layout[2].size, 8u);
+  EXPECT_EQ(layout[3].size, 12u);
+
+  void* device_ptr = session.AllocateDevice(64);
+  uint32_t scalar32 = 0x11223344u;
+  uint64_t scalar64 = 0x5566778899aabbccull;
+  struct AggregateArg {
+    uint32_t x;
+    uint32_t y;
+    uint32_t z;
+  } aggregate{7u, 8u, 9u};
+
+  void* arg_ptrs[] = {&device_ptr, &scalar32, &scalar64, &aggregate};
+  const auto packed = session.PackAbiArgs(metadata, arg_ptrs);
+  ASSERT_EQ(packed.size(), 4u);
+
+  uint64_t packed_device_addr = 0;
+  std::memcpy(&packed_device_addr, packed.bytes(0).data(), sizeof(packed_device_addr));
+  EXPECT_EQ(packed_device_addr, session.ResolveDeviceAddress(device_ptr));
+
+  uint32_t packed_u32 = 0;
+  std::memcpy(&packed_u32, packed.bytes(1).data(), sizeof(packed_u32));
+  EXPECT_EQ(packed_u32, scalar32);
+
+  uint64_t packed_u64 = 0;
+  std::memcpy(&packed_u64, packed.bytes(2).data(), sizeof(packed_u64));
+  EXPECT_EQ(packed_u64, scalar64);
+
+  AggregateArg packed_aggregate{};
+  ASSERT_EQ(packed.bytes(3).size(), sizeof(AggregateArg));
+  std::memcpy(&packed_aggregate, packed.bytes(3).data(), sizeof(AggregateArg));
+  EXPECT_EQ(packed_aggregate.x, aggregate.x);
+  EXPECT_EQ(packed_aggregate.y, aggregate.y);
+  EXPECT_EQ(packed_aggregate.z, aggregate.z);
+}
+
+TEST(RuntimeSessionTest, PackAbiArgsRejectsMissingPointers) {
+  RuntimeSession session;
+  MetadataBlob metadata{.values = {
+                            {"arg_layout", "by_value:4"},
+                        }};
+
+  EXPECT_THROW(session.PackAbiArgs(metadata, nullptr), std::invalid_argument);
+  void* null_args[] = {nullptr};
+  EXPECT_THROW(session.PackAbiArgs(metadata, null_args), std::invalid_argument);
+}
+
 TEST(DeviceMemoryManagerTest, ReleasedPointersLoseAllocationAndResolvedAddress) {
   MemorySystem memory;
   DeviceMemoryManager manager(&memory);

@@ -278,47 +278,15 @@ void RuntimeSession::SyncManagedDeviceToHost() {
 
 std::vector<HipRuntimeAbiArgDesc> RuntimeSession::ParseAbiArgLayout(
     const MetadataBlob& metadata) const {
-  std::vector<HipRuntimeAbiArgDesc> args;
-  const auto parsed = ParseKernelLaunchMetadata(metadata);
-  for (const auto& item : parsed.arg_layout) {
-    args.push_back(HipRuntimeAbiArgDesc{
-        .kind = item.kind == KernelArgValueKind::GlobalBuffer ? HipRuntimeAbiArgKind::GlobalBuffer
-                                                              : HipRuntimeAbiArgKind::ByValue,
-        .size = item.size,
-    });
-  }
-  return args;
+  return ParseHipRuntimeAbiArgLayout(metadata);
 }
 
 KernelArgPack RuntimeSession::PackAbiArgs(const MetadataBlob& metadata, void** args) const {
-  KernelArgPack packed;
-  auto layout = ParseAbiArgLayout(metadata);
-  if (layout.empty()) {
-    throw std::invalid_argument("missing kernel argument layout metadata");
-  }
-  for (size_t i = 0; i < layout.size(); ++i) {
-    if (args == nullptr || args[i] == nullptr) {
-      throw std::invalid_argument("missing kernel argument pointer");
-    }
-    const auto& desc = layout[i];
-    if (desc.kind == HipRuntimeAbiArgKind::GlobalBuffer) {
-      void* device_ptr = *reinterpret_cast<void**>(args[i]);
-      packed.PushU64(ResolveDeviceAddress(device_ptr));
-      continue;
-    }
-    if (desc.size == 4) {
-      uint32_t value = 0;
-      std::memcpy(&value, args[i], sizeof(value));
-      packed.PushU32(value);
-    } else if (desc.size == 8) {
-      uint64_t value = 0;
-      std::memcpy(&value, args[i], sizeof(value));
-      packed.PushU64(value);
-    } else {
-      packed.PushBytes(args[i], desc.size);
-    }
-  }
-  return packed;
+  const size_t arg_count = args == nullptr ? 0u : ParseAbiArgLayout(metadata).size();
+  return PackHipRuntimeAbiArgs(
+      metadata,
+      std::span<void* const>(args, arg_count),
+      [this](const void* ptr) { return ResolveDeviceAddress(ptr); });
 }
 
 ProgramObject RuntimeSession::LoadExecutableImage(const std::filesystem::path& executable_path,

@@ -14,6 +14,7 @@
 #include "gpu_arch/memory/memory_system.h"
 #include "gpu_arch/memory/memory_pool.h"
 #include "program/program_object/program_object.h"
+#include "runtime/model_runtime/runtime_abi_arg_packer.h"
 #include "runtime/model_runtime/device_memory_manager.h"
 #include "runtime/model_runtime/runtime_last_error_state.h"
 #include "runtime/model_runtime/runtime_kernel_symbol_state.h"
@@ -28,16 +29,6 @@
 namespace gpu_model {
 
 class TraceArtifactRecorder;
-
-enum class HipRuntimeAbiArgKind {
-  GlobalBuffer,
-  ByValue,
-};
-
-struct HipRuntimeAbiArgDesc {
-  HipRuntimeAbiArgKind kind = HipRuntimeAbiArgKind::ByValue;
-  uint32_t size = 0;
-};
 
 class RuntimeSession {
  public:
