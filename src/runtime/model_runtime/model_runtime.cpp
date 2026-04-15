@@ -10,6 +10,7 @@
 #include "runtime/model_runtime/model_runtime_launch_helper.h"
 #include "runtime/model_runtime/model_runtime_memory_ops.h"
 #include "runtime/model_runtime/model_runtime_registered_kernel_helper.h"
+#include "runtime/model_runtime/model_runtime_reset_helper.h"
 
 namespace gpu_model {
 
@@ -62,15 +63,14 @@ void ModelRuntime::MemsetD32(uint64_t addr, uint32_t value, size_t count) {
 }
 
 void ModelRuntime::Reset() {
-  if (owns_runtime_) {
-    owned_runtime_ = ExecEngine{};
-    runtime_engine_ = &owned_runtime_;
-  } else {
-    runtime_engine_->ResetDeviceCycle();
-  }
-  device_state_.Reset();
-  module_registry_.Reset();
-  last_load_result_.reset();
+  ResetModelRuntimeState(ModelRuntimeResetContext{
+      .owned_runtime = owned_runtime_,
+      .runtime_engine = runtime_engine_,
+      .owns_runtime = owns_runtime_,
+      .device_state = device_state_,
+      .module_registry = module_registry_,
+      .last_load_result = last_load_result_,
+  });
 }
 
 int ModelRuntime::GetDeviceCount() const {
