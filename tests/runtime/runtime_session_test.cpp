@@ -401,6 +401,13 @@ TEST(RuntimeSessionTest, PackAbiArgsRejectsMissingPointers) {
   EXPECT_THROW(session.PackAbiArgs(metadata, null_args), std::invalid_argument);
 }
 
+TEST(RuntimeSessionTest, CurrentExecutablePathResolvesExistingBinary) {
+  const auto path = RuntimeSession::CurrentExecutablePath();
+  EXPECT_FALSE(path.empty());
+  EXPECT_TRUE(std::filesystem::exists(path));
+  EXPECT_TRUE(std::filesystem::is_regular_file(path));
+}
+
 TEST(DeviceMemoryManagerTest, ReleasedPointersLoseAllocationAndResolvedAddress) {
   MemorySystem memory;
   DeviceMemoryManager manager(&memory);

@@ -1,12 +1,12 @@
 #include "runtime/model_runtime/runtime_session.h"
 
 #include <cstring>
-#include <array>
 #include <limits>
 #include <stdexcept>
 
 #include "instruction/isa/kernel_metadata.h"
 #include "runtime/model_runtime/runtime_executable_launch_helper.h"
+#include "runtime/model_runtime/runtime_process_path.h"
 
 namespace gpu_model {
 
@@ -359,13 +359,7 @@ uint64_t RuntimeSession::NextLaunchIndex() {
 }
 
 std::filesystem::path RuntimeSession::CurrentExecutablePath() {
-  std::array<char, 4096> buffer{};
-  const ssize_t length = ::readlink("/proc/self/exe", buffer.data(), buffer.size() - 1);
-  if (length < 0) {
-    throw std::runtime_error("failed to resolve /proc/self/exe");
-  }
-  buffer[static_cast<size_t>(length)] = '\0';
-  return std::filesystem::path(buffer.data());
+  return ResolveCurrentExecutablePath();
 }
 
 RuntimeSession& GetRuntimeSession() {
