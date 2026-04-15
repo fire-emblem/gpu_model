@@ -44,11 +44,6 @@ class RuntimeSession {
   void BindDeviceMemoryManager();
   void RegisterKernelSymbol(const void* host_function, std::string kernel_name);
   std::optional<std::string> ResolveKernelSymbol(const void* host_function) const;
-  int GetDeviceCount() const;
-  int GetDevice() const;
-  bool SetDevice(int device_id);
-  RuntimeDeviceProperties GetDeviceProperties(int device_id) const;
-  std::optional<int> GetDeviceAttribute(RuntimeDeviceAttribute attribute, int device_id) const;
   void SetLastError(int error);
   int PeekLastError() const;
   int ConsumeLastError();

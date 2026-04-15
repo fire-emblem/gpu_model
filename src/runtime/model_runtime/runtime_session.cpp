@@ -51,27 +51,6 @@ std::optional<std::string> RuntimeSession::ResolveKernelSymbol(const void* host_
   return kernel_symbol_state_.Resolve(host_function);
 }
 
-int RuntimeSession::GetDeviceCount() const {
-  return model_runtime_.GetDeviceCount();
-}
-
-int RuntimeSession::GetDevice() const {
-  return model_runtime_.GetDevice();
-}
-
-bool RuntimeSession::SetDevice(int device_id) {
-  return model_runtime_.SetDevice(device_id);
-}
-
-RuntimeDeviceProperties RuntimeSession::GetDeviceProperties(int device_id) const {
-  return model_runtime_.GetDeviceProperties(device_id);
-}
-
-std::optional<int> RuntimeSession::GetDeviceAttribute(RuntimeDeviceAttribute attribute,
-                                                      int device_id) const {
-  return model_runtime_.GetDeviceAttribute(attribute, device_id);
-}
-
 void RuntimeSession::SetLastError(int error) {
   last_error_state_.Set(error);
 }
