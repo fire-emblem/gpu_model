@@ -9,6 +9,7 @@
 #include "runtime/model_runtime/model_runtime_device_info.h"
 #include "runtime/model_runtime/model_runtime_launch_helper.h"
 #include "runtime/model_runtime/model_runtime_memory_ops.h"
+#include "runtime/model_runtime/model_runtime_registered_kernel_helper.h"
 
 namespace gpu_model {
 
@@ -179,13 +180,10 @@ LaunchResult ModelRuntime::LaunchRegisteredKernel(const std::string& module_name
                                                   std::string arch_name,
                                                   TraceSink* trace,
                                                   RuntimeSubmissionContext submission_context) {
-  const auto* kernel_image = module_registry_.FindKernelImage(module_name, kernel_name);
+  const auto* kernel_image =
+      ResolveRegisteredKernelImage(module_registry_, module_name, kernel_name);
   if (kernel_image == nullptr) {
-    LaunchResult result;
-    result.ok = false;
-    result.error_message = module_registry_.HasModule(module_name) ? "unknown kernel in module: " + kernel_name
-                                                                   : "unknown module: " + module_name;
-    return result;
+    return BuildMissingRegisteredKernelResult(module_registry_, module_name, kernel_name);
   }
   return LaunchProgramObject(*kernel_image,
                              std::move(config),
