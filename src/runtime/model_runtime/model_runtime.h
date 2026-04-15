@@ -85,8 +85,6 @@ class ModelRuntime {
   LaunchResult Launch(const LaunchRequest& request);
 
  private:
-  DeviceLoadResult MaterializeLoadPlan(const DeviceLoadPlan& plan);
-
   ExecEngine owned_runtime_;
   ExecEngine* runtime_engine_ = &owned_runtime_;
   bool owns_runtime_ = true;

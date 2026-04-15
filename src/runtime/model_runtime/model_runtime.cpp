@@ -8,6 +8,7 @@
 
 #include "gpu_arch/chip_config/arch_registry.h"
 #include "runtime/exec_engine/exec_engine.h"
+#include "runtime/model_runtime/model_runtime_launch_helper.h"
 
 namespace gpu_model {
 
@@ -222,17 +223,16 @@ LaunchResult ModelRuntime::LaunchProgramObject(const ProgramObject& image,
                                                std::string arch_name,
                                                TraceSink* trace,
                                                RuntimeSubmissionContext submission_context) {
-  last_load_result_ = MaterializeLoadPlan(BuildDeviceLoadPlan(image));
-
-  LaunchRequest request;
-  request.arch_name = std::move(arch_name);
-  request.program_object = &image;
-  request.device_load = last_load_result_.has_value() ? &*last_load_result_ : nullptr;
-  request.submission_context = submission_context;
-  request.config = config;
-  request.args = std::move(args);
-  request.mode = mode;
-  request.trace = trace;
+  last_load_result_ = MaterializeProgramObjectLoadResult(runtime(), image);
+  auto request = BuildProgramObjectLaunchRequest(image,
+                                                 last_load_result_.has_value() ? &*last_load_result_
+                                                                               : nullptr,
+                                                 config,
+                                                 std::move(args),
+                                                 mode,
+                                                 std::move(arch_name),
+                                                 trace,
+                                                 submission_context);
   return runtime().Launch(request);
 }
 
@@ -243,14 +243,8 @@ LaunchResult ModelRuntime::LaunchKernel(const ExecutableKernel& kernel,
                                         const std::string& arch_name,
                                         TraceSink* trace,
                                         RuntimeSubmissionContext submission_context) {
-  LaunchRequest request;
-  request.arch_name = arch_name;
-  request.kernel = &kernel;
-  request.submission_context = submission_context;
-  request.config = config;
-  request.args = std::move(args);
-  request.mode = mode;
-  request.trace = trace;
+  auto request = BuildKernelLaunchRequest(
+      kernel, config, std::move(args), mode, arch_name, trace, submission_context);
   return runtime().Launch(request);
 }
 
@@ -304,10 +298,6 @@ LaunchResult ModelRuntime::LaunchRegisteredKernel(const std::string& module_name
                              std::move(arch_name),
                              trace,
                              submission_context);
-}
-
-DeviceLoadResult ModelRuntime::MaterializeLoadPlan(const DeviceLoadPlan& plan) {
-  return DeviceImageLoader{}.Materialize(plan, runtime().memory());
 }
 
 }  // namespace gpu_model
