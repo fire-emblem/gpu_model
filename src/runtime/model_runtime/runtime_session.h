@@ -15,6 +15,7 @@
 #include "gpu_arch/memory/memory_pool.h"
 #include "program/program_object/program_object.h"
 #include "runtime/model_runtime/device_memory_manager.h"
+#include "runtime/model_runtime/runtime_last_error_state.h"
 #include "runtime/model_runtime/runtime_kernel_symbol_state.h"
 #include "runtime/model_runtime/runtime_launch_config_state.h"
 #include "runtime/model_runtime/runtime_stream_event_state.h"
@@ -108,9 +109,9 @@ class RuntimeSession {
   static std::filesystem::path CurrentExecutablePath();
 
  private:
-  thread_local static int last_error_;
   ModelRuntime model_runtime_;
   DeviceMemoryManager device_memory_manager_;
+  RuntimeLastErrorState last_error_state_;
   RuntimeKernelSymbolState kernel_symbol_state_;
   RuntimeLaunchConfigState launch_config_state_;
   RuntimeStreamEventState stream_event_state_;

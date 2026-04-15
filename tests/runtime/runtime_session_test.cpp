@@ -317,6 +317,31 @@ TEST(RuntimeSessionTest, ResetClearsRegisteredKernelSymbols) {
   EXPECT_FALSE(session.ResolveKernelSymbol(&host_symbol).has_value());
 }
 
+TEST(RuntimeSessionTest, LastErrorStateIsPeekableAndConsumable) {
+  RuntimeSession session;
+
+  EXPECT_EQ(session.PeekLastError(), 0);
+  EXPECT_EQ(session.ConsumeLastError(), 0);
+
+  session.SetLastError(17);
+  EXPECT_EQ(session.PeekLastError(), 17);
+  EXPECT_EQ(session.PeekLastError(), 17);
+  EXPECT_EQ(session.ConsumeLastError(), 17);
+  EXPECT_EQ(session.PeekLastError(), 0);
+  EXPECT_EQ(session.ConsumeLastError(), 0);
+}
+
+TEST(RuntimeSessionTest, ResetAbiStateDoesNotClearLastErrorChannel) {
+  RuntimeSession session;
+
+  session.SetLastError(29);
+  session.ResetAbiState();
+
+  EXPECT_EQ(session.PeekLastError(), 29);
+  EXPECT_EQ(session.ConsumeLastError(), 29);
+  EXPECT_EQ(session.PeekLastError(), 0);
+}
+
 TEST(DeviceMemoryManagerTest, ReleasedPointersLoseAllocationAndResolvedAddress) {
   MemorySystem memory;
   DeviceMemoryManager manager(&memory);

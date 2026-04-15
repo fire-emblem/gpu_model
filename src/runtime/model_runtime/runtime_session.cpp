@@ -11,8 +11,6 @@
 
 namespace gpu_model {
 
-thread_local int RuntimeSession::last_error_ = 0;
-
 RuntimeSession::RuntimeSession() : device_memory_manager_(&model_runtime_.memory()) {}
 
 MemorySystem& RuntimeSession::memory() {
@@ -73,17 +71,15 @@ std::optional<int> RuntimeSession::GetDeviceAttribute(RuntimeDeviceAttribute att
 }
 
 void RuntimeSession::SetLastError(int error) {
-  last_error_ = error;
+  last_error_state_.Set(error);
 }
 
 int RuntimeSession::PeekLastError() const {
-  return last_error_;
+  return last_error_state_.Peek();
 }
 
 int RuntimeSession::ConsumeLastError() {
-  const int error = last_error_;
-  last_error_ = 0;
-  return error;
+  return last_error_state_.Consume();
 }
 
 std::optional<uintptr_t> RuntimeSession::active_stream_id() const {
