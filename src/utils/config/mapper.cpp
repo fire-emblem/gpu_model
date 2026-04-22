@@ -1,4 +1,4 @@
-#include "runtime/model_runtime/core/mapper.h"
+#include "utils/config/mapper.h"
 
 #include <algorithm>
 #include <stdexcept>

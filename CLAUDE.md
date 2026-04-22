@@ -103,21 +103,34 @@ src/
 ├── arch/          # Architecture specs (GpuArchSpec, device topology)
 ├── debug/         # Trace output (text, jsonl, perfetto)
 ├── execution/     # Execution engines (functional/cycle/encoded)
+│   ├── functional/   # FunctionalExecEngine (st/mt modes)
+│   ├── cycle/        # CycleExecEngine (tick-driven state machine)
+│   ├── encoded/      # ProgramObjectExecEngine
+│   ├── internal/     # Shared scheduling logic (block_schedule, wave_schedule, etc.)
+│   └── stats/        # ProgramCycleStats, ProgramCycleTracker (moved from runtime/)
+├── gpu_arch/      # GPU architecture definitions (chip_config, register, wave, ap, peu, dpc)
 ├── gpu_model/     # Main library entry point
 ├── instruction/   # Instruction objects and semantic dispatch
-├── isa/           # GCN ISA definitions and encodings
+│   ├── isa/         # GCN ISA opcode definitions
+│   ├── decode/      # Binary decoding
+│   ├── semantics/   # Instruction handlers (scalar, vector, memory, branch)
+│   └── operand/     # Operand accessors
 ├── loader/        # AMDGPU object / HIP artifact loading
 ├── memory/        # Memory pools (global/shared/private/constant/kernarg)
 ├── program/       # ProgramObject, ExecutableKernel, EncodedProgramObject
 ├── runtime/
-│   ├── config/    # Launch request configuration
-│   ├── exec_engine/
-│   ├── hip_runtime/  # HipRuntime (C ABI / LD_PRELOAD entry)
+│   ├── config/      # Runtime-specific config (kernarg_packer, runtime_config)
+│   ├── exec_engine/ # ExecEngine facade
+│   ├── hip_runtime/ # HipRuntime (C ABI / LD_PRELOAD entry)
 │   └── model_runtime/
-│       ├── core/     # ModelRuntime facade
-│       ├── compat/   # Compatibility layering (abi/launch/session)
-│       ├── module/   # Module loading
-│       └── stats/    # Runtime statistics
+│       ├── core/      # ModelRuntime facade
+│       ├── compat/    # Compatibility layering (abi/launch/session)
+│       └── module/    # Module loading
+├── state/         # Runtime state (wave, ap, peu, dpc, device, memory)
+├── utils/         # Pure infrastructure (zero business dependencies)
+│   ├── config/      # Shared config types (LaunchConfig, KernelArgPack, LaunchRequest, Mapper)
+│   ├── logging/     # loguru wrapper + LOG macros
+│   └── math/        # FP conversion, bit operations
 └── spec/          # Engineering reference materials
 ```
 
@@ -240,3 +253,12 @@ Vendored in `third_party/`:
 - `HostRuntime` -> `ExecEngine`
 - `HipInterposerState` -> deleted (merged into `HipRuntime`)
 - `hip_interposer.cpp` -> `hip_ld_preload.cpp`
+
+## Moved Files (for reading old docs/code)
+
+- `runtime/config/launch_config.h` -> `utils/config/launch_config.h`
+- `runtime/config/kernel_arg_pack.h` -> `utils/config/kernel_arg_pack.h`
+- `runtime/config/launch_request.h` -> `utils/config/launch_request.h`
+- `runtime/model_runtime/core/mapper.h` -> `utils/config/mapper.h`
+- `runtime/model_runtime/stats/program_cycle_stats.h` -> `execution/stats/program_cycle_stats.h`
+- `runtime/model_runtime/stats/program_cycle_tracker.h` -> `execution/stats/program_cycle_tracker.h`

@@ -4,7 +4,7 @@
 
 #include "execution/cycle/cycle_timing_config.h"
 #include "execution/execution_context.h"
-#include "runtime/config/launch_request.h"
+#include "utils/config/launch_request.h"
 #include "runtime/exec_engine/launch_request_validator.h"
 
 namespace gpu_model {

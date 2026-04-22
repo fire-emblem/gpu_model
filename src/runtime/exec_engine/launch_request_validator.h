@@ -6,7 +6,7 @@
 #include "gpu_arch/device/gpu_arch_spec.h"
 #include "program/executable/executable_kernel.h"
 #include "program/program_object/program_object.h"
-#include "runtime/config/launch_request.h"
+#include "utils/config/launch_request.h"
 
 namespace gpu_model {
 

@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "instruction/isa/metadata.h"
-#include "runtime/config/kernel_arg_pack.h"
+#include "utils/config/kernel_arg_pack.h"
 
 namespace gpu_model {
 

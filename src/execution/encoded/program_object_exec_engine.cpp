@@ -43,8 +43,8 @@
 #include "state/memory/cache_model.h"
 #include "state/memory/shared_bank_model.h"
 #include "runtime/config/kernarg_packer.h"
-#include "runtime/model_runtime/core/mapper.h"
-#include "runtime/model_runtime/stats/program_cycle_tracker.h"
+#include "utils/config/mapper.h"
+#include "execution/stats/program_cycle_tracker.h"
 #include "utils/logging/log_macros.h"
 
 namespace gpu_model {

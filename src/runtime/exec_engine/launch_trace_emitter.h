@@ -4,7 +4,7 @@
 
 #include "debug/trace/sink.h"
 #include "gpu_arch/device/gpu_arch_spec.h"
-#include "runtime/config/launch_request.h"
+#include "utils/config/launch_request.h"
 
 namespace gpu_model {
 

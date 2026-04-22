@@ -21,8 +21,8 @@
 #include "runtime/model_runtime/compat/session/runtime_launch_config_state.h"
 #include "runtime/model_runtime/compat/session/runtime_stream_event_state.h"
 #include "runtime/model_runtime/compat/session/runtime_trace_state.h"
-#include "runtime/config/kernel_arg_pack.h"
-#include "runtime/config/launch_config.h"
+#include "utils/config/kernel_arg_pack.h"
+#include "utils/config/launch_config.h"
 #include "runtime/model_runtime/core/model_runtime.h"
 #include "runtime/model_runtime/compat/launch/runtime_submission_context.h"
 

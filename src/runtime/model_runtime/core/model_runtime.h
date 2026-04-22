@@ -10,7 +10,7 @@
 #include "runtime/model_runtime/core/device_properties.h"
 #include "runtime/model_runtime/core/model_runtime_device_state.h"
 #include "runtime/exec_engine/exec_engine.h"
-#include "runtime/config/launch_request.h"
+#include "utils/config/launch_request.h"
 #include "runtime/model_runtime/module/module_registry.h"
 
 namespace gpu_model {

@@ -7,7 +7,7 @@
 
 #include "program/loader/device_image_loader.h"
 #include "program/program_object/program_object.h"
-#include "runtime/config/launch_request.h"
+#include "utils/config/launch_request.h"
 #include "runtime/model_runtime/compat/launch/runtime_submission_context.h"
 #include "utils/config/execution_mode.h"
 

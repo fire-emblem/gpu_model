@@ -4,10 +4,10 @@
 #include <optional>
 #include <string>
 
-#include "runtime/config/kernel_arg_pack.h"
-#include "runtime/config/launch_config.h"
-#include "runtime/model_runtime/core/mapper.h"
-#include "runtime/model_runtime/stats/program_cycle_stats.h"
+#include "utils/config/kernel_arg_pack.h"
+#include "utils/config/launch_config.h"
+#include "utils/config/mapper.h"
+#include "execution/stats/program_cycle_stats.h"
 #include "runtime/model_runtime/compat/launch/runtime_submission_context.h"
 #include "state/execution_stats.h"
 #include "utils/config/execution_mode.h"

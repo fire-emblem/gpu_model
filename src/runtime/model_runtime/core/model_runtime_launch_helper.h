@@ -3,7 +3,7 @@
 #include <string>
 
 #include "program/loader/device_image_loader.h"
-#include "runtime/config/launch_request.h"
+#include "utils/config/launch_request.h"
 
 namespace gpu_model {
 

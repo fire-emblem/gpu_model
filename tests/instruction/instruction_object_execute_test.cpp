@@ -6,7 +6,7 @@
 #include "instruction/semantics/encoded_handler.h"
 #include "instruction/decode/encoded/instruction_object.h"
 #include "state/memory/memory_system.h"
-#include "runtime/config/launch_request.h"
+#include "utils/config/launch_request.h"
 #include "state/wave/wave_runtime_state.h"
 
 namespace gpu_model {

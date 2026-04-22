@@ -7,10 +7,10 @@
 #include "gpu_arch/device/gpu_arch_spec.h"
 #include "state/memory/memory_system.h"
 #include "program/executable/executable_kernel.h"
-#include "runtime/config/kernel_arg_pack.h"
-#include "runtime/config/launch_config.h"
-#include "runtime/config/launch_request.h"
-#include "runtime/model_runtime/core/mapper.h"
+#include "utils/config/kernel_arg_pack.h"
+#include "utils/config/launch_config.h"
+#include "utils/config/launch_request.h"
+#include "utils/config/mapper.h"
 #include "state/wave/wave_runtime_state.h"
 
 namespace gpu_model {

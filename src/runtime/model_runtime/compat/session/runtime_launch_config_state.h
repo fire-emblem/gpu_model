@@ -2,7 +2,7 @@
 
 #include <optional>
 
-#include "runtime/config/launch_config.h"
+#include "utils/config/launch_config.h"
 
 namespace gpu_model {
 

@@ -13,8 +13,8 @@
 #include "state/wave/wave_runtime_state.h"  // WaveContext
 #include "gpu_arch/issue_config/issue_config.h"  // ArchitecturalIssuePolicy, ArchitecturalIssueLimits
 #include "instruction/isa/instruction.h"  // Instruction
-#include "runtime/model_runtime/stats/program_cycle_stats.h"  // ProgramCycleStats, ProgramCycleStatsConfig
-#include "runtime/model_runtime/stats/program_cycle_tracker.h"  // ExecutedStepClass
+#include "execution/stats/program_cycle_stats.h"  // ProgramCycleStats, ProgramCycleStatsConfig
+#include "execution/stats/program_cycle_tracker.h"  // ExecutedStepClass
 
 namespace gpu_model {
 
