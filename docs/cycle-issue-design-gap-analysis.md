@@ -1,6 +1,12 @@
 # Cycle Issue Design Gap Analysis
 
-本文用于落盘当前 `cycle model` 在“wave 指令 issue 选择”上的目标、现状、差距和建议调整方向。
+> **状态更新 (2026-04-23)**：本文档中第 5 节指出的主要差距已修复：
+> - 5.1 per-wave `next_issue_cycle` 和 `eligible_since_cycle` 已实现
+> - 5.4 `OldestFirst` 已改用动态 ready age (`eligible_since_cycle`)
+> - 5.5 candidate 结构已扩展，支持 `blocked_reason` 分类
+> - 6.3 scheduler-driven switch penalty 已进入真实 issue 路径
+
+本文用于落盘当前 `cycle model` 在”wave 指令 issue 选择”上的目标、现状、差距和建议调整方向。
 
 本文不是新的架构总设计，也不是实施计划；它只回答下面几个问题：
 
