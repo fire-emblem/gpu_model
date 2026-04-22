@@ -24,7 +24,7 @@
 #include "runtime/config/kernel_arg_pack.h"
 #include "runtime/config/launch_config.h"
 #include "runtime/model_runtime/core/model_runtime.h"
-#include "runtime/model_runtime/compat/session/runtime_submission_context.h"
+#include "runtime/model_runtime/compat/launch/runtime_submission_context.h"
 
 namespace gpu_model {
 
