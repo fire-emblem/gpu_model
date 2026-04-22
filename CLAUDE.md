@@ -20,40 +20,36 @@ cmake --build --preset dev-fast
 # Standard CMake flow
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
 cmake --build build -j
-
-# Build with ASan (default for Debug builds)
-cmake -S . -B build-asan -DCMAKE_BUILD_TYPE=Debug
-cmake --build build-asan -j
 ```
 
-**Note:** The `dev-fast` preset uses Ninja and outputs to `build-ninja/`. This is the recommended workflow for development.
+The `dev-fast` preset uses Ninja and outputs to `build-ninja/`. Examples and scripts auto-detect build dir (`build-ninja/` > `build/`, overridable via `GPU_MODEL_BUILD_DIR`).
 
 ## Test Commands
 
 ```bash
-# Run all tests
-./build/tests/gpu_model_tests
+# Run all tests (use build-ninja path if using preset)
+./build-ninja/tests/gpu_model_tests
 
 # Run full test matrix
-GPU_MODEL_TEST_PROFILE=full ./build/tests/gpu_model_tests
+GPU_MODEL_TEST_PROFILE=full ./build-ninja/tests/gpu_model_tests
 
 # Run single test
-./build/tests/gpu_model_tests --gtest_filter=HipRuntimeTest.LaunchesHipVecAddExecutableAndValidatesOutput
+./build-ninja/tests/gpu_model_tests --gtest_filter=HipRuntimeTest.LaunchesHipVecAddExecutableAndValidatesOutput
 
 # Run specific test pattern
-./build/tests/gpu_model_tests --gtest_filter=*waitcnt*
+./build-ninja/tests/gpu_model_tests --gtest_filter=*waitcnt*
 ```
 
 ## Examples
 
-Examples are numbered by complexity in `examples/01-vecadd-basic/` through `examples/11-perfetto-waitcnt-slots/`:
+Examples are numbered by complexity in `examples/01-vecadd-basic/` through `examples/13-algorithm-comparison/`. Non-comparison examples default to `mt` mode only; comparison/visualization examples explicitly run multiple modes.
 
 ```bash
 # Run a specific example
 ./examples/01-vecadd-basic/run.sh
 
-# Run with specific execution mode
-# Each example runs st/mt/cycle modes by default
+# Disable hipcc compilation cache (enabled by default via tools/hipcc_cache.sh)
+GPU_MODEL_USE_HIPCC_CACHE=0 ./examples/01-vecadd-basic/run.sh
 ```
 
 ## Key Scripts
@@ -92,6 +88,14 @@ The codebase follows a five-layer architecture:
 runtime -> program -> instruction -> execution -> wave
 ```
 
+The runtime layer itself has an internal structure:
+
+```
+HipRuntime (C ABI / LD_PRELOAD) -> ModelRuntime (core) -> ExecEngine (execution chain)
+```
+
+`ExecEngine` is part of `ModelRuntime`'s execution chain, not a peer layer. See `docs/runtime-layering.md` for the canonical reference.
+
 ### Source Directory Structure
 
 ```
@@ -105,19 +109,26 @@ src/
 ├── loader/        # AMDGPU object / HIP artifact loading
 ├── memory/        # Memory pools (global/shared/private/constant/kernarg)
 ├── program/       # ProgramObject, ExecutableKernel, EncodedProgramObject
-├── runtime/       # HipRuntime, ModelRuntime, ExecEngine
+├── runtime/
+│   ├── config/    # Launch request configuration
+│   ├── exec_engine/
+│   ├── hip_runtime/  # HipRuntime (C ABI / LD_PRELOAD entry)
+│   └── model_runtime/
+│       ├── core/     # ModelRuntime facade
+│       ├── compat/   # Compatibility layering (abi/launch/session)
+│       ├── module/   # Module loading
+│       └── stats/    # Runtime statistics
 └── spec/          # Engineering reference materials
 ```
 
 ### Runtime Layer
 - `HipRuntime`: HIP compatibility layer (C ABI entry, LD_PRELOAD interposition)
 - `ModelRuntime`: Core implementation layer
-- `ExecEngine`: Execution controller
+- `ExecEngine`: Execution controller (part of ModelRuntime's chain, not a peer layer)
 
 Key files:
 - `src/runtime/hip_runtime/hip_ld_preload.cpp` - C ABI / LD_PRELOAD entry
-- `src/runtime/hip_runtime.cpp` - HIP compatibility
-- `src/runtime/exec_engine.cpp` - Execution engine
+- `src/runtime/model_runtime/core/` - ModelRuntime facade
 
 ### Program Layer
 - `ProgramObject`: Static program representation
@@ -175,21 +186,29 @@ Key directory:
 - Trace only consumes events; it does NOT participate in business logic decisions
 - Behavior must be identical with or without trace enabled
 - Disable trace with: `GPU_MODEL_DISABLE_TRACE=1`
+- Principle: state change first -> typed event -> trace consumes. Never reverse.
 
 ### Cycle Field Semantics
 - The `cycle` field in trace outputs is **model time**, NOT real hardware time
 - It represents relative ordering, wait intervals, and dependencies
 - Do not interpret as physical execution time without calibration
+- Functional `cycle` = virtual counter for ordering; Cycle `cycle` = model counter, still not physical time
 
 ### Runtime Layering
 - `HipRuntime` -> `ModelRuntime` -> `ExecEngine` only
-- No independent "interposer module" concept
-- `src/runtime/hip_interposer.cpp` is just a C ABI entry point, not a separate module
+- No independent "interposer module" concept; `hip_interposer.cpp` is historical naming for C ABI entry
+- `ModelRuntime` must never depend back on `HipRuntime`
 
 ### Functional vs Cycle Models
 - Functional: allows st/mt host execution strategies
 - Cycle: single unified timing model (no "cycle st" / "cycle mt" variants)
 - Cycle model must be tick-driven state machine
+- `global_cycle` is the single scheduling time; `wave_cycle` only tracks per-wave accumulation
+
+### Resume / Ready Semantics
+- `arrive_resume` = wave is eligible, NOT guaranteed to issue same cycle
+- `WaveStep` = actual issue. Gap between resume and step is real scheduling delay
+- Functional st: next issue quantum after resume. Functional mt: allows preemption
 
 ## Dependencies
 
@@ -211,3 +230,13 @@ Vendored in `third_party/`:
 - `GPU_MODEL_DISABLE_TRACE=1` - Disable trace output
 - `GPU_MODEL_TEST_PROFILE=full` - Run full test matrix
 - `GPU_MODEL_GATE_LIGHT_GTEST_FILTER=...` - Override push gate filter
+- `GPU_MODEL_BUILD_DIR=...` - Override build directory detection
+- `GPU_MODEL_USE_HIPCC_CACHE=0` - Disable hipcc compilation cache
+
+## Renamed Symbols (for reading old docs/code)
+
+- `ModelRuntimeApi` -> `ModelRuntime`
+- `RuntimeHooks` -> `HipRuntime`
+- `HostRuntime` -> `ExecEngine`
+- `HipInterposerState` -> deleted (merged into `HipRuntime`)
+- `hip_interposer.cpp` -> `hip_ld_preload.cpp`
