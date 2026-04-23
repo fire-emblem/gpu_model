@@ -98,6 +98,18 @@ struct TraceSummarySnapshot {
   uint64_t scalar_loads = 0;
   uint64_t scalar_stores = 0;
 
+  // === Memory Bytes (for bandwidth analysis) ===
+  uint64_t global_load_bytes = 0;
+  uint64_t global_store_bytes = 0;
+  uint64_t shared_load_bytes = 0;
+  uint64_t shared_store_bytes = 0;
+
+  // === FLOPs (for compute analysis) ===
+  uint64_t fp32_ops = 0;
+  uint64_t fp64_ops = 0;
+  uint64_t int32_ops = 0;
+  uint64_t tensor_ops = 0;
+
   // === Wave Statistics ===
   uint32_t waves_launched = 0;
   uint32_t waves_completed = 0;
@@ -105,6 +117,16 @@ struct TraceSummarySnapshot {
 
   // === Utilization ===
   double active_utilization_pct = 0.0;  // active_cycles / total_cycles * 100
+
+  // === Performance Optimization Metrics ===
+  uint64_t total_flops = 0;
+  uint64_t total_bytes = 0;
+  double arithmetic_intensity = 0.0;
+  std::string bound_classification;  // "memory_bound", "compute_bound", "balanced"
+  double bytes_per_cycle = 0.0;
+  double flops_per_cycle = 0.0;
+  double memory_intensity = 0.0;
+  double compute_intensity = 0.0;
 };
 
 // TraceWarningSnapshot captures producer-detected warnings.

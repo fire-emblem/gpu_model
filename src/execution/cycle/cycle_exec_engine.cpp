@@ -389,17 +389,28 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
           // Track memory ops in program_cycle_stats
           if (program_cycle_stats_.has_value()) {
             const auto& request = *plan.memory;
+            // Calculate bytes transferred
+            uint64_t bytes = 0;
+            for (const auto& lane : request.lanes) {
+              if (lane.active) {
+                bytes += lane.bytes;
+              }
+            }
             if (request.space == MemorySpace::Global) {
               if (request.kind == AccessKind::Load) {
                 program_cycle_stats_->global_loads += 1;
+                program_cycle_stats_->global_load_bytes += bytes;
               } else if (request.kind == AccessKind::Store || request.kind == AccessKind::Atomic) {
                 program_cycle_stats_->global_stores += 1;
+                program_cycle_stats_->global_store_bytes += bytes;
               }
             } else if (request.space == MemorySpace::Shared) {
               if (request.kind == AccessKind::Load) {
                 program_cycle_stats_->shared_loads += 1;
+                program_cycle_stats_->shared_load_bytes += bytes;
               } else if (request.kind == AccessKind::Store || request.kind == AccessKind::Atomic) {
                 program_cycle_stats_->shared_stores += 1;
+                program_cycle_stats_->shared_store_bytes += bytes;
               }
             } else if (request.space == MemorySpace::Private) {
               if (request.kind == AccessKind::Load) {

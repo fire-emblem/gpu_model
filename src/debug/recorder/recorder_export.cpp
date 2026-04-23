@@ -226,6 +226,18 @@ std::string RenderRecorderTextTrace(const Recorder& recorder) {
     text += "max_concurrent_waves=" + std::to_string(summary.max_concurrent_waves) + "\n";
     text += "active_utilization_pct=" + std::to_string(summary.active_utilization_pct) + "\n";
     text += "\n";
+
+    // [PERF_OPT] section - Performance optimization metrics
+    text += "[PERF_OPT]\n";
+    text += "total_flops=" + std::to_string(summary.total_flops) + "\n";
+    text += "total_bytes=" + std::to_string(summary.total_bytes) + "\n";
+    text += "arithmetic_intensity=" + std::to_string(summary.arithmetic_intensity) + "\n";
+    text += "bound_classification=" + summary.bound_classification + "\n";
+    text += "bytes_per_cycle=" + std::to_string(summary.bytes_per_cycle) + "\n";
+    text += "flops_per_cycle=" + std::to_string(summary.flops_per_cycle) + "\n";
+    text += "memory_intensity=" + std::to_string(summary.memory_intensity) + "\n";
+    text += "compute_intensity=" + std::to_string(summary.compute_intensity) + "\n";
+    text += "\n";
   }
 
   // [WARNINGS] section

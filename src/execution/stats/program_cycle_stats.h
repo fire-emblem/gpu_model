@@ -41,6 +41,18 @@ struct ProgramCycleStats {
   uint64_t private_loads = 0;
   uint64_t private_stores = 0;
 
+  // === Memory Bytes (for bandwidth analysis) ===
+  uint64_t global_load_bytes = 0;
+  uint64_t global_store_bytes = 0;
+  uint64_t shared_load_bytes = 0;
+  uint64_t shared_store_bytes = 0;
+
+  // === FLOPs (for compute analysis) ===
+  uint64_t fp32_ops = 0;             // v_add_f32, v_mul_f32, etc.
+  uint64_t fp64_ops = 0;             // v_add_f64, v_mul_f64, etc.
+  uint64_t int32_ops = 0;            // v_add_u32, v_mul_u32, etc.
+  uint64_t tensor_ops = 0;           // v_mfma_* (counts as multiple FLOPs)
+
   // === Cycle Breakdown ===
   uint64_t total_issued_work_cycles = 0;
   uint64_t scalar_alu_cycles = 0;
@@ -95,6 +107,60 @@ struct ProgramCycleStats {
                             stall_switch_away;
     return total_cycles > 0 ?
       static_cast<double>(total_stalls) / total_cycles : 0.0;
+  }
+
+  // === Performance Optimization Metrics ===
+
+  // Total FLOPs (floating point operations)
+  uint64_t TotalFLOPs() const {
+    return fp32_ops + fp64_ops * 2 + tensor_ops;
+  }
+
+  // Total bytes transferred (for bandwidth calculation)
+  uint64_t TotalBytes() const {
+    return global_load_bytes + global_store_bytes +
+           shared_load_bytes + shared_store_bytes;
+  }
+
+  // Arithmetic Intensity (FLOPs/Byte) - key metric for Roofline analysis
+  double ArithmeticIntensity() const {
+    uint64_t bytes = TotalBytes();
+    return bytes > 0 ? static_cast<double>(TotalFLOPs()) / bytes : 0.0;
+  }
+
+  // Memory-bound vs Compute-bound classification
+  // Returns "memory_bound" if AI < 1, "compute_bound" if AI > 10, "balanced" otherwise
+  const char* BoundClassification() const {
+    double ai = ArithmeticIntensity();
+    if (ai < 1.0) return "memory_bound";
+    if (ai > 10.0) return "compute_bound";
+    return "balanced";
+  }
+
+  // Memory bandwidth utilization (bytes per cycle)
+  double BytesPerCycle() const {
+    return total_cycles > 0 ?
+      static_cast<double>(TotalBytes()) / total_cycles : 0.0;
+  }
+
+  // Compute throughput (FLOPs per cycle)
+  double FLOPsPerCycle() const {
+    return total_cycles > 0 ?
+      static_cast<double>(TotalFLOPs()) / total_cycles : 0.0;
+  }
+
+  // Memory intensity (memory ops / total ops)
+  double MemoryIntensity() const {
+    uint64_t total_ops = instructions_executed;
+    uint64_t mem_ops = global_loads + global_stores + shared_loads + shared_stores;
+    return total_ops > 0 ? static_cast<double>(mem_ops) / total_ops : 0.0;
+  }
+
+  // Compute intensity (compute ops / total ops)
+  double ComputeIntensity() const {
+    uint64_t total_ops = instructions_executed;
+    uint64_t compute_ops = vector_alu_insts + tensor_insts;
+    return total_ops > 0 ? static_cast<double>(compute_ops) / total_ops : 0.0;
   }
 };
 

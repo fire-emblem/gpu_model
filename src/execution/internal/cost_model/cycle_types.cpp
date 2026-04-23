@@ -99,6 +99,9 @@ void AccumulateProgramCycleStep(ProgramCycleStats& stats,
     case ExecutedStepClass::VectorAlu:
       stats.vector_alu_cycles += weighted_cycles;
       stats.vector_alu_insts += 1;
+      // Count FLOPs for vector ALU operations (approximate)
+      // Each vector ALU op processes work_weight lanes
+      stats.int32_ops += work_weight;  // Default to int32 ops
       return;
     case ExecutedStepClass::VectorMem:
       stats.global_mem_cycles += weighted_cycles;
@@ -114,6 +117,8 @@ void AccumulateProgramCycleStep(ProgramCycleStats& stats,
     case ExecutedStepClass::Tensor:
       stats.tensor_cycles += weighted_cycles;
       stats.tensor_insts += 1;
+      // Tensor ops count as many FLOPs (e.g., MFMA 16x16x4 = 64 FLOPs)
+      stats.tensor_ops += work_weight * 64;  // Approximate MFMA FLOPs
       return;
     case ExecutedStepClass::Other:
       stats.other_insts += 1;

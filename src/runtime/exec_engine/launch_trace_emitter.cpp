@@ -110,12 +110,30 @@ void EmitLaunchTraceSummary(TraceSink& trace,
       .private_stores = pcs.has_value() ? pcs->private_stores : 0,
       .scalar_loads = pcs.has_value() ? pcs->scalar_loads : 0,
       .scalar_stores = pcs.has_value() ? pcs->scalar_stores : 0,
+      .global_load_bytes = pcs.has_value() ? pcs->global_load_bytes : 0,
+      .global_store_bytes = pcs.has_value() ? pcs->global_store_bytes : 0,
+      .shared_load_bytes = pcs.has_value() ? pcs->shared_load_bytes : 0,
+      .shared_store_bytes = pcs.has_value() ? pcs->shared_store_bytes : 0,
+      .fp32_ops = pcs.has_value() ? pcs->fp32_ops : 0,
+      .fp64_ops = pcs.has_value() ? pcs->fp64_ops : 0,
+      .int32_ops = pcs.has_value() ? pcs->int32_ops : 0,
+      .tensor_ops = pcs.has_value() ? pcs->tensor_ops : 0,
       .waves_launched = pcs.has_value() ? pcs->waves_launched : 0,
       .waves_completed = pcs.has_value() ? pcs->waves_completed : 0,
       .max_concurrent_waves = pcs.has_value() ? pcs->max_concurrent_waves : 0,
       .active_utilization_pct = pcs.has_value() && result.total_cycles > 0
                                     ? pcs->ActiveUtilization() * 100.0
                                     : 0.0,
+      .total_flops = pcs.has_value() ? pcs->TotalFLOPs() : 0,
+      .total_bytes = pcs.has_value() ? pcs->TotalBytes() : 0,
+      .arithmetic_intensity = pcs.has_value() ? pcs->ArithmeticIntensity() : 0.0,
+      .bound_classification = pcs.has_value() ? pcs->BoundClassification() : "unknown",
+      .bytes_per_cycle = pcs.has_value() && result.total_cycles > 0
+                             ? pcs->BytesPerCycle() : 0.0,
+      .flops_per_cycle = pcs.has_value() && result.total_cycles > 0
+                             ? pcs->FLOPsPerCycle() : 0.0,
+      .memory_intensity = pcs.has_value() ? pcs->MemoryIntensity() : 0.0,
+      .compute_intensity = pcs.has_value() ? pcs->ComputeIntensity() : 0.0,
   };
   trace.OnSummarySnapshot(summary_snapshot);
 }
