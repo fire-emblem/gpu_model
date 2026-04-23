@@ -25,7 +25,9 @@ class ProgramCycleTracker {
   void BeginWaveWork(uint32_t wave_id,
                      ExecutedStepClass step_class,
                      uint64_t cost_cycles,
-                     uint64_t work_weight = 1);
+                     uint64_t work_weight = 1,
+                     uint64_t bytes_transferred = 0,
+                     uint64_t flops = 0);
   void MarkWaveWaiting(uint32_t wave_id,
                        ExecutedStepClass wait_class,
                        uint64_t cost_cycles,

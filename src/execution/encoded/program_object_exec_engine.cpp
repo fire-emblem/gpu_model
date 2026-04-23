@@ -146,6 +146,9 @@ struct RawBlock {
 struct EncodedExecutedWaveStep {
   ExecutedStepClass step_class = ExecutedStepClass::ScalarAlu;
   uint64_t cost_cycles = 0;
+  // Performance optimization metrics
+  uint64_t bytes_transferred = 0;  // Memory bytes (for bandwidth analysis)
+  uint64_t flops = 0;              // FLOPs count (for compute analysis)
 };
 
 void WriteWaveSgprPair(WaveContext& wave, uint32_t first, uint64_t value) {
@@ -881,7 +884,8 @@ class EncodedExecutedFlowEventSource final : public ProgramCycleTickSource {
         wave.active = true;
         wave.current_cost_cycles = step.cost_cycles;
         wave.ticks_consumed = 0;
-        agg.BeginWaveWork(wave.agg_wave_id, step.step_class, step.cost_cycles);
+        agg.BeginWaveWork(wave.agg_wave_id, step.step_class, step.cost_cycles,
+                          1, step.bytes_transferred, step.flops);
         continue;
       }
       wave.completed = true;
@@ -2652,7 +2656,9 @@ class EncodedExecutionCore {
 
   void RecordExecutedStep(const WaveContext& wave,
                           ExecutedStepClass step_class,
-                          uint64_t cost_cycles) {
+                          uint64_t cost_cycles,
+                          uint64_t bytes_transferred = 0,
+                          uint64_t flops = 0) {
     if (cost_cycles == 0) {
       return;
     }
@@ -2660,6 +2666,8 @@ class EncodedExecutionCore {
     executed_flow_steps_[StableWaveKey(wave)].push_back(EncodedExecutedWaveStep{
         .step_class = step_class,
         .cost_cycles = cost_cycles,
+        .bytes_transferred = bytes_transferred,
+        .flops = flops,
     });
   }
 
@@ -2687,11 +2695,18 @@ class EncodedExecutionCore {
     ++step_stats.wave_steps;
     ++step_stats.instructions_issued;
     const auto step_class = ClassifyEncodedInstructionStep(decoded, descriptor);
+    // Calculate FLOPs for compute operations
+    uint64_t flops = 0;
+    if (step_class == ExecutedStepClass::VectorAlu || step_class == ExecutedStepClass::Tensor) {
+      flops = wave.exec.count();  // Each active lane performs one operation
+    }
     RecordExecutedStep(wave,
                        step_class,
                        CostForEncodedStep(decoded, descriptor, step_class, spec_,
                                           timing_config_,
-                                          cycle_stats_config_));
+                                          cycle_stats_config_),
+                       0,  // bytes_transferred (non-memory ops)
+                       flops);
 
     const uint64_t issue_cycle = wave_state.next_issue_cycle;
     const uint64_t commit_cycle = issue_cycle + issue_duration;
@@ -2887,11 +2902,18 @@ class EncodedExecutionCore {
     ++step_stats.wave_steps;
     ++step_stats.instructions_issued;
     if (!maybe_domain.has_value()) {
+      // Calculate FLOPs for compute operations
+      uint64_t flops = 0;
+      if (step_class == ExecutedStepClass::VectorAlu || step_class == ExecutedStepClass::Tensor) {
+        flops = wave.exec.count();  // Each active lane performs one operation
+      }
       RecordExecutedStep(wave,
                          step_class,
                          CostForEncodedStep(decoded, descriptor, step_class, spec_,
                                             timing_config_,
-                                            cycle_stats_config_));
+                                            cycle_stats_config_),
+                         0,  // bytes_transferred (non-memory ops)
+                         flops);
     }
 
     const uint64_t duration = QuantizeIssueDuration(std::max<uint64_t>(1u, issue_cycles));
@@ -3075,7 +3097,16 @@ class EncodedExecutionCore {
           wave_state.pending_memory_ops.back().ready_cycle = ready_cycle;
         }
       }
-      RecordExecutedStep(wave, step_class, ready_cycle - cycle);
+      // Calculate bytes transferred for memory operations
+      uint64_t bytes_transferred = 0;
+      if (captured_memory_request.has_value()) {
+        for (const auto& lane : captured_memory_request->lanes) {
+          if (lane.active) {
+            bytes_transferred += lane.bytes;
+          }
+        }
+      }
+      RecordExecutedStep(wave, step_class, ready_cycle - cycle, bytes_transferred, 0);
     }
 
     CommitStats(step_stats);

@@ -113,7 +113,7 @@ struct ProgramCycleStats {
 
   // Total FLOPs (floating point operations)
   uint64_t TotalFLOPs() const {
-    return fp32_ops + fp64_ops * 2 + tensor_ops;
+    return fp32_ops + fp64_ops * 2 + int32_ops + tensor_ops;
   }
 
   // Total bytes transferred (for bandwidth calculation)

@@ -44,10 +44,15 @@ void AccumulateStepCycle(ProgramCycleStats& stats,
 void ProgramCycleTracker::BeginWaveWork(uint32_t wave_id,
                                         ExecutedStepClass step_class,
                                         uint64_t cost_cycles,
-                                        uint64_t work_weight) {
+                                        uint64_t work_weight,
+                                        uint64_t bytes_transferred,
+                                        uint64_t flops) {
   AssignWaveWork(wave_id, step_class, cost_cycles, work_weight);
   // Count instructions when work begins
   ++stats_.instructions_executed;
+  // Track performance optimization metrics
+  stats_.global_load_bytes += bytes_transferred;
+  stats_.int32_ops += flops;  // Default to int32 ops
   switch (step_class) {
     case ExecutedStepClass::ScalarAlu:
       ++stats_.scalar_alu_insts;
@@ -71,6 +76,7 @@ void ProgramCycleTracker::BeginWaveWork(uint32_t wave_id,
       break;
     case ExecutedStepClass::Tensor:
       ++stats_.tensor_insts;
+      stats_.tensor_ops += flops * 64;  // Tensor ops count as many FLOPs
       break;
     case ExecutedStepClass::Other:
       ++stats_.other_insts;
