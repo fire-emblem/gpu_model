@@ -261,6 +261,33 @@ bool CanAdmitBlockToResidentWaveSlots(const ExecutableBlock& block,
   return true;
 }
 
+bool CanAdmitBlockToResidentSharedMemory(const ApResidentState& ap_state,
+                                         const ExecutableBlock& block) {
+  if (block.shared_memory.empty() || ap_state.shared_memory_capacity_bytes == 0) {
+    return true;
+  }
+  const size_t requested = block.shared_memory.size();
+  if (requested > ap_state.shared_memory_capacity_bytes) {
+    return false;
+  }
+  return ap_state.shared_memory_bytes_in_use <= ap_state.shared_memory_capacity_bytes &&
+         requested <= ap_state.shared_memory_capacity_bytes -
+                          ap_state.shared_memory_bytes_in_use;
+}
+
+void UseResidentBlockSharedMemory(ApResidentState& ap_state, const ExecutableBlock& block) {
+  ap_state.shared_memory_bytes_in_use += block.shared_memory.size();
+}
+
+void ReleaseResidentBlockSharedMemory(ApResidentState& ap_state, const ExecutableBlock& block) {
+  const size_t used = block.shared_memory.size();
+  if (used >= ap_state.shared_memory_bytes_in_use) {
+    ap_state.shared_memory_bytes_in_use = 0;
+    return;
+  }
+  ap_state.shared_memory_bytes_in_use -= used;
+}
+
 ResidentIssueSlot& ResidentSlotForWave(PeuSlot& slot, const ScheduledWave& scheduled_wave) {
   if (scheduled_wave.resident_slot_id >= slot.resident_slots.size()) {
     throw std::out_of_range("resident slot id out of range");
@@ -502,8 +529,12 @@ bool AdmitOneResidentBlock(ApResidentState& ap_state,
     if (!CanAdmitBlockToResidentWaveSlots(*next_block, slots, resident_wave_slots_per_peu)) {
       return false;
     }
+    if (!CanAdmitBlockToResidentSharedMemory(ap_state, *next_block)) {
+      return false;
+    }
     ap_state.pending_blocks.pop_front();
     ap_state.resident_blocks.push_back(next_block);
+    UseResidentBlockSharedMemory(ap_state, *next_block);
     ActivateBlock(*next_block,
                   cycle,
                   slots,
@@ -548,6 +579,7 @@ bool RetireResidentBlock(ApResidentState& ap_state, ExecutableBlock* block) {
   auto it = std::find(ap_state.resident_blocks.begin(), ap_state.resident_blocks.end(), block);
   if (it != ap_state.resident_blocks.end()) {
     ap_state.resident_blocks.erase(it);
+    ReleaseResidentBlockSharedMemory(ap_state, *block);
     return true;
   }
   return false;

@@ -25,10 +25,13 @@ if(CCACHE_PROGRAM)
   message(STATUS "Using ccache: ${CCACHE_PROGRAM}")
 endif()
 
-find_program(MOLD_PROGRAM mold)
-if(MOLD_PROGRAM AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-  add_link_options("-fuse-ld=mold")
-  message(STATUS "Using mold linker: ${MOLD_PROGRAM}")
+option(GPU_MODEL_ENABLE_MOLD "Enable mold linker" ON)
+if(GPU_MODEL_ENABLE_MOLD)
+  find_program(MOLD_PROGRAM mold)
+  if(MOLD_PROGRAM AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    add_link_options("-fuse-ld=mold")
+    message(STATUS "Using mold linker: ${MOLD_PROGRAM}")
+  endif()
 endif()
 
 if(GPU_MODEL_ENABLE_ASAN)
@@ -233,13 +236,22 @@ target_include_directories(gpu_model_perfetto_waitcnt_slots_demo PRIVATE
 )
 gpu_model_enable_warnings(gpu_model_perfetto_waitcnt_slots_demo)
 
+add_executable(gpu_model_chip_design_sweep_demo
+  examples/14-chip-design-sweep/chip_design_sweep_demo.cpp
+)
+target_link_libraries(gpu_model_chip_design_sweep_demo PRIVATE gpu_model)
+target_include_directories(gpu_model_chip_design_sweep_demo PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+gpu_model_enable_warnings(gpu_model_chip_design_sweep_demo)
+
 add_subdirectory(tests)
 
 if(EXISTS "/opt/rocm/include/hip/hip_runtime_api.h")
   add_library(gpu_model_hip_ld_preload SHARED
     src/runtime/hip_runtime/hip_ld_preload.cpp
   )
-  target_include_directories(gpu_model_hip_ld_preload PRIVATE /opt/rocm/include)
+  target_include_directories(gpu_model_hip_ld_preload SYSTEM PRIVATE /opt/rocm/include)
   target_link_libraries(gpu_model_hip_ld_preload PRIVATE gpu_model)
   target_compile_definitions(gpu_model_hip_ld_preload PRIVATE _GNU_SOURCE __HIP_PLATFORM_AMD__)
   target_link_options(gpu_model_hip_ld_preload PRIVATE

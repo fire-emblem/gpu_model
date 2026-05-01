@@ -5,10 +5,12 @@
 #include <fstream>
 #include <vector>
 
+#include "gpu_arch/chip_config/arch_registry.h"
 #include "program/loader/executable_image_io.h"
 #include "program/loader/program_bundle_io.h"
 #include "program/program_object/object_reader.h"
 #include "runtime/model_runtime/core/model_runtime.h"
+#include "runtime/model_runtime/core/model_runtime_device_info.h"
 #include "tests/test_utils/hipcc_cache_test_utils.h"
 
 namespace gpu_model {
@@ -62,6 +64,15 @@ TEST(ModelRuntimeTest, ExposesSingleMac500DevicePropertiesAndAttributes) {
   EXPECT_EQ(props.unified_addressing, 1);
   EXPECT_EQ(props.compute_capability_major, 9);
   EXPECT_EQ(props.compute_capability_minor, 0);
+
+  GpuArchSpec custom_spec = *ArchRegistry::Get("mac500");
+  custom_spec.shared_mem_per_block = 96u * 1024u;
+  custom_spec.shared_mem_per_multiprocessor = 80u * 1024u;
+  custom_spec.max_shared_mem_per_multiprocessor = 80u * 1024u;
+  const auto custom_props = BuildRuntimeDeviceProperties(custom_spec);
+  EXPECT_EQ(custom_props.shared_mem_per_block, 96u * 1024u);
+  EXPECT_EQ(custom_props.shared_mem_per_multiprocessor, 80u * 1024u);
+  EXPECT_EQ(custom_props.max_shared_mem_per_multiprocessor, 80u * 1024u);
 
   const auto assert_attr = [&](RuntimeDeviceAttribute attr, int expected) {
     const auto value = api.GetDeviceAttribute(attr);

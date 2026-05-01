@@ -4,6 +4,7 @@
 #include <optional>
 #include <string>
 
+#include "gpu_arch/device/gpu_arch_spec.h"
 #include "utils/config/kernel_arg_pack.h"
 #include "utils/config/launch_config.h"
 #include "utils/config/mapper.h"
@@ -26,6 +27,8 @@ struct LaunchRequest {
   const DeviceLoadResult* device_load = nullptr;
   RuntimeSubmissionContext submission_context;
   LaunchConfig config;
+  // Optional per-launch architecture override for design sweeps and validation.
+  std::optional<GpuArchSpec> arch_spec_override;
   KernelArgPack args;
   ExecutionMode mode = ExecutionMode::Functional;
   TraceSink* trace = nullptr;

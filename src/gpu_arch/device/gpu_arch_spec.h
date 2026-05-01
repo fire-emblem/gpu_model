@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -82,6 +83,9 @@ struct GpuArchSpec {
   uint32_t max_resident_waves = 0;
   uint32_t max_issuable_waves = 0;
   uint32_t default_issue_cycles = 4;
+  size_t shared_mem_per_block = 64ull * 1024ull;
+  size_t shared_mem_per_multiprocessor = 64ull * 1024ull;
+  size_t max_shared_mem_per_multiprocessor = 64ull * 1024ull;
   FeatureFlags features;
   CacheModelSpec cache_model;
   SharedBankModelSpec shared_bank_model;

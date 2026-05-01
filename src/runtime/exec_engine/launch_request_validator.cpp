@@ -1,6 +1,7 @@
 #include "runtime/exec_engine/launch_request_validator.h"
 
 #include <algorithm>
+#include <memory>
 #include <optional>
 #include <string>
 
@@ -14,25 +15,33 @@ namespace gpu_model {
 std::optional<ValidatedLaunchRequest> ValidateAndPrepareLaunch(const LaunchRequest& request,
                                                               std::string& error_message) {
   ValidatedLaunchRequest validated;
-  validated.arch_name = request.arch_name;
   validated.program_object = request.program_object;
 
-  if (validated.arch_name.empty() && request.program_object != nullptr) {
-    const auto it = request.program_object->metadata().values.find("arch");
-    if (it != request.program_object->metadata().values.end()) {
-      validated.arch_name = it->second;
+  if (request.arch_spec_override.has_value()) {
+    validated.spec_storage =
+        std::make_shared<GpuArchSpec>(*request.arch_spec_override);
+    validated.spec = validated.spec_storage.get();
+    validated.arch_name = request.arch_name.empty() ? validated.spec->name : request.arch_name;
+  } else {
+    validated.arch_name = request.arch_name;
+    if (validated.arch_name.empty() && request.program_object != nullptr) {
+      const auto it = request.program_object->metadata().values.find("arch");
+      if (it != request.program_object->metadata().values.end()) {
+        validated.arch_name = it->second;
+      }
     }
-  }
-  if (validated.arch_name.empty()) {
-    validated.arch_name = "mac500";
-  }
+    if (validated.arch_name.empty()) {
+      validated.arch_name = "mac500";
+    }
 
-  const auto spec = ArchRegistry::Get(validated.arch_name);
-  if (!spec) {
-    error_message = "unknown architecture: " + validated.arch_name;
-    return std::nullopt;
+    const auto spec = ArchRegistry::Get(validated.arch_name);
+    if (!spec) {
+      error_message = "unknown architecture: " + validated.arch_name;
+      return std::nullopt;
+    }
+    validated.spec_storage = spec;
+    validated.spec = validated.spec_storage.get();
   }
-  validated.spec = &*spec;
 
   validated.kernel = request.kernel;
   validated.use_program_object_payload =
@@ -96,6 +105,14 @@ std::optional<ValidatedLaunchRequest> ValidateAndPrepareLaunch(const LaunchReque
       return std::nullopt;
     }
     validated.adjusted_config.shared_memory_bytes = available_shared_bytes;
+    if (available_shared_bytes > validated.spec->shared_mem_per_block) {
+      error_message = "shared memory launch size exceeds block limit";
+      return std::nullopt;
+    }
+    if (available_shared_bytes > validated.spec->max_shared_mem_per_multiprocessor) {
+      error_message = "shared memory launch size exceeds multiprocessor limit";
+      return std::nullopt;
+    }
 
     if (launch_metadata.block_dim_multiple.has_value() &&
         request.config.block_dim_x % *launch_metadata.block_dim_multiple != 0) {

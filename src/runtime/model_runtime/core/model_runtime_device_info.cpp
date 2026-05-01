@@ -13,9 +13,9 @@ RuntimeDeviceProperties BuildRuntimeDeviceProperties(const GpuArchSpec& spec) {
   props.max_threads_per_multiprocessor = 1024;
   props.async_engine_count = 1;
   props.total_global_mem = 64ull * 1024ull * 1024ull * 1024ull;
-  props.shared_mem_per_block = 64ull * 1024ull;
-  props.shared_mem_per_multiprocessor = 64ull * 1024ull;
-  props.max_shared_mem_per_multiprocessor = 64ull * 1024ull;
+  props.shared_mem_per_block = spec.shared_mem_per_block;
+  props.shared_mem_per_multiprocessor = spec.shared_mem_per_multiprocessor;
+  props.max_shared_mem_per_multiprocessor = spec.max_shared_mem_per_multiprocessor;
   props.clock_rate_khz = 1500000;
   props.memory_clock_rate_khz = 1200000;
   props.memory_bus_width_bits = 4096;

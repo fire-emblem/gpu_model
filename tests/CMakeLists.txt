@@ -77,6 +77,7 @@ add_executable(gpu_model_tests
   cycle/two_dimensional_cycle_test.cpp
   cycle/transpose_shared_cycle_test.cpp
   cycle/cycle_ap_resident_blocks_test.cpp
+  cycle/hardware_design_config_cycle_test.cpp
   cycle/waitcnt_barrier_switch_focused_test.cpp
   # loader/*
   loader/asm_parser_test.cpp

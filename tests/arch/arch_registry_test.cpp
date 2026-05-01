@@ -22,6 +22,9 @@ TEST(ArchRegistryTest, Mac500FieldsMatchDesign) {
   EXPECT_EQ(spec->total_peu_count(), 416u);
   EXPECT_EQ(spec->max_resident_waves, 8u);
   EXPECT_EQ(spec->max_issuable_waves, 4u);
+  EXPECT_EQ(spec->shared_mem_per_block, 64u * 1024u);
+  EXPECT_EQ(spec->shared_mem_per_multiprocessor, 64u * 1024u);
+  EXPECT_EQ(spec->max_shared_mem_per_multiprocessor, 64u * 1024u);
   EXPECT_EQ(spec->cycle_resources.resident_wave_slots_per_peu, 8u);
   EXPECT_EQ(spec->cycle_resources.barrier_slots_per_ap, 16u);
   EXPECT_EQ(spec->cycle_resources.issue_limits.branch, 1u);

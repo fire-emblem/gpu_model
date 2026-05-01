@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <deque>
 #include <limits>
@@ -104,6 +105,8 @@ struct ApResidentState {
   uint32_t scheduled_readmit_count = 0;
   uint32_t barrier_slot_capacity = 0;
   uint32_t barrier_slots_in_use = 0;
+  size_t shared_memory_capacity_bytes = 0;
+  size_t shared_memory_bytes_in_use = 0;
 };
 
 struct L1Key {

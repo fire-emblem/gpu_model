@@ -36,6 +36,7 @@
 | 11 | [perfetto-waitcnt-slots](./11-perfetto-waitcnt-slots) | Perfetto 调试 | 保留 `st/mt/cycle` 可视化 |
 | 12 | [schedule-strategy-comparison](./12-schedule-strategy-comparison) | 调度策略对比 | 保留 `st/mt/cycle` 对比 |
 | 13 | [algorithm-comparison](./13-algorithm-comparison) | 算法对比 | 保留 `st/mt/cycle` 对比 |
+| 14 | [chip-design-sweep](./14-chip-design-sweep) | 芯片设计扫参 | `cycle` 配置对比、AP/访存/SMEM 设计指引 |
 | test-sm-copy | [test-sm-copy](./test-sm-copy) | shared-memory copy 专项 | 只跑 `cycle` |
 
 ## 阅读顺序
@@ -45,6 +46,7 @@
 3. **07**: 写法对比分析，保留 `st/mt/cycle`
 4. **08-10**: 复杂同步模式，默认 `mt`
 5. **11-13**: Trace / 调度 / 算法对比，保留 `st/mt/cycle`
+6. **14**: 芯片设计扫参，保留 `cycle`，输出配置对比表
 
 ## 成功标准
 
@@ -54,6 +56,7 @@
 - `trace.txt` / `trace.jsonl` / `timeline.perfetto.json` 非空
 
 对非对比型 example，上述产物默认只在 `results/mt/` 下生成。
+对芯片扫参类 example，重点看 `results/cycle_comparison.txt` 和 `results/stdout.txt`，不要求 trace 产物。
 
 ## 故障排查
 

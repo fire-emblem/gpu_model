@@ -85,6 +85,9 @@ bool CanAdmitBlockToResidentWaveSlots(const ExecutableBlock& block,
                                       const std::vector<PeuSlot>& slots,
                                       uint32_t resident_wave_slots_per_peu);
 
+bool CanAdmitBlockToResidentSharedMemory(const ApResidentState& ap_state,
+                                         const ExecutableBlock& block);
+
 ResidentIssueSlot& ResidentSlotForWave(PeuSlot& slot, const ScheduledWave& scheduled_wave);
 
 void RegisterResidentWave(PeuSlot& slot, ScheduledWave& scheduled_wave);
@@ -148,6 +151,8 @@ void AdmitResidentBlocks(ApResidentState& ap_state,
                          TraceSink& trace);
 
 bool RetireResidentBlock(ApResidentState& ap_state, ExecutableBlock* block);
+void UseResidentBlockSharedMemory(ApResidentState& ap_state, const ExecutableBlock& block);
+void ReleaseResidentBlockSharedMemory(ApResidentState& ap_state, const ExecutableBlock& block);
 
 bool CanScheduleDelayedReadmit(const ApResidentState& ap_state);
 

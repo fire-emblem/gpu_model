@@ -14,6 +14,9 @@ std::shared_ptr<const GpuArchSpec> MakeMac500Spec() {
   spec->max_resident_waves = 8;
   spec->max_issuable_waves = 4;
   spec->default_issue_cycles = 4;
+  spec->shared_mem_per_block = 64ull * 1024ull;
+  spec->shared_mem_per_multiprocessor = 64ull * 1024ull;
+  spec->max_shared_mem_per_multiprocessor = 64ull * 1024ull;
   spec->features.l1_cache = true;
   spec->features.l2_cache = true;
   spec->cache_model.enabled = true;

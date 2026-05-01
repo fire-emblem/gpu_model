@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <optional>
 #include <string>
 
@@ -12,6 +13,7 @@ namespace gpu_model {
 
 struct ValidatedLaunchRequest {
   std::string arch_name;
+  std::shared_ptr<const GpuArchSpec> spec_storage;
   const GpuArchSpec* spec = nullptr;
   const ProgramObject* program_object = nullptr;
   const ExecutableKernel* kernel = nullptr;
