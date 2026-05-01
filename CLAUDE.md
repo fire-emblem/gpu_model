@@ -24,6 +24,16 @@ cmake --build build -j
 
 The `dev-fast` preset uses Ninja and outputs to `build-ninja/`. Examples and scripts auto-detect build dir (`build-ninja/` > `build/`, overridable via `GPU_MODEL_BUILD_DIR`).
 
+### Build System Details
+
+- **C++20** standard (`CMAKE_CXX_STANDARD 20`), extensions off
+- **ASan** auto-enabled in Debug builds (`GPU_MODEL_ENABLE_ASAN`); set to OFF to disable
+- **ccache** and **mold** auto-detected and used if available
+- **googletest** fetched via CMake FetchContent (v1.15.2)
+- `gpu_model_hip_ld_preload` shared library is built **only** when `/opt/rocm/include/hip/hip_runtime_api.h` exists
+- Library targets compile with `-Wall -Wextra -Wpedantic -Werror`
+- Test target (`gpu_model_tests`) compiles with warnings **without** `-Werror`
+
 ## Test Commands
 
 ```bash
@@ -58,7 +68,7 @@ GPU_MODEL_USE_HIPCC_CACHE=0 ./examples/01-vecadd-basic/run.sh
 # Light push gate (fast smoke tests, recommended for daily use)
 ./scripts/run_push_gate_light.sh
 
-# Full push gate
+# Full push gate (three parallel pipelines with independent build dirs)
 ./scripts/run_push_gate.sh
 
 # Execution checks
@@ -73,11 +83,31 @@ GPU_MODEL_USE_HIPCC_CACHE=0 ./examples/01-vecadd-basic/run.sh
 # ABI regression
 ./scripts/run_abi_regression.sh
 
+# Scaling regression
+./scripts/run_scaling_regression.sh
+
 # Verify trace isolation (GPU_MODEL_DISABLE_TRACE=1)
 ./scripts/run_disable_trace_smoke.sh
 
+# Quality checks (opt-in: jscpd, lizard, cppcheck; not part of push gate)
+./scripts/run_quality_checks.sh
+
+# Install quality tools (lizard, jscpd, cppcheck)
+./scripts/install_quality_tools.sh
+
 # Install git hooks (pre-push runs light gate)
 ./scripts/install_git_hooks.sh
+```
+
+### ISA Code Generation
+
+```bash
+# Generate GCN ISA opcode tables from definitions
+python3 scripts/gen_gcn_full_opcode_table.py
+python3 scripts/gen_gcn_isa_db.py
+
+# Report current ISA coverage
+python3 scripts/report_isa_coverage.py
 ```
 
 ## Architecture

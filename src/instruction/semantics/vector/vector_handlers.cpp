@@ -296,6 +296,22 @@ class VAdd3U32Handler final : public VectorLaneHandler<VAdd3U32Handler> {
   }
 };
 
+// v_add_lshl_u32: dst = (src0 + src1) << src2 (add then shift left)
+class VAddLshlU32Handler final : public VectorLaneHandler<VAddLshlU32Handler> {
+ public:
+  void ExecuteLane(const DecodedInstruction& instruction,
+                   EncodedWaveContext& context, uint32_t lane) const {
+    const uint32_t vdst = RequireVectorIndex(instruction.operands.at(0));
+    const uint32_t src0 = static_cast<uint32_t>(
+        ResolveVectorLane(instruction.operands.at(1), context, lane));
+    const uint32_t src1 = static_cast<uint32_t>(
+        ResolveVectorLane(instruction.operands.at(2), context, lane));
+    const uint32_t src2 = static_cast<uint32_t>(
+        ResolveVectorLane(instruction.operands.at(3), context, lane));
+    context.wave.vgpr.Write(vdst, lane, (src0 + src1) << (src2 & 31u));
+  }
+};
+
 // v_mad_u32_u24: dst = (src0[23:0] * src1[23:0]) + src2 (24-bit multiply-add)
 class VMadU32U24Handler final : public VectorLaneHandler<VMadU32U24Handler> {
  public:
@@ -1176,6 +1192,7 @@ static const VCvtI32F32Handler kVCvtI32F32Handler;
 static const VCvtF32I32Handler kVCvtF32I32Handler;
 static const VSubrevU32Handler kVSubrevU32Handler;
 static const VOr3B32Handler kVOr3B32Handler;
+static const VAddLshlU32Handler kVAddLshlU32Handler;
 static const VAdd3U32Handler kVAdd3U32Handler;
 static const VMadU32U24Handler kVMadU32U24Handler;
 static const VMulU32U24Handler kVMulU32U24Handler;
@@ -1250,6 +1267,7 @@ struct VectorHandlerRegistrar {
     registry.Register("v_subrev_u32_e32", &kVSubrevU32Handler);
     registry.Register("v_or3_b32", &kVOr3B32Handler);
     registry.Register("v_add3_u32", &kVAdd3U32Handler);
+    registry.Register("v_add_lshl_u32", &kVAddLshlU32Handler);
     registry.Register("v_mad_u32_u24", &kVMadU32U24Handler);
     registry.Register("v_mul_u32_u24_e32", &kVMulU32U24Handler);
     registry.Register("v_mul_lo_i32", &kVMulLoI32Handler);

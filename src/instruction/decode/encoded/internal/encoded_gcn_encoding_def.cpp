@@ -148,6 +148,16 @@ constexpr EncodedGcnEncodingDef kManualEncodedGcnEncodingDefs[] = {
                           .op = 0x1ff,
                           .size_bytes = 8,
                           .mnemonic = "v_add3_u32"},
+    EncodedGcnEncodingDef{.id = 131,
+                          .format_class = EncodedGcnInstFormatClass::Vop3a,
+                          .op = 0x1fd,
+                          .size_bytes = 8,
+                          .mnemonic = "v_lshl_add_u32"},
+    EncodedGcnEncodingDef{.id = 132,
+                          .format_class = EncodedGcnInstFormatClass::Vop3a,
+                          .op = 0x1fe,
+                          .size_bytes = 8,
+                          .mnemonic = "v_add_lshl_u32"},
     EncodedGcnEncodingDef{.id = 121,
                           .format_class = EncodedGcnInstFormatClass::Sop1,
                           .op = 0x08,
@@ -198,6 +208,11 @@ constexpr EncodedGcnEncodingDef kManualEncodedGcnEncodingDefs[] = {
                           .op = 0x2d,
                           .size_bytes = 8,
                           .mnemonic = "ds_wrxchg_rtn_b32"},
+    EncodedGcnEncodingDef{.id = 133,
+                          .format_class = EncodedGcnInstFormatClass::Sop2,
+                          .op = 0x10,
+                          .size_bytes = 4,
+                          .mnemonic = "s_xor_b32"},
 };
 
 constexpr DecoderOverrideEntry kDecoderOverrides[] = {
@@ -267,6 +282,8 @@ constexpr DecoderOverrideEntry kDecoderOverrides[] = {
     {"v_mad_u64_u32", EncodedOperandDecoderKind::Vop3MadU64U32},
     {"v_mad_u32_u24", EncodedOperandDecoderKind::Vop3aGeneric},
     {"v_add3_u32", EncodedOperandDecoderKind::Vop3aGeneric},
+    {"v_lshl_add_u32", EncodedOperandDecoderKind::Vop3aGeneric},
+    {"v_add_lshl_u32", EncodedOperandDecoderKind::Vop3aGeneric},
 };
 
 bool SupportsLiteral32Extension(EncodedGcnInstFormatClass format_class) {

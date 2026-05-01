@@ -247,11 +247,17 @@ gpu_model_enable_warnings(gpu_model_chip_design_sweep_demo)
 
 add_subdirectory(tests)
 
-if(EXISTS "/opt/rocm/include/hip/hip_runtime_api.h")
+# 支持自定义 ROCm 路径 (优先使用环境变量 ROCM_PATH)
+set(GPU_MODEL_ROCM_PATH "${ROCM_PATH}" CACHE PATH "ROCm installation path")
+if(NOT GPU_MODEL_ROCM_PATH)
+  set(GPU_MODEL_ROCM_PATH "/opt/rocm")
+endif()
+
+if(EXISTS "${GPU_MODEL_ROCM_PATH}/include/hip/hip_runtime_api.h")
   add_library(gpu_model_hip_ld_preload SHARED
     src/runtime/hip_runtime/hip_ld_preload.cpp
   )
-  target_include_directories(gpu_model_hip_ld_preload SYSTEM PRIVATE /opt/rocm/include)
+  target_include_directories(gpu_model_hip_ld_preload PRIVATE "${GPU_MODEL_ROCM_PATH}/include")
   target_link_libraries(gpu_model_hip_ld_preload PRIVATE gpu_model)
   target_compile_definitions(gpu_model_hip_ld_preload PRIVATE _GNU_SOURCE __HIP_PLATFORM_AMD__)
   target_link_options(gpu_model_hip_ld_preload PRIVATE

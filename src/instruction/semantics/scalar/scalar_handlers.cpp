@@ -170,6 +170,14 @@ class ScalarAluHandler final : public BaseHandler {
           static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(2), context));
       context.wave.sgpr.Write(sdst, lhs & rhs);
     } else if (descriptor.op_type == GcnIsaOpType::Sop2 &&
+               descriptor.opcode == static_cast<uint16_t>(GcnIsaSop2Opcode::S_XOR_B32)) {
+      const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
+      const uint32_t lhs =
+          static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(1), context));
+      const uint32_t rhs =
+          static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(2), context));
+      context.wave.sgpr.Write(sdst, lhs ^ rhs);
+    } else if (descriptor.op_type == GcnIsaOpType::Sop2 &&
                descriptor.opcode == static_cast<uint16_t>(GcnIsaSop2Opcode::S_MUL_I32)) {
       const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
       const uint32_t lhs =
@@ -401,6 +409,7 @@ struct ScalarHandlerRegistrar {
     registry.Register("s_sub_i32", &kScalarAluHandler);
     registry.Register("s_lshl_b32", &kScalarAluHandler);
     registry.Register("s_or_b32", &kScalarAluHandler);
+    registry.Register("s_xor_b32", &kScalarAluHandler);
     registry.Register("s_xor_b64", &kScalarAluHandler);
     registry.Register("s_movk_i32", &kScalarAluHandler);
     registry.Register("s_cmp_gt_i32", &kScalarCompareHandler);
