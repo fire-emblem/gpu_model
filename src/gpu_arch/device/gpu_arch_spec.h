@@ -66,6 +66,7 @@ struct IssueCycleOpOverridesSpec {
 };
 
 struct CycleResourceSpec {
+  uint32_t resident_block_limit_per_ap = 2;
   uint32_t resident_wave_slots_per_peu = 0;
   uint32_t barrier_slots_per_ap = 0;
   ArchitecturalIssueLimits issue_limits{};

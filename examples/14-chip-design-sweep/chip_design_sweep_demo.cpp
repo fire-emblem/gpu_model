@@ -21,6 +21,7 @@ struct DesignVariant {
   uint64_t dram_latency = 40;
   uint32_t dpc_count = 8;
   uint32_t ap_per_dpc = 13;
+  uint32_t resident_block_limit_per_ap = 2;
   size_t shared_mem_per_block = 64ull * 1024ull;
   size_t shared_mem_per_multiprocessor = 64ull * 1024ull;
   size_t max_shared_mem_per_multiprocessor = 64ull * 1024ull;
@@ -72,6 +73,8 @@ DesignResult RunVariant(const gm::ExecutableKernel& kernel,
   runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
                                  /*kernel_launch_cycles=*/0,
                                  /*block_launch_cycles=*/0,
+                                 /*wave_generation_cycles=*/32,
+                                 /*wave_dispatch_cycles=*/32,
                                  /*wave_launch_cycles=*/0,
                                  /*warp_switch_cycles=*/1,
                                  /*arg_load_cycles=*/4);
@@ -85,6 +88,7 @@ DesignResult RunVariant(const gm::ExecutableKernel& kernel,
   spec.name = "mac500";
   spec.dpc_count = variant.dpc_count;
   spec.ap_per_dpc = variant.ap_per_dpc;
+  spec.cycle_resources.resident_block_limit_per_ap = variant.resident_block_limit_per_ap;
   spec.shared_mem_per_block = variant.shared_mem_per_block;
   spec.shared_mem_per_multiprocessor = variant.shared_mem_per_multiprocessor;
   spec.max_shared_mem_per_multiprocessor = variant.max_shared_mem_per_multiprocessor;
@@ -158,21 +162,30 @@ void WriteComparisonReport(const std::filesystem::path& out_dir,
 
 int main() {
   const gm::ExecutableKernel kernel = BuildDesignSweepKernel();
-  const uint32_t grid_dim_x = 240;
+  const uint32_t grid_dim_x = 320;
   const uint32_t block_dim_x = 256;
-  const uint32_t shared_memory_bytes = 32u * 1024u;
+  const uint32_t shared_memory_bytes = 48u * 1024u;
 
   const std::vector<DesignVariant> variants = {
       {.name = "baseline", .dram_latency = 40, .dpc_count = 8, .ap_per_dpc = 13},
-      {.name = "low_latency", .dram_latency = 12, .dpc_count = 8, .ap_per_dpc = 13},
-      {.name = "ap_sparse", .dram_latency = 40, .dpc_count = 2, .ap_per_dpc = 4},
-      {.name = "smem_tight",
+      {.name = "dram_fast", .dram_latency = 12, .dpc_count = 8, .ap_per_dpc = 13},
+      {.name = "ap_128", .dram_latency = 40, .dpc_count = 8, .ap_per_dpc = 16},
+      {.name = "smem_128",
        .dram_latency = 40,
        .dpc_count = 8,
        .ap_per_dpc = 13,
-       .shared_mem_per_block = 48ull * 1024ull,
-       .shared_mem_per_multiprocessor = 48ull * 1024ull,
-       .max_shared_mem_per_multiprocessor = 48ull * 1024ull},
+       .resident_block_limit_per_ap = 4,
+       .shared_mem_per_block = 128ull * 1024ull,
+       .shared_mem_per_multiprocessor = 128ull * 1024ull,
+       .max_shared_mem_per_multiprocessor = 128ull * 1024ull},
+      {.name = "smem_192",
+       .dram_latency = 40,
+       .dpc_count = 8,
+       .ap_per_dpc = 13,
+       .resident_block_limit_per_ap = 4,
+       .shared_mem_per_block = 192ull * 1024ull,
+       .shared_mem_per_multiprocessor = 192ull * 1024ull,
+       .max_shared_mem_per_multiprocessor = 192ull * 1024ull},
   };
 
   std::vector<DesignResult> rows;

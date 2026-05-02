@@ -38,6 +38,7 @@ std::shared_ptr<const GpuArchSpec> MakeMac500Spec() {
   spec->launch_timing.warp_switch_cycles = 1;
   spec->launch_timing.arg_load_cycles = 4;
   spec->cycle_resources.resident_wave_slots_per_peu = 8;
+  spec->cycle_resources.resident_block_limit_per_ap = 2;
   spec->cycle_resources.barrier_slots_per_ap = 16;
   spec->cycle_resources.issue_limits = DefaultArchitecturalIssueLimits();
   spec->cycle_resources.issue_policy =

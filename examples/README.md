@@ -36,7 +36,7 @@
 | 11 | [perfetto-waitcnt-slots](./11-perfetto-waitcnt-slots) | Perfetto 调试 | 保留 `st/mt/cycle` 可视化 |
 | 12 | [schedule-strategy-comparison](./12-schedule-strategy-comparison) | 调度策略对比 | 保留 `st/mt/cycle` 对比 |
 | 13 | [algorithm-comparison](./13-algorithm-comparison) | 算法对比 | 保留 `st/mt/cycle` 对比 |
-| 14 | [chip-design-sweep](./14-chip-design-sweep) | 芯片设计扫参 | `cycle` 配置对比、AP/访存/SMEM 设计指引 |
+| 14 | [chip-design-sweep](./14-chip-design-sweep) | 芯片设计扫参 | `cycle` 配置对比、AP 104/128、SMEM 64K/128K/192K |
 | test-sm-copy | [test-sm-copy](./test-sm-copy) | shared-memory copy 专项 | 只跑 `cycle` |
 
 ## 阅读顺序

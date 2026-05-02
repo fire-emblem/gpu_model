@@ -174,6 +174,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
   for (auto& block : blocks) {
     auto& ap_state = ap_states[block.global_ap_id];
     ap_state.global_ap_id = block.global_ap_id;
+    ap_state.resident_block_limit = context.spec.cycle_resources.resident_block_limit_per_ap;
     ap_state.barrier_slot_capacity = context.spec.cycle_resources.barrier_slots_per_ap;
     ap_state.shared_memory_capacity_bytes = context.spec.shared_mem_per_multiprocessor;
     ap_state.pending_blocks.push_back(&block);

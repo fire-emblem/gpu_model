@@ -9,11 +9,12 @@
 | 配置 | 目的 |
 |------|------|
 | `baseline` | mac500 默认拓扑和默认 DRAM latency |
-| `low_latency` | 降低 DRAM latency，观察访存延迟收益 |
-| `ap_sparse` | 减少 AP 数量，观察块排队和并发降低的影响 |
-| `smem_tight` | 收紧 AP 级 shared memory 容量，观察 resident block 数下降的影响 |
+| `dram_fast` | 降低 DRAM latency，观察访存延迟收益 |
+| `ap_128` | 把 AP 从 104 提升到 128，观察 block 排队下降的收益 |
+| `smem_128` | 把 shared memory 从 64K 提升到 128K，观察 resident block 数上升的收益 |
+| `smem_192` | 把 shared memory 从 64K 提升到 192K，观察更高驻留并发的收益 |
 
-kernel 同时包含 global load、`s_waitcnt`、shared memory 读写和 barrier，因此会受访存延迟、AP 并发和 shared memory resident capacity 共同影响。
+kernel 同时包含 global load、`s_waitcnt`、shared memory 读写和 barrier，因此会受访存延迟、AP 并发和 shared memory resident capacity 共同影响。这个例子把单 block shared memory 压力固定在 48K，并把 AP resident block 上限放到 4，所以 64K / 128K / 192K 会分别对应 1 / 2 / 4 个可驻留 block。
 
 ## 运行方式
 

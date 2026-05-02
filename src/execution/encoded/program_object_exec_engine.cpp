@@ -1659,6 +1659,7 @@ class EncodedExecutionCore {
       auto& block = raw_blocks_[block_index];
       auto& ap_state = cycle_ap_states_[block.global_ap_id];
       ap_state.global_ap_id = block.global_ap_id;
+      ap_state.resident_block_limit = spec_.cycle_resources.resident_block_limit_per_ap;
       ap_state.barrier_slot_capacity = spec_.cycle_resources.barrier_slots_per_ap;
       ap_state.pending_blocks.push_back(block_index);
       for (size_t wave_index = 0; wave_index < block.waves.size(); ++wave_index) {
