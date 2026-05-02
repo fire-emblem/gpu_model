@@ -53,6 +53,24 @@ std::string FormatOperand(const Operand& operand, const WaveContext& wave) {
         return RegisterName(operand.reg) + " = " + HexU64(wave.sgpr.Read(operand.reg.index));
       }
       return RegisterName(operand.reg) + ":" + FormatVectorValue(operand.reg.index, wave);
+    case OperandKind::RegisterRange: {
+      const std::string name = Instruction::DumpOperand(operand);
+      if (operand.reg.file == RegisterFile::Scalar) {
+        std::ostringstream out;
+        out << name << " =";
+        for (uint32_t i = 0; i < operand.reg_count; ++i) {
+          out << " " << HexU64(wave.sgpr.Read(operand.reg.index + i));
+        }
+        return out.str();
+      }
+      std::ostringstream out;
+      out << name << ":";
+      for (uint32_t i = 0; i < operand.reg_count; ++i) {
+        out << "\n  " << RegisterName(RegRef{.file = operand.reg.file, .index = operand.reg.index + i})
+            << ":" << FormatVectorValue(operand.reg.index + i, wave);
+      }
+      return out.str();
+    }
     case OperandKind::Immediate:
       return HexU64(operand.immediate);
     case OperandKind::ArgumentIndex:
@@ -97,13 +115,25 @@ TraceWaveStepDetail BuildWaveStepDetail(const Instruction& instruction, const Wa
   for (size_t i = 0; i < instruction.operands.size(); ++i) {
     const Operand& op = instruction.operands[i];
 
-    if (op.kind != OperandKind::Register) {
+    if (op.kind != OperandKind::Register && op.kind != OperandKind::RegisterRange) {
       continue;
     }
 
     std::string reg_value;
     if (op.reg.file == RegisterFile::Scalar) {
-      reg_value = Instruction::DumpOperand(op) + "=" + HexU64(wave.sgpr.Read(op.reg.index));
+      if (op.kind == OperandKind::RegisterRange) {
+        std::ostringstream sout;
+        sout << Instruction::DumpOperand(op) << "=";
+        for (uint32_t r = 0; r < op.reg_count; ++r) {
+          if (r > 0) {
+            sout << ",";
+          }
+          sout << HexU64(wave.sgpr.Read(op.reg.index + r));
+        }
+        reg_value = sout.str();
+      } else {
+        reg_value = Instruction::DumpOperand(op) + "=" + HexU64(wave.sgpr.Read(op.reg.index));
+      }
     } else {
       // For vector registers, show sampled values
       std::ostringstream vout;
@@ -114,8 +144,11 @@ TraceWaveStepDetail BuildWaveStepDetail(const Instruction& instruction, const Wa
           continue;
         }
         emitted = true;
-        vout << "        lane " << std::setw(4) << lane << "  "
-             << HexU64(wave.vgpr.Read(op.reg.index, lane)) << "\n";
+        vout << "        lane " << std::setw(4) << lane;
+        for (uint32_t r = 0; r < op.reg_count; ++r) {
+          vout << "  " << HexU64(wave.vgpr.Read(op.reg.index + r, lane));
+        }
+        vout << "\n";
       }
       if (!emitted) {
         vout << "        <no active lanes>\n";

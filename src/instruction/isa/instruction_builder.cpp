@@ -1,5 +1,7 @@
 #include "instruction/isa/instruction_builder.h"
 
+#include <stdexcept>
+
 namespace gpu_model {
 
 Operand Operand::ScalarReg(uint32_t index) {
@@ -10,6 +12,18 @@ Operand Operand::ScalarReg(uint32_t index) {
 Operand Operand::VectorReg(uint32_t index) {
   return Operand{.kind = OperandKind::Register,
                  .reg = RegRef{.file = RegisterFile::Vector, .index = index}};
+}
+
+Operand Operand::ScalarRegRange(uint32_t index, uint32_t count) {
+  return Operand{.kind = OperandKind::RegisterRange,
+                 .reg = RegRef{.file = RegisterFile::Scalar, .index = index},
+                 .reg_count = count};
+}
+
+Operand Operand::VectorRegRange(uint32_t index, uint32_t count) {
+  return Operand{.kind = OperandKind::RegisterRange,
+                 .reg = RegRef{.file = RegisterFile::Vector, .index = index},
+                 .reg_count = count};
 }
 
 Operand Operand::ImmediateU64(uint64_t value) {
@@ -380,6 +394,18 @@ InstructionBuilder& InstructionBuilder::VAddF32(std::string_view dest,
       Opcode::VAddF32, {ParseRegOperand(dest), ParseRegOperand(lhs), ParseRegOperand(rhs)});
 }
 
+InstructionBuilder& InstructionBuilder::VNotB32(std::string_view dest, std::string_view src) {
+  return AddInstruction(Opcode::VNotB32, {ParseRegOperand(dest), ParseRegOperand(src)});
+}
+
+InstructionBuilder& InstructionBuilder::VCvtF32I32(std::string_view dest, std::string_view src) {
+  return AddInstruction(Opcode::VCvtF32I32, {ParseRegOperand(dest), ParseRegOperand(src)});
+}
+
+InstructionBuilder& InstructionBuilder::VCvtI32F32(std::string_view dest, std::string_view src) {
+  return AddInstruction(Opcode::VCvtI32F32, {ParseRegOperand(dest), ParseRegOperand(src)});
+}
+
 InstructionBuilder& InstructionBuilder::VMin(std::string_view dest,
                                              std::string_view lhs,
                                              std::string_view rhs) {
@@ -399,6 +425,33 @@ InstructionBuilder& InstructionBuilder::VFma(std::string_view dest,
                                              std::string_view rhs,
                                              std::string_view addend) {
   return AddInstruction(Opcode::VFma,
+                        {ParseRegOperand(dest), ParseRegOperand(lhs), ParseRegOperand(rhs),
+                         ParseRegOperand(addend)});
+}
+
+InstructionBuilder& InstructionBuilder::VMadU64U32(std::string_view dest_lo,
+                                                   std::string_view sdst_lo,
+                                                   std::string_view lhs,
+                                                   std::string_view rhs,
+                                                   std::string_view acc_lo) {
+  const auto dst = ParseRegisterName(dest_lo);
+  const auto sdst = ParseRegisterName(sdst_lo);
+  const auto acc = ParseRegisterName(acc_lo);
+  if (dst.file != RegisterFile::Vector || sdst.file != RegisterFile::Scalar ||
+      acc.file != RegisterFile::Vector) {
+    throw std::invalid_argument("v_mad_u64_u32 expects vdst, sdst, and acc range operands");
+  }
+  return AddInstruction(Opcode::VMadU64U32,
+                        {Operand::VectorRegRange(dst.index, 2), Operand::ScalarRegRange(sdst.index, 2),
+                         ParseRegOperand(lhs), ParseRegOperand(rhs),
+                         Operand::VectorRegRange(acc.index, 2)});
+}
+
+InstructionBuilder& InstructionBuilder::VMadU32U24(std::string_view dest,
+                                                   std::string_view lhs,
+                                                   std::string_view rhs,
+                                                   std::string_view addend) {
+  return AddInstruction(Opcode::VMadU32U24,
                         {ParseRegOperand(dest), ParseRegOperand(lhs), ParseRegOperand(rhs),
                          ParseRegOperand(addend)});
 }

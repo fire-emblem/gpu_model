@@ -52,9 +52,14 @@ enum class Opcode {
   VRem,
   VMul,
   VAddF32,
+  VNotB32,
+  VCvtF32I32,
+  VCvtI32F32,
   VMin,
   VMax,
   VFma,
+  VMadU64U32,
+  VMadU32U24,
   VCmpLtCmask,
   VCmpEqCmask,
   VCmpGeCmask,
@@ -184,12 +189,22 @@ inline std::string_view ToString(Opcode opcode) {
       return "v_mul_lo_i32";
     case Opcode::VAddF32:
       return "v_add_f32";
+    case Opcode::VNotB32:
+      return "v_not_b32_e32";
+    case Opcode::VCvtF32I32:
+      return "v_cvt_f32_i32_e32";
+    case Opcode::VCvtI32F32:
+      return "v_cvt_i32_f32_e32";
     case Opcode::VMin:
       return "v_min_i32";
     case Opcode::VMax:
       return "v_max_i32";
     case Opcode::VFma:
       return "v_mad_i32";
+    case Opcode::VMadU64U32:
+      return "v_mad_u64_u32";
+    case Opcode::VMadU32U24:
+      return "v_mad_u32_u24";
     case Opcode::VCmpLtCmask:
       return "v_cmp_lt_i32_cmask";
     case Opcode::VCmpEqCmask:

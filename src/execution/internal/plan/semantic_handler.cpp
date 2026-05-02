@@ -5,6 +5,7 @@
 #include <bitset>
 #include <cstdint>
 #include <stdexcept>
+#include <utility>
 #include <vector>
 
 namespace gpu_model {
@@ -22,11 +23,27 @@ uint32_t RequireVectorReg(const Operand& operand) {
   return operand.reg.index;
 }
 
+std::pair<uint32_t, uint32_t> RequireVectorRange(const Operand& operand) {
+  if (operand.kind != OperandKind::RegisterRange || operand.reg.file != RegisterFile::Vector ||
+      operand.reg_count == 0) {
+    throw std::invalid_argument("expected vector register range operand");
+  }
+  return {operand.reg.index, operand.reg.index + operand.reg_count - 1};
+}
+
 uint32_t RequireScalarReg(const Operand& operand) {
   if (operand.kind != OperandKind::Register || operand.reg.file != RegisterFile::Scalar) {
     throw std::invalid_argument("expected scalar register operand");
   }
   return operand.reg.index;
+}
+
+std::pair<uint32_t, uint32_t> RequireScalarRange(const Operand& operand) {
+  if (operand.kind != OperandKind::RegisterRange || operand.reg.file != RegisterFile::Scalar ||
+      operand.reg_count == 0) {
+    throw std::invalid_argument("expected scalar register range operand");
+  }
+  return {operand.reg.index, operand.reg.index + operand.reg_count - 1};
 }
 
 uint32_t LocalLinearId(const WaveContext& wave, uint32_t lane) {
@@ -52,6 +69,11 @@ uint64_t ReadScalarOperand(const Operand& operand, const WaveContext& wave) {
         throw std::invalid_argument("expected scalar register operand");
       }
       return wave.sgpr.Read(operand.reg.index);
+    case OperandKind::RegisterRange:
+      if (operand.reg.file != RegisterFile::Scalar) {
+        throw std::invalid_argument("expected scalar register operand");
+      }
+      return wave.sgpr.Read(operand.reg.index);
     case OperandKind::None:
       break;
   }
@@ -65,6 +87,11 @@ uint64_t ReadVectorLaneOperand(const Operand& operand, const WaveContext& wave, 
     case OperandKind::BranchTarget:
       return operand.immediate;
     case OperandKind::Register:
+      if (operand.reg.file == RegisterFile::Scalar) {
+        return wave.sgpr.Read(operand.reg.index);
+      }
+      return wave.vgpr.Read(operand.reg.index, lane);
+    case OperandKind::RegisterRange:
       if (operand.reg.file == RegisterFile::Scalar) {
         return wave.sgpr.Read(operand.reg.index);
       }
@@ -415,6 +442,36 @@ class VectorAluHandler final : public ISemanticHandler {
         plan.vector_writes.push_back(write);
         return plan;
       }
+      case Opcode::VNotB32:
+      case Opcode::VCvtF32I32:
+      case Opcode::VCvtI32F32: {
+        VectorWrite write = make_write(RequireVectorReg(instruction.operands.at(0)));
+        for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+          if (!wave.exec.test(lane)) {
+            continue;
+          }
+          const uint64_t src = ReadVectorLaneOperand(instruction.operands.at(1), wave, lane);
+          switch (instruction.opcode) {
+            case Opcode::VNotB32:
+              write.values[lane] = static_cast<uint32_t>(~static_cast<uint32_t>(src));
+              break;
+            case Opcode::VCvtF32I32: {
+              const float value = static_cast<float>(static_cast<int32_t>(src));
+              write.values[lane] = std::bit_cast<uint32_t>(value);
+              break;
+            }
+            case Opcode::VCvtI32F32: {
+              const float value = std::bit_cast<float>(static_cast<uint32_t>(src));
+              write.values[lane] = static_cast<uint32_t>(static_cast<int32_t>(value));
+              break;
+            }
+            default:
+              break;
+          }
+        }
+        plan.vector_writes.push_back(write);
+        return plan;
+      }
       case Opcode::VAdd:
       case Opcode::VAnd:
       case Opcode::VOr:
@@ -498,6 +555,50 @@ class VectorAluHandler final : public ISemanticHandler {
           const int64_t addend =
               AsSigned(ReadVectorLaneOperand(instruction.operands.at(3), wave, lane));
           write.values[lane] = static_cast<uint64_t>(lhs * rhs + addend);
+        }
+        plan.vector_writes.push_back(write);
+        return plan;
+      }
+      case Opcode::VMadU64U32: {
+        const auto [vdst, vdst_last] = RequireVectorRange(instruction.operands.at(0));
+        const auto [sdst, sdst_last] = RequireScalarRange(instruction.operands.at(1));
+        const auto [acc_first, acc_last] = RequireVectorRange(instruction.operands.at(4));
+        if (vdst_last != vdst + 1 || sdst_last != sdst + 1 || acc_last != acc_first + 1) {
+          throw std::invalid_argument("v_mad_u64_u32 expects 2-register ranges");
+        }
+        VectorWrite low = make_write(vdst);
+        VectorWrite high = make_write(vdst + 1);
+        for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+          if (!wave.exec.test(lane)) {
+            continue;
+          }
+          const uint64_t mul_lhs = ReadVectorLaneOperand(instruction.operands.at(2), wave, lane);
+          const uint64_t mul_rhs = ReadVectorLaneOperand(instruction.operands.at(3), wave, lane);
+          const uint64_t acc_lo = static_cast<uint32_t>(wave.vgpr.Read(acc_first, lane));
+          const uint64_t acc_hi = static_cast<uint32_t>(wave.vgpr.Read(acc_first + 1, lane));
+          const uint64_t value = ((acc_hi << 32u) | acc_lo) + mul_lhs * mul_rhs;
+          low.values[lane] = static_cast<uint32_t>(value & 0xffffffffu);
+          high.values[lane] = static_cast<uint32_t>(value >> 32u);
+        }
+        plan.vector_writes.push_back(low);
+        plan.vector_writes.push_back(high);
+        return plan;
+      }
+      case Opcode::VMadU32U24: {
+        VectorWrite write = make_write(RequireVectorReg(instruction.operands.at(0)));
+        for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+          if (!wave.exec.test(lane)) {
+            continue;
+          }
+          const uint32_t lhs = static_cast<uint32_t>(
+                                   ReadVectorLaneOperand(instruction.operands.at(1), wave, lane)) &
+                               0x00ffffffu;
+          const uint32_t rhs = static_cast<uint32_t>(
+                                   ReadVectorLaneOperand(instruction.operands.at(2), wave, lane)) &
+                               0x00ffffffu;
+          const uint32_t addend = static_cast<uint32_t>(
+              ReadVectorLaneOperand(instruction.operands.at(3), wave, lane));
+          write.values[lane] = static_cast<uint32_t>(lhs * rhs + addend);
         }
         plan.vector_writes.push_back(write);
         return plan;

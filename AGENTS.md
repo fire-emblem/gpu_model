@@ -275,4 +275,5 @@
 - 先确定职责边界，再写代码
 - 新行为先落 engine/state machine，再接 trace
 - 优先新增 typed event，不扩展 message-based 猜测逻辑
+- ISA 指令遇到真实 kernel、encoded decode 或现有语义层已覆盖但 builder / functional / cycle 主线不支持时，默认应正向补齐支持链路，而不是绕开或降级示例；确有架构缺口时先补最小公共表达能力。
 - 优先做小步、可验证、可回滚的改动

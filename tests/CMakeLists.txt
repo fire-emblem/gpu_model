@@ -53,6 +53,7 @@ add_executable(gpu_model_tests
   functional/advanced_syntax_functional_test.cpp
   functional/local_bitwise_functional_test.cpp
   functional/builtin_scalarbit_functional_test.cpp
+  functional/practical_vector_isa_functional_test.cpp
   functional/divrem_functional_test.cpp
   functional/three_dimensional_functional_test.cpp
   functional/two_dimensional_functional_test.cpp

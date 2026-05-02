@@ -26,6 +26,8 @@ uint32_t SourceInstructionSizeBytes(Opcode opcode) {
     case Opcode::MLoadPrivate:
     case Opcode::MStorePrivate:
     case Opcode::MLoadConst:
+    case Opcode::VMadU64U32:
+    case Opcode::VMadU32U24:
       return 8;
     default:
       return 4;
@@ -53,6 +55,11 @@ std::string FormatSourceOperand(const Operand& operand) {
     case OperandKind::Register: {
       const char prefix = operand.reg.file == RegisterFile::Scalar ? 's' : 'v';
       return std::string(1, prefix) + std::to_string(operand.reg.index);
+    }
+    case OperandKind::RegisterRange: {
+      const char prefix = operand.reg.file == RegisterFile::Scalar ? 's' : 'v';
+      return std::string(1, prefix) + "[" + std::to_string(operand.reg.index) + ":" +
+             std::to_string(operand.reg.index + operand.reg_count - 1) + "]";
     }
     case OperandKind::Immediate:
       return std::to_string(operand.immediate);

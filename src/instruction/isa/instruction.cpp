@@ -22,6 +22,11 @@ std::string Instruction::DumpOperand(const Operand& op) {
       const char prefix = op.reg.file == RegisterFile::Scalar ? 's' : 'v';
       return std::string(1, prefix) + std::to_string(op.reg.index);
     }
+    case OperandKind::RegisterRange: {
+      const char prefix = op.reg.file == RegisterFile::Scalar ? 's' : 'v';
+      return std::string(1, prefix) + "[" + std::to_string(op.reg.index) + ":" +
+             std::to_string(op.reg.index + op.reg_count - 1) + "]";
+    }
     case OperandKind::Immediate:
       return HexU64(op.immediate);
     case OperandKind::ArgumentIndex:

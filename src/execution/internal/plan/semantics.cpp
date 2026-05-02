@@ -52,9 +52,14 @@ std::optional<uint64_t> IssueClassOverrideForOpcode(
     case Opcode::VRem:
     case Opcode::VMul:
     case Opcode::VAddF32:
+    case Opcode::VNotB32:
+    case Opcode::VCvtF32I32:
+    case Opcode::VCvtI32F32:
     case Opcode::VMin:
     case Opcode::VMax:
     case Opcode::VFma:
+    case Opcode::VMadU64U32:
+    case Opcode::VMadU32U24:
     case Opcode::VCmpLtCmask:
     case Opcode::VCmpEqCmask:
     case Opcode::VCmpGeCmask:
