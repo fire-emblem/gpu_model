@@ -46,18 +46,24 @@ enum class Opcode {
   VOr,
   VXor,
   VShl,
+  VLshlrevB32,
   VShr,
   VSub,
+  VSubrevU32,
   VDiv,
   VRem,
   VMul,
+  VMulU32U24,
   VAddF32,
+  VFmacF32,
   VNotB32,
   VCvtF32I32,
   VCvtI32F32,
   VMin,
   VMax,
   VFma,
+  VOr3B32,
+  VAdd3U32,
   VMadU64U32,
   VMadU32U24,
   VCmpLtCmask,
@@ -177,18 +183,26 @@ inline std::string_view ToString(Opcode opcode) {
       return "v_xor_b32";
     case Opcode::VShl:
       return "v_lshl_b32";
+    case Opcode::VLshlrevB32:
+      return "v_lshlrev_b32_e32";
     case Opcode::VShr:
       return "v_lshr_b32";
     case Opcode::VSub:
       return "v_sub_i32";
+    case Opcode::VSubrevU32:
+      return "v_subrev_u32_e32";
     case Opcode::VDiv:
       return "v_div_i32";
     case Opcode::VRem:
       return "v_rem_i32";
     case Opcode::VMul:
       return "v_mul_lo_i32";
+    case Opcode::VMulU32U24:
+      return "v_mul_u32_u24_e32";
     case Opcode::VAddF32:
       return "v_add_f32";
+    case Opcode::VFmacF32:
+      return "v_fmac_f32_e32";
     case Opcode::VNotB32:
       return "v_not_b32_e32";
     case Opcode::VCvtF32I32:
@@ -201,6 +215,10 @@ inline std::string_view ToString(Opcode opcode) {
       return "v_max_i32";
     case Opcode::VFma:
       return "v_mad_i32";
+    case Opcode::VOr3B32:
+      return "v_or3_b32";
+    case Opcode::VAdd3U32:
+      return "v_add3_u32";
     case Opcode::VMadU64U32:
       return "v_mad_u64_u32";
     case Opcode::VMadU32U24:

@@ -28,6 +28,8 @@ uint32_t SourceInstructionSizeBytes(Opcode opcode) {
     case Opcode::MLoadConst:
     case Opcode::VMadU64U32:
     case Opcode::VMadU32U24:
+    case Opcode::VAdd3U32:
+    case Opcode::VOr3B32:
       return 8;
     default:
       return 4;
@@ -35,6 +37,9 @@ uint32_t SourceInstructionSizeBytes(Opcode opcode) {
 }
 
 uint32_t InstructionSizeBytesForOpcode(Opcode opcode) {
+  if (opcode == Opcode::VFmacF32) {
+    return SourceInstructionSizeBytes(opcode);
+  }
   const auto* def = FindGeneratedGcnInstDefByMnemonic(ToString(opcode));
   if (def != nullptr) {
     return def->size_bytes;

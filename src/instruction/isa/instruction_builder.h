@@ -84,12 +84,24 @@ class InstructionBuilder : public KernelProgramBuilder {
   InstructionBuilder& VOr(std::string_view dest, std::string_view lhs, std::string_view rhs);
   InstructionBuilder& VXor(std::string_view dest, std::string_view lhs, std::string_view rhs);
   InstructionBuilder& VShl(std::string_view dest, std::string_view lhs, std::string_view rhs);
+  InstructionBuilder& VLshlrevB32(std::string_view dest,
+                                  std::string_view shift,
+                                  std::string_view src);
   InstructionBuilder& VShr(std::string_view dest, std::string_view lhs, std::string_view rhs);
   InstructionBuilder& VSub(std::string_view dest, std::string_view lhs, std::string_view rhs);
+  InstructionBuilder& VSubrevU32(std::string_view dest,
+                                 std::string_view subtrahend,
+                                 std::string_view minuend);
   InstructionBuilder& VDiv(std::string_view dest, std::string_view lhs, std::string_view rhs);
   InstructionBuilder& VRem(std::string_view dest, std::string_view lhs, std::string_view rhs);
   InstructionBuilder& VMul(std::string_view dest, std::string_view lhs, std::string_view rhs);
+  InstructionBuilder& VMulU32U24(std::string_view dest,
+                                 std::string_view lhs,
+                                 std::string_view rhs);
   InstructionBuilder& VAddF32(std::string_view dest, std::string_view lhs, std::string_view rhs);
+  InstructionBuilder& VFmacF32(std::string_view dest,
+                               std::string_view lhs,
+                               std::string_view rhs);
   InstructionBuilder& VNotB32(std::string_view dest, std::string_view src);
   InstructionBuilder& VCvtF32I32(std::string_view dest, std::string_view src);
   InstructionBuilder& VCvtI32F32(std::string_view dest, std::string_view src);
@@ -99,6 +111,14 @@ class InstructionBuilder : public KernelProgramBuilder {
                            std::string_view lhs,
                            std::string_view rhs,
                            std::string_view addend);
+  InstructionBuilder& VOr3B32(std::string_view dest,
+                              std::string_view src0,
+                              std::string_view src1,
+                              std::string_view src2);
+  InstructionBuilder& VAdd3U32(std::string_view dest,
+                               std::string_view src0,
+                               std::string_view src1,
+                               std::string_view src2);
   InstructionBuilder& VMadU64U32(std::string_view dest_lo,
                                  std::string_view sdst_lo,
                                  std::string_view lhs,

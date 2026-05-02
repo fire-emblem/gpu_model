@@ -105,20 +105,27 @@ const OpcodeExecutionInfo& GetOpcodeExecutionInfo(Opcode opcode) {
     case Opcode::VOr:
     case Opcode::VXor:
     case Opcode::VShl:
+    case Opcode::VLshlrevB32:
     case Opcode::VShr:
     case Opcode::VSub:
+    case Opcode::VSubrevU32:
     case Opcode::VDiv:
     case Opcode::VRem:
     case Opcode::VMul:
+    case Opcode::VMulU32U24:
     case Opcode::VNotB32:
     case Opcode::VMin:
     case Opcode::VMax:
     case Opcode::VFma:
+    case Opcode::VOr3B32:
+    case Opcode::VAdd3U32:
     case Opcode::VMadU64U32:
     case Opcode::VMadU32U24:
     case Opcode::VSelectCmask:
       return kVectorAluInt;
     case Opcode::VAddF32:
+      return kVectorAluFloat;
+    case Opcode::VFmacF32:
       return kVectorAluFloat;
     case Opcode::VCvtF32I32:
     case Opcode::VCvtI32F32:

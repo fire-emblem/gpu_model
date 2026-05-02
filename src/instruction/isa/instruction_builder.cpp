@@ -352,6 +352,13 @@ InstructionBuilder& InstructionBuilder::VShl(std::string_view dest,
       Opcode::VShl, {ParseRegOperand(dest), ParseRegOperand(lhs), ParseRegOperand(rhs)});
 }
 
+InstructionBuilder& InstructionBuilder::VLshlrevB32(std::string_view dest,
+                                                    std::string_view shift,
+                                                    std::string_view src) {
+  return AddInstruction(
+      Opcode::VLshlrevB32, {ParseRegOperand(dest), ParseRegOperand(shift), ParseRegOperand(src)});
+}
+
 InstructionBuilder& InstructionBuilder::VShr(std::string_view dest,
                                              std::string_view lhs,
                                              std::string_view rhs) {
@@ -364,6 +371,14 @@ InstructionBuilder& InstructionBuilder::VSub(std::string_view dest,
                                              std::string_view rhs) {
   return AddInstruction(
       Opcode::VSub, {ParseRegOperand(dest), ParseRegOperand(lhs), ParseRegOperand(rhs)});
+}
+
+InstructionBuilder& InstructionBuilder::VSubrevU32(std::string_view dest,
+                                                   std::string_view subtrahend,
+                                                   std::string_view minuend) {
+  return AddInstruction(Opcode::VSubrevU32,
+                        {ParseRegOperand(dest), ParseRegOperand(subtrahend),
+                         ParseRegOperand(minuend)});
 }
 
 InstructionBuilder& InstructionBuilder::VDiv(std::string_view dest,
@@ -387,11 +402,25 @@ InstructionBuilder& InstructionBuilder::VMul(std::string_view dest,
       Opcode::VMul, {ParseRegOperand(dest), ParseRegOperand(lhs), ParseRegOperand(rhs)});
 }
 
+InstructionBuilder& InstructionBuilder::VMulU32U24(std::string_view dest,
+                                                   std::string_view lhs,
+                                                   std::string_view rhs) {
+  return AddInstruction(
+      Opcode::VMulU32U24, {ParseRegOperand(dest), ParseRegOperand(lhs), ParseRegOperand(rhs)});
+}
+
 InstructionBuilder& InstructionBuilder::VAddF32(std::string_view dest,
                                                 std::string_view lhs,
                                                 std::string_view rhs) {
   return AddInstruction(
       Opcode::VAddF32, {ParseRegOperand(dest), ParseRegOperand(lhs), ParseRegOperand(rhs)});
+}
+
+InstructionBuilder& InstructionBuilder::VFmacF32(std::string_view dest,
+                                                 std::string_view lhs,
+                                                 std::string_view rhs) {
+  return AddInstruction(
+      Opcode::VFmacF32, {ParseRegOperand(dest), ParseRegOperand(lhs), ParseRegOperand(rhs)});
 }
 
 InstructionBuilder& InstructionBuilder::VNotB32(std::string_view dest, std::string_view src) {
@@ -427,6 +456,24 @@ InstructionBuilder& InstructionBuilder::VFma(std::string_view dest,
   return AddInstruction(Opcode::VFma,
                         {ParseRegOperand(dest), ParseRegOperand(lhs), ParseRegOperand(rhs),
                          ParseRegOperand(addend)});
+}
+
+InstructionBuilder& InstructionBuilder::VOr3B32(std::string_view dest,
+                                                std::string_view src0,
+                                                std::string_view src1,
+                                                std::string_view src2) {
+  return AddInstruction(Opcode::VOr3B32,
+                        {ParseRegOperand(dest), ParseRegOperand(src0), ParseRegOperand(src1),
+                         ParseRegOperand(src2)});
+}
+
+InstructionBuilder& InstructionBuilder::VAdd3U32(std::string_view dest,
+                                                 std::string_view src0,
+                                                 std::string_view src1,
+                                                 std::string_view src2) {
+  return AddInstruction(Opcode::VAdd3U32,
+                        {ParseRegOperand(dest), ParseRegOperand(src0), ParseRegOperand(src1),
+                         ParseRegOperand(src2)});
 }
 
 InstructionBuilder& InstructionBuilder::VMadU64U32(std::string_view dest_lo,

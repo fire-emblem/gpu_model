@@ -866,6 +866,57 @@ TEST_F(EncodedSemanticExecuteTest, ExecutesAdditionalVectorAluInstructionsAcross
 
   {
     Harness harness;
+    harness.wave.vgpr.Write(1, 0, 1u);
+    auto inst = Inst("v_lshlrev_b32_e32", 33, {VReg(21), Imm(5), VReg(1)}, 0x17a3, 4);
+    harness.wave.pc = inst.pc;
+    EncodedSemanticHandlerRegistry::Get(inst).Execute(inst, harness.context);
+    EXPECT_EQ(harness.wave.vgpr.Read(21, 0), 32u);
+  }
+
+  {
+    Harness harness;
+    harness.wave.vgpr.Write(1, 0, 9u);
+    harness.wave.vgpr.Write(2, 0, 40u);
+    auto inst = Inst("v_subrev_u32_e32", 106, {VReg(22), VReg(1), VReg(2)}, 0x17a4, 4);
+    harness.wave.pc = inst.pc;
+    EncodedSemanticHandlerRegistry::Get(inst).Execute(inst, harness.context);
+    EXPECT_EQ(harness.wave.vgpr.Read(22, 0), 31u);
+  }
+
+  {
+    Harness harness;
+    harness.wave.vgpr.Write(1, 0, 10u);
+    harness.wave.vgpr.Write(2, 0, 20u);
+    harness.wave.vgpr.Write(3, 0, 30u);
+    auto inst = Inst("v_add3_u32", 120, {VReg(23), VReg(1), VReg(2), VReg(3)}, 0x17a8, 8);
+    harness.wave.pc = inst.pc;
+    EncodedSemanticHandlerRegistry::Get(inst).Execute(inst, harness.context);
+    EXPECT_EQ(harness.wave.vgpr.Read(23, 0), 60u);
+  }
+
+  {
+    Harness harness;
+    harness.wave.vgpr.Write(1, 0, 0x01000003u);
+    harness.wave.vgpr.Write(2, 0, 7u);
+    auto inst = Inst("v_mul_u32_u24_e32", 123, {VReg(24), VReg(1), VReg(2)}, 0x17b0, 4);
+    harness.wave.pc = inst.pc;
+    EncodedSemanticHandlerRegistry::Get(inst).Execute(inst, harness.context);
+    EXPECT_EQ(harness.wave.vgpr.Read(24, 0), 21u);
+  }
+
+  {
+    Harness harness;
+    harness.wave.vgpr.Write(1, 0, FloatBits(2.0f));
+    harness.wave.vgpr.Write(2, 0, FloatBits(3.0f));
+    harness.wave.vgpr.Write(25, 0, FloatBits(1.5f));
+    auto inst = Inst("v_fmac_f32_e32", 65, {VReg(25), VReg(1), VReg(2)}, 0x17b4, 4);
+    harness.wave.pc = inst.pc;
+    EncodedSemanticHandlerRegistry::Get(inst).Execute(inst, harness.context);
+    EXPECT_EQ(harness.wave.vgpr.Read(25, 0), FloatBits(7.5f));
+  }
+
+  {
+    Harness harness;
     harness.wave.vgpr.Write(1, 0, 10u);
     harness.wave.vgpr.Write(2, 0, 20u);
     harness.vcc = 0x1ull;

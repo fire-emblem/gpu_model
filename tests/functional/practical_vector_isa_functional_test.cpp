@@ -22,9 +22,15 @@ ExecutableKernel BuildPracticalVectorIsaKernel() {
   builder.SLoadArg("s4", 4);
   builder.SLoadArg("s5", 5);
   builder.SLoadArg("s6", 6);
+  builder.SLoadArg("s7", 7);
+  builder.SLoadArg("s8", 8);
+  builder.SLoadArg("s9", 9);
+  builder.SLoadArg("s10", 10);
+  builder.SLoadArg("s11", 11);
+  builder.SLoadArg("s12", 12);
   builder.SysGlobalIdX("v0");
-  builder.VCmpLtCmask("v0", "s6");
-  builder.MaskSaveExec("s10");
+  builder.VCmpLtCmask("v0", "s12");
+  builder.MaskSaveExec("s30");
   builder.MaskAndExecCmask();
   builder.BIfNoexec("exit");
   builder.VMov("v1", "v0");
@@ -34,19 +40,33 @@ ExecutableKernel BuildPracticalVectorIsaKernel() {
   builder.VMov("v5", 5);
   builder.VMov("v6", 7);
   builder.VMadU32U24("v7", "v0", "v5", "v6");
+  builder.VSubrevU32("v8", "v0", "v6");
+  builder.VOr3B32("v9", "v0", "v5", "v6");
+  builder.VAdd3U32("v10", "v0", "v5", "v6");
+  builder.VMulU32U24("v11", "v0", "v5");
   builder.VMov("v14", 0x10000);
   builder.VMov("v15", 0x10000);
   builder.VMov("v16", 1);
   builder.VMov("v17", 2);
-  builder.VMadU64U32("v12", "s11", "v14", "v15", "v16");
+  builder.VLshlrevB32("v18", "v0", "v16");
+  builder.VMov("v19", FloatBits(1.5f));
+  builder.VMov("v20", FloatBits(1.5f));
+  builder.VFmacF32("v20", "v3", "v19");
+  builder.VMadU64U32("v12", "s21", "v14", "v15", "v16");
   builder.MStoreGlobal("s0", "v0", "v2", 4);
   builder.MStoreGlobal("s1", "v0", "v3", 4);
   builder.MStoreGlobal("s2", "v0", "v4", 4);
   builder.MStoreGlobal("s3", "v0", "v7", 4);
   builder.MStoreGlobal("s4", "v0", "v12", 4);
   builder.MStoreGlobal("s5", "v0", "v13", 4);
+  builder.MStoreGlobal("s6", "v0", "v8", 4);
+  builder.MStoreGlobal("s7", "v0", "v9", 4);
+  builder.MStoreGlobal("s8", "v0", "v10", 4);
+  builder.MStoreGlobal("s9", "v0", "v11", 4);
+  builder.MStoreGlobal("s10", "v0", "v18", 4);
+  builder.MStoreGlobal("s11", "v0", "v20", 4);
   builder.Label("exit");
-  builder.MaskRestoreExec("s10");
+  builder.MaskRestoreExec("s30");
   builder.BExit();
   return builder.Build("practical_vector_isa");
 }
@@ -61,6 +81,12 @@ TEST(PracticalVectorIsaFunctionalTest, ExecutesCommonPracticalVectorOps) {
   const uint64_t out_mad = runtime.memory().AllocateGlobal(n * sizeof(uint32_t));
   const uint64_t out_mad64_lo = runtime.memory().AllocateGlobal(n * sizeof(uint32_t));
   const uint64_t out_mad64_hi = runtime.memory().AllocateGlobal(n * sizeof(uint32_t));
+  const uint64_t out_subrev = runtime.memory().AllocateGlobal(n * sizeof(uint32_t));
+  const uint64_t out_or3 = runtime.memory().AllocateGlobal(n * sizeof(uint32_t));
+  const uint64_t out_add3 = runtime.memory().AllocateGlobal(n * sizeof(uint32_t));
+  const uint64_t out_mul24 = runtime.memory().AllocateGlobal(n * sizeof(uint32_t));
+  const uint64_t out_lshlrev = runtime.memory().AllocateGlobal(n * sizeof(uint32_t));
+  const uint64_t out_fmac = runtime.memory().AllocateGlobal(n * sizeof(uint32_t));
 
   LaunchRequest request;
   request.kernel = &kernel;
@@ -72,6 +98,12 @@ TEST(PracticalVectorIsaFunctionalTest, ExecutesCommonPracticalVectorOps) {
   request.args.PushU64(out_mad);
   request.args.PushU64(out_mad64_lo);
   request.args.PushU64(out_mad64_hi);
+  request.args.PushU64(out_subrev);
+  request.args.PushU64(out_or3);
+  request.args.PushU64(out_add3);
+  request.args.PushU64(out_mul24);
+  request.args.PushU64(out_lshlrev);
+  request.args.PushU64(out_fmac);
   request.args.PushU32(n);
 
   const auto result = runtime.Launch(request);
@@ -90,6 +122,18 @@ TEST(PracticalVectorIsaFunctionalTest, ExecutesCommonPracticalVectorOps) {
               1u);
     EXPECT_EQ(runtime.memory().LoadGlobalValue<uint32_t>(out_mad64_hi + static_cast<uint64_t>(gid) * 4),
               3u);
+    EXPECT_EQ(runtime.memory().LoadGlobalValue<uint32_t>(out_subrev + static_cast<uint64_t>(gid) * 4),
+              static_cast<uint32_t>(7u - gid));
+    EXPECT_EQ(runtime.memory().LoadGlobalValue<uint32_t>(out_or3 + static_cast<uint64_t>(gid) * 4),
+              static_cast<uint32_t>(gid | 7u));
+    EXPECT_EQ(runtime.memory().LoadGlobalValue<uint32_t>(out_add3 + static_cast<uint64_t>(gid) * 4),
+              static_cast<uint32_t>(gid + 12u));
+    EXPECT_EQ(runtime.memory().LoadGlobalValue<uint32_t>(out_mul24 + static_cast<uint64_t>(gid) * 4),
+              static_cast<uint32_t>(gid * 5u));
+    EXPECT_EQ(runtime.memory().LoadGlobalValue<uint32_t>(out_lshlrev + static_cast<uint64_t>(gid) * 4),
+              static_cast<uint32_t>(1u << (gid & 31u)));
+    EXPECT_EQ(runtime.memory().LoadGlobalValue<uint32_t>(out_fmac + static_cast<uint64_t>(gid) * 4),
+              FloatBits(1.5f + static_cast<float>(gid) * 1.5f));
   }
 }
 

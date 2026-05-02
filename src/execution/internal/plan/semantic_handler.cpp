@@ -477,11 +477,14 @@ class VectorAluHandler final : public ISemanticHandler {
       case Opcode::VOr:
       case Opcode::VXor:
       case Opcode::VShl:
+      case Opcode::VLshlrevB32:
       case Opcode::VShr:
       case Opcode::VSub:
+      case Opcode::VSubrevU32:
       case Opcode::VDiv:
       case Opcode::VRem:
       case Opcode::VMul:
+      case Opcode::VMulU32U24:
       case Opcode::VMin:
       case Opcode::VMax:
       case Opcode::VAddF32: {
@@ -508,11 +511,19 @@ class VectorAluHandler final : public ISemanticHandler {
             case Opcode::VShl:
               write.values[lane] = lhs << (rhs & 63ULL);
               break;
+            case Opcode::VLshlrevB32:
+              write.values[lane] = static_cast<uint64_t>(static_cast<uint32_t>(rhs)
+                                                         << (static_cast<uint32_t>(lhs) & 31u));
+              break;
             case Opcode::VShr:
               write.values[lane] = lhs >> (rhs & 63ULL);
               break;
             case Opcode::VSub:
               write.values[lane] = static_cast<uint64_t>(AsSigned(lhs) - AsSigned(rhs));
+              break;
+            case Opcode::VSubrevU32:
+              write.values[lane] = static_cast<uint64_t>(static_cast<uint32_t>(rhs) -
+                                                         static_cast<uint32_t>(lhs));
               break;
             case Opcode::VDiv:
               write.values[lane] =
@@ -524,6 +535,12 @@ class VectorAluHandler final : public ISemanticHandler {
               break;
             case Opcode::VMul:
               write.values[lane] = static_cast<uint64_t>(AsSigned(lhs) * AsSigned(rhs));
+              break;
+            case Opcode::VMulU32U24:
+              write.values[lane] = static_cast<uint64_t>((static_cast<uint32_t>(lhs) &
+                                                          0x00ffffffu) *
+                                                         (static_cast<uint32_t>(rhs) &
+                                                          0x00ffffffu));
               break;
             case Opcode::VMin:
               write.values[lane] = static_cast<uint64_t>(std::min(AsSigned(lhs), AsSigned(rhs)));
@@ -544,6 +561,23 @@ class VectorAluHandler final : public ISemanticHandler {
         plan.vector_writes.push_back(write);
         return plan;
       }
+      case Opcode::VFmacF32: {
+        VectorWrite write = make_write(RequireVectorReg(instruction.operands.at(0)));
+        for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+          if (!wave.exec.test(lane)) {
+            continue;
+          }
+          const float acc =
+              std::bit_cast<float>(static_cast<uint32_t>(wave.vgpr.Read(write.reg_index, lane)));
+          const float lhs = std::bit_cast<float>(
+              static_cast<uint32_t>(ReadVectorLaneOperand(instruction.operands.at(1), wave, lane)));
+          const float rhs = std::bit_cast<float>(
+              static_cast<uint32_t>(ReadVectorLaneOperand(instruction.operands.at(2), wave, lane)));
+          write.values[lane] = std::bit_cast<uint32_t>(acc + lhs * rhs);
+        }
+        plan.vector_writes.push_back(write);
+        return plan;
+      }
       case Opcode::VFma: {
         VectorWrite write = make_write(RequireVectorReg(instruction.operands.at(0)));
         for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
@@ -555,6 +589,28 @@ class VectorAluHandler final : public ISemanticHandler {
           const int64_t addend =
               AsSigned(ReadVectorLaneOperand(instruction.operands.at(3), wave, lane));
           write.values[lane] = static_cast<uint64_t>(lhs * rhs + addend);
+        }
+        plan.vector_writes.push_back(write);
+        return plan;
+      }
+      case Opcode::VOr3B32:
+      case Opcode::VAdd3U32: {
+        VectorWrite write = make_write(RequireVectorReg(instruction.operands.at(0)));
+        for (uint32_t lane = 0; lane < kWaveSize; ++lane) {
+          if (!wave.exec.test(lane)) {
+            continue;
+          }
+          const uint32_t src0 = static_cast<uint32_t>(
+              ReadVectorLaneOperand(instruction.operands.at(1), wave, lane));
+          const uint32_t src1 = static_cast<uint32_t>(
+              ReadVectorLaneOperand(instruction.operands.at(2), wave, lane));
+          const uint32_t src2 = static_cast<uint32_t>(
+              ReadVectorLaneOperand(instruction.operands.at(3), wave, lane));
+          if (instruction.opcode == Opcode::VOr3B32) {
+            write.values[lane] = src0 | src1 | src2;
+          } else {
+            write.values[lane] = src0 + src1 + src2;
+          }
         }
         plan.vector_writes.push_back(write);
         return plan;

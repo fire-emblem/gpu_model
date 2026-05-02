@@ -34,6 +34,24 @@ TEST(OpcodeDescriptorTest, ClassifiesPracticalVectorIsaOps) {
 
   EXPECT_EQ(GetOpcodeDescriptor(Opcode::VMadU32U24).mnemonic, "v_mad_u32_u24");
   EXPECT_EQ(GetOpcodeExecutionInfo(Opcode::VMadU32U24).family, SemanticFamily::VectorAluInt);
+
+  EXPECT_EQ(GetOpcodeDescriptor(Opcode::VLshlrevB32).mnemonic, "v_lshlrev_b32_e32");
+  EXPECT_EQ(GetOpcodeExecutionInfo(Opcode::VLshlrevB32).family, SemanticFamily::VectorAluInt);
+
+  EXPECT_EQ(GetOpcodeDescriptor(Opcode::VSubrevU32).mnemonic, "v_subrev_u32_e32");
+  EXPECT_EQ(GetOpcodeExecutionInfo(Opcode::VSubrevU32).family, SemanticFamily::VectorAluInt);
+
+  EXPECT_EQ(GetOpcodeDescriptor(Opcode::VOr3B32).mnemonic, "v_or3_b32");
+  EXPECT_EQ(GetOpcodeExecutionInfo(Opcode::VOr3B32).family, SemanticFamily::VectorAluInt);
+
+  EXPECT_EQ(GetOpcodeDescriptor(Opcode::VAdd3U32).mnemonic, "v_add3_u32");
+  EXPECT_EQ(GetOpcodeExecutionInfo(Opcode::VAdd3U32).family, SemanticFamily::VectorAluInt);
+
+  EXPECT_EQ(GetOpcodeDescriptor(Opcode::VMulU32U24).mnemonic, "v_mul_u32_u24_e32");
+  EXPECT_EQ(GetOpcodeExecutionInfo(Opcode::VMulU32U24).family, SemanticFamily::VectorAluInt);
+
+  EXPECT_EQ(GetOpcodeDescriptor(Opcode::VFmacF32).mnemonic, "v_fmac_f32_e32");
+  EXPECT_EQ(GetOpcodeExecutionInfo(Opcode::VFmacF32).family, SemanticFamily::VectorAluFloat);
 }
 
 TEST(OpcodeDescriptorTest, ClassifiesMaskAndBranchOps) {
