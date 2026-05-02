@@ -54,6 +54,34 @@ using namespace cycle_internal;
 
 namespace {
 
+void AccumulateCycleStallStats(ProgramCycleStats& stats,
+                               std::string_view reason,
+                               bool& counted_stall_this_cycle) {
+  if (counted_stall_this_cycle) {
+    return;
+  }
+  counted_stall_this_cycle = true;
+  if (reason == kTraceStallReasonWarpSwitch) {
+    ++stats.stall_switch_away;
+    return;
+  }
+  if (reason == kTraceStallReasonWaitCntGlobal || reason == kTraceStallReasonWaitCntShared ||
+      reason == kTraceStallReasonWaitCntPrivate ||
+      reason == kTraceStallReasonWaitCntScalarBuffer) {
+    ++stats.stall_waitcnt;
+    return;
+  }
+  if (reason == kTraceStallReasonBarrierSlotUnavailable || reason == "barrier_wait") {
+    ++stats.stall_barrier;
+    return;
+  }
+  if (reason == "branch_wait" || reason == "dependency_wait") {
+    ++stats.stall_dependency;
+    return;
+  }
+  ++stats.stall_resource;
+}
+
 uint64_t LoadLaneValue(const MemorySystem& memory, MemoryPoolKind pool, const LaneAccess& lane) {
   return memory_ops::LoadPoolLaneValue(memory, pool, lane);
 }
@@ -234,6 +262,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
     }
 
     bool issued_any = false;
+    bool counted_stall_this_cycle = false;
     for (auto& slot : slots) {
       // Selection gate: PEU can select when selection_ready_cycle is satisfied
       if (slot.selection_ready_cycle > cycle) {
@@ -268,6 +297,10 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
               TraceSlotModelKind::ResidentFixed,
               std::numeric_limits<uint64_t>::max(),
               MakeOptionalTraceWaitcntState(blocked_wave, waitcnt_thresholds)));
+          if (program_cycle_stats_.has_value()) {
+            AccumulateCycleStallStats(
+                *program_cycle_stats_, blocked->second, counted_stall_this_cycle);
+          }
         }
         continue;
       }
@@ -279,6 +312,10 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
             cycle,
             ready_unselected->second,
             TraceSlotModelKind::ResidentFixed));
+        if (program_cycle_stats_.has_value()) {
+          AccumulateCycleStallStats(
+              *program_cycle_stats_, ready_unselected->second, counted_stall_this_cycle);
+        }
       }
 
       uint64_t bundle_commit_cycle = cycle;
@@ -316,6 +353,10 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
               *slot.last_wave_trace, cycle, TraceSlotModelKind::ResidentFixed, slot.last_wave_pc));
           context.trace.OnEvent(MakeTraceWaveSwitchStallEvent(
               *slot.last_wave_trace, cycle, TraceSlotModelKind::ResidentFixed, slot.last_wave_pc));
+          if (program_cycle_stats_.has_value()) {
+            AccumulateCycleStallStats(
+                *program_cycle_stats_, kTraceStallReasonWarpSwitch, counted_stall_this_cycle);
+          }
         }
         
                 context.trace.OnEvent(MakeTraceIssueSelectEvent(

@@ -256,6 +256,36 @@ TEST(HardwareDesignConfigCycleTest, LargerSharedMemoryAllowsMoreResidentBlocksWh
   EXPECT_GT(tight_launch_cycles[3], 0u);
 }
 
+TEST(HardwareDesignConfigCycleTest, CycleStatsAccountsWaitcntStallsFromProducerEvents) {
+  CollectingTraceSink trace;
+  ExecEngine runtime(&trace);
+  runtime.SetFixedGlobalMemoryLatency(40);
+  runtime.SetLaunchTimingProfile(/*kernel_launch_gap_cycles=*/8,
+                                 /*kernel_launch_cycles=*/0,
+                                 /*block_launch_cycles=*/0,
+                                 /*wave_launch_cycles=*/0,
+                                 /*warp_switch_cycles=*/1,
+                                 /*arg_load_cycles=*/4);
+
+  const auto kernel = BuildDesignSweepKernel();
+  const uint64_t input_addr = runtime.memory().AllocateGlobal(sizeof(uint32_t));
+  runtime.memory().StoreGlobalValue<uint32_t>(input_addr, 7u);
+
+  LaunchRequest request;
+  request.kernel = &kernel;
+  request.mode = ExecutionMode::Cycle;
+  request.config.grid_dim_x = 1;
+  request.config.block_dim_x = 64;
+  request.args.PushU64(input_addr);
+
+  const auto result = runtime.Launch(request);
+  ASSERT_TRUE(result.ok) << result.error_message;
+  ASSERT_TRUE(result.program_cycle_stats.has_value());
+  EXPECT_GT(result.program_cycle_stats->stall_waitcnt, 0u);
+  EXPECT_GT(result.program_cycle_stats->StallFraction(), 0.0);
+  EXPECT_LE(result.program_cycle_stats->StallFraction(), 1.0);
+}
+
 TEST(HardwareDesignConfigCycleTest, DesignSweepShowsClearHardwareRankingOnMixedWorkload) {
   const auto base_spec = ArchRegistry::Get("mac500");
   ASSERT_NE(base_spec, nullptr);
