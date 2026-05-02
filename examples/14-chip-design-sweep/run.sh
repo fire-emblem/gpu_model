@@ -10,4 +10,5 @@ OUT_DIR="$(gpu_model_detect_results_dir "$ROOT" "$CASE_DIR")"
 mkdir -p "$OUT_DIR"
 
 env GPU_MODEL_EXAMPLE_OUT_DIR="$OUT_DIR" \
+  GPU_MODEL_DISABLE_TRACE=0 \
   "$BUILD_DIR/gpu_model_chip_design_sweep_demo" | tee "$OUT_DIR/stdout.txt"
