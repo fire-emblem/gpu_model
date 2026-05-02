@@ -100,6 +100,34 @@ double SafeDivide(uint64_t num, uint64_t den) {
   return den == 0 ? 0.0 : static_cast<double>(num) / static_cast<double>(den);
 }
 
+std::string JsonEscape(std::string_view value) {
+  std::string out;
+  out.reserve(value.size() + 8);
+  for (char ch : value) {
+    switch (ch) {
+      case '\\':
+        out += "\\\\";
+        break;
+      case '"':
+        out += "\\\"";
+        break;
+      case '\n':
+        out += "\\n";
+        break;
+      case '\r':
+        out += "\\r";
+        break;
+      case '\t':
+        out += "\\t";
+        break;
+      default:
+        out += ch;
+        break;
+    }
+  }
+  return out;
+}
+
 gm::ExecutableKernel BuildDesignSweepKernel() {
   gm::InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
@@ -253,6 +281,86 @@ void WriteComparisonReport(const std::filesystem::path& out_dir,
         << std::fixed << std::setprecision(3) << row.ipc << ' ' << row.ap_count << ' '
         << row.shared_mem_per_multiprocessor << ' ' << row.dram_latency << '\n';
   }
+}
+
+void WriteCycleReportJson(const std::filesystem::path& out_dir,
+                          uint32_t grid_dim_x,
+                          uint32_t block_dim_x,
+                          uint32_t shared_memory_bytes,
+                          const std::vector<DesignResult>& rows) {
+  if (rows.empty()) {
+    return;
+  }
+
+  const auto baseline = rows.front();
+  const auto best_it = std::min_element(
+      rows.begin(), rows.end(), [](const DesignResult& a, const DesignResult& b) {
+        return a.total_cycles < b.total_cycles;
+      });
+
+  std::ofstream out(out_dir / "cycle_report.json");
+  if (!out) {
+    throw std::runtime_error("failed to open cycle_report.json");
+  }
+
+  out << "{\n";
+  out << "  \"report_type\": \"cycle_design_sweep\",\n";
+  out << "  \"workload\": {\n";
+  out << "    \"grid_dim_x\": " << grid_dim_x << ",\n";
+  out << "    \"block_dim_x\": " << block_dim_x << ",\n";
+  out << "    \"shared_memory_bytes\": " << shared_memory_bytes << "\n";
+  out << "  },\n";
+  out << "  \"summary\": {\n";
+  out << "    \"baseline_variant\": \"" << JsonEscape(baseline.name) << "\",\n";
+  out << "    \"best_variant\": \"" << JsonEscape(best_it->name) << "\",\n";
+  out << "    \"best_total_cycles\": " << best_it->total_cycles << "\n";
+  out << "  },\n";
+  out << "  \"variants\": [\n";
+  for (size_t i = 0; i < rows.size(); ++i) {
+    const auto& row = rows[i];
+    const double speedup = SafeDivide(baseline.total_cycles, row.total_cycles);
+    const int64_t delta = static_cast<int64_t>(row.total_cycles) -
+                          static_cast<int64_t>(baseline.total_cycles);
+    out << "    {\n";
+    out << "      \"name\": \"" << JsonEscape(row.name) << "\",\n";
+    out << "      \"ap_count\": " << row.ap_count << ",\n";
+    out << "      \"resident_block_limit_per_ap\": " << row.resident_block_limit_per_ap << ",\n";
+    out << "      \"expected_resident_blocks\": " << row.expected_resident_blocks << ",\n";
+    out << "      \"shared_mem_per_mp\": " << row.shared_mem_per_multiprocessor << ",\n";
+    out << "      \"shared_mem_per_block\": " << row.shared_mem_per_block << ",\n";
+    out << "      \"dram_latency\": " << row.dram_latency << ",\n";
+    out << "      \"total_cycles\": " << row.total_cycles << ",\n";
+    out << "      \"delta_vs_baseline\": " << delta << ",\n";
+    out << "      \"speedup_vs_baseline\": " << FormatDouble(speedup) << ",\n";
+    out << "      \"ipc\": " << FormatDouble(row.ipc) << ",\n";
+    out << "      \"active_utilization\": " << FormatDouble(row.active_utilization) << ",\n";
+    out << "      \"stall_fraction\": " << FormatDouble(row.stall_fraction) << ",\n";
+    out << "      \"dominant_stall\": \"" << JsonEscape(row.dominant_stall) << "\",\n";
+    out << "      \"stall_breakdown\": {\n";
+    out << "        \"waitcnt\": " << row.stall_waitcnt << ",\n";
+    out << "        \"barrier\": " << row.stall_barrier << ",\n";
+    out << "        \"resource\": " << row.stall_resource << ",\n";
+    out << "        \"dependency\": " << row.stall_dependency << ",\n";
+    out << "        \"switch_away\": " << row.stall_switch_away << "\n";
+    out << "      },\n";
+    out << "      \"artifacts\": {\n";
+    out << "        \"trace_txt\": \"" << JsonEscape((row.trace_dir / "trace.txt").string())
+        << "\",\n";
+    out << "        \"trace_jsonl\": \"" << JsonEscape((row.trace_dir / "trace.jsonl").string())
+        << "\",\n";
+    out << "        \"timeline_perfetto_json\": \""
+        << JsonEscape((row.trace_dir / "timeline.perfetto.json").string()) << "\",\n";
+    out << "        \"launch_summary\": \"" << JsonEscape((row.trace_dir / "launch_summary.txt").string())
+        << "\"\n";
+    out << "      }\n";
+    out << "    }";
+    if (i + 1 < rows.size()) {
+      out << ",";
+    }
+    out << "\n";
+  }
+  out << "  ]\n";
+  out << "}\n";
 }
 
 void WriteTimelineSummary(const std::filesystem::path& out_dir,
@@ -429,6 +537,7 @@ int main() {
   }
 
   WriteComparisonReport(out_dir, grid_dim_x, block_dim_x, shared_memory_bytes, rows);
+  WriteCycleReportJson(out_dir, grid_dim_x, block_dim_x, shared_memory_bytes, rows);
   WriteTimelineSummary(out_dir, rows);
   WriteCycleReport(out_dir, rows);
 
@@ -446,6 +555,7 @@ int main() {
               << std::setw(16) << row.shared_mem_per_multiprocessor << row.dram_latency << '\n';
   }
   std::cout << "report=" << (out_dir / "cycle_report.md") << '\n';
+  std::cout << "report_json=" << (out_dir / "cycle_report.json") << '\n';
   std::cout << "timeline_summary=" << (out_dir / "timeline_summary.txt") << '\n';
   return 0;
 }
