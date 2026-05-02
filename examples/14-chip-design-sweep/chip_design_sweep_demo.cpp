@@ -90,6 +90,16 @@ std::string DominantStallLabel(const gm::ProgramCycleStats& stats) {
   return best->first > 0 ? best->second : "none";
 }
 
+std::string FormatDouble(double value, int precision = 3) {
+  std::ostringstream out;
+  out << std::fixed << std::setprecision(precision) << value;
+  return out.str();
+}
+
+double SafeDivide(uint64_t num, uint64_t den) {
+  return den == 0 ? 0.0 : static_cast<double>(num) / static_cast<double>(den);
+}
+
 gm::ExecutableKernel BuildDesignSweepKernel() {
   gm::InstructionBuilder builder;
   builder.SLoadArg("s0", 0);
@@ -254,11 +264,20 @@ void WriteTimelineSummary(const std::filesystem::path& out_dir,
 
   out << "# Timeline Summary\n";
   out << "# trace cycle values are modeled cycles, not physical hardware time\n";
-  out << "name total_cycles active_cycles idle_cycles stall_fraction dominant_stall trace_dir\n";
+  out << "name ap_count smem_per_mp dram_latency total_cycles active_cycles idle_cycles "
+         "active_utilization stall_fraction stall_waitcnt stall_barrier stall_resource "
+         "stall_dependency stall_switch_away waves_launched waves_completed instructions "
+         "global_loads global_stores shared_loads shared_stores dominant_stall trace_dir\n";
   for (const auto& row : rows) {
-    out << row.name << ' ' << row.total_cycles << ' ' << row.active_cycles << ' '
-        << row.idle_cycles << ' ' << std::fixed << std::setprecision(3) << row.stall_fraction
-        << ' ' << row.dominant_stall << ' ' << row.trace_dir.string() << '\n';
+    out << row.name << ' ' << row.ap_count << ' ' << row.shared_mem_per_multiprocessor << ' '
+        << row.dram_latency << ' ' << row.total_cycles << ' ' << row.active_cycles << ' '
+        << row.idle_cycles << ' ' << FormatDouble(row.active_utilization) << ' '
+        << FormatDouble(row.stall_fraction) << ' ' << row.stall_waitcnt << ' '
+        << row.stall_barrier << ' ' << row.stall_resource << ' ' << row.stall_dependency << ' '
+        << row.stall_switch_away << ' ' << row.waves_launched << ' ' << row.waves_completed << ' '
+        << row.instructions_executed << ' ' << row.global_loads << ' ' << row.global_stores << ' '
+        << row.shared_loads << ' ' << row.shared_stores << ' ' << row.dominant_stall << ' '
+        << row.trace_dir.string() << '\n';
   }
 }
 
@@ -269,6 +288,9 @@ void WriteCycleReport(const std::filesystem::path& out_dir,
   }
 
   const auto baseline = rows.front();
+  const auto ap_128_it = std::find_if(rows.begin(), rows.end(), [](const DesignResult& row) {
+    return row.name == "ap_128";
+  });
   const auto best_it = std::min_element(
       rows.begin(), rows.end(), [](const DesignResult& a, const DesignResult& b) {
         return a.total_cycles < b.total_cycles;
@@ -288,23 +310,49 @@ void WriteCycleReport(const std::filesystem::path& out_dir,
   out << "- kernel includes global load, waitcnt, shared store/load, barrier, and global store\n\n";
 
   out << "## Summary Table\n\n";
-  out << "| variant | AP | SMEM/MP | DRAM | resident blocks | total cycles | delta vs baseline | IPC | active util | dominant stall |\n";
-  out << "|---|---:|---:|---:|---:|---:|---:|---:|---:|---|\n";
+  out << "| variant | AP | SMEM/MP | DRAM | resident blocks | total cycles | delta vs baseline | speedup | IPC | active util | dominant stall |\n";
+  out << "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|\n";
   for (const auto& row : rows) {
+    const double speedup = SafeDivide(baseline.total_cycles, row.total_cycles);
     out << "| " << row.name << " | " << row.ap_count << " | " << row.shared_mem_per_multiprocessor
         << " | " << row.dram_latency << " | " << row.expected_resident_blocks << " | "
         << row.total_cycles << " | " << static_cast<int64_t>(row.total_cycles) -
                static_cast<int64_t>(baseline.total_cycles)
-        << " | " << std::fixed << std::setprecision(3) << row.ipc << " | " << row.active_utilization
+        << " | " << FormatDouble(speedup) << " | " << FormatDouble(row.ipc) << " | "
+        << FormatDouble(row.active_utilization)
         << " | " << row.dominant_stall << " |\n";
+  }
+
+  out << "\n## Stall Breakdown\n\n";
+  out << "| variant | waitcnt | barrier | resource | dependency | switch-away | dominant stall |\n";
+  out << "|---|---:|---:|---:|---:|---:|---|\n";
+  for (const auto& row : rows) {
+    out << "| " << row.name << " | " << row.stall_waitcnt << " | " << row.stall_barrier
+        << " | " << row.stall_resource << " | " << row.stall_dependency << " | "
+        << row.stall_switch_away << " | " << row.dominant_stall << " |\n";
   }
 
   out << "\n## Takeaways\n\n";
   out << "- baseline: " << baseline.total_cycles << " cycles\n";
   out << "- best config: " << best_it->name << " (" << best_it->total_cycles << " cycles)\n";
-  out << "- AP increase from " << baseline.ap_count << " to 128 lowers cycle count, but shared memory expansion to 192K is still stronger here.\n";
+  if (ap_128_it != rows.end()) {
+    out << "- AP increase from " << baseline.ap_count << " to " << ap_128_it->ap_count
+        << " lowers cycle count by "
+        << (baseline.total_cycles - ap_128_it->total_cycles) << " cycles.\n";
+  }
   out << "- 64K -> 128K shared memory doubles expected resident blocks from 1 to 2; 192K reaches 4 with the current per-AP limit.\n";
-  out << "- DRAM latency reduction helps, but the mixed kernel still shows occupancy and residency effects clearly.\n\n";
+  out << "- DRAM latency reduction helps, but the mixed kernel still shows waitcnt pressure until higher residency exposes resource pressure.\n";
+  out << "- When dominant stall flips to resource, adding more APs stops being the first lever; inspect issue/front-end/resource pressure next.\n\n";
+
+  out << "## Design Guidance\n\n";
+  for (const auto& row : rows) {
+    const double speedup = SafeDivide(baseline.total_cycles, row.total_cycles);
+    const int64_t delta = static_cast<int64_t>(baseline.total_cycles) -
+                          static_cast<int64_t>(row.total_cycles);
+    out << "- " << row.name << ": " << delta << " cycles vs baseline, speedup "
+        << FormatDouble(speedup) << "x, dominant stall " << row.dominant_stall << ".\n";
+  }
+  out << '\n';
 
   out << "## Timeline Artifacts\n\n";
   for (const auto& row : rows) {
