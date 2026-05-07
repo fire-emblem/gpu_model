@@ -180,7 +180,7 @@ runtime 侧主线按两层来理解：
 
 ## 正式解释规则
 
-1. runtime 设计与职责边界，以本文件和 [my_design.md](/data/gpu_model/docs/my_design.md) 为准。
+1. runtime 设计与职责边界，以本文件和 [my_design.md](./docs/my_design.md) 为准。
 2. 历史计划中若出现旧名、旧层级或中间过渡包装，不应据此反向解释当前代码。
 3. 真实 HIP `.out` 的主路径固定理解为：
    - host program

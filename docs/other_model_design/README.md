@@ -14,4 +14,4 @@
 - 出现旧术语、竞争方案、未采纳结构时，默认按“参考材料”理解
 - 即使当前代码已完成一部分主线重构，这些参考文档也不会同步重写为最终代码目录
 
-当前项目的主线规范以 [my_design.md](/data/gpu_model/docs/my_design.md) 为准。
+当前项目的主线规范以 [my_design.md](../../docs/my_design.md) 为准。

@@ -2,7 +2,7 @@
 
 ## 1. Purpose
 
-本文档是 [2026-04-10-gpu-model-ref-overall-adaptation-design.md](/data/gpu_model/docs/superpowers/specs/2026-04-10-gpu-model-ref-overall-adaptation-design.md) 的压缩版路线图。
+本文档是 [2026-04-10-gpu-model-ref-overall-adaptation-design.md](../../../docs/superpowers/specs/2026-04-10-gpu-model-ref-overall-adaptation-design.md) 的压缩版路线图。
 
 目标不是重复展开完整架构设计，而是把总体适配收敛成便于讨论优先级的 roadmap，回答四个问题：
 

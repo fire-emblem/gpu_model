@@ -192,7 +192,7 @@
 
 补充文档：
 
-- `cycle issue` 的正式 `eligible -> selected -> issue` 语义、参考资料中的 `round_robin / oldest_first` 策略，以及当前工程里的 `ArchitecturalIssuePolicy / IssueScheduler` 映射，现统一记录在 [cycle-issue-eligibility-policy.md](/data/gpu_model/docs/cycle-issue-eligibility-policy.md)
+- `cycle issue` 的正式 `eligible -> selected -> issue` 语义、参考资料中的 `round_robin / oldest_first` 策略，以及当前工程里的 `ArchitecturalIssuePolicy / IssueScheduler` 映射，现统一记录在 [cycle-issue-eligibility-policy.md](./docs/cycle-issue-eligibility-policy.md)
 
 ## 当前阶段总评
 当前项目距离“更完整的功能覆盖与长期维护形态”仍有差距，但主线重构和当前边界内能力已经完成。

@@ -20,14 +20,14 @@
 
 本文主要约束和分析：
 
-- [`src/execution/cycle_exec_engine.cpp`](../src/execution/cycle_exec_engine.cpp)
+- [`src/execution/cycle/cycle_exec_engine.cpp`](../src/execution/cycle/cycle_exec_engine.cpp)
 - [`src/execution/internal/issue_scheduler.cpp`](../src/execution/internal/issue_scheduler.cpp)
 - [`src/state/wave/wave_runtime_state.h`](../src/state/wave/wave_runtime_state.h)
 
 本文会参考但不直接要求与之完全一致：
 
-- [`src/execution/program_object_exec_engine.cpp`](../src/execution/program_object_exec_engine.cpp)
-- [`src/execution/functional_exec_engine.cpp`](../src/execution/functional_exec_engine.cpp)
+- [`src/execution/encoded/program_object_exec_engine.cpp`](../src/execution/encoded/program_object_exec_engine.cpp)
+- [`src/execution/functional/functional_exec_engine.cpp`](../src/execution/functional/functional_exec_engine.cpp)
 - [`docs/cycle-issue-eligibility-policy.md`](./cycle-issue-eligibility-policy.md)
 - [`docs/my_design.md`](./my_design.md)
 - `docs/navisim_pact_2022.pdf`
@@ -123,7 +123,7 @@ policy 不应承担：
 
 ### 3.2 cycle 路径已经有 resident slot / active window / issue bundle
 
-[`src/execution/cycle_exec_engine.cpp`](../src/execution/cycle_exec_engine.cpp) 已经具备：
+[`src/execution/cycle/cycle_exec_engine.cpp`](../src/execution/cycle/cycle_exec_engine.cpp) 已经具备：
 
 - resident slot
 - standby -> active promote
@@ -136,8 +136,8 @@ policy 不应承担：
 
 ### 3.3 `program_object` / `functional` 路径已经有更成熟的 per-wave issue time 状态
 
-[`src/execution/program_object_exec_engine.cpp`](../src/execution/program_object_exec_engine.cpp) 和
-[`src/execution/functional_exec_engine.cpp`](../src/execution/functional_exec_engine.cpp) 都已经有：
+[`src/execution/encoded/program_object_exec_engine.cpp`](../src/execution/encoded/program_object_exec_engine.cpp) 和
+[`src/execution/functional/functional_exec_engine.cpp`](../src/execution/functional/functional_exec_engine.cpp) 都已经有：
 
 - `last_issue_cycle`
 - `next_issue_cycle`
@@ -363,7 +363,7 @@ GPGPU-Sim 在 `scheduler_unit::cycle()` 里至少区分：
 
 ### 5.2 当前把 PEU 节流近似成了 `busy_until = bundle_commit_cycle`
 
-在 [`src/execution/cycle_exec_engine.cpp`](../src/execution/cycle_exec_engine.cpp) 中，当前 bundle 发出后会做：
+在 [`src/execution/cycle/cycle_exec_engine.cpp`](../src/execution/cycle/cycle_exec_engine.cpp) 中，当前 bundle 发出后会做：
 
 - `bundle_commit_cycle = max(cycle + plan.issue_cycles, ...)`
 - `slot.busy_until = bundle_commit_cycle`
@@ -404,7 +404,7 @@ GPGPU-Sim 在 `scheduler_unit::cycle()` 里至少区分：
 - `WaveSwitchAway`
 - `WarpSwitch` stall
 
-但它还没有像 [`src/execution/program_object_exec_engine.cpp`](../src/execution/program_object_exec_engine.cpp) 那样，在“同一 PEU 本轮选中了不同 wave”时，把 `warp_switch_cycles` 作为真实调度成本纳入选择路径。
+但它还没有像 [`src/execution/encoded/program_object_exec_engine.cpp`](../src/execution/encoded/program_object_exec_engine.cpp) 那样，在“同一 PEU 本轮选中了不同 wave”时，把 `warp_switch_cycles` 作为真实调度成本纳入选择路径。
 
 因此当前 cycle 路径里缺了一类关键状态边：
 
@@ -895,7 +895,7 @@ struct PeuIssueTimingState {
 - 把 scheduler policy、blocked reason、trace marker 这些逻辑塞进共享状态头文件
 - 让 `wave_cycle_total / active` 去承载全局调度时间语义
 
-### 10.2 [`src/execution/cycle_exec_engine.cpp`](../src/execution/cycle_exec_engine.cpp)
+### 10.2 [`src/execution/cycle/cycle_exec_engine.cpp`](../src/execution/cycle/cycle_exec_engine.cpp)
 
 这是本轮实现的主战场，大部分语义修正都应落在这里。
 
@@ -960,7 +960,7 @@ struct PeuIssueTimingState {
 
 这样能避免 policy 层被 timing/状态细节污染。
 
-### 10.4 [`src/execution/program_object_exec_engine.cpp`](../src/execution/program_object_exec_engine.cpp)
+### 10.4 [`src/execution/encoded/program_object_exec_engine.cpp`](../src/execution/encoded/program_object_exec_engine.cpp)
 
 这个文件本轮更适合作为“语义对照源”，不适合作为主要修改面。
 
@@ -1001,13 +1001,13 @@ struct PeuIssueTimingState {
 
 下面这些代码位置可以直接作为“当前实现事实”的证据锚点。
 
-- [`src/execution/cycle_exec_engine.cpp`](../src/execution/cycle_exec_engine.cpp)
+- [`src/execution/cycle/cycle_exec_engine.cpp`](../src/execution/cycle/cycle_exec_engine.cpp)
   - 第 469-470 行：`WaveAgeOrderKey(...)` 直接返回 `WaveTag(...)`
   - 第 1007-1063 行：`BuildResidentIssueCandidates(...)` 只向 scheduler 投喂 `age_order_key + issue_type + ready`
   - 第 1162 行：PEU 选择入口仍由 `slot.busy_until > cycle` 粗门控
   - 第 1220-1243 行：`IssueSelect` 与 `WaveStep` 当前都记录在 `cycle`
   - 第 1244 行与第 1920 行：`commit_cycle` 汇总后回写 `slot.busy_until = bundle_commit_cycle`
-- [`src/execution/program_object_exec_engine.cpp`](../src/execution/program_object_exec_engine.cpp)
+- [`src/execution/encoded/program_object_exec_engine.cpp`](../src/execution/encoded/program_object_exec_engine.cpp)
   - 第 1955-1958 行：已有 scheduler-driven `switch_penalty` 计算
   - 第 1959-1967 行：已有与 switch penalty 对应的 `WaveSwitchAway / WarpSwitch` 事件
   - 第 2489-2494 行：已有 `issue_cycle = next_issue_cycle`、`last_issue_cycle`、`next_issue_cycle = commit_cycle`
@@ -1039,12 +1039,12 @@ struct PeuIssueTimingState {
 
 | 目标语义 | 主改动文件 | 可复用现有测试 | 建议新增/调整测试 | 完成证据 |
 |---|---|---|---|---|
-| `next_issue_cycle` 真正参与 eligible 过滤 | `src/execution/cycle_exec_engine.cpp` `src/state/wave/wave_runtime_state.h` | [`tests/cycle/cycle_smoke_test.cpp`](../tests/cycle/cycle_smoke_test.cpp) 里已有 `ReadyDoesNotGuaranteeImmediateConsumerIssue`、`ResumeSelectionAndIssueOrderingStayObservable` | 增加“resume 后 wave 可见但因为 `next_issue_cycle` 尚未到而未 issue”的精确 cycle 断言 | `WaveResume < IssueSelect < WaveStep`，且 `WaveStep.cycle >= next_issue_cycle` |
-| scheduler-driven switch penalty 进入真实 issue 路径 | `src/execution/cycle_exec_engine.cpp` | [`tests/cycle/waitcnt_barrier_switch_focused_test.cpp`](../tests/cycle/waitcnt_barrier_switch_focused_test.cpp) 已覆盖 wait/switch 事件存在性 | 增加“不同 wave 被选中且 `warp_switch_cycles > 0` 时，`IssueSelect` 与 `WaveStep` 之间出现 penalty gap”的断言 | 对新 wave 有 `IssueSelect.cycle < WaveStep.cycle`，且 gap 满足 switch 约束 |
-| `OldestFirst` 使用动态 ready age 而不是静态 wave id | `src/execution/cycle_exec_engine.cpp` `src/execution/internal/issue_scheduler.cpp` | [`tests/execution/internal/issue_scheduler_test.cpp`](../tests/execution/internal/issue_scheduler_test.cpp) 已有 `ExplicitOldestFirstPolicyUsesAgeOrderKeyInsteadOfSelectionCursor` | 新增 cycle 集成测试：较晚编号但更早 eligible 的 wave 必须先被选中 | 在 `OldestFirst` 下，选择顺序随 `eligible_since_cycle` 变化，而不是随 `WaveTag` 变化 |
-| bundle 冲突不会清掉持续等待 wave 的 ready age | `src/execution/cycle_exec_engine.cpp` | [`tests/cycle/async_memory_cycle_test.cpp`](../tests/cycle/async_memory_cycle_test.cpp) 已覆盖 resident slot / issue limit 基线 | 新增“同 type limit=1，两 wave 都 ready，未选中 wave 保留 `eligible_since_cycle`，下一轮应优先被服务” | 第二轮选择结果继承上一轮等待 age，而不是重新计龄 |
-| async return 不会错误串住整个 PEU 的时序 | `src/execution/cycle_exec_engine.cpp` | [`tests/cycle/async_memory_cycle_test.cpp`](../tests/cycle/async_memory_cycle_test.cpp) 已有 `LoadAllowsIndependentScalarIssueBeforeArrive`、`ResidentSlotsDoNotBypassPeuIssueTiming` | 增加 same-PEU 多 wave 测试：等待 wave 的 arrive 只更新自身 `next_issue_cycle` | 其他 runnable wave 的 `WaveStep` 周期不受等待 wave 的 arrive/commit 粗暴牵连 |
-| trace 仍然只是 consumer，不参与调度决策 | `src/execution/cycle_exec_engine.cpp` | [`tests/cycle/cycle_smoke_test.cpp`](../tests/cycle/cycle_smoke_test.cpp) 已有 `FrontendLatenciesAdvanceCycleWithoutTraceSink` | 如实现触及事件顺序，可补一个“无 trace sink 仍得到相同结果/周期”的 focused case | 关闭 trace sink 时，功能结果和关键 cycle 不发生语义性漂移 |
+| `next_issue_cycle` 真正参与 eligible 过滤 | `src/execution/cycle/cycle_exec_engine.cpp` `src/state/wave/wave_runtime_state.h` | [`tests/cycle/cycle_smoke_test.cpp`](../tests/cycle/cycle_smoke_test.cpp) 里已有 `ReadyDoesNotGuaranteeImmediateConsumerIssue`、`ResumeSelectionAndIssueOrderingStayObservable` | 增加“resume 后 wave 可见但因为 `next_issue_cycle` 尚未到而未 issue”的精确 cycle 断言 | `WaveResume < IssueSelect < WaveStep`，且 `WaveStep.cycle >= next_issue_cycle` |
+| scheduler-driven switch penalty 进入真实 issue 路径 | `src/execution/cycle/cycle_exec_engine.cpp` | [`tests/cycle/waitcnt_barrier_switch_focused_test.cpp`](../tests/cycle/waitcnt_barrier_switch_focused_test.cpp) 已覆盖 wait/switch 事件存在性 | 增加“不同 wave 被选中且 `warp_switch_cycles > 0` 时，`IssueSelect` 与 `WaveStep` 之间出现 penalty gap”的断言 | 对新 wave 有 `IssueSelect.cycle < WaveStep.cycle`，且 gap 满足 switch 约束 |
+| `OldestFirst` 使用动态 ready age 而不是静态 wave id | `src/execution/cycle/cycle_exec_engine.cpp` `src/execution/internal/issue_scheduler.cpp` | [`tests/execution/internal/issue_scheduler_test.cpp`](../tests/execution/internal/issue_scheduler_test.cpp) 已有 `ExplicitOldestFirstPolicyUsesAgeOrderKeyInsteadOfSelectionCursor` | 新增 cycle 集成测试：较晚编号但更早 eligible 的 wave 必须先被选中 | 在 `OldestFirst` 下，选择顺序随 `eligible_since_cycle` 变化，而不是随 `WaveTag` 变化 |
+| bundle 冲突不会清掉持续等待 wave 的 ready age | `src/execution/cycle/cycle_exec_engine.cpp` | [`tests/cycle/async_memory_cycle_test.cpp`](../tests/cycle/async_memory_cycle_test.cpp) 已覆盖 resident slot / issue limit 基线 | 新增“同 type limit=1，两 wave 都 ready，未选中 wave 保留 `eligible_since_cycle`，下一轮应优先被服务” | 第二轮选择结果继承上一轮等待 age，而不是重新计龄 |
+| async return 不会错误串住整个 PEU 的时序 | `src/execution/cycle/cycle_exec_engine.cpp` | [`tests/cycle/async_memory_cycle_test.cpp`](../tests/cycle/async_memory_cycle_test.cpp) 已有 `LoadAllowsIndependentScalarIssueBeforeArrive`、`ResidentSlotsDoNotBypassPeuIssueTiming` | 增加 same-PEU 多 wave 测试：等待 wave 的 arrive 只更新自身 `next_issue_cycle` | 其他 runnable wave 的 `WaveStep` 周期不受等待 wave 的 arrive/commit 粗暴牵连 |
+| trace 仍然只是 consumer，不参与调度决策 | `src/execution/cycle/cycle_exec_engine.cpp` | [`tests/cycle/cycle_smoke_test.cpp`](../tests/cycle/cycle_smoke_test.cpp) 已有 `FrontendLatenciesAdvanceCycleWithoutTraceSink` | 如实现触及事件顺序，可补一个“无 trace sink 仍得到相同结果/周期”的 focused case | 关闭 trace sink 时，功能结果和关键 cycle 不发生语义性漂移 |
 
 补充建议：
 

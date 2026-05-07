@@ -117,7 +117,7 @@ Document that the first implementation phase must ship:
 
 - [ ] **Step 3: Review the doc against AGENTS.md and my_design.md**
 
-Run: `rg -n "trace .*producer|modeled time|WaveResume|GPU_MODEL_DISABLE_TRACE" /data/gpu_model/AGENTS.md /data/gpu_model/docs/my_design.md /data/gpu_model/docs/trace-structured-output.md`
+Run: `rg -n "trace .*producer|modeled time|WaveResume|GPU_MODEL_DISABLE_TRACE" ../../../AGENTS.md ../../../docs/my_design.md ../../../docs/trace-structured-output.md`
 
 Expected:
 - all four concepts are present in the new doc
@@ -189,7 +189,7 @@ TEST(TraceDocumentTest, RecorderStoresRunKernelWaveInitAndSummarySnapshots) {
 
 - [ ] **Step 2: Run the focused test and verify it fails**
 
-Run: `ctest --test-dir /data/gpu_model/build-ninja -R TraceDocumentTest --output-on-failure`
+Run: `ctest --test-dir ../../../build-ninja -R TraceDocumentTest --output-on-failure`
 
 Expected:
 - build/test failure because the new snapshot types or recorder APIs do not exist yet
@@ -229,7 +229,7 @@ Also add `const` accessors returning stored snapshots.
 
 - [ ] **Step 5: Re-run the focused test and verify it passes**
 
-Run: `ctest --test-dir /data/gpu_model/build-ninja -R TraceDocumentTest --output-on-failure`
+Run: `ctest --test-dir ../../../build-ninja -R TraceDocumentTest --output-on-failure`
 
 Expected:
 - `TraceDocumentTest` passes
@@ -281,7 +281,7 @@ TEST(TraceDocumentTest, WaveStepCarriesStructuredDetailWithoutParsingMessage) {
 
 - [ ] **Step 2: Run the test and verify it fails**
 
-Run: `ctest --test-dir /data/gpu_model/build-ninja -R "TraceDocumentTest.*WaveStep" --output-on-failure`
+Run: `ctest --test-dir ../../../build-ninja -R "TraceDocumentTest.*WaveStep" --output-on-failure`
 
 Expected:
 - compile failure because `step_detail` does not exist yet
@@ -317,7 +317,7 @@ Update `trace_event_export.cpp` so the renderer can consume structured detail di
 
 - [ ] **Step 6: Re-run the focused test and verify it passes**
 
-Run: `ctest --test-dir /data/gpu_model/build-ninja -R "TraceDocumentTest.*WaveStep" --output-on-failure`
+Run: `ctest --test-dir ../../../build-ninja -R "TraceDocumentTest.*WaveStep" --output-on-failure`
 
 Expected:
 - WaveStep detail test passes
@@ -371,7 +371,7 @@ TEST(TraceDocumentTest, LaunchPopulatesRunKernelWaveInitAndSummarySnapshots) {
 
 - [ ] **Step 2: Run the integration test and verify it fails**
 
-Run: `ctest --test-dir /data/gpu_model/build-ninja -R "TraceDocumentTest.*LaunchPopulates" --output-on-failure`
+Run: `ctest --test-dir ../../../build-ninja -R "TraceDocumentTest.*LaunchPopulates" --output-on-failure`
 
 Expected:
 - failure because launch currently records events only, not snapshots
@@ -413,7 +413,7 @@ Map existing `LaunchResult` and `ProgramCycleStats` into `TraceSummarySnapshot`,
 
 - [ ] **Step 6: Re-run the integration test and verify it passes**
 
-Run: `ctest --test-dir /data/gpu_model/build-ninja -R "TraceDocumentTest.*LaunchPopulates" --output-on-failure`
+Run: `ctest --test-dir ../../../build-ninja -R "TraceDocumentTest.*LaunchPopulates" --output-on-failure`
 
 Expected:
 - snapshot integration test passes
@@ -458,7 +458,7 @@ Key assertions:
 
 - [ ] **Step 2: Run the focused renderer tests and verify they fail**
 
-Run: `ctest --test-dir /data/gpu_model/build-ninja -R "TraceDocumentTest.*Structured|TraceDocumentTest.*JsonTrace" --output-on-failure`
+Run: `ctest --test-dir ../../../build-ninja -R "TraceDocumentTest.*Structured|TraceDocumentTest.*JsonTrace" --output-on-failure`
 
 Expected:
 - failures because only flat line export exists
@@ -492,7 +492,7 @@ Expose new APIs in `export.h` and update `recorder_export.cpp` / `trace_artifact
 
 - [ ] **Step 6: Re-run the focused renderer tests and verify they pass**
 
-Run: `ctest --test-dir /data/gpu_model/build-ninja -R "TraceDocumentTest.*Structured|TraceDocumentTest.*JsonTrace|TraceRecorderTest" --output-on-failure`
+Run: `ctest --test-dir ../../../build-ninja -R "TraceDocumentTest.*Structured|TraceDocumentTest.*JsonTrace|TraceRecorderTest" --output-on-failure`
 
 Expected:
 - new structured renderer tests pass
@@ -561,7 +561,7 @@ Document:
 
 - [ ] **Step 4: Run focused trace tests**
 
-Run: `ctest --test-dir /data/gpu_model/build-ninja -R "TraceSinkTest|TracePerfettoTest|TraceDocumentTest|TraceRecorderTest" --output-on-failure`
+Run: `ctest --test-dir ../../../build-ninja -R "TraceSinkTest|TracePerfettoTest|TraceDocumentTest|TraceRecorderTest" --output-on-failure`
 
 Expected:
 - trace sink/recorder/document/perfetto tests all pass
@@ -569,7 +569,7 @@ Expected:
 
 - [ ] **Step 5: Run disable-trace smoke**
 
-Run: `/data/gpu_model/scripts/run_disable_trace_smoke.sh`
+Run: `../../../scripts/run_disable_trace_smoke.sh`
 
 Expected:
 - tests pass with `GPU_MODEL_DISABLE_TRACE=1`
@@ -594,7 +594,7 @@ git commit -m "test: migrate trace contracts to structured trace document"
 Run:
 
 ```bash
-ctest --test-dir /data/gpu_model/build-ninja -R "TraceSinkTest|TraceRecorderTest|TraceDocumentTest|TracePerfettoTest|ExecutionStatsTest" --output-on-failure
+ctest --test-dir ../../../build-ninja -R "TraceSinkTest|TraceRecorderTest|TraceDocumentTest|TracePerfettoTest|ExecutionStatsTest" --output-on-failure
 ```
 
 Expected:
@@ -605,7 +605,7 @@ Expected:
 Run:
 
 ```bash
-cd /data/gpu_model/examples/01-vecadd-basic && ./run.sh
+cd ../../../examples/01-vecadd-basic && ./run.sh
 ```
 
 Expected:

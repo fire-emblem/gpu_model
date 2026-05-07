@@ -71,11 +71,11 @@
 
 直接证据：
 
-- [functional_exec_engine.h](/data/gpu_model/src/gpu_model/execution/functional_exec_engine.h#L6) 直接包含 `gpu_model/execution/internal/semantics.h`
-- [cycle_exec_engine.h](/data/gpu_model/src/gpu_model/execution/cycle_exec_engine.h#L6) 直接包含 `gpu_model/execution/internal/execution_engine.h`
-- [gpu_arch_spec.h](/data/gpu_model/src/gpu_model/arch/gpu_arch_spec.h#L7) 直接包含 `gpu_model/execution/internal/issue_model.h`
-- [exec_engine.h](/data/gpu_model/src/gpu_model/runtime/exec_engine.h#L7) 直接包含 `gpu_model/execution/cycle_exec_engine.h`
-- [program_object_exec_engine.h](/data/gpu_model/src/gpu_model/execution/program_object_exec_engine.h#L6) 直接依赖 `CycleTimingConfig`
+- [functional_exec_engine.h](../../src/gpu_model/execution/functional_exec_engine.h#L6) 直接包含 `gpu_model/execution/internal/semantics.h`
+- [cycle_exec_engine.h](../../src/gpu_model/execution/cycle_exec_engine.h#L6) 直接包含 `gpu_model/execution/internal/execution_engine.h`
+- [gpu_arch_spec.h](../../src/gpu_model/arch/gpu_arch_spec.h#L7) 直接包含 `gpu_model/execution/internal/issue_model.h`
+- [exec_engine.h](../../src/gpu_model/runtime/exec_engine.h#L7) 直接包含 `gpu_model/execution/cycle_exec_engine.h`
+- [program_object_exec_engine.h](../../src/gpu_model/execution/program_object_exec_engine.h#L6) 直接依赖 `CycleTimingConfig`
 
 这意味着：
 
@@ -102,10 +102,10 @@
 
 建议重构：
 
-- 从 [gpu_arch_spec.h](/data/gpu_model/src/gpu_model/arch/gpu_arch_spec.h) 中抽离 issue policy 相关值类型，避免 `arch -> execution/internal`
-- 从 [cycle_exec_engine.h](/data/gpu_model/src/gpu_model/execution/cycle_exec_engine.h) 中抽离 `CycleTimingConfig`
-- 让 [program_object_exec_engine.h](/data/gpu_model/src/gpu_model/execution/program_object_exec_engine.h) 只依赖稳定配置头，而不是直接依赖 cycle engine 头
-- 让 [functional_exec_engine.h](/data/gpu_model/src/gpu_model/execution/functional_exec_engine.h) 只前置声明 `ExecutionContext` 或依赖稳定 context 头，而不是整个 `semantics.h`
+- 从 [gpu_arch_spec.h](../../src/gpu_model/arch/gpu_arch_spec.h) 中抽离 issue policy 相关值类型，避免 `arch -> execution/internal`
+- 从 [cycle_exec_engine.h](../../src/gpu_model/execution/cycle_exec_engine.h) 中抽离 `CycleTimingConfig`
+- 让 [program_object_exec_engine.h](../../src/gpu_model/execution/program_object_exec_engine.h) 只依赖稳定配置头，而不是直接依赖 cycle engine 头
+- 让 [functional_exec_engine.h](../../src/gpu_model/execution/functional_exec_engine.h) 只前置声明 `ExecutionContext` 或依赖稳定 context 头，而不是整个 `semantics.h`
 
 这是后续所有重构的基础，因为如果边界不先收紧，后面的职责拆分很容易重新耦回去。
 
@@ -113,9 +113,9 @@
 
 当前 runtime 主线上，已经同时存在三个高负荷总控对象：
 
-- [ExecEngine](/data/gpu_model/src/gpu_model/runtime/exec_engine.h)
-- [ModelRuntime](/data/gpu_model/src/gpu_model/runtime/model_runtime.h)
-- [RuntimeSession](/data/gpu_model/src/gpu_model/runtime/runtime_session.h)
+- [ExecEngine](../../src/gpu_model/runtime/exec_engine.h)
+- [ModelRuntime](../../src/gpu_model/runtime/model_runtime.h)
+- [RuntimeSession](../../src/gpu_model/runtime/runtime_session.h)
 
 问题不在于“有三个类”，而在于它们都同时承担了多类职责。
 
@@ -123,7 +123,7 @@
 
 直接证据：
 
-- [exec_engine.cpp](/data/gpu_model/src/runtime/exec_engine.cpp) 有 `725` 行
+- [exec_engine.cpp](../../src/runtime/exec_engine.cpp) 有 `725` 行
 - 它同时包含：
   - 架构选择
   - metadata 校验
@@ -159,7 +159,7 @@
 
 直接证据：
 
-- [runtime_session.h](/data/gpu_model/src/gpu_model/runtime/runtime_session.h#L38) 暴露的方法横跨：
+- [runtime_session.h](../../src/gpu_model/runtime/runtime_session.h#L38) 暴露的方法横跨：
   - device pointer 管理
   - stream/event
   - launch config stack
@@ -167,8 +167,8 @@
   - executable image load
   - compatibility arg pack
   - trace artifact recorder
-- [runtime_session.h](/data/gpu_model/src/gpu_model/runtime/runtime_session.h#L113) 还持有 thread-local error / stream 状态和 trace artifact recorder
-- [hip_runtime.cpp](/data/gpu_model/src/runtime/hip_runtime.cpp#L24) 到 [hip_runtime.cpp](/data/gpu_model/src/runtime/hip_runtime.cpp#L322) 大量方法都只是继续转发到 `GetRuntimeSession()`
+- [runtime_session.h](../../src/gpu_model/runtime/runtime_session.h#L113) 还持有 thread-local error / stream 状态和 trace artifact recorder
+- [hip_runtime.cpp](../../src/runtime/hip_runtime.cpp#L24) 到 [hip_runtime.cpp](../../src/runtime/hip_runtime.cpp#L322) 大量方法都只是继续转发到 `GetRuntimeSession()`
 
 这带来的问题是：
 
@@ -197,8 +197,8 @@
 
 直接证据：
 
-- [model_runtime.h](/data/gpu_model/src/gpu_model/runtime/model_runtime.h#L91) 同时持有 `owned_runtime_` 和 `runtime_engine_`
-- [model_runtime.h](/data/gpu_model/src/gpu_model/runtime/model_runtime.h#L95) 还自己维护 `allocations_`
+- [model_runtime.h](../../src/gpu_model/runtime/model_runtime.h#L91) 同时持有 `owned_runtime_` 和 `runtime_engine_`
+- [model_runtime.h](../../src/gpu_model/runtime/model_runtime.h#L95) 还自己维护 `allocations_`
 - 同时它又负责：
   - module registry
   - load plan materialize
@@ -222,9 +222,9 @@
 
 直接证据：
 
-- [runtime_config.h](/data/gpu_model/src/gpu_model/runtime/runtime_config.h#L61) 使用 `RuntimeConfigManager::Instance()`
-- [runtime_session.h](/data/gpu_model/src/gpu_model/runtime/runtime_session.h#L126) 暴露 `GetRuntimeSession()`
-- [hip_ld_preload.cpp](/data/gpu_model/src/runtime/hip_runtime/hip_ld_preload.cpp) 通过静态 `HipApi()` 驱动整个 ABI 路径
+- [runtime_config.h](../../src/gpu_model/runtime/runtime_config.h#L61) 使用 `RuntimeConfigManager::Instance()`
+- [runtime_session.h](../../src/gpu_model/runtime/runtime_session.h#L126) 暴露 `GetRuntimeSession()`
+- [hip_ld_preload.cpp](../../src/runtime/hip_runtime/hip_ld_preload.cpp) 通过静态 `HipApi()` 驱动整个 ABI 路径
 
 这种设计对 ABI bridge 是方便的，但如果进入核心运行时主线，就会带来典型问题：
 
@@ -249,15 +249,15 @@
 
 当前至少有三层与内存所有权有关：
 
-- [MemorySystem](/data/gpu_model/src/gpu_model/memory/memory_system.h)
-- [DeviceMemoryManager](/data/gpu_model/src/gpu_model/runtime/device_memory_manager.h)
-- [ModelRuntime](/data/gpu_model/src/gpu_model/runtime/model_runtime.h)
+- [MemorySystem](../../src/gpu_model/memory/memory_system.h)
+- [DeviceMemoryManager](../../src/gpu_model/runtime/device_memory_manager.h)
+- [ModelRuntime](../../src/gpu_model/runtime/model_runtime.h)
 
 直接证据：
 
-- [memory_system.h](/data/gpu_model/src/gpu_model/memory/memory_system.h) 直接持有各 pool 的字节存储
-- [device_memory_manager.h](/data/gpu_model/src/gpu_model/runtime/device_memory_manager.h) 持有 compatibility windows 和 allocation map
-- [model_runtime.h](/data/gpu_model/src/gpu_model/runtime/model_runtime.h#L95) 仍保留 `allocations_`
+- [memory_system.h](../../src/gpu_model/memory/memory_system.h) 直接持有各 pool 的字节存储
+- [device_memory_manager.h](../../src/gpu_model/runtime/device_memory_manager.h) 持有 compatibility windows 和 allocation map
+- [model_runtime.h](../../src/gpu_model/runtime/model_runtime.h#L95) 仍保留 `allocations_`
 
 这说明当前已经有“正确方向”，但尚未完全做到：
 
@@ -279,15 +279,15 @@
 
 直接证据：
 
-- [encoded_program_object.cpp](/data/gpu_model/src/program/encoded_program_object.cpp#L62) 定义 `RunCommand(...)`
-- [encoded_program_object.cpp](/data/gpu_model/src/program/encoded_program_object.cpp#L80) 自带临时目录生命周期
-- [encoded_program_object.cpp](/data/gpu_model/src/program/encoded_program_object.cpp#L121) 同时做 fatbin 提取、bundle 识别、code object materialize
+- [encoded_program_object.cpp](../../src/program/encoded_program_object.cpp#L62) 定义 `RunCommand(...)`
+- [encoded_program_object.cpp](../../src/program/encoded_program_object.cpp#L80) 自带临时目录生命周期
+- [encoded_program_object.cpp](../../src/program/encoded_program_object.cpp#L121) 同时做 fatbin 提取、bundle 识别、code object materialize
 - 同一文件后面还继续做：
   - section/symbol parsing
   - metadata/note parsing
   - descriptor 绑定
   - `ProgramObject` 组装
-- 而 [object_reader.cpp](/data/gpu_model/src/program/object_reader.cpp#L80) 还单独承担了 asm-stem 路径的文本/metadata/const 读取
+- 而 [object_reader.cpp](../../src/program/object_reader.cpp#L80) 还单独承担了 asm-stem 路径的文本/metadata/const 读取
 
 这类结构的问题在于：
 
@@ -323,7 +323,7 @@
 
 直接证据：
 
-- [wave_state.h](/data/gpu_model/src/gpu_model/execution/internal/wave_state.h#L1) 被定位为共享状态头
+- [wave_state.h](../../src/gpu_model/execution/internal/wave_state.h#L1) 被定位为共享状态头
 - 但它仍直接包含：
   - `gpu_model/debug/trace/event_factory.h`
   - `gpu_model/execution/internal/issue_eligibility.h`
@@ -352,13 +352,13 @@
 
 直接证据：
 
-- [trace/sink.h](/data/gpu_model/src/gpu_model/debug/trace/sink.h#L27) 在同一个公共头里直接暴露：
+- [trace/sink.h](../../src/gpu_model/debug/trace/sink.h#L27) 在同一个公共头里直接暴露：
   - `NullTraceSink`
   - `CollectingTraceSink`
   - `FileTraceSink`
   - `JsonTraceSink`
-- [recorder.h](/data/gpu_model/src/gpu_model/debug/recorder/recorder.h) 同时持有原始 `TraceEvent` 与 recorder-level decorated entry
-- [recorder_export.cpp](/data/gpu_model/src/debug/recorder/recorder_export.cpp#L75) 之后同时承担：
+- [recorder.h](../../src/gpu_model/debug/recorder/recorder.h) 同时持有原始 `TraceEvent` 与 recorder-level decorated entry
+- [recorder_export.cpp](../../src/debug/recorder/recorder_export.cpp#L75) 之后同时承担：
   - text/json 序列化
   - trace header/snapshot 写法
   - event 过滤
@@ -375,15 +375,15 @@
 - 文件型 sink 放到实现层
 - `Recorder` 只做 structured capture
 - text/json/perfetto renderer 分别承担 presentation
-- 像 [recorder_export.cpp](/data/gpu_model/src/debug/recorder/recorder_export.cpp) 里“text trace 只保留 wave_step / wave_exit”这类展示策略，最好放进更清楚的 formatter/policy 层
+- 像 [recorder_export.cpp](../../src/debug/recorder/recorder_export.cpp) 里“text trace 只保留 wave_step / wave_exit”这类展示策略，最好放进更清楚的 formatter/policy 层
 
 ### 5.5 参数团和长签名已经开始逼出“请求对象”需求
 
 直接证据：
 
-- [exec_engine.h](/data/gpu_model/src/gpu_model/runtime/exec_engine.h#L33) 和 [exec_engine.h](/data/gpu_model/src/gpu_model/runtime/exec_engine.h#L39) 的 `SetLaunchTimingProfile(...)` 已经有两个长参数版本
-- [program_object_exec_engine.h](/data/gpu_model/src/gpu_model/execution/program_object_exec_engine.h#L20) 的 `Run(...)` 需要十多个参数
-- [hip_runtime.h](/data/gpu_model/src/gpu_model/runtime/hip_runtime.h#L51) 和 [model_runtime.h](/data/gpu_model/src/gpu_model/runtime/model_runtime.h#L47) 的 launch API 也已经很宽
+- [exec_engine.h](../../src/gpu_model/runtime/exec_engine.h#L33) 和 [exec_engine.h](../../src/gpu_model/runtime/exec_engine.h#L39) 的 `SetLaunchTimingProfile(...)` 已经有两个长参数版本
+- [program_object_exec_engine.h](../../src/gpu_model/execution/program_object_exec_engine.h#L20) 的 `Run(...)` 需要十多个参数
+- [hip_runtime.h](../../src/gpu_model/runtime/hip_runtime.h#L51) 和 [model_runtime.h](../../src/gpu_model/runtime/model_runtime.h#L47) 的 launch API 也已经很宽
 
 这通常说明：
 
@@ -406,8 +406,8 @@
 
 直接证据：
 
-- [CMakeLists.txt](/data/gpu_model/CMakeLists.txt) 目前只构建一个大静态库 `gpu_model`
-- 所有测试都链接同一个 [gpu_model_tests](/data/gpu_model/tests/CMakeLists.txt) 大测试二进制
+- [CMakeLists.txt](../../CMakeLists.txt) 目前只构建一个大静态库 `gpu_model`
+- 所有测试都链接同一个 [gpu_model_tests](../../tests/CMakeLists.txt) 大测试二进制
 - 公共 include 根统一指向 `src`
 
 这会导致两个问题：
@@ -576,23 +576,23 @@ HIP ABI / CLI / Tests
 
 如果从当前代码直接开工，建议优先从下面这些文件开始：
 
-- [exec_engine.h](/data/gpu_model/src/gpu_model/runtime/exec_engine.h)
+- [exec_engine.h](../../src/gpu_model/runtime/exec_engine.h)
   - 去掉对具体 execution 头的直接暴露依赖
-- [cycle_exec_engine.h](/data/gpu_model/src/gpu_model/execution/cycle_exec_engine.h)
+- [cycle_exec_engine.h](../../src/gpu_model/execution/cycle_exec_engine.h)
   - 抽出 `CycleTimingConfig`
-- [gpu_arch_spec.h](/data/gpu_model/src/gpu_model/arch/gpu_arch_spec.h)
+- [gpu_arch_spec.h](../../src/gpu_model/arch/gpu_arch_spec.h)
   - 解除对 `execution/internal/issue_model.h` 的直接依赖
-- [program_object_exec_engine.h](/data/gpu_model/src/gpu_model/execution/program_object_exec_engine.h)
+- [program_object_exec_engine.h](../../src/gpu_model/execution/program_object_exec_engine.h)
   - 用 request object 替代长参数列表
-- [runtime_session.h](/data/gpu_model/src/gpu_model/runtime/runtime_session.h)
+- [runtime_session.h](../../src/gpu_model/runtime/runtime_session.h)
   - 拆 compatibility 状态职责
-- [model_runtime.h](/data/gpu_model/src/gpu_model/runtime/model_runtime.h)
+- [model_runtime.h](../../src/gpu_model/runtime/model_runtime.h)
   - 清理 allocation ownership 重叠
-- [encoded_program_object.cpp](/data/gpu_model/src/program/encoded_program_object.cpp)
+- [encoded_program_object.cpp](../../src/program/encoded_program_object.cpp)
   - 拆 external-tool orchestration / parsing / building
-- [wave_state.h](/data/gpu_model/src/gpu_model/execution/internal/wave_state.h)
+- [wave_state.h](../../src/gpu_model/execution/internal/wave_state.h)
   - 去除 trace/event factory 依赖，纯化共享域模型
-- [trace/sink.h](/data/gpu_model/src/gpu_model/debug/trace/sink.h)
+- [trace/sink.h](../../src/gpu_model/debug/trace/sink.h)
   - 收紧公共 API，只保留最小接口
 
 ## 9. 结论

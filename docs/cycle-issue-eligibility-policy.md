@@ -204,7 +204,7 @@
 
 当前选择器位于：
 
-- [`src/execution/internal/issue_scheduler.cpp`](../src/execution/internal/issue_scheduler.cpp)
+- [`src/execution/internal/issue_logic/issue_scheduler.cpp`](../src/execution/internal/issue_logic/issue_scheduler.cpp)
 
 其核心规则是：
 
@@ -229,8 +229,8 @@
 
 当前两条主线都采用“先建候选，再做 policy 选择”的结构：
 
-- [`src/execution/cycle_exec_engine.cpp`](../src/execution/cycle_exec_engine.cpp)
-- [`src/execution/program_object_exec_engine.cpp`](../src/execution/program_object_exec_engine.cpp)
+- [`src/execution/cycle/cycle_exec_engine.cpp`](../src/execution/cycle/cycle_exec_engine.cpp)
+- [`src/execution/encoded/program_object_exec_engine.cpp`](../src/execution/encoded/program_object_exec_engine.cpp)
 
 两者都会：
 

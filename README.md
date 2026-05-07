@@ -88,7 +88,7 @@ cmake --build --preset dev-fast
 
 - **现行规范**: [README.md](README.md) → [docs/my_design.md](docs/my_design.md) → [docs/runtime-layering.md](docs/runtime-layering.md)
 - **开发状态**: [docs/module-development-status.md](docs/module-development-status.md)
-- **工程参考**: [src/spec/README.md](src/spec/README.md)
+- **工程参考**: [CLAUDE.md](CLAUDE.md)
 - **历史存档**: [docs/plans/](docs/plans/), [docs/superpowers/](docs/superpowers/)
 
 ## 当前限制

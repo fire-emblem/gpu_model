@@ -442,7 +442,7 @@ operand 只描述静态信息，不直接持有执行态寄存器值。
 - `HipRuntime` 只负责 C ABI 兼容、参数适配、符号映射、fake pointer 映射和入口转发。
 - `ModelRuntime` 是项目内部统一 runtime 主入口。
 - `ExecEngine` 是 `ModelRuntime` 内部执行主链，不单独作为对外 runtime 层。
-- `src/runtime/hip_interposer.cpp` 只是 `HipRuntime` 的 C ABI 实现载体，不代表独立模块。
+- `src/runtime/hip_ld_preload.cpp` 只是 `HipRuntime` 的 C ABI 实现载体，不代表独立模块。
 
 ### 7.2 Trace 正式约束
 
@@ -680,7 +680,7 @@ cycle model 的目标不是 RTL 级精确，而是：
 
 对于下一阶段轻量级 `VL1 / SL1 / L2`、访存合并与 hit/miss 的接口预留方案，详见：
 
-- [memory-hierarchy-interface-reservation.md](/data/gpu_model/docs/memory-hierarchy-interface-reservation.md)
+- [memory-hierarchy-interface-reservation.md](./docs/memory-hierarchy-interface-reservation.md)
 
 ## 10. 调试、Trace 与性能观测
 

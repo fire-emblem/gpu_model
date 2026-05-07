@@ -379,8 +379,8 @@ invocation: GPU_MODEL_EXECUTION_MODE=cycle GPU_MODEL_DISABLE_TRACE=0 ./build/exa
 run_id: 42
 pid: 18342
 start_time_utc: 2026-04-10T11:20:33Z
-binary_path: /data/gpu_model/build/example
-resolved_binary_path: /data/gpu_model/build/example
+binary_path: build/example
+resolved_binary_path: build/example
 input_file: kernel.co
 config_file: configs/mac500.yaml
 workload_name: vecadd

@@ -48,11 +48,11 @@
 
 关键位置：
 
-- [asm_parser.cpp](/data/gpu_model/src/loader/asm_parser.cpp#L45)
+- [asm_parser.cpp](../../src/loader/asm_parser.cpp#L45)
   - `returnDanglingLifetime`
-- [asm_parser.cpp](/data/gpu_model/src/loader/asm_parser.cpp#L98)
+- [asm_parser.cpp](../../src/loader/asm_parser.cpp#L98)
   - `danglingTemporaryLifetime`
-- [gcn_text_parser.cpp](/data/gpu_model/src/loader/gcn_text_parser.cpp#L100)
+- [gcn_text_parser.cpp](../../src/loader/gcn_text_parser.cpp#L100)
   - `returnDanglingLifetime`
 
 风险判断：
@@ -72,13 +72,13 @@
 
 关键位置：
 
-- [encoded_gcn_encoding_def.cpp](/data/gpu_model/src/instruction/encoded/internal/encoded_gcn_encoding_def.cpp#L358)
+- [encoded_gcn_encoding_def.cpp](../../src/instruction/encoded/internal/encoded_gcn_encoding_def.cpp#L358)
   - `internalAstError`
-- [device_image_loader.cpp](/data/gpu_model/src/loader/device_image_loader.cpp#L43)
+- [device_image_loader.cpp](../../src/loader/device_image_loader.cpp#L43)
   - `internalAstError`
-- [cycle_exec_engine.cpp](/data/gpu_model/src/execution/cycle_exec_engine.cpp#L1110)
+- [cycle_exec_engine.cpp](../../src/execution/cycle_exec_engine.cpp#L1110)
   - `internalAstError`
-- [actual_timeline_builder.cpp](/data/gpu_model/src/debug/timeline/actual_timeline_builder.cpp#L74)
+- [actual_timeline_builder.cpp](../../src/debug/timeline/actual_timeline_builder.cpp#L74)
   - `internalAstError`
 
 风险判断：
@@ -98,19 +98,19 @@
 
 最重热点如下：
 
-- [cycle_exec_engine.cpp](/data/gpu_model/src/execution/cycle_exec_engine.cpp#L1084)
+- [cycle_exec_engine.cpp](../../src/execution/cycle_exec_engine.cpp#L1084)
   - `CycleExecEngine::Run`
   - `CCN=163`
   - `LEN=898`
-- [asm_parser.cpp](/data/gpu_model/src/loader/asm_parser.cpp#L152)
+- [asm_parser.cpp](../../src/loader/asm_parser.cpp#L152)
   - `AsmParser::Parse`
   - `CCN=123`
   - `LEN=378`
-- [exec_engine.cpp](/data/gpu_model/src/runtime/exec_engine.cpp#L184)
+- [exec_engine.cpp](../../src/runtime/exec_engine.cpp#L184)
   - `ExecEngineImpl::Launch`
   - `CCN=89`
   - `LEN=341`
-- [functional_exec_engine.cpp](/data/gpu_model/src/execution/functional_exec_engine.cpp#L1390)
+- [functional_exec_engine.cpp](../../src/execution/functional_exec_engine.cpp#L1390)
   - `FunctionalExecutionCoreImpl::ExecuteWave`
   - `CCN=55`
   - `LEN=330`
@@ -154,10 +154,10 @@
 
 最明显的一组是 loader / object 读取入口：
 
-- [object_reader.cpp](/data/gpu_model/src/program/object_reader.cpp#L11)
-- [asm_parser.cpp](/data/gpu_model/src/loader/asm_parser.cpp#L15)
-- [gcn_text_parser.cpp](/data/gpu_model/src/loader/gcn_text_parser.cpp#L7)
-- [encoded_program_object.cpp](/data/gpu_model/src/program/encoded_program_object.cpp#L23)
+- [object_reader.cpp](../../src/program/object_reader.cpp#L11)
+- [asm_parser.cpp](../../src/loader/asm_parser.cpp#L15)
+- [gcn_text_parser.cpp](../../src/loader/gcn_text_parser.cpp#L7)
+- [encoded_program_object.cpp](../../src/program/encoded_program_object.cpp#L23)
 
 `jscpd` 文件命中次数也说明了这一点：
 
@@ -183,12 +183,12 @@
 
 明显重复点：
 
-- [trace_event_export.cpp](/data/gpu_model/src/debug/trace/trace_event_export.cpp#L121)
-- [trace_event_export.cpp](/data/gpu_model/src/debug/trace/trace_event_export.cpp#L151)
-- [cycle_timeline.cpp](/data/gpu_model/src/debug/timeline/cycle_timeline.cpp#L64)
-- [cycle_timeline.cpp](/data/gpu_model/src/debug/timeline/cycle_timeline.cpp#L86)
-- [recorder.cpp](/data/gpu_model/src/debug/recorder/recorder.cpp#L179)
-- [recorder.cpp](/data/gpu_model/src/debug/recorder/recorder.cpp#L200)
+- [trace_event_export.cpp](../../src/debug/trace/trace_event_export.cpp#L121)
+- [trace_event_export.cpp](../../src/debug/trace/trace_event_export.cpp#L151)
+- [cycle_timeline.cpp](../../src/debug/timeline/cycle_timeline.cpp#L64)
+- [cycle_timeline.cpp](../../src/debug/timeline/cycle_timeline.cpp#L86)
+- [recorder.cpp](../../src/debug/recorder/recorder.cpp#L179)
+- [recorder.cpp](../../src/debug/recorder/recorder.cpp#L200)
 
 `jscpd` 命中也支持这一判断：
 
@@ -220,9 +220,9 @@
 
 按文件分布，`passedByValue` 噪音主要集中在：
 
-- [instruction_builder.cpp](/data/gpu_model/src/isa/instruction_builder.cpp)
+- [instruction_builder.cpp](../../src/isa/instruction_builder.cpp)
   - `171` 条命中
-- [program_object_exec_engine.cpp](/data/gpu_model/src/execution/program_object_exec_engine.cpp)
+- [program_object_exec_engine.cpp](../../src/execution/program_object_exec_engine.cpp)
   - `14` 条命中
 
 风险判断：
