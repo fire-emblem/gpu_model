@@ -8,68 +8,68 @@
 
 这些文档应视为当前项目的现行规范或现状说明：
 
-- [README.md](/data/gpu_model/README.md)
-- [task_plan.md](/data/gpu_model/task_plan.md)
-- [my_design.md](/data/gpu_model/docs/my_design.md)
-- [architecture-restructuring-plan.md](/data/gpu_model/docs/architecture-restructuring-plan.md)
-- [cycle-issue-eligibility-policy.md](/data/gpu_model/docs/cycle-issue-eligibility-policy.md)
-- [cycle-issue-design-gap-analysis.md](/data/gpu_model/docs/cycle-issue-design-gap-analysis.md)
-- [runtime-layering.md](/data/gpu_model/docs/runtime-layering.md)
-- [module-development-status.md](/data/gpu_model/docs/module-development-status.md)
-- [memory-hierarchy-interface-reservation.md](/data/gpu_model/docs/memory-hierarchy-interface-reservation.md)
+- [README.md](./README.md)
+- [task_plan.md](./task_plan.md)
+- [my_design.md](./docs/my_design.md)
+- [architecture-restructuring-plan.md](./docs/architecture-restructuring-plan.md)
+- [cycle-issue-eligibility-policy.md](./docs/cycle-issue-eligibility-policy.md)
+- [cycle-issue-design-gap-analysis.md](./docs/cycle-issue-design-gap-analysis.md)
+- [runtime-layering.md](./docs/runtime-layering.md)
+- [module-development-status.md](./docs/module-development-status.md)
+- [memory-hierarchy-interface-reservation.md](./docs/memory-hierarchy-interface-reservation.md)
 
 ### 当前分析参考
 
 下面这些文档仍有现实参考价值，但应按“分析快照 / 背景材料”理解，而不是直接当作当前代码事实：
 
-- [architecture/project_architecture_refactor_analysis.md](/data/gpu_model/docs/architecture/project_architecture_refactor_analysis.md)
-- [architecture/src_quality_priority_analysis.md](/data/gpu_model/docs/architecture/src_quality_priority_analysis.md)
+- [architecture/project_architecture_refactor_analysis.md](./docs/architecture/project_architecture_refactor_analysis.md)
+- [architecture/src_quality_priority_analysis.md](./docs/architecture/src_quality_priority_analysis.md)
 
 补充说明：
 
-- [isa_coverage_report.md](/data/gpu_model/docs/isa_coverage_report.md)
+- [isa_coverage_report.md](./docs/isa_coverage_report.md)
   - 是生成型覆盖率快照，可作为当前覆盖状态参考
   - 但不应被误读为“完整 ISA 已全部支持”的唯一依据
-- [cycle-issue-eligibility-policy.md](/data/gpu_model/docs/cycle-issue-eligibility-policy.md)
+- [cycle-issue-eligibility-policy.md](./docs/cycle-issue-eligibility-policy.md)
   - 固定 `cycle model` 中 `eligible -> selected -> issue` 的语义边界
   - 记录参考资料中的 `round_robin / oldest_first` 与当前实现的映射关系
-- [cycle-issue-design-gap-analysis.md](/data/gpu_model/docs/cycle-issue-design-gap-analysis.md)
+- [cycle-issue-design-gap-analysis.md](./docs/cycle-issue-design-gap-analysis.md)
   - 记录当前 `cycle_exec_engine` 在 wave issue 选择上的主要差距、建议调整方向和实际约束例子
-- [architecture/project_architecture_refactor_analysis.md](/data/gpu_model/docs/architecture/project_architecture_refactor_analysis.md)
+- [architecture/project_architecture_refactor_analysis.md](./docs/architecture/project_architecture_refactor_analysis.md)
   - 记录全项目层面的架构债与阶段性重构建议
   - 但默认按分析快照理解；若与当前代码或主文档冲突，以当前代码和主文档为准
-- [architecture/src_quality_priority_analysis.md](/data/gpu_model/docs/architecture/src_quality_priority_analysis.md)
+- [architecture/src_quality_priority_analysis.md](./docs/architecture/src_quality_priority_analysis.md)
   - 记录某次 `src-only` 质量扫描下的关键问题、优先级排序和建议处理顺序
   - 不应被误读为“当前所有质量问题的实时清单”
 
 正式阅读顺序：
 
-1. [task_plan.md](/data/gpu_model/task_plan.md)
+1. [task_plan.md](./task_plan.md)
    - 看当前还要做什么
-2. [my_design.md](/data/gpu_model/docs/my_design.md)
+2. [my_design.md](./docs/my_design.md)
    - 看当前正式设计约束和模块语义
-3. [architecture-restructuring-plan.md](/data/gpu_model/docs/architecture-restructuring-plan.md)
+3. [architecture-restructuring-plan.md](./docs/architecture-restructuring-plan.md)
    - 看当前架构重构终态目录、分层边界与已选择的结构收口口径
-4. [cycle-issue-eligibility-policy.md](/data/gpu_model/docs/cycle-issue-eligibility-policy.md)
+4. [cycle-issue-eligibility-policy.md](./docs/cycle-issue-eligibility-policy.md)
    - 看 `cycle issue` 的正式语义边界与参考口径
-5. [cycle-issue-design-gap-analysis.md](/data/gpu_model/docs/cycle-issue-design-gap-analysis.md)
+5. [cycle-issue-design-gap-analysis.md](./docs/cycle-issue-design-gap-analysis.md)
    - 看当前 `cycle issue` 设计目标与现有代码框架之间的差距
-6. [runtime-layering.md](/data/gpu_model/docs/runtime-layering.md)
+6. [runtime-layering.md](./docs/runtime-layering.md)
    - 看 runtime 正式分层
-7. [module-development-status.md](/data/gpu_model/docs/module-development-status.md)
+7. [module-development-status.md](./docs/module-development-status.md)
    - 看模块完成度、缺口和推进顺序
 
 如需进一步看背景分析，再读：
 
-8. [architecture/project_architecture_refactor_analysis.md](/data/gpu_model/docs/architecture/project_architecture_refactor_analysis.md)
-9. [architecture/src_quality_priority_analysis.md](/data/gpu_model/docs/architecture/src_quality_priority_analysis.md)
+8. [architecture/project_architecture_refactor_analysis.md](./docs/architecture/project_architecture_refactor_analysis.md)
+9. [architecture/src_quality_priority_analysis.md](./docs/architecture/src_quality_priority_analysis.md)
 
 ## 2. 历史计划 / 实施存档
 
 这些文档保留项目演进过程中的分析、规划和阶段性实施记录。
 
-- [plans/README.md](/data/gpu_model/docs/plans/README.md)
-- [superpowers/README.md](/data/gpu_model/docs/superpowers/README.md)
+- [plans/README.md](./docs/plans/README.md)
+- [superpowers/README.md](./docs/superpowers/README.md)
 
 使用约定：
 
@@ -97,7 +97,7 @@
 
 这些文档主要用于方案对比和思路参考，不直接定义本仓实现。
 
-- [other_model_design/README.md](/data/gpu_model/docs/other_model_design/README.md)
+- [other_model_design/README.md](./docs/other_model_design/README.md)
 
 使用约定：
 

@@ -8,7 +8,7 @@
 
 - 非对比型 example 默认只跑 `mt`
 - 对比型 / 可视化型 example 显式保留 `st` / `mt` / `cycle`
-- 专项例子可以只跑单一模式，例如 `test-sm-copy` 只跑 `cycle`
+- 专项例子可以只跑单一模式，例如 `15-sm-copy` 只跑 `cycle`
 - 默认启用 `tools/hipcc_cache.sh` 复用 example 编译结果，可用 `GPU_MODEL_USE_HIPCC_CACHE=0` 关闭
 
 模式说明：
@@ -37,7 +37,7 @@
 | 12 | [schedule-strategy-comparison](./12-schedule-strategy-comparison) | 调度策略对比 | 保留 `st/mt/cycle` 对比 |
 | 13 | [algorithm-comparison](./13-algorithm-comparison) | 算法对比 | 保留 `st/mt/cycle` 对比 |
 | 14 | [chip-design-sweep](./14-chip-design-sweep) | 芯片设计扫参 | `cycle` 配置对比、AP 104/128、SMEM 64K/128K/192K |
-| test-sm-copy | [test-sm-copy](./test-sm-copy) | shared-memory copy 专项 | 只跑 `cycle` |
+| 15 | [sm-copy](./15-sm-copy) | shared-memory copy 专项 | 只跑 `cycle` |
 
 ## 阅读顺序
 

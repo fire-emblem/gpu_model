@@ -418,8 +418,8 @@ struct MemoryHierarchySpec {
 - `include/gpu_model/memory/memory_access_outcome.h`
 - `include/gpu_model/memory/memory_transaction_builder.h`
 - `include/gpu_model/memory/memory_hierarchy_model.h`
-- `src/memory/memory_transaction_builder.cpp`
-- `src/memory/memory_hierarchy_model.cpp`
+- `src/state/memory/cache_model.cpp`
+- `src/state/memory/memory_system.cpp`
 
 建议优先改动文件：
 
@@ -428,7 +428,7 @@ struct MemoryHierarchySpec {
 - `include/gpu_model/execution/cycle_exec_engine.h`
 - `src/execution/cycle_exec_engine.cpp`
 - `src/runtime/exec_engine.cpp`
-- `src/arch/mac500_spec.cpp`
+- `src/gpu_arch/chip_config/mac500_spec.cpp`
 - `include/gpu_model/debug/trace_event.h`
 - `include/gpu_model/runtime/program_cycle_stats.h`
 

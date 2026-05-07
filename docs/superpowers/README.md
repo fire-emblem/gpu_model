@@ -34,16 +34,16 @@
 - 若 `plan` 中的任务已完成，以当前代码和最近提交为准
 - 历史归档计划仍保留原始任务表述，不要求逐字反映最终代码命名
 - 当前项目的现行规范，仍以：
-  - [README.md](/data/gpu_model/README.md)
-  - [docs/my_design.md](/data/gpu_model/docs/my_design.md)
-  - [docs/runtime-layering.md](/data/gpu_model/docs/runtime-layering.md)
-  - [docs/module-development-status.md](/data/gpu_model/docs/module-development-status.md)
+  - [README.md](../../README.md)
+  - [docs/my_design.md](../../docs/my_design.md)
+  - [docs/runtime-layering.md](../../docs/runtime-layering.md)
+  - [docs/module-development-status.md](../../docs/module-development-status.md)
   为准
 
 补充说明：
 
 - 本目录保留的是“设计与实施过程资料”，不是唯一规范源。
-- 真正的当前任务列表以项目根目录 [task_plan.md](/data/gpu_model/task_plan.md) 为准。
+- 真正的当前任务列表以项目根目录 [task_plan.md](../../task_plan.md) 为准。
 - 即便是当前保留的 8 组活跃参考，也应优先视为“补充背景材料”，而不是必须先读它们才能理解当前规范。
 - 如果这 8 组主题的稳定结论已经被正式文档充分吸收，对应文件后续也可以继续删除。
 - 当前目录已不再保留 ABI closure、wave-launch summary、shared-heavy bring-up 这类已被正式状态文档吸收的历史包。

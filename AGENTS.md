@@ -27,9 +27,7 @@
 
 约束：
 
-- `src/runtime/hip_interposer.cpp` 只是 `HipRuntime` 的 C ABI 入口实现载体。
-- 文件名中的 `interposer` 是历史遗留命名，不代表当前架构上存在独立的 interposer 模块。
-- 所有 HIP 兼容行为应归属到 `HipRuntime` 语义，而不是归属到“interposer 模块”。
+- `src/runtime/hip_runtime/hip_ld_preload.cpp` 是 `HipRuntime` 的 C ABI 入口实现载体（历史文件名为 `hip_interposer.cpp`，已更名）。
 
 ## 3. ExecEngine 命名
 

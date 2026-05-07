@@ -22,7 +22,7 @@
 
 - [`src/execution/cycle_exec_engine.cpp`](../src/execution/cycle_exec_engine.cpp)
 - [`src/execution/internal/issue_scheduler.cpp`](../src/execution/internal/issue_scheduler.cpp)
-- [`src/gpu_model/execution/internal/wave_state.h`](../src/gpu_model/execution/internal/wave_state.h)
+- [`src/state/wave/wave_runtime_state.h`](../src/state/wave/wave_runtime_state.h)
 
 本文会参考但不直接要求与之完全一致：
 
@@ -108,7 +108,7 @@ policy 不应承担：
 
 当前仓库已经有：
 
-- [`src/gpu_model/execution/internal/issue_model.h`](../src/gpu_model/execution/internal/issue_model.h)
+- [`src/execution/internal/issue_logic/issue_scheduler.h`](../src/execution/internal/issue_logic/issue_scheduler.h)
 - [`src/execution/internal/issue_scheduler.cpp`](../src/execution/internal/issue_scheduler.cpp)
 
 已经支持：
@@ -454,9 +454,9 @@ GPGPU-Sim 在 `scheduler_unit::cycle()` 里至少区分：
 
 表达力不够。
 
-### 5.6 `cycle_exec_engine` 还没有和共享 `WaveExecutionState` 对齐
+### 5.6 `cycle_exec_engine` 还没有和共享 `WaveContext` 对齐
 
-[`src/gpu_model/execution/internal/wave_state.h`](../src/gpu_model/execution/internal/wave_state.h) 已经提供了统一的 `WaveExecutionState`：
+[`src/state/wave/wave_runtime_state.h`](../src/state/wave/wave_runtime_state.h) 已经提供了统一的 `WaveContext`：
 
 - `pending_memory_ops`
 - `waiting_waitcnt_thresholds`
@@ -554,7 +554,7 @@ GPGPU-Sim 在 `scheduler_unit::cycle()` 里至少区分：
 
 建议目标：
 
-- `cycle_exec_engine` 为每个 wave 引入与 `WaveExecutionState` 对齐的状态
+- `cycle_exec_engine` 为每个 wave 引入与 `WaveContext` 对齐的状态
 - 至少显式保存：
   - `last_issue_cycle`
   - `next_issue_cycle`
@@ -562,7 +562,7 @@ GPGPU-Sim 在 `scheduler_unit::cycle()` 里至少区分：
 
 建议实现形态：
 
-- 要么直接复用 [`src/gpu_model/execution/internal/wave_state.h`](../src/gpu_model/execution/internal/wave_state.h) 的 `WaveExecutionState`
+- 要么直接复用 [`src/state/wave/wave_runtime_state.h`](../src/state/wave/wave_runtime_state.h) 的 `WaveContext`
 - 要么在 `cycle_exec_engine` 本地加一个等价状态，但字段语义必须与共享契约对齐
 
 这一步的目的不是“增加更多状态”，而是把当前隐式存在但没被表达的约束显式化。
@@ -872,13 +872,13 @@ struct PeuIssueTimingState {
 
 为了避免后续实现时范围扩散，建议先把“该改什么文件、各文件承担什么职责”写死。
 
-### 10.1 [`src/gpu_model/execution/internal/wave_state.h`](../src/gpu_model/execution/internal/wave_state.h)
+### 10.1 [`src/state/wave/wave_runtime_state.h`](../src/state/wave/wave_runtime_state.h)
 
 这是最适合承接共享 wave issue timing 契约的位置。
 
 建议修改：
 
-- 在 `WaveExecutionState` 中补：
+- 在 `WaveContext` 中补：
   - `eligible_since_cycle`
   - `eligible_since_valid`
 - 保留现有：
@@ -887,7 +887,7 @@ struct PeuIssueTimingState {
 
 建议职责：
 
-- `WaveExecutionState` 成为 functional / program-object / cycle 三条执行路径共享的 wave issue 时间状态来源
+- `WaveContext` 成为 functional / program-object / cycle 三条执行路径共享的 wave issue 时间状态来源
 - `eligible_since_*` 只表达“进入当前 eligible 集合的时间”，不表达被选中或真正 issue
 
 不建议：
@@ -901,7 +901,7 @@ struct PeuIssueTimingState {
 
 建议修改：
 
-- `ScheduledWave` 对齐或持有 `WaveExecutionState`
+- `ScheduledWave` 对齐或持有 `WaveContext`
 - 把当前 candidate 构造拆成两层：
   - engine-side `eligibility projection`
   - scheduler-side `IssueSchedulerCandidate`
@@ -931,7 +931,7 @@ struct PeuIssueTimingState {
 - 把完整 scoreboard / ibuffer / 多 scheduler per core 一起塞进这一轮
 - 把所有 blocked cause 都下推到 `IssueScheduler`
 
-### 10.3 [`src/gpu_model/execution/internal/issue_scheduler.h`](../src/gpu_model/execution/internal/issue_scheduler.h) 与 [`src/execution/internal/issue_scheduler.cpp`](../src/execution/internal/issue_scheduler.cpp)
+### 10.3 [`src/execution/internal/issue_logic/issue_scheduler.h`](../src/execution/internal/issue_logic/issue_scheduler.h) 与 [`src/execution/internal/issue_scheduler.cpp`](../src/execution/internal/issue_scheduler.cpp)
 
 这两处只应该保持“policy 层最小输入”。
 
@@ -1011,8 +1011,8 @@ struct PeuIssueTimingState {
   - 第 1955-1958 行：已有 scheduler-driven `switch_penalty` 计算
   - 第 1959-1967 行：已有与 switch penalty 对应的 `WaveSwitchAway / WarpSwitch` 事件
   - 第 2489-2494 行：已有 `issue_cycle = next_issue_cycle`、`last_issue_cycle`、`next_issue_cycle = commit_cycle`
-- [`src/gpu_model/execution/internal/wave_state.h`](../src/gpu_model/execution/internal/wave_state.h)
-  - 第 57-58 行：共享 `WaveExecutionState` 已经有 `last_issue_cycle / next_issue_cycle`
+- [`src/state/wave/wave_runtime_state.h`](../src/state/wave/wave_runtime_state.h)
+  - 第 57-58 行：共享 `WaveContext` 已经有 `last_issue_cycle / next_issue_cycle`
   - 当前还没有 `eligible_since_cycle`
 - [`tests/cycle/cycle_smoke_test.cpp`](../tests/cycle/cycle_smoke_test.cpp)
   - 第 345-386 行：已经验证 `resume` 不保证立即消费
@@ -1039,7 +1039,7 @@ struct PeuIssueTimingState {
 
 | 目标语义 | 主改动文件 | 可复用现有测试 | 建议新增/调整测试 | 完成证据 |
 |---|---|---|---|---|
-| `next_issue_cycle` 真正参与 eligible 过滤 | `src/execution/cycle_exec_engine.cpp` `src/gpu_model/execution/internal/wave_state.h` | [`tests/cycle/cycle_smoke_test.cpp`](../tests/cycle/cycle_smoke_test.cpp) 里已有 `ReadyDoesNotGuaranteeImmediateConsumerIssue`、`ResumeSelectionAndIssueOrderingStayObservable` | 增加“resume 后 wave 可见但因为 `next_issue_cycle` 尚未到而未 issue”的精确 cycle 断言 | `WaveResume < IssueSelect < WaveStep`，且 `WaveStep.cycle >= next_issue_cycle` |
+| `next_issue_cycle` 真正参与 eligible 过滤 | `src/execution/cycle_exec_engine.cpp` `src/state/wave/wave_runtime_state.h` | [`tests/cycle/cycle_smoke_test.cpp`](../tests/cycle/cycle_smoke_test.cpp) 里已有 `ReadyDoesNotGuaranteeImmediateConsumerIssue`、`ResumeSelectionAndIssueOrderingStayObservable` | 增加“resume 后 wave 可见但因为 `next_issue_cycle` 尚未到而未 issue”的精确 cycle 断言 | `WaveResume < IssueSelect < WaveStep`，且 `WaveStep.cycle >= next_issue_cycle` |
 | scheduler-driven switch penalty 进入真实 issue 路径 | `src/execution/cycle_exec_engine.cpp` | [`tests/cycle/waitcnt_barrier_switch_focused_test.cpp`](../tests/cycle/waitcnt_barrier_switch_focused_test.cpp) 已覆盖 wait/switch 事件存在性 | 增加“不同 wave 被选中且 `warp_switch_cycles > 0` 时，`IssueSelect` 与 `WaveStep` 之间出现 penalty gap”的断言 | 对新 wave 有 `IssueSelect.cycle < WaveStep.cycle`，且 gap 满足 switch 约束 |
 | `OldestFirst` 使用动态 ready age 而不是静态 wave id | `src/execution/cycle_exec_engine.cpp` `src/execution/internal/issue_scheduler.cpp` | [`tests/execution/internal/issue_scheduler_test.cpp`](../tests/execution/internal/issue_scheduler_test.cpp) 已有 `ExplicitOldestFirstPolicyUsesAgeOrderKeyInsteadOfSelectionCursor` | 新增 cycle 集成测试：较晚编号但更早 eligible 的 wave 必须先被选中 | 在 `OldestFirst` 下，选择顺序随 `eligible_since_cycle` 变化，而不是随 `WaveTag` 变化 |
 | bundle 冲突不会清掉持续等待 wave 的 ready age | `src/execution/cycle_exec_engine.cpp` | [`tests/cycle/async_memory_cycle_test.cpp`](../tests/cycle/async_memory_cycle_test.cpp) 已覆盖 resident slot / issue limit 基线 | 新增“同 type limit=1，两 wave 都 ready，未选中 wave 保留 `eligible_since_cycle`，下一轮应优先被服务” | 第二轮选择结果继承上一轮等待 age，而不是重新计龄 |

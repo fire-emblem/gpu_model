@@ -101,7 +101,7 @@
 
 ### 5.1 AMD / LLVM 参考
 
-[`src/spec/llvm_amdgpu_refs/AMDGPUUsage.html`](../src/spec/llvm_amdgpu_refs/AMDGPUUsage.html) 在 `WG_RR_EN` 处明确给出：
+*(参考文件 `src/spec/llvm_amdgpu_refs/AMDGPUUsage.html` 已移除)* 在 `WG_RR_EN` 处明确给出：
 
 - 若 `WG_RR_EN = 1`，wavefronts 对同一 SIMD 采用 `round-robin`
 - 否则采用 `oldest age order`
@@ -157,8 +157,8 @@
 
 当前统一抽象在：
 
-- [`src/gpu_model/execution/internal/issue_model.h`](../src/gpu_model/execution/internal/issue_model.h)
-- [`src/execution/internal/issue_model.cpp`](../src/execution/internal/issue_model.cpp)
+- [`src/execution/internal/issue_logic/issue_scheduler.h`](../src/execution/internal/issue_logic/issue_scheduler.h)
+- [`src/execution/internal/issue_logic/issue_scheduler.cpp`](../src/execution/internal/issue_logic/issue_scheduler.cpp)
 
 核心对象：
 
@@ -177,7 +177,7 @@
 
 架构级默认 policy 由：
 
-- [`src/gpu_model/execution/internal/cycle_issue_policy.h`](../src/gpu_model/execution/internal/cycle_issue_policy.h)
+- [`src/execution/internal/cost_model/cycle_issue_policy.h`](../src/execution/internal/cost_model/cycle_issue_policy.h)
 
 提供：
 
@@ -187,7 +187,7 @@
 
 当前 `mac500` 默认值在：
 
-- [`src/arch/mac500_spec.cpp`](../src/arch/mac500_spec.cpp)
+- [`src/gpu_arch/chip_config/mac500_spec.cpp`](../src/gpu_arch/chip_config/mac500_spec.cpp)
 
 其中默认 policy 仍来自 spec，而不是写死在 scheduler 内部。当前 `mac500` 还把：
 

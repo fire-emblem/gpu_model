@@ -3,8 +3,8 @@
 Generated: `2026-03-29T16:14:46`
 
 Coverage scope:
-- tracked instruction entries from `src/spec/gcn_db/instructions.yaml`: `87`
-- tracked unique mnemonics from `src/spec/gcn_db/instructions.yaml`: `82`
+- tracked instruction entries from `src/spec/gcn_db/instructions.yaml` (原始定义已迁移至生成脚本): `87`
+- tracked unique mnemonics from `src/spec/gcn_db/instructions.yaml` (原始定义已迁移至生成脚本): `82`
 - full opcode rows extracted from `generated_gcn_full_opcode_table.cpp`: `1575`
 - full unique mnemonics extracted from `generated_gcn_full_opcode_table.cpp`: `1559`
 

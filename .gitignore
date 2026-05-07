@@ -12,3 +12,5 @@ results/
 __pycache__/
 Testing/
 .omx/
+# Pre-built toolchain (hipcc, llvm, conda, mold)
+tools/
