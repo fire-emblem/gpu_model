@@ -21,7 +21,7 @@ cmake --build --preset dev-fast
 ### 环境要求
 
 - CMake >= 3.22
-- C++17 编译器 (GCC / Clang)
+- C++20 编译器 (GCC / Clang)
 - Ninja (推荐) 或 Make
 - hipcc (仅用于编译 HIP 源码，模型运行不依赖 GPU)
 

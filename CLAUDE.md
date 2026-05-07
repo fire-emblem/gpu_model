@@ -130,24 +130,28 @@ HipRuntime (C ABI / LD_PRELOAD) -> ModelRuntime (core) -> ExecEngine (execution 
 
 ```
 src/
-├── arch/          # Architecture specs (GpuArchSpec, device topology)
-├── debug/         # Trace output (text, jsonl, perfetto)
+├── debug/         # Trace and debug output
+│   ├── info/        # DebugInfo metadata
+│   ├── recorder/    # Unified debug recorder (shared by st/mt/cycle)
+│   ├── timeline/    # Cycle timeline, Perfetto, Google Trace
+│   └── trace/       # Trace events, sinks, formatting (text/jsonl)
 ├── execution/     # Execution engines (functional/cycle/encoded)
 │   ├── functional/   # FunctionalExecEngine (st/mt modes)
 │   ├── cycle/        # CycleExecEngine (tick-driven state machine)
 │   ├── encoded/      # ProgramObjectExecEngine
 │   ├── internal/     # Shared scheduling logic (block_schedule, wave_schedule, etc.)
-│   └── stats/        # ProgramCycleStats, ProgramCycleTracker (moved from runtime/)
+│   └── stats/        # ProgramCycleStats, ProgramCycleTracker
 ├── gpu_arch/      # GPU architecture definitions (chip_config, register, wave, ap, peu, dpc)
-├── gpu_model/     # Main library entry point
 ├── instruction/   # Instruction objects and semantic dispatch
 │   ├── isa/         # GCN ISA opcode definitions
 │   ├── decode/      # Binary decoding
 │   ├── semantics/   # Instruction handlers (scalar, vector, memory, branch)
 │   └── operand/     # Operand accessors
-├── loader/        # AMDGPU object / HIP artifact loading
-├── memory/        # Memory pools (global/shared/private/constant/kernarg)
 ├── program/       # ProgramObject, ExecutableKernel, EncodedProgramObject
+│   ├── encoded/      # Encoded code object representation
+│   ├── executable/   # Launch-ready kernel
+│   ├── loader/       # AMDGPU object / HIP artifact loading
+│   └── program_object/  # Static program representation
 ├── runtime/
 │   ├── config/      # Runtime-specific config (kernarg_packer, runtime_config)
 │   ├── exec_engine/ # ExecEngine facade
@@ -156,12 +160,18 @@ src/
 │       ├── core/      # ModelRuntime facade
 │       ├── compat/    # Compatibility layering (abi/launch/session)
 │       └── module/    # Module loading
-├── state/         # Runtime state (wave, ap, peu, dpc, device, memory)
-├── utils/         # Pure infrastructure (zero business dependencies)
-│   ├── config/      # Shared config types (LaunchConfig, KernelArgPack, LaunchRequest, Mapper)
-│   ├── logging/     # loguru wrapper + LOG macros
-│   └── math/        # FP conversion, bit operations
-└── spec/          # Engineering reference materials
+├── state/         # Runtime state
+│   ├── ap/           # Array Processor state
+│   ├── device/       # Device state
+│   ├── dpc/          # Data Path Controller state
+│   ├── memory/       # Memory state
+│   ├── peu/          # Processing Element Unit state
+│   ├── register/     # Register files
+│   └── wave/         # Wave state
+└── utils/         # Pure infrastructure (zero business dependencies)
+    ├── config/      # Shared config types (LaunchConfig, KernelArgPack, LaunchRequest, Mapper)
+    ├── logging/     # loguru wrapper + LOG macros
+    └── math/        # FP conversion, bit operations
 ```
 
 ### Runtime Layer
@@ -174,21 +184,15 @@ Key files:
 - `src/runtime/model_runtime/core/` - ModelRuntime facade
 
 ### Program Layer
-- `ProgramObject`: Static program representation
-- `ExecutableKernel`: Launch-ready kernel
-- `EncodedProgramObject`: Encoded code object representation
-
-Key directories:
-- `src/loader/` - AMDGPU object / HIP artifact loading
-- `src/program/` - Program object types
+- `ProgramObject`: Static program representation (`src/program/program_object/`)
+- `ExecutableKernel`: Launch-ready kernel (`src/program/executable/`)
+- `EncodedProgramObject`: Encoded code object representation (`src/program/encoded/`)
+- AMDGPU object / HIP artifact loading (`src/program/loader/`)
 
 ### Instruction Layer
-- Instruction decoding and semantic dispatch
-- GCN encoding definitions
-
-Key directories:
-- `src/instruction/` - Instruction objects
-- `src/isa/` - ISA definitions
+- Instruction decoding (`src/instruction/decode/`) and semantic dispatch (`src/instruction/semantics/`)
+- GCN encoding definitions (`src/instruction/isa/`)
+- Operand accessors (`src/instruction/operand/`)
 
 ### Execution Layer
 - `FunctionalExecEngine`: Functional execution (st/mt modes)
@@ -202,24 +206,9 @@ Key files:
 - `src/execution/program_object_exec_engine.cpp`
 
 ### Architecture Layer
-- `GpuArchSpec`: Architecture parameters
+- `GpuArchSpec`: Architecture parameters (in `src/gpu_arch/`)
 - Device topology modeling
-
-Key directory:
-- `src/arch/`
-
-### Memory System
-- Global / Shared / Private / Constant / Kernarg pools
-
-Key directory:
-- `src/memory/`
-
-### Debug/Trace
-- Trace output (text, jsonl, perfetto)
-- Timeline visualization
-
-Key directory:
-- `src/debug/`
+- `src/state/`: Runtime state objects (ap, device, dpc, memory, peu, register, wave)
 
 ## Engineering Constraints (from AGENTS.md)
 
@@ -276,6 +265,19 @@ Vendored in `third_party/`:
 - `GPU_MODEL_BUILD_DIR=...` - Override build directory detection
 - `GPU_MODEL_USE_HIPCC_CACHE=0` - Disable hipcc compilation cache
 
+## Development Workflow
+
+```bash
+# Build + test loop (recommended)
+cmake --preset dev-fast && cmake --build --preset dev-fast && ./build-ninja/tests/gpu_model_tests
+
+# Light push gate before pushing (also available as pre-push hook via ./scripts/install_git_hooks.sh)
+./scripts/run_push_gate_light.sh
+
+# Check quality (not in push gate; requires tools installed via ./scripts/install_quality_tools.sh)
+./scripts/run_quality_checks.sh
+```
+
 ## Renamed Symbols (for reading old docs/code)
 
 - `ModelRuntimeApi` -> `ModelRuntime`
@@ -286,6 +288,11 @@ Vendored in `third_party/`:
 
 ## Moved Files (for reading old docs/code)
 
+- `src/arch/` -> removed (functionality split into `src/gpu_arch/` and `src/state/`)
+- `src/loader/` -> `src/program/loader/`
+- `src/memory/` -> split into `src/gpu_arch/memory/`, `src/state/memory/`, `src/instruction/semantics/memory/`
+- `src/gpu_model/` -> removed
+- `src/spec/` -> removed
 - `runtime/config/launch_config.h` -> `utils/config/launch_config.h`
 - `runtime/config/kernel_arg_pack.h` -> `utils/config/kernel_arg_pack.h`
 - `runtime/config/launch_request.h` -> `utils/config/launch_request.h`
