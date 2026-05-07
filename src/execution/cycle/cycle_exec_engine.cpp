@@ -213,7 +213,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                         context.cycle,
                         slots,
                         resident_wave_slots_per_peu,
-                        context.spec.max_issuable_waves,
+                        context.spec.max_issuable_waves_per_peu,
                         timing_config_.launch_timing.wave_generation_cycles,
                         timing_config_.launch_timing.wave_dispatch_cycles,
                         timing_config_.launch_timing.wave_launch_cycles,
@@ -228,7 +228,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
     for (auto& slot : slots) {
       FillDispatchWindow(slot,
                          cycle,
-                         context.spec.max_issuable_waves,
+                         context.spec.max_issuable_waves_per_peu,
                          timing_config_.launch_timing.wave_launch_cycles,
                          events,
                          context.trace);
@@ -935,7 +935,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                       wave.pc));
                   RefillActiveWindow(peu_slot,
                                      commit_cycle,
-                                     context.spec.max_issuable_waves,
+                                     context.spec.max_issuable_waves_per_peu,
                                      timing_config_.launch_timing.wave_launch_cycles,
                                      events,
                                      context.trace,
@@ -989,7 +989,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                     for (size_t slot_index : refill_slots) {
                       RefillActiveWindow(slots.at(slot_index),
                                          commit_cycle,
-                                         context.spec.max_issuable_waves,
+                                         context.spec.max_issuable_waves_per_peu,
                                          timing_config_.launch_timing.wave_launch_cycles,
                                          events,
                                          context.trace,
@@ -1054,7 +1054,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                                       commit_cycle + timing_config_.launch_timing.block_launch_cycles,
                                       slots,
                                       resident_wave_slots_per_peu,
-                                      context.spec.max_issuable_waves,
+                                      context.spec.max_issuable_waves_per_peu,
                                       timing_config_.launch_timing.wave_generation_cycles,
                                       timing_config_.launch_timing.wave_dispatch_cycles,
                                       timing_config_.launch_timing.wave_launch_cycles,
@@ -1067,7 +1067,7 @@ uint64_t CycleExecEngine::Run(ExecutionContext& context) {
                   }
                   RefillActiveWindow(peu_slot,
                                      commit_cycle,
-                                     context.spec.max_issuable_waves,
+                                     context.spec.max_issuable_waves_per_peu,
                                      timing_config_.launch_timing.wave_launch_cycles,
                                      events,
                                      context.trace,

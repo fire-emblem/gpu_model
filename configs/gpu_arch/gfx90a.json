@@ -1,0 +1,72 @@
+{
+  "name": "gfx90a",
+  "wave_size": 64,
+  "topology": {
+    "dpc_count": 8,
+    "ap_per_dpc": 14,
+    "peu_per_ap": 4
+  },
+  "wave_slots": {
+    "max_resident_waves_per_peu": 10,
+    "max_issuable_waves_per_peu": 5
+  },
+  "registers": {
+    "vgpr_count_per_peu": 256,
+    "sgpr_count_per_peu": 512,
+    "agpr_count_per_peu": 256,
+    "vgpr_alloc_granule": 8,
+    "sgpr_alloc_granule": 8
+  },
+  "memory": {
+    "shared_memory_per_ap_bytes": 65536,
+    "private_memory_per_wave_bytes": 4096,
+    "shared_mem_per_block": 65536,
+    "shared_mem_per_multiprocessor": 65536,
+    "max_shared_mem_per_multiprocessor": 65536,
+    "barrier_slot_capacity": 16,
+    "max_resident_blocks_per_ap": 2
+  },
+  "cache": {
+    "enabled": true,
+    "l1_hit_latency": 8,
+    "l2_hit_latency": 20,
+    "dram_latency": 40,
+    "line_bytes": 64,
+    "l1_line_capacity": 64,
+    "l2_line_capacity": 256
+  },
+  "shared_bank": {
+    "enabled": false,
+    "bank_count": 32,
+    "bank_width_bytes": 4
+  },
+  "launch_timing": {
+    "kernel_launch_gap_cycles": 8,
+    "kernel_launch_cycles": 0,
+    "block_launch_cycles": 0,
+    "wave_generation_cycles": 128,
+    "wave_dispatch_cycles": 256,
+    "wave_launch_cycles": 0,
+    "warp_switch_cycles": 1,
+    "arg_load_cycles": 4
+  },
+  "issue": {
+    "default_issue_cycles": 4,
+    "store_latency_multiplier": 2.0,
+    "wave_selection_policy": "oldest_first"
+  },
+  "latency": {
+    "shared_load_latency": 4,
+    "shared_store_latency": 4,
+    "scalar_load_latency": 8,
+    "private_load_latency": 4,
+    "private_store_latency": 4
+  },
+  "features": {
+    "sync": true,
+    "barrier": true,
+    "mma": true,
+    "l1_cache": true,
+    "l2_cache": true
+  }
+}

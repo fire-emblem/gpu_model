@@ -1517,7 +1517,7 @@ TEST(HipRuntimeTest, EncodedCycleStandbyBlockDoesNotLaunchUntilActiveSlotOpens) 
 
   const uint32_t block0 = WrappedBlockId(*spec, 0);
   const uint32_t block1 = WrappedBlockId(*spec, 1);
-  const uint32_t active_window_waves_per_ap = spec->peu_per_ap * spec->max_issuable_waves;
+  const uint32_t active_window_waves_per_ap = spec->peu_per_ap * spec->max_issuable_waves_per_peu;
   const size_t block0_launch = FirstBlockLaunchIndex(trace.events(), block0);
   const size_t block1_launch = FirstBlockLaunchIndex(trace.events(), block1);
   ASSERT_NE(block0_launch, std::numeric_limits<size_t>::max());
@@ -1613,7 +1613,7 @@ TEST(HipRuntimeTest, EncodedCycleBarrierWaitingWaveYieldsActiveSlotUntilRelease)
       test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 
-  std::vector<int32_t> out(spec->peu_per_ap * (spec->max_issuable_waves + 1) * 64, 0);
+  std::vector<int32_t> out(spec->peu_per_ap * (spec->max_issuable_waves_per_peu + 1) * 64, 0);
   HipRuntime hooks;
   const uint64_t out_addr = hooks.Malloc(out.size() * sizeof(int32_t));
   hooks.MemcpyHtoD<int32_t>(out_addr, std::span<const int32_t>(out));
@@ -1625,7 +1625,7 @@ TEST(HipRuntimeTest, EncodedCycleBarrierWaitingWaveYieldsActiveSlotUntilRelease)
       ObjectReader{}.LoadProgramObject(exe_path, "barrier_yield"),
       LaunchConfig{
           .grid_dim_x = 1,
-          .block_dim_x = spec->peu_per_ap * (spec->max_issuable_waves + 1) * 64,
+          .block_dim_x = spec->peu_per_ap * (spec->max_issuable_waves_per_peu + 1) * 64,
       },
       std::move(args),
       ExecutionMode::Cycle,
@@ -1634,7 +1634,7 @@ TEST(HipRuntimeTest, EncodedCycleBarrierWaitingWaveYieldsActiveSlotUntilRelease)
   ASSERT_TRUE(result.ok) << result.error_message;
 
   const uint32_t block0 = 0;
-  const uint32_t active_window_waves_per_ap = spec->peu_per_ap * spec->max_issuable_waves;
+  const uint32_t active_window_waves_per_ap = spec->peu_per_ap * spec->max_issuable_waves_per_peu;
   const size_t first_exit = FirstWaveExitIndex(trace.events(), block0);
   const size_t release = FirstBarrierEventIndex(trace.events(), block0, "release");
   const size_t wave0_progress = FirstPostIndexWaveProgressEvent(trace.events(), block0, 0, release);

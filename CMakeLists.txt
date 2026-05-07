@@ -53,6 +53,13 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(googletest)
 
+FetchContent_Declare(
+  nlohmann_json
+  URL https://github.com/nlohmann/json/archive/refs/tags/v3.11.3.zip
+)
+set(JSON_GlobalDiagnosticFixes ON CACHE INTERNAL "")
+FetchContent_MakeAvailable(nlohmann_json)
+
 add_library(gpu_model_loguru STATIC
   third_party/loguru/loguru.cpp
 )
@@ -71,8 +78,12 @@ add_library(gpu_model STATIC
   # gpu_arch/chip_config/
   src/gpu_arch/chip_config/arch_registry.cpp
   src/gpu_arch/chip_config/mac500_spec.cpp
+  src/gpu_arch/chip_config/arch_config/arch_config.cpp
   # gpu_arch/issue_config/
   src/gpu_arch/issue_config/issue_config.cpp
+  # gpu_arch/occupancy/
+  src/gpu_arch/occupancy/occupancy_calculator.cpp
+  src/gpu_arch/occupancy/occupancy_report.cpp
   # instruction/isa/
   src/instruction/isa/instruction.cpp
   src/instruction/isa/instruction_builder.cpp
@@ -223,6 +234,7 @@ target_include_directories(gpu_model
 target_link_libraries(gpu_model
   PUBLIC
     gpu_model_loguru
+    nlohmann_json::nlohmann_json
 )
 
 gpu_model_enable_warnings(gpu_model)
@@ -244,6 +256,15 @@ target_include_directories(gpu_model_chip_design_sweep_demo PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 gpu_model_enable_warnings(gpu_model_chip_design_sweep_demo)
+
+add_executable(occupancy_analysis_demo
+  examples/16-occupancy-analysis/occupancy_analysis_demo.cpp
+)
+target_link_libraries(occupancy_analysis_demo PRIVATE gpu_model)
+target_include_directories(occupancy_analysis_demo PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+gpu_model_enable_warnings(occupancy_analysis_demo)
 
 add_subdirectory(tests)
 

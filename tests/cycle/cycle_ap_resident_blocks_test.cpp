@@ -214,7 +214,7 @@ TEST(CycleApResidentBlocksTest, ResidentStandbyBlockDoesNotLaunchWavesUntilActiv
 
   const uint32_t block0 = WrappedBlockId(*spec, 0);
   const uint32_t block1 = WrappedBlockId(*spec, 1);
-  const uint32_t active_window_waves_per_ap = spec->peu_per_ap * spec->max_issuable_waves;
+  const uint32_t active_window_waves_per_ap = spec->peu_per_ap * spec->max_issuable_waves_per_peu;
   const size_t block0_launch = FirstBlockLaunchIndex(trace.events(), block0);
   const size_t block1_launch = FirstBlockLaunchIndex(trace.events(), block1);
   ASSERT_NE(block0_launch, std::numeric_limits<size_t>::max());

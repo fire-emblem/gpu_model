@@ -236,7 +236,7 @@ bool ContainsSlotId(const std::deque<size_t>& slot_ids, size_t target) {
 uint32_t ResidentWaveSlotCapacityPerPeu(const GpuArchSpec& spec) {
   return spec.cycle_resources.resident_wave_slots_per_peu > 0
              ? spec.cycle_resources.resident_wave_slots_per_peu
-             : spec.max_resident_waves;
+             : spec.max_resident_waves_per_peu;
 }
 
 bool CanAdmitBlockToResidentWaveSlots(const ExecutableBlock& block,

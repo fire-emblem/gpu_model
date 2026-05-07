@@ -5,6 +5,7 @@ add_executable(gpu_model_tests
   instruction/internal/generated_encoded_gcn_inst_db_test.cpp
   instruction/internal/encoded_gcn_db_lookup_test.cpp
   arch/arch_registry_test.cpp
+  occupancy/occupancy_calculator_test.cpp
   arch/issue_config_test.cpp
   arch/gpu_arch_spec_test.cpp
   arch/topology_defaults_test.cpp

@@ -1695,7 +1695,7 @@ class EncodedExecutionCore {
   uint32_t ResidentWaveSlotCapacityPerPeu() const {
     return spec_.cycle_resources.resident_wave_slots_per_peu > 0
                ? spec_.cycle_resources.resident_wave_slots_per_peu
-               : spec_.max_resident_waves;
+               : spec_.max_resident_waves_per_peu;
   }
 
   bool CanAdmitBlockToResidentWaveSlots(size_t block_index) const {
@@ -1783,7 +1783,7 @@ class EncodedExecutionCore {
 
   void RefillActiveWindow(EncodedPeuSlot& slot, uint64_t cycle) {
     uint32_t launch_order = 0;
-    while (slot.active_window.size() < spec_.max_issuable_waves && !slot.standby_waves.empty()) {
+    while (slot.active_window.size() < spec_.max_issuable_waves_per_peu && !slot.standby_waves.empty()) {
       RawWave* raw_wave = slot.standby_waves.front();
       slot.standby_waves.pop_front();
       if (raw_wave == nullptr || raw_wave->wave.status == WaveStatus::Exited) {
