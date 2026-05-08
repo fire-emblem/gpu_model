@@ -20,6 +20,7 @@ if [[ -d "${ROCM_INSTALL}" ]]; then
     export HIP_PLATFORM=amd
     export HIP_COMPILER=clang
     export HIP_DEVICE_LIB_PATH="${ROCM_INSTALL}/amdgcn/bitcode"
+    export HIP_CLANG_PATH="${ROCM_INSTALL}/lib/llvm/bin"
     export PATH="${ROCM_INSTALL}/bin:${ROCM_INSTALL}/lib/llvm/bin:${PATH}"
     export LD_LIBRARY_PATH="${ROCM_INSTALL}/lib:${ROCM_INSTALL}/lib64:${ROCM_INSTALL}/lib/llvm/lib:${LD_LIBRARY_PATH:-}"
 fi

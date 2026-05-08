@@ -62,6 +62,18 @@ if [[ -z "${ROCM_PATH:-}" ]]; then
   esac
 fi
 
+# Set HIP_CLANG_PATH if using ROCm SDK hipcc, so it can find clang++
+if [[ -z "${HIP_CLANG_PATH:-}" ]]; then
+  case "${HIPCC_BIN}" in
+    */rocm-*/bin/hipcc)
+      clang_dir="$(cd "$(dirname "${HIPCC_BIN}")/../lib/llvm/bin" && pwd)"
+      if [[ -x "${clang_dir}/clang++" ]]; then
+        export HIP_CLANG_PATH="${clang_dir}"
+      fi
+      ;;
+  esac
+fi
+
 if ! command -v sha256sum >/dev/null 2>&1; then
   echo "missing tool: sha256sum" >&2
   exit 1

@@ -10,6 +10,8 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <unistd.h>
+#include <vector>
 
 #include "program/loader/amdgpu_target_config.h"
 
@@ -29,6 +31,48 @@ std::string ShellQuote(const std::string& text) {
   }
   quoted.push_back('\'');
   return quoted;
+}
+
+std::string ResolveTool(std::string_view tool_name) {
+  // Fast path: tool already in PATH
+  const std::string probe =
+      "command -v " + std::string(tool_name) + " >/dev/null 2>&1";
+  if (std::system(probe.c_str()) == 0) return std::string(tool_name);
+
+  // Search known tool directories
+  std::vector<std::filesystem::path> search_dirs;
+
+  // ROCm 6.2 SDK (has full LLVM toolchain)
+  if (const char* home = std::getenv("HOME"); home)
+    search_dirs.emplace_back(
+        std::filesystem::path(home) /
+        "tools/rocm/rocm/opt/rocm-6.2.0/lib/llvm/bin");
+  search_dirs.emplace_back("/opt/rocm/lib/llvm/bin");
+
+  // Project-local tools/hipcc/bin (has llvm-readelf etc.)
+  if (const char* repo = std::getenv("GPU_MODEL_TEST_REPO_ROOT"); repo)
+    search_dirs.emplace_back(std::filesystem::path(repo) / "tools/hipcc/bin");
+
+  // Infer from executable location (works when running from build dir)
+  try {
+    std::array<char, 4096> buf{};
+    const ssize_t len =
+        readlink("/proc/self/exe", buf.data(), buf.size() - 1);
+    if (len > 0) {
+      buf[static_cast<size_t>(len)] = '\0';
+      std::filesystem::path exe(buf.data());
+      auto project_dir = exe.parent_path().parent_path();
+      if (std::filesystem::exists(project_dir / "tools/hipcc/bin"))
+        search_dirs.push_back(project_dir / "tools/hipcc/bin");
+    }
+  } catch (...) {
+  }
+
+  for (const auto& dir : search_dirs) {
+    auto candidate = dir / tool_name;
+    if (std::filesystem::exists(candidate)) return candidate.string();
+  }
+  return std::string(tool_name);
 }
 
 }  // namespace
@@ -53,45 +97,47 @@ std::string ExternalToolExecutor::RunCommand(const std::string& command) {
 
 bool ExternalToolExecutor::HasCommand(std::string_view command_name) {
   const std::string probe = "command -v " + std::string(command_name) + " >/dev/null 2>&1";
-  return std::system(probe.c_str()) == 0;
+  if (std::system(probe.c_str()) == 0) return true;
+  // Also check known tool directories
+  return ResolveTool(command_name) != std::string(command_name);
 }
 
 std::string ExternalToolExecutor::ReadElfHeader(const std::filesystem::path& path) {
-  return RunCommand("readelf -h " + ShellQuote(path.string()));
+  return RunCommand(ResolveTool("readelf") + " -h " + ShellQuote(path.string()));
 }
 
 std::string ExternalToolExecutor::ReadElfSectionTable(const std::filesystem::path& path) {
-  return RunCommand("readelf -S " + ShellQuote(path.string()));
+  return RunCommand(ResolveTool("readelf") + " -S " + ShellQuote(path.string()));
 }
 
 std::string ExternalToolExecutor::ReadElfSymbolTable(const std::filesystem::path& path) {
-  return RunCommand("readelf -Ws " + ShellQuote(path.string()));
+  return RunCommand(ResolveTool("readelf") + " -Ws " + ShellQuote(path.string()));
 }
 
 std::string ExternalToolExecutor::ReadElfNotes(const std::filesystem::path& path) {
-  return RunCommand("llvm-readelf --notes " + ShellQuote(path.string()));
+  return RunCommand(ResolveTool("llvm-readelf") + " --notes " + ShellQuote(path.string()));
 }
 
 std::string ExternalToolExecutor::ReadAmdgpuFileHeaders(const std::filesystem::path& path) {
-  return RunCommand("llvm-readobj --file-headers " + ShellQuote(path.string()));
+  return RunCommand(ResolveTool("llvm-readobj") + " --file-headers " + ShellQuote(path.string()));
 }
 
 void ExternalToolExecutor::DumpElfSection(const std::filesystem::path& path,
                                           const std::string& section_name,
                                           const std::filesystem::path& output_path) {
-  RunCommand("llvm-objcopy --dump-section " + section_name + "=" +
+  RunCommand(ResolveTool("llvm-objcopy") + " --dump-section " + section_name + "=" +
              ShellQuote(output_path.string()) + " " + ShellQuote(path.string()));
 }
 
 std::string ExternalToolExecutor::ListOffloadBundles(const std::filesystem::path& fatbin_path) {
-  return RunCommand("clang-offload-bundler --list --type=o --input=" +
+  return RunCommand(ResolveTool("clang-offload-bundler") + " --list --type=o --input=" +
                     ShellQuote(fatbin_path.string()));
 }
 
 void ExternalToolExecutor::UnbundleOffloadTarget(const std::filesystem::path& fatbin_path,
                                                  const std::string& target,
                                                  const std::filesystem::path& output_path) {
-  RunCommand("clang-offload-bundler --unbundle --type=o --input=" +
+  RunCommand(ResolveTool("clang-offload-bundler") + " --unbundle --type=o --input=" +
              ShellQuote(fatbin_path.string()) + " --targets=" +
              ShellQuote(target) + " --output=" +
              ShellQuote(output_path.string()));
@@ -99,7 +145,7 @@ void ExternalToolExecutor::UnbundleOffloadTarget(const std::filesystem::path& fa
 
 std::string ExternalToolExecutor::DisassembleHexByteStreamWithLlvmMc(
     const std::filesystem::path& input_path) {
-  return RunCommand("llvm-mc --disassemble --triple=" + std::string(kProjectAmdgpuTriple) +
+  return RunCommand(ResolveTool("llvm-mc") + " --disassemble --triple=" + std::string(kProjectAmdgpuTriple) +
                     " --mcpu=" + std::string(kProjectAmdgpuMcpu) + " " +
                     ShellQuote(input_path.string()));
 }
