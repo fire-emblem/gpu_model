@@ -124,6 +124,20 @@ std::string RenderRecorderTextTrace(const Recorder& recorder) {
     text += "block_dim=" + std::to_string(kernel.block_dim_x) + "," +
              std::to_string(kernel.block_dim_y) + "," +
              std::to_string(kernel.block_dim_z) + "\n";
+    if (kernel.theoretical_max_waves_per_peu > 0) {
+      text += "theoretical_max_waves_per_peu=" +
+              std::to_string(kernel.theoretical_max_waves_per_peu) + "\n";
+      text += "theoretical_max_blocks_per_ap=" +
+              std::to_string(kernel.theoretical_max_blocks_per_ap) + "\n";
+      text += "theoretical_occupancy_pct=" +
+              std::to_string(kernel.theoretical_occupancy_pct) + "\n";
+      if (!kernel.occupancy_wave_limiter.empty()) {
+        text += "occupancy_wave_limiter=" + kernel.occupancy_wave_limiter + "\n";
+      }
+      if (!kernel.occupancy_block_limiter.empty()) {
+        text += "occupancy_block_limiter=" + kernel.occupancy_block_limiter + "\n";
+      }
+    }
     text += "\n";
   }
 
@@ -227,6 +241,24 @@ std::string RenderRecorderTextTrace(const Recorder& recorder) {
     text += "active_utilization_pct=" + std::to_string(summary.active_utilization_pct) + "\n";
     text += "\n";
 
+    // [OCCUPANCY] section
+    if (summary.theoretical_max_waves_per_peu > 0) {
+      text += "[OCCUPANCY]\n";
+      text += "theoretical_max_waves_per_peu=" +
+              std::to_string(summary.theoretical_max_waves_per_peu) + "\n";
+      text += "theoretical_max_blocks_per_ap=" +
+              std::to_string(summary.theoretical_max_blocks_per_ap) + "\n";
+      text += "theoretical_occupancy_pct=" +
+              std::to_string(summary.theoretical_occupancy_pct) + "\n";
+      if (!summary.occupancy_wave_limiter.empty()) {
+        text += "occupancy_wave_limiter=" + summary.occupancy_wave_limiter + "\n";
+      }
+      if (!summary.occupancy_block_limiter.empty()) {
+        text += "occupancy_block_limiter=" + summary.occupancy_block_limiter + "\n";
+      }
+      text += "\n";
+    }
+
     // [PERF_OPT] section - Performance optimization metrics
     text += "[PERF_OPT]\n";
     text += "total_flops=" + std::to_string(summary.total_flops) + "\n";
@@ -292,7 +324,19 @@ std::string RenderRecorderJsonTrace(const Recorder& recorder) {
             "\",\"grid_dim\":[" + std::to_string(kernel.grid_dim_x) + "," +
             std::to_string(kernel.grid_dim_y) + "," + std::to_string(kernel.grid_dim_z) + "]" +
             ",\"block_dim\":[" + std::to_string(kernel.block_dim_x) + "," +
-            std::to_string(kernel.block_dim_y) + "," + std::to_string(kernel.block_dim_z) + "]}\n";
+            std::to_string(kernel.block_dim_y) + "," + std::to_string(kernel.block_dim_z) + "]";
+    if (kernel.theoretical_max_waves_per_peu > 0) {
+      text += ",\"theoretical_max_waves_per_peu\":" + std::to_string(kernel.theoretical_max_waves_per_peu) +
+              ",\"theoretical_max_blocks_per_ap\":" + std::to_string(kernel.theoretical_max_blocks_per_ap) +
+              ",\"theoretical_occupancy_pct\":" + std::to_string(kernel.theoretical_occupancy_pct);
+      if (!kernel.occupancy_wave_limiter.empty()) {
+        text += ",\"occupancy_wave_limiter\":\"" + kernel.occupancy_wave_limiter + "\"";
+      }
+      if (!kernel.occupancy_block_limiter.empty()) {
+        text += ",\"occupancy_block_limiter\":\"" + kernel.occupancy_block_limiter + "\"";
+      }
+    }
+    text += "}\n";
   }
 
   // Emit wave init snapshots
@@ -326,7 +370,19 @@ std::string RenderRecorderJsonTrace(const Recorder& recorder) {
             ",\"gpu_tot_wave_exits\":" + std::to_string(summary.gpu_tot_wave_exits) +
             ",\"stall_waitcnt\":" + std::to_string(summary.stall_waitcnt_global) +
             ",\"stall_warp_switch\":" + std::to_string(summary.stall_warp_switch) +
-            ",\"stall_barrier\":" + std::to_string(summary.stall_barrier_slot) + "}\n";
+            ",\"stall_barrier\":" + std::to_string(summary.stall_barrier_slot);
+    if (summary.theoretical_max_waves_per_peu > 0) {
+      text += ",\"theoretical_max_waves_per_peu\":" + std::to_string(summary.theoretical_max_waves_per_peu) +
+              ",\"theoretical_max_blocks_per_ap\":" + std::to_string(summary.theoretical_max_blocks_per_ap) +
+              ",\"theoretical_occupancy_pct\":" + std::to_string(summary.theoretical_occupancy_pct);
+      if (!summary.occupancy_wave_limiter.empty()) {
+        text += ",\"occupancy_wave_limiter\":\"" + summary.occupancy_wave_limiter + "\"";
+      }
+      if (!summary.occupancy_block_limiter.empty()) {
+        text += ",\"occupancy_block_limiter\":\"" + summary.occupancy_block_limiter + "\"";
+      }
+    }
+    text += "}\n";
   }
 
   // Emit warning snapshots

@@ -12,6 +12,7 @@
 #include "instruction/isa/instruction_builder.h"
 #include "runtime/exec_engine/exec_engine.h"
 #include "tests/test_utils/trace_test_support.h"
+#include "gpu_arch/occupancy/occupancy_calculator.h"
 
 namespace gpu_model {
 namespace {
@@ -447,6 +448,51 @@ TEST(TraceSinkTest, JsonSinkSerializesWaitcntArrivalProgressFields) {
   EXPECT_NE(line.find("\"waitcnt_pending\":\"g=1 s=0 p=0 sb=0\""), std::string::npos);
   EXPECT_NE(line.find("\"waitcnt_pending_transition\":\"g=2->1 s=0->0 p=0->0 sb=0->0\""),
             std::string::npos);
+}
+
+// =============================================================================
+// Occupancy in Trace Output
+// =============================================================================
+
+TEST(TraceSinkTest, OccupancySectionAppearsWhenResourceMetadataPresent) {
+  const auto dir =
+      std::filesystem::temp_directory_path() / "gpu_model_trace_occupancy";
+  const struct Cleanup {
+    std::filesystem::path path;
+    ~Cleanup() { std::filesystem::remove_all(path); }
+  } cleanup{dir};
+
+  {
+    TraceArtifactRecorder trace(dir);
+    ExecEngine runtime(&trace);
+
+    InstructionBuilder builder;
+    builder.BExit();
+    auto kernel = builder.Build("occ_test_kernel");
+    // Add resource metadata so occupancy is computed
+    auto& meta = const_cast<MetadataBlob&>(kernel.metadata());
+    meta.values["vgpr_count"] = "16";
+    meta.values["sgpr_count"] = "16";
+
+    LaunchRequest request;
+    request.kernel = &kernel;
+    request.config.grid_dim_x = 1;
+    request.config.block_dim_x = 64;
+
+    const auto result = runtime.Launch(request);
+    ASSERT_TRUE(result.ok) << "Launch failed: " << result.error_message;
+    trace.FlushTimeline();
+  }
+
+  const std::string text = ReadTextFile(dir / "trace.txt");
+  EXPECT_NE(text.find("[OCCUPANCY]"), std::string::npos);
+  EXPECT_NE(text.find("theoretical_max_waves_per_peu="), std::string::npos);
+  EXPECT_NE(text.find("theoretical_occupancy_pct="), std::string::npos);
+  EXPECT_NE(text.find("occupancy_wave_limiter="), std::string::npos);
+
+  const std::string json = ReadTextFile(dir / "trace.jsonl");
+  EXPECT_NE(json.find("\"theoretical_max_waves_per_peu\":"), std::string::npos);
+  EXPECT_NE(json.find("\"theoretical_occupancy_pct\":"), std::string::npos);
 }
 
 }  // namespace

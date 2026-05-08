@@ -37,6 +37,17 @@ struct TraceKernelSnapshot {
   uint32_t block_dim_x = 1;
   uint32_t block_dim_y = 1;
   uint32_t block_dim_z = 1;
+
+  // === Theoretical Occupancy (static, computed at launch) ===
+  uint32_t theoretical_max_waves_per_peu = 0;
+  uint32_t theoretical_max_blocks_per_ap = 0;
+  float theoretical_occupancy_pct = 0.0f;
+  std::string occupancy_wave_limiter;
+  std::string occupancy_block_limiter;
+  uint32_t kernel_vgpr_count = 0;
+  uint32_t kernel_sgpr_count = 0;
+  uint32_t kernel_agpr_count = 0;
+  uint32_t kernel_shared_memory_bytes = 0;
 };
 
 // TraceWaveInitSnapshot captures wave initialization facts.
@@ -114,6 +125,13 @@ struct TraceSummarySnapshot {
   uint32_t waves_launched = 0;
   uint32_t waves_completed = 0;
   uint32_t max_concurrent_waves = 0;
+
+  // === Theoretical Occupancy (static, from launch analysis) ===
+  uint32_t theoretical_max_waves_per_peu = 0;
+  uint32_t theoretical_max_blocks_per_ap = 0;
+  float theoretical_occupancy_pct = 0.0f;
+  std::string occupancy_wave_limiter;
+  std::string occupancy_block_limiter;
 
   // === Utilization ===
   double active_utilization_pct = 0.0;  // active_cycles / total_cycles * 100

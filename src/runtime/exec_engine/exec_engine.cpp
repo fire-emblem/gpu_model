@@ -10,6 +10,7 @@
 #include <thread>
 
 #include "gpu_arch/chip_config/arch_registry.h"
+#include "gpu_arch/occupancy/occupancy_calculator.h"
 #include "execution/cycle/cycle_exec_engine.h"
 #include "program/loader/device_image_loader.h"
 #include "runtime/exec_engine/cycle_launch_state.h"
@@ -23,6 +24,72 @@
 #include "utils/logging/log_macros.h"
 
 namespace gpu_model {
+
+namespace {
+
+std::optional<OccupancyResult> ComputeLaunchOccupancy(
+    const GpuArchSpec& spec,
+    const ValidatedLaunchRequest& prepared,
+    const LaunchConfig& config) {
+  // Extract kernel resource usage from metadata / kernel descriptor
+  KernelResourceUsage usage;
+  usage.block_size = config.block_dim_x * config.block_dim_y * config.block_dim_z;
+  usage.shared_memory_bytes = config.shared_memory_bytes;
+
+  const MetadataBlob& metadata = prepared.launch_metadata_source();
+  try {
+    if (auto v = metadata.values.find("vgpr_count"); v != metadata.values.end()) {
+      usage.vgpr_count = static_cast<uint32_t>(std::stoul(v->second));
+    }
+    if (auto v = metadata.values.find("sgpr_count"); v != metadata.values.end()) {
+      usage.sgpr_count = static_cast<uint32_t>(std::stoul(v->second));
+    }
+    if (auto v = metadata.values.find("group_segment_fixed_size");
+        v != metadata.values.end()) {
+      usage.shared_memory_bytes =
+          std::max(usage.shared_memory_bytes,
+                   static_cast<uint32_t>(std::stoul(v->second)));
+    }
+  } catch (...) {
+    return std::nullopt;
+  }
+
+  if (prepared.use_program_object_payload && prepared.program_object != nullptr) {
+    const auto& kd = prepared.program_object->kernel_descriptor();
+    usage.agpr_count = kd.agpr_count;
+    usage.private_memory_bytes = kd.private_segment_fixed_size;
+    usage.shared_memory_bytes =
+        std::max(usage.shared_memory_bytes, kd.group_segment_fixed_size);
+  }
+
+  // Detect barrier usage from instructions
+  if (prepared.use_program_object_payload && prepared.program_object != nullptr) {
+    for (const auto& inst : prepared.program_object->instructions()) {
+      if (inst.mnemonic == "s_barrier") {
+        usage.uses_barrier = true;
+        break;
+      }
+    }
+  } else if (!prepared.use_program_object_payload) {
+    const auto& kernel = prepared.kernel_ref();
+    for (const auto& inst : kernel.instructions()) {
+      if (inst.opcode == Opcode::SyncBarrier) {
+        usage.uses_barrier = true;
+        break;
+      }
+    }
+  }
+
+  if (usage.vgpr_count == 0 && usage.sgpr_count == 0 && usage.shared_memory_bytes == 0) {
+    // No resource info available; skip occupancy analysis
+    return std::nullopt;
+  }
+
+  OccupancyCalculator calc(spec);
+  return calc.Calculate(usage);
+}
+
+}  // namespace
 
 class ExecEngineImpl {
  public:
@@ -176,6 +243,7 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
   try {
     PrepareCycleLaunchResult(request, *spec, cycle_launch_state_, result);
     result.placement = Mapper::Place(*spec, request.config);
+    const auto occupancy = ComputeLaunchOccupancy(*spec, prepared, request.config);
     EmitLaunchTracePreamble(trace,
                             request,
                             *spec,
@@ -183,7 +251,8 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
                             use_program_object_payload,
                             result.submit_cycle,
                             program_object,
-                            result.placement);
+                            result.placement,
+                            occupancy);
     const auto timing_config = ResolveCycleTimingConfig(*spec);
     if (!DispatchLaunch(request,
                         prepared,
@@ -201,7 +270,7 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
       result.ok = true;
     }
 
-    EmitLaunchTraceSummary(trace, request, result);
+    EmitLaunchTraceSummary(trace, request, result, occupancy);
   } catch (const std::exception& ex) {
     result.error_message = ex.what();
     result.ok = false;
