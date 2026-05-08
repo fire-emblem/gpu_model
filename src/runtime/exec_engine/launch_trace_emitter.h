@@ -20,7 +20,8 @@ void EmitLaunchTracePreamble(TraceSink& trace,
                              uint64_t submit_cycle,
                              const ProgramObject* program_object,
                              const PlacementMap& placement,
-                             const std::optional<OccupancyResult>& occupancy = std::nullopt);
+                             const std::optional<OccupancyResult>& occupancy = std::nullopt,
+                             const KernelResourceUsage& resource_usage = {});
 
 void EmitLaunchTraceSummary(TraceSink& trace,
                             const LaunchRequest& request,

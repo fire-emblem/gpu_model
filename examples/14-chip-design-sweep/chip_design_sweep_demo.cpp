@@ -184,6 +184,7 @@ DesignResult RunVariant(const gm::ExecutableKernel& kernel,
   spec.cycle_resources.resident_block_limit_per_ap = variant.resident_block_limit_per_ap;
   spec.shared_mem_per_block = variant.shared_mem_per_block;
   spec.shared_mem_per_multiprocessor = variant.shared_mem_per_multiprocessor;
+  spec.shared_memory_per_ap_bytes = variant.shared_mem_per_multiprocessor;
   spec.max_shared_mem_per_multiprocessor = variant.max_shared_mem_per_multiprocessor;
   spec.cache_model.dram_latency = variant.dram_latency;
 
