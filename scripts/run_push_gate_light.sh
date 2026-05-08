@@ -23,12 +23,23 @@ configure_build() {
   cmake -S "$ROOT" -B "$build_dir" "${GENERATOR[@]}" "$@"
 }
 
+# Build targets, skipping gpu_model_hip_ld_preload if ROCm headers are absent.
+build_targets() {
+  local build_dir="$1"
+  shift
+  local targets=(gpu_model_tests)
+  if cmake --build "$build_dir" --target help 2>/dev/null | grep -q "gpu_model_hip_ld_preload"; then
+    targets+=(gpu_model_hip_ld_preload)
+  fi
+  cmake --build "$build_dir" --target "${targets[@]}" -j "$JOBS" "$@"
+}
+
 run_release_smoke() {
   echo "[push-gate-light] configure release build"
   configure_build "$RELEASE_BUILD_DIR" -DCMAKE_BUILD_TYPE=Release -DGPU_MODEL_ENABLE_ASAN=OFF \
     2>&1 | tee "$GATE_LOG_DIR/release.configure.log"
   echo "[push-gate-light] build release smoke targets"
-  cmake --build "$RELEASE_BUILD_DIR" --target gpu_model_tests gpu_model_hip_ld_preload -j "$JOBS" \
+  build_targets "$RELEASE_BUILD_DIR" \
     2>&1 | tee "$GATE_LOG_DIR/release.build.log"
   echo "[push-gate-light] run release smoke filter=$SMOKE_FILTER"
   "$RELEASE_BUILD_DIR/tests/gpu_model_tests" \
@@ -41,7 +52,7 @@ run_debug_asan_smoke() {
   configure_build "$DEBUG_BUILD_DIR" -DCMAKE_BUILD_TYPE=Debug -DGPU_MODEL_ENABLE_ASAN=ON \
     2>&1 | tee "$GATE_LOG_DIR/debug_asan.configure.log"
   echo "[push-gate-light] build debug+asan smoke targets"
-  cmake --build "$DEBUG_BUILD_DIR" --target gpu_model_tests gpu_model_hip_ld_preload -j "$JOBS" \
+  build_targets "$DEBUG_BUILD_DIR" \
     2>&1 | tee "$GATE_LOG_DIR/debug_asan.build.log"
   echo "[push-gate-light] run debug+asan smoke filter=$SMOKE_FILTER"
   "$DEBUG_BUILD_DIR/tests/gpu_model_tests" \
