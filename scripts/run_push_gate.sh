@@ -50,12 +50,23 @@ with summary_path.open('w') as f:
 PY
 }
 
+# Build targets, skipping gpu_model_hip_ld_preload if ROCm headers are absent.
+build_targets() {
+  local build_dir="$1"
+  shift
+  local targets=(gpu_model_tests gpu_model_perfetto_waitcnt_slots_demo)
+  if cmake --build "$build_dir" --target help 2>/dev/null | grep -q "gpu_model_hip_ld_preload"; then
+    targets+=(gpu_model_hip_ld_preload)
+  fi
+  cmake --build "$build_dir" --target "${targets[@]}" -j "$JOBS" "$@"
+}
+
 run_release_tests() {
   echo "[push-gate] configure release build"
   configure_build "$RELEASE_BUILD_DIR" -DCMAKE_BUILD_TYPE=Release -DGPU_MODEL_ENABLE_ASAN=OFF \
     2>&1 | tee "$GATE_LOG_DIR/release.configure.log"
   echo "[push-gate] build release targets"
-  cmake --build "$RELEASE_BUILD_DIR" --target gpu_model_tests gpu_model_hip_ld_preload gpu_model_perfetto_waitcnt_slots_demo -j "$JOBS" \
+  build_targets "$RELEASE_BUILD_DIR" \
     2>&1 | tee "$GATE_LOG_DIR/release.build.log"
   echo "[push-gate] run release gpu_model_tests"
   "$RELEASE_BUILD_DIR/tests/gpu_model_tests" \
@@ -70,7 +81,7 @@ run_debug_asan_tests() {
   configure_build "$DEBUG_BUILD_DIR" -DCMAKE_BUILD_TYPE=Debug -DGPU_MODEL_ENABLE_ASAN=ON \
     2>&1 | tee "$GATE_LOG_DIR/debug_asan.configure.log"
   echo "[push-gate] build debug+asan targets"
-  cmake --build "$DEBUG_BUILD_DIR" --target gpu_model_tests gpu_model_hip_ld_preload gpu_model_perfetto_waitcnt_slots_demo -j "$JOBS" \
+  build_targets "$DEBUG_BUILD_DIR" \
     2>&1 | tee "$GATE_LOG_DIR/debug_asan.build.log"
   echo "[push-gate] run debug+asan gpu_model_tests filter=$DEBUG_ASAN_GTEST_FILTER"
   "$DEBUG_BUILD_DIR/tests/gpu_model_tests" \
