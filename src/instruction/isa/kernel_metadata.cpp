@@ -36,6 +36,11 @@ KernelHiddenArgKind ParseKernelHiddenArgKind(std::string_view text) {
   if (text == "hidden_private_base") return KernelHiddenArgKind::PrivateBase;
   if (text == "hidden_shared_base") return KernelHiddenArgKind::SharedBase;
   if (text == "hidden_queue_ptr") return KernelHiddenArgKind::QueuePtr;
+  if (text == "hidden_hostcall_buffer") return KernelHiddenArgKind::HostcallBuffer;
+  if (text == "hidden_multigrid_sync_arg") return KernelHiddenArgKind::MultigridSyncArg;
+  if (text == "hidden_heap_v1") return KernelHiddenArgKind::HeapV1;
+  if (text == "hidden_default_queue") return KernelHiddenArgKind::DefaultQueue;
+  if (text == "hidden_completion_action") return KernelHiddenArgKind::CompletionAction;
   if (text == "hidden_none") return KernelHiddenArgKind::None;
   return KernelHiddenArgKind::Unknown;
 }
@@ -88,6 +93,16 @@ std::string_view ToString(KernelHiddenArgKind kind) {
       return "hidden_shared_base";
     case KernelHiddenArgKind::QueuePtr:
       return "hidden_queue_ptr";
+    case KernelHiddenArgKind::HostcallBuffer:
+      return "hidden_hostcall_buffer";
+    case KernelHiddenArgKind::MultigridSyncArg:
+      return "hidden_multigrid_sync_arg";
+    case KernelHiddenArgKind::HeapV1:
+      return "hidden_heap_v1";
+    case KernelHiddenArgKind::DefaultQueue:
+      return "hidden_default_queue";
+    case KernelHiddenArgKind::CompletionAction:
+      return "hidden_completion_action";
     case KernelHiddenArgKind::None:
       return "hidden_none";
     case KernelHiddenArgKind::Unknown:

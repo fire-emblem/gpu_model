@@ -79,6 +79,11 @@ uint64_t HiddenArgValue(const KernelHiddenArgLayoutEntry& entry, const LaunchCon
       return MemoryPoolBaseUpper32(MemoryPoolKind::Shared);
     case KernelHiddenArgKind::QueuePtr:
       return config.queue_ptr;
+    case KernelHiddenArgKind::HostcallBuffer:
+    case KernelHiddenArgKind::MultigridSyncArg:
+    case KernelHiddenArgKind::HeapV1:
+    case KernelHiddenArgKind::DefaultQueue:
+    case KernelHiddenArgKind::CompletionAction:
     case KernelHiddenArgKind::None:
     case KernelHiddenArgKind::Unknown:
       return 0;

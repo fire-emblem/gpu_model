@@ -35,6 +35,11 @@ enum class KernelHiddenArgKind {
   PrivateBase,
   SharedBase,
   QueuePtr,
+  HostcallBuffer,
+  MultigridSyncArg,
+  HeapV1,
+  DefaultQueue,
+  CompletionAction,
   None,
 };
 
