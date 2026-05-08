@@ -97,7 +97,7 @@ run_all_examples() {
   configure_build "$EXAMPLES_BUILD_DIR" -DCMAKE_BUILD_TYPE=Release -DGPU_MODEL_ENABLE_ASAN=OFF \
     2>&1 | tee "$GATE_LOG_DIR/examples.configure.log"
   echo "[push-gate] build examples release targets"
-  cmake --build "$EXAMPLES_BUILD_DIR" --target gpu_model_tests gpu_model_hip_ld_preload gpu_model_perfetto_waitcnt_slots_demo -j "$JOBS" \
+  build_targets "$EXAMPLES_BUILD_DIR" \
     2>&1 | tee "$GATE_LOG_DIR/examples.build.log"
   echo "[push-gate] run all examples on examples release build"
   echo "[push-gate] note: non-comparison examples default to mt; comparison examples keep explicit multi-mode coverage"
