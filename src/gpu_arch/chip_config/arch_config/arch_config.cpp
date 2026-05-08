@@ -257,9 +257,9 @@ std::shared_ptr<const GpuArchSpec> LoadArchConfigFromString(
   return BuildGpuArchSpec(cfg);
 }
 
-void RegisterArchConfig(const std::string& /*name*/,
-                        std::shared_ptr<const GpuArchSpec> /*spec*/) {
-  // TODO: Extend ArchRegistry to support runtime registration
+void RegisterArchConfig(const std::string& name,
+                        std::shared_ptr<const GpuArchSpec> spec) {
+  ArchRegistry::Register(name, std::move(spec));
 }
 
 }  // namespace gpu_model
