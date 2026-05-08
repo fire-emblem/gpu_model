@@ -137,6 +137,18 @@ std::string RenderRecorderTextTrace(const Recorder& recorder) {
       if (!kernel.occupancy_block_limiter.empty()) {
         text += "occupancy_block_limiter=" + kernel.occupancy_block_limiter + "\n";
       }
+      if (kernel.kernel_vgpr_count > 0) {
+        text += "kernel_vgpr_count=" + std::to_string(kernel.kernel_vgpr_count) + "\n";
+      }
+      if (kernel.kernel_sgpr_count > 0) {
+        text += "kernel_sgpr_count=" + std::to_string(kernel.kernel_sgpr_count) + "\n";
+      }
+      if (kernel.kernel_agpr_count > 0) {
+        text += "kernel_agpr_count=" + std::to_string(kernel.kernel_agpr_count) + "\n";
+      }
+      if (kernel.kernel_shared_memory_bytes > 0) {
+        text += "kernel_shared_memory_bytes=" + std::to_string(kernel.kernel_shared_memory_bytes) + "\n";
+      }
     }
     text += "\n";
   }
@@ -334,6 +346,18 @@ std::string RenderRecorderJsonTrace(const Recorder& recorder) {
       }
       if (!kernel.occupancy_block_limiter.empty()) {
         text += ",\"occupancy_block_limiter\":\"" + kernel.occupancy_block_limiter + "\"";
+      }
+      if (kernel.kernel_vgpr_count > 0) {
+        text += ",\"kernel_vgpr_count\":" + std::to_string(kernel.kernel_vgpr_count);
+      }
+      if (kernel.kernel_sgpr_count > 0) {
+        text += ",\"kernel_sgpr_count\":" + std::to_string(kernel.kernel_sgpr_count);
+      }
+      if (kernel.kernel_agpr_count > 0) {
+        text += ",\"kernel_agpr_count\":" + std::to_string(kernel.kernel_agpr_count);
+      }
+      if (kernel.kernel_shared_memory_bytes > 0) {
+        text += ",\"kernel_shared_memory_bytes\":" + std::to_string(kernel.kernel_shared_memory_bytes);
       }
     }
     text += "}\n";

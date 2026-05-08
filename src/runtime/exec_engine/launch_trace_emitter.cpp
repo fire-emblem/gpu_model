@@ -18,7 +18,8 @@ void EmitLaunchTracePreamble(TraceSink& trace,
                              uint64_t submit_cycle,
                              const ProgramObject* program_object,
                              const PlacementMap& placement,
-                             const std::optional<OccupancyResult>& occupancy) {
+                             const std::optional<OccupancyResult>& occupancy,
+                             const KernelResourceUsage& resource_usage) {
   TraceRunSnapshot run_snapshot{
       .invocation = CaptureInvocationLine(),
       .execution_model = request.mode == ExecutionMode::Cycle ? "cycle" : "functional",
@@ -55,6 +56,10 @@ void EmitLaunchTracePreamble(TraceSink& trace,
     kernel_snapshot.occupancy_wave_limiter = occ.wave_limiting_factor;
     kernel_snapshot.occupancy_block_limiter = occ.block_limiting_factor;
   }
+  kernel_snapshot.kernel_vgpr_count = resource_usage.vgpr_count;
+  kernel_snapshot.kernel_sgpr_count = resource_usage.sgpr_count;
+  kernel_snapshot.kernel_agpr_count = resource_usage.agpr_count;
+  kernel_snapshot.kernel_shared_memory_bytes = resource_usage.shared_memory_bytes;
   trace.OnKernelSnapshot(kernel_snapshot);
 
   std::ostringstream launch_message;

@@ -489,10 +489,14 @@ TEST(TraceSinkTest, OccupancySectionAppearsWhenResourceMetadataPresent) {
   EXPECT_NE(text.find("theoretical_max_waves_per_peu="), std::string::npos);
   EXPECT_NE(text.find("theoretical_occupancy_pct="), std::string::npos);
   EXPECT_NE(text.find("occupancy_wave_limiter="), std::string::npos);
+  EXPECT_NE(text.find("kernel_vgpr_count=16"), std::string::npos);
+  EXPECT_NE(text.find("kernel_sgpr_count=16"), std::string::npos);
 
   const std::string json = ReadTextFile(dir / "trace.jsonl");
   EXPECT_NE(json.find("\"theoretical_max_waves_per_peu\":"), std::string::npos);
   EXPECT_NE(json.find("\"theoretical_occupancy_pct\":"), std::string::npos);
+  EXPECT_NE(json.find("\"kernel_vgpr_count\":16"), std::string::npos);
+  EXPECT_NE(json.find("\"kernel_sgpr_count\":16"), std::string::npos);
 }
 
 }  // namespace

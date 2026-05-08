@@ -27,7 +27,12 @@ namespace gpu_model {
 
 namespace {
 
-std::optional<OccupancyResult> ComputeLaunchOccupancy(
+struct LaunchOccupancyInfo {
+  std::optional<OccupancyResult> occupancy;
+  KernelResourceUsage resource_usage;
+};
+
+LaunchOccupancyInfo ComputeLaunchOccupancy(
     const GpuArchSpec& spec,
     const ValidatedLaunchRequest& prepared,
     const LaunchConfig& config) {
@@ -51,7 +56,7 @@ std::optional<OccupancyResult> ComputeLaunchOccupancy(
                    static_cast<uint32_t>(std::stoul(v->second)));
     }
   } catch (...) {
-    return std::nullopt;
+    return {.occupancy = std::nullopt, .resource_usage = usage};
   }
 
   if (prepared.use_program_object_payload && prepared.program_object != nullptr) {
@@ -82,11 +87,11 @@ std::optional<OccupancyResult> ComputeLaunchOccupancy(
 
   if (usage.vgpr_count == 0 && usage.sgpr_count == 0 && usage.shared_memory_bytes == 0) {
     // No resource info available; skip occupancy analysis
-    return std::nullopt;
+    return {.occupancy = std::nullopt, .resource_usage = usage};
   }
 
   OccupancyCalculator calc(spec);
-  return calc.Calculate(usage);
+  return {.occupancy = calc.Calculate(usage), .resource_usage = usage};
 }
 
 }  // namespace
@@ -243,7 +248,7 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
   try {
     PrepareCycleLaunchResult(request, *spec, cycle_launch_state_, result);
     result.placement = Mapper::Place(*spec, request.config);
-    const auto occupancy = ComputeLaunchOccupancy(*spec, prepared, request.config);
+    const auto occ_info = ComputeLaunchOccupancy(*spec, prepared, request.config);
     EmitLaunchTracePreamble(trace,
                             request,
                             *spec,
@@ -252,7 +257,8 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
                             result.submit_cycle,
                             program_object,
                             result.placement,
-                            occupancy);
+                            occ_info.occupancy,
+                            occ_info.resource_usage);
     const auto timing_config = ResolveCycleTimingConfig(*spec);
     if (!DispatchLaunch(request,
                         prepared,
@@ -270,7 +276,7 @@ LaunchResult ExecEngineImpl::Launch(const LaunchRequest& request) {
       result.ok = true;
     }
 
-    EmitLaunchTraceSummary(trace, request, result, occupancy);
+    EmitLaunchTraceSummary(trace, request, result, occ_info.occupancy);
   } catch (const std::exception& ex) {
     result.error_message = ex.what();
     result.ok = false;
