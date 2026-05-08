@@ -24,8 +24,8 @@ if [[ -d "${ROCM_INSTALL}" ]]; then
     export LD_LIBRARY_PATH="${ROCM_INSTALL}/lib:${ROCM_INSTALL}/lib64:${ROCM_INSTALL}/lib/llvm/lib:${LD_LIBRARY_PATH:-}"
 fi
 
-# 项目本地工具: ccache, mold
-export PATH="${TOOLS_DIR}/conda/bin:${TOOLS_DIR}/mold-2.31.0-x86_64-linux/bin:${PATH}"
+# 项目本地工具: ccache, mold, hipcc/llvm tools
+export PATH="${TOOLS_DIR}/conda/bin:${TOOLS_DIR}/mold-2.31.0-x86_64-linux/bin:${TOOLS_DIR}/hipcc/bin:${PATH}"
 
 # ccache 依赖库
 if [[ -d "${TOOLS_DIR}/conda/lib" ]]; then

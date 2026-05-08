@@ -4,9 +4,62 @@ set -euo pipefail
 CACHE_DIR="${GPU_MODEL_HIPCC_CACHE_DIR:-/tmp/gpu_model_hipcc_cache}"
 mkdir -p "$CACHE_DIR"
 
-if ! command -v hipcc >/dev/null 2>&1; then
-  echo "missing tool: hipcc" >&2
+# Resolve hipcc: prefer full ROCm SDK over conda hipcc (conda lacks device libs)
+resolve_hipcc() {
+  if command -v hipcc >/dev/null 2>&1; then
+    printf '%s' "hipcc"
+    return 0
+  fi
+  # Check full ROCm SDK installation first (has device libs)
+  local rocm_candidates=(
+    "${HOME}/tools/rocm/rocm/opt/rocm-6.2.0"
+    "/opt/rocm"
+  )
+  for rocm in "${rocm_candidates[@]}"; do
+    if [[ -x "${rocm}/bin/hipcc" ]]; then
+      printf '%s' "${rocm}/bin/hipcc"
+      return 0
+    fi
+  done
+  # Check project-local conda hipcc as fallback
+  local script_dir
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  if [[ -x "${script_dir}/hipcc/bin/hipcc" ]]; then
+    printf '%s' "${script_dir}/hipcc/bin/hipcc"
+    return 0
+  fi
+  return 1
+}
+
+HIPCC_BIN="$(resolve_hipcc)" || {
+  echo "missing tool: hipcc (not in PATH, not in tools/hipcc, no ROCm SDK found)" >&2
   exit 1
+}
+
+# Ensure HIP_DEVICE_LIB_PATH is set if not already, so hipcc can find ROCm device libs
+if [[ -z "${HIP_DEVICE_LIB_PATH:-}" ]]; then
+  # Try ROCm 6.2 SDK first, then conda hipcc bundled libs
+  for candidate in \
+    "${HOME}/tools/rocm/rocm/opt/rocm-6.2.0/amdgcn/bitcode" \
+    "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/hipcc/lib/amdgcn/bitcode" \
+    "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/hipcc/rocm/lib/amdgcn/bitcode" \
+    "/opt/rocm/amdgcn/bitcode"; do
+    if [[ -d "${candidate}" && -f "${candidate}/ockl.bc" ]]; then
+      export HIP_DEVICE_LIB_PATH="${candidate}"
+      break
+    fi
+  done
+fi
+
+# Set ROCM_PATH if using ROCm SDK hipcc, so it can find its own device libs
+if [[ -z "${ROCM_PATH:-}" ]]; then
+  # Infer from resolved hipcc binary path
+  case "${HIPCC_BIN}" in
+    */rocm-*/bin/hipcc)
+      ROCM_PATH="$(cd "$(dirname "${HIPCC_BIN}")/.." && pwd)"
+      export ROCM_PATH
+      ;;
+  esac
 fi
 
 if ! command -v sha256sum >/dev/null 2>&1; then
@@ -54,7 +107,7 @@ if [[ ${#input_files[@]} -eq 0 ]]; then
   exit 1
 fi
 
-hipcc_version="$(hipcc --version 2>/dev/null || true)"
+hipcc_version="$("${HIPCC_BIN}" --version 2>/dev/null || true)"
 
 key_material_file="$(mktemp)"
 trap 'rm -f "$key_material_file"' EXIT
@@ -104,7 +157,7 @@ for arg in "${hipcc_args[@]}"; do
   fi
 done
 
-hipcc "${compile_args[@]}"
+"${HIPCC_BIN}" "${compile_args[@]}"
 
 mv "$tmp_output_path" "$cache_output_path"
 mkdir -p "$(dirname "$out_path")"
