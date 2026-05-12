@@ -74,6 +74,41 @@ if [[ -z "${HIP_CLANG_PATH:-}" ]]; then
   esac
 fi
 
+resolve_tool_dir() {
+  local candidate
+  for candidate in \
+    "${GPU_MODEL_TOOLCHAIN_DIR:-}" \
+    "${ROCM_PATH:-}/llvm/bin" \
+    "${ROCM_PATH:-}/lib/llvm/bin" \
+    "${ROCM_HOME:-}/llvm/bin" \
+    "${ROCM_HOME:-}/lib/llvm/bin" \
+    "${HIP_PATH:-}/llvm/bin" \
+    "${HIP_PATH:-}/lib/llvm/bin" \
+    "$(cd "$(dirname "${HIPCC_BIN}")/.." && pwd)/llvm/bin" \
+    "$(cd "$(dirname "${HIPCC_BIN}")/.." && pwd)/lib/llvm/bin" \
+    "/opt/rocm/llvm/bin" \
+    "/opt/rocm/lib/llvm/bin" \
+    "/opt/rocm-6.0.2/llvm/bin" \
+    "/opt/rocm-6.0.2/lib/llvm/bin" \
+    "/opt/rocm-6.2.0/llvm/bin" \
+    "/opt/rocm-6.2.0/lib/llvm/bin"; do
+    if [[ -n "$candidate" && -x "$candidate/clang-offload-bundler" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+if ! command -v clang-offload-bundler >/dev/null 2>&1; then
+  if tool_dir="$(resolve_tool_dir)"; then
+    export PATH="$tool_dir:$PATH"
+  else
+    echo "missing tool: clang-offload-bundler" >&2
+    exit 1
+  fi
+fi
+
 if ! command -v sha256sum >/dev/null 2>&1; then
   echo "missing tool: sha256sum" >&2
   exit 1

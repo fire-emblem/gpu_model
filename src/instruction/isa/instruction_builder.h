@@ -56,10 +56,15 @@ class InstructionBuilder : public KernelProgramBuilder {
   InstructionBuilder& SOr(std::string_view dest, std::string_view lhs, uint64_t rhs);
   InstructionBuilder& SXor(std::string_view dest, std::string_view lhs, std::string_view rhs);
   InstructionBuilder& SXor(std::string_view dest, std::string_view lhs, uint64_t rhs);
+  InstructionBuilder& SMinU32(std::string_view dest, std::string_view lhs, std::string_view rhs);
+  InstructionBuilder& SMinU32(std::string_view dest, std::string_view lhs, uint64_t rhs);
+  InstructionBuilder& SMaxU32(std::string_view dest, std::string_view lhs, std::string_view rhs);
+  InstructionBuilder& SMaxU32(std::string_view dest, std::string_view lhs, uint64_t rhs);
   InstructionBuilder& SShl(std::string_view dest, std::string_view lhs, std::string_view rhs);
   InstructionBuilder& SShl(std::string_view dest, std::string_view lhs, uint64_t rhs);
   InstructionBuilder& SShr(std::string_view dest, std::string_view lhs, std::string_view rhs);
   InstructionBuilder& SShr(std::string_view dest, std::string_view lhs, uint64_t rhs);
+  InstructionBuilder& SFF1I32B32(std::string_view dest, std::string_view src);
   InstructionBuilder& SWaitCnt(uint32_t global_count,
                                uint32_t shared_count,
                                uint32_t private_count,

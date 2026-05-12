@@ -17,10 +17,40 @@ else
   GENERATOR=()
 fi
 
+CMAKE_COMPILER_ARGS=()
+if [[ -z "${CXX:-}" ]]; then
+  for candidate in \
+    "$ROOT/tools/gcc/bin/g++" \
+    "$HOME/bin/g++" \
+    /usr/bin/g++-13 \
+    /usr/bin/g++-12 \
+    /usr/bin/g++-11 \
+    /usr/bin/clang++-17; do
+    if [[ -x "$candidate" ]]; then
+      CMAKE_COMPILER_ARGS+=("-DCMAKE_CXX_COMPILER=$candidate")
+      break
+    fi
+  done
+fi
+if [[ -z "${CC:-}" ]]; then
+  for candidate in \
+    "$ROOT/tools/gcc/bin/gcc" \
+    "$HOME/bin/gcc" \
+    /usr/bin/gcc-13 \
+    /usr/bin/gcc-12 \
+    /usr/bin/gcc-11 \
+    /usr/bin/clang-17; do
+    if [[ -x "$candidate" ]]; then
+      CMAKE_COMPILER_ARGS+=("-DCMAKE_C_COMPILER=$candidate")
+      break
+    fi
+  done
+fi
+
 configure_build() {
   local build_dir="$1"
   shift
-  cmake -S "$ROOT" -B "$build_dir" "${GENERATOR[@]}" "$@"
+  cmake -S "$ROOT" -B "$build_dir" "${GENERATOR[@]}" "${CMAKE_COMPILER_ARGS[@]}" "$@"
 }
 
 # Build targets, skipping gpu_model_hip_ld_preload if ROCm headers are absent.

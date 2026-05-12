@@ -2,8 +2,11 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdlib>
 #include <cstring>
 #include <stdexcept>
+#include <string_view>
+#include <vector>
 
 #include <sys/mman.h>
 #include <unistd.h>
@@ -19,8 +22,32 @@ constexpr uintptr_t kManagedAbiWindowBase = 0x0000610000000000ull;
 
 DeviceMemoryManager::DeviceMemoryManager(MemorySystem* memory)
     : memory_(memory), windows_(BuildDefaultAbiWindows()) {
-  for (const auto& window : windows_) {
-    ReserveAbiWindow(window.base, window.size);
+  std::vector<AbiWindow*> reserved_fixed_windows;
+  const char* force_relocated_env = std::getenv("GPU_MODEL_FORCE_RELOCATED_ABI_WINDOWS");
+  const bool force_relocated = force_relocated_env != nullptr &&
+                               std::string_view(force_relocated_env) == "1";
+
+  if (!force_relocated) {
+    for (auto& window : windows_) {
+      if (TryReserveAbiWindow(window.base, window.size) == nullptr) {
+        break;
+      }
+      reserved_fixed_windows.push_back(&window);
+    }
+  }
+
+  if (reserved_fixed_windows.size() == windows_.size()) {
+    return;
+  }
+
+  for (const auto* window : reserved_fixed_windows) {
+    ReleaseAbiWindow(window->base, window->size);
+  }
+
+  const size_t total_window_bytes = kAbiWindowCount * kAbiWindowSize;
+  auto* relocated_base = ReserveAnyAbiWindow(total_window_bytes);
+  for (size_t i = 0; i < windows_.size(); ++i) {
+    windows_[i].base = reinterpret_cast<uintptr_t>(relocated_base) + i * kAbiWindowSize;
   }
 }
 
@@ -257,11 +284,29 @@ DeviceMemoryManager::BuildDefaultAbiWindows() {
             .free_ranges = {}}}};
 }
 
-std::byte* DeviceMemoryManager::ReserveAbiWindow(uintptr_t base, size_t bytes) {
-  void* addr = ::mmap(reinterpret_cast<void*>(base),
+std::byte* DeviceMemoryManager::TryReserveAbiWindow(uintptr_t base, size_t bytes) {
+  void* requested = reinterpret_cast<void*>(base);
+  void* addr = ::mmap(requested,
                       bytes,
                       PROT_NONE,
                       MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE | MAP_FIXED_NOREPLACE,
+                      -1,
+                      0);
+  if (addr == MAP_FAILED) {
+    return nullptr;
+  }
+  if (addr != requested) {
+    ::munmap(addr, bytes);
+    return nullptr;
+  }
+  return reinterpret_cast<std::byte*>(addr);
+}
+
+std::byte* DeviceMemoryManager::ReserveAnyAbiWindow(size_t bytes) {
+  void* addr = ::mmap(nullptr,
+                      bytes,
+                      PROT_NONE,
+                      MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE,
                       -1,
                       0);
   if (addr == MAP_FAILED) {

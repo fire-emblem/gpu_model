@@ -14,11 +14,7 @@ namespace gpu_model {
 namespace {
 
 bool HasHipHostToolchain() {
-  return std::system("command -v hipcc >/dev/null 2>&1") == 0 &&
-         std::system("command -v clang-offload-bundler >/dev/null 2>&1") == 0 &&
-         std::system("command -v llvm-objcopy >/dev/null 2>&1") == 0 &&
-         std::system("command -v llvm-objdump >/dev/null 2>&1") == 0 &&
-         std::system("command -v readelf >/dev/null 2>&1") == 0;
+  return test_utils::HasHipHostToolchain();
 }
 
 std::filesystem::path MakeUniqueTempDir(const std::string& stem) {
@@ -32,11 +28,9 @@ std::filesystem::path MakeUniqueTempDir(const std::string& stem) {
 }
 
 TEST(AmdgpuObjLoaderTest, LoadsExecutableKernelFromAmdgpuObjectFile) {
-  if (std::system("command -v llc >/dev/null 2>&1") != 0 ||
-      std::system("command -v llvm-objdump >/dev/null 2>&1") != 0 ||
-      std::system("command -v readelf >/dev/null 2>&1") != 0) {
-    GTEST_SKIP() << "required LLVM/binutils tools not available";
-  }
+  const std::string llc = test_utils::ResolveTestTool("llc");
+  (void)test_utils::ResolveTestTool("llvm-objdump");
+  (void)test_utils::ResolveTestTool("readelf");
 
   const auto temp_dir = MakeUniqueTempDir("gpu_model_amdgpu_obj_loader");
   const auto ir_path = temp_dir / "empty_kernel.ll";
@@ -53,7 +47,7 @@ TEST(AmdgpuObjLoaderTest, LoadsExecutableKernelFromAmdgpuObjectFile) {
   }
 
   const std::string command =
-      "llc -march=amdgcn -mcpu=" + std::string(kProjectAmdgpuMcpu) + " -filetype=obj " +
+      llc + " -march=amdgcn -mcpu=" + std::string(kProjectAmdgpuMcpu) + " -filetype=obj " +
       ir_path.string() + " -o " + obj_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 

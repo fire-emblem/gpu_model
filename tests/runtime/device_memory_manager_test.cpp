@@ -1,10 +1,35 @@
 #include <gtest/gtest.h>
 
+#include <cstdlib>
+#include <optional>
+#include <string>
+
 #include "state/memory/memory_system.h"
 #include "runtime/model_runtime/compat/abi/device_memory_manager.h"
 
 namespace gpu_model {
 namespace {
+
+class EnvGuard {
+ public:
+  explicit EnvGuard(const char* name) : name_(name) {
+    if (const char* value = std::getenv(name); value != nullptr) {
+      previous_ = value;
+    }
+  }
+
+  ~EnvGuard() {
+    if (previous_.has_value()) {
+      setenv(name_, previous_->c_str(), 1);
+    } else {
+      unsetenv(name_);
+    }
+  }
+
+ private:
+  const char* name_;
+  std::optional<std::string> previous_;
+};
 
 TEST(DeviceMemoryManagerTest, ClassifiesPointersByAbiWindow) {
   MemorySystem memory;
@@ -136,6 +161,25 @@ TEST(DeviceMemoryManagerTest, ResetPreservesReservedWindowButClearsCommittedByte
   EXPECT_EQ(global_window_after_reset->base, base_before);
   EXPECT_EQ(global_window_after_reset->size, size_before);
   EXPECT_EQ(global_window_after_reset->committed_bytes, 0u);
+}
+
+TEST(DeviceMemoryManagerTest, RelocatedAbiWindowsRemainClassifiableWhenFixedWindowsAreUnavailable) {
+  EnvGuard guard("GPU_MODEL_FORCE_RELOCATED_ABI_WINDOWS");
+  setenv("GPU_MODEL_FORCE_RELOCATED_ABI_WINDOWS", "1", 1);
+
+  MemorySystem memory;
+  DeviceMemoryManager manager(&memory);
+
+  const auto* global_window = manager.GetAbiWindow(MemoryPoolKind::Global);
+  const auto* managed_window = manager.GetAbiWindow(MemoryPoolKind::Managed);
+  ASSERT_NE(global_window, nullptr);
+  ASSERT_NE(managed_window, nullptr);
+  EXPECT_EQ(managed_window->base, global_window->base + global_window->size);
+
+  void* global_ptr = manager.AllocateGlobal(64, memory.AllocateGlobal(64));
+  void* managed_ptr = manager.AllocateManaged(64, memory.Allocate(MemoryPoolKind::Managed, 64));
+  EXPECT_EQ(manager.ClassifyAbiPointer(global_ptr), MemoryPoolKind::Global);
+  EXPECT_EQ(manager.ClassifyAbiPointer(managed_ptr), MemoryPoolKind::Managed);
 }
 
 TEST(DeviceMemoryManagerTest, ResolvesInteriorPointersWithinLiveAllocation) {

@@ -310,6 +310,20 @@ ExecutableKernel AsmParser::Parse(const ProgramObject& image) const {
       } else {
         builder.SXor(operands[0], operands[1], ParseImmediate(operands[2]));
       }
+    } else if (opcode == "s_min_u32") {
+      RequireOperandCount(opcode, operands, 3);
+      if (IsRegister(operands[2])) {
+        builder.SMinU32(operands[0], operands[1], operands[2]);
+      } else {
+        builder.SMinU32(operands[0], operands[1], ParseImmediate(operands[2]));
+      }
+    } else if (opcode == "s_max_u32") {
+      RequireOperandCount(opcode, operands, 3);
+      if (IsRegister(operands[2])) {
+        builder.SMaxU32(operands[0], operands[1], operands[2]);
+      } else {
+        builder.SMaxU32(operands[0], operands[1], ParseImmediate(operands[2]));
+      }
     } else if (opcode == "s_lshl_b32") {
       RequireOperandCount(opcode, operands, 3);
       if (IsRegister(operands[2])) {
@@ -324,6 +338,9 @@ ExecutableKernel AsmParser::Parse(const ProgramObject& image) const {
       } else {
         builder.SShr(operands[0], operands[1], ParseImmediate(operands[2]));
       }
+    } else if (opcode == "s_ff1_i32_b32") {
+      RequireOperandCount(opcode, operands, 2);
+      builder.SFF1I32B32(operands[0], operands[1]);
     } else if (opcode == "s_waitcnt") {
       const auto thresholds =
           ParseWaitCnt(space == std::string::npos ? std::string_view{} :

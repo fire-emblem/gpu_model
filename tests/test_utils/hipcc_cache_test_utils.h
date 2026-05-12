@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include "program/loader/amdgpu_target_config.h"
+#include "tests/test_utils/llvm_mc_test_support.h"
 
 namespace gpu_model::test_utils {
 
@@ -44,6 +45,20 @@ inline std::string ShellQuote(const std::filesystem::path& path) {
 inline std::string HipccCacheCommand() {
   return ShellQuote(RepoRootPath() / "tools/hipcc_cache.sh") + " --offload-arch=" +
          std::string(kProjectAmdgpuMcpu);
+}
+
+inline void RequireHipHostToolchain() {
+  (void)ResolveTestTool("hipcc");
+  (void)ResolveTestTool("clang-offload-bundler");
+  (void)ResolveTestTool("llvm-objcopy");
+  (void)ResolveTestTool("llvm-objdump");
+  (void)ResolveTestTool("llvm-readelf");
+  (void)ResolveTestTool("readelf");
+}
+
+inline bool HasHipHostToolchain() {
+  RequireHipHostToolchain();
+  return true;
 }
 
 }  // namespace gpu_model::test_utils

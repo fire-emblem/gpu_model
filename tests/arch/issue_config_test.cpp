@@ -8,6 +8,12 @@ namespace {
 TEST(IssueConfigTest, MapsRepresentativeOpcodesToWhitepaperIssueTypes) {
   EXPECT_EQ(ArchitecturalIssueTypeForOpcode(Opcode::BBranch), ArchitecturalIssueType::Branch);
   EXPECT_EQ(ArchitecturalIssueTypeForOpcode(Opcode::SAdd), ArchitecturalIssueType::ScalarAluOrMemory);
+  EXPECT_EQ(ArchitecturalIssueTypeForOpcode(Opcode::SMinU32),
+            ArchitecturalIssueType::ScalarAluOrMemory);
+  EXPECT_EQ(ArchitecturalIssueTypeForOpcode(Opcode::SMaxU32),
+            ArchitecturalIssueType::ScalarAluOrMemory);
+  EXPECT_EQ(ArchitecturalIssueTypeForOpcode(Opcode::SFF1I32B32),
+            ArchitecturalIssueType::ScalarAluOrMemory);
   EXPECT_EQ(ArchitecturalIssueTypeForOpcode(Opcode::SBufferLoadDword),
             ArchitecturalIssueType::ScalarAluOrMemory);
   EXPECT_EQ(ArchitecturalIssueTypeForOpcode(Opcode::VAdd), ArchitecturalIssueType::VectorAlu);

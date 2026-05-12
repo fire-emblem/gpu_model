@@ -54,6 +54,20 @@ TEST(OpcodeDescriptorTest, ClassifiesPracticalVectorIsaOps) {
   EXPECT_EQ(GetOpcodeExecutionInfo(Opcode::VFmacF32).family, SemanticFamily::VectorAluFloat);
 }
 
+TEST(OpcodeDescriptorTest, ClassifiesPracticalScalarIsaOps) {
+  EXPECT_EQ(GetOpcodeDescriptor(Opcode::SMinU32).mnemonic, "s_min_u32");
+  EXPECT_EQ(GetOpcodeExecutionInfo(Opcode::SMinU32).family, SemanticFamily::ScalarAlu);
+
+  EXPECT_EQ(GetOpcodeDescriptor(Opcode::SMaxU32).mnemonic, "s_max_u32");
+  EXPECT_EQ(GetOpcodeExecutionInfo(Opcode::SMaxU32).family, SemanticFamily::ScalarAlu);
+
+  EXPECT_EQ(GetOpcodeDescriptor(Opcode::SFF1I32B32).mnemonic, "s_ff1_i32_b32");
+  EXPECT_EQ(GetOpcodeExecutionInfo(Opcode::SFF1I32B32).family, SemanticFamily::ScalarAlu);
+  ASSERT_TRUE(GetOpcodeExecutionInfo(Opcode::SFF1I32B32).issue_type.has_value());
+  EXPECT_EQ(*GetOpcodeExecutionInfo(Opcode::SFF1I32B32).issue_type,
+            ArchitecturalIssueType::ScalarAluOrMemory);
+}
+
 TEST(OpcodeDescriptorTest, ClassifiesMaskAndBranchOps) {
   EXPECT_EQ(GetOpcodeExecutionInfo(Opcode::MaskAndExecCmask).family, SemanticFamily::Mask);
   EXPECT_TRUE(GetOpcodeExecutionInfo(Opcode::BIfNoexec).may_branch);

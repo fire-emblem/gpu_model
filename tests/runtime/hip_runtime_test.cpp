@@ -21,24 +21,17 @@
 #include "runtime/model_runtime/core/model_runtime.h"
 #include "program/loader/amdgpu_target_config.h"
 #include "tests/test_utils/hipcc_cache_test_utils.h"
+#include "tests/test_utils/llvm_mc_test_support.h"
 
 namespace gpu_model {
 namespace {
 
 bool HasHipHostToolchain() {
-  return std::system("command -v hipcc >/dev/null 2>&1") == 0 &&
-         std::system("command -v clang-offload-bundler >/dev/null 2>&1") == 0 &&
-         std::system("command -v llvm-objcopy >/dev/null 2>&1") == 0 &&
-         std::system("command -v llvm-objdump >/dev/null 2>&1") == 0 &&
-         std::system("command -v readelf >/dev/null 2>&1") == 0;
+  return test_utils::HasHipHostToolchain();
 }
 
 bool HasLlvmMcAmdgpuToolchain() {
-  return std::system("command -v llvm-mc >/dev/null 2>&1") == 0 &&
-         std::system("command -v llvm-objcopy >/dev/null 2>&1") == 0 &&
-         std::system("command -v llvm-objdump >/dev/null 2>&1") == 0 &&
-         std::system("command -v llvm-readelf >/dev/null 2>&1") == 0 &&
-         std::system("command -v readelf >/dev/null 2>&1") == 0;
+  return test_utils::HasLlvmMcAmdgpuToolchain();
 }
 
 std::filesystem::path MakeUniqueTempDir(const std::string& stem) {
@@ -51,8 +44,18 @@ std::filesystem::path MakeUniqueTempDir(const std::string& stem) {
   return path;
 }
 
-std::string ShellQuote(const std::filesystem::path& path) {
-  return "'" + path.string() + "'";
+std::string ShellQuote(std::string_view text) {
+  std::string quoted;
+  quoted.push_back('\'');
+  for (char c : text) {
+    if (c == '\'') {
+      quoted += "'\\''";
+    } else {
+      quoted.push_back(c);
+    }
+  }
+  quoted.push_back('\'');
+  return quoted;
 }
 
 std::string ReadTextFile(const std::filesystem::path& path) {
@@ -78,9 +81,10 @@ std::filesystem::path AssembleLlvmMcFixture(const std::string& stem,
     out << ReadTextFile(fixture_path);
   }
   const std::string command =
-      "llvm-mc -triple=" + std::string(kProjectAmdgpuTriple) + " -mcpu=" +
-      std::string(kProjectAmdgpuMcpu) + " -filetype=obj " +
-      ShellQuote(asm_path) + " -o " + ShellQuote(obj_path);
+      ShellQuote(test_utils::ResolveTestTool("llvm-mc")) + " -triple=" +
+      std::string(kProjectAmdgpuTriple) + " -mcpu=" + std::string(kProjectAmdgpuMcpu) +
+      " -filetype=obj " +
+      ShellQuote(asm_path.string()) + " -o " + ShellQuote(obj_path.string());
   if (std::system(command.c_str()) != 0) {
     throw std::runtime_error("llvm-mc failed for fixture: " + fixture_path.string());
   }
@@ -784,11 +788,9 @@ TEST(ModelRuntimeCoreTest, SupportsDeviceToDeviceCopyAndMemsetOperations) {
 }
 
 TEST(ModelRuntimeCoreTest, LaunchesAmdgpuObjectFileThroughObjectReaderPath) {
-  if (std::system("command -v llc >/dev/null 2>&1") != 0 ||
-      std::system("command -v llvm-objdump >/dev/null 2>&1") != 0 ||
-      std::system("command -v readelf >/dev/null 2>&1") != 0) {
-    GTEST_SKIP() << "required LLVM/binutils tools not available";
-  }
+  const std::string llc = test_utils::ResolveTestTool("llc");
+  (void)test_utils::ResolveTestTool("llvm-objdump");
+  (void)test_utils::ResolveTestTool("readelf");
 
   const auto temp_dir = MakeUniqueTempDir("gpu_model_amdgpu_runtime_object");
   const auto ir_path = temp_dir / "empty_kernel.ll";
@@ -805,7 +807,7 @@ TEST(ModelRuntimeCoreTest, LaunchesAmdgpuObjectFileThroughObjectReaderPath) {
   }
 
   const std::string command =
-      "llc -march=amdgcn -mcpu=" + std::string(kProjectAmdgpuMcpu) + " -filetype=obj " +
+      llc + " -march=amdgcn -mcpu=" + std::string(kProjectAmdgpuMcpu) + " -filetype=obj " +
       ir_path.string() + " -o " + obj_path.string();
   ASSERT_EQ(std::system(command.c_str()), 0);
 

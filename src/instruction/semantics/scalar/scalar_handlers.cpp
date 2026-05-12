@@ -137,6 +137,14 @@ class ScalarAluHandler final : public BaseHandler {
       const int32_t result =
           value == 0 ? -1 : static_cast<int32_t>(std::countr_zero(value));
       context.wave.sgpr.Write(sdst, static_cast<uint32_t>(result));
+    } else if (descriptor.op_type == GcnIsaOpType::Sop1 &&
+               descriptor.opcode == static_cast<uint16_t>(GcnIsaSop1Opcode::S_FF1_I32_B32)) {
+      const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
+      const uint32_t value =
+          static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(1), context));
+      const int32_t result =
+          value == 0 ? -1 : static_cast<int32_t>(std::countr_zero(value));
+      context.wave.sgpr.Write(sdst, static_cast<uint32_t>(result));
     } else if (descriptor.op_type == GcnIsaOpType::Sop2 &&
                descriptor.opcode == static_cast<uint16_t>(GcnIsaSop2Opcode::S_OR_B64)) {
       const uint64_t lhs = ResolveScalarPair(instruction.operands.at(1), context.wave, context.vcc);
@@ -209,6 +217,22 @@ class ScalarAluHandler final : public BaseHandler {
       const int32_t rhs =
           static_cast<int32_t>(ResolveScalarLike(instruction.operands.at(2), context));
       context.wave.sgpr.Write(sdst, static_cast<uint32_t>(std::min(lhs, rhs)));
+    } else if (descriptor.op_type == GcnIsaOpType::Sop2 &&
+               descriptor.opcode == static_cast<uint16_t>(GcnIsaSop2Opcode::S_MIN_U32)) {
+      const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
+      const uint32_t lhs =
+          static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(1), context));
+      const uint32_t rhs =
+          static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(2), context));
+      context.wave.sgpr.Write(sdst, std::min(lhs, rhs));
+    } else if (descriptor.op_type == GcnIsaOpType::Sop2 &&
+               descriptor.opcode == static_cast<uint16_t>(GcnIsaSop2Opcode::S_MAX_U32)) {
+      const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
+      const uint32_t lhs =
+          static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(1), context));
+      const uint32_t rhs =
+          static_cast<uint32_t>(ResolveScalarLike(instruction.operands.at(2), context));
+      context.wave.sgpr.Write(sdst, std::max(lhs, rhs));
     } else if (descriptor.op_type == GcnIsaOpType::Sop2 &&
                descriptor.opcode == static_cast<uint16_t>(GcnIsaSop2Opcode::S_ADD_U32)) {
       const uint32_t sdst = RequireScalarIndex(instruction.operands.at(0));
@@ -403,9 +427,12 @@ struct ScalarHandlerRegistrar {
     registry.Register("s_andn2_saveexec_b64", &kMaskHandler);
     registry.Register("s_abs_i32", &kScalarAluHandler);
     registry.Register("s_brev_b32", &kScalarAluHandler);
+    registry.Register("s_ff1_i32_b32", &kScalarAluHandler);
     registry.Register("s_ff1_i32_b64", &kScalarAluHandler);
     registry.Register("s_max_i32", &kScalarAluHandler);
+    registry.Register("s_max_u32", &kScalarAluHandler);
     registry.Register("s_min_i32", &kScalarAluHandler);
+    registry.Register("s_min_u32", &kScalarAluHandler);
     registry.Register("s_sub_i32", &kScalarAluHandler);
     registry.Register("s_lshl_b32", &kScalarAluHandler);
     registry.Register("s_or_b32", &kScalarAluHandler);

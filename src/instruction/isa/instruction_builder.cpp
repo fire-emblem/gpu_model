@@ -231,6 +231,34 @@ InstructionBuilder& InstructionBuilder::SXor(std::string_view dest,
       Opcode::SXor, {ParseRegOperand(dest), ParseRegOperand(lhs), ImmediateOperand(rhs)});
 }
 
+InstructionBuilder& InstructionBuilder::SMinU32(std::string_view dest,
+                                                std::string_view lhs,
+                                                std::string_view rhs) {
+  return AddInstruction(
+      Opcode::SMinU32, {ParseRegOperand(dest), ParseRegOperand(lhs), ParseRegOperand(rhs)});
+}
+
+InstructionBuilder& InstructionBuilder::SMinU32(std::string_view dest,
+                                                std::string_view lhs,
+                                                uint64_t rhs) {
+  return AddInstruction(
+      Opcode::SMinU32, {ParseRegOperand(dest), ParseRegOperand(lhs), ImmediateOperand(rhs)});
+}
+
+InstructionBuilder& InstructionBuilder::SMaxU32(std::string_view dest,
+                                                std::string_view lhs,
+                                                std::string_view rhs) {
+  return AddInstruction(
+      Opcode::SMaxU32, {ParseRegOperand(dest), ParseRegOperand(lhs), ParseRegOperand(rhs)});
+}
+
+InstructionBuilder& InstructionBuilder::SMaxU32(std::string_view dest,
+                                                std::string_view lhs,
+                                                uint64_t rhs) {
+  return AddInstruction(
+      Opcode::SMaxU32, {ParseRegOperand(dest), ParseRegOperand(lhs), ImmediateOperand(rhs)});
+}
+
 InstructionBuilder& InstructionBuilder::SShl(std::string_view dest,
                                              std::string_view lhs,
                                              std::string_view rhs) {
@@ -257,6 +285,10 @@ InstructionBuilder& InstructionBuilder::SShr(std::string_view dest,
                                              uint64_t rhs) {
   return AddInstruction(
       Opcode::SShr, {ParseRegOperand(dest), ParseRegOperand(lhs), ImmediateOperand(rhs)});
+}
+
+InstructionBuilder& InstructionBuilder::SFF1I32B32(std::string_view dest, std::string_view src) {
+  return AddInstruction(Opcode::SFF1I32B32, {ParseRegOperand(dest), ParseRegOperand(src)});
 }
 
 InstructionBuilder& InstructionBuilder::SWaitCnt(uint32_t global_count,

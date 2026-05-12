@@ -458,6 +458,28 @@ TEST_F(EncodedSemanticExecuteTest, ExecutesRepresentativeSop2ScalarAluInstructio
 
   {
     Harness harness;
+    harness.wave.sgpr.Write(6, 9u);
+    harness.wave.sgpr.Write(3, 0xfffffff0u);
+    auto inst = Inst("s_min_u32", 135, {SReg(3), SReg(6), SReg(3)}, 0x176f, 4,
+                     {EncodeSop2Word(/*opcode=*/7, /*sdst=*/3, /*ssrc0=*/6, /*ssrc1=*/3)});
+    harness.wave.pc = inst.pc;
+    EncodedSemanticHandlerRegistry::Get(inst).Execute(inst, harness.context);
+    EXPECT_EQ(harness.wave.sgpr.Read(3), 9u);
+  }
+
+  {
+    Harness harness;
+    harness.wave.sgpr.Write(6, 9u);
+    harness.wave.sgpr.Write(4, 0xfffffff0u);
+    auto inst = Inst("s_max_u32", 136, {SReg(4), SReg(6), SReg(4)}, 0x1770, 4,
+                     {EncodeSop2Word(/*opcode=*/9, /*sdst=*/4, /*ssrc0=*/6, /*ssrc1=*/4)});
+    harness.wave.pc = inst.pc;
+    EncodedSemanticHandlerRegistry::Get(inst).Execute(inst, harness.context);
+    EXPECT_EQ(harness.wave.sgpr.Read(4), 0xfffffff0u);
+  }
+
+  {
+    Harness harness;
     harness.wave.sgpr.Write(1, 0x80u);
     harness.wave.sgpr.Write(2, 2u);
     auto inst = Inst("s_lshr_b32", 55, {SReg(8), SReg(1), SReg(2)}, 0x1770, 4,
@@ -668,6 +690,28 @@ TEST_F(EncodedSemanticExecuteTest, ExecutesAdditionalSop1ScalarAluInstructions) 
     EncodedSemanticHandlerRegistry::Get(inst).Execute(inst, harness.context);
     EXPECT_EQ(harness.wave.sgpr.Read(7), 28u);
     EXPECT_EQ(harness.wave.pc, 0x178cu);
+  }
+
+  {
+    Harness harness;
+    harness.wave.sgpr.Write(1, 0x00000010u);
+    auto inst = Inst("s_ff1_i32_b32", 134, {SReg(3), SReg(1)}, 0x178c, 4,
+                     {EncodeSop1Word(/*opcode=*/16, /*sdst=*/3, /*ssrc0=*/1)});
+    harness.wave.pc = inst.pc;
+    EncodedSemanticHandlerRegistry::Get(inst).Execute(inst, harness.context);
+    EXPECT_EQ(harness.wave.sgpr.Read(3), 4u);
+    EXPECT_EQ(harness.wave.pc, 0x1790u);
+  }
+
+  {
+    Harness harness;
+    harness.wave.sgpr.Write(1, 0u);
+    auto inst = Inst("s_ff1_i32_b32", 134, {SReg(3), SReg(1)}, 0x1790, 4,
+                     {EncodeSop1Word(/*opcode=*/16, /*sdst=*/3, /*ssrc0=*/1)});
+    harness.wave.pc = inst.pc;
+    EncodedSemanticHandlerRegistry::Get(inst).Execute(inst, harness.context);
+    EXPECT_EQ(harness.wave.sgpr.Read(3), 0xffffffffu);
+    EXPECT_EQ(harness.wave.pc, 0x1794u);
   }
 
   {

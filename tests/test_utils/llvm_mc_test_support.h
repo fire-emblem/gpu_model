@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <string>
+#include <string_view>
 
 #include "instruction/decode/encoded/instruction_object.h"
 #include "program/program_object/program_object.h"
@@ -10,6 +11,8 @@
 namespace gpu_model::test_utils {
 
 bool HasLlvmMcAmdgpuToolchain();
+
+std::string ResolveTestTool(std::string_view tool_name);
 
 struct AssembledModule {
   std::filesystem::path temp_dir;

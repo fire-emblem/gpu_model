@@ -20,11 +20,7 @@ namespace gpu_model {
 namespace {
 
 bool HasHipHostToolchain() {
-  return std::system("command -v hipcc >/dev/null 2>&1") == 0 &&
-         std::system("command -v clang-offload-bundler >/dev/null 2>&1") == 0 &&
-         std::system("command -v llvm-objcopy >/dev/null 2>&1") == 0 &&
-         std::system("command -v llvm-objdump >/dev/null 2>&1") == 0 &&
-         std::system("command -v readelf >/dev/null 2>&1") == 0;
+  return test_utils::HasHipHostToolchain();
 }
 
 bool RunExtendedHipccCoverage() {

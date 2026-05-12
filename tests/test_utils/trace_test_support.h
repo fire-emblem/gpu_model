@@ -17,6 +17,7 @@
 #include "instruction/isa/instruction_builder.h"
 #include "instruction/isa/kernel_metadata.h"
 #include "runtime/exec_engine/exec_engine.h"
+#include "tests/test_utils/llvm_mc_test_support.h"
 
 namespace gpu_model::test {
 
@@ -493,11 +494,7 @@ inline Recorder MakeRecorder(const std::vector<TraceEvent>& events) {
 // =============================================================================
 
 inline bool HasLlvmMcAmdgpuToolchain() {
-  return std::system("command -v llvm-mc >/dev/null 2>&1") == 0 &&
-         std::system("command -v llvm-objcopy >/dev/null 2>&1") == 0 &&
-         std::system("command -v llvm-objdump >/dev/null 2>&1") == 0 &&
-         std::system("command -v llvm-readelf >/dev/null 2>&1") == 0 &&
-         std::system("command -v readelf >/dev/null 2>&1") == 0;
+  return gpu_model::test_utils::HasLlvmMcAmdgpuToolchain();
 }
 
 }  // namespace gpu_model::test

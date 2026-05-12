@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <string>
+#include <string_view>
 
 namespace gpu_model {
 
@@ -16,6 +17,9 @@ class ExternalToolExecutor {
 
   /// 检查命令是否可用
   static bool HasCommand(std::string_view command_name);
+
+  /// 解析外部工具路径，优先使用项目/ROCm 工具链
+  static std::string ResolveTool(std::string_view tool_name);
 
   /// 读取 ELF header 信息
   static std::string ReadElfHeader(const std::filesystem::path& path);

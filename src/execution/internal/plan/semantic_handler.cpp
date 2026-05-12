@@ -342,6 +342,16 @@ class ScalarAluHandler final : public ISemanticHandler {
       case Opcode::SXor:
         plan.scalar_writes.push_back(ScalarWrite{.reg_index = dest, .value = lhs ^ rhs});
         return plan;
+      case Opcode::SMinU32:
+        plan.scalar_writes.push_back(
+            ScalarWrite{.reg_index = dest,
+                        .value = std::min(static_cast<uint32_t>(lhs), static_cast<uint32_t>(rhs))});
+        return plan;
+      case Opcode::SMaxU32:
+        plan.scalar_writes.push_back(
+            ScalarWrite{.reg_index = dest,
+                        .value = std::max(static_cast<uint32_t>(lhs), static_cast<uint32_t>(rhs))});
+        return plan;
       case Opcode::SShl:
         plan.scalar_writes.push_back(
             ScalarWrite{.reg_index = dest, .value = lhs << (rhs & 63ULL)});
@@ -350,6 +360,12 @@ class ScalarAluHandler final : public ISemanticHandler {
         plan.scalar_writes.push_back(
             ScalarWrite{.reg_index = dest, .value = lhs >> (rhs & 63ULL)});
         return plan;
+      case Opcode::SFF1I32B32: {
+        const uint32_t src = static_cast<uint32_t>(lhs);
+        const uint32_t result = src == 0 ? 0xffffffffu : std::countr_zero(src);
+        plan.scalar_writes.push_back(ScalarWrite{.reg_index = dest, .value = result});
+        return plan;
+      }
       default:
         throw std::invalid_argument("scalar ALU handler received unsupported opcode");
     }

@@ -1,11 +1,14 @@
 #include "tests/test_utils/llvm_mc_test_support.h"
 
+#include <array>
 #include <chrono>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
+#include <string_view>
+#include <unistd.h>
 #include <vector>
 
 #include "instruction/decode/encoded/instruction_object.h"
@@ -25,8 +28,18 @@ std::filesystem::path MakeUniqueTempDir(const std::string& stem) {
   return path;
 }
 
-std::string ShellQuote(const std::filesystem::path& path) {
-  return "'" + path.string() + "'";
+std::string ShellQuote(std::string_view text) {
+  std::string quoted;
+  quoted.push_back('\'');
+  for (char c : text) {
+    if (c == '\'') {
+      quoted += "'\\''";
+    } else {
+      quoted.push_back(c);
+    }
+  }
+  quoted.push_back('\'');
+  return quoted;
 }
 
 std::vector<std::byte> ReadBinaryFile(const std::filesystem::path& path) {
@@ -57,14 +70,94 @@ std::string NormalizeAssemblyTarget(std::string text) {
   return text;
 }
 
+std::vector<std::filesystem::path> CandidateToolDirs() {
+  std::vector<std::filesystem::path> dirs;
+
+  const auto append_env_dir = [&](const char* env_name, std::string_view suffix = {}) {
+    if (const char* value = std::getenv(env_name); value != nullptr && value[0] != '\0') {
+      std::filesystem::path path(value);
+      if (!suffix.empty()) {
+        path /= suffix;
+      }
+      dirs.emplace_back(std::move(path));
+    }
+  };
+
+  append_env_dir("GPU_MODEL_TOOLCHAIN_DIR");
+  append_env_dir("ROCM_PATH", "llvm/bin");
+  append_env_dir("ROCM_PATH", "lib/llvm/bin");
+  append_env_dir("ROCM_PATH", "bin");
+  append_env_dir("ROCM_HOME", "llvm/bin");
+  append_env_dir("ROCM_HOME", "lib/llvm/bin");
+  append_env_dir("ROCM_HOME", "bin");
+  append_env_dir("HIP_PATH", "llvm/bin");
+  append_env_dir("HIP_PATH", "lib/llvm/bin");
+  append_env_dir("HIP_PATH", "bin");
+
+  dirs.emplace_back("/opt/rocm/bin");
+  dirs.emplace_back("/opt/rocm/llvm/bin");
+  dirs.emplace_back("/opt/rocm/lib/llvm/bin");
+  dirs.emplace_back("/opt/rocm-6.0.2/bin");
+  dirs.emplace_back("/opt/rocm-6.0.2/llvm/bin");
+  dirs.emplace_back("/opt/rocm-6.0.2/lib/llvm/bin");
+  dirs.emplace_back("/opt/rocm-6.2.0/bin");
+  dirs.emplace_back("/opt/rocm-6.2.0/llvm/bin");
+  dirs.emplace_back("/opt/rocm-6.2.0/lib/llvm/bin");
+
+  if (const char* home = std::getenv("HOME"); home != nullptr && home[0] != '\0') {
+    const std::filesystem::path home_path(home);
+    dirs.emplace_back(home_path / "tools/rocm/rocm/opt/rocm/bin");
+    dirs.emplace_back(home_path / "tools/rocm/rocm/opt/rocm/llvm/bin");
+    dirs.emplace_back(home_path / "tools/rocm/rocm/opt/rocm/lib/llvm/bin");
+    dirs.emplace_back(home_path / "tools/rocm/rocm/opt/rocm-6.0.2/bin");
+    dirs.emplace_back(home_path / "tools/rocm/rocm/opt/rocm-6.0.2/llvm/bin");
+    dirs.emplace_back(home_path / "tools/rocm/rocm/opt/rocm-6.0.2/lib/llvm/bin");
+    dirs.emplace_back(home_path / "tools/rocm/rocm/opt/rocm-6.2.0/bin");
+    dirs.emplace_back(home_path / "tools/rocm/rocm/opt/rocm-6.2.0/llvm/bin");
+    dirs.emplace_back(home_path / "tools/rocm/rocm/opt/rocm-6.2.0/lib/llvm/bin");
+  }
+
+  if (const char* repo = std::getenv("GPU_MODEL_TEST_REPO_ROOT"); repo != nullptr && repo[0] != '\0') {
+    dirs.emplace_back(std::filesystem::path(repo) / "tools/hipcc/bin");
+  }
+
+  std::array<char, 4096> buffer{};
+  const ssize_t length = ::readlink("/proc/self/exe", buffer.data(), buffer.size() - 1);
+  if (length > 0) {
+    buffer[static_cast<size_t>(length)] = '\0';
+    const auto build_dir = std::filesystem::path(buffer.data()).parent_path().parent_path();
+    dirs.emplace_back(build_dir.parent_path() / "tools/hipcc/bin");
+  }
+
+  return dirs;
+}
+
+bool CommandExists(std::string_view command) {
+  return std::system(("command -v " + std::string(command) + " >/dev/null 2>&1").c_str()) == 0;
+}
+
 }  // namespace
 
+std::string ResolveTestTool(std::string_view tool_name) {
+  for (const auto& dir : CandidateToolDirs()) {
+    const auto candidate = dir / tool_name;
+    if (std::filesystem::exists(candidate)) {
+      return candidate.string();
+    }
+  }
+  if (CommandExists(tool_name)) {
+    return std::string(tool_name);
+  }
+  throw std::runtime_error("missing required test tool: " + std::string(tool_name));
+}
+
 bool HasLlvmMcAmdgpuToolchain() {
-  return std::system("command -v llvm-mc >/dev/null 2>&1") == 0 &&
-         std::system("command -v llvm-objcopy >/dev/null 2>&1") == 0 &&
-         std::system("command -v llvm-objdump >/dev/null 2>&1") == 0 &&
-         std::system("command -v llvm-readelf >/dev/null 2>&1") == 0 &&
-         std::system("command -v readelf >/dev/null 2>&1") == 0;
+  (void)ResolveTestTool("llvm-mc");
+  (void)ResolveTestTool("llvm-objcopy");
+  (void)ResolveTestTool("llvm-objdump");
+  (void)ResolveTestTool("llvm-readelf");
+  (void)ResolveTestTool("readelf");
+  return true;
 }
 
 AssembledModule AssembleAndDecodeLlvmMcModule(const std::string& stem,
@@ -83,9 +176,9 @@ AssembledModule AssembleAndDecodeLlvmMcModule(const std::string& stem,
   }
 
   const std::string assemble_command =
-      "llvm-mc -triple=" + std::string(kProjectAmdgpuTriple) + " -mcpu=" + std::string(mcpu) +
-      " -filetype=obj " +
-      ShellQuote(asm_path) + " -o " + ShellQuote(obj_path);
+      ShellQuote(ResolveTestTool("llvm-mc")) + " -triple=" + std::string(kProjectAmdgpuTriple) +
+      " -mcpu=" + std::string(mcpu) + " -filetype=obj " +
+      ShellQuote(asm_path.string()) + " -o " + ShellQuote(obj_path.string());
   if (std::system(assemble_command.c_str()) != 0) {
     throw std::runtime_error("llvm-mc failed for asm module: " + kernel_name);
   }
@@ -115,15 +208,16 @@ AssembledInstructionStream AssembleInstructionStream(const std::string& stem,
   }
 
   const std::string assemble_command =
-      "llvm-mc -triple=" + std::string(kProjectAmdgpuTriple) + " -mcpu=" + std::string(mcpu) +
-      " -filetype=obj " +
-      ShellQuote(asm_path) + " -o " + ShellQuote(obj_path);
+      ShellQuote(ResolveTestTool("llvm-mc")) + " -triple=" + std::string(kProjectAmdgpuTriple) +
+      " -mcpu=" + std::string(mcpu) + " -filetype=obj " +
+      ShellQuote(asm_path.string()) + " -o " + ShellQuote(obj_path.string());
   if (std::system(assemble_command.c_str()) != 0) {
     throw std::runtime_error("llvm-mc failed for instruction stream: " + stem);
   }
 
   const std::string objcopy_command =
-      "llvm-objcopy --dump-section .text=" + ShellQuote(text_path) + " " + ShellQuote(obj_path);
+      ShellQuote(ResolveTestTool("llvm-objcopy")) + " --dump-section .text=" +
+      ShellQuote(text_path.string()) + " " + ShellQuote(obj_path.string());
   if (std::system(objcopy_command.c_str()) != 0) {
     throw std::runtime_error("llvm-objcopy failed to extract .text for instruction stream: " + stem);
   }

@@ -23,8 +23,11 @@ std::optional<uint64_t> IssueClassOverrideForOpcode(
     case Opcode::SAnd:
     case Opcode::SOr:
     case Opcode::SXor:
+    case Opcode::SMinU32:
+    case Opcode::SMaxU32:
     case Opcode::SShl:
     case Opcode::SShr:
+    case Opcode::SFF1I32B32:
     case Opcode::SCmpLt:
     case Opcode::SCmpEq:
     case Opcode::SCmpGt:

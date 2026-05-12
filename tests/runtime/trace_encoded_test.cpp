@@ -94,8 +94,18 @@ amdhsa.kernels:
 )");
 }
 
-std::string ShellQuote(const std::filesystem::path& path) {
-  return "'" + path.string() + "'";
+std::string ShellQuote(std::string_view text) {
+  std::string quoted;
+  quoted.push_back('\'');
+  for (char c : text) {
+    if (c == '\'') {
+      quoted += "'\\''";
+    } else {
+      quoted.push_back(c);
+    }
+  }
+  quoted.push_back('\'');
+  return quoted;
 }
 
 std::filesystem::path AssembleLlvmMcFixture(const std::string& stem,
@@ -120,9 +130,10 @@ std::filesystem::path AssembleLlvmMcFixture(const std::string& stem,
     out << text;
   }
   const std::string command =
-      "llvm-mc -triple=" + std::string(kProjectAmdgpuTriple) + " -mcpu=" +
-      std::string(kProjectAmdgpuMcpu) + " -filetype=obj " +
-      ShellQuote(asm_path) + " -o " + ShellQuote(obj_path);
+      ShellQuote(test_utils::ResolveTestTool("llvm-mc")) + " -triple=" +
+      std::string(kProjectAmdgpuTriple) + " -mcpu=" + std::string(kProjectAmdgpuMcpu) +
+      " -filetype=obj " +
+      ShellQuote(asm_path.string()) + " -o " + ShellQuote(obj_path.string());
   if (std::system(command.c_str()) != 0) {
     throw std::runtime_error("llvm-mc failed for fixture: " + fixture_path.string());
   }

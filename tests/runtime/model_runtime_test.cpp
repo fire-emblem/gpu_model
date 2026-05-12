@@ -260,6 +260,8 @@ TEST(ModelRuntimeTest, LoadsModulesThroughUnifiedNativeFacadeAndAutoFormatDetect
 }
 
 TEST(ModelRuntimeTest, DescribesHipMfmaExecutableWithTypedTensorAbi) {
+  test_utils::RequireHipHostToolchain();
+
   const auto temp_dir = MakeUniqueTempDir("gpu_model_model_runtime_mfma_describe");
   const auto src_path = temp_dir / "hip_mfma_describe.cpp";
   const auto exe_path = temp_dir / "hip_mfma_describe.out";
@@ -283,9 +285,7 @@ TEST(ModelRuntimeTest, DescribesHipMfmaExecutableWithTypedTensorAbi) {
 
   const std::string command =
       test_utils::HipccCacheCommand() + " " + src_path.string() + " -o " + exe_path.string();
-  if (std::system(command.c_str()) != 0) {
-    GTEST_SKIP() << "gfx90a mfma compilation not available";
-  }
+  ASSERT_EQ(std::system(command.c_str()), 0) << "gfx90a mfma compilation failed";
 
   ModelRuntime api;
   const auto image = ObjectReader{}.LoadProgramObject(exe_path, "mfma_describe_probe");
@@ -298,6 +298,8 @@ TEST(ModelRuntimeTest, DescribesHipMfmaExecutableWithTypedTensorAbi) {
 }
 
 TEST(ModelRuntimeTest, LaunchesProgramObjectFromAmdgpuObject) {
+  test_utils::RequireHipHostToolchain();
+
   const auto temp_dir = MakeUniqueTempDir("gpu_model_model_runtime_lowered_object");
   const auto src_path = temp_dir / "hip_vecadd_3d_adds.cpp";
   const auto exe_path = temp_dir / "hip_vecadd_3d_adds.out";
@@ -380,6 +382,8 @@ TEST(ModelRuntimeTest, LaunchesProgramObjectFromAmdgpuObject) {
 }
 
 TEST(ModelRuntimeTest, LaunchesRegisteredEncodedObjectModule) {
+  test_utils::RequireHipHostToolchain();
+
   const auto temp_dir = MakeUniqueTempDir("gpu_model_model_runtime_registered_lowered");
   const auto src_path = temp_dir / "hip_vecadd_3d_adds_registered.cpp";
   const auto exe_path = temp_dir / "hip_vecadd_3d_adds_registered.out";

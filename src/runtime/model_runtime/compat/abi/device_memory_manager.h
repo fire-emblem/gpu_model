@@ -66,7 +66,8 @@ class DeviceMemoryManager {
   static constexpr size_t kAbiWindowSize = 1ull << 30;
   static std::array<AbiWindow, kAbiWindowCount> BuildDefaultAbiWindows();
   static size_t PageAlignedBytes(size_t bytes);
-  static std::byte* ReserveAbiWindow(uintptr_t base, size_t bytes);
+  static std::byte* TryReserveAbiWindow(uintptr_t base, size_t bytes);
+  static std::byte* ReserveAnyAbiWindow(size_t bytes);
   static void ReleaseAbiWindow(uintptr_t base, size_t bytes);
   static std::byte* CommitAbiSpan(uintptr_t base, size_t bytes, int protection);
   static void UnmapAbiSpan(std::byte* addr, size_t mapped_bytes);

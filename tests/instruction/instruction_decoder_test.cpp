@@ -417,6 +417,44 @@ TEST(InstructionDecoderTest, DecodesRepresentativeSop2ScalarAluInstructions) {
 
   {
     EncodedGcnInstruction raw{
+        .pc = 0x7b50,
+        .size_bytes = 4,
+        .words = {EncodeSop2Word(/*opcode=*/7, /*sdst=*/3, /*ssrc0=*/6, /*ssrc1=*/3)},
+        .format_class = EncodedGcnInstFormatClass::Sop2,
+        .mnemonic = "s_min_u32",
+        .operands = "",
+        .decoded_operands = {},
+    };
+    const auto decoded = InstructionDecoder{}.Decode(raw);
+    EXPECT_EQ(decoded.encoding_id, 135u);
+    EXPECT_EQ(decoded.mnemonic, "s_min_u32");
+    ASSERT_EQ(decoded.operands.size(), 3u);
+    EXPECT_EQ(decoded.operands[0].text, "s3");
+    EXPECT_EQ(decoded.operands[1].text, "s6");
+    EXPECT_EQ(decoded.operands[2].text, "s3");
+  }
+
+  {
+    EncodedGcnInstruction raw{
+        .pc = 0x7b54,
+        .size_bytes = 4,
+        .words = {EncodeSop2Word(/*opcode=*/9, /*sdst=*/4, /*ssrc0=*/6, /*ssrc1=*/4)},
+        .format_class = EncodedGcnInstFormatClass::Sop2,
+        .mnemonic = "s_max_u32",
+        .operands = "",
+        .decoded_operands = {},
+    };
+    const auto decoded = InstructionDecoder{}.Decode(raw);
+    EXPECT_EQ(decoded.encoding_id, 136u);
+    EXPECT_EQ(decoded.mnemonic, "s_max_u32");
+    ASSERT_EQ(decoded.operands.size(), 3u);
+    EXPECT_EQ(decoded.operands[0].text, "s4");
+    EXPECT_EQ(decoded.operands[1].text, "s6");
+    EXPECT_EQ(decoded.operands[2].text, "s4");
+  }
+
+  {
+    EncodedGcnInstruction raw{
         .pc = 0x1970,
         .size_bytes = 4,
         .words = {EncodeSop2Word(/*opcode=*/30, /*sdst=*/9, /*ssrc0=*/1, /*ssrc1=*/5)},
@@ -1193,6 +1231,25 @@ TEST(InstructionDecoderTest, DecodesRepresentativeSop1ScalarAluInstructions) {
     ASSERT_EQ(decoded.operands.size(), 2u);
     EXPECT_EQ(decoded.operands[0].text, "s7");
     EXPECT_EQ(decoded.operands[1].text, "s[10:11]");
+  }
+
+  {
+    EncodedGcnInstruction raw{
+        .pc = 0x1a48,
+        .size_bytes = 4,
+        .words = {EncodeSop1Word(/*opcode=*/16, /*sdst=*/3, /*ssrc0=*/1)},
+        .format_class = EncodedGcnInstFormatClass::Sop1,
+        .mnemonic = "s_ff1_i32_b32",
+        .operands = "",
+        .decoded_operands = {},
+    };
+
+    const auto decoded = InstructionDecoder{}.Decode(raw);
+    EXPECT_EQ(decoded.encoding_id, 134u);
+    EXPECT_EQ(decoded.mnemonic, "s_ff1_i32_b32");
+    ASSERT_EQ(decoded.operands.size(), 2u);
+    EXPECT_EQ(decoded.operands[0].text, "s3");
+    EXPECT_EQ(decoded.operands[1].text, "s1");
   }
 }
 

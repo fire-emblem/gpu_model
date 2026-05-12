@@ -32,8 +32,11 @@ enum class Opcode {
   SAnd,
   SOr,
   SXor,
+  SMinU32,
+  SMaxU32,
   SShl,
   SShr,
+  SFF1I32B32,
   SWaitCnt,
   SBufferLoadDword,
   SCmpLt,
@@ -155,10 +158,16 @@ inline std::string_view ToString(Opcode opcode) {
       return "s_or_b32";
     case Opcode::SXor:
       return "s_xor_b32";
+    case Opcode::SMinU32:
+      return "s_min_u32";
+    case Opcode::SMaxU32:
+      return "s_max_u32";
     case Opcode::SShl:
       return "s_lshl_b32";
     case Opcode::SShr:
       return "s_lshr_b32";
+    case Opcode::SFF1I32B32:
+      return "s_ff1_i32_b32";
     case Opcode::SWaitCnt:
       return "s_waitcnt";
     case Opcode::SBufferLoadDword:
